@@ -38,8 +38,8 @@ constraints, and benchmark evidence.
 - Generic motors, configurable thrusters, ballast, and wind forces
 - Ackermann, full-omnidirectional, and Omni-X controller mappings
 - 2D and 3D LiDAR, RGB and depth cameras, GPS, IMU, odometry, and detection messages
-- ROS-TCP publishing/subscription, simulation clock publishing, fixed-step stamped `cmd_vel`
-  application, and a MAVROS/SITL UDP bridge
+- ROS-TCP publishing/subscription, simulation clock and authoritative odometry/TF publication,
+  fixed-step stamped `cmd_vel` application, and a MAVROS/SITL UDP bridge
 - URDF import through Unity's Robotics URDF Importer
 - Standalone benchmark workers, correctness comparisons, scene-reload and in-place reset probes,
   and multi-process sweeps
@@ -116,9 +116,10 @@ running ROS. The [mhseals_docker repository](https://github.com/mhseals/mhseals_
 the ROS 2 Jazzy image and endpoint setup notes. Its navigation packages are separate optional
 repositories, not part of this checkout. CRANE has a live ROS-TCP sensor-transport acceptance
 run; the current `mhseals_nav` launch still assumes RGB/RTAB-Map and MAVROS, so a depth-only Nav2
-closed-loop acceptance run remains outstanding. A real Jazzy observation-to-command loop is
-validated and the same bridge can stamp Nav2 `/cmd_vel`, but that transport fixture is not a
-substitute for launching and qualifying the full Nav2 graph.
+full-stack closed-loop acceptance run remains outstanding. A real Jazzy Nav2 `controller_server`
+`FollowPath` loop is validated with CRANE odometry/TF and returned commands, but that bounded
+fixture intentionally excludes global planning, sensor-populated costmaps, localization, the BT
+navigator, and lockstep. It is not qualification of the complete project-specific Nav2 graph.
 
 URDFs can be imported from the Unity hierarchy context menu with **3D Object > URDF Model
 (Import)**. Runtime code is organized under `Assets/Scripts`; start with the architecture guide
@@ -161,7 +162,8 @@ coordinator. Profiling has already reduced LiDAR time by 69.3% and its managed a
 Important limitations remain: full-resolution camera readback caps GPU-sensor acceleration;
 graphics-free aquatic water is absent; geometric CPU depth does not model render-only surfaces;
 water queries are issued component by component; live ROS-TCP transport and stamped returned
-actions are validated but real Nav2 lockstep is not; in-place reset does not yet cover every controller, external ROS state, or
+actions and a real Nav2 controller-server loop are validated, but planner/costmap integration and
+Nav2 lockstep are not; in-place reset does not yet cover every controller, external ROS state, or
 stateful water effect; and the land/aerial scenes are qualification fixtures rather than production
 environments. Read the documentation before treating a run as training-valid.
 

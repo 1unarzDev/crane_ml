@@ -1,0 +1,19 @@
+{
+  "schema": "crane-nav2-controller-fixture-v1",
+  "scope": "nav2-controller-server-follow-path",
+  "status": "succeeded",
+  "odomTopic": "/crane/odom",
+  "inputTopic": "/nav2/cmd_vel",
+  "inputType": "twist",
+  "outputTopic": "/crane/cmd_vel_stamped",
+  "odometryMessages": 399,
+  "controllerCommands": 79,
+  "returnedCommands": 79,
+  "goalToFirstCommandWallSeconds": 0.0011067589948652312,
+  "wallSeconds": 9.28261394999572,
+  "displacementMeters": 0.4955954288177623,
+  "deltaX": 0.007273674011230469,
+  "deltaY": -0.495542049407959,
+  "provenance": "latest-delivered-odometry-not-proven-internal-consumption",
+  "notes": "FollowPath reached terminal success. Scope excludes planner, BT navigator, localization, obstacle sensor layers, and lockstep."
+}

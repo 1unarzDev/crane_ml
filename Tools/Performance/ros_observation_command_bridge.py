@@ -4,6 +4,7 @@
 Modes:
   feedback: emit a bounded deterministic command for every Detection3DArray observation.
   nav2: pair each Nav2 Twist with the newest received detection stamp.
+  nav2-stamped: forward Nav2 TwistStamped while preserving its source stamp.
 
 The feedback mode is a transport/causality fixture, not a navigation algorithm. The nav2 mode
 does not claim Nav2 consumed that exact observation; it records the newest observation delivered
@@ -35,6 +36,9 @@ class ObservationCommandBridge(Node):
                                  self.on_observation, 10)
         if args.mode == 'nav2':
             self.create_subscription(Twist, args.input_topic, self.on_nav2_command, 10)
+        elif args.mode == 'nav2-stamped':
+            self.create_subscription(TwistStamped, args.input_topic,
+                                     self.on_nav2_stamped_command, 10)
         self.timer = self.create_timer(0.25, self.maybe_finish)
 
     def on_observation(self, message):
@@ -61,6 +65,11 @@ class ObservationCommandBridge(Node):
         self.publisher.publish(command)
         self.outputs += 1
 
+    def on_nav2_stamped_command(self, message):
+        self.inputs += 1
+        self.publisher.publish(message)
+        self.outputs += 1
+
     def maybe_finish(self):
         if time.monotonic() - self.started < self.args.duration:
             return
@@ -68,7 +77,7 @@ class ObservationCommandBridge(Node):
             'schema': 'crane-ros-observation-command-bridge-v1',
             'mode': self.args.mode,
             'observationTopic': self.args.observation_topic,
-            'inputTopic': self.args.input_topic if self.args.mode == 'nav2' else None,
+            'inputTopic': self.args.input_topic if self.args.mode != 'feedback' else None,
             'outputTopic': self.args.output_topic,
             'observations': self.observations,
             'inputCommands': self.inputs,
@@ -81,7 +90,8 @@ class ObservationCommandBridge(Node):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--mode', choices=('feedback', 'nav2'), default='feedback')
+    parser.add_argument('--mode', choices=('feedback', 'nav2', 'nav2-stamped'),
+                        default='feedback')
     parser.add_argument('--observation-topic', default='/detections')
     parser.add_argument('--input-topic', default='/cmd_vel')
     parser.add_argument('--output-topic', default='/crane/cmd_vel_stamped')

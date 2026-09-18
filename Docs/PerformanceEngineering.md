@@ -298,6 +298,7 @@ Raw JSON is in `PerformanceResults/`.
 | Queued ROS/SITL action seam, standalone fixture | callbacks could mutate state off-step or lacked receipt data | all gate/mailbox cases valid; 1× aquatic target regression valid at 1.002× | Keep correctness seam; no speed claim |
 | Embedded connector registration fix, live Jazzy 1× | one clock owner produced two endpoint publisher registrations | one connection, one clock registration, one registration/topic; target remained valid at 1.002× | Keep pinned package patch |
 | Detection-derived ROS command loop, live Jazzy 1× | outbound transport and action seam only validated separately | 64 stamped actions accepted, zero stale/rejected; final acquire/receive/apply ticks 395/396/397; 1.003× valid | Keep causality fixture; not Nav2 qualification |
+| Nav2 controller-server FollowPath, live Jazzy 1× | no real Nav2 controller acceptance | terminal success; 78 measured actions accepted, zero stale/rejected, 0.496 m physical displacement, 1.1 ms goal-to-first-command wall latency, 1.001× valid | Keep controller-level fixture; planner/BT/localization and lockstep remain excluded |
 | Replay v2 accepted-action stream, two 5 s runs/side at 2× | 2.0064× mean RTF, 0.596 MB GC without recording | 2.0070× mean RTF, 2.857 MB GC with recording | Keep; bounded correctness data, recorder allocation remains experimental |
 | Replay water time after end-of-stream, 2 s | HDRP continued live time or setter no-op before resource allocation | exact recorded time held for 9/9 samples; invariant valid query height | Keep spectral-time pin/reapply |
 | Validation stream, 2×, 5 s, 0.25 s interval, capacity 3 | unbounded in-memory validation list | 41 samples streamed, 3 retained, 38 dropped from RAM; 2.006× and valid | Keep bounded/streamed handling |
@@ -334,6 +335,10 @@ Selected machine-readable outputs for the geometric-depth acceptance runs are tr
 `PerformanceResults/geometric-depth-*` and `PerformanceResults/train-cpu-aerial-*`. The profile's
 2× acceptance point is the `train-cpu-aerial-depth-2x-final` result; the requested 4× run is kept
 as negative evidence rather than reported as 4× throughput.
+
+The controller-level Nav2 evidence is tracked under
+`PerformanceResults/nav2-controller-loop-v6`; direct 50 Hz odometry/TF and cross-container TF2
+lookup evidence is under `PerformanceResults/ros-nav-state-direct-tf-v1`.
 
 The CPU-depth worker sweep is tracked under
 `PerformanceResults/worker-sweeps/20260918T121913Z` (1/2/4 workers requested at 2×),
@@ -520,9 +525,12 @@ and water differences did not reject 4×. Required visual-sensor delivery did re
    This includes the bridge but excludes Nav2/controller compute.
 5. A live observation-derived ROS loop now returns `TwistStamped` and validates acquisition,
    receive, and fixed-step application ticks with bounded lag. Existing Float32 and PWM protocols
-   still lack source observation ticks, and pairing Nav2 `Twist` with the newest delivered sample
-   does not prove internal consumption. A training lockstep barrier and full Nav2 acceptance run
-   remain required.
+   still lack source observation ticks. A real Nav2 `controller_server` FollowPath run now accepts
+   78 measured commands, reaches terminal success, and moves the production ArticulationBody
+   0.496 m while all target sensors remain valid;
+   its local costmap has no obstacle source, and pairing `Twist` with the newest delivered odometry
+   does not prove internal consumption. Planner/BT/localization acceptance and a training lockstep
+   barrier remain required.
 6. Scene reload remains the accepted clean reset. The new in-place coordinator is validated for
    a non-aquatic Rigidbody/component fixture and implements articulation/sensor/actuator/spectral
    water hooks, but it still lacks full external controller/ROS and stateful-water reset coverage.

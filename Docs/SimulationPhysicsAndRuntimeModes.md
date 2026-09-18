@@ -34,7 +34,9 @@ in ROS FLU and converts the resulting force/torque back into Unity coordinates b
 
 Topic frame IDs are strings configured on sensor components, such as `base_link`, `imu_link`,
 `lidar_link`, and `front_camera_link`. A frame ID does not itself create or publish a TF edge.
-The scene/prefab transform hierarchy and the external ROS TF configuration must agree.
+The scene/prefab transform hierarchy and the external ROS TF configuration must agree. The
+opt-in production navigation adapter described below is the exception: it publishes the
+authoritative `odom -> base_link` edge together with odometry from the same PhysX body.
 
 ### Time and stepping
 
@@ -250,6 +252,21 @@ Enable it with `--crane-ros-cmd-vel /crane/cmd_vel_stamped`. Velocity normalizat
 with the newest observation delivered to the bridge. This records delivery provenance; the
 standard Nav2 message still cannot prove that a planner internally consumed that exact sample.
 
+Enable authoritative navigation state with `--crane-ros-nav-state`. The adapter locates the same
+Rigidbody or ArticulationBody that owns the production Omni-X controller and publishes
+`nav_msgs/Odometry` on `/crane/odom` plus `odom -> base_link` on `/tf` at 50 Hz. Pose conversion is
+Unity `(x,y,z)` to ROS `(z,-x,y)`; both linear and angular velocities are first transformed into
+the body frame and then converted to ROS FLU. Odometry and TF share the same episode-relative
+timestamp. Override topics, frames, or rate with `--crane-ros-odom-topic`,
+`--crane-ros-tf-topic`, `--crane-ros-odom-frame`, `--crane-ros-base-frame`, and
+`--crane-ros-nav-state-hz`.
+
+The included controller-level acceptance fixture runs the real Jazzy Nav2 lifecycle manager,
+`controller_server`, local costmap, Regulated Pure Pursuit plugin, and `FollowPath` action. It does
+not run a global planner, localization, sensor obstacle layer, behavior-tree navigator, or
+lockstep. Its bridge stamps each returned command with the newest odometry delivered to the
+fixture; this bounds delivery age but does not reveal which sample Nav2 internally consumed.
+
 `Clock.time` and published `/clock` are episode-relative, not process-uptime-relative. Scene load
 or an explicit in-place reset starts the authoritative episode clock at zero. Runtime scene
 selection disables the transient initial scene's sensors and transports before their `Start`
@@ -333,6 +350,7 @@ SDL_VIDEODRIVER=x11 ./Builds/CRANE-Worker/CRANE.x86_64 \
   -screen-fullscreen 0 -screen-width 1280 -screen-height 720 \
   --crane-profile interactive-high --crane-scene "Roboboat Course" \
   --crane-ros-ip 127.0.0.1 --crane-ros-port 10000 \
+  --crane-ros-nav-state \
   --crane-ros-cmd-vel /crane/cmd_vel_stamped \
   --crane-action-policy bounded --crane-max-action-lag-ticks 10 \
   --crane-command-timeout-ticks 25
@@ -348,8 +366,23 @@ python3 Tools/Performance/ros_observation_command_bridge.py \
 ```
 
 Launch the project-specific Nav2 graph separately with `use_sim_time:=true`. A single worker must
-own one isolated ROS graph/domain and one `/clock`. If the full stack cannot keep up, lower the
-requested RTF or use bounded rejection; CRANE does not currently provide a Nav2 lockstep barrier.
+own one isolated ROS graph/domain and one `/clock`. If ROS nodes are split across Docker
+containers while using Fast DDS, pass `--ipc host` to every participating container (or configure
+an explicit non-shared-memory transport); graph discovery alone does not prove payload delivery.
+If the full stack cannot keep up, lower the requested RTF or use bounded rejection; CRANE does not
+currently provide a Nav2 lockstep barrier.
+
+Run the reproducible controller-server vertical slice after building the player and the
+`lunarzdev/astro:cuda` image/workspace are available:
+
+```bash
+Tools/Performance/run_nav2_controller_fixture.sh
+```
+
+The script owns the ROS-TCP endpoint, shared IPC configuration, lifecycle manager,
+`controller_server`, action client/command bridge, Unity worker, logs, and result directory. Its
+scope is deliberately named `nav2-controller-server-follow-path`; do not report it as a complete
+Nav2 planner/costmap/BT navigation qualification.
 
 Run strict graphics-free land or aerial physics:
 

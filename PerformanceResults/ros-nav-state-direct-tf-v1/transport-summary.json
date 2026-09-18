@@ -1,0 +1,16 @@
+{
+  "schema": "crane-ros-navigation-state-validation-v1",
+  "transport": "ROS-TCP through ROS 2 Jazzy",
+  "odometryTopic": "/crane/odom",
+  "transformTopic": "/tf",
+  "frames": "odom->base_link",
+  "bodyType": "ArticulationBody",
+  "configuredRateHz": 50,
+  "measuredRateHz": 49.968,
+  "rateMeasurementRun": "ros-nav-state-v2-same-publisher-alternate-topic",
+  "directTf2Lookup": true,
+  "dockerNetwork": "host",
+  "dockerIpc": "host",
+  "relayRequired": false,
+  "notes": "tf2_echo resolved changing transforms directly from the connector publisher once ROS containers shared the host IPC namespace."
+}
