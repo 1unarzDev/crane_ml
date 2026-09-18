@@ -484,32 +484,45 @@ and water differences did not reject 4×. Required visual-sensor delivery did re
 - `ROSThruster` now initializes its subscriber and both ROS thruster and SITL PWM callbacks enqueue
   latest-value action payloads. Actuator mutation occurs only after episode/sequence/lag checks in
   `FixedUpdate`; the UDP receive thread no longer writes controller state directly.
+- Runtime scene selection now suppresses the transient build-index-zero ROS graph. A requested
+  scene opens one endpoint connection instead of two; the endpoint still observes two `clock`
+  publisher registrations on that connection and this remaining duplication is not hidden.
+- In-place reset now has an explicit component contract and restores body/joint state, actuator
+  state, sensor acquisition phase, episode-relative clock, RNG, and HDRP spectral time. The
+  graphics-free aerial fixture passed exact A→B→A restoration in 0.82 ms; broader reset state is
+  still incomplete.
 
 ## Remaining bottlenecks and validation gaps
 
 1. Full-resolution RGB/depth readback is the largest measured sensor cost and limits valid
    full-sensor execution to 1× on the reference machine. Lower resolution is a fidelity choice and
    requires task-specific validation.
-2. LiDAR remains the next major CPU sensor cost after its 69% optimization. Ray generation and
-   transform/packing are still main-thread managed loops; Burst jobs need an isolated benchmark.
+2. LiDAR remains the next major CPU sensor cost after its 69% optimization. Ray-command generation
+   and PointCloud2 packing now use Burst jobs; hit traversal, range summaries, and optional debug
+   drawing remain main-thread work.
 3. Water queries and vehicle dynamics cost roughly 190 ms and 230 ms respectively per six
    simulated seconds at 1×. Hull queries are still issued by individual components rather than
    batched by water surface.
-4. ROS/SITL actions now report receive/application ticks and reject duplicate, stale, and
+4. Live ROS-TCP sensor transport is validated against a ROS 2 Jazzy endpoint. The matched 1×
+   Roboboat run delivered 75 measured depth frames, 50 LiDAR scans, and 40 detection acquisitions
+   with no stale/failed observations at 1.003× RTF. Over the full eight-second process interval,
+   loopback RX and TX each increased by 507.9 MB; raw target payload is about 64 MB/s at 1×.
+   This includes the bridge but excludes Nav2/controller compute and returned actions.
+5. ROS/SITL actions now report receive/application ticks and reject duplicate, stale, and
    cross-episode receipts. Existing Float32 and PWM protocols do not carry the source observation
    tick, so this still cannot prove which observation Nav2/SITL consumed. Stamped commands, a
    training lockstep barrier, and a live ROS/Nav2 acceptance run remain required.
-5. The current clean reset is a scene reload. A faster in-place reset still needs a complete
-   episode-reset API for every actuator, controller, sensor, and HDRP water resource. A
-   deterministic contact-heavy fixture and the 1/2/4/8 nonvisual worker sweep are available.
-6. The classified layer matrix and coverage fixture are validated, but 805 serialized production
+6. Scene reload remains the accepted clean reset. The new in-place coordinator is validated for
+   a non-aquatic Rigidbody/component fixture and implements articulation/sensor/actuator/spectral
+   water hooks, but it still lacks full external controller/ROS and stateful-water reset coverage.
+7. The classified layer matrix and coverage fixture are validated, but 805 serialized production
    objects still use `Default`. Migrate ownership incrementally and benchmark representative
    aquatic contacts before claiming production collision savings.
-7. Ground dynamics now have a repeat-validated flat-ground Ackermann fixture, but slope, curb,
+8. Ground dynamics now have a repeat-validated flat-ground Ackermann fixture, but slope, curb,
    suspension-transient, skid/omni, and production-platform validation remain incomplete.
-8. Multirotor dynamics now have a repeat-validated analytic fixture, but real-airframe parameter
+9. Multirotor dynamics now have a repeat-validated analytic fixture, but real-airframe parameter
    identification and flight-controller/SITL validation remain incomplete.
-9. Explicit `Physics.Simulate` remains deferred until every custom `FixedUpdate()` dependency has
+10. Explicit `Physics.Simulate` remains deferred until every custom `FixedUpdate()` dependency has
    a proven exactly-once step path.
 
 The 60-second full-sensor stress run completed at 1.000× with 900 RGB frames, 900 depth frames,
@@ -526,6 +539,4 @@ following five-second measurement delivered all 75 frames per camera and 50 LiDA
 stale or failed observations. Scene reload is therefore the accepted clean reset baseline; an
 in-place reset cannot be accepted until equivalent coverage exists for every subsystem.
 
-The checkout's Git index is currently inconsistent: thousands of tracked files are staged as
-deleted while the same files appear untracked. Benchmark work must not reset or rewrite the index;
 successful changes cannot be committed safely until that repository state is repaired.

@@ -1,4 +1,5 @@
 using UnityEngine;
+using Sim.Utils.Performance;
 
 namespace Sim.Physics.Aerial {
     /// <summary>
@@ -6,7 +7,7 @@ namespace Sim.Physics.Aerial {
     /// reaction torque, aerodynamic drag, gravity, and PhysX contact.
     /// </summary>
     [RequireComponent(typeof(Rigidbody))]
-    public sealed class MultirotorDynamics : MonoBehaviour {
+    public sealed class MultirotorDynamics : MonoBehaviour, ICraneEpisodeResettable {
         [Header("Rotor locations: FL, FR, RR, RL")]
         [SerializeField] private Transform frontLeft;
         [SerializeField] private Transform frontRight;
@@ -33,6 +34,22 @@ namespace Sim.Physics.Aerial {
         private readonly float[] yawSigns = { 1f, -1f, 1f, -1f };
         private Transform[] rotors;
         private Rigidbody body;
+        private Vector3 initialWindVelocity;
+        private Vector3 initialGustAmplitude;
+        public int ResetPriority => -40;
+
+        public void CaptureEpisodeInitialState() {
+            initialWindVelocity = windVelocity;
+            initialGustAmplitude = gustAmplitude;
+        }
+
+        public void ResetEpisode(in CraneEpisodeResetContext context,
+            CraneEpisodeResetPhase phase) {
+            if (phase != CraneEpisodeResetPhase.BeforePhysics) return;
+            ResetActuators();
+            windVelocity = initialWindVelocity;
+            gustAmplitude = initialGustAmplitude;
+        }
 
         public float MaximumThrustPerRotor => maximumThrustPerRotor;
         public float AverageMotorSpeed =>

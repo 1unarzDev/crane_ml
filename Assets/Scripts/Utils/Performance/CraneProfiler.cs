@@ -305,6 +305,7 @@ namespace Sim.Utils.Performance {
             Interlocked.Read(ref s_DetectionAcquisitionTick));
 
         public static long BeginEpisode() {
+            Sim.Utils.ROS.Clock.BeginEpisode();
             Interlocked.Exchange(ref s_SimulationTick, 0);
             Interlocked.Exchange(ref s_ObservationTick, -1);
             Interlocked.Exchange(ref s_ActionSourceTick, -1);

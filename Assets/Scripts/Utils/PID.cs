@@ -26,5 +26,10 @@ namespace Sim.Utils {
 
         public Pid Clone() =>
             new(Kp, Ki, Kd);
+
+        public void Reset() {
+            integral = 0;
+            prev = 0;
+        }
     }
 }

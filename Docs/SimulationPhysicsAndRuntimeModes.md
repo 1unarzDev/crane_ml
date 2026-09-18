@@ -235,6 +235,11 @@ receive tick, and bounded-lag policy before fixed-step application. `--crane-dis
 transport while still exercising message construction for benchmarks. This is not end-to-end
 zero-copy: ROS-TCP remains a serialization boundary.
 
+`Clock.time` and published `/clock` are episode-relative, not process-uptime-relative. Scene load
+or an explicit in-place reset starts the authoritative episode clock at zero. Runtime scene
+selection disables the transient initial scene's sensors and transports before their `Start`
+methods run, so only the requested scene owns the ROS graph.
+
 ## Runtime profiles
 
 Profiles are presets over subsystem gates and presentation ownership. They do not select a
@@ -340,6 +345,19 @@ For a measured benchmark command and worker sweeps, use
 its own ROS-TCP port, ROS domain/namespace, seed, logs, recorder path, and MAVROS/SITL port where
 applicable.
 
+Validate the in-place reset vertical slice without graphics:
+
+```bash
+./Builds/CRANE-Worker/CRANE.x86_64 -batchmode -nographics \
+  --crane-profile train-cpu --crane-disable-ros \
+  --crane-in-place-reset-validation \
+  --crane-output ./PerformanceResults/in-place-reset/result.json
+```
+
+The fixture runs in `Aerial Vehicle Validation`, captures A, perturbs body/actuator/custom state,
+and restores A while advancing the episode generation and zeroing `/clock`. It is an executable
+test of the reset seam, not permission to replace scene reload in production aquatic campaigns.
+
 ## Authoring and validation rules
 
 1. Treat scenes, prefabs, masses, inertias, colliders, sensor rates, and water settings as part of
@@ -348,8 +366,8 @@ applicable.
 3. Keep RGB, depth, camera-info, detections, and spectator rendering independently configurable.
 4. Carry episode and acquisition identity through asynchronous work and reject prior-episode
    callbacks.
-5. Use scene reload as the correctness reset baseline until every component implements an
-   explicit reset contract.
+5. Use scene reload as the correctness reset baseline. The in-place coordinator is experimental
+   until every task component and external ROS/controller state implements the reset contract.
 6. Compare optimizations at equal simulated timestamps with the same seed, timestep, scene,
    sensors, water, and ROS configuration.
 7. Do not describe aquatic `-nographics` as headless support and do not disable water to make it

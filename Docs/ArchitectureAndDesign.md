@@ -28,8 +28,9 @@ Ackermann dynamics fixture, and aerial has a repeat-validated analytic multiroto
 Broader ground scenarios, real-platform calibration, and live aerial SITL remain incomplete.
 
 CRANE is not yet a turnkey, fully deterministic distributed training service. It has core worker,
-instrumentation, correctness, and isolation mechanisms, but live ROS validation, in-place reset,
-long-duration result streaming, and broader domain fixtures still need work.
+instrumentation, correctness, isolation, live ROS-TCP transport, and an experimental in-place
+reset seam, but closed-loop Nav2, complete reset coverage, long-duration result streaming, and
+broader domain fixtures still need work.
 
 ## Current capability map
 
@@ -43,12 +44,12 @@ long-duration result streaming, and broader domain fixtures still need work.
 | Semantic detections without RGB | Implemented, weakly validated | Frustum/range/center-ray occlusion; partial visibility and correlated noise absent |
 | LiDAR | Implemented and validated | Persistent native buffers plus strict Burst command generation and PointCloud2 packing; result traversal remains main-thread work |
 | Authoritative replay | Experimental vertical slice | Indexed body/joint playback, accepted actions, task outcomes, v4 build provenance, and v5 observation metadata work; production reward adapters/non-regenerable sensor payloads/full-water state remain incomplete |
-| ROS publishing and MAVROS UDP | Implemented, weakly validated | Local checkout lacks ROS 2/Nav2 for a real closed-loop acceptance run |
+| ROS publishing and MAVROS UDP | Implemented; ROS-TCP sensor transport live-validated | Jazzy endpoint accepted depth/detections/LiDAR/clock at 1×; MAVROS actions and Nav2 closed loop remain weakly validated |
 | Action provenance/lockstep control | Partial, Unity seam validated | ROS/SITL source-observation, receive, and application ticks plus sequence/episode rejection are wired; real lockstep Nav2 remains unvalidated |
 | Ackermann land dynamics | Implemented and repeat-validated fixture | Flat-ground acceleration/coast/brake/turn only; production platform gaps remain |
 | Multirotor dynamics | Implemented and repeat-validated fixture | Analytic checks pass; real-airframe and SITL qualification absent |
 | Collision optimization | Partial, coverage validated | Classified fixture passes required/excluded pairs; production aquatic objects remain on Default |
-| Episode reset | Scene reload validated; in-place absent | A→B→A scene-reload baseline passes within empirical aquatic tolerances |
+| Episode reset | Scene reload validated; in-place partial/experimental | Coordinator restores rigid/articulation state, actuator/sensor phases, RNG, episode clock and spectral water time; non-aquatic A→B→A fixture passes, but external ROS/controller state and stateful water effects remain incomplete |
 | Multi-process workers | Implemented; GPU and CPU-depth sweeps validated | Train-GPU reaches 8.003 valid simulated s/s across four 2× workers; Train-CPU dense depth reaches 4.779 across eight 2×-requested workers (each below real time); ROS processes excluded |
 | Train-GPU profile | Implemented and aquatic-validated at 2× | RGB/spectators off with depth+detections+LiDAR retained; still requires graphics-backed HDRP water |
 | Train-CPU profile | Implemented and land/aerial validated | Strict `-nographics` execution with zero enabled Cameras, geometric depth and camera info; aquatic scenes are explicitly rejected |
@@ -273,6 +274,34 @@ bounded lag falls back to receive-to-application age. This proves Unity queue fr
 Nav2 consumed the newest observation. A stamped command contract plus a live ROS/Nav2 run and a
 true lockstep barrier are still required for causal closed-loop acceptance.
 
+A live Jazzy `ros_tcp_endpoint` run now validates the outbound transport boundary on the
+Roboboat target profile. Runtime scene selection suppresses sensors, clocks, MAVROS, and the
+connector in the throw-away build-index-zero scene; the matched rerun opens one endpoint socket.
+The endpoint still reports two `clock` publisher registrations on that socket, so single-clock
+registration remains an explicit transport cleanup item even though `ROSClock` now elects one
+runtime owner. At 1×, 1280×720 depth at 15 Hz contributes about 55.3 MB/s of raw
+payload and the 72,000-point LiDAR at 10 Hz contributes 8.64 MB/s. The matched eight-second
+warmup+measurement run moved 507.9 MB in each loopback counter direction, consistent with the
+roughly 64 MB/s payload estimate plus protocol overhead. This validates ROS-TCP transport, not
+Nav2 compute, action return, or lockstep causality; accepted action count remained zero.
+
+### In-place episode reset seam
+
+`CraneEpisodeResetCoordinator` captures a loaded scene and restores Rigidbody poses/velocities,
+ArticulationBody root/joint state, sleep state, Unity RNG, episode/tick counters, and components
+implementing `ICraneEpisodeResettable`. Implementations currently clear motor/PID state, queued
+ROS thruster commands, RGB/depth readback queues and acquisition phase, generic ROS publisher
+phase, detection phase, rover/multirotor actuators, ROS clock phase, and HDRP spectral water time.
+The reset advances the episode generation only after outstanding GPU readbacks are drained, so
+old callbacks/actions cannot enter the next episode. `/clock` is episode-relative and returns to
+zero independently of process uptime.
+
+The null-graphics aerial A→B→A fixture restores body pose/velocity and custom component state
+exactly and measured 0.82 ms for two rigidbodies on the reference machine. This is a vertical
+slice, not production acceptance: scene reload remains the correctness baseline until estimator,
+costmap, controller, ROS queue, spawn/despawn, sensor bias/noise, and stateful wake/foam/deformer
+state have explicit reset coverage and cross-scene/fresh-process comparisons.
+
 ROS callback service is tied to Unity's normal update processing. Any future manual stepping loop
 must yield often enough for the connector and main thread to process incoming work.
 
@@ -486,16 +515,18 @@ ROS thruster and SITL PWM actions now carry episode, source, sequence, receive t
 application tick through a thread-safe latest-value mailbox. A standalone synthetic fixture
 validates bounded acceptance, duplicate/stale/cross-episode rejection, latest-policy behavior,
 payload hold-until-apply, replacement, and rejection without actuator mutation. Float32 and SITL
-packets still lack source observation ticks, and no live ROS stack was available for a closed-loop
-campaign. Current results prove the Unity-side transport/application boundary only; they do not
-prove accelerated planner/controller freshness.
+packets still lack source observation ticks. The live Jazzy endpoint run validates outbound
+sensor transport, but no action returned and the available Nav2 launch assumes RGB/RTAB-Map plus
+MAVROS. Current results therefore prove transport and the Unity-side application seam separately;
+they do not prove accelerated planner/controller freshness.
 
 ### Reset completeness
 
-The accepted clean reset is scene reload. It is measured and reliable, but costs more than an
-in-place reset. A safe in-place reset must cover rigid bodies, actuators, water/environment state,
-sensor phases and biases, random generators, ROS queues, controller/estimator state, async jobs,
-GPU readbacks, and statistics. Partial reset risks cross-episode contamination.
+The accepted clean reset remains scene reload. The experimental coordinator restores body/joint,
+actuator, sensor phase, RNG, episode clock, GPU-readback generation, and spectral water-time
+state, and its non-aquatic A→B→A fixture passes. It does not yet reset every sensor bias, spawned
+object, ROS queue, controller/estimator/costmap, or stateful water effect. Partial reset still
+risks cross-episode contamination, so production campaigns must retain scene reload.
 
 ### Collision and contact configuration
 
@@ -588,8 +619,8 @@ than assumptions about deterministic re-simulation.
 - Build sensor-camera scheduling that renders only on acquisition ticks while retaining the HDRP
   water resources required for physical queries.
 - Test multi-rate water updates with interpolation against wave-height and trajectory tolerances.
-- Introduce explicit reset interfaces and validate in-place A→B→A against scene reload and a
-  fresh process.
+- Extend the implemented reset interface to external ROS/controller state and stateful water,
+  then validate production in-place A→B→A against scene reload and a fresh process.
 - Define stamped ROS/SITL commands carrying the source observation tick, validate them through a
   real Nav2/SITL graph, and add a lockstep barrier for training control boundaries.
 - Extend the ground fixture to slopes/curbs/suspension transients, calibrate the multirotor
@@ -673,10 +704,11 @@ interchangeable.
 The next work should follow measured cost rather than this list mechanically:
 
 1. Batch and deduplicate water queries while preserving surface-search results.
-2. Isolate and benchmark Burst/Jobs for the remaining LiDAR loops.
+2. Move the remaining LiDAR hit traversal/summary work off the main thread and benchmark it.
 3. Separate presentation camera ownership from required HDRP water updates.
-4. Connect ROS action provenance to controller callbacks and run live closed-loop tests.
-5. Add complete reset contracts, then compare in-place reset with scene reload and a fresh process.
+4. Add a stamped source-observation action contract and run live Nav2/SITL closed-loop tests.
+5. Complete remaining reset contracts, then compare production in-place reset with scene reload
+   and a fresh process.
 6. Stream validation output and run multi-hour memory and queue stress tests.
 7. Extend representative ground/contact coverage and calibrate the aerial fixture against a
    production airframe and flight-controller/SITL path.

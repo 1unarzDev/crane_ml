@@ -42,6 +42,7 @@ namespace Sim.Performance {
                 args.Contains("--crane-land-validation") ||
                 args.Contains("--crane-aerial-validation") ||
                 args.Contains("--crane-collision-validation") ||
+                args.Contains("--crane-in-place-reset-validation") ||
                 args.Contains("--crane-replay");
             runtimeOptions = CraneRuntimeOptions.Parse(args);
             UnityEngine.Random.InitState(randomSeed);
@@ -58,6 +59,14 @@ namespace Sim.Performance {
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
             UnityEngine.Random.InitState(randomSeed);
+            // Runtime scene selection starts in build index zero for one frame. Prevent transport
+            // components in that throw-away scene from opening sockets before the requested scene
+            // loads; otherwise both ROS graphs can coexist briefly and duplicate /clock/topics.
+            if (!string.IsNullOrEmpty(requestedScene) &&
+                !scene.name.Equals(requestedScene, StringComparison.OrdinalIgnoreCase)) {
+                SuppressTransientRosGraph();
+                return;
+            }
             // sceneLoaded normally precedes Start, but disabling ROSConnection here is not
             // sufficient on every player startup path: its ConnectOnStart flag can already be
             // observed by Start while the initial build scene is yielding to --crane-scene.
@@ -85,6 +94,25 @@ namespace Sim.Performance {
                 if (type.FullName != "Unity.Robotics.ROSTCPConnector.ROSConnection") continue;
                 type.GetProperty("ConnectOnStart")?.SetValue(component, false);
                 component.enabled = false;
+            }
+        }
+
+        private static void SuppressTransientRosGraph() {
+            foreach (MonoBehaviour component in FindObjectsByType<MonoBehaviour>(
+                         FindObjectsInactive.Include)) {
+                Type type = component.GetType();
+                string typeName = type.FullName;
+                if (typeName == "Unity.Robotics.ROSTCPConnector.ROSConnection")
+                    type.GetProperty("ConnectOnStart")?.SetValue(component, false);
+                if (typeName == "Unity.Robotics.ROSTCPConnector.ROSConnection" ||
+                    typeName == "Sim.Sensors.Nav.MAVROSConnection" ||
+                    typeName == "Sim.Utils.MAVROS.MAVROSConnection" ||
+                    typeName == "Sim.Utils.ROS.ROSClock" ||
+                    typeName == "Sim.Utils.ROS.ROSPublisher" ||
+                    typeName == "Sim.Utils.ROS.ROSSubscriber" ||
+                    (typeName?.StartsWith("Sim.Sensors.",
+                        StringComparison.Ordinal) ?? false))
+                    component.enabled = false;
             }
         }
 

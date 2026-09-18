@@ -9,7 +9,7 @@ using System.Linq;
 
 namespace Sim.Utils.ROS {
     [AddComponentMenu("")]
-    public class ROSPublisher : MonoBehaviour {
+    public class ROSPublisher : MonoBehaviour, ICraneEpisodeResettable {
         public static bool TransportSuppressed =>
             Environment.GetCommandLineArgs().Contains("--crane-disable-ros");
         public string topicName { get; set; }
@@ -24,6 +24,17 @@ namespace Sim.Utils.ROS {
         private Action<string, object> publishTyped;
         private long observationSequence;
         private long observationEpisode = -1;
+        public int ResetPriority => -100;
+
+        public void CaptureEpisodeInitialState() { }
+
+        public void ResetEpisode(in CraneEpisodeResetContext context,
+            CraneEpisodeResetPhase phase) {
+            if (phase != CraneEpisodeResetPhase.BeforePhysics) return;
+            time = 0;
+            observationSequence = 0;
+            observationEpisode = context.EpisodeId;
+        }
 
         private static void PublishWrapper<T>(ROSConnection ros, string topic, object msg)
         where T : Unity.Robotics.ROSTCPConnector.MessageGeneration.Message {
@@ -72,7 +83,7 @@ namespace Sim.Utils.ROS {
         }
 
         public void Publish() => Publish(CraneRuntimeMetrics.SimulationTick,
-            Time.timeAsDouble);
+            Clock.time);
 
         /// <summary>
         /// Publishes an observation while preserving when it was acquired. Async sensors must use
@@ -138,7 +149,7 @@ namespace Sim.Utils.ROS {
                 message?.GetType().FullName ?? string.Empty, encoding,
                 "metadata-only:regenerate-from-authoritative-state",
                 episode, ++observationSequence, acquisitionTick, acquisitionTime,
-                CraneRuntimeMetrics.SimulationTick, Time.timeAsDouble,
+                CraneRuntimeMetrics.SimulationTick, Clock.time,
                 width, height, rowStep, elements, payloadBytes);
             CraneObservationJournal.Report(metadata);
         }

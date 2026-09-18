@@ -24,6 +24,7 @@ namespace Sim.Utils.ROS {
         static readonly DateTime k_UnixEpoch = new DateTime(1970, 1, 1, 0, 0, 0, 0);
         // Time the application started, relative to Unix Epoch
         static readonly double k_StartTimeEpochSeconds = SecondsSinceUnixEpoch - Time.realtimeSinceStartupAsDouble;
+        static double s_EpisodeStartScaledTime;
 
         static double SecondsSinceUnixEpoch => (DateTime.Now - k_UnixEpoch).TotalSeconds;
         static double UnityUnscaledTimeSinceFrameStart =>
@@ -35,7 +36,7 @@ namespace Sim.Utils.ROS {
             get {
                 return Mode switch {
                     // This might be an approximation... needs testing.
-                    ClockMode.UnityScaled => Time.timeAsDouble,
+                    ClockMode.UnityScaled => Math.Max(0, Time.timeAsDouble - s_EpisodeStartScaledTime),
                     // ClockMode.UnityUnscaled => Time.unscaledTimeAsDouble,
                     // ClockMode.UnixEpoch => k_StartTimeEpochSeconds + UnityUnscaledTimeSinceFrameStart,
                     _ => throw new NotImplementedException()
@@ -46,7 +47,8 @@ namespace Sim.Utils.ROS {
         public static double NowTimeInSeconds {
             get {
                 return Mode switch {
-                    ClockMode.UnityScaled => Time.timeAsDouble + UnityUnscaledTimeSinceFrameStart * Time.timeScale,
+                    ClockMode.UnityScaled => Math.Max(0, Time.timeAsDouble - s_EpisodeStartScaledTime) +
+                                             UnityUnscaledTimeSinceFrameStart * Time.timeScale,
                     // ClockMode.UnityUnscaled => Time.realtimeSinceStartupAsDouble,
                     // ClockMode.UnixEpoch => SecondsSinceUnixEpoch,
                     _ => throw new NotImplementedException()
@@ -70,6 +72,9 @@ namespace Sim.Utils.ROS {
         public static double Now => NowTimeInSeconds;
         public static double time => FrameStartTimeInSeconds;
         public static float deltaTime => DeltaTimeInSeconds;
+
+        /// <summary>Starts the ROS/sensor clock at zero for a new authoritative episode.</summary>
+        public static void BeginEpisode() => s_EpisodeStartScaledTime = Time.timeAsDouble;
 
         // WARNING: These functions could potentially mess up threaded access to this clock class.
         //          Would need to include some mutex locking to keep these calls thread-safe

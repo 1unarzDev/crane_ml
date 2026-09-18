@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using Sim.Utils.Performance;
 
 namespace Sim.Physics.Land {
     /// <summary>
@@ -7,7 +8,7 @@ namespace Sim.Physics.Land {
     /// ordinary motion is produced only through wheel torque, steering, braking, and contact.
     /// </summary>
     [RequireComponent(typeof(Rigidbody))]
-    public sealed class AckermannRoverDynamics : MonoBehaviour {
+    public sealed class AckermannRoverDynamics : MonoBehaviour, ICraneEpisodeResettable {
         [Header("Wheel references")]
         [SerializeField] private WheelCollider frontLeft;
         [SerializeField] private WheelCollider frontRight;
@@ -35,6 +36,12 @@ namespace Sim.Physics.Land {
         private float leftSteeringAngle;
         private float rightSteeringAngle;
         private WheelCollider[] wheels;
+        public int ResetPriority => -40;
+        public void CaptureEpisodeInitialState() { }
+        public void ResetEpisode(in CraneEpisodeResetContext context,
+            CraneEpisodeResetPhase phase) {
+            if (phase == CraneEpisodeResetPhase.BeforePhysics) ResetActuators();
+        }
 
         public float Speed => Vector3.Dot(body.linearVelocity, transform.forward);
         public float ThrottleCommand => throttleCommand;

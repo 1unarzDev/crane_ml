@@ -1,0 +1,16 @@
+{
+    "valid": true,
+    "firstEpisodeId": 2,
+    "resetEpisodeId": 3,
+    "rigidbodyCount": 2,
+    "articulationCount": 0,
+    "resettableCount": 2,
+    "resetWallMilliseconds": 0.8192,
+    "positionError": 0.0,
+    "rotationErrorDegrees": 0.0,
+    "linearVelocityError": 0.0,
+    "angularVelocityError": 0.0,
+    "customStateRestored": true,
+    "episodeClockAfterReset": 0.0,
+    "simulationTickAfterReset": 0
+}

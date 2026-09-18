@@ -12,7 +12,7 @@ namespace Sim.Sensors.Vision {
         public string id;
     }
 
-    public class BoundingBox3D : MonoBehaviour {
+    public class BoundingBox3D : MonoBehaviour, ICraneEpisodeResettable {
         [SerializeField] private string topicName = "/detections";
         [SerializeField] private string frameId = "front_camera_link";
         [SerializeField] private Camera sensorCamera;
@@ -31,6 +31,12 @@ namespace Sim.Sensors.Vision {
         [SerializeField] private List<ObjectEntry> objects = new();
         private Dictionary<GameObject, string> objectDict = new();
         private readonly Dictionary<GameObject, Renderer[]> renderersByObject = new();
+        public int ResetPriority => -70;
+        public void CaptureEpisodeInitialState() { }
+        public void ResetEpisode(in CraneEpisodeResetContext context,
+            CraneEpisodeResetPhase phase) {
+            if (phase == CraneEpisodeResetPhase.BeforePhysics) timeSincePublish = 0;
+        }
 
         private void Awake() {
             foreach (var entry in objects) {

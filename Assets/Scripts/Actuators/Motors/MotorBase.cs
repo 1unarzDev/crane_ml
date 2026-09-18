@@ -2,6 +2,7 @@ using UnityEngine;
 using Sim.Utils;
 using Sim.Utils.ROS;
 using System;
+using Sim.Utils.Performance;
 
 namespace Sim.Actuators.Motors {
     public enum MotorControlMode {
@@ -16,7 +17,7 @@ namespace Sim.Actuators.Motors {
         Z
     }
 
-    public abstract class MotorBase<TConfig> : MonoBehaviour where TConfig : IMotorConfig, new() {
+    public abstract class MotorBase<TConfig> : MonoBehaviour, ICraneEpisodeResettable where TConfig : IMotorConfig, new() {
         [SerializeReference] protected TConfig config;
         [SerializeField] protected bool useDebugCommand;
         [SerializeField] protected float debugCommand;
@@ -29,6 +30,17 @@ namespace Sim.Actuators.Motors {
         protected IPhysicsBody body;
         protected float command;
         protected float torqueOutput;
+        public virtual int ResetPriority => -50;
+
+        public virtual void CaptureEpisodeInitialState() { }
+
+        public virtual void ResetEpisode(in CraneEpisodeResetContext context,
+            CraneEpisodeResetPhase phase) {
+            if (phase != CraneEpisodeResetPhase.BeforePhysics) return;
+            command = 0;
+            torqueOutput = 0;
+            pid?.Reset();
+        }
 
         protected virtual void SetMotorDefaults() {
             motorJoint = gameObject;

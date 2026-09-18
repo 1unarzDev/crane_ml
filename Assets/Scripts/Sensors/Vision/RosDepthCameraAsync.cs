@@ -8,7 +8,7 @@ using Sim.Utils.ROS;
 using Sim.Utils.Performance;
 
 namespace Sim.Sensors.Vision {
-    public class ROSDepthCameraAsync : MonoBehaviour, IROSSensor<ImageMsg> {
+    public class ROSDepthCameraAsync : MonoBehaviour, IROSSensor<ImageMsg>, ICraneEpisodeResettable {
         private readonly struct ReadbackMetadata {
             public readonly long EpisodeId;
             public readonly long Tick;
@@ -55,6 +55,18 @@ namespace Sim.Sensors.Vision {
         private bool validateBufferReuse;
         private long validatedEpisode = -1;
         private readonly Queue<ReadbackMetadata> pendingReadbacks = new(MaxPendingReadbacks);
+        public int ResetPriority => -80;
+
+        public void CaptureEpisodeInitialState() { }
+
+        public void ResetEpisode(in CraneEpisodeResetContext context,
+            CraneEpisodeResetPhase phase) {
+            if (phase != CraneEpisodeResetPhase.BeforePhysics) return;
+            pendingReadbacks.Clear();
+            timeSincePublish = 0;
+            requestTick = -1;
+            validatedEpisode = -1;
+        }
 
         private void Awake() {
             alive = true;
@@ -100,7 +112,7 @@ namespace Sim.Sensors.Vision {
         private void RequestReadback(RenderTexture targetTexture) {
             pendingReadbacks.Enqueue(new ReadbackMetadata(CraneRuntimeMetrics.EpisodeId,
                 CraneRuntimeMetrics.SimulationTick, targetTexture.width, targetTexture.height,
-                Time.timeAsDouble));
+                Clock.time));
             AsyncGPUReadback.Request(targetTexture, 0, TextureFormat.RFloat, OnReadbackComplete);
         }
 

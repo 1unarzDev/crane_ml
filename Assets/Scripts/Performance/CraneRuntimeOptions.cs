@@ -109,6 +109,8 @@ namespace Sim.Performance {
                     requestedScene = "Aerial Vehicle Validation";
                 else if (HasFlag(args, "--crane-collision-validation"))
                     requestedScene = "Collision Validation";
+                else if (HasFlag(args, "--crane-in-place-reset-validation"))
+                    requestedScene = "Aerial Vehicle Validation";
             }
             return new CraneRuntimeOptions {
                 ProfileName = profile,

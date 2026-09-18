@@ -14,6 +14,12 @@ namespace Sim.Actuators.Motors {
         private System.Action<float> applyCommand;
         private long sequence;
 
+        public override void ResetEpisode(in CraneEpisodeResetContext context,
+            CraneEpisodeResetPhase phase) {
+            if (phase == CraneEpisodeResetPhase.BeforePhysics) pendingCommand.Clear();
+            base.ResetEpisode(context, phase);
+        }
+
         protected override void Awake() {
             base.Awake();
             applyCommand = ApplyCommand;

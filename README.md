@@ -40,7 +40,8 @@ constraints, and benchmark evidence.
 - 2D and 3D LiDAR, RGB and depth cameras, GPS, IMU, odometry, and detection messages
 - ROS-TCP publishing/subscription, simulation clock publishing, and a MAVROS/SITL UDP bridge
 - URDF import through Unity's Robotics URDF Importer
-- Standalone benchmark workers, correctness comparisons, reset probes, and multi-process sweeps
+- Standalone benchmark workers, correctness comparisons, scene-reload and in-place reset probes,
+  and multi-process sweeps
 
 ## Runtime architecture
 
@@ -111,7 +112,10 @@ environments:
 
 For ROS operation, configure the scene's `ROSConnection` object with the address of the machine
 running ROS. The [mhseals_docker repository](https://github.com/mhseals/mhseals_docker) contains
-the companion ROS environment and setup notes.
+the ROS 2 Jazzy image and endpoint setup notes. Its navigation packages are separate optional
+repositories, not part of this checkout. CRANE has a live ROS-TCP sensor-transport acceptance
+run; the current `mhseals_nav` launch still assumes RGB/RTAB-Map and MAVROS, so a depth-only Nav2
+closed-loop acceptance run remains outstanding.
 
 URDFs can be imported from the Unity hierarchy context menu with **3D Object > URDF Model
 (Import)**. Runtime code is organized under `Assets/Scripts`; start with the architecture guide
@@ -147,14 +151,15 @@ loop deployment.
 ## Current maturity
 
 CRANE has automated standalone benchmarks, subsystem profiler markers, sensor delivery checks,
-worker isolation, and an accepted scene-reload reset baseline. Profiling has already reduced
-LiDAR time by 69.3% and its managed allocation by 97.2% in the measured scenario.
+worker isolation, an accepted scene-reload reset baseline, and an experimental in-place reset
+coordinator. Profiling has already reduced LiDAR time by 69.3% and its managed allocation by
+97.2% in the measured scenario.
 
 Important limitations remain: full-resolution camera readback caps GPU-sensor acceleration;
 graphics-free aquatic water is absent; geometric CPU depth does not model render-only surfaces;
-water queries are issued component by component; real ROS/Nav2 lockstep has not been validated
-locally; in-place reset coverage is
-incomplete; and the land/aerial scenes are qualification fixtures rather than production
+water queries are issued component by component; live ROS-TCP transport is validated but real
+Nav2 lockstep is not; in-place reset does not yet cover every controller, external ROS state, or
+stateful water effect; and the land/aerial scenes are qualification fixtures rather than production
 environments. Read the documentation before treating a run as training-valid.
 
 ## Repository map

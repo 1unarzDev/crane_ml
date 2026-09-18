@@ -1,0 +1,16 @@
+{
+  "schema": "crane-ros-transport-summary-v1",
+  "unityResult": "result.json",
+  "rosDistribution": "jazzy",
+  "endpoint": "ros_tcp_endpoint/default_server_endpoint",
+  "endpointAddress": "127.0.0.1:6767",
+  "warmupSeconds": 3.0,
+  "measurementSeconds": 5.0,
+  "loopbackRxBytesDelta": 507903342,
+  "loopbackTxBytesDelta": 507903342,
+  "endpointConnections": 1,
+  "endpointClockPublisherRegistrations": 2,
+  "nav2Included": false,
+  "returnedActions": 0,
+  "notes": "Loopback counters cover the full warmup plus measurement interval and include TCP protocol traffic. RX and TX describe the same localhost transfer in opposite interface directions and must not be summed as application payload. The duplicate clock registration remains an explicit issue."
+}

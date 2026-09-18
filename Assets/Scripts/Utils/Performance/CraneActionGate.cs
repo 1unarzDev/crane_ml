@@ -246,6 +246,10 @@ namespace Sim.Utils.Performance {
             }
         }
 
+        public static void BeginEpisode() {
+            lock (s_Lock) s_LastApplied.Clear();
+        }
+
         internal static void ReportAcceptedPayload(in CraneActionReceipt receipt,
             in CraneActionPayload payload) {
             Action<CraneAcceptedAction> observers;
