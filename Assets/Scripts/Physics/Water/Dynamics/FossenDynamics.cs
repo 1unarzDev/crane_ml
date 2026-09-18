@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using Sim.Utils.Performance;
 using Unity.Robotics.ROSTCPConnector.ROSGeometry;
 using Sim.Utils;
 
@@ -75,6 +76,8 @@ namespace Sim.Physics.Water.Dynamics {
         }
 
         private void FixedUpdate() {
+            using var marker = CraneProfiler.VehicleDynamics.Auto();
+            using var componentMarker = CraneProfiler.VehicleDynamicsFossen.Auto();
             state = GetState();
             stateDot = GetStateDot(state, statePrev, Time.deltaTime);
             Cor = CalculateCoriolisMatrix(state);

@@ -1,4 +1,5 @@
 using UnityEngine;
+using Sim.Utils.Performance;
 using Sim.Physics.Processing;
 using Sim.Utils;
 
@@ -30,6 +31,7 @@ namespace Sim.Physics.Water.Statics {
 
 
         private void FixedUpdate() {
+            using var marker = CraneProfiler.WaterBuoyancy.Auto();
             if (!buoyancyForceActive) return;
             ApplyBuoyancyVolume();
         }

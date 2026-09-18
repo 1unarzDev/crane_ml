@@ -7,6 +7,7 @@ using System.IO;
 using UnityEngine;
 using Sim.Utils;
 using Sim.Controllers;
+using Sim.Utils.Performance;
 
 namespace Sim.Sensors.Nav
 {
@@ -62,6 +63,8 @@ namespace Sim.Sensors.Nav
         private string sendErrorMessage;
         private volatile bool newConnection;
         private string remoteEndpointString;
+        private readonly CraneQueuedAction<UInt16[]> pendingAction =
+            new(CraneActionPayloadEncoding.UInt16Array);
 
         void Start()
         {
@@ -159,6 +162,22 @@ namespace Sim.Sensors.Nav
             }
         }
 
+        void FixedUpdate()
+        {
+            if (controller.movementOverride) {
+                pendingAction.Clear();
+                return;
+            }
+            pendingAction.TryApply(ApplyPwm, out _);
+        }
+
+        private void ApplyPwm(UInt16[] pwm) {
+            controller.frontLeft.SetCommand(MapPWM(pwm[1]));
+            controller.frontRight.SetCommand(MapPWM(pwm[2]));
+            controller.rearRight.SetCommand(MapPWM(pwm[3]));
+            controller.rearLeft.SetCommand(MapPWM(pwm[0]));
+        }
+
         private float MapPWM(float pwm)
         {
             pwm = Math.Clamp(pwm, pwmMin, pwmMax);
@@ -191,13 +210,7 @@ namespace Sim.Sensors.Nav
                     for (int i = 0; i < 16; i++)
                         pwm[i] = reader.ReadUInt16();
 
-                    if (!controller.movementOverride)
-                    {
-                        controller.frontLeft.SetCommand(MapPWM(pwm[1]));
-                        controller.frontRight.SetCommand(MapPWM(pwm[2]));
-                        controller.rearRight.SetCommand(MapPWM(pwm[3]));
-                        controller.rearLeft.SetCommand(MapPWM(pwm[0]));
-                    }
+                    pendingAction.Receive(pwm, "sitl:pwm", frameCount, -1);
                 }
                 catch (SocketException ex)
                 {

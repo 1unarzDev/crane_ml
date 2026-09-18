@@ -31,6 +31,7 @@ namespace Sim.Physics.Processing {
     }
 
     // Class holding the vertices, triangles and normals of the submerged mesh, and more.
+    [Serializable]
     public class Data {
         public Vector3[] vertices;
         public int[] triangles;
@@ -57,7 +58,7 @@ namespace Sim.Physics.Processing {
         }
     }
 
-
+    [Serializable]
     public class Submerged {
         // OK Public
 

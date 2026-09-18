@@ -1057,6 +1057,12 @@ MonoBehaviour:
   enable:
     m_OverrideState: 1
     m_Value: 1
+  directionalOnly:
+    m_OverrideState: 0
+    m_Value: 0
+  halfResolution:
+    m_OverrideState: 0
+    m_Value: 0
   length:
     m_OverrideState: 1
     m_Value: 0.15
@@ -1590,6 +1596,19 @@ MonoBehaviour:
     m_Value:
       serializedVersion: 0
       m_Bits: 1
+--- !u!114 &-5744034919580678877
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da907761ad48a684aa45e5dc639d9304, type: 3}
+  m_Name: AlphaInjection
+  m_EditorClassIdentifier: Unity.RenderPipelines.HighDefinition.Runtime::UnityEngine.Rendering.HighDefinition.Compositor.AlphaInjection
+  active: 1
 --- !u!114 &-5525629893002537290
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -2798,8 +2817,8 @@ MonoBehaviour:
   - {fileID: 4525499891658715890}
   - {fileID: -2706838770229775435}
   - {fileID: 3484122255321654934}
-  - {fileID: 8063634861865781391}
-  - {fileID: 495141017549596158}
+  - {fileID: -5744034919580678877}
+  - {fileID: 5422071499939343760}
 --- !u!114 &45200319124882944
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -3015,6 +3034,12 @@ MonoBehaviour:
   enable:
     m_OverrideState: 1
     m_Value: 0
+  directionalOnly:
+    m_OverrideState: 1
+    m_Value: 0
+  halfResolution:
+    m_OverrideState: 1
+    m_Value: 0
   length:
     m_OverrideState: 1
     m_Value: 0.15
@@ -3179,6 +3204,9 @@ MonoBehaviour:
     m_Value: 0.5
   directionalLightsOnly:
     m_OverrideState: 1
+    m_Value: 0
+  volumetricLightingDensityCutoff:
+    m_OverrideState: 0
     m_Value: 0
 --- !u!114 &1014369383988425793
 MonoBehaviour:
@@ -4182,6 +4210,9 @@ MonoBehaviour:
   directionalLightsOnly:
     m_OverrideState: 1
     m_Value: 0
+  volumetricLightingDensityCutoff:
+    m_OverrideState: 1
+    m_Value: 0
 --- !u!114 &4103096731557320678
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -4652,6 +4683,22 @@ MonoBehaviour:
     m_OverrideState: 1
     m_Value: 0
   cascadeShadowBorder3:
+    m_OverrideState: 1
+    m_Value: 0
+--- !u!114 &5422071499939343760
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cf4ca3f87079ba246a93410400bb24c4, type: 3}
+  m_Name: ChromaKeying
+  m_EditorClassIdentifier: Unity.RenderPipelines.HighDefinition.Runtime::UnityEngine.Rendering.HighDefinition.Compositor.ChromaKeying
+  active: 1
+  activate:
     m_OverrideState: 1
     m_Value: 0
 --- !u!114 &5628291596785799996

@@ -3,6 +3,7 @@ using UnityEngine;
 using Sim.Utils;
 using UnityEngine.Rendering.HighDefinition;
 using Sim.Physics.Processing;
+using Sim.Utils.Performance;
 
 namespace Sim.Actuators.Motors {
     public class Thruster : MotorBase<ThrusterConfig> {
@@ -27,6 +28,7 @@ namespace Sim.Actuators.Motors {
         }
 
         protected override void FixedUpdate() {
+            using var marker = CraneProfiler.Thruster.Auto();
             base.FixedUpdate();
 
             float waterHeight = WaterUtils.Search(waterSurface, body.transform.position).projectedPositionWS.y;

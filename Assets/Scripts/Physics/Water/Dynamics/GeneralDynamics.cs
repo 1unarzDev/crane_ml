@@ -1,4 +1,5 @@
 using UnityEngine;
+using Sim.Utils.Performance;
 using System;
 using Sim.Physics.Processing;
 using Sim.Physics.Water.Statics;
@@ -58,22 +59,34 @@ namespace Sim.Physics.Water.Dynamics {
         private void Start() { submerged = GetComponent<Submersion>().submerged; }
 
         private void FixedUpdate() {
-            submergedMeshTriangles = submerged.data.triangles;
-            submergedMeshVertices = submerged.data.vertices;
-            submergedFaceAreas = SubmersionUtils.CalculateTriangleAreas(submerged.data);
+            using var marker = CraneProfiler.VehicleDynamics.Auto();
+            using var componentMarker = CraneProfiler.VehicleDynamicsGeneral.Auto();
+            using (CraneProfiler.VehicleDynamicsAreaPreparation.Auto()) {
+                submergedMeshTriangles = submerged.data.triangles;
+                submergedMeshVertices = submerged.data.vertices;
+                submergedFaceAreas = SubmersionUtils.CalculateTriangleAreas(submerged.data);
+            }
 
             if (viscousResistActive) {
-                float Cfr = submerged.GetResistanceCoefficient(body.linearVelocity.magnitude, hullZMin, hullZMax, submerged.data);
-                ApplyViscousResistance(Cfr);
+                float Cfr;
+                using (CraneProfiler.VehicleDynamicsResistanceCoefficient.Auto()) {
+                    Cfr = submerged.GetResistanceCoefficient(body.linearVelocity.magnitude,
+                        hullZMin, hullZMax, submerged.data);
+                }
+                using (CraneProfiler.VehicleDynamicsViscousResistance.Auto()) {
+                    ApplyViscousResistance(Cfr);
+                }
             }
             if (pressureDragActive) {
-                ApplyPressureDrag(pressureDragLinearCoefficient,
-                                  pressureDragQuadraticCoefficient,
-                                  suctionDragLinearCoefficient,
-                                  suctionDragQuadraticCoefficient,
-                                  pressureDragVelocityRef,
-                                  pressureDragFalloffPower,
-                                  suctionDragFalloffPower);
+                using (CraneProfiler.VehicleDynamicsPressureDrag.Auto()) {
+                    ApplyPressureDrag(pressureDragLinearCoefficient,
+                                      pressureDragQuadraticCoefficient,
+                                      suctionDragLinearCoefficient,
+                                      suctionDragQuadraticCoefficient,
+                                      pressureDragVelocityRef,
+                                      pressureDragFalloffPower,
+                                      suctionDragFalloffPower);
+                }
             }
         }
 

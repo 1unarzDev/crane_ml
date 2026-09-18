@@ -58,6 +58,10 @@ namespace Sim.Actuators.Motors {
         }
 
         protected virtual void Awake() {
+            // OnValidate is editor-only. Runtime builds must initialize the cached values too.
+            config ??= Activator.CreateInstance<TConfig>();
+            SetMotorDefaults();
+
             var rb = GetComponent<Rigidbody>();
             var ab = GetComponent<ArticulationBody>();
 

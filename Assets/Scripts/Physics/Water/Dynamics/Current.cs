@@ -1,5 +1,6 @@
 using UnityEngine.Rendering.HighDefinition;
 using UnityEngine;
+using Sim.Utils.Performance;
 using Sim.Physics.Processing;
 using Sim.Utils;
 
@@ -28,7 +29,11 @@ namespace Sim.Physics.Water.Dynamics {
 
         private void Start() { submerged = GetComponent<Submersion>().submerged; }
 
-        private void FixedUpdate() { ApplyCurrent(); }
+        private void FixedUpdate() {
+            using var marker = CraneProfiler.VehicleDynamics.Auto();
+            using var componentMarker = CraneProfiler.VehicleDynamicsCurrent.Auto();
+            ApplyCurrent();
+        }
 
         private void ApplyCurrent() {
             if (submerged.data == null) return;
@@ -36,11 +41,21 @@ namespace Sim.Physics.Water.Dynamics {
             Vector3 bodyVel = body.linearVelocity;
             Vector3 bodyOmega = body.angularVelocity;
             Vector3 bodyPos = body.position;
+            int faceCount = submerged.data.maxTriangleIndex / 3;
+            if (faceCount == 0) return;
 
-            for (int i = 0; i < submerged.data.maxTriangleIndex / 3; i++) {
+            // HDRP only rotates the spectrum's base current direction by position when a
+            // large- or ripple-current map is active. Avoid repeating the full iterative water
+            // projection for every face when both spatial current features are disabled.
+            bool hasSpatialCurrent = waterSurface.supportLargeCurrent || waterSurface.supportRipplesCurrent;
+            Vector3 uniformWaterVel = hasSpatialCurrent
+                ? default
+                : GetCurrentAtPoint(submerged.data.faceCentersWorld[0]);
+
+            for (int i = 0; i < faceCount; i++) {
                 Vector3 faceCenter = submerged.data.faceCentersWorld[i];
                 Vector3 pointVel = bodyVel + Vector3.Cross(bodyOmega, faceCenter - bodyPos);
-                Vector3 waterVel = GetCurrentAtPoint(faceCenter);
+                Vector3 waterVel = hasSpatialCurrent ? GetCurrentAtPoint(faceCenter) : uniformWaterVel;
                 Vector3 relVel = pointVel - waterVel;
 
                 float rho = Constants.waterDensity;

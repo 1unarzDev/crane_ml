@@ -1,6 +1,7 @@
 using RosMessageTypes.Vision;
 using RosMessageTypes.Geometry;
 using Sim.Utils.ROS;
+using Sim.Utils.Performance;
 using UnityEngine;
 using System.Collections.Generic;
 
@@ -19,6 +20,7 @@ namespace Sim.Sensors.Vision {
 
         [SerializeField] private float minDist = 1f;
         [SerializeField] private float maxDist = 20f;
+        [SerializeField] private LayerMask occlusionMask = ~0;
 
         [SerializeField] private bool drawGizmos = true;
         [SerializeField] private float gizmoScale = 0.05f;
@@ -28,11 +30,14 @@ namespace Sim.Sensors.Vision {
 
         [SerializeField] private List<ObjectEntry> objects = new();
         private Dictionary<GameObject, string> objectDict = new();
+        private readonly Dictionary<GameObject, Renderer[]> renderersByObject = new();
 
         private void Awake() {
             foreach (var entry in objects) {
-                if (entry.obj != null && !string.IsNullOrEmpty(entry.id))
+                if (entry.obj != null && !string.IsNullOrEmpty(entry.id)) {
                     objectDict[entry.obj] = entry.id;
+                    renderersByObject[entry.obj] = entry.obj.GetComponentsInChildren<Renderer>();
+                }
             }
 
             if (sensorCamera == null) {
@@ -52,7 +57,7 @@ namespace Sim.Sensors.Vision {
             timeSincePublish += Time.fixedDeltaTime;
             if (timeSincePublish >= 1f / Hz) {
                 publisher.Publish();
-                timeSincePublish = 0f;
+                timeSincePublish -= 1f / Hz;
             }
         }
 
@@ -108,7 +113,10 @@ namespace Sim.Sensors.Vision {
         }
 
         private Detection3DArrayMsg CreateMessage() {
+            using var marker = CraneProfiler.OtherSensor.Auto();
+            using var sensorMarker = CraneProfiler.Detection.Auto();
             List<Detection3DMsg> detections = new();
+            Plane[] frustumPlanes = GeometryUtility.CalculateFrustumPlanes(sensorCamera);
 
             foreach (var kvp in objectDict) {
                 GameObject obj = kvp.Key;
@@ -118,17 +126,13 @@ namespace Sim.Sensors.Vision {
 
                 Vector3 worldCenter = obj.transform.TransformPoint(localCenter);
 
-                Vector3 screenPoint = sensorCamera.WorldToViewportPoint(worldCenter);
-                bool visible =
-                    screenPoint.z > 0 &&
-                    screenPoint.x > 0 && screenPoint.x < 1 &&
-                    screenPoint.y > 0 && screenPoint.y < 1;
-
                 float dist = Vector3.Magnitude(worldCenter - sensorCamera.transform.position);
                 bool inRange = minDist <= dist && dist <= maxDist;
+                Bounds worldBounds = ComputeWorldBounds(obj);
+                bool inFrustum = GeometryUtility.TestPlanesAABB(frustumPlanes, worldBounds);
 
-                if (!visible || !inRange)
-                    continue;
+                if (!inFrustum || !inRange) continue;
+                if (!HasLineOfSight(obj, worldBounds.center)) continue;
 
                 // Transform to camera frame
                 Vector3 cameraSpaceCenter =
@@ -144,9 +148,13 @@ namespace Sim.Sensors.Vision {
                 Quaternion rosRotation = UnityToROSRotation(cameraSpaceRotation);
 
                 detections.Add(
-                    GenerateDetection(rosPosition, rosRotation, localSize, id)
+                    GenerateDetection(rosPosition, rosRotation, localSize, id,
+                        CalculateConfidence(dist))
                 );
             }
+
+            CraneRuntimeMetrics.ReportDetections(detections.Count,
+                CraneRuntimeMetrics.SimulationTick);
 
             return new Detection3DArrayMsg(
                 publisher.CreateHeader(),
@@ -158,7 +166,8 @@ namespace Sim.Sensors.Vision {
             Vector3 rosPosition,
             Quaternion rosRotation,
             Vector3 size,
-            string id) {
+            string id,
+            float confidence) {
             PoseMsg pose = new(
                 new PointMsg(rosPosition.x, rosPosition.y, rosPosition.z),
                 new QuaternionMsg(rosRotation.x, rosRotation.y, rosRotation.z, rosRotation.w)
@@ -168,7 +177,7 @@ namespace Sim.Sensors.Vision {
 
             ObjectHypothesisWithPoseMsg hypothesis =
                 new(
-                    new ObjectHypothesisMsg(id, 1.0f),
+                    new ObjectHypothesisMsg(id, confidence),
                     new PoseWithCovarianceMsg(pose, covariance)
                 );
 
@@ -185,11 +194,42 @@ namespace Sim.Sensors.Vision {
             );
         }
 
+        private bool HasLineOfSight(GameObject target, Vector3 sample) {
+            Vector3 origin = sensorCamera.transform.position;
+            Vector3 offset = sample - origin;
+            float distance = offset.magnitude;
+            if (distance <= Mathf.Epsilon) return true;
+            return !UnityEngine.Physics.Raycast(origin, offset / distance, out RaycastHit hit,
+                       distance, occlusionMask, QueryTriggerInteraction.Ignore) ||
+                   hit.distance >= distance - 0.02f ||
+                   hit.transform == target.transform || hit.transform.IsChildOf(target.transform);
+        }
+
+        private float CalculateConfidence(float distance) {
+            float rangeQuality = 1f - Mathf.InverseLerp(minDist, maxDist, distance);
+            return Mathf.Clamp01(0.8f + 0.2f * rangeQuality);
+        }
+
+        private Bounds ComputeWorldBounds(GameObject obj) {
+            Renderer[] renderers = GetRenderers(obj);
+            if (renderers.Length == 0) return new Bounds(obj.transform.position, Vector3.zero);
+            Bounds bounds = renderers[0].bounds;
+            for (int i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
+            return bounds;
+        }
+
+        private Renderer[] GetRenderers(GameObject obj) {
+            if (renderersByObject.TryGetValue(obj, out Renderer[] renderers)) return renderers;
+            renderers = obj.GetComponentsInChildren<Renderer>();
+            renderersByObject[obj] = renderers;
+            return renderers;
+        }
+
         private void ComputeLocalBounds(
             GameObject obj,
             out Vector3 center,
             out Vector3 size) {
-            Renderer[] renderers = obj.GetComponentsInChildren<Renderer>();
+            Renderer[] renderers = GetRenderers(obj);
 
             if (renderers.Length == 0) {
                 center = Vector3.zero;
@@ -236,4 +276,3 @@ namespace Sim.Sensors.Vision {
         }
     }
 }
-

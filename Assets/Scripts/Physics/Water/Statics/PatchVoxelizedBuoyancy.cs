@@ -2,6 +2,7 @@ using UnityEngine.Rendering.HighDefinition;
 using System.Collections.Generic;
 using System.Diagnostics;
 using UnityEngine;
+using Sim.Utils.Performance;
 using System.IO;
 using TMPro;
 using Sim.Utils;
@@ -75,6 +76,7 @@ namespace Sim.Physics.Water.Statics {
 
 
         private void FixedUpdate() {
+            using var marker = CraneProfiler.WaterBuoyancy.Auto();
             if (patchSize == 0) return;
             stopwatch.Start();
 

@@ -1,8 +1,10 @@
+using System;
 using RosMessageTypes.Sensor;
 using Unity.Collections;
 using Unity.Jobs;
 using UnityEngine;
 using Sim.Utils.ROS;
+using Sim.Utils.Performance;
 
 namespace Sim.Sensors.Lidar {
     public class Lidar2D : MonoBehaviour, IROSSensor<LaserScanMsg> {
@@ -20,6 +22,9 @@ namespace Sim.Sensors.Lidar {
         public ROSPublisher publisher { get; set; }
 
         private Vector3[] scanDirVectors;
+        private float[] distances;
+        private NativeArray<RaycastCommand> commands;
+        private NativeArray<RaycastHit> results;
 
         private void Awake() {
             publisher = gameObject.AddComponent<ROSPublisher>();
@@ -29,11 +34,18 @@ namespace Sim.Sensors.Lidar {
             publisher.Initialize(topicName, frameId, CreateMessage, Hz);
 
             scanDirVectors = GenerateScanVectors();
+            distances = new float[scanDirVectors.Length + 1];
+            commands = new NativeArray<RaycastCommand>(scanDirVectors.Length, Allocator.Persistent);
+            results = new NativeArray<RaycastHit>(scanDirVectors.Length, Allocator.Persistent);
+        }
+
+        private void OnDestroy() {
+            if (commands.IsCreated) commands.Dispose();
+            if (results.IsCreated) results.Dispose();
         }
 
         public LaserScanMsg CreateMessage() {
-            // transformScale = transform.lossyScale;
-            scanDirVectors = GenerateScanVectors();
+            using var marker = CraneProfiler.Lidar.Auto();
             float[] dists = PerformScan(scanDirVectors);
             return DistancesToLaserscan(dists);
         }
@@ -56,9 +68,11 @@ namespace Sim.Sensors.Lidar {
 
         private float[] PerformScan(Vector3[] dirs) {
             int numPoints = dirs.Length;
-            var commands = new NativeArray<RaycastCommand>(numPoints, Allocator.TempJob);
-            var results = new NativeArray<RaycastHit>(numPoints, Allocator.TempJob);
-
+            int hitCount = 0;
+            float minimumHitRange = float.PositiveInfinity;
+            float maximumHitRange = 0;
+            double hitRangeSum = 0;
+            ulong checksum = 14695981039346656037UL;
             for (int i = 0; i < numPoints; i++) {
                 Vector3 origin = transform.position;
                 Vector3 direction = transform.rotation * dirs[i];
@@ -68,24 +82,33 @@ namespace Sim.Sensors.Lidar {
             JobHandle handle = RaycastCommand.ScheduleBatch(commands, results, batchSize, 1);
             handle.Complete();
 
-            float[] dists = new float[numPoints + 1];
             for (int i = 0; i < numPoints; i++) {
                 var hit = results[i];
                 if (hit.collider != null && (transform.position - hit.point).sqrMagnitude > minRange * minRange) {
                     Vector3 beam = transform.InverseTransformPoint(hit.point);
-                    dists[i] = hit.distance;
+                    distances[i] = hit.distance;
+                    hitCount++;
+                    minimumHitRange = Mathf.Min(minimumHitRange, hit.distance);
+                    maximumHitRange = Mathf.Max(maximumHitRange, hit.distance);
+                    hitRangeSum += hit.distance;
+                    checksum ^= unchecked((uint)BitConverter.SingleToInt32Bits(hit.distance));
+                    checksum *= 1099511628211UL;
                     if (drawRays) {
                         Debug.DrawLine(transform.position, transform.TransformPoint(beam), Color.red);
                     }
                 }
                 else {
-                    dists[i] = float.NaN;
+                    distances[i] = float.NaN;
+                    checksum ^= uint.MaxValue;
+                    checksum *= 1099511628211UL;
                 }
             }
-
-            results.Dispose();
-            commands.Dispose();
-            return dists;
+            distances[numPoints] = float.NaN;
+            CraneRuntimeMetrics.ReportLidarScan(numPoints, batchSize, hitCount,
+                numPoints - hitCount,
+                minimumHitRange, maximumHitRange, hitRangeSum, checksum,
+                CraneRuntimeMetrics.SimulationTick);
+            return distances;
         }
 
         private LaserScanMsg DistancesToLaserscan(float[] dists) {

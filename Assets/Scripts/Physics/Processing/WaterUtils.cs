@@ -1,10 +1,12 @@
 using UnityEngine;
 using UnityEngine.Rendering.HighDefinition;
 using Unity.Mathematics;
+using Sim.Utils.Performance;
 
 namespace Sim.Physics.Processing {
     public static class WaterUtils {
         public static WaterSearchResult Search(WaterSurface targetSurface, Vector3 position, float error=0.01f, int maxIterations=8, bool includeDeformers=false, bool debug=false) {
+            using var marker = CraneProfiler.WaterQuery.Auto();
             WaterSearchParameters searchParameters = new();
             WaterSearchResult searchResult = new();
            

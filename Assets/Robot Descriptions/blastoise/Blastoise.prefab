@@ -3539,7 +3539,7 @@ MonoBehaviour:
   minDistance: 0.3
   horizontalFOV: 6.2831855
   verticalFOV: 1.5707964
-  batchSize: 500
+  batchSize: 64
   drawRays: 0
   topicName: points
   frameId: lidar_link

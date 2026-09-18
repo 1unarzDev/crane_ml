@@ -5,6 +5,7 @@ using Unity.Collections;
 using UnityEngine;
 using Unity.Jobs;
 using System;
+using Sim.Utils.Performance;
 
 
 namespace Sim.Physics.Processing {
@@ -13,15 +14,18 @@ namespace Sim.Physics.Processing {
         public Vector3[] patchVertices;
         public int[] patchTriangles;
         public Mesh baseGridMesh;
+
         // Water height querying (burst)
         // Input job parameters
         NativeArray<float3> targetPositionBuffer;
+
         // Output job parameters
         NativeArray<float3> projectedPositionWorldSpaceBuffer;
         NativeArray<float3> candidatePositionWorldSpaceBuffer;
         NativeArray<float3> directionBuffer;
         NativeArray<int> stepCountBuffer;
         NativeArray<float> errorBuffer;
+        NativeArray<float3> normalWSBuffer;
 
         // OK Private
         private int numberOfGridPoints;
@@ -53,6 +57,7 @@ namespace Sim.Physics.Processing {
             patchVertices = baseGridMesh.vertices;
             patchTriangles = baseGridMesh.triangles;
             numberOfGridPoints = baseGridMesh.vertices.Length;
+
             // Allocate the buffers
             projectedPositionWorldSpaceBuffer = new NativeArray<float3>(numberOfGridPoints, Allocator.Persistent);
             candidatePositionWorldSpaceBuffer = new NativeArray<float3>(numberOfGridPoints, Allocator.Persistent);
@@ -60,6 +65,7 @@ namespace Sim.Physics.Processing {
             directionBuffer = new NativeArray<float3>(numberOfGridPoints, Allocator.Persistent);
             stepCountBuffer = new NativeArray<int>(numberOfGridPoints, Allocator.Persistent);
             errorBuffer = new NativeArray<float>(numberOfGridPoints, Allocator.Persistent);
+            normalWSBuffer = new NativeArray<float3>(numberOfGridPoints, Allocator.Persistent);
         }
 
 
@@ -68,8 +74,10 @@ namespace Sim.Physics.Processing {
             SetGridOrigin(transform);
 
             WaterSimSearchData simData = new();
-            if (!water.FillWaterSearchData(ref simData)) {
-                return;
+            using (CraneProfiler.WaterPrepare.Auto()) {
+                if (!water.FillWaterSearchData(ref simData)) {
+                    return;
+                }
             }
 
             // Update vertex positions
@@ -132,6 +140,7 @@ namespace Sim.Physics.Processing {
 
         /// Searches for the water surface using the water simulation data.
         private void ExecuteWaterSimulationSearchJob(WaterSimSearchData simData, Vector3[] vertices) {
+            using var marker = CraneProfiler.WaterQuery.Auto();
             // Prepare the first band
             WaterSimulationSearchJob searchJob = new() {
                 // Assign the simulation data
@@ -148,10 +157,12 @@ namespace Sim.Physics.Processing {
                 candidateLocationWSBuffer = candidatePositionWorldSpaceBuffer,
                 projectedPositionWSBuffer = projectedPositionWorldSpaceBuffer,
                 directionBuffer = directionBuffer,
-                stepCountBuffer = stepCountBuffer
+                stepCountBuffer = stepCountBuffer,
+                normalWSBuffer = normalWSBuffer
             };
 
-            // Schedule the job with one Execute per index in the results array and only 1 item per processing batch
+            // Schedule one search per work-stealing unit. A matched batch-size-eight experiment
+            // did not improve the 121-point production WamV patch.
             JobHandle handle = searchJob.Schedule(vertices.Length, 1);
             handle.Complete();
         }
@@ -244,6 +255,7 @@ namespace Sim.Physics.Processing {
             directionBuffer.Dispose();
             stepCountBuffer.Dispose();
             errorBuffer.Dispose();
+            normalWSBuffer.Dispose();
         }
     }
 }

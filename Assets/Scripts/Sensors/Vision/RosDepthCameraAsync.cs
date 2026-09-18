@@ -1,13 +1,32 @@
 using RosMessageTypes.Sensor;
-using RosMessageTypes.Std;
 using UnityEngine;
 using System;
+using System.Collections.Generic;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.HighDefinition;
 using Sim.Utils.ROS;
+using Sim.Utils.Performance;
 
 namespace Sim.Sensors.Vision {
     public class ROSDepthCameraAsync : MonoBehaviour, IROSSensor<ImageMsg> {
+        private readonly struct ReadbackMetadata {
+            public readonly long EpisodeId;
+            public readonly long Tick;
+            public readonly int Width;
+            public readonly int Height;
+            public readonly double SimulationTime;
+
+            public ReadbackMetadata(long episodeId, long tick, int width, int height,
+                double simulationTime) {
+                EpisodeId = episodeId;
+                Tick = tick;
+                Width = width;
+                Height = height;
+                SimulationTime = simulationTime;
+            }
+        }
+
+        private const int MaxPendingReadbacks = 2;
         private static byte[] s_ScratchSpace;
 
         [SerializeField] private RenderTexture depthRenderTexture;
@@ -20,10 +39,21 @@ namespace Sim.Sensors.Vision {
 
         private CustomPassVolume customPassVolume;
         private CameraDepthBake depthBakePass = new();
-        private Texture2D depthTex2D;
+        private byte[] depthData;
         private float timeSincePublish = 0.0f;
+        private bool alive;
+        private long requestTick;
+        private int requestWidth;
+        private int requestHeight;
+        private double requestSimulationTime;
+        private bool validateBufferReuse;
+        private long validatedEpisode = -1;
+        private readonly Queue<ReadbackMetadata> pendingReadbacks = new(MaxPendingReadbacks);
 
         private void Awake() {
+            alive = true;
+            validateBufferReuse = Array.IndexOf(Environment.GetCommandLineArgs(),
+                "--crane-depth-buffer-validation") >= 0;
             if (sensorCamera == null) {
                 Debug.LogError("Missing a camera reference.");
                 enabled = false;
@@ -34,60 +64,104 @@ namespace Sim.Sensors.Vision {
         }
 
         private void Start() {
-            sensorCamera = GetComponent<Camera>();
             customPassVolume = gameObject.AddComponent<CustomPassVolume>();
             customPassVolume.injectionPoint = CustomPassInjectionPoint.AfterPostProcess;
             customPassVolume.targetCamera = sensorCamera;
             depthBakePass.bakingCamera = sensorCamera;
             depthBakePass.depthTexture = depthRenderTexture;
             customPassVolume.customPasses.Add(depthBakePass);
-
             publisher.Initialize(topicName, frameId, CreateMessage, Hz, true);
         }
 
         public ImageMsg CreateMessage() {
-            return GetDepthImageMsg(depthTex2D, publisher.CreateHeader());
+            var message = new ImageMsg(publisher.CreateHeader(), (uint)requestHeight,
+                (uint)requestWidth, "32FC1", 0, (uint)(requestWidth * 4), depthData);
+            CraneRuntimeMetrics.ReportImage(true, requestWidth, requestHeight,
+                message.data, requestTick);
+            return message;
         }
 
         private void FixedUpdate() {
             timeSincePublish += Time.fixedDeltaTime;
-            if (timeSincePublish > 1.0f / Hz) {
-                RequestReadback(depthRenderTexture);
-                timeSincePublish = 0.0f;
+            if (timeSincePublish >= 1.0f / Hz) {
+                if (pendingReadbacks.Count < MaxPendingReadbacks) RequestReadback(depthRenderTexture);
+                else if (HasCurrentEpisodeRequest())
+                    CraneRuntimeMetrics.ReportStaleObservation();
+                timeSincePublish -= 1.0f / Hz;
             }
         }
 
         private void RequestReadback(RenderTexture targetTexture) {
+            pendingReadbacks.Enqueue(new ReadbackMetadata(CraneRuntimeMetrics.EpisodeId,
+                CraneRuntimeMetrics.SimulationTick, targetTexture.width, targetTexture.height,
+                Time.timeAsDouble));
             AsyncGPUReadback.Request(targetTexture, 0, TextureFormat.RFloat, OnReadbackComplete);
         }
 
         private void OnReadbackComplete(AsyncGPUReadbackRequest request) {
+            using var marker = CraneProfiler.OtherSensor.Auto();
+            using var sensorMarker = CraneProfiler.DepthReadback.Auto();
+            if (pendingReadbacks.Count == 0) return;
+            ReadbackMetadata metadata = pendingReadbacks.Dequeue();
+            if (!alive || metadata.EpisodeId != CraneRuntimeMetrics.EpisodeId) {
+                return;
+            }
             if (request.hasError) {
                 Debug.LogError("Failed to read back texture once");
+                CraneRuntimeMetrics.ReportFailedObservation();
                 return;
             }
 
-            if (depthTex2D == null || depthTex2D.width != depthRenderTexture.width || depthTex2D.height != depthRenderTexture.height) {
-                depthTex2D = new Texture2D(depthRenderTexture.width, depthRenderTexture.height, TextureFormat.RFloat, false);
+            requestTick = metadata.Tick;
+            requestWidth = metadata.Width;
+            requestHeight = metadata.Height;
+            requestSimulationTime = metadata.SimulationTime;
+            var requestBytes = request.GetData<byte>();
+            using (CraneProfiler.DepthCopy.Auto()) {
+                int requiredBytes = requestWidth * requestHeight * 4;
+                // ROS-TCP queues message objects and serializes their arrays asynchronously, so
+                // ROS-enabled frames must retain distinct payloads. With transport suppressed,
+                // Publish consumes the data synchronously for metrics and the buffer is reusable.
+                if (!ROSPublisher.TransportSuppressed || depthData == null ||
+                    depthData.Length != requiredBytes) {
+                    depthData = new byte[requiredBytes];
+                }
+                requestBytes.CopyTo(depthData);
+            }
+            using (CraneProfiler.DepthRowFlip.Auto()) {
+                ReverseInBlocks(depthData, requestWidth * 4, requestHeight);
             }
 
-            depthTex2D.LoadRawTextureData(request.GetData<byte>());
-            depthTex2D.Apply();
+            long episode = CraneRuntimeMetrics.EpisodeId;
+            if (validateBufferReuse && validatedEpisode != episode) {
+                int rowBytes = requestWidth * 4;
+                int mismatches = 0;
+                for (int row = 0; row < requestHeight; row++) {
+                    int destinationOffset = row * rowBytes;
+                    int sourceOffset = (requestHeight - 1 - row) * rowBytes;
+                    for (int column = 0; column < rowBytes; column++) {
+                        if (depthData[destinationOffset + column] != requestBytes[sourceOffset + column])
+                            mismatches++;
+                    }
+                }
+                CraneRuntimeMetrics.ReportDepthBufferValidation(depthData.Length, mismatches);
+                validatedEpisode = episode;
+            }
 
             // Publish via ROSPublisher
-            if (publisher != null) publisher.Publish();
+            using (CraneProfiler.DepthPublish.Auto()) {
+                if (publisher != null) publisher.Publish(requestTick, requestSimulationTime);
+            }
+            CraneRuntimeMetrics.ReportObservation(requestTick);
         }
 
-        private ImageMsg GetDepthImageMsg(Texture2D tex, HeaderMsg header) {
-            byte[] data = null;
-            string encoding = "32FC1";
-            int step = 4 * tex.width;
+        private void OnDestroy() => alive = false;
 
-            var floatData = tex.GetPixelData<float>(0).ToArray();
-            data = new byte[floatData.Length * 4];
-            Buffer.BlockCopy(floatData, 0, data, 0, data.Length);
-            ReverseInBlocks(data, tex.width * 4, tex.height);
-            return new ImageMsg(header, (uint)tex.height, (uint)tex.width, encoding, 0, (uint)step, data);
+        private bool HasCurrentEpisodeRequest() {
+            long episode = CraneRuntimeMetrics.EpisodeId;
+            foreach (ReadbackMetadata metadata in pendingReadbacks)
+                if (metadata.EpisodeId == episode) return true;
+            return false;
         }
 
         private void ReverseInBlocks(byte[] array, int blockSize, int numBlocks) {
