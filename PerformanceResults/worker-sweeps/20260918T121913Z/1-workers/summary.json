@@ -1,0 +1,24 @@
+{
+  "workerCount": 1,
+  "validWorkers": 1,
+  "invalidWorkers": 0,
+  "allWorkersValid": true,
+  "aggregateSimulatedSecondsPerSecond": 1.9965582911610544,
+  "aggregateValidSimulatedSecondsPerSecond": 1.9965582911610544,
+  "aggregateRejectedSimulatedSecondsPerSecond": 0,
+  "aggregateSimulatedSeconds": 15.976053146258504,
+  "maximumObservationQueueAgeTicks": 1,
+  "staleObservations": 0,
+  "failedObservations": 0,
+  "workers": [
+    {
+      "workerId": 0,
+      "valid": true,
+      "realTimeFactor": 1.9965582911610544,
+      "processCpuUtilizationPercent": 47.71428516083858,
+      "meanGpuFrameMilliseconds": 0.0,
+      "totalAllocatedMemoryBytes": 284185429,
+      "resultPath": "/home/lunarz/crane_sim/PerformanceResults/worker-sweeps/20260918T121913Z/1-workers/worker-0/result.json"
+    }
+  ]
+}

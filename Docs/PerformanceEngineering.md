@@ -311,6 +311,8 @@ Raw JSON is in `PerformanceResults/`.
 | Geometric depth, Null graphics, 1280×720 at 15 Hz, aerial fixture 2× | 1× accepted run | 300/300 frames, 1.996× RTF, zero stale/failures; 15.63 ms sensor work per acquisition | Accept 2× on reference machine |
 | Geometric depth, Null graphics, 1280×720 at 15 Hz, requested 4× | 2× accepted run | 454 frames over 30.30 simulated s, zero stale/failures, but only 2.908× RTF and 66.15% normalized process CPU | Reject 4× claim; CPU saturation boundary |
 | Geometric replacement in production Roboboat, Vulkan 1× | authored GPU depth owned the water render loop | 76 geometric frames, 51 LiDAR scans, 41 detection acquisitions, one 64×64 water driver, zero invalid water queries/stale/failures | Keep camera-ownership fix; not graphics-free aquatic support |
+| Train-CPU geometric depth worker sweep, 1280×720 at 15 Hz, requested 2× | single-worker acceptance | 1/2/4/8 workers: 1.997/3.989/4.690/4.779 aggregate valid simulated s/s; zero stale/failed observations | Keep multi-process scaling; two workers sustain 2× each, four/eight trade individual rate for density |
+| Eight Train-CPU workers, requested 1× vs 2× | 4.779 aggregate at requested 2× | 4.796 aggregate at requested 1×, maximum age 3 ticks, all valid | Treat as same saturation region; prefer lower request when per-worker catch-up pressure matters |
 | 72,000-ray LiDAR batch 500 → 64, 2× target profile | 0.738 ms/frame raycast; 1.003 ms full LiDAR | 0.692 ms raycast; 0.965 ms full LiDAR mean over 2 runs | Keep in production Roboboat prefab; all three equivalence gates passed |
 | 72,000-ray LiDAR batch 500 → 2000, 2× target profile | 0.739 ms/frame raycast | 0.899 ms raycast | Rejected; 21.8% slower |
 
@@ -326,6 +328,11 @@ Selected machine-readable outputs for the geometric-depth acceptance runs are tr
 `PerformanceResults/geometric-depth-*` and `PerformanceResults/train-cpu-aerial-*`. The profile's
 2× acceptance point is the `train-cpu-aerial-depth-2x-final` result; the requested 4× run is kept
 as negative evidence rather than reported as 4× throughput.
+
+The CPU-depth worker sweep is tracked under
+`PerformanceResults/worker-sweeps/20260918T121913Z` (1/2/4 workers requested at 2×),
+`20260918T121959Z` (eight requested at 2×), and `20260918T122024Z` (eight requested at 1×).
+These runs isolate Unity process scaling and explicitly exclude ROS/Nav2/bridge/SITL resource use.
 
 LiDAR now keeps its invariant local beam table in persistent native storage and builds world-space
 `RaycastCommand` entries in a strict/high-precision Burst `IJobParallelFor` chained into the

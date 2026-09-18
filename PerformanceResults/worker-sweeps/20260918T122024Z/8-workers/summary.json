@@ -1,0 +1,87 @@
+{
+  "workerCount": 8,
+  "validWorkers": 8,
+  "invalidWorkers": 0,
+  "allWorkersValid": true,
+  "aggregateSimulatedSecondsPerSecond": 4.795518814933889,
+  "aggregateValidSimulatedSecondsPerSecond": 4.795518814933889,
+  "aggregateRejectedSimulatedSecondsPerSecond": 0,
+  "aggregateSimulatedSeconds": 39.31761081349206,
+  "maximumObservationQueueAgeTicks": 3,
+  "staleObservations": 0,
+  "failedObservations": 0,
+  "workers": [
+    {
+      "workerId": 0,
+      "valid": true,
+      "realTimeFactor": 0.6182188785955538,
+      "processCpuUtilizationPercent": 12.92077428797075,
+      "meanGpuFrameMilliseconds": 0.0,
+      "totalAllocatedMemoryBytes": 284186878,
+      "resultPath": "/home/lunarz/crane_sim/PerformanceResults/worker-sweeps/20260918T122024Z/8-workers/worker-0/result.json"
+    },
+    {
+      "workerId": 1,
+      "valid": true,
+      "realTimeFactor": 0.6013267922159832,
+      "processCpuUtilizationPercent": 13.475733127086267,
+      "meanGpuFrameMilliseconds": 0.0,
+      "totalAllocatedMemoryBytes": 284199854,
+      "resultPath": "/home/lunarz/crane_sim/PerformanceResults/worker-sweeps/20260918T122024Z/8-workers/worker-1/result.json"
+    },
+    {
+      "workerId": 2,
+      "valid": true,
+      "realTimeFactor": 0.5825495762523675,
+      "processCpuUtilizationPercent": 11.453340532480844,
+      "meanGpuFrameMilliseconds": 0.0,
+      "totalAllocatedMemoryBytes": 284200622,
+      "resultPath": "/home/lunarz/crane_sim/PerformanceResults/worker-sweeps/20260918T122024Z/8-workers/worker-2/result.json"
+    },
+    {
+      "workerId": 3,
+      "valid": true,
+      "realTimeFactor": 0.6223212857651012,
+      "processCpuUtilizationPercent": 12.390416536181455,
+      "meanGpuFrameMilliseconds": 0.0,
+      "totalAllocatedMemoryBytes": 284233406,
+      "resultPath": "/home/lunarz/crane_sim/PerformanceResults/worker-sweeps/20260918T122024Z/8-workers/worker-3/result.json"
+    },
+    {
+      "workerId": 4,
+      "valid": true,
+      "realTimeFactor": 0.6395790518800929,
+      "processCpuUtilizationPercent": 12.562792463041367,
+      "meanGpuFrameMilliseconds": 0.0,
+      "totalAllocatedMemoryBytes": 284199062,
+      "resultPath": "/home/lunarz/crane_sim/PerformanceResults/worker-sweeps/20260918T122024Z/8-workers/worker-4/result.json"
+    },
+    {
+      "workerId": 5,
+      "valid": true,
+      "realTimeFactor": 0.5550017879032982,
+      "processCpuUtilizationPercent": 12.21400337270615,
+      "meanGpuFrameMilliseconds": 0.0,
+      "totalAllocatedMemoryBytes": 284200350,
+      "resultPath": "/home/lunarz/crane_sim/PerformanceResults/worker-sweeps/20260918T122024Z/8-workers/worker-5/result.json"
+    },
+    {
+      "workerId": 6,
+      "valid": true,
+      "realTimeFactor": 0.5602262671259084,
+      "processCpuUtilizationPercent": 12.59908831820454,
+      "meanGpuFrameMilliseconds": 0.0,
+      "totalAllocatedMemoryBytes": 284201950,
+      "resultPath": "/home/lunarz/crane_sim/PerformanceResults/worker-sweeps/20260918T122024Z/8-workers/worker-6/result.json"
+    },
+    {
+      "workerId": 7,
+      "valid": true,
+      "realTimeFactor": 0.6162951751955837,
+      "processCpuUtilizationPercent": 13.669426695246495,
+      "meanGpuFrameMilliseconds": 0.0,
+      "totalAllocatedMemoryBytes": 284200082,
+      "resultPath": "/home/lunarz/crane_sim/PerformanceResults/worker-sweeps/20260918T122024Z/8-workers/worker-7/result.json"
+    }
+  ]
+}

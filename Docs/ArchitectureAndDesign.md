@@ -49,7 +49,7 @@ long-duration result streaming, and broader domain fixtures still need work.
 | Multirotor dynamics | Implemented and repeat-validated fixture | Analytic checks pass; real-airframe and SITL qualification absent |
 | Collision optimization | Partial, coverage validated | Classified fixture passes required/excluded pairs; production aquatic objects remain on Default |
 | Episode reset | Scene reload validated; in-place absent | A→B→A scene-reload baseline passes within empirical aquatic tolerances |
-| Multi-process workers | Implemented; target sensors validated through 4 workers at 2× | RGB-off depth+detection+LiDAR reaches 8.003 valid simulated s/s; 5/8-worker runs fail depth freshness; ROS processes excluded |
+| Multi-process workers | Implemented; GPU and CPU-depth sweeps validated | Train-GPU reaches 8.003 valid simulated s/s across four 2× workers; Train-CPU dense depth reaches 4.779 across eight 2×-requested workers (each below real time); ROS processes excluded |
 | Train-GPU profile | Implemented and aquatic-validated at 2× | RGB/spectators off with depth+detections+LiDAR retained; still requires graphics-backed HDRP water |
 | Train-CPU profile | Implemented and land/aerial validated | Strict `-nographics` execution with zero enabled Cameras, geometric depth and camera info; aquatic scenes are explicitly rejected |
 | Interactive-low profile | Implemented and aquatic-validated | 960×540 spectator/window output with fixed 1280×720 robot camera targets unchanged; modest 1.97% GPU-frame reduction on the reference machine |

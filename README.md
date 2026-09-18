@@ -138,6 +138,12 @@ second. The current target Train-GPU workload with depth, detections, and LiDAR 
 aggregate valid simulated seconds/second across four 2× workers. These measurements are hardware-
 and-scene-specific baselines, not universal guarantees.
 
+For strict Train-CPU with 1280×720 geometric depth at 15 Hz, 1/2/4/8 Unity workers requested at
+2× reached 1.997/3.989/4.690/4.779 aggregate valid simulated seconds/second. Eight workers
+requested at 1× reached 4.796, statistically the same saturation region; each worker ran below
+real time. These CPU sweeps exclude ROS/Nav2 processes and should not be generalized to a closed
+loop deployment.
+
 ## Current maturity
 
 CRANE has automated standalone benchmarks, subsystem profiler markers, sensor delivery checks,

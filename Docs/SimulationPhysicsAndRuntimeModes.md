@@ -243,7 +243,7 @@ different physics implementation unless stated explicitly.
 | Profile | Rendering and sensors | Physics/control intent | Current validation |
 |---|---|---|---|
 | `train-gpu` | RGB and spectators off; depth, detections, LiDAR and navigation sensors retained | Accelerated graphics-backed training, including aquatic | Roboboat valid at about 2× on reference hardware |
-| `train-cpu` | All Cameras off; RGB/GPU passes off; geometric `32FC1` depth, camera info, detections and non-camera sensors remain | Strict `-nographics` non-aquatic training | Dense depth plus land/multirotor fixtures pass at 2×; aquatic rejected |
+| `train-cpu` | All Cameras off; RGB/GPU passes off; geometric `32FC1` depth, camera info, detections and non-camera sensors remain | Strict `-nographics` non-aquatic training | Dense depth plus land/multirotor fixtures pass at 2×; 1/2/4/8 worker sweep valid; aquatic rejected |
 | `interactive-low` | Task sensors unchanged; spectator/window defaults to 960×540 | Human/Nav2 development on weaker hardware | Aquatic validity retained; modest GPU saving |
 | `interactive-high` | Full presentation and configured sensors | Human parameter tuning and Nav2 development | Profile application validated; hardware cost is scene-dependent |
 | `evaluation-high` | Full presentation and configured sensors | Live high-fidelity evaluation | Implemented; task-specific evaluation remains user-owned |
