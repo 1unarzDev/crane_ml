@@ -1,0 +1,29 @@
+{
+  "schema": "crane-nav2-costmap-validation-v1",
+  "scope": "nav2-controller-server-follow-path-with-local-costmap",
+  "nav2Components": [
+    "nav2_lifecycle_manager/lifecycle_manager",
+    "nav2_controller/controller_server",
+    "nav2_costmap_2d/VoxelLayer",
+    "nav2_costmap_2d/InflationLayer",
+    "nav2_regulated_pure_pursuit_controller/RegulatedPurePursuitController"
+  ],
+  "observationTopic": "/points",
+  "observationFrame": "lidar_link",
+  "costmapTopic": "/local_costmap/costmap",
+  "costmapMessagesObserved": 5,
+  "maximumOccupiedOrInflatedCells": 2200,
+  "followPathStatus": "succeeded",
+  "goalAttempts": 1,
+  "controllerCommands": 80,
+  "unityMeasuredAcceptedActions": 79,
+  "unityMeasuredRejectedActions": 0,
+  "unityMeasuredStaleActions": 0,
+  "unityMeasuredCrossEpisodeActions": 0,
+  "excludedComponents": [
+    "global_planner",
+    "localization",
+    "bt_navigator",
+    "training_lockstep"
+  ]
+}

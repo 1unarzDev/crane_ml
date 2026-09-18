@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using RosMessageTypes.BuiltinInterfaces;
 using RosMessageTypes.Geometry;
@@ -28,11 +29,13 @@ namespace Sim.Controllers {
         private string baseFrame;
         private double publishPeriod;
         private double nextPublishTime;
+        private readonly List<Transform> childFrames = new();
 
         public int ResetPriority => -80;
 
         public void Initialize(Component target, string odomTopic, string tfTopic,
-            string parentFrame, string childFrame, float publishRateHz) {
+            string parentFrame, string childFrame, float publishRateHz,
+            IReadOnlyList<string> requestedChildFrames) {
             bodyComponent = target != null ? target : throw new ArgumentNullException(nameof(target));
             body = target switch {
                 Rigidbody rigidbody => new RigidbodyAdapter(rigidbody),
@@ -46,6 +49,7 @@ namespace Sim.Controllers {
             baseFrame = childFrame;
             publishPeriod = 1.0 / Math.Max(0.1f, publishRateHz);
             nextPublishTime = 0;
+            CacheChildFrames(requestedChildFrames);
 
             ros = ROSConnection.GetOrCreateInstance();
             ros.RegisterPublisher<OdometryMsg>(odometryTopic);
@@ -53,7 +57,25 @@ namespace Sim.Controllers {
             Debug.Log($"CRANE_ROS_NAV_STATE_READY body={bodyComponent.name} " +
                       $"bodyType={bodyComponent.GetType().Name} odom={odometryTopic} " +
                       $"tf={transformTopic} frames={odometryFrame}->{baseFrame} " +
-                      $"rateHz={publishRateHz:R}");
+                      $"rateHz={publishRateHz:R} childFrames={childFrames.Count}");
+        }
+
+        private void CacheChildFrames(IReadOnlyList<string> requestedFrames) {
+            childFrames.Clear();
+            if (requestedFrames == null || requestedFrames.Count == 0) return;
+            Transform[] descendants = body.transform.GetComponentsInChildren<Transform>(true);
+            foreach (string requested in requestedFrames) {
+                Transform match = null;
+                foreach (Transform candidate in descendants) {
+                    if (candidate != body.transform && candidate.name == requested) {
+                        match = candidate;
+                        break;
+                    }
+                }
+                if (match != null) childFrames.Add(match);
+                else Debug.LogWarning($"CRANE_ROS_NAV_CHILD_FRAME_UNAVAILABLE " +
+                                      $"body={bodyComponent.name} frame={requested}");
+            }
         }
 
         public void CaptureEpisodeInitialState() { }
@@ -92,15 +114,30 @@ namespace Sim.Controllers {
             odometry.twist.twist.linear = linear;
             odometry.twist.twist.angular = angular;
 
-            var transform = new TransformStampedMsg {
+            var rootTransform = new TransformStampedMsg {
                 header = CreateHeader(simulationTime, odometryFrame),
                 child_frame_id = baseFrame
             };
-            transform.transform.translation = new Vector3Msg(position.x, position.y, position.z);
-            transform.transform.rotation = orientation;
+            rootTransform.transform.translation = new Vector3Msg(position.x, position.y, position.z);
+            rootTransform.transform.rotation = orientation;
+
+            var transforms = new TransformStampedMsg[childFrames.Count + 1];
+            transforms[0] = rootTransform;
+            for (int i = 0; i < childFrames.Count; i++) {
+                Transform child = childFrames[i];
+                Vector3 localPosition = body.transform.InverseTransformPoint(child.position);
+                Quaternion localRotation = Quaternion.Inverse(body.rotation) * child.rotation;
+                var childTransform = new TransformStampedMsg {
+                    header = CreateHeader(simulationTime, baseFrame),
+                    child_frame_id = child.name
+                };
+                childTransform.transform.translation = ToRosVector(localPosition);
+                childTransform.transform.rotation = localRotation.To<FLU>();
+                transforms[i + 1] = childTransform;
+            }
 
             ros.Publish(odometryTopic, odometry);
-            ros.Publish(transformTopic, new TFMessageMsg(new[] { transform }));
+            ros.Publish(transformTopic, new TFMessageMsg(transforms));
         }
 
         internal static PointMsg ToRosPoint(Vector3 unity) =>
@@ -127,6 +164,7 @@ namespace Sim.Controllers {
         private static string odometryFrame;
         private static string baseFrame;
         private static float publishRate;
+        private static string[] childFrames;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Install() {
@@ -139,6 +177,12 @@ namespace Sim.Controllers {
             odometryFrame = ReadString(args, "--crane-ros-odom-frame", "odom");
             baseFrame = ReadString(args, "--crane-ros-base-frame", "base_link");
             publishRate = ReadFloat(args, "--crane-ros-nav-state-hz", 50f);
+            string rawChildFrames = ReadString(args, "--crane-ros-nav-child-frames",
+                "lidar_link,front_camera_link,imu_link,gps_link");
+            childFrames = string.Equals(rawChildFrames, "none", StringComparison.OrdinalIgnoreCase)
+                ? Array.Empty<string>()
+                : rawChildFrames.Split(',', StringSplitOptions.RemoveEmptyEntries);
+            for (int i = 0; i < childFrames.Length; i++) childFrames[i] = childFrames[i].Trim();
             SceneManager.sceneLoaded += OnSceneLoaded;
         }
 
@@ -161,7 +205,7 @@ namespace Sim.Controllers {
             var state = body.GetComponent<CraneROSNavigationState>() ??
                         body.gameObject.AddComponent<CraneROSNavigationState>();
             state.Initialize(body, odometryTopic, transformTopic, odometryFrame, baseFrame,
-                publishRate);
+                publishRate, childFrames);
         }
 
         private static string ReadString(string[] args, string key, string fallback) {

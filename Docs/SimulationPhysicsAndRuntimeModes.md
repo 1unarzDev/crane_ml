@@ -254,16 +254,19 @@ standard Nav2 message still cannot prove that a planner internally consumed that
 
 Enable authoritative navigation state with `--crane-ros-nav-state`. The adapter locates the same
 Rigidbody or ArticulationBody that owns the production Omni-X controller and publishes
-`nav_msgs/Odometry` on `/crane/odom` plus `odom -> base_link` on `/tf` at 50 Hz. Pose conversion is
+`nav_msgs/Odometry` on `/crane/odom` plus `odom -> base_link` on `/tf` at 50 Hz. It also publishes
+`base_link` edges for the discovered `lidar_link`, `front_camera_link`, `imu_link`, and `gps_link`
+so task sensors have a coherent TF tree. Pose conversion is
 Unity `(x,y,z)` to ROS `(z,-x,y)`; both linear and angular velocities are first transformed into
 the body frame and then converted to ROS FLU. Odometry and TF share the same episode-relative
 timestamp. Override topics, frames, or rate with `--crane-ros-odom-topic`,
 `--crane-ros-tf-topic`, `--crane-ros-odom-frame`, `--crane-ros-base-frame`, and
-`--crane-ros-nav-state-hz`.
+`--crane-ros-nav-state-hz`; override the comma-separated child set with
+`--crane-ros-nav-child-frames` or pass `none`.
 
 The included controller-level acceptance fixture runs the real Jazzy Nav2 lifecycle manager,
-`controller_server`, local costmap, Regulated Pure Pursuit plugin, and `FollowPath` action. It does
-not run a global planner, localization, sensor obstacle layer, behavior-tree navigator, or
+`controller_server`, LiDAR-fed voxel/inflation local costmap, Regulated Pure Pursuit plugin, and
+`FollowPath` action. It does not run a global planner, localization, behavior-tree navigator, or
 lockstep. Its bridge stamps each returned command with the newest odometry delivered to the
 fixture; this bounds delivery age but does not reveal which sample Nav2 internally consumed.
 

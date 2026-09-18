@@ -39,6 +39,12 @@ CRANE_EXTRA_ARGS='--crane-profile train-gpu --crane-ros-nav-state --crane-ros-cm
     "${root_dir}/Tools/Performance/run_worker.sh" 0 &
 player_pid=$!
 
+# CraneBenchmarkRunner starts a fresh measured episode after warmup. Sending control before that
+# boundary correctly produces a cross-episode rejection, so wait past warmup plus scene/ROS
+# activation margin before presenting the acceptance goal.
+fixture_delay="${CRANE_FIXTURE_DELAY:-$(awk -v warmup="${CRANE_WARMUP:-3}" 'BEGIN { print warmup + 4 }')}"
+sleep "${fixture_delay}"
+
 docker run --rm --name "${fixture_name}" --network host --ipc host \
     -v "${root_dir}:/workspace/crane_sim:ro" -v "${result_root}:/results" \
     "${image}" bash -lc \

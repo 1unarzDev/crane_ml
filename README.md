@@ -117,9 +117,9 @@ the ROS 2 Jazzy image and endpoint setup notes. Its navigation packages are sepa
 repositories, not part of this checkout. CRANE has a live ROS-TCP sensor-transport acceptance
 run; the current `mhseals_nav` launch still assumes RGB/RTAB-Map and MAVROS, so a depth-only Nav2
 full-stack closed-loop acceptance run remains outstanding. A real Jazzy Nav2 `controller_server`
-`FollowPath` loop is validated with CRANE odometry/TF and returned commands, but that bounded
-fixture intentionally excludes global planning, sensor-populated costmaps, localization, the BT
-navigator, and lockstep. It is not qualification of the complete project-specific Nav2 graph.
+`FollowPath` loop is validated with CRANE odometry/TF, a LiDAR-populated voxel local costmap, and
+returned commands, but that bounded fixture intentionally excludes global planning, localization,
+the BT navigator, and lockstep. It is not qualification of the complete project-specific Nav2 graph.
 
 URDFs can be imported from the Unity hierarchy context menu with **3D Object > URDF Model
 (Import)**. Runtime code is organized under `Assets/Scripts`; start with the architecture guide
@@ -162,8 +162,8 @@ coordinator. Profiling has already reduced LiDAR time by 69.3% and its managed a
 Important limitations remain: full-resolution camera readback caps GPU-sensor acceleration;
 graphics-free aquatic water is absent; geometric CPU depth does not model render-only surfaces;
 water queries are issued component by component; live ROS-TCP transport and stamped returned
-actions and a real Nav2 controller-server loop are validated, but planner/costmap integration and
-Nav2 lockstep are not; in-place reset does not yet cover every controller, external ROS state, or
+actions and a real Nav2 controller-server plus LiDAR local-costmap loop are validated, but global
+planning/BT/localization and Nav2 lockstep are not; in-place reset does not yet cover every controller, external ROS state, or
 stateful water effect; and the land/aerial scenes are qualification fixtures rather than production
 environments. Read the documentation before treating a run as training-valid.
 

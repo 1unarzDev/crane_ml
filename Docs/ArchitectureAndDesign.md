@@ -44,7 +44,7 @@ broader domain fixtures still need work.
 | Semantic detections without RGB | Implemented, weakly validated | Frustum/range/center-ray occlusion; partial visibility and correlated noise absent |
 | LiDAR | Implemented and validated | Persistent native buffers plus strict Burst command generation and PointCloud2 packing; result traversal remains main-thread work |
 | Authoritative replay | Experimental vertical slice | Indexed body/joint playback, accepted actions, task outcomes, v4 build provenance, and v5 observation metadata work; production reward adapters/non-regenerable sensor payloads/full-water state remain incomplete |
-| ROS publishing and MAVROS UDP | Implemented; sensor and Nav2 controller transport live-validated | Jazzy endpoint accepted depth/detections/LiDAR/clock/odometry/TF at 1×; `controller_server` FollowPath moved the production aquatic body; full planner/BT/localization and MAVROS acceptance remain |
+| ROS publishing and MAVROS UDP | Implemented; sensor and Nav2 controller transport live-validated | Jazzy endpoint accepted depth/detections/LiDAR/clock/odometry/TF at 1×; `controller_server` FollowPath used a LiDAR voxel local costmap and moved the production aquatic body; global planner/BT/localization and MAVROS acceptance remain |
 | Action provenance/lockstep control | Partial, controller loop validated | ROS/SITL source-observation, receive, and application ticks plus sequence/episode rejection are wired; Nav2 commands are paired with latest delivered odometry, but internal consumption and lockstep remain unproven |
 | Ackermann land dynamics | Implemented and repeat-validated fixture | Flat-ground acceleration/coast/brake/turn only; production platform gaps remain |
 | Multirotor dynamics | Implemented and repeat-validated fixture | Analytic checks pass; real-airframe and SITL qualification absent |
@@ -300,12 +300,14 @@ An additional Jazzy acceptance run enables `CraneROSNavigationState` on the prod
 matching `odom -> base_link` transform, including full body-frame linear and angular velocity.
 The real Nav2 `controller_server`, lifecycle manager, local costmap, and Regulated Pure Pursuit
 `FollowPath` action then returned standard `Twist` commands through the stamped bridge. During the
-accepted run FollowPath reached terminal success, CRANE accepted 78 measured fixed-step actions
-with zero stale/rejected actions, moved the physical body 0.496 m, and retained the full RGB-off
-depth/LiDAR/detection workload at 1.001× RTF.
-This is specifically a **Nav2 controller-server closed loop**: the fixture local costmap contains
-only an inflation layer and it does not run a planner, obstacle layer, localization, BT navigator,
-or training lockstep. Pairing each returned command with the latest delivered odometry is bounded
+accepted run FollowPath reached terminal success, CRANE accepted 79 measured fixed-step actions
+with zero stale/rejected/cross-episode actions, moved the physical body 0.535 m, and retained the
+full RGB-off depth/LiDAR/detection workload at 1.001× RTF. The voxel layer consumed `/points` via
+the published `base_link -> lidar_link` transform; five observed costmaps contained as many as
+2,200 occupied or inflated cells.
+This is specifically a **Nav2 controller-server closed loop**: the fixture has a LiDAR-fed voxel
+layer plus inflation, but it does not run a global planner, localization, BT navigator, or training
+lockstep. Pairing each returned command with the latest delivered odometry is bounded
 delivery provenance, not proof of Nav2's internal sample choice.
 
 When ROS processes are split across Docker containers, all participating Fast DDS containers use

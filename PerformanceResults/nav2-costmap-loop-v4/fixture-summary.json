@@ -1,0 +1,22 @@
+{
+  "controllerCommands": 80,
+  "costmapMessages": 5,
+  "costmapTopic": "/local_costmap/costmap",
+  "deltaX": 0.009648799896240234,
+  "deltaY": -0.5345277786254883,
+  "displacementMeters": 0.5346148571277614,
+  "goalAttempts": 1,
+  "goalToFirstCommandWallSeconds": 0.001210007001645863,
+  "inputTopic": "/nav2/cmd_vel",
+  "inputType": "twist",
+  "maximumOccupiedCostmapCells": 2200,
+  "odomTopic": "/crane/odom",
+  "odometryMessages": 300,
+  "outputTopic": "/crane/cmd_vel_stamped",
+  "provenance": "latest-delivered-odometry-not-proven-internal-consumption",
+  "returnedCommands": 80,
+  "schema": "crane-nav2-controller-fixture-v1",
+  "scope": "nav2-controller-server-follow-path",
+  "status": "succeeded",
+  "wallSeconds": 9.033515533010359
+}

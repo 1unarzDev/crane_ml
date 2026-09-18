@@ -14,7 +14,7 @@ import time
 import rclpy
 from geometry_msgs.msg import PoseStamped, Twist, TwistStamped
 from nav2_msgs.action import FollowPath
-from nav_msgs.msg import Odometry, Path
+from nav_msgs.msg import OccupancyGrid, Odometry, Path
 from rclpy.action import ActionClient
 from rclpy.node import Node
 
@@ -36,15 +36,21 @@ class FollowPathFixture(Node):
         self.odom_count = 0
         self.command_count = 0
         self.output_count = 0
+        self.costmap_count = 0
+        self.maximum_occupied_costmap_cells = 0
         self.first_command_wall = None
         self.started_wall = time.monotonic()
         self.goal_sent_wall = None
         self.goal_handle = None
+        self.goal_attempts = 0
+        self.next_goal_attempt_wall = 0.0
         self.result_status = None
         self.done = False
         self.publisher = self.create_publisher(
             TwistStamped, args.output_topic, 10)
         self.create_subscription(Odometry, args.odom_topic, self.on_odom, 20)
+        self.create_subscription(OccupancyGrid, args.costmap_topic,
+                                 self.on_costmap, 10)
         if args.input_type == 'stamped':
             self.create_subscription(
                 TwistStamped, args.input_topic, self.on_stamped_command, 20)
@@ -58,6 +64,12 @@ class FollowPathFixture(Node):
         self.odom_count += 1
         if self.initial_odom is None:
             self.initial_odom = message
+
+    def on_costmap(self, message):
+        self.costmap_count += 1
+        occupied = sum(1 for value in message.data if value > 0)
+        self.maximum_occupied_costmap_cells = max(
+            self.maximum_occupied_costmap_cells, occupied)
 
     def forward(self, twist):
         # Ignore commands from an older/preempted action while this fixture is waiting to send.
@@ -88,6 +100,8 @@ class FollowPathFixture(Node):
             return
         if self.goal_handle is not None or self.initial_odom is None:
             return
+        if time.monotonic() < self.next_goal_attempt_wall:
+            return
         if not self.action.server_is_ready():
             return
         self.send_goal()
@@ -111,14 +125,22 @@ class FollowPathFixture(Node):
         goal.path = path
         goal.controller_id = 'FollowPath'
         goal.goal_checker_id = 'goal_checker'
+        if hasattr(goal, 'progress_checker_id'):
+            goal.progress_checker_id = 'progress_checker'
         self.goal_sent_wall = time.monotonic()
+        self.goal_attempts += 1
         future = self.action.send_goal_async(goal)
         future.add_done_callback(self.on_goal_response)
 
     def on_goal_response(self, future):
         self.goal_handle = future.result()
         if not self.goal_handle.accepted:
-            self.finish('rejected')
+            # The action server is discoverable while controller_server is still transitioning
+            # through its lifecycle. Retry this bounded startup condition instead of converting a
+            # normal activation race into a fixture failure.
+            self.goal_handle = None
+            self.goal_sent_wall = None
+            self.next_goal_attempt_wall = time.monotonic() + 0.5
             return
         result = self.goal_handle.get_result_async()
         result.add_done_callback(self.on_result)
@@ -151,6 +173,10 @@ class FollowPathFixture(Node):
             'odometryMessages': self.odom_count,
             'controllerCommands': self.command_count,
             'returnedCommands': self.output_count,
+            'goalAttempts': self.goal_attempts,
+            'costmapTopic': self.args.costmap_topic,
+            'costmapMessages': self.costmap_count,
+            'maximumOccupiedCostmapCells': self.maximum_occupied_costmap_cells,
             'goalToFirstCommandWallSeconds': (
                 self.first_command_wall - self.goal_sent_wall
                 if self.first_command_wall is not None and self.goal_sent_wall is not None
@@ -178,6 +204,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--odom-topic', default='/crane/odom')
     parser.add_argument('--input-topic', default='/nav2/cmd_vel')
+    parser.add_argument('--costmap-topic', default='/local_costmap/costmap')
     parser.add_argument('--input-type', choices=('twist', 'stamped'), default='stamped')
     parser.add_argument('--output-topic', default='/crane/cmd_vel_stamped')
     parser.add_argument('--action-name', default='/follow_path')
