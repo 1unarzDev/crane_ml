@@ -1,0 +1,36 @@
+{
+  "schema": "crane-nav2-navigation-validation-v1",
+  "scope": "nav2-navigate-to-pose-authoritative-odom",
+  "status": "succeeded",
+  "nav2Components": [
+    "nav2_lifecycle_manager/lifecycle_manager",
+    "nav2_bt_navigator/bt_navigator",
+    "nav2_planner/planner_server",
+    "nav2_navfn_planner/NavfnPlanner",
+    "nav2_controller/controller_server",
+    "nav2_regulated_pure_pursuit_controller/RegulatedPurePursuitController",
+    "nav2_behaviors/behavior_server",
+    "nav2_costmap_2d/VoxelLayer",
+    "nav2_costmap_2d/InflationLayer"
+  ],
+  "globalFrame": "odom",
+  "localization": "authoritative-unity-odometry-no-localizer",
+  "lidarTopic": "/points",
+  "action": "/navigate_to_pose",
+  "controllerCommands": 80,
+  "unityMeasuredAcceptedActions": 79,
+  "unityMeasuredRejectedActions": 0,
+  "unityMeasuredStaleActions": 0,
+  "unityMeasuredCrossEpisodeActions": 0,
+  "physicalDisplacementMeters": 0.5760332952735789,
+  "goalToFirstCommandWallSeconds": 0.022421478992328048,
+  "localCostmapMessagesObserved": 4,
+  "maximumOccupiedOrInflatedLocalCostmapCells": 3265,
+  "realTimeFactor": 1.00063569833123,
+  "excludedCapabilities": [
+    "localization-or-slam",
+    "map-server-static-map",
+    "training-lockstep",
+    "multi-worker-nav2-scaling"
+  ]
+}

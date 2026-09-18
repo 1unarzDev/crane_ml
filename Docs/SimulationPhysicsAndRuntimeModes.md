@@ -264,11 +264,13 @@ timestamp. Override topics, frames, or rate with `--crane-ros-odom-topic`,
 `--crane-ros-nav-state-hz`; override the comma-separated child set with
 `--crane-ros-nav-child-frames` or pass `none`.
 
-The included controller-level acceptance fixture runs the real Jazzy Nav2 lifecycle manager,
-`controller_server`, LiDAR-fed voxel/inflation local costmap, Regulated Pure Pursuit plugin, and
-`FollowPath` action. It does not run a global planner, localization, behavior-tree navigator, or
-lockstep. Its bridge stamps each returned command with the newest odometry delivered to the
-fixture; this bounds delivery age but does not reveal which sample Nav2 internally consumed.
+The included acceptance fixture runs the real Jazzy Nav2 lifecycle manager, BT navigator, NavFn
+planner, behavior server, LiDAR-fed voxel/inflation global and local costmaps, Regulated Pure
+Pursuit controller, and `NavigateToPose` action. It uses authoritative Unity `odom` as its global
+frame and therefore does not validate localization/SLAM, static-map navigation, or lockstep. Its
+bridge stamps each returned command with the newest odometry delivered to the fixture; this
+bounds delivery age but does not reveal which sample Nav2 internally consumed. Set
+`CRANE_NAV2_ACTION_MODE=follow-path` to run the narrower controller-only action.
 
 `Clock.time` and published `/clock` are episode-relative, not process-uptime-relative. Scene load
 or an explicit in-place reset starts the authoritative episode clock at zero. Runtime scene
@@ -375,17 +377,17 @@ an explicit non-shared-memory transport); graph discovery alone does not prove p
 If the full stack cannot keep up, lower the requested RTF or use bounded rejection; CRANE does not
 currently provide a Nav2 lockstep barrier.
 
-Run the reproducible controller-server vertical slice after building the player and the
+Run the reproducible Nav2 navigation vertical slice after building the player and the
 `lunarzdev/astro:cuda` image/workspace are available:
 
 ```bash
 Tools/Performance/run_nav2_controller_fixture.sh
 ```
 
-The script owns the ROS-TCP endpoint, shared IPC configuration, lifecycle manager,
-`controller_server`, action client/command bridge, Unity worker, logs, and result directory. Its
-scope is deliberately named `nav2-controller-server-follow-path`; do not report it as a complete
-Nav2 planner/costmap/BT navigation qualification.
+The script owns the ROS-TCP endpoint, shared IPC configuration, lifecycle manager, planner,
+global/local costmaps, BT navigator, behaviors, controller, action client/command bridge, Unity
+worker, logs, and result directory. Its default scope is `nav2-navigate-to-pose`; report it as an
+authoritative-odom navigation qualification, not localization/SLAM or training lockstep.
 
 Run strict graphics-free land or aerial physics:
 

@@ -13,7 +13,7 @@ import time
 
 import rclpy
 from geometry_msgs.msg import PoseStamped, Twist, TwistStamped
-from nav2_msgs.action import FollowPath
+from nav2_msgs.action import FollowPath, NavigateToPose
 from nav_msgs.msg import OccupancyGrid, Odometry, Path
 from rclpy.action import ActionClient
 from rclpy.node import Node
@@ -56,7 +56,10 @@ class FollowPathFixture(Node):
                 TwistStamped, args.input_topic, self.on_stamped_command, 20)
         else:
             self.create_subscription(Twist, args.input_topic, self.on_command, 20)
-        self.action = ActionClient(self, FollowPath, args.action_name)
+        self.action_name = args.action_name or (
+            '/navigate_to_pose' if args.action_mode == 'navigate-to-pose' else '/follow_path')
+        action_type = NavigateToPose if args.action_mode == 'navigate-to-pose' else FollowPath
+        self.action = ActionClient(self, action_type, self.action_name)
         self.timer = self.create_timer(0.05, self.tick)
 
     def on_odom(self, message):
@@ -121,12 +124,16 @@ class FollowPathFixture(Node):
             pose.pose.position.z = odom.pose.pose.position.z
             pose.pose.orientation = odom.pose.pose.orientation
             path.poses.append(pose)
-        goal = FollowPath.Goal()
-        goal.path = path
-        goal.controller_id = 'FollowPath'
-        goal.goal_checker_id = 'goal_checker'
-        if hasattr(goal, 'progress_checker_id'):
-            goal.progress_checker_id = 'progress_checker'
+        if self.args.action_mode == 'navigate-to-pose':
+            goal = NavigateToPose.Goal()
+            goal.pose = path.poses[-1]
+        else:
+            goal = FollowPath.Goal()
+            goal.path = path
+            goal.controller_id = 'FollowPath'
+            goal.goal_checker_id = 'goal_checker'
+            if hasattr(goal, 'progress_checker_id'):
+                goal.progress_checker_id = 'progress_checker'
         self.goal_sent_wall = time.monotonic()
         self.goal_attempts += 1
         future = self.action.send_goal_async(goal)
@@ -164,7 +171,10 @@ class FollowPathFixture(Node):
             displacement = math.hypot(dx, dy)
         summary = {
             'schema': 'crane-nav2-controller-fixture-v1',
-            'scope': 'nav2-controller-server-follow-path',
+            'scope': ('nav2-navigate-to-pose' if self.args.action_mode == 'navigate-to-pose'
+                      else 'nav2-controller-server-follow-path'),
+            'actionMode': self.args.action_mode,
+            'actionName': self.action_name,
             'status': status,
             'odomTopic': self.args.odom_topic,
             'inputTopic': self.args.input_topic,
@@ -207,7 +217,9 @@ def main():
     parser.add_argument('--costmap-topic', default='/local_costmap/costmap')
     parser.add_argument('--input-type', choices=('twist', 'stamped'), default='stamped')
     parser.add_argument('--output-topic', default='/crane/cmd_vel_stamped')
-    parser.add_argument('--action-name', default='/follow_path')
+    parser.add_argument('--action-mode', choices=('follow-path', 'navigate-to-pose'),
+                        default='follow-path')
+    parser.add_argument('--action-name')
     parser.add_argument('--distance', type=float, default=0.5)
     parser.add_argument('--path-points', type=int, default=20)
     parser.add_argument('--duration', type=float, default=25.0)

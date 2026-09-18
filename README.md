@@ -116,10 +116,11 @@ running ROS. The [mhseals_docker repository](https://github.com/mhseals/mhseals_
 the ROS 2 Jazzy image and endpoint setup notes. Its navigation packages are separate optional
 repositories, not part of this checkout. CRANE has a live ROS-TCP sensor-transport acceptance
 run; the current `mhseals_nav` launch still assumes RGB/RTAB-Map and MAVROS, so a depth-only Nav2
-full-stack closed-loop acceptance run remains outstanding. A real Jazzy Nav2 `controller_server`
-`FollowPath` loop is validated with CRANE odometry/TF, a LiDAR-populated voxel local costmap, and
-returned commands, but that bounded fixture intentionally excludes global planning, localization,
-the BT navigator, and lockstep. It is not qualification of the complete project-specific Nav2 graph.
+project-specific localization/SLAM acceptance remains outstanding. A real Jazzy Nav2
+`NavigateToPose` loop is validated with CRANE odometry/TF, LiDAR-populated voxel costmaps, NavFn
+global planning, BT navigation, behavior and controller servers, and returned commands. The
+bounded fixture uses authoritative Unity odometry as its global frame, so it intentionally does
+not claim localization, static-map navigation, training lockstep, or multi-worker Nav2 scaling.
 
 URDFs can be imported from the Unity hierarchy context menu with **3D Object > URDF Model
 (Import)**. Runtime code is organized under `Assets/Scripts`; start with the architecture guide
@@ -162,8 +163,8 @@ coordinator. Profiling has already reduced LiDAR time by 69.3% and its managed a
 Important limitations remain: full-resolution camera readback caps GPU-sensor acceleration;
 graphics-free aquatic water is absent; geometric CPU depth does not model render-only surfaces;
 water queries are issued component by component; live ROS-TCP transport and stamped returned
-actions and a real Nav2 controller-server plus LiDAR local-costmap loop are validated, but global
-planning/BT/localization and Nav2 lockstep are not; in-place reset does not yet cover every controller, external ROS state, or
+actions and a real Nav2 planner/BT/controller plus LiDAR costmap loop are validated, but
+localization/SLAM and Nav2 lockstep are not; in-place reset does not yet cover every controller, external ROS state, or
 stateful water effect; and the land/aerial scenes are qualification fixtures rather than production
 environments. Read the documentation before treating a run as training-valid.
 

@@ -29,7 +29,8 @@ Broader ground scenarios, real-platform calibration, and live aerial SITL remain
 
 CRANE is not yet a turnkey, fully deterministic distributed training service. It has core worker,
 instrumentation, correctness, isolation, live ROS-TCP transport, and an experimental in-place
-reset seam plus a controller-level Nav2 loop, but full-stack Nav2, complete reset coverage, long-duration result streaming, and
+reset seam plus an authoritative-odom Nav2 planner/BT/controller loop, but localization/SLAM,
+lockstep, complete reset coverage, long-duration result streaming, and
 broader domain fixtures still need work.
 
 ## Current capability map
@@ -44,7 +45,7 @@ broader domain fixtures still need work.
 | Semantic detections without RGB | Implemented, weakly validated | Frustum/range/center-ray occlusion; partial visibility and correlated noise absent |
 | LiDAR | Implemented and validated | Persistent native buffers plus strict Burst command generation and PointCloud2 packing; result traversal remains main-thread work |
 | Authoritative replay | Experimental vertical slice | Indexed body/joint playback, accepted actions, task outcomes, v4 build provenance, and v5 observation metadata work; production reward adapters/non-regenerable sensor payloads/full-water state remain incomplete |
-| ROS publishing and MAVROS UDP | Implemented; sensor and Nav2 controller transport live-validated | Jazzy endpoint accepted depth/detections/LiDAR/clock/odometry/TF at 1×; `controller_server` FollowPath used a LiDAR voxel local costmap and moved the production aquatic body; global planner/BT/localization and MAVROS acceptance remain |
+| ROS publishing and MAVROS UDP | Implemented; full authoritative-odom Nav2 loop live-validated | Jazzy `NavigateToPose` exercised BT, NavFn planner, LiDAR voxel costmaps, behaviors, controller, and the production aquatic body at 1×; localization/SLAM, lockstep, multi-worker Nav2 and MAVROS acceptance remain |
 | Action provenance/lockstep control | Partial, controller loop validated | ROS/SITL source-observation, receive, and application ticks plus sequence/episode rejection are wired; Nav2 commands are paired with latest delivered odometry, but internal consumption and lockstep remain unproven |
 | Ackermann land dynamics | Implemented and repeat-validated fixture | Flat-ground acceleration/coast/brake/turn only; production platform gaps remain |
 | Multirotor dynamics | Implemented and repeat-validated fixture | Analytic checks pass; real-airframe and SITL qualification absent |
@@ -275,7 +276,7 @@ bounded lag falls back to receive-to-application age. `ROSOmniXCommand` adds an 
 header, applies in `FixedUpdate`, combines forward/lateral/yaw in the mixer, and commands zero
 after a simulated-tick timeout. This proves stamped transport causality when the ROS-side bridge
 copies an actual observation stamp. The standard Nav2 `Twist` contract still cannot prove which
-observation Nav2 internally consumed; a lockstep barrier and full planner/BT/localization run remain required.
+observation Nav2 internally consumed; a lockstep barrier and localization/SLAM run remain required.
 
 A live Jazzy `ros_tcp_endpoint` run validates the transport boundary on the Roboboat target
 profile. Runtime scene selection suppresses sensors, clocks, MAVROS, and the connector in the
@@ -305,10 +306,14 @@ with zero stale/rejected/cross-episode actions, moved the physical body 0.535 m,
 full RGB-off depth/LiDAR/detection workload at 1.001× RTF. The voxel layer consumed `/points` via
 the published `base_link -> lidar_link` transform; five observed costmaps contained as many as
 2,200 occupied or inflated cells.
-This is specifically a **Nav2 controller-server closed loop**: the fixture has a LiDAR-fed voxel
-layer plus inflation, but it does not run a global planner, localization, BT navigator, or training
-lockstep. Pairing each returned command with the latest delivered odometry is bounded
-delivery provenance, not proof of Nav2's internal sample choice.
+The controller-only action remains available as a focused fixture. The expanded acceptance run
+uses `NavigateToPose` and exercises the lifecycle manager, BT navigator, NavFn planner,
+LiDAR-fed voxel/inflation global and local costmaps, behavior server, and controller server. It
+reached terminal success with 79 measured accepted actions, no stale/rejected/cross-episode
+actions, 0.576 m physical displacement, and 1.001× RTF. Authoritative Unity odometry is the global
+`odom` frame, so this does not validate localization/SLAM or static-map navigation. Pairing each
+returned command with the latest delivered odometry is bounded delivery provenance, not proof of
+Nav2's internal sample choice or training lockstep.
 
 When ROS processes are split across Docker containers, all participating Fast DDS containers use
 the same IPC namespace (`--ipc host` in the validated fixture). Otherwise DDS discovery may expose
@@ -546,10 +551,10 @@ tick, and application tick through a thread-safe latest-value mailbox. A standal
 validates bounded acceptance, duplicate/stale/cross-episode rejection, latest-policy behavior,
 payload hold-until-apply, replacement, and rejection without actuator mutation. Float32 and SITL
 packets still lack source observation ticks. A live observation-derived return path validates
-stamped acquisition/receive/application ticks, and a real Nav2 controller-server fixture validates
-FollowPath control at 1×. The project launch still assumes RGB/RTAB-Map plus MAVROS, and the
-controller fixture does not prove planner/BT freshness, internal sample consumption, or accelerated
-lockstep behavior.
+stamped acquisition/receive/application ticks. A real Nav2 `NavigateToPose` fixture validates
+NavFn planning, BT execution, LiDAR costmaps, and control at 1×. The project launch still assumes
+RGB/RTAB-Map plus MAVROS, and the fixture does not prove localization/SLAM, internal sample
+consumption, multi-worker scaling, or accelerated lockstep behavior.
 
 ### Reset completeness
 
@@ -652,8 +657,8 @@ than assumptions about deterministic re-simulation.
 - Test multi-rate water updates with interpolation against wave-height and trajectory tolerances.
 - Extend the implemented reset interface to external ROS/controller state and stateful water,
   then validate production in-place A→B→A against scene reload and a fresh process.
-- Extend the stamped controller-level Nav2 result through planner/BT/localization and SITL, then
-  add a lockstep barrier for training control boundaries.
+- Extend the authoritative-odom Nav2 result through localization/SLAM and SITL, then add a
+  lockstep barrier for training control boundaries.
 - Extend the ground fixture to slopes/curbs/suspension transients, calibrate the multirotor
   against a real platform/SITL, and add ROS-transport-only and full closed-loop scenes.
 
@@ -737,8 +742,8 @@ The next work should follow measured cost rather than this list mechanically:
 1. Batch and deduplicate water queries while preserving surface-search results.
 2. Move the remaining LiDAR hit traversal/summary work off the main thread and benchmark it.
 3. Separate presentation camera ownership from required HDRP water updates.
-4. Add a lockstep control barrier and extend the live controller-server fixture through the full
-   Nav2 planner/BT/localization graph and SITL where applicable.
+4. Add a lockstep control barrier and extend the live planner/BT/controller fixture through
+   localization/SLAM and SITL where applicable.
 5. Complete remaining reset contracts, then compare production in-place reset with scene reload
    and a fresh process.
 6. Stream validation output and run multi-hour memory and queue stress tests.

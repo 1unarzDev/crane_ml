@@ -28,7 +28,7 @@ sleep 1
 
 docker run -d --rm --name "${controller_name}" --network host --ipc host \
     -v "${root_dir}:/workspace/crane_sim:ro" "${image}" bash -lc \
-    'source /opt/ros/jazzy/setup.bash; /opt/ros/jazzy/lib/nav2_controller/controller_server --ros-args --params-file /workspace/crane_sim/Tools/Performance/nav2_controller_fixture.yaml -r cmd_vel:=/nav2/cmd_vel & controller_pid=$!; sleep 1; /opt/ros/jazzy/lib/nav2_lifecycle_manager/lifecycle_manager --ros-args -r __node:=lifecycle_manager_controller --params-file /workspace/crane_sim/Tools/Performance/nav2_controller_fixture.yaml & manager_pid=$!; wait $controller_pid $manager_pid' \
+    'source /opt/ros/jazzy/setup.bash; params=/workspace/crane_sim/Tools/Performance/nav2_controller_fixture.yaml; /opt/ros/jazzy/lib/nav2_controller/controller_server --ros-args --params-file "$params" -r cmd_vel:=/nav2/cmd_vel & p1=$!; /opt/ros/jazzy/lib/nav2_planner/planner_server --ros-args --params-file "$params" & p2=$!; /opt/ros/jazzy/lib/nav2_behaviors/behavior_server --ros-args --params-file "$params" -r cmd_vel:=/nav2/cmd_vel & p3=$!; /opt/ros/jazzy/lib/nav2_bt_navigator/bt_navigator --ros-args --params-file "$params" & p4=$!; sleep 1; /opt/ros/jazzy/lib/nav2_lifecycle_manager/lifecycle_manager --ros-args -r __node:=lifecycle_manager_controller --params-file "$params" & p5=$!; wait $p1 $p2 $p3 $p4 $p5' \
     >"${result_root}/controller.container-id"
 
 CRANE_RESULT_ROOT="${result_root}" \
@@ -44,11 +44,12 @@ player_pid=$!
 # activation margin before presenting the acceptance goal.
 fixture_delay="${CRANE_FIXTURE_DELAY:-$(awk -v warmup="${CRANE_WARMUP:-3}" 'BEGIN { print warmup + 4 }')}"
 sleep "${fixture_delay}"
+nav2_action_mode="${CRANE_NAV2_ACTION_MODE:-navigate-to-pose}"
 
 docker run --rm --name "${fixture_name}" --network host --ipc host \
     -v "${root_dir}:/workspace/crane_sim:ro" -v "${result_root}:/results" \
     "${image}" bash -lc \
-    'source /opt/ros/jazzy/setup.bash; exec python3 /workspace/crane_sim/Tools/Performance/nav2_follow_path_fixture.py --input-type twist --distance 0.5 --duration 20 --output /results/fixture-summary.json' \
+    'source /opt/ros/jazzy/setup.bash; exec python3 /workspace/crane_sim/Tools/Performance/nav2_follow_path_fixture.py --input-type twist --action-mode '"${nav2_action_mode}"' --distance 0.5 --duration 20 --output /results/fixture-summary.json' \
     | tee "${result_root}/fixture.log"
 
 wait "${player_pid}"

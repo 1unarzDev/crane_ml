@@ -78,9 +78,106 @@ local_costmap:
         inflation_radius: 1.0
       always_send_full_costmap: false
 
+planner_server:
+  ros__parameters:
+    use_sim_time: true
+    expected_planner_frequency: 5.0
+    costmap_update_timeout: 1.0
+    planner_plugins: [GridBased]
+    GridBased:
+      plugin: nav2_navfn_planner::NavfnPlanner
+      tolerance: 0.5
+      use_astar: true
+      allow_unknown: true
+
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      use_sim_time: true
+      global_frame: odom
+      robot_base_frame: base_link
+      rolling_window: true
+      track_unknown_space: false
+      update_frequency: 5.0
+      publish_frequency: 1.0
+      width: 40
+      height: 40
+      resolution: 0.20
+      robot_radius: 0.80
+      plugins: [voxel_layer, inflation_layer]
+      voxel_layer:
+        plugin: nav2_costmap_2d::VoxelLayer
+        enabled: true
+        publish_voxel_map: false
+        origin_z: -2.0
+        z_resolution: 0.25
+        z_voxels: 16
+        max_obstacle_height: 3.0
+        mark_threshold: 0
+        observation_sources: pointcloud
+        pointcloud:
+          topic: /points
+          data_type: PointCloud2
+          marking: true
+          clearing: true
+          min_obstacle_height: -1.5
+          max_obstacle_height: 3.0
+          obstacle_min_range: 1.0
+          obstacle_max_range: 20.0
+          raytrace_min_range: 1.0
+          raytrace_max_range: 25.0
+          observation_persistence: 0.0
+          expected_update_rate: 0.0
+      inflation_layer:
+        plugin: nav2_costmap_2d::InflationLayer
+        cost_scaling_factor: 3.0
+        inflation_radius: 1.0
+      always_send_full_costmap: false
+
+behavior_server:
+  ros__parameters:
+    use_sim_time: true
+    local_costmap_topic: local_costmap/costmap_raw
+    global_costmap_topic: global_costmap/costmap_raw
+    local_footprint_topic: local_costmap/published_footprint
+    global_footprint_topic: global_costmap/published_footprint
+    cycle_frequency: 10.0
+    behavior_plugins: [spin, backup, drive_on_heading, wait]
+    spin:
+      plugin: nav2_behaviors::Spin
+    backup:
+      plugin: nav2_behaviors::BackUp
+    drive_on_heading:
+      plugin: nav2_behaviors::DriveOnHeading
+    wait:
+      plugin: nav2_behaviors::Wait
+    local_frame: odom
+    global_frame: odom
+    robot_base_frame: base_link
+    transform_tolerance: 0.2
+    simulate_ahead_time: 2.0
+    max_rotational_vel: 0.5
+    min_rotational_vel: 0.1
+    rotational_acc_lim: 0.5
+
+bt_navigator:
+  ros__parameters:
+    use_sim_time: true
+    global_frame: odom
+    robot_base_frame: base_link
+    odom_topic: /crane/odom
+    bt_loop_duration: 10
+    default_server_timeout: 20
+    wait_for_service_timeout: 1000
+    action_server_result_timeout: 60.0
+    navigators: [navigate_to_pose]
+    navigate_to_pose:
+      plugin: nav2_bt_navigator::NavigateToPoseNavigator
+    error_code_names: [compute_path_error_code, follow_path_error_code]
+
 lifecycle_manager_controller:
   ros__parameters:
     use_sim_time: true
     autostart: true
     bond_timeout: 4.0
-    node_names: [controller_server]
+    node_names: [controller_server, planner_server, behavior_server, bt_navigator]
