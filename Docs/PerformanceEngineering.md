@@ -300,6 +300,7 @@ Raw JSON is in `PerformanceResults/`.
 | Detection-derived ROS command loop, live Jazzy 1× | outbound transport and action seam only validated separately | 64 stamped actions accepted, zero stale/rejected; final acquire/receive/apply ticks 395/396/397; 1.003× valid | Keep causality fixture; not Nav2 qualification |
 | Nav2 controller-server + LiDAR voxel costmap, live Jazzy 1× | no real Nav2 controller acceptance | terminal success; 79 measured actions accepted, zero stale/rejected/cross-episode, 0.535 m physical displacement, five costmaps with up to 2,200 occupied/inflated cells, 1.2 ms goal-to-first-command wall latency, 1.001× valid | Keep controller-level fixture; global planner/BT/localization and lockstep remain excluded |
 | Nav2 NavigateToPose with NavFn + BT + LiDAR costmaps, live Jazzy 1× | controller-only fixture | terminal success; 79 measured actions accepted, zero stale/rejected/cross-episode, 0.576 m displacement, 22.4 ms goal-to-first-command wall latency, 1.001× valid | Keep full authoritative-odom loop; localization/SLAM, static map, lockstep and multi-worker scaling remain excluded |
+| Aquatic scene reload + live Nav2 NavigateToPose, Jazzy 1× | clean reload validated without external controller | terminal success after `/clock` rewind; 79 actions accepted, zero stale/rejected/cross-episode; one maximum concurrent Unity connection, zero duplicate endpoint nodes/errors; 0.518 m displacement, 21.8 ms first-command latency, 1.001× valid | Accept scene reload as the ROS-connected reset baseline; in-place external reset remains partial |
 | Replay v2 accepted-action stream, two 5 s runs/side at 2× | 2.0064× mean RTF, 0.596 MB GC without recording | 2.0070× mean RTF, 2.857 MB GC with recording | Keep; bounded correctness data, recorder allocation remains experimental |
 | Replay water time after end-of-stream, 2 s | HDRP continued live time or setter no-op before resource allocation | exact recorded time held for 9/9 samples; invariant valid query height | Keep spectral-time pin/reapply |
 | Validation stream, 2×, 5 s, 0.25 s interval, capacity 3 | unbounded in-memory validation list | 41 samples streamed, 3 retained, 38 dropped from RAM; 2.006× and valid | Keep bounded/streamed handling |
@@ -534,9 +535,13 @@ and water differences did not reject 4×. Required visual-sensor delivery did re
    NavFn, BT navigation, behaviors, and LiDAR-fed global/local costmaps. It uses authoritative
    odometry as the global frame; localization/SLAM, internal observation consumption, multi-worker
    scaling, and a training lockstep barrier remain unproven.
-6. Scene reload remains the accepted clean reset. The new in-place coordinator is validated for
-   a non-aquatic Rigidbody/component fixture and implements articulation/sensor/actuator/spectral
-   water hooks, but it still lacks full external controller/ROS and stateful-water reset coverage.
+6. Scene reload remains the accepted clean reset. It now passes a live aquatic Nav2
+   `NavigateToPose` run after the episode-relative `/clock` rewinds: connector teardown joins the
+   old socket task, endpoint teardown removes its topic nodes, maximum concurrent Unity
+   connections is one, and navigation resumes without stale/rejected/cross-episode actions. The
+   in-place coordinator is validated for a non-aquatic Rigidbody/component fixture and implements
+   articulation/sensor/actuator/spectral-water hooks, but it still lacks full external
+   controller/ROS and stateful-water reset coverage.
 7. The classified layer matrix and coverage fixture are validated, but 805 serialized production
    objects still use `Default`. Migrate ownership incrementally and benchmark representative
    aquatic contacts before claiming production collision savings.
@@ -561,4 +566,12 @@ following five-second measurement delivered all 75 frames per camera and 50 LiDA
 stale or failed observations. Scene reload is therefore the accepted clean reset baseline; an
 in-place reset cannot be accepted until equivalent coverage exists for every subsystem.
 
-successful changes cannot be committed safely until that repository state is repaired.
+The ROS-connected reload fixture is independently recorded under
+`PerformanceResults/nav2-scene-reload-v4`. It reloaded the production aquatic scene in 85.47 ms,
+then recovered the real Jazzy lifecycle manager, NavFn planner, BT navigator, behavior and
+controller servers. `NavigateToPose` succeeded with 79 accepted Unity actions, no
+stale/rejected/cross-episode actions, 0.518 m displacement, and 21.8 ms goal-to-first-command wall
+latency. The worker retained 329 depth acquisitions, 176 detection acquisitions, 220 LiDAR scans
+at 72,000 points/scan, and zero invalid water searches. The endpoint observed two sequential
+connections and two disconnects, at most one live connection, zero duplicate-node registrations,
+and zero errors. `navigation-reset-summary.json` is the bounded acceptance record.

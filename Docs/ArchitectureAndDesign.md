@@ -50,7 +50,7 @@ broader domain fixtures still need work.
 | Ackermann land dynamics | Implemented and repeat-validated fixture | Flat-ground acceleration/coast/brake/turn only; production platform gaps remain |
 | Multirotor dynamics | Implemented and repeat-validated fixture | Analytic checks pass; real-airframe and SITL qualification absent |
 | Collision optimization | Partial, coverage validated | Classified fixture passes required/excluded pairs; production aquatic objects remain on Default |
-| Episode reset | Scene reload validated; in-place partial/experimental | Coordinator restores rigid/articulation state, actuator/sensor phases, RNG, episode clock and spectral water time; non-aquatic A→B→A fixture passes, but external ROS/controller state and stateful water effects remain incomplete |
+| Episode reset | Scene reload validated, including live Nav2 reconnect; in-place partial/experimental | Aquatic scene reload joins the old Unity TCP task, removes endpoint-owned ROS nodes, opens one replacement connection, recovers Nav2 after the `/clock` rewind, and rejects no measured actions. In-place external ROS/controller and stateful-water reset remain incomplete |
 | Multi-process workers | Implemented; GPU and CPU-depth sweeps validated | Train-GPU reaches 8.003 valid simulated s/s across four 2× workers; Train-CPU dense depth reaches 4.779 across eight 2×-requested workers (each below real time); ROS processes excluded |
 | Train-GPU profile | Implemented and aquatic-validated at 2× | RGB/spectators off with depth+detections+LiDAR retained; still requires graphics-backed HDRP water |
 | Train-CPU profile | Implemented and land/aerial validated | Strict `-nographics` execution with zero enabled Cameras, geometric depth and camera info; aquatic scenes are explicitly rejected |
@@ -69,7 +69,7 @@ Treat the versions resolved by the checkout as authoritative:
 | Input System | `1.20.0` |
 | AI Inference | `2.6.1` |
 | Memory Profiler | `1.1.12` |
-| ROS integration | Embedded ROS-TCP Connector `0.7.0-preview`, pinned upstream source plus documented CRANE registration-race patch |
+| ROS integration | Embedded ROS-TCP Connector `0.7.0-preview` plus CRANE lifecycle patches; companion `astro_dock` commit `6fd7b34` pins endpoint reconnect cleanup (`340d832`) |
 | Robot import | Unity URDF Importer `v0.5.2` from its Git package |
 | Physics | Unity PhysX through Rigidbody and ArticulationBody |
 
@@ -563,6 +563,14 @@ actuator, sensor phase, RNG, episode clock, GPU-readback generation, and spectra
 state, and its non-aquatic A→B→A fixture passes. It does not yet reset every sensor bias, spawned
 object, ROS queue, controller/estimator/costmap, or stateful water effect. Partial reset still
 risks cross-episode contamination, so production campaigns must retain scene reload.
+
+The production scene-reload boundary is validated with the live authoritative-odometry Nav2
+graph. `ROSConnection.OnDestroy` cancels and joins its socket task before the replacement scene can
+connect; the ROS endpoint removes the disconnected client's publishers, subscribers, services and
+rosout registrations. In the accepted run, at most one Unity TCP connection was active, the
+endpoint reported zero errors and duplicate-node registrations, Nav2's TF buffers cleared the
+expected backward `/clock` jump, and `NavigateToPose` then succeeded. This validates transport
+ownership across scene reload, not in-place Nav2 reset, localization, SLAM, or static-map recovery.
 
 ### Collision and contact configuration
 

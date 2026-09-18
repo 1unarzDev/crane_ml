@@ -90,7 +90,7 @@ not override the locally resolved versions.
 Clone the repository:
 
 ```bash
-git clone https://github.com/1unarzDev/crane_sim
+git clone https://github.com/1unarzDev/crane_ml.git
 ```
 
 Install [Unity Hub](https://docs.unity3d.com/hub/manual/InstallHub.html), choose **Add project
@@ -158,7 +158,11 @@ loop deployment.
 CRANE has automated standalone benchmarks, subsystem profiler markers, sensor delivery checks,
 worker isolation, an accepted scene-reload reset baseline, and an experimental in-place reset
 coordinator. Profiling has already reduced LiDAR time by 69.3% and its managed allocation by
-97.2% in the measured scenario.
+97.2% in the measured scenario. The accepted aquatic scene-reload path is also exercised through
+a live Jazzy Nav2 `NavigateToPose` run: the endpoint closes the old scene connection, removes its
+topic nodes, accepts exactly one replacement connection, handles the `/clock` rewind, and resumes
+navigation without stale or cross-episode actions. This does not promote the experimental in-place
+reset path or imply that external localization/SLAM state has a reset contract.
 
 Important limitations remain: full-resolution camera readback caps GPU-sensor acceleration;
 graphics-free aquatic water is absent; geometric CPU depth does not model render-only surfaces;

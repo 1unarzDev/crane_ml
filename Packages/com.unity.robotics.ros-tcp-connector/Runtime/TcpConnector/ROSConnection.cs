@@ -93,6 +93,7 @@ namespace Unity.Robotics.ROSTCPConnector
 
         ConcurrentQueue<Tuple<string, byte[]>> m_IncomingMessages = new ConcurrentQueue<Tuple<string, byte[]>>();
         CancellationTokenSource m_ConnectionThreadCancellation;
+        Task m_ConnectionThreadTask;
         public bool HasConnectionThread => m_ConnectionThreadCancellation != null;
 
         static bool m_HasConnectionError = false;
@@ -506,12 +507,14 @@ namespace Unity.Robotics.ROSTCPConnector
 
         public void Connect()
         {
+            Disconnect();
+
             if (!IPFormatIsCorrect(RosIPAddress))
                 Debug.LogWarning("Invalid ROS IP address: " + RosIPAddress);
 
             m_ConnectionThreadCancellation = new CancellationTokenSource();
 
-            Task.Run(() => ConnectionThread(
+            m_ConnectionThreadTask = Task.Run(() => ConnectionThread(
                 RosIPAddress,
                 RosPort,
                 m_NetworkTimeoutSeconds,
@@ -557,10 +560,32 @@ namespace Unity.Robotics.ROSTCPConnector
 
         public void Disconnect()
         {
-            m_ConnectionThreadCancellation?.Cancel();
+            CancellationTokenSource cancellation = m_ConnectionThreadCancellation;
+            Task connectionTask = m_ConnectionThreadTask;
+            cancellation?.Cancel();
             //The thread may be waiting on a ManualResetEvent, if so, this will wake it so it can exit immediately.
             m_OutgoingMessageQueue?.NewMessageReadyToSendEvent?.Set();
+
+            // Scene reload destroys this component before the replacement scene's Start methods.
+            // Wait for the socket-owning task to close its TcpClient so a replacement connection
+            // cannot overlap it and race ROS endpoint topic registration. A bounded wait keeps
+            // teardown safe even if a platform socket does not cancel promptly.
+            if (connectionTask != null && !connectionTask.IsCompleted)
+            {
+                try
+                {
+                    if (!connectionTask.Wait(TimeSpan.FromSeconds(m_NetworkTimeoutSeconds + 0.5f)))
+                        Debug.LogWarning("Timed out waiting for the ROS connection thread to stop.");
+                }
+                catch (AggregateException exception)
+                {
+                    Debug.LogWarning("ROS connection shutdown failed: " + exception.Flatten().InnerException);
+                }
+            }
+
             m_ConnectionThreadCancellation = null;
+            m_ConnectionThreadTask = null;
+            cancellation?.Dispose();
         }
 
         void OnValidate()
@@ -957,6 +982,13 @@ namespace Unity.Robotics.ROSTCPConnector
         void OnApplicationQuit()
         {
             Disconnect();
+        }
+
+        void OnDestroy()
+        {
+            Disconnect();
+            if (_instance == this)
+                _instance = null;
         }
 
         void SendSysCommand(string command, object param, NetworkStream stream = null)

@@ -276,6 +276,10 @@ bounds delivery age but does not reveal which sample Nav2 internally consumed. S
 or an explicit in-place reset starts the authoritative episode clock at zero. Runtime scene
 selection disables the transient initial scene's sensors and transports before their `Start`
 methods run, so only the requested scene owns the ROS graph.
+On scene reload, the scene-owned `ROSConnection` cancels and joins its connection task before it is
+destroyed. The paired endpoint must remove that socket's ROS nodes on disconnect; the validated
+companion is `astro_dock` commit `6fd7b34` (endpoint commit `340d832`). This prevents stale
+callbacks and duplicate rosout node names when the replacement scene registers the same topics.
 
 ## Runtime profiles
 
@@ -389,6 +393,22 @@ global/local costmaps, BT navigator, behaviors, controller, action client/comman
 worker, logs, and result directory. Its default scope is `nav2-navigate-to-pose`; report it as an
 authoritative-odom navigation qualification, not localization/SLAM or training lockstep.
 
+Exercise the accepted ROS-connected scene-reload boundary and require its machine-readable
+transport/reset checks:
+
+```bash
+CRANE_RESULT_ROOT=PerformanceResults/nav2-scene-reload \
+CRANE_DURATION=22 CRANE_FIXTURE_DELAY=12 \
+CRANE_NAV2_UNITY_EXTRA_ARGS='--crane-reset-probe' \
+Tools/Performance/run_nav2_controller_fixture.sh
+```
+
+The script writes `navigation-reset-summary.json` and fails unless the goal succeeds, benchmark
+and water/sensor checks are valid, action rejection counters remain zero, endpoint errors and
+duplicate registrations remain zero, no TCP connections overlap, the clock rewind is recovered,
+and the scene-reload probe executes. The expected TF-buffer rewind warning is evidence of the
+episode-time discontinuity; successful navigation afterward is the recovery criterion.
+
 Run strict graphics-free land or aerial physics:
 
 ```bash
@@ -457,5 +477,7 @@ test of the reset seam, not permission to replace scene reload in production aqu
 
 The embedded ROS-TCP Connector is intentionally pinned under `Packages/`. Its CRANE patch removes
 a pre-handshake publisher-registration duplicate and synchronizes topic creation with the
-connection thread. Do not replace it with an unpinned upstream URL without rerunning the live
-transport and reconnect fixtures.
+connection thread; it also performs bounded connection-task teardown from `OnDestroy`. The paired
+endpoint removes executor-owned ROS nodes and clears its registration tables on disconnect. Do not
+replace either side with an unpinned upstream version without rerunning the live transport,
+scene-reload, and reconnect fixtures.
