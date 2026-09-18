@@ -44,7 +44,7 @@ broader domain fixtures still need work.
 | RGB-off GPU depth training | Implemented and validated at 2× | Full-resolution depth is valid at 2× on the reference machine, not 4× |
 | Render-independent dense depth | Implemented and non-aquatic validated | Batched PhysX `32FC1` optical-Z backend passes null-graphics geometry tests and 2× dense benchmark; render-only/transparent/water equivalence remains absent |
 | Semantic detections without RGB | Implemented, weakly validated | Frustum/range/center-ray occlusion; partial visibility and correlated noise absent |
-| LiDAR | Implemented and validated | Persistent native buffers plus strict Burst command generation and PointCloud2 packing; result traversal remains main-thread work |
+| LiDAR | Implemented and validated | Persistent native buffers plus strict Burst command generation, hit classification/compaction/summary, and PointCloud2 packing; only exact local-frame conversion for actual hits remains managed |
 | Authoritative replay | Experimental vertical slice | Indexed body/joint playback, accepted actions, task outcomes, v4 build provenance, and v5 observation metadata work; production reward adapters/non-regenerable sensor payloads/full-water state remain incomplete |
 | ROS publishing and ArduPilot JSON UDP | Implemented; authoritative-odom Nav2 and UDP protocol loopback validated | Jazzy `NavigateToPose` exercised BT, NavFn, LiDAR costmaps, behaviors, controller, and the aquatic body; the legacy-named `MAVROSConnection` passes malformed/valid servo and telemetry timing checks at 2×. Localization/SLAM, lockstep, and a real autopilot remain |
 | Action provenance/lockstep control | Partial, controller loop validated | ROS/SITL source-observation, receive, and application ticks plus sequence/episode rejection are wired; Nav2 commands are paired with latest delivered odometry, but internal consumption and lockstep remain unproven |
@@ -450,6 +450,11 @@ Profiling and correctness work has produced the following changes:
   864,000 output bytes matching the former `BitConverter` path.
 - Unity 6 `RaycastHit.colliderEntityId` replaces per-hit managed `Collider` resolution in result
   traversal. It preserved all 72,000 hit/miss classifications and reduced that submarker by 56.1%.
+- A strict Burst result job now classifies returns, initializes misses, compacts valid-hit indices,
+  and computes range/checksum summaries. Exact legacy `Transform.InverseTransformPoint` conversion
+  runs only for compacted hits. Two matched 2× runs reduced result processing from 0.229 to
+  0.121 ms/frame (47.0%) and complete LiDAR work from 0.966 to 0.860 ms/frame (10.9%); the
+  episode-scoped validator matched 72,000 returns and all 864,000 packed bytes exactly.
 - Direct RGB/depth readback packing removed unnecessary texture and full-frame copy work while
   preserving message shape, vertical orientation, and acquisition time.
 - Camera readbacks use bounded queues and reject failed, stale, or cross-episode results.
@@ -552,10 +557,12 @@ and must be a named fidelity choice.
 
 ### Remaining LiDAR main-thread work
 
-The optimized LiDAR still performs managed ray-direction generation, coordinate transformation,
-and point packing on the main thread. This work is data parallel, but Burst/Jobs only makes sense
-if an isolated prototype beats scheduling overhead and preserves hits, misses, distances,
-coordinates, timing, and ROS layout.
+The optimized LiDAR keeps batched PhysX completion synchronous at observation time and performs
+managed `Transform.InverseTransformPoint` only for compacted valid hits. Command generation,
+hit/miss classification, miss initialization, compaction, summaries, checksums, and PointCloud2
+packing are Burst jobs over persistent buffers. A fully Burst matrix conversion was rejected
+because one coordinate differed by about 1.2e-5 m and broke byte equivalence. Optional debug rays
+remain an interactive-only managed path and are disabled by both training presets.
 
 ### Per-component water searches
 
@@ -690,8 +697,8 @@ than assumptions about deterministic re-simulation.
 
 ### Medium risk: change execution mechanics while preserving the model
 
-- Move LiDAR ray generation, transforms, and packing into Burst jobs using persistent arrays;
-  schedule early and complete only when a scan is required.
+- Investigate overlapping LiDAR command generation/raycast completion with other fixed-step work;
+  retain exact hit coordinates and beam/message ordering at the observation boundary.
 - Build sensor-camera scheduling that renders only on acquisition ticks while retaining the HDRP
   water resources required for physical queries.
 - Test multi-rate water updates with interpolation against wave-height and trajectory tolerances.
@@ -779,9 +786,11 @@ interchangeable.
 
 The next work should follow measured cost rather than this list mechanically:
 
-1. Batch and deduplicate water queries while preserving surface-search results.
-2. Move the remaining LiDAR hit traversal/summary work off the main thread and benchmark it.
-3. Separate presentation camera ownership from required HDRP water updates.
+1. Re-profile GPU depth/render cost without benchmark-only full-frame hashing, then prototype one
+   bounded minimal-depth path against the current observation contract.
+2. Separate presentation camera ownership from required HDRP water updates.
+3. Batch and deduplicate water queries only when a representative profile shows material cost;
+   the current uniform-current production path averages about 0.065 ms/frame.
 4. Add a lockstep control barrier and extend the live planner/BT/controller fixture through
    localization/SLAM and SITL where applicable.
 5. Complete remaining reset contracts, then compare production in-place reset with scene reload

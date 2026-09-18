@@ -76,6 +76,7 @@ namespace Sim.Performance {
         public bool DisableCameraInfo { get; private set; }
         public bool DisableDetections { get; private set; }
         public bool DisableSpectatorCameras { get; private set; }
+        public bool DisableLidarDebugRays { get; private set; }
         public bool LowPresentation { get; private set; }
         public bool StrictGraphicsFree { get; private set; }
         public string DepthBackend { get; private set; }
@@ -127,6 +128,8 @@ namespace Sim.Performance {
                 DisableDetections = HasFlag(args, "--crane-disable-detections"),
                 DisableSpectatorCameras = trainGpu || trainCpu ||
                     HasFlag(args, "--crane-disable-spectator-cameras"),
+                DisableLidarDebugRays = trainGpu || trainCpu ||
+                    HasFlag(args, "--crane-disable-lidar-debug-rays"),
                 LowPresentation = interactiveLow,
                 StrictGraphicsFree = trainCpu,
                 DepthBackend = depthBackend,
@@ -190,6 +193,9 @@ namespace Sim.Performance {
                     ShouldDisableImageProcessing(component)) {
                     component.enabled = false;
                 }
+
+                if (DisableLidarDebugRays && typeName == "Sim.Sensors.Lidar.Lidar3D")
+                    SetPrivateBool(component, "drawRays", false);
             }
 
             if (StrictGraphicsFree) DisableAllRenderingCameras();
@@ -216,6 +222,7 @@ namespace Sim.Performance {
             public string depthBackend;
             public bool cameraInfoEnabled;
             public bool detectionsEnabled;
+            public bool lidarDebugRaysEnabled;
             public bool spectatorCamerasEnabled;
             public bool lowPresentation;
             public int screenWidth;
@@ -248,6 +255,7 @@ namespace Sim.Performance {
                 depthBackend = DisableDepth ? "off" : DepthBackend,
                 cameraInfoEnabled = !DisableCameraInfo,
                 detectionsEnabled = !DisableDetections,
+                lidarDebugRaysEnabled = CountEnabledLidarDebugRays() > 0,
                 spectatorCamerasEnabled = !DisableSpectatorCameras,
                 lowPresentation = LowPresentation,
                 screenWidth = Screen.width,
@@ -342,6 +350,25 @@ namespace Sim.Performance {
             string sensorType = field?.GetValue(component)?.ToString();
             return (DisableRgb && sensorType == "RGB") ||
                    ((DisableDepth || DepthBackend == "geometric") && sensorType == "Depth");
+        }
+
+        private static int CountEnabledLidarDebugRays() {
+            int count = 0;
+            foreach (MonoBehaviour component in UnityEngine.Object.FindObjectsByType<MonoBehaviour>(
+                         FindObjectsInactive.Include)) {
+                if (!component.enabled || component.GetType().FullName !=
+                    "Sim.Sensors.Lidar.Lidar3D") continue;
+                FieldInfo field = component.GetType().GetField("drawRays",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                if (field?.GetValue(component) is true) count++;
+            }
+            return count;
+        }
+
+        private static void SetPrivateBool(MonoBehaviour component, string fieldName, bool value) {
+            FieldInfo field = component.GetType().GetField(fieldName,
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            if (field?.FieldType == typeof(bool)) field.SetValue(component, value);
         }
 
         private static bool IsRosTcpTransport(string typeName) =>

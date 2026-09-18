@@ -170,7 +170,9 @@ hardware.
 CRANE has automated standalone benchmarks, subsystem profiler markers, sensor delivery checks,
 worker isolation, an accepted scene-reload reset baseline, and an experimental in-place reset
 coordinator. Profiling has already reduced LiDAR time by 69.3% and its managed allocation by
-97.2% in the measured scenario. The accepted aquatic scene-reload path is also exercised through
+97.2% in the original measured scenario; subsequent strict Burst return processing cut the
+then-current LiDAR result loop by another 47.0% while preserving every packed byte. The accepted
+aquatic scene-reload path is also exercised through
 a live Jazzy Nav2 `NavigateToPose` run: the endpoint closes the old scene connection, removes its
 topic nodes, accepts exactly one replacement connection, handles the `/clock` rewind, and resumes
 navigation without stale or cross-episode actions. This does not promote the experimental in-place

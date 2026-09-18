@@ -222,6 +222,7 @@ Useful arguments:
 | `--crane-depth-width N`, `--crane-depth-height N`, `--crane-depth-hz N` | Configure the geometric benchmark fixture observation contract |
 | `--crane-disable-camera-info` | Disable camera-info publishing only |
 | `--crane-disable-detections` | Disable simulated detection publishing only |
+| `--crane-disable-lidar-debug-rays` | Disable editor/debug ray drawing without changing LiDAR acquisition or messages; implied by both training profiles |
 | `--crane-record PATH` | Stream a versioned authoritative episode plus `PATH.index` |
 | `--crane-record-flush-ticks N` | Flush replay chunks/index every N physics ticks (default 50) |
 | `--crane-replay PATH` | Play an authoritative episode without live vehicle dynamics/controllers |
@@ -234,7 +235,7 @@ Useful arguments:
 | `--crane-replay-outcome-validation` | Validate v3 reward/termination playback and exit with its result |
 | `--crane-lidar-command-validation` | Compare one episode's Burst-generated ray commands field-for-field with the managed reference path |
 | `--crane-lidar-pack-validation` | Compare one episode's Burst-packed PointCloud2 bytes with the managed `BitConverter` reference path |
-| `--crane-lidar-process-validation` | Compare one episode's EntityId hit classification with managed Collider resolution |
+| `--crane-lidar-process-validation` | Compare one Burst-processed scan's classification, exact local points, range/checksum summary, misses, and packed output with the managed reference |
 | `--crane-lidar-batch-size N` | Override 3D LiDAR command/raycast/packing job batch size for matched sweeps |
 | `--crane-depth-buffer-validation` | Compare one reused, vertically flipped depth payload byte-for-byte with its GPU readback source |
 | `--crane-action-policy latest\|bounded` | Select latest-valid or bounded-lag command acceptance |
@@ -320,6 +321,8 @@ Raw JSON is in `PerformanceResults/`.
 | LiDAR ray-command generation, 2× target profile | 3.689 ms/frame LiDAR; 4.039 ms/frame message creation | 1.904 ms and 2.249 ms mean over 2 runs; 72,000/72,000 command fields matched | Keep strict Burst job; 48.4% LiDAR reduction |
 | LiDAR PointCloud2 packing, 2× target profile | 0.567 ms/frame pack; 1.847 ms/frame LiDAR | 0.099 ms pack; 1.368 ms LiDAR mean over 2 runs; 864,000/864,000 bytes matched | Keep strict Burst job; 82.5% packing reduction |
 | LiDAR EntityId hit classification, 2× target profile | 0.517 ms/frame processing; 1.368 ms/frame LiDAR | 0.227 ms processing; 1.119 ms LiDAR mean over 2 runs; 72,000/72,000 classifications matched | Keep; avoid managed Collider resolution |
+| Disable LiDAR debug rays only, 2× target profile | authored debug drawing enabled | no repeatable processing or full-LiDAR improvement | Reverted as a standalone optimization; training presets still suppress presentation-only rays |
+| Burst LiDAR return processing, 2× no-signature target profile | 0.229 ms/frame processing; 0.966 ms/frame LiDAR | 0.121 ms processing; 0.860 ms/frame LiDAR mean over 2 runs; 72,000 returns and 864,000 packed bytes matched exactly | Keep; 47.0% processing and 10.9% full-LiDAR reduction |
 | HDRP patch search batch size 1 → 8, 2× target profile | 1.0464 ms/frame water query | 1.0451 ms mean over 2 runs; correctness unchanged | Reverted; 0.13% is run variation |
 | Reuse `SubmergedData.triangleAreas` in `GeneralDynamics`, 2× target profile | 1.2705 ms/frame vehicle dynamics | 1.2822 ms mean over 2 runs; trajectory stayed within measured variation | Reverted; 0.92% slower with high run variation |
 | Conditional uniform-current query reuse, 2× target profile | 1.0481 ms/frame `Current`; 1.2812 ms dynamics; 1.0491 ms water query | 0.0437 ms `Current`; 0.2953 ms dynamics; 0.0644 ms water query over 2 runs | Keep when both HDRP spatial-current features are disabled |
@@ -384,6 +387,18 @@ enclosing message creation from 1.716 to 1.481 ms/frame (13.7%). The validation 
 72,000 classifications with `hit.collider != null` and found zero mismatches. After this change,
 the largest measured target-profile markers are message creation (1.440 ms/frame), vehicle
 dynamics (1.285 ms), water queries (1.045 ms), LiDAR (1.080 ms), and other sensors (0.911 ms).
+
+After uniform-current reuse removed the former water-query bottleneck, a no-signature profile
+isolated the remaining LiDAR return loop. Disabling debug drawing alone produced no repeatable
+benefit and was reverted. A materially different strict Burst `IJob` now performs hit
+classification, minimum-distance rejection, miss initialization, valid-hit compaction, and scan
+summary/checksum work. Managed `Transform.InverseTransformPoint` remains only for actual hits so
+point bytes stay identical to the established message contract. Across two matched runs,
+processing fell from 0.228670 to 0.121207 ms/frame (47.0%) and complete LiDAR work from 0.965553
+to 0.860418 ms/frame (10.9%). RTF remained target-limited at about 2.002× and GPU frame time was
+unchanged. The validation run matched all 72,000 command fields, 72,000 processed returns, and
+864,000 packed bytes with zero stale/failed observations. A fully jobified matrix coordinate
+conversion was rejected after one hit differed by about 1.2e-5 m.
 
 Component-level dynamics markers then showed that `Current` owned 1.048 ms/frame, about 82% of
 the aggregate dynamics cost. HDRP 17.5 derives `currentDirectionWS` from the spectrum's base
@@ -547,9 +562,11 @@ and water differences did not reject 4×. Required visual-sensor delivery did re
 1. Full-resolution RGB/depth readback is the largest measured sensor cost and limits valid
    full-sensor execution to 1× on the reference machine. Lower resolution is a fidelity choice and
    requires task-specific validation.
-2. LiDAR remains the next major CPU sensor cost after its 69% optimization. Ray-command generation
-   and PointCloud2 packing now use Burst jobs; hit traversal, range summaries, and optional debug
-   drawing remain main-thread work.
+2. LiDAR remains a material CPU sensor cost, but command generation, return classification,
+   compaction/summaries, and PointCloud2 packing now use strict Burst jobs. Exact local-frame
+   conversion remains managed only for actual hits, batched PhysX completion is synchronous, and
+   optional debug drawing is restricted to interactive profiles. The current next measurement
+   target is GPU depth/render work rather than another speculative LiDAR rewrite.
 3. Water queries and vehicle dynamics cost roughly 190 ms and 230 ms respectively per six
    simulated seconds at 1×. Hull queries are still issued by individual components rather than
    batched by water surface.

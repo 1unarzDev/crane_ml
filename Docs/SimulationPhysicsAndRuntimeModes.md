@@ -241,8 +241,11 @@ transparent appearance and cannot see an HDRP water surface without matching que
 Those semantics are why it is currently a non-aquatic backend rather than a drop-in claim of GPU
 image equivalence.
 
-LiDAR uses persistent native arrays, Burst ray-command generation and PointCloud2 packing, and
-batched PhysX raycasts. The production 72,000-point scanner uses batch size 64. Semantic 3D
+LiDAR uses persistent native arrays, Burst ray-command generation, hit classification/compaction,
+scan summaries and PointCloud2 packing, plus batched PhysX raycasts. Exact legacy local-frame
+conversion remains managed only for actual hits. The production 72,000-point scanner uses batch
+size 64. Both training profiles disable presentation-only LiDAR debug rays without changing the
+scan or PointCloud2 contract. Semantic 3D
 detections use registered scene objects, camera frustum/range tests, centre-ray occlusion, and a
 distance-based confidence model without RGB inference. They do not expose every known object, but
 partial visibility, class confusion, correlated noise, and false-positive models remain limited.
@@ -315,7 +318,8 @@ different physics implementation unless stated explicitly.
 
 Every applied profile logs `CRANE_RUNTIME_PROFILE_RESOLVED`. Use
 `--crane-runtime-report PATH` for the same data as JSON. It includes the resolved graphics device,
-sensor gates, camera ownership, water-surface count, and aquatic graphics-free status.
+sensor gates, LiDAR debug-ray state, camera ownership, water-surface count, and aquatic
+graphics-free status.
 
 ## Build and launch examples
 

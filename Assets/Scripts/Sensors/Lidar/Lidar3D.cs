@@ -32,6 +32,8 @@ namespace Sim.Sensors.Lidar {
         private NativeArray<RaycastCommand> commands;
         private NativeArray<RaycastHit> results;
         private NativeArray<byte> packedPointBytes;
+        private NativeArray<ScanSummary> scanSummary;
+        private NativeArray<int> validHitIndices;
         private Transform transformCache;
         private Vector3 transformScale;
         private bool validateCommandJob;
@@ -83,6 +85,54 @@ namespace Sim.Sensors.Lidar {
             }
         }
 
+        private struct ScanSummary {
+            public int HitCount;
+            public float MinimumRange;
+            public float MaximumRange;
+            public double RangeSum;
+            public ulong Checksum;
+        }
+
+        [BurstCompile(FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.High)]
+        private struct ProcessRaycastResultsJob : IJob {
+            [ReadOnly] public NativeArray<RaycastHit> Results;
+            [WriteOnly] public NativeArray<Vector3> Points;
+            [WriteOnly] public NativeArray<ScanSummary> Summary;
+            [WriteOnly] public NativeArray<int> ValidHitIndices;
+            public Vector3 Origin;
+            public float MinimumDistanceSquared;
+
+            public void Execute() {
+                var value = new ScanSummary {
+                    MinimumRange = float.PositiveInfinity,
+                    Checksum = 14695981039346656037UL
+                };
+                Vector3 nan = new(float.NaN, float.NaN, float.NaN);
+                for (int i = 0; i < Results.Length; i++) {
+                    RaycastHit hit = Results[i];
+                    bool valid = hit.colliderEntityId != EntityId.None &&
+                        math.lengthsq((float3)(Origin - hit.point)) > MinimumDistanceSquared;
+                    if (valid) {
+                        float distance = hit.distance;
+                        ValidHitIndices[value.HitCount] = i;
+                        value.HitCount++;
+                        value.MinimumRange = math.min(value.MinimumRange, distance);
+                        value.MaximumRange = math.max(value.MaximumRange, distance);
+                        value.RangeSum += distance;
+                        value.Checksum ^= math.asuint(distance);
+                        value.Checksum *= 1099511628211UL;
+                        Points[i] = default;
+                    }
+                    else {
+                        value.Checksum ^= uint.MaxValue;
+                        value.Checksum *= 1099511628211UL;
+                        Points[i] = nan;
+                    }
+                }
+                Summary[0] = value;
+            }
+        }
+
         private void Awake() {
             publisher = gameObject.AddComponent<ROSPublisher>();
             string[] args = Environment.GetCommandLineArgs();
@@ -116,6 +166,8 @@ namespace Sim.Sensors.Lidar {
             if (commands.IsCreated) commands.Dispose();
             if (results.IsCreated) results.Dispose();
             if (packedPointBytes.IsCreated) packedPointBytes.Dispose();
+            if (scanSummary.IsCreated) scanSummary.Dispose();
+            if (validHitIndices.IsCreated) validHitIndices.Dispose();
         }
 
         private void FixedUpdate() {
@@ -149,6 +201,8 @@ namespace Sim.Sensors.Lidar {
             if (commands.IsCreated) commands.Dispose();
             if (results.IsCreated) results.Dispose();
             if (packedPointBytes.IsCreated) packedPointBytes.Dispose();
+            if (scanSummary.IsCreated) scanSummary.Dispose();
+            if (validHitIndices.IsCreated) validHitIndices.Dispose();
             scanPoints = new NativeArray<Vector3>(scanDirVectors.Length, Allocator.Persistent);
             nativeScanDirections = new NativeArray<Vector3>(scanDirVectors,
                 Allocator.Persistent);
@@ -156,6 +210,8 @@ namespace Sim.Sensors.Lidar {
             results = new NativeArray<RaycastHit>(scanDirVectors.Length, Allocator.Persistent);
             packedPointBytes = new NativeArray<byte>(scanDirVectors.Length * 12,
                 Allocator.Persistent);
+            scanSummary = new NativeArray<ScanSummary>(1, Allocator.Persistent);
+            validHitIndices = new NativeArray<int>(scanDirVectors.Length, Allocator.Persistent);
             previousHorizontalBeams = numHorizontalBeams;
             previousVerticalBeams = numVerticalBeams;
             previousHorizontalFov = horizontalFOV;
@@ -186,12 +242,6 @@ namespace Sim.Sensors.Lidar {
 
         private NativeArray<Vector3> PerformScan() {
             int numPoints = scanPoints.Length;
-            int hitCount = 0;
-            float minimumHitRange = float.PositiveInfinity;
-            float maximumHitRange = 0;
-            double hitRangeSum = 0;
-            ulong checksum = 14695981039346656037UL;
-            Vector3 nanVec = new Vector3(float.NaN, float.NaN, float.NaN);
             Vector3 origin = transformCache.position;
             Quaternion rotation = transformCache.rotation;
             using (CraneProfiler.LidarRaycast.Auto()) {
@@ -232,52 +282,132 @@ namespace Sim.Sensors.Lidar {
             }
 
             using (CraneProfiler.LidarProcess.Auto()) {
-                long episodeId = CraneRuntimeMetrics.EpisodeId;
-                bool shouldValidateProcess = validateProcessPath &&
-                    processPathValidatedEpisode != episodeId;
-                int classificationMismatches = 0;
                 float minimumDistanceSquared = minDistance * minDistance;
-                for (int i = 0; i < numPoints; i++) {
-                    var hit = results[i];
-                    bool hasCollider = hit.colliderEntityId != EntityId.None;
-                    if (shouldValidateProcess && hasCollider != (hit.collider != null))
-                        classificationMismatches++;
-                    if (hasCollider && (origin - hit.point).sqrMagnitude > minimumDistanceSquared) {
-                        float distance = hit.distance;
-                        hitCount++;
-                        minimumHitRange = Mathf.Min(minimumHitRange, distance);
-                        maximumHitRange = Mathf.Max(maximumHitRange, distance);
-                        hitRangeSum += distance;
-                        checksum ^= unchecked((uint)BitConverter.SingleToInt32Bits(distance));
-                        checksum *= 1099511628211UL;
-                        Vector3 beam = transformCache.InverseTransformPoint(hit.point);
-                        scanPoints[i] = beam;
-
-                        if (drawRays) {
-                            Debug.DrawLine(origin, transformCache.TransformPoint(beam), Color.red);
-                        }
-                    }
-                    else {
-                        checksum ^= uint.MaxValue;
-                        checksum *= 1099511628211UL;
-                        scanPoints[i] = nanVec;
-                    }
-                }
-                CraneRuntimeMetrics.ReportLidarScan(numPoints, batchSize, hitCount,
-                    numPoints - hitCount,
-                    minimumHitRange, maximumHitRange, hitRangeSum, checksum,
+                ScanSummary summary = drawRays
+                    ? ProcessResultsManaged(origin, minimumDistanceSquared)
+                    : ProcessResultsBurst(origin, minimumDistanceSquared);
+                CraneRuntimeMetrics.ReportLidarScan(numPoints, batchSize, summary.HitCount,
+                    numPoints - summary.HitCount,
+                    summary.MinimumRange, summary.MaximumRange, summary.RangeSum, summary.Checksum,
                     CraneRuntimeMetrics.SimulationTick);
-                if (shouldValidateProcess) {
-                    processPathValidatedEpisode = episodeId;
-                    CraneRuntimeMetrics.ReportLidarProcessValidation(numPoints,
-                        classificationMismatches);
-                    if (classificationMismatches != 0)
-                        Debug.LogError($"CRANE LiDAR process validation found " +
-                                       $"{classificationMismatches} hit-classification mismatches " +
-                                       $"across {numPoints} beams.");
-                }
             }
             return scanPoints;
+        }
+
+        private ScanSummary ProcessResultsBurst(Vector3 origin, float minimumDistanceSquared) {
+            new ProcessRaycastResultsJob {
+                Results = results,
+                Points = scanPoints,
+                Summary = scanSummary,
+                ValidHitIndices = validHitIndices,
+                Origin = origin,
+                MinimumDistanceSquared = minimumDistanceSquared
+            }.Schedule().Complete();
+            ScanSummary summary = scanSummary[0];
+            for (int i = 0; i < summary.HitCount; i++) {
+                int resultIndex = validHitIndices[i];
+                scanPoints[resultIndex] = transformCache.InverseTransformPoint(
+                    results[resultIndex].point);
+            }
+            ValidateProcessPath(origin, minimumDistanceSquared, summary);
+            return summary;
+        }
+
+        private ScanSummary ProcessResultsManaged(Vector3 origin, float minimumDistanceSquared) {
+            var summary = new ScanSummary {
+                MinimumRange = float.PositiveInfinity,
+                Checksum = 14695981039346656037UL
+            };
+            Vector3 nan = new(float.NaN, float.NaN, float.NaN);
+            for (int i = 0; i < results.Length; i++) {
+                RaycastHit hit = results[i];
+                bool valid = hit.colliderEntityId != EntityId.None &&
+                    (origin - hit.point).sqrMagnitude > minimumDistanceSquared;
+                if (valid) {
+                    float distance = hit.distance;
+                    summary.HitCount++;
+                    summary.MinimumRange = Mathf.Min(summary.MinimumRange, distance);
+                    summary.MaximumRange = Mathf.Max(summary.MaximumRange, distance);
+                    summary.RangeSum += distance;
+                    summary.Checksum ^= unchecked((uint)BitConverter.SingleToInt32Bits(distance));
+                    summary.Checksum *= 1099511628211UL;
+                    Vector3 beam = transformCache.InverseTransformPoint(hit.point);
+                    scanPoints[i] = beam;
+                    Debug.DrawLine(origin, hit.point, Color.red);
+                }
+                else {
+                    summary.Checksum ^= uint.MaxValue;
+                    summary.Checksum *= 1099511628211UL;
+                    scanPoints[i] = nan;
+                }
+            }
+            return summary;
+        }
+
+        private void ValidateProcessPath(Vector3 origin, float minimumDistanceSquared,
+            ScanSummary summary) {
+            long episodeId = CraneRuntimeMetrics.EpisodeId;
+            if (!validateProcessPath || processPathValidatedEpisode == episodeId) return;
+            int mismatches = 0;
+            int classificationMismatches = 0;
+            int pointMismatches = 0;
+            float maximumPointError = 0f;
+            var expectedSummary = new ScanSummary {
+                MinimumRange = float.PositiveInfinity,
+                Checksum = 14695981039346656037UL
+            };
+            for (int i = 0; i < results.Length; i++) {
+                RaycastHit hit = results[i];
+                bool hasCollider = hit.colliderEntityId != EntityId.None;
+                if (hasCollider != (hit.collider != null)) {
+                    classificationMismatches++;
+                    mismatches++;
+                }
+                bool valid = hasCollider &&
+                    (origin - hit.point).sqrMagnitude > minimumDistanceSquared;
+                if (valid) {
+                    float distance = hit.distance;
+                    expectedSummary.HitCount++;
+                    expectedSummary.MinimumRange = Mathf.Min(expectedSummary.MinimumRange, distance);
+                    expectedSummary.MaximumRange = Mathf.Max(expectedSummary.MaximumRange, distance);
+                    expectedSummary.RangeSum += distance;
+                    expectedSummary.Checksum ^=
+                        unchecked((uint)BitConverter.SingleToInt32Bits(distance));
+                    expectedSummary.Checksum *= 1099511628211UL;
+                    Vector3 expectedPoint = transformCache.InverseTransformPoint(hit.point);
+                    if (scanPoints[i] != expectedPoint) {
+                        pointMismatches++;
+                        mismatches++;
+                        maximumPointError = Mathf.Max(maximumPointError,
+                            Vector3.Distance(scanPoints[i], expectedPoint));
+                    }
+                }
+                else {
+                    expectedSummary.Checksum ^= uint.MaxValue;
+                    expectedSummary.Checksum *= 1099511628211UL;
+                    if (!float.IsNaN(scanPoints[i].x) || !float.IsNaN(scanPoints[i].y) ||
+                        !float.IsNaN(scanPoints[i].z)) mismatches++;
+                }
+            }
+            bool summaryMismatch = summary.HitCount != expectedSummary.HitCount ||
+                summary.MinimumRange != expectedSummary.MinimumRange ||
+                summary.MaximumRange != expectedSummary.MaximumRange ||
+                summary.RangeSum != expectedSummary.RangeSum ||
+                summary.Checksum != expectedSummary.Checksum;
+            if (summaryMismatch) mismatches++;
+            processPathValidatedEpisode = episodeId;
+            CraneRuntimeMetrics.ReportLidarProcessValidation(results.Length, mismatches);
+            if (mismatches != 0)
+                Debug.LogError($"CRANE LiDAR Burst processing validation found {mismatches} " +
+                               $"mismatches across {results.Length} beams: " +
+                               $"classification={classificationMismatches} " +
+                               $"points={pointMismatches} maxPointError={maximumPointError:R} " +
+                               $"summary={summaryMismatch} hits={summary.HitCount}/" +
+                               $"{expectedSummary.HitCount} min={summary.MinimumRange:R}/" +
+                               $"{expectedSummary.MinimumRange:R} max={summary.MaximumRange:R}/" +
+                               $"{expectedSummary.MaximumRange:R} sum={summary.RangeSum:R}/" +
+                               $"{expectedSummary.RangeSum:R} checksum={summary.Checksum:X16}/" +
+                               $"{expectedSummary.Checksum:X16}.");
         }
 
         private PointCloud2Msg PointsToPointCloud2(NativeArray<Vector3> points) {
