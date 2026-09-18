@@ -309,6 +309,7 @@ Raw JSON is in `PerformanceResults/`.
 | Accelerated Nav2 capacity, 3×1.5 and 3×2.0 | two 2× workers valid | one 1.5× worker and all three 2× workers reported stale depth; navigation and action/transport checks still passed | Reject both three-worker settings; GPU depth delivery, not Nav2 goal completion, defines validity |
 | Accelerated action timing, live Nav2 2× for 12 s | final action ticks and rejection counts only | 40/40 actions had stamped odometry provenance; source-to-application mean/max 4.175/7 ticks, receive-to-application 1/1 tick, maximum interval 12 ticks; one post-goal watchdog stop; 2.002× valid | Keep telemetry and gate provenance/lag bounds in the Nav2 summary; internal Nav2 sample consumption remains unproven |
 | ArduPilot JSON UDP protocol loopback, aquatic Train-GPU 2× | UDP bridge present but no end-to-end acceptance | 200 valid + 1 malformed servo packets accounted for; 198 applied, 2 latest-value replacements, 0 rejected/stale; 653 peer telemetry packets, monotonic 1.999× clock; worker 2.003× with fresh sensors/water | Accept protocol/fixed-step seam only; real ArduPilot/PX4 and aerial SITL remain untested |
+| Production aquatic collision-layer migration, two 12 s runs/side at 2× | all 172 production colliders on Default | all colliders classified; contact fixture valid; mean RTF 2.00136× → 2.00099× and Physics.Simulate 0.12210 → 0.12376 ms; maximum paired RMS 4.50 mm pose position and 4.84 mm water | Keep explicit ownership and coverage; no speed claim |
 | Replay v2 accepted-action stream, two 5 s runs/side at 2× | 2.0064× mean RTF, 0.596 MB GC without recording | 2.0070× mean RTF, 2.857 MB GC with recording | Keep; bounded correctness data, recorder allocation remains experimental |
 | Replay water time after end-of-stream, 2 s | HDRP continued live time or setter no-op before resource allocation | exact recorded time held for 9/9 samples; invariant valid query height | Keep spectral-time pin/reapply |
 | Validation stream, 2×, 5 s, 0.25 s interval, capacity 3 | unbounded in-memory validation list | 41 samples streamed, 3 retained, 38 dropped from RAM; 2.006× and valid | Keep bounded/streamed handling |
@@ -470,15 +471,36 @@ settled at the collider's 0.08 m center height. Evidence is in
 repeat-validated model fixture, but remains unvalidated against a named real airframe or a live
 flight-controller/SITL loop; ground effect and rotor/propeller aerodynamic lookup data are absent.
 
-Collision ownership is now explicit for new fixtures. `Collision Validation` proves
+Collision ownership is explicit in fixtures and both production aquatic scenes. `Collision Validation` proves
 Vehicle↔Environment hull/dock contact, Vehicle↔DynamicObstacle transfer, a 40 m/s CCD thin-barrier
 impact, Vehicle↔SimulationTrigger overlap, and SensorQuery ray visibility with physical
 pass-through. It also verifies required and excluded matrix pairs in the built player. Land and
 aerial layered regressions retained their exact prior metrics. The contact-heavy A/B benchmark
 did not show a material throughput change; its two-run means differed by only 0.85%, below run
-variation. Therefore this is a validated safety/classification foundation, not yet evidence that
-production aquatic collision cost improved. Raw evidence is in `PerformanceResults/collision-validation/`,
-`contact-ab-legacy-{1,2}/`, and `contact-ab-classified-{1,2}/`.
+variation.
+
+`CraneCollisionLayerAudit` then inspected and migrated the production scenes through Unity's
+scene/prefab APIs: Roboboat has 9 Vehicle, 146 DynamicObstacle, and 4 Environment colliders;
+Robosub has 7 Vehicle, 5 Environment, and 1 SimulationTrigger collider. No collider remains on
+Default. Two 12-second Train-GPU runs per side retained valid depth, detections, LiDAR, and water
+with zero stale/failed observations. Mean RTF was 2.00136× before and 2.00099× after; mean
+`Physics.Simulate` was 0.12210 and 0.12376 ms. This remains a correctness/classification result,
+not evidence of a production speedup. Raw evidence is in `PerformanceResults/collision-validation/`,
+`contact-ab-legacy-{1,2}/`, `contact-ab-classified-{1,2}/`, and the local
+`PerformanceResults/collision-production-*` runs.
+
+Audit production ownership without saving scenes:
+
+```bash
+unity run /path/to/crane_sim --editor-version 6000.5.10f1 --timeout 300 -- \
+  -executeMethod CraneCollisionLayerAudit.Run \
+  --crane-output /path/to/collision-layer-audit.json
+```
+
+The deliberate write path is `CraneCollisionLayerAudit.MigrateProduction`. It updates only
+collider GameObjects in the two production aquatic scenes and their reusable prefab assets, then
+runs the same audit. Review the asset diff and rerun collision plus matched aquatic validation
+before accepting any future migration.
 
 The direct camera path preserves the RGB8 and 32FC1 dimensions, row steps, vertical flip, and
 acquisition timestamps while removing the unnecessary Texture2D upload and the depth path's

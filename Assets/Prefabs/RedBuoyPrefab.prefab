@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 2526526027425650387}
   - component: {fileID: 5937864241289850297}
   - component: {fileID: 3664886972044357819}
-  m_Layer: 0
+  m_Layer: 11
   m_Name: RedBuoyPrefab
   m_TagString: Untagged
   m_Icon: {fileID: 0}

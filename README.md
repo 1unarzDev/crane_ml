@@ -192,7 +192,9 @@ independently with `--crane-disable-ros-tcp` and `--crane-disable-sitl`; the leg
 
 Important limitations remain: full-resolution camera readback caps GPU-sensor acceleration;
 graphics-free aquatic water is absent; geometric CPU depth does not model render-only surfaces;
-water queries are issued component by component; live ROS-TCP transport and stamped returned
+water queries are issued component by component; production aquatic colliders now have explicit
+Vehicle/Environment/DynamicObstacle/SimulationTrigger ownership, but matched measurements did not
+show a collision-speed improvement; live ROS-TCP transport and stamped returned
 actions and a real Nav2 planner/BT/controller plus LiDAR costmap loop are validated, but
 localization/SLAM and Nav2 lockstep are not; in-place reset does not yet cover every controller, external ROS state, or
 stateful water effect; and the land/aerial scenes are qualification fixtures rather than production

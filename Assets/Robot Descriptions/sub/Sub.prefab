@@ -105,7 +105,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1514954558681877493}
   - component: {fileID: 965791910740236151}
-  m_Layer: 0
+  m_Layer: 10
   m_Name: Cylinder
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -214,7 +214,7 @@ ArticulationBody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 150235458106087154}
   m_Enabled: 1
-  serializedVersion: 5
+  serializedVersion: 6
   m_Mass: 0.25
   m_ParentAnchorPosition: {x: -0.11066997, y: 0, z: -0.20484}
   m_ParentAnchorRotation: {x: -0.9238788, y: 0.0000016391277, z: 0.38268554, w: -0.0000007003546}
@@ -841,7 +841,7 @@ ArticulationBody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 365978960988658633}
   m_Enabled: 1
-  serializedVersion: 5
+  serializedVersion: 6
   m_Mass: 0.0005
   m_ParentAnchorPosition: {x: -0.0000000065263563, y: 0.04445003, z: -0.0002600178}
   m_ParentAnchorRotation: {x: 0, y: 0, z: -0.7071068, w: 0.7071068}
@@ -2645,7 +2645,7 @@ ArticulationBody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1482117936529733140}
   m_Enabled: 1
-  serializedVersion: 5
+  serializedVersion: 6
   m_Mass: 1
   m_ParentAnchorPosition: {x: 0, y: 0, z: 0.13999999}
   m_ParentAnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
@@ -2783,7 +2783,7 @@ ArticulationBody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1482227582265717550}
   m_Enabled: 1
-  serializedVersion: 5
+  serializedVersion: 6
   m_Mass: 0.25
   m_ParentAnchorPosition: {x: -0.15925002, y: 0.03229, z: 0}
   m_ParentAnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
@@ -3034,7 +3034,7 @@ ArticulationBody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1823058488291753894}
   m_Enabled: 1
-  serializedVersion: 5
+  serializedVersion: 6
   m_Mass: 0.25
   m_ParentAnchorPosition: {x: 0.15925002, y: 0.03229, z: 0}
   m_ParentAnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
@@ -3929,7 +3929,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4943934232949413601}
   - component: {fileID: 1884096899595070731}
-  m_Layer: 0
+  m_Layer: 10
   m_Name: Cylinder
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4757,7 +4757,7 @@ ArticulationBody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3029668003045523012}
   m_Enabled: 1
-  serializedVersion: 5
+  serializedVersion: 6
   m_Mass: 0.0005
   m_ParentAnchorPosition: {x: 0.000000016771295, y: 0.044449985, z: -0.0002600206}
   m_ParentAnchorRotation: {x: 0, y: 0, z: -0.7071069, w: 0.7071069}
@@ -5196,7 +5196,7 @@ GameObject:
   m_Component:
   - component: {fileID: 8948097745794781083}
   - component: {fileID: 568459490232288931}
-  m_Layer: 0
+  m_Layer: 10
   m_Name: Cylinder
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -5824,7 +5824,7 @@ ArticulationBody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3553572757119012299}
   m_Enabled: 1
-  serializedVersion: 5
+  serializedVersion: 6
   m_Mass: 0.25
   m_ParentAnchorPosition: {x: 0.11066997, y: 0, z: -0.20484}
   m_ParentAnchorRotation: {x: -0.0000016391277, y: 0.9238788, z: -0.0000007003546,
@@ -6024,7 +6024,7 @@ GameObject:
   m_Component:
   - component: {fileID: 7402229351644857008}
   - component: {fileID: 649734811382286766}
-  m_Layer: 0
+  m_Layer: 10
   m_Name: Box
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -6451,7 +6451,7 @@ ArticulationBody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3901664567685651468}
   m_Enabled: 1
-  serializedVersion: 5
+  serializedVersion: 6
   m_Mass: 0.25
   m_ParentAnchorPosition: {x: 0.11066997, y: 0, z: 0.20484}
   m_ParentAnchorRotation: {x: 0.3826843, y: -0.0000007003546, z: 0.92387927, w: -0.0000016987324}
@@ -6604,7 +6604,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1348019389695595686}
   - component: {fileID: 3751318275595403631}
-  m_Layer: 0
+  m_Layer: 10
   m_Name: Cylinder
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -6994,7 +6994,7 @@ ArticulationBody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4438579991368687297}
   m_Enabled: 1
-  serializedVersion: 5
+  serializedVersion: 6
   m_Mass: 0.0005
   m_ParentAnchorPosition: {x: -0.00018002093, y: 0.044510003, z: 0}
   m_ParentAnchorRotation: {x: 0, y: 0, z: -0.7071068, w: 0.7071068}
@@ -7146,7 +7146,7 @@ GameObject:
   m_Component:
   - component: {fileID: 3927596181520111323}
   - component: {fileID: 5701140788582132872}
-  m_Layer: 0
+  m_Layer: 10
   m_Name: Cylinder
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -7723,7 +7723,7 @@ GameObject:
   m_Component:
   - component: {fileID: 884177291357869523}
   - component: {fileID: 738489935029005164}
-  m_Layer: 0
+  m_Layer: 10
   m_Name: Cylinder
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -8067,7 +8067,7 @@ ArticulationBody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5306637164550713474}
   m_Enabled: 1
-  serializedVersion: 5
+  serializedVersion: 6
   m_Mass: 0.0005
   m_ParentAnchorPosition: {x: 0.0000000065263563, y: 0.044449985, z: -0.00025997683}
   m_ParentAnchorRotation: {x: 0, y: 0, z: -0.7071068, w: 0.7071068}
@@ -9681,7 +9681,7 @@ ArticulationBody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6291754185679410842}
   m_Enabled: 1
-  serializedVersion: 5
+  serializedVersion: 6
   m_Mass: 5
   m_ParentAnchorPosition: {x: 0, y: 0, z: 0}
   m_ParentAnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
@@ -9771,6 +9771,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2a0e152a37064894bd0d24c9527e4b66, type: 3}
   m_Name: 
   m_EditorClassIdentifier: PhysicsAssembly::Sim.Physics.Processing.Submersion
+  submerged:
+    data:
+      vertices: []
+      triangles:
+      normals: []
+      transform: {fileID: 0}
+      faceCentersWorld: []
+      faceCenterHeightsAboveWater: []
+      triangleAreas: []
+      centroid: {x: 0, y: 0, z: 0}
+      volume: 0
+      maxTriangleIndex: 0
+    hullMesh: {fileID: 0}
   waterSurface: {fileID: 0}
   simplifiedMesh: {fileID: -2432090755550338912, guid: 6fce5ecf114cc600b8db619f664bc44f,
     type: 3}
@@ -12686,7 +12699,7 @@ ArticulationBody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8576420497605421959}
   m_Enabled: 1
-  serializedVersion: 5
+  serializedVersion: 6
   m_Mass: 1
   m_ParentAnchorPosition: {x: 0, y: 0, z: -0.060000002}
   m_ParentAnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
@@ -12967,7 +12980,7 @@ ArticulationBody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8668794219555111665}
   m_Enabled: 1
-  serializedVersion: 5
+  serializedVersion: 6
   m_Mass: 0.25
   m_ParentAnchorPosition: {x: -0.11066997, y: 0, z: 0.20484}
   m_ParentAnchorRotation: {x: 0.0000007003546, y: -0.3826843, z: -0.0000016987324,
@@ -13455,7 +13468,7 @@ ArticulationBody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 8960612052132627200}
   m_Enabled: 1
-  serializedVersion: 5
+  serializedVersion: 6
   m_Mass: 0.0005
   m_ParentAnchorPosition: {x: 0.000000014901161, y: 0.044510003, z: 0}
   m_ParentAnchorRotation: {x: 0, y: 0, z: -0.7071068, w: 0.7071068}
@@ -13797,7 +13810,7 @@ ArticulationBody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 9042458359503909214}
   m_Enabled: 1
-  serializedVersion: 5
+  serializedVersion: 6
   m_Mass: 0.0005
   m_ParentAnchorPosition: {x: -0.000000016771295, y: 0.044449985, z: -0.0002600206}
   m_ParentAnchorRotation: {x: 0, y: 0, z: -0.7071069, w: 0.7071069}

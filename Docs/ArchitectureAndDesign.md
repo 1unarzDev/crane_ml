@@ -50,7 +50,7 @@ broader domain fixtures still need work.
 | Action provenance/lockstep control | Partial, controller loop validated | ROS/SITL source-observation, receive, and application ticks plus sequence/episode rejection are wired; Nav2 commands are paired with latest delivered odometry, but internal consumption and lockstep remain unproven |
 | Ackermann land dynamics | Implemented and repeat-validated fixture | Flat-ground acceleration/coast/brake/turn only; production platform gaps remain |
 | Multirotor dynamics | Implemented and repeat-validated fixture | Analytic checks pass; real-airframe and SITL qualification absent |
-| Collision optimization | Partial, coverage validated | Classified fixture passes required/excluded pairs; production aquatic objects remain on Default |
+| Collision optimization | Implemented ownership, coverage validated; no measured speedup | Required/excluded pairs pass and every production aquatic collider is classified; matched runs showed no material RTF/PhysX change |
 | Episode reset | Scene reload validated, including live Nav2 reconnect; in-place partial/experimental | Aquatic scene reload joins the old Unity TCP task, removes endpoint-owned ROS nodes, opens one replacement connection, recovers Nav2 after the `/clock` rewind, and rejects no measured actions. In-place external ROS/controller and stateful-water reset remain incomplete |
 | Multi-process workers | Implemented; GPU, CPU-depth and Nav2-inclusive sweeps validated | Train-GPU reaches 8.003 valid simulated s/s across four 2× Unity-only workers. With isolated ROS domains/ports and a full Nav2 graph per worker, four 1× workers pass one matched run but show a one-stale-action outlier in another; six 0.75× workers reliably deliver 4.509× aggregate measured RTF. Eight 1× workers are invalid from stale depth observations |
 | Train-GPU profile | Implemented and aquatic-validated at 2× | RGB/spectators off with depth+detections+LiDAR retained; still requires graphics-backed HDRP water |
@@ -599,12 +599,19 @@ ownership across scene reload, not in-place Nav2 reset, localization, SLAM, or s
 
 ### Collision and contact configuration
 
-New fixtures use explicit Environment, Vehicle, DynamicObstacle, SensorQuery, and
-SimulationTrigger layers. Their pruned matrix is covered by hull/dock, dynamic-obstacle,
-high-speed thin-barrier, trigger, sensor-query, wheel/terrain, and aerial-landing checks. The
-synthetic 144-body A/B benchmark showed no material PhysX speed change. Existing aquatic scenes
-and prefabs still serialize all 805 objects on `Default`, so their interactions are preserved and
-must be migrated incrementally before the matrix can reduce production broadphase work.
+Environment, Vehicle, DynamicObstacle, SensorQuery, and SimulationTrigger have explicit ownership.
+The pruned matrix is covered by hull/dock, dynamic-obstacle, high-speed thin-barrier, trigger,
+sensor-query, wheel/terrain, and aerial-landing checks. A batch-safe Editor audit inspects the
+actual production scenes and aborts if one prefab is reused with conflicting ownership.
+
+The aquatic migration classifies the Roboboat scene's 9 vehicle, 146 scripted floating/dock, and
+4 fixed-environment colliders, plus the Robosub scene's 7 vehicle, 5 environment, and 1 water-trigger
+colliders. The remaining Default-layer objects have no colliders. Two matched Train-GPU runs on
+each side showed 2.00136× versus 2.00099× mean RTF and 0.12210 versus 0.12376 ms mean
+`Physics.Simulate`; these are immaterial differences, not a performance win. Maximum paired RMS
+differences were 4.50 mm position, 0.152 degrees attitude, and 4.84 mm sampled water height, within
+the established aquatic repeatability envelope. The change is retained for explicit correctness
+and future broadphase work, not for measured speed.
 
 ### Presentation ownership
 

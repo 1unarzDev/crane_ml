@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 8742117806984728214}
   - component: {fileID: 8693326735057562896}
   - component: {fileID: 1199272589110527655}
-  m_Layer: 0
+  m_Layer: 11
   m_Name: GreenBuoyPrefab
   m_TagString: Untagged
   m_Icon: {fileID: 0}

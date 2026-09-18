@@ -71,6 +71,22 @@ are part of the physical model. Rendering LOD must not silently replace collisio
 geometry. WheelCollider tire friction is its own slip/friction model and does not use ordinary
 `PhysicsMaterial` friction in the same way as a normal collider.
 
+Collision-layer ownership is a project convention, not presentation LOD:
+
+| Layer | Ownership |
+|---|---|
+| Environment | fixed terrain, pool walls, shore, tents, and other physical world geometry |
+| Vehicle | colliders owned by a Rigidbody or ArticulationBody vehicle |
+| DynamicObstacle | physical or script-moved docks, buoys, and obstacles |
+| SensorQuery | geometry visible to explicit sensor queries but excluded from contacts |
+| SimulationTrigger | trigger volumes that overlap vehicles/dynamic obstacles without contact response |
+
+Production aquatic scenes follow this convention; Default-layer objects there have no colliders.
+`CraneCollisionLayerAudit.Run` emits a machine-readable scene/prefab audit, while
+`CraneCollisionLayerAudit.MigrateProduction` applies the deterministic classification and rejects
+conflicting prefab ownership. Required contacts and exclusions must pass `--crane-collision-validation`
+after any layer or collider edit.
+
 ## Surface-vehicle physics
 
 The production `Roboboat Course` vehicle is a force-driven Rigidbody system coupled to HDRP

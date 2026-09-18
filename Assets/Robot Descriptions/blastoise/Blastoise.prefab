@@ -10,7 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1756291112999381236}
   - component: {fileID: 7305519658201826113}
-  m_Layer: 0
+  m_Layer: 10
   m_Name: Box
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -249,7 +249,7 @@ ArticulationBody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 409715076648177000}
   m_Enabled: 1
-  serializedVersion: 5
+  serializedVersion: 6
   m_Mass: 0.3
   m_ParentAnchorPosition: {x: -0.27711, y: -0.0126, z: 0}
   m_ParentAnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
@@ -1090,7 +1090,7 @@ ArticulationBody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1100795179572341516}
   m_Enabled: 1
-  serializedVersion: 5
+  serializedVersion: 6
   m_Mass: 5
   m_ParentAnchorPosition: {x: 0, y: 0, z: 0}
   m_ParentAnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
@@ -1178,6 +1178,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2a0e152a37064894bd0d24c9527e4b66, type: 3}
   m_Name: 
   m_EditorClassIdentifier: PhysicsAssembly::Sim.Physics.Processing.Submersion
+  submerged:
+    data:
+      vertices: []
+      triangles:
+      normals: []
+      transform: {fileID: 0}
+      faceCentersWorld: []
+      faceCenterHeightsAboveWater: []
+      triangleAreas: []
+      centroid: {x: 0, y: 0, z: 0}
+      volume: 0
+      maxTriangleIndex: 0
+    hullMesh: {fileID: 0}
   waterSurface: {fileID: 0}
   simplifiedMesh: {fileID: -2432090755550338912, guid: 4479d26e82f7a8e738a86a219cdc1ac2,
     type: 3}
@@ -1408,7 +1421,7 @@ GameObject:
   m_Component:
   - component: {fileID: 8976293356901480069}
   - component: {fileID: 8494802197922067564}
-  m_Layer: 0
+  m_Layer: 10
   m_Name: Box
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1507,7 +1520,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2517363607679694017}
   - component: {fileID: 5075724624560444020}
-  m_Layer: 0
+  m_Layer: 10
   m_Name: Box
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1746,7 +1759,7 @@ ArticulationBody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2086102411953065473}
   m_Enabled: 1
-  serializedVersion: 5
+  serializedVersion: 6
   m_Mass: 0.015
   m_ParentAnchorPosition: {x: -0.00000001962682, y: 0.0052899984, z: -0.00036999583}
   m_ParentAnchorRotation: {x: 0, y: 0, z: -0.7071069, w: 0.7071069}
@@ -1865,7 +1878,7 @@ GameObject:
   m_Component:
   - component: {fileID: 165724655197928489}
   - component: {fileID: 7335960941761098231}
-  m_Layer: 0
+  m_Layer: 10
   m_Name: Cylinder
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -2272,7 +2285,7 @@ ArticulationBody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2619325705799338207}
   m_Enabled: 1
-  serializedVersion: 5
+  serializedVersion: 6
   m_Mass: 7
   m_ParentAnchorPosition: {x: 0, y: -0.078, z: 0.3302}
   m_ParentAnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
@@ -2662,7 +2675,7 @@ ArticulationBody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3240553341880625062}
   m_Enabled: 1
-  serializedVersion: 5
+  serializedVersion: 6
   m_Mass: 0.427
   m_ParentAnchorPosition: {x: -0.26637, y: -0.28232002, z: -0.012870014}
   m_ParentAnchorRotation: {x: 0.0000016391277, y: -0.9238788, z: -0.0000007003546,
@@ -2861,7 +2874,7 @@ ArticulationBody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3285424850290976848}
   m_Enabled: 1
-  serializedVersion: 5
+  serializedVersion: 6
   m_Mass: 0.427
   m_ParentAnchorPosition: {x: 0.2663, y: -0.28432, z: 0.012820005}
   m_ParentAnchorRotation: {x: -0.0000007003546, y: 0.3826843, z: -0.0000016987324,
@@ -3238,7 +3251,7 @@ ArticulationBody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3742857257110263301}
   m_Enabled: 1
-  serializedVersion: 5
+  serializedVersion: 6
   m_Mass: 0.015
   m_ParentAnchorPosition: {x: 0.000000010175503, y: 0.0052899984, z: 0.00036999583}
   m_ParentAnchorRotation: {x: 0, y: 0, z: -0.7071069, w: 0.7071069}
@@ -3407,7 +3420,7 @@ ArticulationBody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3778515348648561578}
   m_Enabled: 1
-  serializedVersion: 5
+  serializedVersion: 6
   m_Mass: 0.1
   m_ParentAnchorPosition: {x: -0.012699991, y: 0.29035, z: 0}
   m_ParentAnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
@@ -3691,7 +3704,7 @@ ArticulationBody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4113120035386283078}
   m_Enabled: 1
-  serializedVersion: 5
+  serializedVersion: 6
   m_Mass: 0.015
   m_ParentAnchorPosition: {x: 0.000000010744845, y: 0.005289997, z: -0.00037001027}
   m_ParentAnchorRotation: {x: 0, y: 0, z: -0.7071068, w: 0.7071068}
@@ -3859,7 +3872,7 @@ ArticulationBody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4237908998229292491}
   m_Enabled: 1
-  serializedVersion: 5
+  serializedVersion: 6
   m_Mass: 0.427
   m_ParentAnchorPosition: {x: 0.26625, y: -0.28232002, z: -0.012769997}
   m_ParentAnchorRotation: {x: 0.0000007003546, y: -0.3826843, z: -0.0000016987324,
@@ -4008,7 +4021,7 @@ GameObject:
   m_Component:
   - component: {fileID: 5623083367924064410}
   - component: {fileID: 6453619497334394631}
-  m_Layer: 0
+  m_Layer: 10
   m_Name: Box
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4201,7 +4214,7 @@ ArticulationBody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4586056882386629747}
   m_Enabled: 1
-  serializedVersion: 5
+  serializedVersion: 6
   m_Mass: 0.1
   m_ParentAnchorPosition: {x: -0.53779, y: 0.208, z: 0}
   m_ParentAnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
@@ -4365,7 +4378,7 @@ ArticulationBody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4693042776900118673}
   m_Enabled: 1
-  serializedVersion: 5
+  serializedVersion: 6
   m_Mass: 1
   m_ParentAnchorPosition: {x: 0.09, y: 0, z: -0.12}
   m_ParentAnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
@@ -4464,7 +4477,7 @@ GameObject:
   m_Component:
   - component: {fileID: 7861836534292716043}
   - component: {fileID: 8146767351674094644}
-  m_Layer: 0
+  m_Layer: 10
   m_Name: Box
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4612,7 +4625,7 @@ ArticulationBody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5325575762777009155}
   m_Enabled: 1
-  serializedVersion: 5
+  serializedVersion: 6
   m_Mass: 0.015
   m_ParentAnchorPosition: {x: -0.000000019057477, y: 0.005289997, z: 0.00037001027}
   m_ParentAnchorRotation: {x: 0, y: 0, z: -0.7071068, w: 0.7071068}
@@ -4968,7 +4981,7 @@ ArticulationBody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 5937371456924922527}
   m_Enabled: 1
-  serializedVersion: 5
+  serializedVersion: 6
   m_Mass: 0.1
   m_ParentAnchorPosition: {x: -0.049899995, y: 0.13779, z: 0}
   m_ParentAnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
@@ -5178,6 +5191,11 @@ MonoBehaviour:
   frameId: front_camera_link
   sensorCamera: {fileID: 7252236208909801342}
   Hz: 10
+  minDist: 1
+  maxDist: 20
+  occlusionMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
   drawGizmos: 1
   gizmoScale: 0.05
   objects:
@@ -5342,7 +5360,7 @@ ArticulationBody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6648433444782846661}
   m_Enabled: 1
-  serializedVersion: 5
+  serializedVersion: 6
   m_Mass: 7
   m_ParentAnchorPosition: {x: 0, y: -0.08, z: -0.3302}
   m_ParentAnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
@@ -5492,7 +5510,7 @@ ArticulationBody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6788621871121489711}
   m_Enabled: 1
-  serializedVersion: 5
+  serializedVersion: 6
   m_Mass: 0.1
   m_ParentAnchorPosition: {x: -0.44955, y: 0.10149, z: 0}
   m_ParentAnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
@@ -5642,7 +5660,7 @@ ArticulationBody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6845916185526941729}
   m_Enabled: 1
-  serializedVersion: 5
+  serializedVersion: 6
   m_Mass: 1
   m_ParentAnchorPosition: {x: 0.18, y: 0, z: -0.12}
   m_ParentAnchorRotation: {x: 0, y: 0, z: 0.7071068, w: 0.7071068}
@@ -6244,7 +6262,7 @@ ArticulationBody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7597670358607897310}
   m_Enabled: 1
-  serializedVersion: 5
+  serializedVersion: 6
   m_Mass: 0.427
   m_ParentAnchorPosition: {x: -0.26636, y: -0.28432, z: 0.012870014}
   m_ParentAnchorRotation: {x: -0.0000016391277, y: 0.9238788, z: -0.0000007003546,
@@ -6795,7 +6813,7 @@ GameObject:
   m_Component:
   - component: {fileID: 6098696249139645178}
   - component: {fileID: 1913672998270660766}
-  m_Layer: 0
+  m_Layer: 10
   m_Name: Box
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -7380,6 +7398,11 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 2464614023214841043}
     m_Modifications:
+    - target: {fileID: 652214808402219867, guid: 40617212feec20de39a913ec47269c3b,
+        type: 3}
+      propertyPath: m_Layer
+      value: 10
+      objectReference: {fileID: 0}
     - target: {fileID: 2142834685198877520, guid: 40617212feec20de39a913ec47269c3b,
         type: 3}
       propertyPath: m_Name
@@ -7542,6 +7565,11 @@ PrefabInstance:
         type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7202905859325237687, guid: 272d1453847f3e2da844bf3f9077e897,
+        type: 3}
+      propertyPath: m_Layer
+      value: 10
       objectReference: {fileID: 0}
     m_RemovedComponents:
     - {fileID: 4130517973228986175, guid: 272d1453847f3e2da844bf3f9077e897, type: 3}
