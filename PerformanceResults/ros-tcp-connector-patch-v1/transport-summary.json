@@ -1,0 +1,19 @@
+{
+  "schema": "crane-ros-transport-summary-v1",
+  "unityResult": "result.json",
+  "rosDistribution": "jazzy",
+  "endpoint": "ros_tcp_endpoint/default_server_endpoint",
+  "endpointAddress": "127.0.0.1:6767",
+  "endpointConnections": 1,
+  "publisherRegistrations": {
+    "clock": 1,
+    "/detections": 1,
+    "points": 1,
+    "/front_camera/depth/image": 1,
+    "/front_camera/camera_info": 1
+  },
+  "duplicatePublisherWarnings": 0,
+  "reconnects": 0,
+  "unityValid": true,
+  "realTimeFactor": 1.0021399152104917
+}

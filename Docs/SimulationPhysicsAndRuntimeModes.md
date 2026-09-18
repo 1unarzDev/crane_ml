@@ -235,6 +235,21 @@ receive tick, and bounded-lag policy before fixed-step application. `--crane-dis
 transport while still exercising message construction for benchmarks. This is not end-to-end
 zero-copy: ROS-TCP remains a serialization boundary.
 
+The optional production aquatic adapter subscribes to `geometry_msgs/TwistStamped` and maps ROS
+FLU forward/lateral/yaw commands into the Omni-X mixer. It never mutates thrusters in the ROS
+callback: a single-slot mailbox applies the newest valid command in `FixedUpdate`, and a
+simulated-tick watchdog commands zero after a bounded hold interval. The header stamp is converted
+to the source-observation tick. `OmniXController` combines translation and yaw before normalizing
+all four thrusters, so a curved Nav2 command no longer discards its forward component.
+
+Enable it with `--crane-ros-cmd-vel /crane/cmd_vel_stamped`. Velocity normalization defaults to
+1 m/s and 1 rad/s and can be set with `--crane-cmd-vel-linear-scale` and
+`--crane-cmd-vel-yaw-scale`. Use `--crane-command-timeout-ticks` for the hold watchdog and
+`--crane-action-policy bounded --crane-max-action-lag-ticks N` for stale-action rejection.
+`Tools/Performance/ros_observation_command_bridge.py --mode nav2` stamps standard Nav2 `/cmd_vel`
+with the newest observation delivered to the bridge. This records delivery provenance; the
+standard Nav2 message still cannot prove that a planner internally consumed that exact sample.
+
 `Clock.time` and published `/clock` are episode-relative, not process-uptime-relative. Scene load
 or an explicit in-place reset starts the authoritative episode clock at zero. Runtime scene
 selection disables the transient initial scene's sensors and transports before their `Start`
@@ -311,6 +326,31 @@ SDL_VIDEODRIVER=x11 ./Builds/CRANE-Worker/CRANE.x86_64 \
   --crane-runtime-report ./episodes/runtime-profile.json
 ```
 
+Run an interactive ROS/Nav2-development session with fixed-step stamped command application:
+
+```bash
+SDL_VIDEODRIVER=x11 ./Builds/CRANE-Worker/CRANE.x86_64 \
+  -screen-fullscreen 0 -screen-width 1280 -screen-height 720 \
+  --crane-profile interactive-high --crane-scene "Roboboat Course" \
+  --crane-ros-ip 127.0.0.1 --crane-ros-port 10000 \
+  --crane-ros-cmd-vel /crane/cmd_vel_stamped \
+  --crane-action-policy bounded --crane-max-action-lag-ticks 10 \
+  --crane-command-timeout-ticks 25
+```
+
+On the ROS 2 side, pair Nav2's ordinary `Twist` output with the latest delivered detection stamp:
+
+```bash
+source /opt/ros/jazzy/setup.bash
+python3 Tools/Performance/ros_observation_command_bridge.py \
+  --mode nav2 --observation-topic /detections \
+  --input-topic /cmd_vel --output-topic /crane/cmd_vel_stamped
+```
+
+Launch the project-specific Nav2 graph separately with `use_sim_time:=true`. A single worker must
+own one isolated ROS graph/domain and one `/clock`. If the full stack cannot keep up, lower the
+requested RTF or use bounded rejection; CRANE does not currently provide a Nav2 lockstep barrier.
+
 Run strict graphics-free land or aerial physics:
 
 ```bash
@@ -376,3 +416,8 @@ test of the reset seam, not permission to replace scene reload in production aqu
    visibility/range/occlusion rather than publishing all registered objects.
 9. Record authoritative state for replay; do not promise arbitrary PhysX snapshot resume.
 10. Label capabilities as implemented, validated, experimental, blocked, or absent.
+
+The embedded ROS-TCP Connector is intentionally pinned under `Packages/`. Its CRANE patch removes
+a pre-handshake publisher-registration duplicate and synchronizes topic creation with the
+connection thread. Do not replace it with an unpinned upstream URL without rerunning the live
+transport and reconnect fixtures.

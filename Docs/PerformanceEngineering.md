@@ -237,6 +237,10 @@ Useful arguments:
 | `--crane-depth-buffer-validation` | Compare one reused, vertically flipped depth payload byte-for-byte with its GPU readback source |
 | `--crane-action-policy latest\|bounded` | Select latest-valid or bounded-lag command acceptance |
 | `--crane-max-action-lag-ticks N` | Maximum receive/source-to-application lag for bounded policy |
+| `--crane-ros-cmd-vel [TOPIC]` | Enable fixed-step `TwistStamped` control of the production Omni-X vehicle |
+| `--crane-cmd-vel-linear-scale N` | ROS linear speed represented by normalized full command (default 1 m/s) |
+| `--crane-cmd-vel-yaw-scale N` | ROS yaw rate represented by normalized full command (default 1 rad/s) |
+| `--crane-command-timeout-ticks N` | Command zero after this many simulated ticks without an accepted action |
 | `--crane-reset-probe` | Run scene-reload A→B→A validation before measurement |
 | `--crane-no-signatures` | Skip expensive full-frame correctness hashing for throughput runs |
 | `--crane-validation-period S` | Body/water snapshot interval in simulated seconds |
@@ -292,6 +296,8 @@ Raw JSON is in `PerformanceResults/`.
 | Ackermann drive torque, 60 kg rover | 110 N·m/wheel launched the body; 0 grounded wheels | 6 N·m/wheel; 4 grounded wheels and stable attitude | Keep validated setting |
 | Classified 144-body contact fixture, two matched 10 s runs | 0.5837 ms/physics frame on Default | 0.5788 ms/physics frame classified | Keep for correctness; no material speed claim |
 | Queued ROS/SITL action seam, standalone fixture | callbacks could mutate state off-step or lacked receipt data | all gate/mailbox cases valid; 1× aquatic target regression valid at 1.002× | Keep correctness seam; no speed claim |
+| Embedded connector registration fix, live Jazzy 1× | one clock owner produced two endpoint publisher registrations | one connection, one clock registration, one registration/topic; target remained valid at 1.002× | Keep pinned package patch |
+| Detection-derived ROS command loop, live Jazzy 1× | outbound transport and action seam only validated separately | 64 stamped actions accepted, zero stale/rejected; final acquire/receive/apply ticks 395/396/397; 1.003× valid | Keep causality fixture; not Nav2 qualification |
 | Replay v2 accepted-action stream, two 5 s runs/side at 2× | 2.0064× mean RTF, 0.596 MB GC without recording | 2.0070× mean RTF, 2.857 MB GC with recording | Keep; bounded correctness data, recorder allocation remains experimental |
 | Replay water time after end-of-stream, 2 s | HDRP continued live time or setter no-op before resource allocation | exact recorded time held for 9/9 samples; invariant valid query height | Keep spectral-time pin/reapply |
 | Validation stream, 2×, 5 s, 0.25 s interval, capacity 3 | unbounded in-memory validation list | 41 samples streamed, 3 retained, 38 dropped from RAM; 2.006× and valid | Keep bounded/streamed handling |
@@ -484,9 +490,13 @@ and water differences did not reject 4×. Required visual-sensor delivery did re
 - `ROSThruster` now initializes its subscriber and both ROS thruster and SITL PWM callbacks enqueue
   latest-value action payloads. Actuator mutation occurs only after episode/sequence/lag checks in
   `FixedUpdate`; the UDP receive thread no longer writes controller state directly.
-- Runtime scene selection now suppresses the transient build-index-zero ROS graph. A requested
-  scene opens one endpoint connection instead of two; the endpoint still observes two `clock`
-  publisher registrations on that connection and this remaining duplication is not hidden.
+- Runtime scene selection suppresses the transient build-index-zero ROS graph. A requested scene
+  opens one endpoint connection instead of two. The pinned connector patch prevents queued
+  pre-handshake registrations from being sent a second time and snapshots topic state under its
+  lock; the endpoint now observes one `/clock` and one registration per sensor topic.
+- `ROSOmniXCommand` applies stamped planar commands only from `FixedUpdate`, converts the header
+  stamp to an acquisition tick, and stops after a simulated-tick timeout. The Omni-X mixer now
+  combines translation and yaw before saturation instead of discarding translation on turns.
 - In-place reset now has an explicit component contract and restores body/joint state, actuator
   state, sensor acquisition phase, episode-relative clock, RNG, and HDRP spectral time. The
   graphics-free aerial fixture passed exact A→B→A restoration in 0.82 ms; broader reset state is
@@ -507,11 +517,12 @@ and water differences did not reject 4×. Required visual-sensor delivery did re
    Roboboat run delivered 75 measured depth frames, 50 LiDAR scans, and 40 detection acquisitions
    with no stale/failed observations at 1.003× RTF. Over the full eight-second process interval,
    loopback RX and TX each increased by 507.9 MB; raw target payload is about 64 MB/s at 1×.
-   This includes the bridge but excludes Nav2/controller compute and returned actions.
-5. ROS/SITL actions now report receive/application ticks and reject duplicate, stale, and
-   cross-episode receipts. Existing Float32 and PWM protocols do not carry the source observation
-   tick, so this still cannot prove which observation Nav2/SITL consumed. Stamped commands, a
-   training lockstep barrier, and a live ROS/Nav2 acceptance run remain required.
+   This includes the bridge but excludes Nav2/controller compute.
+5. A live observation-derived ROS loop now returns `TwistStamped` and validates acquisition,
+   receive, and fixed-step application ticks with bounded lag. Existing Float32 and PWM protocols
+   still lack source observation ticks, and pairing Nav2 `Twist` with the newest delivered sample
+   does not prove internal consumption. A training lockstep barrier and full Nav2 acceptance run
+   remain required.
 6. Scene reload remains the accepted clean reset. The new in-place coordinator is validated for
    a non-aquatic Rigidbody/component fixture and implements articulation/sensor/actuator/spectral
    water hooks, but it still lacks full external controller/ROS and stateful-water reset coverage.

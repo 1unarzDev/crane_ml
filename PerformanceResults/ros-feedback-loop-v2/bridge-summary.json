@@ -1,0 +1,12 @@
+{
+  "schema": "crane-ros-observation-command-bridge-v1",
+  "mode": "feedback",
+  "observationTopic": "/detections",
+  "inputTopic": null,
+  "outputTopic": "/crane/cmd_vel_stamped",
+  "observations": 88,
+  "inputCommands": 0,
+  "outputCommands": 88,
+  "durationSeconds": 35.02307196499896,
+  "notes": "Feedback mode is a ROS transport and causality fixture, not Nav2. Unity's measured window accepted 64 actions after warmup."
+}

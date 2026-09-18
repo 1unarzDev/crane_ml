@@ -84,6 +84,19 @@ namespace Sim.Utils.Performance {
             }
             return new CraneActionPayload("uint16-le[]", bytes);
         }
+
+        public static CraneActionPayload Float32Array(float[] values) {
+            byte[] bytes = new byte[values.Length * sizeof(float)];
+            for (int i = 0; i < values.Length; i++) {
+                int bits = BitConverter.SingleToInt32Bits(values[i]);
+                int offset = i * sizeof(float);
+                bytes[offset] = (byte)bits;
+                bytes[offset + 1] = (byte)(bits >> 8);
+                bytes[offset + 2] = (byte)(bits >> 16);
+                bytes[offset + 3] = (byte)(bits >> 24);
+            }
+            return new CraneActionPayload("float32-le[]", bytes);
+        }
     }
 
     /// <summary>

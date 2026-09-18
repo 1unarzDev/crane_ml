@@ -24,6 +24,7 @@ namespace Sim.Performance {
         public bool queuedRejectedDidNotMutate;
         public bool acceptedPayloadRecorded;
         public bool floatPayloadEncodingValid;
+        public bool floatArrayPayloadEncodingValid;
         public bool pwmPayloadEncodingValid;
         public int acceptedPayloadCount;
         public int outcomeEventCount;
@@ -131,6 +132,15 @@ namespace Sim.Performance {
                 floatPayload.Data.Length == 4 && floatPayload.Data[0] == 0 &&
                 floatPayload.Data[1] == 0 && floatPayload.Data[2] == 0xC0 &&
                 floatPayload.Data[3] == 0x3F;
+            CraneActionPayload floatArrayPayload = CraneActionPayloadEncoding.Float32Array(
+                new[] { 1.5f, -2f });
+            result.floatArrayPayloadEncodingValid =
+                floatArrayPayload.Encoding == "float32-le[]" &&
+                floatArrayPayload.Data.Length == 8 &&
+                floatArrayPayload.Data[0] == 0 && floatArrayPayload.Data[1] == 0 &&
+                floatArrayPayload.Data[2] == 0xC0 && floatArrayPayload.Data[3] == 0x3F &&
+                floatArrayPayload.Data[4] == 0 && floatArrayPayload.Data[5] == 0 &&
+                floatArrayPayload.Data[6] == 0 && floatArrayPayload.Data[7] == 0xC0;
             CraneActionPayload pwmPayload = CraneActionPayloadEncoding.UInt16Array(
                 new ushort[] { 1000, 2000 });
             result.pwmPayloadEncodingValid = pwmPayload.Encoding == "uint16-le[]" &&
@@ -175,6 +185,7 @@ namespace Sim.Performance {
                 result.queuedPayloadHeldBeforeApply && result.queuedPayloadApplied &&
                 result.queuedLatestPayloadApplied && result.queuedRejectedDidNotMutate &&
                 result.acceptedPayloadRecorded && result.floatPayloadEncodingValid &&
+                result.floatArrayPayloadEncodingValid &&
                 result.pwmPayloadEncodingValid && result.outcomeEventCount == 3 &&
                 result.outcomeSequenceValid && result.cumulativeRewardValid &&
                 result.terminationValid && result.truncationValid &&

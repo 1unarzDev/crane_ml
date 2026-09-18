@@ -58,9 +58,20 @@ namespace Sim.Utils.ROS {
                 return;
             }
             s_Owner = this;
+            Debug.Log($"CRANE_ROS_CLOCK_OWNER scene={gameObject.scene.name} " +
+                      $"path={StablePath(transform)} entity={GetEntityId()}");
             SetClockMode(clockMode);
             ros = ROSConnection.GetOrCreateInstance();
             ros.RegisterPublisher<ClockMsg>("clock");
+        }
+
+        private static string StablePath(Transform value) {
+            string path = string.Empty;
+            for (Transform current = value; current != null; current = current.parent) {
+                string segment = $"{current.GetSiblingIndex()}:{current.name}";
+                path = string.IsNullOrEmpty(path) ? segment : segment + "/" + path;
+            }
+            return path;
         }
 
         private void PublishMessage() {

@@ -270,20 +270,30 @@ Unity queue too long.
 
 The existing Float32 ROS command and SITL PWM packet do not carry the observation tick from which
 the controller computed the action. Their `actionSourceTick` is therefore deliberately `-1`, and
-bounded lag falls back to receive-to-application age. This proves Unity queue freshness, not that
-Nav2 consumed the newest observation. A stamped command contract plus a live ROS/Nav2 run and a
-true lockstep barrier are still required for causal closed-loop acceptance.
+bounded lag falls back to receive-to-application age. `ROSOmniXCommand` adds an opt-in
+`TwistStamped` path for the production aquatic controller: it derives the source tick from the
+header, applies in `FixedUpdate`, combines forward/lateral/yaw in the mixer, and commands zero
+after a simulated-tick timeout. This proves stamped transport causality when the ROS-side bridge
+copies an actual observation stamp. The standard Nav2 `Twist` contract still cannot prove which
+observation Nav2 internally consumed; a full Nav2 run and lockstep barrier remain required.
 
-A live Jazzy `ros_tcp_endpoint` run now validates the outbound transport boundary on the
-Roboboat target profile. Runtime scene selection suppresses sensors, clocks, MAVROS, and the
-connector in the throw-away build-index-zero scene; the matched rerun opens one endpoint socket.
-The endpoint still reports two `clock` publisher registrations on that socket, so single-clock
-registration remains an explicit transport cleanup item even though `ROSClock` now elects one
-runtime owner. At 1×, 1280×720 depth at 15 Hz contributes about 55.3 MB/s of raw
+A live Jazzy `ros_tcp_endpoint` run validates the transport boundary on the Roboboat target
+profile. Runtime scene selection suppresses sensors, clocks, MAVROS, and the connector in the
+throw-away build-index-zero scene; the matched rerun opens one endpoint socket. The embedded,
+pinned connector now snapshots topic state under a lock and tracks registration per connection;
+a fresh matched run reported exactly one `/clock` registration and one registration for every
+sensor topic, with no registration race or reconnect. At 1×, 1280×720 depth at 15 Hz contributes about 55.3 MB/s of raw
 payload and the 72,000-point LiDAR at 10 Hz contributes 8.64 MB/s. The matched eight-second
 warmup+measurement run moved 507.9 MB in each loopback counter direction, consistent with the
-roughly 64 MB/s payload estimate plus protocol overhead. This validates ROS-TCP transport, not
-Nav2 compute, action return, or lockstep causality; accepted action count remained zero.
+roughly 64 MB/s payload estimate plus protocol overhead.
+
+A second real ROS 2 Jazzy fixture consumed semantic detections and returned stamped planar
+commands through the endpoint. CRANE accepted 64 actions during the measured eight simulated
+seconds with no stale/rejected commands; the final action carried acquisition tick 395, arrived
+at tick 396, and applied at tick 397 while the complete depth/LiDAR/detection workload remained
+valid at 1.003×. This validates returned-action transport and the Unity application seam. The
+fixture is deliberately not labeled Nav2: it excludes planner, costmaps, TF, controller compute,
+and lockstep behavior.
 
 ### In-place episode reset seam
 
@@ -511,14 +521,13 @@ must be compared against reference water heights and vehicle trajectories.
 
 ### ROS action provenance
 
-ROS thruster and SITL PWM actions now carry episode, source, sequence, receive tick, and
-application tick through a thread-safe latest-value mailbox. A standalone synthetic fixture
+ROS thruster, stamped Omni-X, and SITL PWM actions now carry episode, source, sequence, receive
+tick, and application tick through a thread-safe latest-value mailbox. A standalone synthetic fixture
 validates bounded acceptance, duplicate/stale/cross-episode rejection, latest-policy behavior,
 payload hold-until-apply, replacement, and rejection without actuator mutation. Float32 and SITL
-packets still lack source observation ticks. The live Jazzy endpoint run validates outbound
-sensor transport, but no action returned and the available Nav2 launch assumes RGB/RTAB-Map plus
-MAVROS. Current results therefore prove transport and the Unity-side application seam separately;
-they do not prove accelerated planner/controller freshness.
+packets still lack source observation ticks. A live observation-derived ROS return path validates
+stamped acquisition/receive/application ticks, but the available Nav2 launch assumes RGB/RTAB-Map
+plus MAVROS. It does not yet prove accelerated Nav2 planner/controller freshness.
 
 ### Reset completeness
 

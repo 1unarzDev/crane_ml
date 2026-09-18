@@ -63,33 +63,26 @@ namespace Sim.Controllers {
 
         // TODO: More accurately model desired linear and angular velocity (not just full forward throttle/backward/angular)
         public void SetMotion(Vector3 linear, Vector3 angular) {
-            // Debug.Log(linear.x + " " + linear.y + " " + angular.z);
-            if (angular.z != 0) {
-                // Only as good at generating torque as the magnitude of the cross product of the radius and force vectors
-                float frd = angular.z * config.GetMaxCommand();
-                float fld = -frd;
+            float maximum = config.GetMaxCommand();
+            float x = linear.x;
+            float y = linear.y;
+            float yaw = angular.z;
 
-                frontRight.SetCommand(frd);
-                rearLeft.SetCommand(frd);
+            // Combine translation and yaw before saturation. The previous mutually exclusive
+            // branches discarded Nav2 forward velocity whenever angular.z was non-zero, making
+            // curved paths impossible.
+            float fl = -x - y - yaw;
+            float fr = x - y + yaw;
+            float rl = -x + y + yaw;
+            float rr = x + y - yaw;
+            float peak = Mathf.Max(1f, Mathf.Abs(fl), Mathf.Abs(fr), Mathf.Abs(rl),
+                Mathf.Abs(rr));
+            float scale = maximum / peak;
 
-                frontLeft.SetCommand(fld);
-                rearRight.SetCommand(fld);
-            }
-            else {
-                float cX = linear.x * config.GetMaxCommand();
-                float cY = linear.y * config.GetMaxCommand();
-
-                frontLeft.SetCommand(-cX - cY);
-                frontRight.SetCommand(cX - cY);
-                rearLeft.SetCommand(-cX + cY);
-                rearRight.SetCommand(cX + cY);
-
-                // Outward pointing thrusters
-                // frontLeft.SetCommand(cX - cY);
-                // frontRight.SetCommand(-cX - cY);
-                // rearLeft.SetCommand(cX + cY);
-                // rearRight.SetCommand(-cX + cY);
-            }
+            frontLeft.SetCommand(fl * scale);
+            frontRight.SetCommand(fr * scale);
+            rearLeft.SetCommand(rl * scale);
+            rearRight.SetCommand(rr * scale);
         }
     }
 }
