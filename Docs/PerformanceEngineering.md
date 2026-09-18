@@ -59,7 +59,7 @@ For vehicle physics, project conventions, and non-benchmark launch examples, see
 | Profile | Intended use | Important boundary |
 |---|---|---|
 | `train-gpu` | Accelerated aquatic/visual training | RGB and spectators off; depth, detections, LiDAR, ROS, and graphics-backed HDRP water remain available |
-| `train-cpu` | Strict graphics-free ground/aerial or non-aquatic training | RGB, camera depth, camera-info, and spectators are off; aquatic scenes are rejected until a validated CPU water backend exists |
+| `train-cpu` | Strict graphics-free ground/aerial or non-aquatic training | RGB/GPU depth/spectators are off; geometric depth and camera info remain; aquatic scenes are rejected until a validated CPU water backend exists |
 | `interactive-low` | Nav2/parameter development on weaker hardware | Full task physics/sensors, reduced spectator/window resolution only |
 | `interactive-high` | Human-operated Nav2/parameter development | Full presentation and live physics/controllers |
 | `evaluation-high` | High-fidelity live evaluation | Full presentation and live physics/controllers |
@@ -68,10 +68,10 @@ For vehicle physics, project conventions, and non-benchmark launch examples, see
 
 Use `--crane-list-profiles` to emit the catalog and `--crane-runtime-report PATH` to write the
 resolved profile, graphics backend, sensor gates, camera ownership, and aquatic status as JSON.
-`--crane-replay` defaults to `replay-high` if no profile is supplied. `train-cpu` is deliberately
-not advertised as the depth-training target yet: the render-independent geometric depth backend
-is still absent. It exits with code 3 if an aquatic scene is selected rather than silently
-invalidating HDRP water physics.
+`--crane-replay` defaults to `replay-high` if no profile is supplied. `train-cpu` selects the
+render-independent `geometric` depth backend and exits with code 3 if an aquatic scene is selected
+rather than silently invalidating HDRP water physics. The geometric backend observes PhysX
+colliders, not arbitrary render-only/transparent/HDRP-water surfaces.
 
 ### Training with full visual sensors
 
@@ -200,7 +200,7 @@ Useful arguments:
 | Argument | Meaning |
 |---|---|
 | `--crane-profile train-gpu` | Disable RGB and spectator rendering while retaining task sensors and ROS |
-| `--crane-profile train-cpu` | Strict graphics-free non-aquatic preset; disables camera visual sensors and rejects aquatic scenes |
+| `--crane-profile train-cpu` | Strict graphics-free non-aquatic preset; uses geometric depth and rejects aquatic scenes |
 | `--crane-profile interactive-low` | Keep physics/task sensors and lower only the spectator/window resolution |
 | `--crane-profile interactive-high` | Full presentation with live physics/controllers for human Nav2 development |
 | `--crane-profile evaluation-high` | Full-presentation live evaluation |
@@ -214,6 +214,10 @@ Useful arguments:
 | `--crane-disable-visual-sensors` | Disable RGB, depth, and camera-info acquisition |
 | `--crane-disable-rgb` | Disable RGB acquisition and RGB post-processing only; keep depth independent |
 | `--crane-disable-depth` | Disable depth acquisition and depth post-processing only |
+| `--crane-depth-backend gpu\|geometric\|off` | Select rendered, PhysX-geometric, or disabled depth independently of the profile default |
+| `--crane-geometric-depth-validation` | Run null-graphics optical-Z/layout/occlusion/motion/thin-geometry checks and exit |
+| `--crane-geometric-depth-fixture` | Add an obstacle-rich geometric depth stream to a complete benchmark run |
+| `--crane-depth-width N`, `--crane-depth-height N`, `--crane-depth-hz N` | Configure the geometric benchmark fixture observation contract |
 | `--crane-disable-camera-info` | Disable camera-info publishing only |
 | `--crane-disable-detections` | Disable simulated detection publishing only |
 | `--crane-record PATH` | Stream a versioned authoritative episode plus `PATH.index` |
@@ -303,6 +307,10 @@ Raw JSON is in `PerformanceResults/`.
 | Conditional uniform-current query reuse, 2× target profile | 1.0481 ms/frame `Current`; 1.2812 ms dynamics; 1.0491 ms water query | 0.0437 ms `Current`; 0.2953 ms dynamics; 0.0644 ms water query over 2 runs | Keep when both HDRP spatial-current features are disabled |
 | Depth callback attribution, 2× target profile | 0.919 ms/frame `Sensor.Other` | 0.850 ms depth readback, 0.069 ms detections, zero RGB over 2 runs | Keep submarkers; depth is the measured owner |
 | Reuse managed depth payload with ROS transport suppressed, 2× target profile | 0.929 ms/frame depth callback; 0.606 ms depth publish/message | 0.258 ms callback; 0.009 ms publish mean over 2 runs | Keep conditional path; 3,686,400/3,686,400 validation bytes matched |
+| Geometric depth, Null graphics, 1280×720 at 15 Hz, aerial fixture 1× | no CPU depth | 150/150 frames, zero cameras/stale/failures; 15.81 ms sensor work per acquisition; 26.50% normalized process CPU | Keep as Train-CPU backend |
+| Geometric depth, Null graphics, 1280×720 at 15 Hz, aerial fixture 2× | 1× accepted run | 300/300 frames, 1.996× RTF, zero stale/failures; 15.63 ms sensor work per acquisition | Accept 2× on reference machine |
+| Geometric depth, Null graphics, 1280×720 at 15 Hz, requested 4× | 2× accepted run | 454 frames over 30.30 simulated s, zero stale/failures, but only 2.908× RTF and 66.15% normalized process CPU | Reject 4× claim; CPU saturation boundary |
+| Geometric replacement in production Roboboat, Vulkan 1× | authored GPU depth owned the water render loop | 76 geometric frames, 51 LiDAR scans, 41 detection acquisitions, one 64×64 water driver, zero invalid water queries/stale/failures | Keep camera-ownership fix; not graphics-free aquatic support |
 | 72,000-ray LiDAR batch 500 → 64, 2× target profile | 0.738 ms/frame raycast; 1.003 ms full LiDAR | 0.692 ms raycast; 0.965 ms full LiDAR mean over 2 runs | Keep in production Roboboat prefab; all three equivalence gates passed |
 | 72,000-ray LiDAR batch 500 → 2000, 2× target profile | 0.739 ms/frame raycast | 0.899 ms raycast | Rejected; 21.8% slower |
 
@@ -313,6 +321,11 @@ full-resolution depth plus semantic detections retained. On the reference machin
 use semantic registry, frustum/range checks, and a physical center-ray occlusion test without RGB;
 partial visibility/noise remains future work. This is a sensor-generation baseline with ROS
 transport disabled; it is not yet a Nav2 closed-loop result.
+
+Selected machine-readable outputs for the geometric-depth acceptance runs are tracked under
+`PerformanceResults/geometric-depth-*` and `PerformanceResults/train-cpu-aerial-*`. The profile's
+2× acceptance point is the `train-cpu-aerial-depth-2x-final` result; the requested 4× run is kept
+as negative evidence rather than reported as 4× throughput.
 
 LiDAR now keeps its invariant local beam table in persistent native storage and builds world-space
 `RaycastCommand` entries in a strict/high-precision Burst `IJobParallelFor` chained into the

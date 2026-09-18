@@ -19,8 +19,8 @@ Runtime intent is selected with a named profile rather than by changing scenes o
 - `--crane-profile train-gpu`: accelerated RGB-free training with depth/detections and
   graphics-backed aquatic water.
 - `--crane-profile train-cpu -nographics`: strict graphics-free non-aquatic training; aquatic
-  scenes are rejected until CPU water exists, and camera depth is unavailable until geometric
-  depth is implemented.
+  scenes are rejected until CPU water exists, while `32FC1` depth uses batched PhysX geometry
+  instead of rendering.
 - `--crane-profile interactive-low`: full task physics/sensors with reduced presentation for
   weaker hardware and Nav2 development.
 - `--crane-profile interactive-high` or `evaluation-high`: full-fidelity live operation.
@@ -122,7 +122,7 @@ before adapting vehicle physics or sensor components.
 | Profile | Intended use | Key constraint |
 |---|---|---|
 | `train-gpu` | Accelerated aquatic or depth-based training | Requires a graphics-backed HDRP/Vulkan path; validated around 2× on the reference workload |
-| `train-cpu` | Strict graphics-free land/aerial training | No camera depth; aquatic scenes are rejected |
+| `train-cpu` | Strict graphics-free land/aerial training | Geometric depth sees physical colliders; aquatic scenes are rejected |
 | `interactive-low` | Nav2 development on weaker hardware | Reduces presentation resolution, not task physics or sensor targets |
 | `interactive-high` | Human tuning and Nav2 development | Full configured presentation and live physics |
 | `evaluation-high` | High-fidelity live evaluation | Full configured presentation and live controllers |
@@ -144,9 +144,10 @@ CRANE has automated standalone benchmarks, subsystem profiler markers, sensor de
 worker isolation, and an accepted scene-reload reset baseline. Profiling has already reduced
 LiDAR time by 69.3% and its managed allocation by 97.2% in the measured scenario.
 
-Important limitations remain: full-resolution camera readback caps full-sensor acceleration;
-graphics-free dense depth and aquatic water are absent; water queries are issued component by
-component; real ROS/Nav2 lockstep has not been validated locally; in-place reset coverage is
+Important limitations remain: full-resolution camera readback caps GPU-sensor acceleration;
+graphics-free aquatic water is absent; geometric CPU depth does not model render-only surfaces;
+water queries are issued component by component; real ROS/Nav2 lockstep has not been validated
+locally; in-place reset coverage is
 incomplete; and the land/aerial scenes are qualification fixtures rather than production
 environments. Read the documentation before treating a run as training-valid.
 

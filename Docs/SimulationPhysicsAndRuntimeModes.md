@@ -209,11 +209,19 @@ real PX4/ArduPilot SITL closed loop remain future work.
 
 ## Sensors, ROS, and actions
 
-RGB and `32FC1` depth use bounded asynchronous GPU readback queues. Depth is independent of RGB;
-Train-GPU disables RGB but preserves depth. The current image contract records width, height,
+RGB and GPU `32FC1` depth use bounded asynchronous readback queues. Depth is independent of RGB;
+Train-GPU disables RGB but preserves GPU depth. Train-CPU replaces configured GPU depth components
+with persistent, batched PhysX raycasts and Burst packing while leaving every `Camera` disabled.
+Both backends publish top-to-bottom `32FC1` optical-axis Z in metres. Geometric misses outside the
+near/far interval are quiet NaN. The current image contract records width, height,
 encoding, row step, optical frame, acquisition tick/time, completion tick/time, episode, and byte
-count in replay metadata. Camera info is published separately. Render-independent dense depth is
-not implemented, so Train-CPU disables camera depth.
+count in replay metadata. Camera info is published separately.
+
+Geometric depth uses physical colliders and camera culling layers. It correctly models opaque
+collider occlusion, thin colliders, and moving geometry, but it does not infer alpha-tested or
+transparent appearance and cannot see an HDRP water surface without matching query geometry.
+Those semantics are why it is currently a non-aquatic backend rather than a drop-in claim of GPU
+image equivalence.
 
 LiDAR uses persistent native arrays, Burst ray-command generation and PointCloud2 packing, and
 batched PhysX raycasts. The production 72,000-point scanner uses batch size 64. Semantic 3D
@@ -235,7 +243,7 @@ different physics implementation unless stated explicitly.
 | Profile | Rendering and sensors | Physics/control intent | Current validation |
 |---|---|---|---|
 | `train-gpu` | RGB and spectators off; depth, detections, LiDAR and navigation sensors retained | Accelerated graphics-backed training, including aquatic | Roboboat valid at about 2× on reference hardware |
-| `train-cpu` | All Cameras off; camera RGB/depth/info off; geometric detections and non-camera sensors may remain | Strict `-nographics` non-aquatic training | Land and multirotor fixtures pass; aquatic rejected |
+| `train-cpu` | All Cameras off; RGB/GPU passes off; geometric `32FC1` depth, camera info, detections and non-camera sensors remain | Strict `-nographics` non-aquatic training | Dense depth plus land/multirotor fixtures pass at 2×; aquatic rejected |
 | `interactive-low` | Task sensors unchanged; spectator/window defaults to 960×540 | Human/Nav2 development on weaker hardware | Aquatic validity retained; modest GPU saving |
 | `interactive-high` | Full presentation and configured sensors | Human parameter tuning and Nav2 development | Profile application validated; hardware cost is scene-dependent |
 | `evaluation-high` | Full presentation and configured sensors | Live high-fidelity evaluation | Implemented; task-specific evaluation remains user-owned |
@@ -308,8 +316,10 @@ Run strict graphics-free land or aerial physics:
   --crane-record ./episodes/land.crane
 ```
 
-`train-cpu` exits with status 3 if the selected scene contains HDRP water. It also has no dense
-camera depth. Those are explicit capability boundaries, not launch errors to bypass.
+`train-cpu` exits with status 3 if the selected scene contains HDRP water. Its dense depth backend
+uses PhysX geometry, not rendering. Override the profile default with
+`--crane-depth-backend gpu|geometric|off`; using GPU depth under `-nographics` is invalid. These are
+explicit capability boundaries, not launch errors to bypass.
 
 Replay an authoritative episode at high visual fidelity:
 

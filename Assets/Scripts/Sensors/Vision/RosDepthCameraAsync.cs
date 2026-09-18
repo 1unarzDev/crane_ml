@@ -36,6 +36,12 @@ namespace Sim.Sensors.Vision {
         [SerializeField] private string frameId = "front_camera_link";
         [SerializeField] private float Hz = 15.0f;
         public ROSPublisher publisher { get; set; }
+        internal Camera SensorCamera => sensorCamera;
+        internal int ImageWidth => depthRenderTexture != null ? depthRenderTexture.width : 320;
+        internal int ImageHeight => depthRenderTexture != null ? depthRenderTexture.height : 180;
+        internal string TopicName => topicName;
+        internal string FrameId => frameId;
+        internal float PublishRateHz => Hz;
 
         private CustomPassVolume customPassVolume;
         private CameraDepthBake depthBakePass = new();

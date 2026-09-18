@@ -39,7 +39,7 @@ long-duration result streaming, and broader domain fixtures still need work.
 | Graphics-free aquatic water | Blocked by current engine path | `-nographics`/batch execution does not maintain valid HDRP water readback |
 | Water replay | Partial, spectral timeline validated | Recorded HDRP simulation time is pinned exactly for render/query playback; stateful foam/wakes are not checkpointed |
 | RGB-off GPU depth training | Implemented and validated at 2× | Full-resolution depth is valid at 2× on the reference machine, not 4× |
-| Render-independent dense depth | Absent | CPU/geometric backend still needs implementation and equivalence tests |
+| Render-independent dense depth | Implemented and non-aquatic validated | Batched PhysX `32FC1` optical-Z backend passes null-graphics geometry tests and 2× dense benchmark; render-only/transparent/water equivalence remains absent |
 | Semantic detections without RGB | Implemented, weakly validated | Frustum/range/center-ray occlusion; partial visibility and correlated noise absent |
 | LiDAR | Implemented and validated | Persistent native buffers plus strict Burst command generation and PointCloud2 packing; result traversal remains main-thread work |
 | Authoritative replay | Experimental vertical slice | Indexed body/joint playback, accepted actions, task outcomes, v4 build provenance, and v5 observation metadata work; production reward adapters/non-regenerable sensor payloads/full-water state remain incomplete |
@@ -51,7 +51,7 @@ long-duration result streaming, and broader domain fixtures still need work.
 | Episode reset | Scene reload validated; in-place absent | A→B→A scene-reload baseline passes within empirical aquatic tolerances |
 | Multi-process workers | Implemented; target sensors validated through 4 workers at 2× | RGB-off depth+detection+LiDAR reaches 8.003 valid simulated s/s; 5/8-worker runs fail depth freshness; ROS processes excluded |
 | Train-GPU profile | Implemented and aquatic-validated at 2× | RGB/spectators off with depth+detections+LiDAR retained; still requires graphics-backed HDRP water |
-| Train-CPU profile | Implemented and land/aerial validated | Strict `-nographics` execution with zero cameras; camera depth unavailable and aquatic scenes are explicitly rejected |
+| Train-CPU profile | Implemented and land/aerial validated | Strict `-nographics` execution with zero enabled Cameras, geometric depth and camera info; aquatic scenes are explicitly rejected |
 | Interactive-low profile | Implemented and aquatic-validated | 960×540 spectator/window output with fixed 1280×720 robot camera targets unchanged; modest 1.97% GPU-frame reduction on the reference machine |
 | Interactive/evaluation/replay high profiles | Implemented; replay aquatic-validated | Explicit full-presentation presets; replay disables live vehicle dynamics/controllers and applies authoritative state |
 | Explicit/manual stepping | Absent by design | Lifecycle dependencies have not all moved behind exactly-once interfaces |
@@ -217,14 +217,21 @@ interaction effects. Those require explicit checkpoints or replayable interactio
 ### Sensors
 
 `IROSSensor<T>` connects a sensor's message factory to `ROSPublisher`. Navigation and LiDAR
-sensors mostly calculate data from the physical world. RGB and depth sensors additionally depend
-on HDRP rendering and asynchronous GPU readback.
+sensors mostly calculate data from the physical world. RGB and GPU depth depend on HDRP rendering
+and asynchronous readback; geometric depth depends only on PhysX query geometry.
 
-Depth readback keeps RGB disabled independently and preserves the `32FC1`, optical-frame,
+GPU depth readback keeps RGB disabled independently and preserves the `32FC1`, optical-frame,
 1280×720 contract in the production fixture. With ROS transport enabled, each frame owns a
 distinct managed payload because ROS-TCP queues the message for asynchronous serialization. With
 transport explicitly suppressed, no asynchronous consumer retains the message, so the callback
 reuses one managed payload after validating its vertically flipped bytes against the GPU request.
+
+`GeometricDepthCamera` is the render-independent alternative selected by Train-CPU. It caches a
+pinhole ray table, batches persistent `RaycastCommand`/hit buffers, and Burst-packs top-to-bottom
+native-endian `32FC1` optical-axis Z. Near/far misses are quiet NaN. It uses a disabled `Camera`
+only as an intrinsics container and therefore runs with Unity's Null graphics device. Its world is
+PhysX collision geometry: alpha-tested appearance, transparent render-only surfaces, and HDRP
+water without a matching collider are intentionally not claimed equivalent to GPU depth.
 
 The Roboboat 3D LiDAR retains its authored 72,000-beam observation contract and persistent native
 buffers. Its command generation, PhysX `RaycastCommand` batch, coordinate conversion, and strict
@@ -307,11 +314,10 @@ uses its depth sensor camera to keep HDRP water current; an aquatic scene withou
 uses a separately classified 64×64 zero-culling water-update driver. This removes spectator
 ownership, but it does not remove HDRP's graphics-device/render-loop dependency.
 
-`train-cpu` is the strict graphics-free non-aquatic preset. It disables RGB, camera-backed depth,
-camera-info, and spectator cameras while retaining physics, collision, detections, navigation
-state, LiDAR, and ROS as configured. It rejects any scene containing HDRP `WaterSurface` instead
-of silently disabling aquatic physics. Consequently it is useful today for land/aerial workers,
-but is not yet the requested CPU depth-training architecture. `interactive-high`,
+`train-cpu` is the strict graphics-free non-aquatic preset. It disables RGB, GPU depth passes,
+and spectator cameras while retaining geometric depth, camera info, physics, collision,
+detections, navigation state, LiDAR, and ROS as configured. It rejects any scene containing HDRP
+`WaterSurface` instead of silently disabling aquatic physics. `interactive-high`,
 `evaluation-high`, and `replay-high` make full-presentation intent explicit; `replay-high` is the
 automatic default for `--crane-replay`. Every profile can emit a resolved machine-readable report.
 

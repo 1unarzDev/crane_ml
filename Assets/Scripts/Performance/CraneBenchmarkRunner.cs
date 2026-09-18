@@ -215,6 +215,7 @@ namespace Sim.Performance {
             "CRANE.Vehicle.Dynamics.PressureDrag", "CRANE.Vehicle.Thruster",
             "CRANE.Sensor.Lidar", "CRANE.Sensor.Lidar.Raycast", "CRANE.Sensor.Lidar.Process",
             "CRANE.Sensor.Lidar.Pack", "CRANE.Sensor.Other", "CRANE.Sensor.Depth.Readback",
+            "CRANE.Sensor.Depth.Geometric",
             "CRANE.Sensor.Depth.Copy", "CRANE.Sensor.Depth.RowFlip", "CRANE.Sensor.Depth.Publish",
             "CRANE.Sensor.RGB.Readback", "CRANE.Sensor.Detection", "CRANE.ROS.CreateMessage",
             "CRANE.ROS.Publish", "CRANE.Episode.Reset"

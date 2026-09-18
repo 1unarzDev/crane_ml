@@ -1,0 +1,440 @@
+{
+    "schema": "crane-benchmark-v1",
+    "scenario": "unspecified",
+    "runtimeProfile": "train-cpu",
+    "scene": "Assets/Scenes/Aerial Vehicle Validation.unity",
+    "unityVersion": "6000.5.10f1",
+    "platform": "LinuxPlayer",
+    "cpu": "12th Gen Intel(R) Core(TM) i7-12700K",
+    "gpu": "Null Device",
+    "workerId": 0,
+    "randomSeed": 1,
+    "imageSignatures": true,
+    "logicalCpuCount": 20,
+    "warmupSeconds": 1.0,
+    "wallSeconds": 2.0011023999999999,
+    "simulatedSeconds": 2.0018080073696149,
+    "realTimeFactor": 1.0003526093265467,
+    "timeScale": 1.0,
+    "processCpuUtilizationPercent": 5.496970070097362,
+    "meanGpuFrameMilliseconds": 0.0,
+    "gcAllocatedBytes": 3080404,
+    "monoUsedBytes": 1892352,
+    "totalAllocatedMemoryBytes": 168478765,
+    "episodeId": 4,
+    "simulationTick": 101,
+    "observationTick": -1,
+    "actionSourceTick": -1,
+    "actionReceiveTick": -1,
+    "actionApplicationTick": -1,
+    "actionSequence": -1,
+    "observationQueueAgeTicks": -1,
+    "actionQueueAgeTicks": -1,
+    "actionAgeTicks": -1,
+    "staleObservations": 0,
+    "staleActions": 0,
+    "acceptedActions": 0,
+    "rejectedActions": 0,
+    "unknownSourceActions": 0,
+    "crossEpisodeActions": 0,
+    "duplicateActions": 0,
+    "failedObservations": 0,
+    "depthBufferValidationBytes": 0,
+    "depthBufferValidationMismatches": 0,
+    "loggedErrors": 0,
+    "loggedExceptions": 0,
+    "enabledCameras": 0,
+    "enabledSensorCameras": 0,
+    "enabledSpectatorCameras": 0,
+    "enabledWaterDriverCameras": 0,
+    "screenWidth": 640,
+    "screenHeight": 480,
+    "validationStream": "/home/lunarz/crane_sim/PerformanceResults/geometric-depth-disable-gate/result.validation.jsonl",
+    "validationSamplesCaptured": 3,
+    "validationSamplesRetained": 3,
+    "validationSamplesDropped": 0,
+    "invalidWaterSearches": 0,
+    "maximumObservationQueueAgeTicks": -1,
+    "valid": true,
+    "lidar": {
+        "scanCount": 0,
+        "configuredPointsPerScan": 0,
+        "batchSize": 0,
+        "totalPoints": 0,
+        "hitCount": 0,
+        "missCount": 0,
+        "minimumRange": 0.0,
+        "maximumRange": 0.0,
+        "meanRange": 0.0,
+        "checksum": "CBF29CE484222325",
+        "acquisitionTick": -1,
+        "commandValidationCount": 0,
+        "commandValidationMismatches": 0,
+        "packValidationBytes": 0,
+        "packValidationMismatches": 0,
+        "processValidationCount": 0,
+        "processValidationMismatches": 0
+    },
+    "rgbCamera": {
+        "acquisitionCount": 0,
+        "width": 0,
+        "height": 0,
+        "totalBytes": 0,
+        "checksum": "CBF29CE484222325",
+        "acquisitionTick": -1
+    },
+    "depthCamera": {
+        "acquisitionCount": 0,
+        "width": 0,
+        "height": 0,
+        "totalBytes": 0,
+        "checksum": "CBF29CE484222325",
+        "acquisitionTick": -1
+    },
+    "detections": {
+        "acquisitionCount": 0,
+        "detectionCount": 0,
+        "acquisitionTick": -1
+    },
+    "resetProbe": {
+        "executed": false,
+        "reloadWallMilliseconds": 0.0,
+        "position": {
+            "rms": 0.0,
+            "max": 0.0,
+            "count": 0
+        },
+        "attitudeDegrees": {
+            "rms": 0.0,
+            "max": 0.0,
+            "count": 0
+        },
+        "linearVelocity": {
+            "rms": 0.0,
+            "max": 0.0,
+            "count": 0
+        },
+        "angularVelocity": {
+            "rms": 0.0,
+            "max": 0.0,
+            "count": 0
+        },
+        "waterHeight": {
+            "rms": 0.0,
+            "max": 0.0,
+            "count": 0
+        }
+    },
+    "markers": [
+        {
+            "name": "CRANE.Simulation.Step",
+            "totalMilliseconds": 0.0,
+            "meanMillisecondsPerFrame": 0.0,
+            "maxMillisecondsPerFrame": 0.0,
+            "sampledFrames": 160279
+        },
+        {
+            "name": "CRANE.Water.Prepare",
+            "totalMilliseconds": 0.0,
+            "meanMillisecondsPerFrame": 0.0,
+            "maxMillisecondsPerFrame": 0.0,
+            "sampledFrames": 160279
+        },
+        {
+            "name": "CRANE.Water.Query",
+            "totalMilliseconds": 0.0,
+            "meanMillisecondsPerFrame": 0.0,
+            "maxMillisecondsPerFrame": 0.0,
+            "sampledFrames": 160279
+        },
+        {
+            "name": "CRANE.Water.Buoyancy",
+            "totalMilliseconds": 0.0,
+            "meanMillisecondsPerFrame": 0.0,
+            "maxMillisecondsPerFrame": 0.0,
+            "sampledFrames": 160279
+        },
+        {
+            "name": "CRANE.Vehicle.Dynamics",
+            "totalMilliseconds": 0.0,
+            "meanMillisecondsPerFrame": 0.0,
+            "maxMillisecondsPerFrame": 0.0,
+            "sampledFrames": 160279
+        },
+        {
+            "name": "CRANE.Vehicle.Dynamics.General",
+            "totalMilliseconds": 0.0,
+            "meanMillisecondsPerFrame": 0.0,
+            "maxMillisecondsPerFrame": 0.0,
+            "sampledFrames": 160279
+        },
+        {
+            "name": "CRANE.Vehicle.Dynamics.Current",
+            "totalMilliseconds": 0.0,
+            "meanMillisecondsPerFrame": 0.0,
+            "maxMillisecondsPerFrame": 0.0,
+            "sampledFrames": 160279
+        },
+        {
+            "name": "CRANE.Vehicle.Dynamics.Fossen",
+            "totalMilliseconds": 0.0,
+            "meanMillisecondsPerFrame": 0.0,
+            "maxMillisecondsPerFrame": 0.0,
+            "sampledFrames": 160279
+        },
+        {
+            "name": "CRANE.Vehicle.Dynamics.AreaPreparation",
+            "totalMilliseconds": 0.0,
+            "meanMillisecondsPerFrame": 0.0,
+            "maxMillisecondsPerFrame": 0.0,
+            "sampledFrames": 160279
+        },
+        {
+            "name": "CRANE.Vehicle.Dynamics.ResistanceCoefficient",
+            "totalMilliseconds": 0.0,
+            "meanMillisecondsPerFrame": 0.0,
+            "maxMillisecondsPerFrame": 0.0,
+            "sampledFrames": 160279
+        },
+        {
+            "name": "CRANE.Vehicle.Dynamics.ViscousResistance",
+            "totalMilliseconds": 0.0,
+            "meanMillisecondsPerFrame": 0.0,
+            "maxMillisecondsPerFrame": 0.0,
+            "sampledFrames": 160279
+        },
+        {
+            "name": "CRANE.Vehicle.Dynamics.PressureDrag",
+            "totalMilliseconds": 0.0,
+            "meanMillisecondsPerFrame": 0.0,
+            "maxMillisecondsPerFrame": 0.0,
+            "sampledFrames": 160279
+        },
+        {
+            "name": "CRANE.Vehicle.Thruster",
+            "totalMilliseconds": 0.0,
+            "meanMillisecondsPerFrame": 0.0,
+            "maxMillisecondsPerFrame": 0.0,
+            "sampledFrames": 160279
+        },
+        {
+            "name": "CRANE.Sensor.Lidar",
+            "totalMilliseconds": 0.0,
+            "meanMillisecondsPerFrame": 0.0,
+            "maxMillisecondsPerFrame": 0.0,
+            "sampledFrames": 160279
+        },
+        {
+            "name": "CRANE.Sensor.Lidar.Raycast",
+            "totalMilliseconds": 0.0,
+            "meanMillisecondsPerFrame": 0.0,
+            "maxMillisecondsPerFrame": 0.0,
+            "sampledFrames": 160279
+        },
+        {
+            "name": "CRANE.Sensor.Lidar.Process",
+            "totalMilliseconds": 0.0,
+            "meanMillisecondsPerFrame": 0.0,
+            "maxMillisecondsPerFrame": 0.0,
+            "sampledFrames": 160279
+        },
+        {
+            "name": "CRANE.Sensor.Lidar.Pack",
+            "totalMilliseconds": 0.0,
+            "meanMillisecondsPerFrame": 0.0,
+            "maxMillisecondsPerFrame": 0.0,
+            "sampledFrames": 160279
+        },
+        {
+            "name": "CRANE.Sensor.Other",
+            "totalMilliseconds": 0.0,
+            "meanMillisecondsPerFrame": 0.0,
+            "maxMillisecondsPerFrame": 0.0,
+            "sampledFrames": 160279
+        },
+        {
+            "name": "CRANE.Sensor.Depth.Readback",
+            "totalMilliseconds": 0.0,
+            "meanMillisecondsPerFrame": 0.0,
+            "maxMillisecondsPerFrame": 0.0,
+            "sampledFrames": 160279
+        },
+        {
+            "name": "CRANE.Sensor.Depth.Geometric",
+            "totalMilliseconds": 0.0,
+            "meanMillisecondsPerFrame": 0.0,
+            "maxMillisecondsPerFrame": 0.0,
+            "sampledFrames": 160279
+        },
+        {
+            "name": "CRANE.Sensor.Depth.Copy",
+            "totalMilliseconds": 0.0,
+            "meanMillisecondsPerFrame": 0.0,
+            "maxMillisecondsPerFrame": 0.0,
+            "sampledFrames": 160279
+        },
+        {
+            "name": "CRANE.Sensor.Depth.RowFlip",
+            "totalMilliseconds": 0.0,
+            "meanMillisecondsPerFrame": 0.0,
+            "maxMillisecondsPerFrame": 0.0,
+            "sampledFrames": 160279
+        },
+        {
+            "name": "CRANE.Sensor.Depth.Publish",
+            "totalMilliseconds": 0.0,
+            "meanMillisecondsPerFrame": 0.0,
+            "maxMillisecondsPerFrame": 0.0,
+            "sampledFrames": 160279
+        },
+        {
+            "name": "CRANE.Sensor.RGB.Readback",
+            "totalMilliseconds": 0.0,
+            "meanMillisecondsPerFrame": 0.0,
+            "maxMillisecondsPerFrame": 0.0,
+            "sampledFrames": 160279
+        },
+        {
+            "name": "CRANE.Sensor.Detection",
+            "totalMilliseconds": 0.0,
+            "meanMillisecondsPerFrame": 0.0,
+            "maxMillisecondsPerFrame": 0.0,
+            "sampledFrames": 160279
+        },
+        {
+            "name": "CRANE.ROS.CreateMessage",
+            "totalMilliseconds": 0.0,
+            "meanMillisecondsPerFrame": 0.0,
+            "maxMillisecondsPerFrame": 0.0,
+            "sampledFrames": 160279
+        },
+        {
+            "name": "CRANE.ROS.Publish",
+            "totalMilliseconds": 0.0,
+            "meanMillisecondsPerFrame": 0.0,
+            "maxMillisecondsPerFrame": 0.0,
+            "sampledFrames": 160279
+        },
+        {
+            "name": "CRANE.Episode.Reset",
+            "totalMilliseconds": 0.0,
+            "meanMillisecondsPerFrame": 0.0,
+            "maxMillisecondsPerFrame": 0.0,
+            "sampledFrames": 160279
+        },
+        {
+            "name": "Physics.Simulate",
+            "totalMilliseconds": 6.012999,
+            "meanMillisecondsPerFrame": 0.000037515825529233395,
+            "maxMillisecondsPerFrame": 0.162739,
+            "sampledFrames": 160279
+        }
+    ],
+    "validation": [
+        {
+            "simulatedSeconds": 0.0018291383219954938,
+            "monoUsedBytes": 1908736,
+            "totalAllocatedMemoryBytes": 167983205,
+            "observationQueueAgeTicks": -1,
+            "staleObservations": 0,
+            "failedObservations": 0,
+            "bodies": [
+                {
+                    "name": "Reference Quadrotor",
+                    "position": {
+                        "x": 0.0,
+                        "y": 0.5863549113273621,
+                        "z": 0.0
+                    },
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "linearVelocity": {
+                        "x": 0.0,
+                        "y": -7.472219467163086,
+                        "z": 0.0
+                    },
+                    "angularVelocity": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0
+                    }
+                }
+            ],
+            "water": []
+        },
+        {
+            "simulatedSeconds": 1.0000054776077099,
+            "monoUsedBytes": 2048000,
+            "totalAllocatedMemoryBytes": 168478817,
+            "observationQueueAgeTicks": -1,
+            "staleObservations": 0,
+            "failedObservations": 0,
+            "bodies": [
+                {
+                    "name": "Reference Quadrotor",
+                    "position": {
+                        "x": 0.017546311020851136,
+                        "y": 0.07999865710735321,
+                        "z": -0.0009458989952690899
+                    },
+                    "rotation": {
+                        "x": -0.000024626591766718775,
+                        "y": 0.001868494669906795,
+                        "z": 0.000020695788407465443,
+                        "w": 0.9999983310699463
+                    },
+                    "linearVelocity": {
+                        "x": 0.000033932192309293896,
+                        "y": -0.00015974044799804688,
+                        "z": -1.2039893704240968e-7
+                    },
+                    "angularVelocity": {
+                        "x": 0.00013696652604267,
+                        "y": 0.000033445568988099694,
+                        "z": -0.0005472537013702095
+                    }
+                }
+            ],
+            "water": []
+        },
+        {
+            "simulatedSeconds": 2.000001055839002,
+            "monoUsedBytes": 2228224,
+            "totalAllocatedMemoryBytes": 168478849,
+            "observationQueueAgeTicks": -1,
+            "staleObservations": 0,
+            "failedObservations": 0,
+            "bodies": [
+                {
+                    "name": "Reference Quadrotor",
+                    "position": {
+                        "x": 0.017546314746141435,
+                        "y": 0.07999863475561142,
+                        "z": -0.0009458924760110676
+                    },
+                    "rotation": {
+                        "x": -0.000024639950424898416,
+                        "y": 0.0018685020040720702,
+                        "z": 0.000020694431441370398,
+                        "w": 0.9999983310699463
+                    },
+                    "linearVelocity": {
+                        "x": 0.0000342509156325832,
+                        "y": -0.00016060471534729004,
+                        "z": -4.400777697810554e-8
+                    },
+                    "angularVelocity": {
+                        "x": 0.00013810604286845773,
+                        "y": 0.000033595151762710884,
+                        "z": -0.0005511190393008292
+                    }
+                }
+            ],
+            "water": []
+        }
+    ]
+}

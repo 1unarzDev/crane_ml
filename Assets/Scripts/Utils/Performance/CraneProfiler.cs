@@ -30,6 +30,7 @@ namespace Sim.Utils.Performance {
         public static readonly ProfilerMarker LidarPack = new("CRANE.Sensor.Lidar.Pack");
         public static readonly ProfilerMarker OtherSensor = new("CRANE.Sensor.Other");
         public static readonly ProfilerMarker DepthReadback = new("CRANE.Sensor.Depth.Readback");
+        public static readonly ProfilerMarker DepthGeometric = new("CRANE.Sensor.Depth.Geometric");
         public static readonly ProfilerMarker DepthCopy = new("CRANE.Sensor.Depth.Copy");
         public static readonly ProfilerMarker DepthRowFlip = new("CRANE.Sensor.Depth.RowFlip");
         public static readonly ProfilerMarker DepthPublish = new("CRANE.Sensor.Depth.Publish");

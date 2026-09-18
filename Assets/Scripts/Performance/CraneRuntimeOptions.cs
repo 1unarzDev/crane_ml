@@ -77,6 +77,7 @@ namespace Sim.Performance {
         public bool DisableSpectatorCameras { get; private set; }
         public bool LowPresentation { get; private set; }
         public bool StrictGraphicsFree { get; private set; }
+        public string DepthBackend { get; private set; }
         public int InteractiveWidth { get; private set; }
         public int InteractiveHeight { get; private set; }
         public string RequestedScene { get; private set; }
@@ -95,6 +96,11 @@ namespace Sim.Performance {
                     "Expected custom, train-gpu, train-cpu, interactive-low, " +
                     "interactive-high, evaluation-high, or replay-high.");
             bool disableVisual = HasFlag(args, "--crane-disable-visual-sensors");
+            string depthBackend = ReadString(args, "--crane-depth-backend",
+                trainCpu ? "geometric" : "gpu").ToLowerInvariant();
+            if (depthBackend != "gpu" && depthBackend != "geometric" && depthBackend != "off")
+                throw new ArgumentException($"Unknown CRANE depth backend '{depthBackend}'. " +
+                    "Expected gpu, geometric, or off.");
             string requestedScene = ReadString(args, "--crane-scene", null);
             if (string.IsNullOrEmpty(requestedScene)) {
                 if (HasFlag(args, "--crane-land-validation"))
@@ -109,14 +115,16 @@ namespace Sim.Performance {
                 DisableRos = HasFlag(args, "--crane-disable-ros"),
                 DisableRgb = trainGpu || trainCpu || disableVisual ||
                     HasFlag(args, "--crane-disable-rgb"),
-                DisableDepth = trainCpu || disableVisual || HasFlag(args, "--crane-disable-depth"),
-                DisableCameraInfo = trainCpu || disableVisual ||
+                DisableDepth = depthBackend == "off" || disableVisual ||
+                    HasFlag(args, "--crane-disable-depth"),
+                DisableCameraInfo = disableVisual ||
                     HasFlag(args, "--crane-disable-camera-info"),
                 DisableDetections = HasFlag(args, "--crane-disable-detections"),
                 DisableSpectatorCameras = trainGpu || trainCpu ||
                     HasFlag(args, "--crane-disable-spectator-cameras"),
                 LowPresentation = interactiveLow,
                 StrictGraphicsFree = trainCpu,
+                DepthBackend = depthBackend,
                 InteractiveWidth = Math.Max(320,
                     ReadInt(args, "--crane-interactive-width", 960)),
                 InteractiveHeight = Math.Max(180,
@@ -128,7 +136,7 @@ namespace Sim.Performance {
         public static string CatalogJson() =>
             "{\"schema\":\"crane-runtime-profile-catalog-v1\",\"profiles\":[" +
             "{\"name\":\"train-gpu\",\"purpose\":\"RGB-free accelerated training with depth, detections and task sensors; graphics-backed\"}," +
-            "{\"name\":\"train-cpu\",\"purpose\":\"Strict graphics-free non-aquatic training; RGB/depth/camera-info disabled until geometric depth exists\"}," +
+            "{\"name\":\"train-cpu\",\"purpose\":\"Strict graphics-free non-aquatic training with geometric 32FC1 depth and camera info\"}," +
             "{\"name\":\"interactive-low\",\"purpose\":\"Weak-hardware Nav2 development with full task physics/sensors and reduced presentation resolution\"}," +
             "{\"name\":\"interactive-high\",\"purpose\":\"Full-fidelity interactive Nav2 and parameter development\"}," +
             "{\"name\":\"evaluation-high\",\"purpose\":\"Full-fidelity evaluation with live physics/controllers\"}," +
@@ -162,7 +170,10 @@ namespace Sim.Performance {
                 }
 
                 if ((DisableRgb && typeName == "Sim.Sensors.Vision.ROSCameraAsync") ||
-                    (DisableDepth && typeName == "Sim.Sensors.Vision.ROSDepthCameraAsync") ||
+                    ((DisableDepth || DepthBackend == "geometric") &&
+                     typeName == "Sim.Sensors.Vision.ROSDepthCameraAsync") ||
+                    (DisableDepth &&
+                     typeName == "Sim.Sensors.Vision.GeometricDepthCamera") ||
                     (DisableCameraInfo && typeName == "Sim.Sensors.Vision.CameraInfo") ||
                     (DisableDetections && typeName == "Sim.Sensors.Vision.BoundingBox3D")) {
                     component.enabled = false;
@@ -195,6 +206,7 @@ namespace Sim.Performance {
             public bool rosEnabled;
             public bool rgbEnabled;
             public bool depthEnabled;
+            public string depthBackend;
             public bool cameraInfoEnabled;
             public bool detectionsEnabled;
             public bool spectatorCamerasEnabled;
@@ -225,6 +237,7 @@ namespace Sim.Performance {
                 rosEnabled = !DisableRos,
                 rgbEnabled = !DisableRgb,
                 depthEnabled = !DisableDepth,
+                depthBackend = DisableDepth ? "off" : DepthBackend,
                 cameraInfoEnabled = !DisableCameraInfo,
                 detectionsEnabled = !DisableDetections,
                 spectatorCamerasEnabled = !DisableSpectatorCameras,
@@ -273,6 +286,8 @@ namespace Sim.Performance {
                 UnityEngine.Object.FindObjectsByType<WaterSurface>(FindObjectsInactive.Exclude).Length > 0) {
                 Camera candidate = Array.Find(allCameras,
                     camera => camera.gameObject.activeInHierarchy && camera.enabled);
+                if (candidate == null)
+                    candidate = Array.Find(allCameras, camera => camera.gameObject.activeInHierarchy);
                 if (candidate != null) {
                     CraneWaterUpdateDriver driver = candidate.GetComponent<CraneWaterUpdateDriver>();
                     if (driver == null) driver = candidate.gameObject.AddComponent<CraneWaterUpdateDriver>();
@@ -301,7 +316,10 @@ namespace Sim.Performance {
                          FindObjectsInactive.Include)) {
                 if (!component.enabled || !component.gameObject.activeInHierarchy) continue;
                 Type type = component.GetType();
-                if (type.Namespace != "Sim.Sensors.Vision") continue;
+                string typeName = type.FullName;
+                if (typeName != "Sim.Sensors.Vision.ROSCameraAsync" &&
+                    typeName != "Sim.Sensors.Vision.ROSDepthCameraAsync" &&
+                    typeName != "Sim.Sensors.Vision.ProcessRenderTexture") continue;
                 FieldInfo field = type.GetField("sensorCamera",
                     BindingFlags.Instance | BindingFlags.NonPublic);
                 if (field?.FieldType == typeof(Camera) && field.GetValue(component) is Camera camera)
@@ -315,7 +333,7 @@ namespace Sim.Performance {
                 BindingFlags.Instance | BindingFlags.NonPublic);
             string sensorType = field?.GetValue(component)?.ToString();
             return (DisableRgb && sensorType == "RGB") ||
-                   (DisableDepth && sensorType == "Depth");
+                   ((DisableDepth || DepthBackend == "geometric") && sensorType == "Depth");
         }
 
         private static bool IsRosTransport(string typeName) =>
