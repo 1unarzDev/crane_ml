@@ -313,7 +313,8 @@ Raw JSON is in `PerformanceResults/`.
 | Accelerated Nav2 workers, 1×2.0 and 2×2.0 | isolated density runs at 1× or below | one worker valid at 2.001×; two workers valid at 4.003× aggregate measured RTF with both goals successful, zero stale observations/actions and 23 external-resource samples | Accept up to two 2× workers on this machine; campaign throughput including startup was 2.653 simulated s/wall s |
 | Accelerated Nav2 capacity, 3×1.5 and 3×2.0 | two 2× workers valid | one 1.5× worker and all three 2× workers reported stale depth; navigation and action/transport checks still passed | Reject both three-worker settings; GPU depth delivery, not Nav2 goal completion, defines validity |
 | Accelerated action timing, live Nav2 2× for 12 s | final action ticks and rejection counts only | 40/40 actions had stamped odometry provenance; source-to-application mean/max 4.175/7 ticks, receive-to-application 1/1 tick, maximum interval 12 ticks; one post-goal watchdog stop; 2.002× valid | Keep telemetry and gate provenance/lag bounds in the Nav2 summary; internal Nav2 sample consumption remains unproven |
-| ArduPilot JSON UDP protocol loopback, aquatic Train-GPU 2× | UDP bridge present but no end-to-end acceptance | 200 valid + 1 malformed servo packets accounted for; 198 applied, 2 latest-value replacements, 0 rejected/stale; 653 peer telemetry packets, monotonic 1.999× clock; worker 2.003× with fresh sensors/water | Accept protocol/fixed-step seam only; real ArduPilot/PX4 and aerial SITL remain untested |
+| ArduPilot JSON UDP protocol loopback, aquatic Train-GPU 2× | UDP bridge present but no end-to-end acceptance | 200 valid + 1 malformed servo packets accounted for; 198 applied, 2 latest-value replacements, 0 rejected/stale; 653 peer telemetry packets, monotonic 1.999× clock; worker 2.003× with fresh sensors/water | Accept aquatic protocol/fixed-step seam only; real ArduPilot/PX4 remains untested; direct aerial plant path is covered separately below |
+| ArduPilot JSON UDP direct-PWM loopback, aerial Train-CPU 2× | analytic plant only; no transport-to-actuator acceptance | 200/200 valid packets accepted, 1 malformed rejected, 0 rejected/stale actions, max receive-to-apply age 1 tick; 782 peer telemetry packets at 1.997× clock; 2.768 m upward displacement; 2.000× worker RTF under null graphics | Accept aerial protocol-to-plant and fixed-step seam; no real ArduPilot/PX4 or flight-controller qualification |
 | Production aquatic collision-layer migration, two 12 s runs/side at 2× | all 172 production colliders on Default | all colliders classified; contact fixture valid; mean RTF 2.00136× → 2.00099× and Physics.Simulate 0.12210 → 0.12376 ms; maximum paired RMS 4.50 mm pose position and 4.84 mm water | Keep explicit ownership and coverage; no speed claim |
 | Replay v2 accepted-action stream, two 5 s runs/side at 2× | 2.0064× mean RTF, 0.596 MB GC without recording | 2.0070× mean RTF, 2.857 MB GC with recording | Keep; bounded correctness data, recorder allocation remains experimental |
 | Replay water time after end-of-stream, 2 s | HDRP continued live time or setter no-op before resource allocation | exact recorded time held for 9/9 samples; invariant valid query height | Keep spectral-time pin/reapply |
@@ -491,9 +492,13 @@ identical metrics: the analytic hover command was 0.67812 with zero three-second
 measured vertical acceleration was 3.8468 m/s² versus 3.7785 m/s² predicted; roll, pitch, and yaw
 responses had the commanded sign; a 4 m/s wind plus gust displaced the body 2.4066 m; and landing
 settled at the collider's 0.08 m center height. Evidence is in
-`PerformanceResults/aerial-validation-repeat-{1,2}/result.json`. This is an implemented and
-repeat-validated model fixture, but remains unvalidated against a named real airframe or a live
-flight-controller/SITL loop; ground effect and rotor/propeller aerodynamic lookup data are absent.
+`PerformanceResults/aerial-validation-repeat-{1,2}/result.json`. A separate null-graphics UDP
+fixture maps ArduPilot servo channels 0–3 to FL/FR/RR/RL rotor targets through the fixed-step action
+gate. It accepted 200/200 packets, rejected one malformed packet, bounded queue age to one tick,
+returned 782 telemetry packets at a 1.997× simulated clock rate, produced 2.768 m upward motion,
+and sustained 2.000× worker RTF. This validates direct protocol-to-plant actuation, but the model
+remains unvalidated against a named real airframe or a real flight-controller process; ground
+effect and rotor/propeller aerodynamic lookup data are absent.
 
 Collision ownership is explicit in fixtures and both production aquatic scenes. `Collision Validation` proves
 Vehicle↔Environment hull/dock contact, Vehicle↔DynamicObstacle transfer, a 40 m/s CCD thin-barrier
@@ -604,8 +609,8 @@ and water differences did not reject 4×. Required visual-sensor delivery did re
    aquatic contacts before claiming production collision savings.
 8. Ground dynamics now have a repeat-validated flat-ground Ackermann fixture, but slope, curb,
    suspension-transient, skid/omni, and production-platform validation remain incomplete.
-9. Multirotor dynamics now have a repeat-validated analytic fixture, but real-airframe parameter
-   identification and flight-controller/SITL validation remain incomplete.
+9. Multirotor dynamics have repeat-validated analytic and direct-PWM UDP fixtures, but real-airframe
+   parameter identification and real flight-controller/SITL validation remain incomplete.
 10. Explicit `Physics.Simulate` remains deferred until every custom `FixedUpdate()` dependency has
    a proven exactly-once step path.
 

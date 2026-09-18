@@ -21,6 +21,7 @@ def main():
     parser.add_argument("--duration", type=float, default=4.0)
     parser.add_argument("--frame-rate", type=int, default=50)
     parser.add_argument("--pwm", type=int, default=1600)
+    parser.add_argument("--mode", choices=("aquatic", "aerial"), default="aquatic")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
 
@@ -112,7 +113,9 @@ def main():
         "measuredTelemetryClockRate": timestamp_span / wall_seconds,
         "limitations": [
             "protocol loopback only; no ArduPilot/PX4 process",
-            "aquatic Omni-X PWM mapping; no aerial flight controller",
+            ("direct multirotor PWM mapping; no flight-controller process" if
+             args.mode == "aerial" else
+             "aquatic Omni-X PWM mapping; no aerial flight controller"),
         ],
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)

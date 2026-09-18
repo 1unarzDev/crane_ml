@@ -42,11 +42,14 @@ if [[ "${CRANE_DISABLE_CAMERA_INFO:-0}" == "1" ]]; then sensor_args+=(--crane-di
 if [[ "${CRANE_DISABLE_DETECTIONS:-0}" == "1" ]]; then sensor_args+=(--crane-disable-detections); fi
 extra_args=()
 if [[ -n "${CRANE_EXTRA_ARGS:-}" ]]; then read -r -a extra_args <<<"${CRANE_EXTRA_ARGS}"; fi
+player_args=()
+if [[ "${CRANE_NOGRAPHICS:-0}" == "1" ]]; then player_args+=(-batchmode -nographics); fi
 
 export SDL_VIDEODRIVER="${CRANE_SDL_VIDEODRIVER:-x11}"
 export ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-$((worker_id + 1))}"
 
 "${player}" \
+    "${player_args[@]}" \
     -screen-fullscreen 0 -screen-width "${CRANE_SCREEN_WIDTH:-640}" -screen-height "${CRANE_SCREEN_HEIGHT:-360}" \
     -logFile "${worker_dir}/player.log" \
     --crane-worker --crane-benchmark \

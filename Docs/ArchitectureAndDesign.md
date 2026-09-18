@@ -25,8 +25,9 @@ Aquatic physics is a central requirement. HDRP water is part of the physical mod
 components query its displaced surface for buoyancy and hydrodynamics. Removing it would change
 the experiment, not merely lower visual quality. The checked-in production scenes remain the
 aquatic `Roboboat Course` and `Robosub Pool` scenes. Land now has a repeat-validated flat-ground
-Ackermann dynamics fixture, and aerial has a repeat-validated analytic multirotor fixture.
-Broader ground scenarios, real-platform calibration, and live aerial SITL remain incomplete.
+Ackermann dynamics fixture, and aerial has repeat-validated analytic dynamics plus a direct-PWM
+UDP protocol-to-plant fixture. Broader ground scenarios, real-platform calibration, and a real
+flight-controller/SITL process remain incomplete.
 
 CRANE is not yet a turnkey, fully deterministic distributed training service. It has core worker,
 instrumentation, correctness, isolation, live ROS-TCP transport, and an experimental in-place
@@ -46,10 +47,10 @@ broader domain fixtures still need work.
 | Semantic detections without RGB | Implemented, weakly validated | Frustum/range occlusion plus adaptive renderer-centre partial visibility; basic clear/centre-occluded/fully-occluded fixture and production fast path pass, but complex partial geometry, correlated noise, confusion, latency, and false positives remain absent |
 | LiDAR | Implemented and validated | Persistent native buffers plus strict Burst command generation, hit classification/compaction/summary, and PointCloud2 packing; only exact local-frame conversion for actual hits remains managed |
 | Authoritative replay | Experimental vertical slice | Indexed body/joint playback, accepted actions, task outcomes, v4 build provenance, and v5 observation metadata work; production reward adapters/non-regenerable sensor payloads/full-water state remain incomplete |
-| ROS publishing and ArduPilot JSON UDP | Implemented; authoritative-odom Nav2 and UDP protocol loopback validated | Jazzy `NavigateToPose` exercised BT, NavFn, LiDAR costmaps, behaviors, controller, and the aquatic body; the legacy-named `MAVROSConnection` passes malformed/valid servo and telemetry timing checks at 2×. Localization/SLAM, lockstep, and a real autopilot remain |
+| ROS publishing and ArduPilot JSON UDP | Implemented; authoritative-odom Nav2 and aquatic/aerial UDP loopbacks validated | Jazzy `NavigateToPose` exercised BT, NavFn, LiDAR costmaps, behaviors, controller, and the aquatic body; the legacy-named `MAVROSConnection` passes malformed/valid servo, telemetry timing, and aerial direct-PWM plant checks at 2×. Localization/SLAM, lockstep, and a real autopilot remain |
 | Action provenance/lockstep control | Partial, controller loop validated | ROS/SITL source-observation, receive, and application ticks plus sequence/episode rejection are wired; Nav2 commands are paired with latest delivered odometry, but internal consumption and lockstep remain unproven |
 | Ackermann land dynamics | Implemented and repeat-validated fixture | Flat-ground acceleration/coast/brake/turn only; production platform gaps remain |
-| Multirotor dynamics | Implemented and repeat-validated fixture | Analytic checks pass; real-airframe and SITL qualification absent |
+| Multirotor dynamics | Implemented; analytic and direct-PWM UDP fixtures validated | Hover/response/wind/landing checks and UDP-to-fixed-step rotor actuation pass; real-airframe and flight-controller qualification absent |
 | Collision optimization | Implemented ownership, coverage validated; no measured speedup | Required/excluded pairs pass and every production aquatic collider is classified; matched runs showed no material RTF/PhysX change |
 | Episode reset | Scene reload validated, including live Nav2 reconnect; in-place partial/experimental | Aquatic scene reload joins the old Unity TCP task, removes endpoint-owned ROS nodes, opens one replacement connection, recovers Nav2 after the `/clock` rewind, and rejects no measured actions. In-place external ROS/controller and stateful-water reset remain incomplete |
 | Multi-process workers | Implemented; GPU, CPU-depth and Nav2-inclusive sweeps validated | Train-GPU reaches 8.003 valid simulated s/s across four 2× Unity-only workers. With isolated ROS domains/ports and a full Nav2 graph per worker, four 1× workers pass one matched run but show a one-stale-action outlier in another; six 0.75× workers reliably deliver 4.509× aggregate measured RTF. Eight 1× workers are invalid from stale depth observations |
@@ -293,10 +294,15 @@ positive frame rate, frame sequence, and sixteen PWM channels, before establishi
 telemetry timestamp comes from the authoritative simulated episode clock, and Unity rigid-body
 angular velocity is emitted directly in radians per second. UDP receive remains a latest-value
 mailbox: packet reception can outpace fixed steps, so replacements are measured separately from
-rejections. The 2× loopback acceptance applied 198 of 200 valid packets, replaced two, rejected a
+rejections. The aquatic 2× loopback applied 198 of 200 valid packets, replaced two, rejected a
 malformed packet, returned 653 well-shaped peer-visible telemetry packets with a 1.999× monotonic
-clock, and sustained 2.003× worker RTF. This does not substitute for ArduPilot/PX4, sensor-model,
-or aerial control-loop qualification.
+clock, and sustained 2.003× worker RTF. The null-graphics aerial variant maps channels 0–3 to
+front-left/front-right/rear-right/rear-left normalized rotor targets. It accepted 200/200 packets,
+rejected one malformed packet, applied through the fixed-step gate with at most one tick of queue
+age, returned 782 packets at a 1.997× clock, displaced the quadrotor upward 2.768 m, and sustained
+2.000× worker RTF. Servo packets still have no source-observation timestamp. Neither fixture
+substitutes for ArduPilot/PX4, a real flight controller, calibrated sensor models, or real-airframe
+qualification.
 
 A live Jazzy `ros_tcp_endpoint` run validates the transport boundary on the Roboboat target
 profile. Runtime scene selection suppresses sensors, clocks, MAVROS, and the connector in the

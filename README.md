@@ -187,8 +187,12 @@ whose stamped actions exceed their configured lag bound or lose provenance.
 The aquatic ArduPilot JSON UDP protocol also has a 2× loopback acceptance fixture: 200 valid
 servo packets and one deliberately malformed packet were accounted for, 198 latest-value actions
 were applied with a one-tick maximum queue age, and 653 telemetry packets advanced at 1.999×
-simulated time while the Unity worker sustained 2.003× RTF. This is protocol validation, not a
-real ArduPilot/PX4 run, and it does not qualify the aerial platform. ROS-TCP and SITL can be gated
+simulated time while the Unity worker sustained 2.003× RTF. The aerial direct-PWM variant accepted
+200/200 valid packets, rejected one malformed packet, returned 782 peer-visible telemetry packets
+at 1.997× simulated time, moved the reference quadrotor upward 2.768 m, and sustained 2.000× RTF
+under null graphics. Channels 0–3 map to front-left, front-right, rear-right, rear-left and enter
+the same fixed-step action gate as other external commands. These are protocol-to-plant fixtures,
+not real ArduPilot/PX4 or flight-controller qualification. ROS-TCP and SITL can be gated
 independently with `--crane-disable-ros-tcp` and `--crane-disable-sitl`; the legacy
 `--crane-disable-ros` switch disables both.
 

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using Sim.Physics.Aerial;
 
 namespace Sim.Performance {
     /// <summary>Applies per-process seed and transport settings before scene Start methods run.</summary>
@@ -15,6 +16,7 @@ namespace Sim.Performance {
         private CraneRuntimeOptions runtimeOptions;
         private string requestedScene;
         private bool externalSceneLoader;
+        private bool aerialSitlConfigured;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Install() {
@@ -85,6 +87,28 @@ namespace Sim.Performance {
                         ?.SetValue(component, mavrosPort);
                 }
             }
+            if (!runtimeOptions.DisableSitl && !aerialSitlConfigured &&
+                Environment.GetCommandLineArgs().Contains("--crane-aerial-sitl-validation") &&
+                scene.name.Equals("Aerial Vehicle Validation", StringComparison.OrdinalIgnoreCase))
+                ConfigureAerialSitlFixture();
+        }
+
+        private void ConfigureAerialSitlFixture() {
+            MultirotorDynamics multirotor = FindAnyObjectByType<MultirotorDynamics>();
+            if (multirotor == null)
+                throw new MissingReferenceException("Aerial SITL fixture multirotor is missing.");
+            Type connectionType = Type.GetType(
+                "Sim.Sensors.Nav.MAVROSConnection, MAVROSAssembly", true);
+            MethodInfo configureMethod = connectionType.GetMethod("ConfigureAerial");
+            if (configureMethod == null)
+                throw new MissingMethodException(connectionType.FullName, "ConfigureAerial");
+            var host = new GameObject("CRANE Aerial SITL Connection");
+            DontDestroyOnLoad(host);
+            Component connection = host.AddComponent(connectionType);
+            configureMethod.Invoke(connection,
+                new object[] { multirotor, mavrosPort > 0 ? mavrosPort : 9002,
+                    1000f, 2000f, 200f });
+            aerialSitlConfigured = true;
         }
 
         private static void SuppressRosAutoConnect() {

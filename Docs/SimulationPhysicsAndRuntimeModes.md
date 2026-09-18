@@ -201,7 +201,9 @@ names elsewhere in the project must not be treated as proof of those physical mo
 
 `MultirotorDynamics` is the current quadrotor vertical slice. It is a six-DOF Rigidbody with rotor
 forces applied at four serialized transforms ordered front-left, front-right, rear-right,
-rear-left. Inputs are normalized collective `[0, 1]` and roll/pitch/yaw `[-1, 1]`.
+rear-left. Mixer inputs are normalized collective `[0, 1]` and roll/pitch/yaw `[-1, 1]`. The
+direct actuator contract accepts four normalized targets in the same FL/FR/RR/RL order; the UDP
+adapter maps servo channels 0–3 to those targets and only applies them through `FixedUpdate`.
 
 The mixer adds bounded axis terms to collective and clamps each normalized motor target. Motor
 speed follows a first-order lag. Per-rotor thrust and reaction torque are:
@@ -223,7 +225,8 @@ motor saturation, wind/gust displacement, and landing.
 
 This is not yet a calibrated production airframe. Propeller RPM/aerodynamic lookup tables,
 voltage/battery sag, rotor inflow, ground effect, sensor/flight-controller qualification, and a
-real PX4/ArduPilot SITL closed loop remain future work.
+real PX4/ArduPilot flight-controller process remain future work. The direct-PWM UDP fixture
+validates transport-to-plant actuation, not autopilot behavior.
 
 ## Sensors, ROS, and actions
 
@@ -418,8 +421,22 @@ MAVROS node. The fixture waits for the measured episode boundary, injects one ma
 sends valid 40-byte servo packets, receives JSON IMU/pose/velocity telemetry, and verifies that its
 timestamp follows accelerated simulated time monotonically. The accepted 2× reference run applied
 198 of 200 packets (two intentional latest-value replacements), returned 653 peer-visible telemetry
-packets at a 1.999× clock rate, and sustained 2.003× worker RTF. It is not a real autopilot or an
-aerial-flight-controller acceptance test.
+packets at a 1.999× clock rate, and sustained 2.003× worker RTF.
+
+Run the null-graphics aerial protocol-to-plant variant with:
+
+```bash
+CRANE_RESULT_ROOT="$PWD/PerformanceResults/aerial-sitl" \
+CRANE_MAVROS_PORT=10312 \
+Tools/Performance/run_aerial_sitl_fixture.sh
+```
+
+Its accepted reference run applied all 200 valid packets, rejected one malformed packet, bounded
+receive-to-apply age to one fixed tick, returned 782 peer-visible packets at a 1.997× simulated
+clock rate, moved the reference quadrotor upward 2.768 m, and sustained 2.000× worker RTF. Channels
+0–3 are FL/FR/RR/RL. Servo packets do not carry the source-observation timestamp. Both fixtures
+validate the UDP contract and fixed-step action seam; neither runs or qualifies ArduPilot/PX4 or
+another real flight controller.
 
 Launch the project-specific Nav2 graph separately with `use_sim_time:=true`. A single worker must
 own one isolated ROS graph/domain and one `/clock`. If ROS nodes are split across Docker

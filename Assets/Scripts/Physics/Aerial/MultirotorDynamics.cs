@@ -84,6 +84,15 @@ namespace Sim.Physics.Aerial {
             targetMotorSpeed[3] = Mathf.Clamp01(collective - r + p - y);
         }
 
+        /// <summary>Applies normalized direct rotor commands in FL, FR, RR, RL order.</summary>
+        public void SetMotorCommands(float frontLeftCommand, float frontRightCommand,
+            float rearRightCommand, float rearLeftCommand) {
+            targetMotorSpeed[0] = Mathf.Clamp01(frontLeftCommand);
+            targetMotorSpeed[1] = Mathf.Clamp01(frontRightCommand);
+            targetMotorSpeed[2] = Mathf.Clamp01(rearRightCommand);
+            targetMotorSpeed[3] = Mathf.Clamp01(rearLeftCommand);
+        }
+
         public void SetWind(Vector3 steadyWind, Vector3 gust) {
             windVelocity = steadyWind;
             gustAmplitude = gust;

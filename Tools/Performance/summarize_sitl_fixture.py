@@ -16,6 +16,7 @@ def main():
     parser.add_argument("result_root", type=Path)
     parser.add_argument("--worker-id", type=int, default=0)
     parser.add_argument("--maximum-lag-ticks", type=int, default=5)
+    parser.add_argument("--scope", choices=("aquatic", "aerial"), default="aquatic")
     args = parser.parse_args()
 
     fixture = load(args.result_root / "fixture-summary.json")
@@ -24,6 +25,19 @@ def main():
     timing = worker.get("actionTiming", {})
     accepted = worker.get("acceptedActions")
     received = worker.get("unknownSourceActions")
+    aerial_vertical_displacement = None
+    if args.scope == "aerial":
+        samples = []
+        stream_path = args.result_root / f"worker-{args.worker_id}" / "result.validation.jsonl"
+        with stream_path.open("r", encoding="utf-8") as stream:
+            for line in stream:
+                sample = json.loads(line)
+                for body in sample.get("bodies", []):
+                    if body.get("name") == "Reference Quadrotor":
+                        samples.append(float(body["position"]["y"]))
+        if len(samples) >= 2:
+            aerial_vertical_displacement = samples[-1] - samples[0]
+
     valid = all((
         fixture.get("valid") is True,
         worker.get("valid") is True,
@@ -40,11 +54,15 @@ def main():
         sitl.get("invalidServoPackets", 0) >= 1,
         sitl.get("telemetryPackets", 0) > 0,
         sitl.get("lastFrame") == fixture.get("lastFrame"),
+        args.scope != "aerial" or (
+            aerial_vertical_displacement is not None and
+            aerial_vertical_displacement > 0.1
+        ),
     ))
     result = {
         "schema": "crane-sitl-protocol-acceptance-v1",
         "valid": valid,
-        "scope": "ardupilot-json-udp-aquatic-omni-x-loopback",
+        "scope": f"ardupilot-json-udp-{args.scope}-loopback",
         "workerId": args.worker_id,
         "realTimeFactor": worker.get("realTimeFactor"),
         "actions": {
@@ -64,10 +82,13 @@ def main():
             "failed": worker.get("failedObservations"),
             "invalidWaterSearches": worker.get("invalidWaterSearches"),
         },
+        "aerialVerticalDisplacement": aerial_vertical_displacement,
         "limitations": [
             "protocol loopback only; no ArduPilot/PX4 process",
             "servo packets have no source-observation timestamp",
-            "aquatic Omni-X PWM mapping; no aerial flight controller",
+            ("direct multirotor PWM mapping; no flight-controller process" if
+             args.scope == "aerial" else
+             "aquatic Omni-X PWM mapping; no aerial flight controller"),
         ],
     }
     output = args.result_root / "sitl-summary.json"

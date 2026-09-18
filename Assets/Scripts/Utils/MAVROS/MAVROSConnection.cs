@@ -9,6 +9,7 @@ using Sim.Utils;
 using Sim.Controllers;
 using Sim.Utils.Performance;
 using Sim.Utils.ROS;
+using Sim.Physics.Aerial;
 
 namespace Sim.Sensors.Nav
 {
@@ -36,6 +37,7 @@ namespace Sim.Sensors.Nav
         [Header("Unity References")]
         [SerializeField] private Imu imu;
         [SerializeField] private OmniXController controller;
+        [SerializeField] private MultirotorDynamics multirotor;
 
         [Header("UDP Settings")]
         [SerializeField] private int localPort = 9002;
@@ -67,12 +69,30 @@ namespace Sim.Sensors.Nav
         private string remoteEndpointString;
         private readonly CraneQueuedAction<UInt16[]> pendingAction =
             new(CraneActionPayloadEncoding.UInt16Array);
+        private IPhysicsBody telemetryBody;
+
+        public void ConfigureAerial(MultirotorDynamics dynamics, int port,
+            float minimumPwm = 1000f, float maximumPwm = 2000f,
+            float telemetryRateHz = 200f) {
+            if (dynamics == null || dynamics.GetComponent<Rigidbody>() == null)
+                throw new MissingReferenceException(
+                    "Aerial SITL bridge requires multirotor dynamics on a Rigidbody.");
+            multirotor = dynamics;
+            controller = null;
+            imu = null;
+            localPort = port;
+            pwmMin = minimumPwm;
+            pwmMax = maximumPwm;
+            hz = telemetryRateHz;
+        }
 
         void Start()
         {
-            if (imu == null || imu.body == null || controller == null)
+            telemetryBody = imu != null ? imu.body : multirotor != null ?
+                new RigidbodyAdapter(multirotor.GetComponent<Rigidbody>()) : null;
+            if (telemetryBody == null || (controller == null && multirotor == null))
                 throw new MissingReferenceException(
-                    $"{name} SITL bridge requires an initialized IMU and Omni-X controller.");
+                    $"{name} SITL bridge requires a telemetry body and an Omni-X or multirotor actuator.");
             if (pwmMax <= pwmMin)
                 throw new InvalidOperationException(
                     $"{name} SITL PWM range must satisfy max > min.");
@@ -150,39 +170,39 @@ namespace Sim.Sensors.Nav
 
                 data.imu.gyro = new float[]
                 {
-                    imu.body.angularVelocity.z,
-                    imu.body.angularVelocity.x,
-                    imu.body.angularVelocity.y
+                    telemetryBody.angularVelocity.z,
+                    telemetryBody.angularVelocity.x,
+                    telemetryBody.angularVelocity.y
                 };
 
                 data.imu.accel_body = new float[] { 0.0f, 0.0f, -Constants.gravity };
 
                 data.position = new float[]
                 {
-                    imu.body.position.z,
-                    imu.body.position.x,
-                    imu.body.position.y
+                    telemetryBody.position.z,
+                    telemetryBody.position.x,
+                    telemetryBody.position.y
                 };
 
                 data.attitude = new float[]
                 {
-                    imu.body.transform.eulerAngles.z * Mathf.Deg2Rad,
-                    imu.body.transform.eulerAngles.x * Mathf.Deg2Rad,
-                    imu.body.transform.eulerAngles.y * Mathf.Deg2Rad
+                    telemetryBody.transform.eulerAngles.z * Mathf.Deg2Rad,
+                    telemetryBody.transform.eulerAngles.x * Mathf.Deg2Rad,
+                    telemetryBody.transform.eulerAngles.y * Mathf.Deg2Rad
                 };
 
                 data.velocity = new float[]
                 {
-                    imu.body.linearVelocity.z,
-                    imu.body.linearVelocity.x,
-                    imu.body.linearVelocity.y
+                    telemetryBody.linearVelocity.z,
+                    telemetryBody.linearVelocity.x,
+                    telemetryBody.linearVelocity.y
                 };
             }
         }
 
         void FixedUpdate()
         {
-            if (controller.movementOverride) {
+            if (controller != null && controller.movementOverride) {
                 pendingAction.Clear();
                 return;
             }
@@ -190,10 +210,21 @@ namespace Sim.Sensors.Nav
         }
 
         private void ApplyPwm(UInt16[] pwm) {
+            if (multirotor != null) {
+                multirotor.SetMotorCommands(MapNormalizedPWM(pwm[0]),
+                    MapNormalizedPWM(pwm[1]), MapNormalizedPWM(pwm[2]),
+                    MapNormalizedPWM(pwm[3]));
+                return;
+            }
             controller.frontLeft.SetCommand(MapPWM(pwm[1]));
             controller.frontRight.SetCommand(MapPWM(pwm[2]));
             controller.rearRight.SetCommand(MapPWM(pwm[3]));
             controller.rearLeft.SetCommand(MapPWM(pwm[0]));
+        }
+
+        private float MapNormalizedPWM(float pwm) {
+            pwm = Math.Clamp(pwm, pwmMin, pwmMax);
+            return (pwm - pwmMin) / (pwmMax - pwmMin);
         }
 
         private float MapPWM(float pwm)
@@ -214,9 +245,9 @@ namespace Sim.Sensors.Nav
 
                     if (received.Length != ServoPacketBytes) {
                         CraneRuntimeMetrics.ReportSitlServoPacket(false, -1);
-                        receiveError = true;
                         receiveErrorMessage = $"invalid SITL servo packet length {received.Length}; " +
                                               $"expected {ServoPacketBytes}";
+                        receiveError = true;
                         continue;
                     }
 
@@ -226,18 +257,17 @@ namespace Sim.Sensors.Nav
                     UInt32 frameCount = reader.ReadUInt32();
                     if (magic != ServoPacketMagic || frameRate == 0) {
                         CraneRuntimeMetrics.ReportSitlServoPacket(false, frameCount);
-                        receiveError = true;
                         receiveErrorMessage = $"invalid SITL servo header magic={magic} " +
                                               $"frameRate={frameRate}";
+                        receiveError = true;
                         continue;
                     }
 
                     if (!hasRemoteConnection)
                     {
-                        hasRemoteConnection = true;
-
-                        newConnection = true;
                         remoteEndpointString = remoteEndpoint.ToString();
+                        newConnection = true;
+                        hasRemoteConnection = true;
                     }
 
                     UInt16[] pwm = new UInt16[16];
@@ -259,8 +289,8 @@ namespace Sim.Sensors.Nav
                 }
                 catch (Exception ex)
                 {
-                    receiveError = true;
                     receiveErrorMessage = ex.Message;
+                    receiveError = true;
                 }
             }
         }
@@ -290,8 +320,8 @@ namespace Sim.Sensors.Nav
                     }
                     catch (Exception ex)
                     {
-                        sendError = true;
                         sendErrorMessage = ex.Message;
+                        sendError = true;
                         hasRemoteConnection = false;
                     }
                 }
