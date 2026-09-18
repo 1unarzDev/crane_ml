@@ -157,9 +157,12 @@ loop deployment.
 Closed-loop scaling has a separate measured envelope because every worker also owns a ROS-TCP
 endpoint and a real Nav2 planner/BT/costmap/controller graph. Two 1× workers passed at 2.002×
 aggregate measured RTF. Four 1× workers reached 4.006× but had one stale-action outlier across two
-runs. The current accepted density point is six workers at 0.75×, totaling 4.509× measured RTF;
-eight-worker runs were rejected for stale depth observations. These are reference-machine results,
-not default settings for other hardware.
+runs. One 2× worker and two concurrent 2× workers also passed, the latter totaling 4.003×
+measured RTF with both `NavigateToPose` goals successful. Three-worker trials at 1.5× and 2×
+were rejected for stale depth observations. The current highest accepted density point is six
+workers at 0.75×, totaling 4.509× measured RTF; eight-worker runs were likewise rejected for
+stale depth observations. These are reference-machine results, not default settings for other
+hardware.
 
 ## Current maturity
 

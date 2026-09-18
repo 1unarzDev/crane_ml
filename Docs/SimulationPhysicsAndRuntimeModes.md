@@ -456,7 +456,11 @@ The launcher writes one `navigation-reset-summary.json` per worker plus an aggre
 stale/rejected/cross-episode actions, endpoint errors, and missing endpoint/controller CPU/RAM
 samples. On the reference machine six workers at 0.75× are the current accepted density point;
 eight at 1× and eight at 0.75× produced stale depth observations, while four at 1× had one
-stale-action outlier across two matched runs.
+stale-action outlier across two matched runs. For higher per-worker acceleration, one 2× worker
+and two concurrent 2× workers pass; the latter delivers 4.003× aggregate measured RTF. Three
+workers at 1.5× or 2× fail the observation-validity gate because at least one depth acquisition is
+stale, even though every Nav2 goal succeeds. Choose worker count and time scale from the complete
+validity record, not goal status or requested time scale alone.
 
 Validate the in-place reset vertical slice without graphics:
 

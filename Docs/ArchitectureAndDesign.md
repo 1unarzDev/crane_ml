@@ -555,7 +555,11 @@ stamped acquisition/receive/application ticks. A real Nav2 `NavigateToPose` fixt
 NavFn planning, BT execution, LiDAR costmaps, and control at 1×. The project launch still assumes
 RGB/RTAB-Map plus MAVROS, and the fixture does not prove localization/SLAM, internal sample
 consumption, or accelerated lockstep behavior. A separate isolated-domain sweep validates bounded
-worker density, not those missing semantics.
+worker density, not those missing semantics. On the reference machine, one 2× worker and two
+concurrent 2× workers pass the complete validity gate; two workers deliver 4.003× aggregate
+measured RTF. Three workers at either 1.5× or 2× exceed the current depth-delivery capacity even
+though their Nav2 goals succeed, so accelerated execution is explicitly capacity-gated rather than
+inferred from `NavigateToPose` status.
 
 ### Reset completeness
 

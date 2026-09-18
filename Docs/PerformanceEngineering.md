@@ -303,6 +303,8 @@ Raw JSON is in `PerformanceResults/`.
 | Nav2 NavigateToPose with NavFn + BT + LiDAR costmaps, live Jazzy 1× | controller-only fixture | terminal success; 79 measured actions accepted, zero stale/rejected/cross-episode, 0.576 m displacement, 22.4 ms goal-to-first-command wall latency, 1.001× valid | Keep full authoritative-odom loop; localization/SLAM, static map, lockstep and multi-worker scaling remain excluded |
 | Aquatic scene reload + live Nav2 NavigateToPose, Jazzy 1× | clean reload validated without external controller | terminal success after `/clock` rewind; 79 actions accepted, zero stale/rejected/cross-episode; one maximum concurrent Unity connection, zero duplicate endpoint nodes/errors; 0.518 m displacement, 21.8 ms first-command latency, 1.001× valid | Accept scene reload as the ROS-connected reset baseline; in-place external reset remains partial |
 | Isolated Nav2 worker density, 2×1.0, 4×1.0, 6×0.75, 8×1.0 | one closed-loop worker only | 2×1.0 valid at 2.002× aggregate RTF; 4×1.0 valid at 4.006× on repeat but one stale action in the first run; 6×0.75 valid at 4.509×; 8×1.0 invalid with stale depth on 7/8 workers | Prefer six 0.75× workers on this machine; do not accept eight 1× or call four 1× robust without a longer repeat |
+| Accelerated Nav2 workers, 1×2.0 and 2×2.0 | isolated density runs at 1× or below | one worker valid at 2.001×; two workers valid at 4.003× aggregate measured RTF with both goals successful, zero stale observations/actions and 23 external-resource samples | Accept up to two 2× workers on this machine; campaign throughput including startup was 2.653 simulated s/wall s |
+| Accelerated Nav2 capacity, 3×1.5 and 3×2.0 | two 2× workers valid | one 1.5× worker and all three 2× workers reported stale depth; navigation and action/transport checks still passed | Reject both three-worker settings; GPU depth delivery, not Nav2 goal completion, defines validity |
 | Replay v2 accepted-action stream, two 5 s runs/side at 2× | 2.0064× mean RTF, 0.596 MB GC without recording | 2.0070× mean RTF, 2.857 MB GC with recording | Keep; bounded correctness data, recorder allocation remains experimental |
 | Replay water time after end-of-stream, 2 s | HDRP continued live time or setter no-op before resource allocation | exact recorded time held for 9/9 samples; invariant valid query height | Keep spectral-time pin/reapply |
 | Validation stream, 2×, 5 s, 0.25 s interval, capacity 3 | unbounded in-memory validation list | 41 samples streamed, 3 retained, 38 dropped from RAM; 2.006× and valid | Keep bounded/streamed handling |
@@ -588,5 +590,12 @@ is therefore not yet a robust default. Eight 1× workers completed all goals but
 stale GPU depth observations. Reducing eight workers to 0.75× left two stale-observation failures.
 Six 0.75× workers were all valid at 4.509× aggregate measured RTF, with 78 external-resource
 samples and no stale observations/actions, rejected/cross-episode actions, water failures, or
-endpoint errors. Evidence is under `PerformanceResults/nav2-worker-sweep-*`; localization/SLAM
-and internal Nav2 observation-consumption provenance remain outside this result.
+endpoint errors. A separate acceleration sweep accepted one worker at 2.001× and two workers at
+4.003× aggregate measured RTF. Both two-worker goals succeeded with no stale observations/actions
+and 23 endpoint/controller resource samples; campaign throughput including startup was 2.653
+simulated seconds per wall second. Three workers were over capacity: at 2× every worker had two
+stale depth observations, and at 1.5× one worker had one stale depth observation. All six goals and
+action/transport checks still passed, demonstrating why goal success alone is not an acceptance
+criterion. Evidence is under `PerformanceResults/nav2-worker-sweep-*` and
+`PerformanceResults/nav2-accelerated-*`; localization/SLAM and internal Nav2
+observation-consumption provenance remain outside this result.
