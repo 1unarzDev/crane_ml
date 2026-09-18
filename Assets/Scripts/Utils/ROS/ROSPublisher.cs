@@ -11,7 +11,8 @@ namespace Sim.Utils.ROS {
     [AddComponentMenu("")]
     public class ROSPublisher : MonoBehaviour, ICraneEpisodeResettable {
         public static bool TransportSuppressed =>
-            Environment.GetCommandLineArgs().Contains("--crane-disable-ros");
+            Environment.GetCommandLineArgs().Contains("--crane-disable-ros") ||
+            Environment.GetCommandLineArgs().Contains("--crane-disable-ros-tcp");
         public string topicName { get; set; }
         public string frameId { get; set; }
         public float Hz;

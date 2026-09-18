@@ -210,7 +210,9 @@ Useful arguments:
 | `--crane-interactive-width N` | Interactive-Low window width (default 960, minimum 320) |
 | `--crane-interactive-height N` | Interactive-Low window height (default 540, minimum 180) |
 | `--crane-time-scale N` | Unity time scale; the physical timestep stays at 0.02 s |
-| `--crane-disable-ros` | Build sensor messages but suppress ROS transport |
+| `--crane-disable-ros` | Legacy aggregate switch: suppress ROS-TCP and SITL while retaining sensor message construction |
+| `--crane-disable-ros-tcp` | Suppress ROS-TCP/`/clock` only; keep the ArduPilot JSON/SITL UDP bridge available |
+| `--crane-disable-sitl` | Suppress the ArduPilot JSON/SITL UDP bridge only; keep ROS-TCP available |
 | `--crane-disable-visual-sensors` | Disable RGB, depth, and camera-info acquisition |
 | `--crane-disable-rgb` | Disable RGB acquisition and RGB post-processing only; keep depth independent |
 | `--crane-disable-depth` | Disable depth acquisition and depth post-processing only |
@@ -306,6 +308,7 @@ Raw JSON is in `PerformanceResults/`.
 | Accelerated Nav2 workers, 1×2.0 and 2×2.0 | isolated density runs at 1× or below | one worker valid at 2.001×; two workers valid at 4.003× aggregate measured RTF with both goals successful, zero stale observations/actions and 23 external-resource samples | Accept up to two 2× workers on this machine; campaign throughput including startup was 2.653 simulated s/wall s |
 | Accelerated Nav2 capacity, 3×1.5 and 3×2.0 | two 2× workers valid | one 1.5× worker and all three 2× workers reported stale depth; navigation and action/transport checks still passed | Reject both three-worker settings; GPU depth delivery, not Nav2 goal completion, defines validity |
 | Accelerated action timing, live Nav2 2× for 12 s | final action ticks and rejection counts only | 40/40 actions had stamped odometry provenance; source-to-application mean/max 4.175/7 ticks, receive-to-application 1/1 tick, maximum interval 12 ticks; one post-goal watchdog stop; 2.002× valid | Keep telemetry and gate provenance/lag bounds in the Nav2 summary; internal Nav2 sample consumption remains unproven |
+| ArduPilot JSON UDP protocol loopback, aquatic Train-GPU 2× | UDP bridge present but no end-to-end acceptance | 200 valid + 1 malformed servo packets accounted for; 198 applied, 2 latest-value replacements, 0 rejected/stale; 653 peer telemetry packets, monotonic 1.999× clock; worker 2.003× with fresh sensors/water | Accept protocol/fixed-step seam only; real ArduPilot/PX4 and aerial SITL remain untested |
 | Replay v2 accepted-action stream, two 5 s runs/side at 2× | 2.0064× mean RTF, 0.596 MB GC without recording | 2.0070× mean RTF, 2.857 MB GC with recording | Keep; bounded correctness data, recorder allocation remains experimental |
 | Replay water time after end-of-stream, 2 s | HDRP continued live time or setter no-op before resource allocation | exact recorded time held for 9/9 samples; invariant valid query height | Keep spectral-time pin/reapply |
 | Validation stream, 2×, 5 s, 0.25 s interval, capacity 3 | unbounded in-memory validation list | 41 samples streamed, 3 retained, 38 dropped from RAM; 2.006× and valid | Keep bounded/streamed handling |
@@ -499,7 +502,8 @@ and water differences did not reject 4×. Required visual-sensor delivery did re
   `GetComponent<Camera>()` result.
 - Async camera work has a bounded queue, acquisition tick, and episode ID; callbacks from an old
   episode are discarded and no callback dereferences a destroyed camera during shutdown.
-- `--crane-disable-ros` now disables the actual `Sim.Sensors.Nav.MAVROSConnection` type.
+- `--crane-disable-ros` disables both ROS-TCP and the actual legacy-named
+  `Sim.Sensors.Nav.MAVROSConnection`; the narrower transport flags can disable either independently.
 - Camera noise shaders are always included in standalone builds.
 - `ROSThruster` now initializes its subscriber and both ROS thruster and SITL PWM callbacks enqueue
   latest-value action payloads. Actuator mutation occurs only after episode/sequence/lag checks in

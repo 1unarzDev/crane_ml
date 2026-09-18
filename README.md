@@ -39,7 +39,8 @@ constraints, and benchmark evidence.
 - Ackermann, full-omnidirectional, and Omni-X controller mappings
 - 2D and 3D LiDAR, RGB and depth cameras, GPS, IMU, odometry, and detection messages
 - ROS-TCP publishing/subscription, simulation clock and authoritative odometry/TF publication,
-  fixed-step stamped `cmd_vel` application, and a MAVROS/SITL UDP bridge
+  fixed-step stamped `cmd_vel` application, and an ArduPilot JSON/SITL UDP bridge (legacy class
+  name `MAVROSConnection`)
 - URDF import through Unity's Robotics URDF Importer
 - Standalone benchmark workers, correctness comparisons, scene-reload and in-place reset probes,
   and multi-process sweeps
@@ -180,6 +181,14 @@ single-worker 2× run, all 40 applied actions carried odometry provenance; mean/
 observation-to-application age was 4.175/7 fixed ticks, receive-to-application age was one tick,
 and one command watchdog stop was recorded after the goal completed. The fixture rejects runs
 whose stamped actions exceed their configured lag bound or lose provenance.
+
+The aquatic ArduPilot JSON UDP protocol also has a 2× loopback acceptance fixture: 200 valid
+servo packets and one deliberately malformed packet were accounted for, 198 latest-value actions
+were applied with a one-tick maximum queue age, and 653 telemetry packets advanced at 1.999×
+simulated time while the Unity worker sustained 2.003× RTF. This is protocol validation, not a
+real ArduPilot/PX4 run, and it does not qualify the aerial platform. ROS-TCP and SITL can be gated
+independently with `--crane-disable-ros-tcp` and `--crane-disable-sitl`; the legacy
+`--crane-disable-ros` switch disables both.
 
 Important limitations remain: full-resolution camera readback caps GPU-sensor acceleration;
 graphics-free aquatic water is absent; geometric CPU depth does not model render-only surfaces;

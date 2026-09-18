@@ -13,7 +13,8 @@ Vehicle equations, coordinate/lifecycle conventions, and launch instructions are
 CRANE is a Unity 6 robotics simulator for testing reusable autonomous-navigation software across
 vehicles and operating domains. Unity owns the world, physical interaction, and sensor
 generation. ROS 2 owns the external navigation stack: mapping, estimation, planning, control,
-and other model computation. A MAVROS/SITL UDP path is also available.
+and other model computation. An ArduPilot JSON/SITL UDP path is also available under a legacy
+`MAVROSConnection` class name.
 
 The intended workloads include reinforcement learning, black-box optimization, synthetic dataset
 generation, regression testing, and closed-loop robotics research. These workloads require many
@@ -45,7 +46,7 @@ broader domain fixtures still need work.
 | Semantic detections without RGB | Implemented, weakly validated | Frustum/range/center-ray occlusion; partial visibility and correlated noise absent |
 | LiDAR | Implemented and validated | Persistent native buffers plus strict Burst command generation and PointCloud2 packing; result traversal remains main-thread work |
 | Authoritative replay | Experimental vertical slice | Indexed body/joint playback, accepted actions, task outcomes, v4 build provenance, and v5 observation metadata work; production reward adapters/non-regenerable sensor payloads/full-water state remain incomplete |
-| ROS publishing and MAVROS UDP | Implemented; authoritative-odom Nav2 loop and isolated worker density live-validated | Jazzy `NavigateToPose` exercised BT, NavFn planner, LiDAR voxel costmaps, behaviors, controller, and the production aquatic body; six isolated 0.75× graphs pass concurrently. Localization/SLAM, lockstep and MAVROS acceptance remain |
+| ROS publishing and ArduPilot JSON UDP | Implemented; authoritative-odom Nav2 and UDP protocol loopback validated | Jazzy `NavigateToPose` exercised BT, NavFn, LiDAR costmaps, behaviors, controller, and the aquatic body; the legacy-named `MAVROSConnection` passes malformed/valid servo and telemetry timing checks at 2×. Localization/SLAM, lockstep, and a real autopilot remain |
 | Action provenance/lockstep control | Partial, controller loop validated | ROS/SITL source-observation, receive, and application ticks plus sequence/episode rejection are wired; Nav2 commands are paired with latest delivered odometry, but internal consumption and lockstep remain unproven |
 | Ackermann land dynamics | Implemented and repeat-validated fixture | Flat-ground acceleration/coast/brake/turn only; production platform gaps remain |
 | Multirotor dynamics | Implemented and repeat-validated fixture | Analytic checks pass; real-airframe and SITL qualification absent |
@@ -254,10 +255,12 @@ but corrupt the relationship between action and observation.
 ### ROS and controller boundary
 
 `ROSPublisher` creates messages at simulated-time rates and sends them through ROS-TCP unless
-`--crane-disable-ros` suppresses transport. The benchmark can therefore separate message and
+`--crane-disable-ros` suppresses both transports. `--crane-disable-ros-tcp` and
+`--crane-disable-sitl` gate them independently. The benchmark can therefore separate message and
 sensor cost from transport cost. `ROSSubscriber` registers controller callbacks with the
 connector. Clock helpers expose simulation time to ROS consumers. The MAVROS bridge provides a
-separate UDP integration for SITL-style communication.
+separate UDP integration for SITL-style communication. Despite its serialized legacy class name
+`MAVROSConnection`, this is the ArduPilot JSON backend servo/telemetry protocol, not a MAVROS node.
 
 Simulation time is necessary but is not a processing barrier. An accelerated Unity worker must
 not repeatedly apply an old command while the ROS controller is still computing. `ROSThruster`
@@ -284,6 +287,16 @@ header, applies in `FixedUpdate`, combines forward/lateral/yaw in the mixer, and
 after a simulated-tick timeout. This proves stamped transport causality when the ROS-side bridge
 copies an actual observation stamp. The standard Nav2 `Twist` contract still cannot prove which
 observation Nav2 internally consumed; a lockstep barrier and localization/SLAM run remain required.
+
+The SITL bridge validates the 40-byte little-endian ArduPilot servo packet, including magic 18458,
+positive frame rate, frame sequence, and sixteen PWM channels, before establishing a peer. Its
+telemetry timestamp comes from the authoritative simulated episode clock, and Unity rigid-body
+angular velocity is emitted directly in radians per second. UDP receive remains a latest-value
+mailbox: packet reception can outpace fixed steps, so replacements are measured separately from
+rejections. The 2× loopback acceptance applied 198 of 200 valid packets, replaced two, rejected a
+malformed packet, returned 653 well-shaped peer-visible telemetry packets with a 1.999× monotonic
+clock, and sustained 2.003× worker RTF. This does not substitute for ArduPilot/PX4, sensor-model,
+or aerial control-loop qualification.
 
 A live Jazzy `ros_tcp_endpoint` run validates the transport boundary on the Roboboat target
 profile. Runtime scene selection suppresses sensors, clocks, MAVROS, and the connector in the

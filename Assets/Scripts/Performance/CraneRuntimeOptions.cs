@@ -69,7 +69,8 @@ namespace Sim.Performance {
         }
 
         public string ProfileName { get; private set; }
-        public bool DisableRos { get; private set; }
+        public bool DisableRosTcp { get; private set; }
+        public bool DisableSitl { get; private set; }
         public bool DisableRgb { get; private set; }
         public bool DisableDepth { get; private set; }
         public bool DisableCameraInfo { get; private set; }
@@ -112,9 +113,11 @@ namespace Sim.Performance {
                 else if (HasFlag(args, "--crane-in-place-reset-validation"))
                     requestedScene = "Aerial Vehicle Validation";
             }
+            bool disableAllTransport = HasFlag(args, "--crane-disable-ros");
             return new CraneRuntimeOptions {
                 ProfileName = profile,
-                DisableRos = HasFlag(args, "--crane-disable-ros"),
+                DisableRosTcp = disableAllTransport || HasFlag(args, "--crane-disable-ros-tcp"),
+                DisableSitl = disableAllTransport || HasFlag(args, "--crane-disable-sitl"),
                 DisableRgb = trainGpu || trainCpu || disableVisual ||
                     HasFlag(args, "--crane-disable-rgb"),
                 DisableDepth = depthBackend == "off" || disableVisual ||
@@ -166,7 +169,8 @@ namespace Sim.Performance {
             foreach (MonoBehaviour component in UnityEngine.Object.FindObjectsByType<MonoBehaviour>(
                          FindObjectsInactive.Include)) {
                 string typeName = component.GetType().FullName;
-                if (DisableRos && IsRosTransport(typeName)) {
+                if ((DisableRosTcp && IsRosTcpTransport(typeName)) ||
+                    (DisableSitl && IsSitlTransport(typeName))) {
                     component.enabled = false;
                     continue;
                 }
@@ -206,6 +210,7 @@ namespace Sim.Performance {
             public bool graphicsFree;
             public bool strictGraphicsFree;
             public bool rosEnabled;
+            public bool sitlEnabled;
             public bool rgbEnabled;
             public bool depthEnabled;
             public string depthBackend;
@@ -236,7 +241,8 @@ namespace Sim.Performance {
                 graphicsDeviceType = SystemInfo.graphicsDeviceType.ToString(),
                 graphicsFree = graphicsFree,
                 strictGraphicsFree = StrictGraphicsFree,
-                rosEnabled = !DisableRos,
+                rosEnabled = !DisableRosTcp,
+                sitlEnabled = !DisableSitl,
                 rgbEnabled = !DisableRgb,
                 depthEnabled = !DisableDepth,
                 depthBackend = DisableDepth ? "off" : DepthBackend,
@@ -338,11 +344,13 @@ namespace Sim.Performance {
                    ((DisableDepth || DepthBackend == "geometric") && sensorType == "Depth");
         }
 
-        private static bool IsRosTransport(string typeName) =>
+        private static bool IsRosTcpTransport(string typeName) =>
             typeName == "Unity.Robotics.ROSTCPConnector.ROSConnection" ||
-            typeName == "Sim.Sensors.Nav.MAVROSConnection" ||
-            typeName == "Sim.Utils.MAVROS.MAVROSConnection" ||
             typeName == "Sim.Utils.ROS.ROSClock";
+
+        private static bool IsSitlTransport(string typeName) =>
+            typeName == "Sim.Sensors.Nav.MAVROSConnection" ||
+            typeName == "Sim.Utils.MAVROS.MAVROSConnection";
 
         private static bool HasFlag(string[] args, string flag) =>
             Array.IndexOf(args, flag) >= 0;

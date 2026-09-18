@@ -53,7 +53,7 @@ Simulation-critical code still uses Unity lifecycle callbacks:
   publication schedules.
 - `Update`/`LateUpdate`: presentation and a small number of legacy components.
 - render callbacks and `AsyncGPUReadback`: RGB/depth acquisition.
-- ROS and MAVROS callbacks: enqueue commands; actuator mutation occurs at a fixed-step boundary.
+- ROS and ArduPilot JSON/SITL callbacks: enqueue commands; actuator mutation occurs at a fixed-step boundary.
 - `WaitForFixedUpdate`: authoritative replay capture after physics.
 
 `Physics.Simulate()` alone does not invoke these callbacks. CRANE therefore does not currently
@@ -232,9 +232,10 @@ distance-based confidence model without RGB inference. They do not expose every 
 partial visibility, class confusion, correlated noise, and false-positive models remain limited.
 
 ROS publishers run from simulated-time schedules and retain fractional period remainder. ROS or
-MAVROS callbacks enqueue commands; `CraneActionGate` checks episode, sequence, source observation,
+SITL callbacks enqueue commands; `CraneActionGate` checks episode, sequence, source observation,
 receive tick, and bounded-lag policy before fixed-step application. `--crane-disable-ros` suppresses
-transport while still exercising message construction for benchmarks. This is not end-to-end
+ROS-TCP and SITL while still exercising message construction for benchmarks. Use
+`--crane-disable-ros-tcp` or `--crane-disable-sitl` when only one boundary should be disabled. This is not end-to-end
 zero-copy: ROS-TCP remains a serialization boundary.
 
 The optional production aquatic adapter subscribes to `geometry_msgs/TwistStamped` and maps ROS
@@ -380,6 +381,21 @@ python3 Tools/Performance/ros_observation_command_bridge.py \
   --mode nav2 --observation-topic /detections \
   --input-topic /cmd_vel --output-topic /crane/cmd_vel_stamped
 ```
+
+Run the aquatic ArduPilot JSON/SITL UDP protocol fixture independently of ROS-TCP:
+
+```bash
+CRANE_RESULT_ROOT="$PWD/PerformanceResults/sitl-udp" \
+CRANE_MAVROS_PORT=10302 Tools/Performance/run_sitl_udp_fixture.sh
+```
+
+The legacy filename/class `MAVROSConnection` implements ArduPilot's JSON backend rather than a
+MAVROS node. The fixture waits for the measured episode boundary, injects one malformed datagram,
+sends valid 40-byte servo packets, receives JSON IMU/pose/velocity telemetry, and verifies that its
+timestamp follows accelerated simulated time monotonically. The accepted 2× reference run applied
+198 of 200 packets (two intentional latest-value replacements), returned 653 peer-visible telemetry
+packets at a 1.999× clock rate, and sustained 2.003× worker RTF. It is not a real autopilot or an
+aerial-flight-controller acceptance test.
 
 Launch the project-specific Nav2 graph separately with `use_sim_time:=true`. A single worker must
 own one isolated ROS graph/domain and one `/clock`. If ROS nodes are split across Docker

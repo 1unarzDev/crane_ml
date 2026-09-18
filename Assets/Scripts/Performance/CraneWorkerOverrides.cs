@@ -72,7 +72,7 @@ namespace Sim.Performance {
             // observed by Start while the initial build scene is yielding to --crane-scene.
             // Clear the package-owned auto-connect switch before applying the general component
             // gates so --crane-disable-ros never starts a background reconnect loop.
-            if (runtimeOptions.DisableRos) SuppressRosAutoConnect();
+            if (runtimeOptions.DisableRosTcp) SuppressRosAutoConnect();
             runtimeOptions.Apply();
             foreach (MonoBehaviour component in FindObjectsByType<MonoBehaviour>(FindObjectsInactive.Include)) {
                 Type type = component.GetType();

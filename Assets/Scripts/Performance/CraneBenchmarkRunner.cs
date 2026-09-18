@@ -107,6 +107,14 @@ namespace Sim.Performance {
             public long commandTimeouts;
         }
 
+        [Serializable] private sealed class SitlResult {
+            public long validServoPackets;
+            public long invalidServoPackets;
+            public long telemetryPackets;
+            public long lastFrame;
+            public double lastTelemetrySimulatedSeconds;
+        }
+
         [Serializable] private sealed class ResetProbeResult {
             public bool executed;
             public double reloadWallMilliseconds;
@@ -175,6 +183,7 @@ namespace Sim.Performance {
             public long invalidWaterSearches;
             public long maximumObservationQueueAgeTicks;
             public ActionTimingResult actionTiming;
+            public SitlResult sitl;
             public bool valid;
             public LidarResult lidar;
             public ImageResult rgbCamera;
@@ -443,6 +452,7 @@ namespace Sim.Performance {
             CraneRuntimeMetrics.DetectionSnapshot detections = CraneRuntimeMetrics.GetDetectionSnapshot();
             CraneRuntimeMetrics.ActionTimingSnapshot actionTiming =
                 CraneRuntimeMetrics.GetActionTimingSnapshot();
+            CraneRuntimeMetrics.SitlSnapshot sitl = CraneRuntimeMetrics.GetSitlSnapshot();
             CraneRuntimeOptions.CameraStatus cameraStatus = runtimeOptions.GetCameraStatus();
             var result = new BenchmarkResult {
                 scenario = scenario,
@@ -518,6 +528,15 @@ namespace Sim.Performance {
                         actionTiming.MaximumReceiveToApplicationTicks,
                     maximumInterApplicationTicks = actionTiming.MaximumInterApplicationTicks,
                     commandTimeouts = actionTiming.CommandTimeouts
+                },
+                sitl = new SitlResult {
+                    validServoPackets = sitl.ValidServoPackets,
+                    invalidServoPackets = sitl.InvalidServoPackets,
+                    telemetryPackets = sitl.TelemetryPackets,
+                    lastFrame = sitl.LastFrame,
+                    lastTelemetrySimulatedSeconds =
+                        sitl.LastTelemetryTimestampMicroseconds < 0 ? -1 :
+                        sitl.LastTelemetryTimestampMicroseconds / 1_000_000.0
                 },
                 lidar = new LidarResult {
                     scanCount = lidar.ScanCount,

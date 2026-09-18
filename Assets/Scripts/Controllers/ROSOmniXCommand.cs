@@ -117,7 +117,7 @@ namespace Sim.Controllers {
         private static void Initialize() {
             string[] args = Environment.GetCommandLineArgs();
             int flag = Array.IndexOf(args, "--crane-ros-cmd-vel");
-            enabled = flag >= 0 && Array.IndexOf(args, "--crane-disable-ros") < 0;
+            enabled = flag >= 0 && !ROSPublisher.TransportSuppressed;
             if (!enabled) return;
             topic = flag + 1 < args.Length && !args[flag + 1].StartsWith("-") ?
                 args[flag + 1] : "/crane/cmd_vel_stamped";

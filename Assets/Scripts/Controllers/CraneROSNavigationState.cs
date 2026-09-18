@@ -170,7 +170,7 @@ namespace Sim.Controllers {
         private static void Install() {
             string[] args = Environment.GetCommandLineArgs();
             enabled = Array.IndexOf(args, "--crane-ros-nav-state") >= 0 &&
-                      Array.IndexOf(args, "--crane-disable-ros") < 0;
+                      !ROSPublisher.TransportSuppressed;
             if (!enabled) return;
             odometryTopic = ReadString(args, "--crane-ros-odom-topic", "/crane/odom");
             transformTopic = ReadString(args, "--crane-ros-tf-topic", "/tf");

@@ -134,6 +134,24 @@ namespace Sim.Utils.Performance {
             }
         }
 
+        public readonly struct SitlSnapshot {
+            public readonly long ValidServoPackets;
+            public readonly long InvalidServoPackets;
+            public readonly long TelemetryPackets;
+            public readonly long LastFrame;
+            public readonly long LastTelemetryTimestampMicroseconds;
+
+            public SitlSnapshot(long validServoPackets, long invalidServoPackets,
+                long telemetryPackets, long lastFrame,
+                long lastTelemetryTimestampMicroseconds) {
+                ValidServoPackets = validServoPackets;
+                InvalidServoPackets = invalidServoPackets;
+                TelemetryPackets = telemetryPackets;
+                LastFrame = lastFrame;
+                LastTelemetryTimestampMicroseconds = lastTelemetryTimestampMicroseconds;
+            }
+        }
+
         private static readonly object s_LidarLock = new();
         private static readonly object s_ImageLock = new();
         private static long s_EpisodeId;
@@ -158,6 +176,11 @@ namespace Sim.Utils.Performance {
         private static long s_LastActionApplicationTick = -1;
         private static long s_MaximumInterApplicationTicks;
         private static long s_CommandTimeouts;
+        private static long s_SitlValidServoPackets;
+        private static long s_SitlInvalidServoPackets;
+        private static long s_SitlTelemetryPackets;
+        private static long s_SitlLastFrame = -1;
+        private static long s_SitlLastTelemetryTimestampMicroseconds = -1;
         private static long s_FailedObservations;
         private static long s_LidarScanCount;
         private static int s_LidarConfiguredPoints;
@@ -250,6 +273,22 @@ namespace Sim.Utils.Performance {
         }
         public static void ReportCommandTimeout() => Interlocked.Increment(ref s_CommandTimeouts);
 
+        public static void ReportSitlServoPacket(bool valid, long frame) {
+            if (valid) {
+                Interlocked.Increment(ref s_SitlValidServoPackets);
+                Interlocked.Exchange(ref s_SitlLastFrame, frame);
+            }
+            else {
+                Interlocked.Increment(ref s_SitlInvalidServoPackets);
+            }
+        }
+
+        public static void ReportSitlTelemetry(double simulatedTimestamp) {
+            Interlocked.Increment(ref s_SitlTelemetryPackets);
+            Interlocked.Exchange(ref s_SitlLastTelemetryTimestampMicroseconds,
+                (long)System.Math.Round(simulatedTimestamp * 1_000_000.0));
+        }
+
         public static ActionTimingSnapshot GetActionTimingSnapshot() => new(
             Interlocked.Read(ref s_AcceptedActions),
             Interlocked.Read(ref s_KnownSourceActions),
@@ -259,6 +298,13 @@ namespace Sim.Utils.Performance {
             Interlocked.Read(ref s_MaximumReceiveToApplicationTicks),
             Interlocked.Read(ref s_MaximumInterApplicationTicks),
             Interlocked.Read(ref s_CommandTimeouts));
+
+        public static SitlSnapshot GetSitlSnapshot() => new(
+            Interlocked.Read(ref s_SitlValidServoPackets),
+            Interlocked.Read(ref s_SitlInvalidServoPackets),
+            Interlocked.Read(ref s_SitlTelemetryPackets),
+            Interlocked.Read(ref s_SitlLastFrame),
+            Interlocked.Read(ref s_SitlLastTelemetryTimestampMicroseconds));
 
         private static void ReportMaximum(ref long destination, long value) {
             long current = Interlocked.Read(ref destination);
@@ -394,6 +440,11 @@ namespace Sim.Utils.Performance {
             Interlocked.Exchange(ref s_LastActionApplicationTick, -1);
             Interlocked.Exchange(ref s_MaximumInterApplicationTicks, 0);
             Interlocked.Exchange(ref s_CommandTimeouts, 0);
+            Interlocked.Exchange(ref s_SitlValidServoPackets, 0);
+            Interlocked.Exchange(ref s_SitlInvalidServoPackets, 0);
+            Interlocked.Exchange(ref s_SitlTelemetryPackets, 0);
+            Interlocked.Exchange(ref s_SitlLastFrame, -1);
+            Interlocked.Exchange(ref s_SitlLastTelemetryTimestampMicroseconds, -1);
             Interlocked.Exchange(ref s_FailedObservations, 0);
             lock (s_LidarLock) {
                 s_LidarScanCount = 0;

@@ -8,6 +8,7 @@ using UnityEngine;
 using Sim.Utils;
 using Sim.Controllers;
 using Sim.Utils.Performance;
+using Sim.Utils.ROS;
 
 namespace Sim.Sensors.Nav
 {
@@ -30,6 +31,8 @@ namespace Sim.Sensors.Nav
 
     public class MAVROSConnection : MonoBehaviour
     {
+        private const UInt16 ServoPacketMagic = 18458;
+        private const int ServoPacketBytes = sizeof(UInt16) * 18 + sizeof(UInt32);
         [Header("Unity References")]
         [SerializeField] private Imu imu;
         [SerializeField] private OmniXController controller;
@@ -49,14 +52,13 @@ namespace Sim.Sensors.Nav
         private UdpClient socketSend;
         private Thread receiveThread;
         private Thread sendThread;
-        private bool runThreads = true;
+        private volatile bool runThreads = true;
+        private bool threadsStarted;
         private volatile bool hasRemoteConnection = false;
         private IPEndPoint remoteEndpoint = new(IPAddress.Any, 0);
 
         private SITLCommsJsonOutputPacket data = new();
         private readonly object dataLock = new();
-        private long startTime;
-
         private volatile bool receiveError;
         private string receiveErrorMessage;
         private volatile bool sendError;
@@ -68,7 +70,16 @@ namespace Sim.Sensors.Nav
 
         void Start()
         {
-            Debug.Log($"Starting MAVROS UDP threads on port {localPort}");
+            if (imu == null || imu.body == null || controller == null)
+                throw new MissingReferenceException(
+                    $"{name} SITL bridge requires an initialized IMU and Omni-X controller.");
+            if (pwmMax <= pwmMin)
+                throw new InvalidOperationException(
+                    $"{name} SITL PWM range must satisfy max > min.");
+            if (hz <= 0f)
+                throw new InvalidOperationException($"{name} SITL telemetry rate must be positive.");
+            runThreads = true;
+            Debug.Log($"Starting ArduPilot JSON/SITL UDP threads on port {localPort}");
 
             socketReceive = new UdpClient(localPort);
             socketReceive.Client.ReceiveTimeout = 500;
@@ -81,12 +92,16 @@ namespace Sim.Sensors.Nav
             sendThread = new Thread(SendTelemetryLoop);
             sendThread.IsBackground = true;
             sendThread.Start();
+            threadsStarted = true;
 
-            startTime = DateTimeOffset.Now.ToUnixTimeMilliseconds();
         }
 
         void OnDisable()
         {
+            if (!threadsStarted) {
+                pendingAction.Clear();
+                return;
+            }
             runThreads = false;
 
             try
@@ -102,7 +117,10 @@ namespace Sim.Sensors.Nav
             if (sendThread != null && sendThread.IsAlive)
                 sendThread.Join(200);
 
-            Debug.Log("Stopping MAVROS UDP threads");
+            pendingAction.Clear();
+            threadsStarted = false;
+
+            Debug.Log("Stopping ArduPilot JSON/SITL UDP threads");
         }
 
         void Update()
@@ -128,13 +146,13 @@ namespace Sim.Sensors.Nav
             // Update telemetry from Unity simulation
             lock (dataLock)
             {
-                data.timestamp = (DateTimeOffset.Now.ToUnixTimeMilliseconds() - startTime) / 1000f;
+                data.timestamp = (float)Clock.time;
 
                 data.imu.gyro = new float[]
                 {
-                    imu.body.angularVelocity.z * Mathf.Deg2Rad,
-                    imu.body.angularVelocity.x * Mathf.Deg2Rad,
-                    imu.body.angularVelocity.y * Mathf.Deg2Rad
+                    imu.body.angularVelocity.z,
+                    imu.body.angularVelocity.x,
+                    imu.body.angularVelocity.y
                 };
 
                 data.imu.accel_body = new float[] { 0.0f, 0.0f, -Constants.gravity };
@@ -194,6 +212,26 @@ namespace Sim.Sensors.Nav
                 {
                     byte[] received = socketReceive.Receive(ref remoteEndpoint);
 
+                    if (received.Length != ServoPacketBytes) {
+                        CraneRuntimeMetrics.ReportSitlServoPacket(false, -1);
+                        receiveError = true;
+                        receiveErrorMessage = $"invalid SITL servo packet length {received.Length}; " +
+                                              $"expected {ServoPacketBytes}";
+                        continue;
+                    }
+
+                    using var reader = new BinaryReader(new MemoryStream(received), Encoding.UTF8, false);
+                    UInt16 magic = reader.ReadUInt16();
+                    UInt16 frameRate = reader.ReadUInt16();
+                    UInt32 frameCount = reader.ReadUInt32();
+                    if (magic != ServoPacketMagic || frameRate == 0) {
+                        CraneRuntimeMetrics.ReportSitlServoPacket(false, frameCount);
+                        receiveError = true;
+                        receiveErrorMessage = $"invalid SITL servo header magic={magic} " +
+                                              $"frameRate={frameRate}";
+                        continue;
+                    }
+
                     if (!hasRemoteConnection)
                     {
                         hasRemoteConnection = true;
@@ -202,15 +240,12 @@ namespace Sim.Sensors.Nav
                         remoteEndpointString = remoteEndpoint.ToString();
                     }
 
-                    using var reader = new BinaryReader(new MemoryStream(received), Encoding.UTF8, false);
-                    UInt16 magic = reader.ReadUInt16();
-                    UInt16 frameRate = reader.ReadUInt16();
-                    UInt32 frameCount = reader.ReadUInt32();
                     UInt16[] pwm = new UInt16[16];
                     for (int i = 0; i < 16; i++)
                         pwm[i] = reader.ReadUInt16();
 
                     pendingAction.Receive(pwm, "sitl:pwm", frameCount, -1);
+                    CraneRuntimeMetrics.ReportSitlServoPacket(true, frameCount);
                 }
                 catch (SocketException ex)
                 {
@@ -251,6 +286,7 @@ namespace Sim.Sensors.Nav
                         string jsonStr = JsonUtility.ToJson(snapshot) + "\n";
                         byte[] bytes = Encoding.UTF8.GetBytes(jsonStr);
                         socketSend.Send(bytes, bytes.Length, remoteEndpoint);
+                        CraneRuntimeMetrics.ReportSitlTelemetry(snapshot.timestamp);
                     }
                     catch (Exception ex)
                     {
