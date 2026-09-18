@@ -269,6 +269,13 @@ ordering, and optional maximum lag are checked before actuator mutation. Use
 `--crane-action-policy bounded --crane-max-action-lag-ticks N` to reject commands that sat in the
 Unity queue too long.
 
+Accepted-action timing is aggregated for every measured episode: known-source count, mean/maximum
+source-observation-to-application ticks, mean/maximum receive-to-application ticks, maximum gap
+between applications, and watchdog-stop count. The Nav2 acceptance summary requires every applied
+command to have stamped provenance and both measured lag maxima to remain within the configured
+bound. This makes the bounded-lag policy auditable without claiming that the stamp identifies
+Nav2's internal costmap/controller sample.
+
 The existing Float32 ROS command and SITL PWM packet do not carry the observation tick from which
 the controller computed the action. Their `actionSourceTick` is therefore deliberately `-1`, and
 bounded lag falls back to receive-to-application age. `ROSOmniXCommand` adds an opt-in

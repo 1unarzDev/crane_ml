@@ -96,6 +96,17 @@ namespace Sim.Performance {
             public int count;
         }
 
+        [Serializable] private sealed class ActionTimingResult {
+            public long acceptedActions;
+            public long knownSourceActions;
+            public double meanSourceToApplicationTicks;
+            public long maximumSourceToApplicationTicks;
+            public double meanReceiveToApplicationTicks;
+            public long maximumReceiveToApplicationTicks;
+            public long maximumInterApplicationTicks;
+            public long commandTimeouts;
+        }
+
         [Serializable] private sealed class ResetProbeResult {
             public bool executed;
             public double reloadWallMilliseconds;
@@ -163,6 +174,7 @@ namespace Sim.Performance {
             public long validationSamplesDropped;
             public long invalidWaterSearches;
             public long maximumObservationQueueAgeTicks;
+            public ActionTimingResult actionTiming;
             public bool valid;
             public LidarResult lidar;
             public ImageResult rgbCamera;
@@ -429,6 +441,8 @@ namespace Sim.Performance {
             CraneRuntimeMetrics.ImageSnapshot rgb = CraneRuntimeMetrics.GetImageSnapshot(false);
             CraneRuntimeMetrics.ImageSnapshot depth = CraneRuntimeMetrics.GetImageSnapshot(true);
             CraneRuntimeMetrics.DetectionSnapshot detections = CraneRuntimeMetrics.GetDetectionSnapshot();
+            CraneRuntimeMetrics.ActionTimingSnapshot actionTiming =
+                CraneRuntimeMetrics.GetActionTimingSnapshot();
             CraneRuntimeOptions.CameraStatus cameraStatus = runtimeOptions.GetCameraStatus();
             var result = new BenchmarkResult {
                 scenario = scenario,
@@ -489,6 +503,22 @@ namespace Sim.Performance {
                 invalidWaterSearches = invalidWaterSearches,
                 maximumObservationQueueAgeTicks = Math.Max(maximumObservationQueueAgeTicks,
                     observationTick < 0 ? -1 : simulationTick - observationTick),
+                actionTiming = new ActionTimingResult {
+                    acceptedActions = actionTiming.AcceptedActions,
+                    knownSourceActions = actionTiming.KnownSourceActions,
+                    meanSourceToApplicationTicks = actionTiming.KnownSourceActions == 0 ? -1 :
+                        (double)actionTiming.SourceToApplicationTicks /
+                        actionTiming.KnownSourceActions,
+                    maximumSourceToApplicationTicks =
+                        actionTiming.MaximumSourceToApplicationTicks,
+                    meanReceiveToApplicationTicks = actionTiming.AcceptedActions == 0 ? -1 :
+                        (double)actionTiming.ReceiveToApplicationTicks /
+                        actionTiming.AcceptedActions,
+                    maximumReceiveToApplicationTicks =
+                        actionTiming.MaximumReceiveToApplicationTicks,
+                    maximumInterApplicationTicks = actionTiming.MaximumInterApplicationTicks,
+                    commandTimeouts = actionTiming.CommandTimeouts
+                },
                 lidar = new LidarResult {
                     scanCount = lidar.ScanCount,
                     configuredPointsPerScan = lidar.ConfiguredPointsPerScan,

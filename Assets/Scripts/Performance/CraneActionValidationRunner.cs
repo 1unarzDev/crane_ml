@@ -18,6 +18,7 @@ namespace Sim.Performance {
         public bool staleUnknownRejected;
         public bool crossEpisodeRejected;
         public bool latestPolicyAcceptedOldAction;
+        public bool latestPolicyTimingValid;
         public bool queuedPayloadHeldBeforeApply;
         public bool queuedPayloadApplied;
         public bool queuedLatestPayloadApplied;
@@ -96,6 +97,16 @@ namespace Sim.Performance {
             for (int i = 0; i < 10; i++) CraneRuntimeMetrics.AdvanceSimulationTick();
             result.latestPolicyAcceptedOldAction = CraneActionGate.TryApply(latest,
                 out CraneActionRejection latestReason) && latestReason == CraneActionRejection.None;
+            CraneRuntimeMetrics.ActionTimingSnapshot latestTiming =
+                CraneRuntimeMetrics.GetActionTimingSnapshot();
+            result.latestPolicyTimingValid = latestTiming.AcceptedActions == 1 &&
+                latestTiming.KnownSourceActions == 1 &&
+                latestTiming.SourceToApplicationTicks == 10 &&
+                latestTiming.MaximumSourceToApplicationTicks == 10 &&
+                latestTiming.ReceiveToApplicationTicks == 10 &&
+                latestTiming.MaximumReceiveToApplicationTicks == 10 &&
+                latestTiming.MaximumInterApplicationTicks == 0 &&
+                latestTiming.CommandTimeouts == 0;
 
             CraneActionGate.Configure(CraneActionPolicy.BoundedLag, 2);
             CraneRuntimeMetrics.BeginEpisode();
@@ -181,7 +192,7 @@ namespace Sim.Performance {
                 result.boundedReceiveTick == result.boundedApplicationTick &&
                 result.duplicateRejected && result.staleKnownRejected &&
                 result.staleUnknownRejected && result.crossEpisodeRejected &&
-                result.latestPolicyAcceptedOldAction &&
+                result.latestPolicyAcceptedOldAction && result.latestPolicyTimingValid &&
                 result.queuedPayloadHeldBeforeApply && result.queuedPayloadApplied &&
                 result.queuedLatestPayloadApplied && result.queuedRejectedDidNotMutate &&
                 result.acceptedPayloadRecorded && result.floatPayloadEncodingValid &&

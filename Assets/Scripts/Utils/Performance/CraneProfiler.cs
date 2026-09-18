@@ -109,6 +109,31 @@ namespace Sim.Utils.Performance {
             }
         }
 
+        public readonly struct ActionTimingSnapshot {
+            public readonly long AcceptedActions;
+            public readonly long KnownSourceActions;
+            public readonly long SourceToApplicationTicks;
+            public readonly long MaximumSourceToApplicationTicks;
+            public readonly long ReceiveToApplicationTicks;
+            public readonly long MaximumReceiveToApplicationTicks;
+            public readonly long MaximumInterApplicationTicks;
+            public readonly long CommandTimeouts;
+
+            public ActionTimingSnapshot(long acceptedActions, long knownSourceActions,
+                long sourceToApplicationTicks, long maximumSourceToApplicationTicks,
+                long receiveToApplicationTicks, long maximumReceiveToApplicationTicks,
+                long maximumInterApplicationTicks, long commandTimeouts) {
+                AcceptedActions = acceptedActions;
+                KnownSourceActions = knownSourceActions;
+                SourceToApplicationTicks = sourceToApplicationTicks;
+                MaximumSourceToApplicationTicks = maximumSourceToApplicationTicks;
+                ReceiveToApplicationTicks = receiveToApplicationTicks;
+                MaximumReceiveToApplicationTicks = maximumReceiveToApplicationTicks;
+                MaximumInterApplicationTicks = maximumInterApplicationTicks;
+                CommandTimeouts = commandTimeouts;
+            }
+        }
+
         private static readonly object s_LidarLock = new();
         private static readonly object s_ImageLock = new();
         private static long s_EpisodeId;
@@ -125,6 +150,14 @@ namespace Sim.Utils.Performance {
         private static long s_DuplicateActions;
         private static long s_StaleObservations;
         private static long s_StaleActions;
+        private static long s_KnownSourceActions;
+        private static long s_SourceToApplicationTicks;
+        private static long s_MaximumSourceToApplicationTicks;
+        private static long s_ReceiveToApplicationTicks;
+        private static long s_MaximumReceiveToApplicationTicks;
+        private static long s_LastActionApplicationTick = -1;
+        private static long s_MaximumInterApplicationTicks;
+        private static long s_CommandTimeouts;
         private static long s_FailedObservations;
         private static long s_LidarScanCount;
         private static int s_LidarConfiguredPoints;
@@ -200,6 +233,40 @@ namespace Sim.Utils.Performance {
             Interlocked.Exchange(ref s_ActionApplicationTick, applicationTick);
             Interlocked.Exchange(ref s_ActionSequence, sequence);
             Interlocked.Increment(ref s_AcceptedActions);
+            long receiveLag = System.Math.Max(0, applicationTick - receiveTick);
+            Interlocked.Add(ref s_ReceiveToApplicationTicks, receiveLag);
+            ReportMaximum(ref s_MaximumReceiveToApplicationTicks, receiveLag);
+            if (sourceTick >= 0) {
+                long sourceLag = System.Math.Max(0, applicationTick - sourceTick);
+                Interlocked.Increment(ref s_KnownSourceActions);
+                Interlocked.Add(ref s_SourceToApplicationTicks, sourceLag);
+                ReportMaximum(ref s_MaximumSourceToApplicationTicks, sourceLag);
+            }
+            long previousApplicationTick = Interlocked.Exchange(
+                ref s_LastActionApplicationTick, applicationTick);
+            if (previousApplicationTick >= 0)
+                ReportMaximum(ref s_MaximumInterApplicationTicks,
+                    System.Math.Max(0, applicationTick - previousApplicationTick));
+        }
+        public static void ReportCommandTimeout() => Interlocked.Increment(ref s_CommandTimeouts);
+
+        public static ActionTimingSnapshot GetActionTimingSnapshot() => new(
+            Interlocked.Read(ref s_AcceptedActions),
+            Interlocked.Read(ref s_KnownSourceActions),
+            Interlocked.Read(ref s_SourceToApplicationTicks),
+            Interlocked.Read(ref s_MaximumSourceToApplicationTicks),
+            Interlocked.Read(ref s_ReceiveToApplicationTicks),
+            Interlocked.Read(ref s_MaximumReceiveToApplicationTicks),
+            Interlocked.Read(ref s_MaximumInterApplicationTicks),
+            Interlocked.Read(ref s_CommandTimeouts));
+
+        private static void ReportMaximum(ref long destination, long value) {
+            long current = Interlocked.Read(ref destination);
+            while (value > current) {
+                long observed = Interlocked.CompareExchange(ref destination, value, current);
+                if (observed == current) return;
+                current = observed;
+            }
         }
         public static void ReportRejectedAction(CraneActionRejection rejection) {
             Interlocked.Increment(ref s_RejectedActions);
@@ -319,6 +386,14 @@ namespace Sim.Utils.Performance {
             Interlocked.Exchange(ref s_DuplicateActions, 0);
             Interlocked.Exchange(ref s_StaleObservations, 0);
             Interlocked.Exchange(ref s_StaleActions, 0);
+            Interlocked.Exchange(ref s_KnownSourceActions, 0);
+            Interlocked.Exchange(ref s_SourceToApplicationTicks, 0);
+            Interlocked.Exchange(ref s_MaximumSourceToApplicationTicks, 0);
+            Interlocked.Exchange(ref s_ReceiveToApplicationTicks, 0);
+            Interlocked.Exchange(ref s_MaximumReceiveToApplicationTicks, 0);
+            Interlocked.Exchange(ref s_LastActionApplicationTick, -1);
+            Interlocked.Exchange(ref s_MaximumInterApplicationTicks, 0);
+            Interlocked.Exchange(ref s_CommandTimeouts, 0);
             Interlocked.Exchange(ref s_FailedObservations, 0);
             lock (s_LidarLock) {
                 s_LidarScanCount = 0;

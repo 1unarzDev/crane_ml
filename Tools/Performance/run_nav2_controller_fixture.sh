@@ -8,6 +8,8 @@ run_id="${CRANE_RUN_ID:-$$}"
 ros_port="${CRANE_ROS_PORT:-10000}"
 ros_domain_id="${CRANE_ROS_DOMAIN_ID:-42}"
 worker_id="${CRANE_WORKER_ID:-0}"
+maximum_action_lag_ticks="${CRANE_MAX_ACTION_LAG_TICKS:-10}"
+command_timeout_ticks="${CRANE_COMMAND_TIMEOUT_TICKS:-25}"
 endpoint_name="crane-endpoint-${run_id}"
 controller_name="crane-controller-${run_id}"
 fixture_name="crane-fixture-${run_id}"
@@ -63,7 +65,7 @@ CRANE_DURATION="${CRANE_DURATION:-30}" CRANE_WARMUP="${CRANE_WARMUP:-3}" \
 CRANE_TIME_SCALE="${CRANE_TIME_SCALE:-1}" CRANE_DISABLE_ROS=0 \
 CRANE_ROS_PORT_BASE="$((ros_port - worker_id))" ROS_DOMAIN_ID="${ros_domain_id}" \
 CRANE_SCENARIO=nav2-controller-follow-path \
-CRANE_EXTRA_ARGS="--crane-profile train-gpu --crane-ros-nav-state --crane-ros-cmd-vel /crane/cmd_vel_stamped --crane-action-policy bounded --crane-max-action-lag-ticks 10 --crane-command-timeout-ticks 25 ${CRANE_NAV2_UNITY_EXTRA_ARGS:-}" \
+CRANE_EXTRA_ARGS="--crane-profile train-gpu --crane-ros-nav-state --crane-ros-cmd-vel /crane/cmd_vel_stamped --crane-action-policy bounded --crane-max-action-lag-ticks ${maximum_action_lag_ticks} --crane-command-timeout-ticks ${command_timeout_ticks} ${CRANE_NAV2_UNITY_EXTRA_ARGS:-}" \
     "${root_dir}/Tools/Performance/run_worker.sh" "${worker_id}" &
 player_pid=$!
 
@@ -93,4 +95,6 @@ if [[ " ${CRANE_NAV2_UNITY_EXTRA_ARGS:-} " == *" --crane-reset-probe "* ]]; then
 fi
 python3 "${root_dir}/Tools/Performance/summarize_nav2_reset.py" \
     "${result_root}" --worker-id "${worker_id}" --ros-port "${ros_port}" \
-    --ros-domain-id "${ros_domain_id}" "${summary_args[@]}"
+    --ros-domain-id "${ros_domain_id}" \
+    --max-action-lag-ticks "${maximum_action_lag_ticks}" \
+    --command-timeout-ticks "${command_timeout_ticks}" "${summary_args[@]}"

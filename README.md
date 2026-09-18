@@ -175,6 +175,12 @@ topic nodes, accepts exactly one replacement connection, handles the `/clock` re
 navigation without stale or cross-episode actions. This does not promote the experimental in-place
 reset path or imply that external localization/SLAM state has a reset contract.
 
+Accelerated closed-loop results include action-age telemetry, not only goal status. In the accepted
+single-worker 2× run, all 40 applied actions carried odometry provenance; mean/maximum
+observation-to-application age was 4.175/7 fixed ticks, receive-to-application age was one tick,
+and one command watchdog stop was recorded after the goal completed. The fixture rejects runs
+whose stamped actions exceed their configured lag bound or lose provenance.
+
 Important limitations remain: full-resolution camera readback caps GPU-sensor acceleration;
 graphics-free aquatic water is absent; geometric CPU depth does not model render-only surfaces;
 water queries are issued component by component; live ROS-TCP transport and stamped returned

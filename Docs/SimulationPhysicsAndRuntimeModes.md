@@ -365,6 +365,13 @@ SDL_VIDEODRIVER=x11 ./Builds/CRANE-Worker/CRANE.x86_64 \
   --crane-command-timeout-ticks 25
 ```
 
+Benchmark results include an `actionTiming` block with known-source coverage, mean/maximum
+observation-to-application and receive-to-application tick age, maximum application interval, and
+watchdog stops. The Nav2 fixture additionally fails acceptance if any applied command lacks stamped
+provenance or either measured lag maximum exceeds `--crane-max-action-lag-ticks`. In the accepted
+single-worker 2× reference run, all 40 actions had provenance, mean/maximum source age was
+4.175/7 ticks, queue age was 1/1 tick, and the sole watchdog stop occurred after goal completion.
+
 On the ROS 2 side, pair Nav2's ordinary `Twist` output with the latest delivered detection stamp:
 
 ```bash

@@ -64,6 +64,8 @@ def main():
     parser.add_argument("--worker-id", type=int, default=0)
     parser.add_argument("--ros-port", type=int)
     parser.add_argument("--ros-domain-id", type=int)
+    parser.add_argument("--max-action-lag-ticks", type=int, default=10)
+    parser.add_argument("--command-timeout-ticks", type=int, default=25)
     args = parser.parse_args()
     root = args.result_root
 
@@ -93,6 +95,8 @@ def main():
     goal_succeeded = any("Goal succeeded" in line for line in controller_lines)
     reset = worker.get("resetProbe", {})
     external_resources = load_external_resources(root / "external-resources.csv")
+    action_timing = worker.get("actionTiming", {})
+    accepted_actions = worker.get("acceptedActions")
 
     valid = all((
         fixture.get("status") == "succeeded",
@@ -108,6 +112,12 @@ def main():
         endpoint_errors == 0,
         maximum_active <= 1,
         active == 0,
+        action_timing.get("acceptedActions") == accepted_actions,
+        action_timing.get("knownSourceActions") == accepted_actions,
+        action_timing.get("maximumSourceToApplicationTicks", -1) <=
+            args.max_action_lag_ticks,
+        action_timing.get("maximumReceiveToApplicationTicks", -1) <=
+            args.max_action_lag_ticks,
         not args.require_reset or reset.get("executed") is True,
     ))
 
@@ -136,10 +146,14 @@ def main():
             "recovered": clock_rewinds > 0 and goal_succeeded,
         },
         "actions": {
-            "accepted": worker.get("acceptedActions"),
+            "accepted": accepted_actions,
             "rejected": worker.get("rejectedActions"),
             "stale": worker.get("staleActions"),
             "crossEpisode": worker.get("crossEpisodeActions"),
+            "policy": "bounded-lag-latest-value",
+            "maximumLagTicks": args.max_action_lag_ticks,
+            "commandTimeoutTicks": args.command_timeout_ticks,
+            "timing": action_timing,
         },
         "observations": {
             "depthAcquisitions": worker.get("depthCamera", {}).get("acquisitionCount"),

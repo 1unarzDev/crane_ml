@@ -93,6 +93,7 @@ namespace Sim.Controllers {
                      CraneRuntimeMetrics.SimulationTick - lastApplicationTick > timeoutTicks) {
                 Apply(new Command(0f, 0f, 0f));
                 stoppedForTimeout = true;
+                CraneRuntimeMetrics.ReportCommandTimeout();
                 Debug.LogWarning($"CRANE_ROS_COMMAND_TIMEOUT topic={topic} " +
                                  $"lastApplicationTick={lastApplicationTick}");
             }
