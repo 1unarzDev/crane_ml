@@ -297,10 +297,12 @@ Raw JSON is in `PerformanceResults/`.
 | Classified 144-body contact fixture, two matched 10 s runs | 0.5837 ms/physics frame on Default | 0.5788 ms/physics frame classified | Keep for correctness; no material speed claim |
 | Queued ROS/SITL action seam, standalone fixture | callbacks could mutate state off-step or lacked receipt data | all gate/mailbox cases valid; 1× aquatic target regression valid at 1.002× | Keep correctness seam; no speed claim |
 | Embedded connector registration fix, live Jazzy 1× | one clock owner produced two endpoint publisher registrations | one connection, one clock registration, one registration/topic; target remained valid at 1.002× | Keep pinned package patch |
+| Connector system-command serializer isolation, live Jazzy 1× | rare startup frame corruption forced a reconnect and produced an unregistered `{}` topic | one connection/disconnect, zero endpoint errors or duplicate nodes; Nav2 goal and all target observations valid at 1.001× | Keep per-command serializer; shared mutable serializer was cross-thread unsafe |
 | Detection-derived ROS command loop, live Jazzy 1× | outbound transport and action seam only validated separately | 64 stamped actions accepted, zero stale/rejected; final acquire/receive/apply ticks 395/396/397; 1.003× valid | Keep causality fixture; not Nav2 qualification |
 | Nav2 controller-server + LiDAR voxel costmap, live Jazzy 1× | no real Nav2 controller acceptance | terminal success; 79 measured actions accepted, zero stale/rejected/cross-episode, 0.535 m physical displacement, five costmaps with up to 2,200 occupied/inflated cells, 1.2 ms goal-to-first-command wall latency, 1.001× valid | Keep controller-level fixture; global planner/BT/localization and lockstep remain excluded |
 | Nav2 NavigateToPose with NavFn + BT + LiDAR costmaps, live Jazzy 1× | controller-only fixture | terminal success; 79 measured actions accepted, zero stale/rejected/cross-episode, 0.576 m displacement, 22.4 ms goal-to-first-command wall latency, 1.001× valid | Keep full authoritative-odom loop; localization/SLAM, static map, lockstep and multi-worker scaling remain excluded |
 | Aquatic scene reload + live Nav2 NavigateToPose, Jazzy 1× | clean reload validated without external controller | terminal success after `/clock` rewind; 79 actions accepted, zero stale/rejected/cross-episode; one maximum concurrent Unity connection, zero duplicate endpoint nodes/errors; 0.518 m displacement, 21.8 ms first-command latency, 1.001× valid | Accept scene reload as the ROS-connected reset baseline; in-place external reset remains partial |
+| Isolated Nav2 worker density, 2×1.0, 4×1.0, 6×0.75, 8×1.0 | one closed-loop worker only | 2×1.0 valid at 2.002× aggregate RTF; 4×1.0 valid at 4.006× on repeat but one stale action in the first run; 6×0.75 valid at 4.509×; 8×1.0 invalid with stale depth on 7/8 workers | Prefer six 0.75× workers on this machine; do not accept eight 1× or call four 1× robust without a longer repeat |
 | Replay v2 accepted-action stream, two 5 s runs/side at 2× | 2.0064× mean RTF, 0.596 MB GC without recording | 2.0070× mean RTF, 2.857 MB GC with recording | Keep; bounded correctness data, recorder allocation remains experimental |
 | Replay water time after end-of-stream, 2 s | HDRP continued live time or setter no-op before resource allocation | exact recorded time held for 9/9 samples; invariant valid query height | Keep spectral-time pin/reapply |
 | Validation stream, 2×, 5 s, 0.25 s interval, capacity 3 | unbounded in-memory validation list | 41 samples streamed, 3 retained, 38 dropped from RAM; 2.006× and valid | Keep bounded/streamed handling |
@@ -575,3 +577,16 @@ latency. The worker retained 329 depth acquisitions, 176 detection acquisitions,
 at 72,000 points/scan, and zero invalid water searches. The endpoint observed two sequential
 connections and two disconnects, at most one live connection, zero duplicate-node registrations,
 and zero errors. `navigation-reset-summary.json` is the bounded acceptance record.
+
+The Nav2-inclusive density sweep is implemented by `sweep_nav2_workers.sh`; every worker owns a
+Unity process, seed, TCP port, ROS domain, endpoint container, five-process Nav2 container, logs,
+metrics, and result directory. The summary includes Docker interval samples for endpoint and Nav2
+CPU/RAM rather than accounting only for Unity. On the reference machine, two 1× workers were valid
+at 2.002× aggregate measured RTF. Four 1× workers reached 4.006× and passed a matched repeat, but a
+first run rejected one command older than the fixed ten-tick/200 ms bound; the four-worker setting
+is therefore not yet a robust default. Eight 1× workers completed all goals but seven workers had
+stale GPU depth observations. Reducing eight workers to 0.75× left two stale-observation failures.
+Six 0.75× workers were all valid at 4.509× aggregate measured RTF, with 78 external-resource
+samples and no stale observations/actions, rejected/cross-episode actions, water failures, or
+endpoint errors. Evidence is under `PerformanceResults/nav2-worker-sweep-*`; localization/SLAM
+and internal Nav2 observation-consumption provenance remain outside this result.

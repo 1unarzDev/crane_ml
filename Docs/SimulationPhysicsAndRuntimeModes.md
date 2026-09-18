@@ -278,7 +278,7 @@ selection disables the transient initial scene's sensors and transports before t
 methods run, so only the requested scene owns the ROS graph.
 On scene reload, the scene-owned `ROSConnection` cancels and joins its connection task before it is
 destroyed. The paired endpoint must remove that socket's ROS nodes on disconnect; the validated
-companion is `astro_dock` commit `6fd7b34` (endpoint commit `340d832`). This prevents stale
+companion is `astro_dock` commit `3620237` (endpoint commit `3c3d405`). This prevents stale
 callbacks and duplicate rosout node names when the replacement scene registers the same topics.
 
 ## Runtime profiles
@@ -443,6 +443,21 @@ For a measured benchmark command and worker sweeps, use
 its own ROS-TCP port, ROS domain/namespace, seed, logs, recorder path, and MAVROS/SITL port where
 applicable.
 
+Run isolated closed-loop Nav2 workers with one endpoint and Nav2 graph per Unity process:
+
+```bash
+CRANE_ROS_PORT_BASE=10100 CRANE_ROS_DOMAIN_BASE=80 \
+CRANE_DURATION=24 CRANE_TIME_SCALE=0.75 \
+Tools/Performance/sweep_nav2_workers.sh 6
+```
+
+The launcher writes one `navigation-reset-summary.json` per worker plus an aggregate
+`sweep-summary.json`. It rejects duplicate ports/domains, invalid Unity sensor/physics results,
+stale/rejected/cross-episode actions, endpoint errors, and missing endpoint/controller CPU/RAM
+samples. On the reference machine six workers at 0.75× are the current accepted density point;
+eight at 1× and eight at 0.75× produced stale depth observations, while four at 1× had one
+stale-action outlier across two matched runs.
+
 Validate the in-place reset vertical slice without graphics:
 
 ```bash
@@ -477,7 +492,8 @@ test of the reset seam, not permission to replace scene reload in production aqu
 
 The embedded ROS-TCP Connector is intentionally pinned under `Packages/`. Its CRANE patch removes
 a pre-handshake publisher-registration duplicate and synchronizes topic creation with the
-connection thread; it also performs bounded connection-task teardown from `OnDestroy`. The paired
+connection thread, gives concurrently queued system commands independent serializers, and performs
+bounded connection-task teardown from `OnDestroy`. The paired
 endpoint removes executor-owned ROS nodes and clears its registration tables on disconnect. Do not
 replace either side with an unpinned upstream version without rerunning the live transport,
 scene-reload, and reconnect fixtures.

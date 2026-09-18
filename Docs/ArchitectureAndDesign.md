@@ -45,13 +45,13 @@ broader domain fixtures still need work.
 | Semantic detections without RGB | Implemented, weakly validated | Frustum/range/center-ray occlusion; partial visibility and correlated noise absent |
 | LiDAR | Implemented and validated | Persistent native buffers plus strict Burst command generation and PointCloud2 packing; result traversal remains main-thread work |
 | Authoritative replay | Experimental vertical slice | Indexed body/joint playback, accepted actions, task outcomes, v4 build provenance, and v5 observation metadata work; production reward adapters/non-regenerable sensor payloads/full-water state remain incomplete |
-| ROS publishing and MAVROS UDP | Implemented; full authoritative-odom Nav2 loop live-validated | Jazzy `NavigateToPose` exercised BT, NavFn planner, LiDAR voxel costmaps, behaviors, controller, and the production aquatic body at 1×; localization/SLAM, lockstep, multi-worker Nav2 and MAVROS acceptance remain |
+| ROS publishing and MAVROS UDP | Implemented; authoritative-odom Nav2 loop and isolated worker density live-validated | Jazzy `NavigateToPose` exercised BT, NavFn planner, LiDAR voxel costmaps, behaviors, controller, and the production aquatic body; six isolated 0.75× graphs pass concurrently. Localization/SLAM, lockstep and MAVROS acceptance remain |
 | Action provenance/lockstep control | Partial, controller loop validated | ROS/SITL source-observation, receive, and application ticks plus sequence/episode rejection are wired; Nav2 commands are paired with latest delivered odometry, but internal consumption and lockstep remain unproven |
 | Ackermann land dynamics | Implemented and repeat-validated fixture | Flat-ground acceleration/coast/brake/turn only; production platform gaps remain |
 | Multirotor dynamics | Implemented and repeat-validated fixture | Analytic checks pass; real-airframe and SITL qualification absent |
 | Collision optimization | Partial, coverage validated | Classified fixture passes required/excluded pairs; production aquatic objects remain on Default |
 | Episode reset | Scene reload validated, including live Nav2 reconnect; in-place partial/experimental | Aquatic scene reload joins the old Unity TCP task, removes endpoint-owned ROS nodes, opens one replacement connection, recovers Nav2 after the `/clock` rewind, and rejects no measured actions. In-place external ROS/controller and stateful-water reset remain incomplete |
-| Multi-process workers | Implemented; GPU and CPU-depth sweeps validated | Train-GPU reaches 8.003 valid simulated s/s across four 2× workers; Train-CPU dense depth reaches 4.779 across eight 2×-requested workers (each below real time); ROS processes excluded |
+| Multi-process workers | Implemented; GPU, CPU-depth and Nav2-inclusive sweeps validated | Train-GPU reaches 8.003 valid simulated s/s across four 2× Unity-only workers. With isolated ROS domains/ports and a full Nav2 graph per worker, four 1× workers pass one matched run but show a one-stale-action outlier in another; six 0.75× workers reliably deliver 4.509× aggregate measured RTF. Eight 1× workers are invalid from stale depth observations |
 | Train-GPU profile | Implemented and aquatic-validated at 2× | RGB/spectators off with depth+detections+LiDAR retained; still requires graphics-backed HDRP water |
 | Train-CPU profile | Implemented and land/aerial validated | Strict `-nographics` execution with zero enabled Cameras, geometric depth and camera info; aquatic scenes are explicitly rejected |
 | Interactive-low profile | Implemented and aquatic-validated | 960×540 spectator/window output with fixed 1280×720 robot camera targets unchanged; modest 1.97% GPU-frame reduction on the reference machine |
@@ -69,7 +69,7 @@ Treat the versions resolved by the checkout as authoritative:
 | Input System | `1.20.0` |
 | AI Inference | `2.6.1` |
 | Memory Profiler | `1.1.12` |
-| ROS integration | Embedded ROS-TCP Connector `0.7.0-preview` plus CRANE lifecycle patches; companion `astro_dock` commit `6fd7b34` pins endpoint reconnect cleanup (`340d832`) |
+| ROS integration | Embedded ROS-TCP Connector `0.7.0-preview` plus CRANE lifecycle patches; companion `astro_dock` commit `3620237` pins endpoint reconnect cleanup (`3c3d405`) |
 | Robot import | Unity URDF Importer `v0.5.2` from its Git package |
 | Physics | Unity PhysX through Rigidbody and ArticulationBody |
 
@@ -554,7 +554,8 @@ packets still lack source observation ticks. A live observation-derived return p
 stamped acquisition/receive/application ticks. A real Nav2 `NavigateToPose` fixture validates
 NavFn planning, BT execution, LiDAR costmaps, and control at 1×. The project launch still assumes
 RGB/RTAB-Map plus MAVROS, and the fixture does not prove localization/SLAM, internal sample
-consumption, multi-worker scaling, or accelerated lockstep behavior.
+consumption, or accelerated lockstep behavior. A separate isolated-domain sweep validates bounded
+worker density, not those missing semantics.
 
 ### Reset completeness
 

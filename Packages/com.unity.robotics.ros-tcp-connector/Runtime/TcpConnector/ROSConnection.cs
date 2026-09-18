@@ -1024,8 +1024,13 @@ namespace Unity.Robotics.ROSTCPConnector
 
         public void QueueSysCommand(string command, object param)
         {
-            PopulateSysCommand(m_MessageSerializer, command, param);
-            m_OutgoingMessageQueue.Enqueue(new SysCommandSender(m_MessageSerializer.GetBytesSequence()));
+            // Registration may occur on Unity's main thread while the connection callback queues
+            // a topic-list request on its background task. A shared mutable serializer can splice
+            // those frames together and corrupt the TCP protocol, so system commands own their
+            // short-lived serializer until their immutable byte sequence has been captured.
+            var serializer = new MessageSerializer();
+            PopulateSysCommand(serializer, command, param);
+            m_OutgoingMessageQueue.Enqueue(new SysCommandSender(serializer.GetBytesSequence()));
         }
 
         [Obsolete("Use Publish instead of Send", false)]

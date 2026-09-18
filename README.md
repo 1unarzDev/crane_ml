@@ -120,7 +120,8 @@ project-specific localization/SLAM acceptance remains outstanding. A real Jazzy 
 `NavigateToPose` loop is validated with CRANE odometry/TF, LiDAR-populated voxel costmaps, NavFn
 global planning, BT navigation, behavior and controller servers, and returned commands. The
 bounded fixture uses authoritative Unity odometry as its global frame, so it intentionally does
-not claim localization, static-map navigation, training lockstep, or multi-worker Nav2 scaling.
+not claim localization, static-map navigation, or training lockstep. Multi-worker Nav2 density is
+validated separately with isolated domains and ports.
 
 URDFs can be imported from the Unity hierarchy context menu with **3D Object > URDF Model
 (Import)**. Runtime code is organized under `Assets/Scripts`; start with the architecture guide
@@ -152,6 +153,13 @@ For strict Train-CPU with 1280×720 geometric depth at 15 Hz, 1/2/4/8 Unity work
 requested at 1× reached 4.796, statistically the same saturation region; each worker ran below
 real time. These CPU sweeps exclude ROS/Nav2 processes and should not be generalized to a closed
 loop deployment.
+
+Closed-loop scaling has a separate measured envelope because every worker also owns a ROS-TCP
+endpoint and a real Nav2 planner/BT/costmap/controller graph. Two 1× workers passed at 2.002×
+aggregate measured RTF. Four 1× workers reached 4.006× but had one stale-action outlier across two
+runs. The current accepted density point is six workers at 0.75×, totaling 4.509× measured RTF;
+eight-worker runs were rejected for stale depth observations. These are reference-machine results,
+not default settings for other hardware.
 
 ## Current maturity
 
