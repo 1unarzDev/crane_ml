@@ -222,6 +222,8 @@ Useful arguments:
 | `--crane-depth-width N`, `--crane-depth-height N`, `--crane-depth-hz N` | Configure the geometric benchmark fixture observation contract |
 | `--crane-disable-camera-info` | Disable camera-info publishing only |
 | `--crane-disable-detections` | Disable simulated detection publishing only |
+| `--crane-detection-visibility-validation` | Run the clear/centre-occluded/fully-occluded adaptive visibility fixture and exit |
+| `--crane-detection-visibility-validation-output PATH` | Write the visibility fixture result as machine-readable JSON |
 | `--crane-disable-lidar-debug-rays` | Disable editor/debug ray drawing without changing LiDAR acquisition or messages; implied by both training profiles |
 | `--crane-record PATH` | Stream a versioned authoritative episode plus `PATH.index` |
 | `--crane-record-flush-ticks N` | Flush replay chunks/index every N physics ticks (default 50) |
@@ -295,7 +297,9 @@ Raw JSON is in `PerformanceResults/`.
 | RGB off, depth+detections on at 2×, 10 s | new accelerated target | 299 depth, 200 LiDAR, 160 detection acquisitions, zero stale | Keep |
 | RGB off, depth on at 4×, 15 s | target 900 depth frames | 338 frames, 560 stale acquisitions | Reject 4× profile |
 | Strip sensor-camera HDRP opaque/transparent passes at 2× | 449 depth frames, zero stale | 441 frames, 8 stale; ~2.5% lower GPU frame time | Reverted |
+| Replace the Train-GPU sensor camera's 1280×720 color target with a 64×64 water driver while retaining 1280×720 depth, 2× | 13.998 ms GPU frame | 14.756 ms; depth/detection/LiDAR/water remained valid | Reverted; 5.4% slower despite the smaller presentation target |
 | Nine-ray partial-visibility detections at 2× | depth-only profile valid | 10 stale depth acquisitions | Replaced with center-ray occlusion |
+| Adaptive partial-visibility detections, 2× target profile | 0.05276 ms/frame center-ray fast path | about 0.053 ms/frame over 2 runs; 81 acquisitions, 149 depth frames, zero stale/failed observations; clear/partial/full fixture returned 1.0/1.0/0.0 | Keep; renderer-centre probes run only when the aggregate centre is occluded |
 | Ackermann drive torque, 60 kg rover | 110 N·m/wheel launched the body; 0 grounded wheels | 6 N·m/wheel; 4 grounded wheels and stable attitude | Keep validated setting |
 | Classified 144-body contact fixture, two matched 10 s runs | 0.5837 ms/physics frame on Default | 0.5788 ms/physics frame classified | Keep for correctness; no material speed claim |
 | Queued ROS/SITL action seam, standalone fixture | callbacks could mutate state off-step or lacked receipt data | all gate/mailbox cases valid; 1× aquatic target regression valid at 1.002× | Keep correctness seam; no speed claim |
@@ -341,8 +345,13 @@ The independent sensor gates establish the first measured training profile with 
 full-resolution depth plus semantic detections retained. On the reference machine it is valid at
 2× but not 4×. The detection schedule now retains fractional remainder, so the scene's configured
 8 Hz produces exactly 80 acquisitions in ten simulated seconds instead of about 71. Detections
-use semantic registry, frustum/range checks, and a physical center-ray occlusion test without RGB;
-partial visibility/noise remains future work. This is a sensor-generation baseline with ROS
+use a semantic registry, frustum/range checks, and a physical center-ray occlusion test without
+RGB. When the centre is blocked, the detector now samples at most four renderer centres spread
+across the cached renderer set, rejects objects below the configured visible fraction, and scales
+confidence by that fraction. The existing centre-visible production path remained at about
+0.052 ms/frame with no stale depth observations. The machine-readable fixture validates a clear
+target, an aggregate centre blocked while component renderers remain exposed, and full occlusion.
+Complex geometry plus correlated noise/confusion/false-positive models remain future work. This is a sensor-generation baseline with ROS
 transport disabled; it is not yet a Nav2 closed-loop result.
 
 Selected machine-readable outputs for the geometric-depth acceptance runs are tracked under

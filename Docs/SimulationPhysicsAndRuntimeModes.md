@@ -247,8 +247,12 @@ conversion remains managed only for actual hits. The production 72,000-point sca
 size 64. Both training profiles disable presentation-only LiDAR debug rays without changing the
 scan or PointCloud2 contract. Semantic 3D
 detections use registered scene objects, camera frustum/range tests, centre-ray occlusion, and a
-distance-based confidence model without RGB inference. They do not expose every known object, but
-partial visibility, class confusion, correlated noise, and false-positive models remain limited.
+distance-based confidence model without RGB inference. If the aggregate centre is blocked, a
+bounded adaptive path probes cached renderer centres and scales confidence by the visible sample
+fraction; it does not expose every known object. Complex partial geometry, class confusion,
+correlated noise, false negatives/positives, and temporal latency models remain limited.
+The built-in `--crane-detection-visibility-validation` fixture covers clear, centre-occluded with
+exposed component renderers, and fully occluded geometry; it is not a complete sensor-noise model.
 
 ROS publishers run from simulated-time schedules and retain fractional period remainder. ROS or
 SITL callbacks enqueue commands; `CraneActionGate` checks episode, sequence, source observation,

@@ -3,7 +3,10 @@ using RosMessageTypes.Geometry;
 using Sim.Utils.ROS;
 using Sim.Utils.Performance;
 using UnityEngine;
+using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 
 namespace Sim.Sensors.Vision {
     [System.Serializable]
@@ -13,6 +16,87 @@ namespace Sim.Sensors.Vision {
     }
 
     public class BoundingBox3D : MonoBehaviour, ICraneEpisodeResettable {
+        [Serializable]
+        private sealed class VisibilityValidationResult {
+            public string schema = "crane-detection-visibility-validation-v1";
+            public float clearFraction;
+            public float centerOccludedFraction;
+            public float fullyOccludedFraction;
+            public bool valid;
+        }
+
+        private static bool visibilityValidationInstalled;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        private static void InstallVisibilityValidation() {
+            string[] args = Environment.GetCommandLineArgs();
+            if (visibilityValidationInstalled ||
+                Array.IndexOf(args, "--crane-detection-visibility-validation") < 0) return;
+            visibilityValidationInstalled = true;
+
+            var host = new GameObject("CRANE Detection Visibility Validation");
+            host.SetActive(false);
+            Camera camera = host.AddComponent<Camera>();
+            camera.enabled = false;
+            var sensor = host.AddComponent<BoundingBox3D>();
+            sensor.sensorCamera = camera;
+            sensor.maxPartialVisibilitySamples = 4;
+            sensor.minimumVisibleFraction = 0.2f;
+            sensor.enabled = false;
+
+            var target = new GameObject("Semantic Target");
+            for (int i = 0; i < 2; i++) {
+                GameObject part = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                part.name = $"Target Part {i}";
+                part.transform.SetParent(target.transform);
+                part.transform.position = new Vector3(i == 0 ? -1f : 1f, 0f, 10f);
+            }
+            GameObject occluder = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            occluder.name = "Visibility Occluder";
+            occluder.transform.position = new Vector3(0f, 0f, 5f);
+
+            host.SetActive(true);
+            sensor.StartCoroutine(sensor.ValidateVisibility(target, occluder, ReadArgument(args,
+                "--crane-detection-visibility-validation-output")));
+        }
+
+        private IEnumerator ValidateVisibility(GameObject target, GameObject occluder,
+            string outputPath) {
+            yield return new WaitForFixedUpdate();
+            Physics.SyncTransforms();
+            Bounds bounds = ComputeWorldBounds(target);
+            occluder.SetActive(false);
+            Physics.SyncTransforms();
+            float clear = CalculateVisibleFraction(target, bounds.center);
+            occluder.SetActive(true);
+            occluder.transform.localScale = new Vector3(0.6f, 4f, 0.5f);
+            Physics.SyncTransforms();
+            float partial = CalculateVisibleFraction(target, bounds.center);
+            occluder.transform.localScale = new Vector3(4f, 4f, 0.5f);
+            Physics.SyncTransforms();
+            float blocked = CalculateVisibleFraction(target, bounds.center);
+            var result = new VisibilityValidationResult {
+                clearFraction = clear,
+                centerOccludedFraction = partial,
+                fullyOccludedFraction = blocked,
+                valid = clear == 1f && partial > 0f && blocked == 0f
+            };
+            string json = JsonUtility.ToJson(result, true);
+            Debug.Log($"CRANE_DETECTION_VISIBILITY_VALIDATION {json}");
+            if (!string.IsNullOrWhiteSpace(outputPath)) {
+                string path = Path.GetFullPath(outputPath);
+                string directory = Path.GetDirectoryName(path);
+                if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+                File.WriteAllText(path, json);
+            }
+            Application.Quit(result.valid ? 0 : 2);
+        }
+
+        private static string ReadArgument(string[] args, string key) {
+            int index = Array.IndexOf(args, key);
+            return index >= 0 && index + 1 < args.Length ? args[index + 1] : null;
+        }
+
         [SerializeField] private string topicName = "/detections";
         [SerializeField] private string frameId = "front_camera_link";
         [SerializeField] private Camera sensorCamera;
@@ -21,6 +105,8 @@ namespace Sim.Sensors.Vision {
         [SerializeField] private float minDist = 1f;
         [SerializeField] private float maxDist = 20f;
         [SerializeField] private LayerMask occlusionMask = ~0;
+        [SerializeField, Min(1)] private int maxPartialVisibilitySamples = 4;
+        [SerializeField, Range(0f, 1f)] private float minimumVisibleFraction = 0.2f;
 
         [SerializeField] private bool drawGizmos = true;
         [SerializeField] private float gizmoScale = 0.05f;
@@ -138,7 +224,8 @@ namespace Sim.Sensors.Vision {
                 bool inFrustum = GeometryUtility.TestPlanesAABB(frustumPlanes, worldBounds);
 
                 if (!inFrustum || !inRange) continue;
-                if (!HasLineOfSight(obj, worldBounds.center)) continue;
+                float visibleFraction = CalculateVisibleFraction(obj, worldBounds.center);
+                if (visibleFraction < minimumVisibleFraction) continue;
 
                 // Transform to camera frame
                 Vector3 cameraSpaceCenter =
@@ -155,7 +242,7 @@ namespace Sim.Sensors.Vision {
 
                 detections.Add(
                     GenerateDetection(rosPosition, rosRotation, localSize, id,
-                        CalculateConfidence(dist))
+                        CalculateConfidence(dist, visibleFraction))
                 );
             }
 
@@ -211,9 +298,25 @@ namespace Sim.Sensors.Vision {
                    hit.transform == target.transform || hit.transform.IsChildOf(target.transform);
         }
 
-        private float CalculateConfidence(float distance) {
+        private float CalculateVisibleFraction(GameObject target, Vector3 center) {
+            if (HasLineOfSight(target, center)) return 1f;
+
+            Renderer[] renderers = GetRenderers(target);
+            int sampleCount = Mathf.Min(maxPartialVisibilitySamples, renderers.Length);
+            if (sampleCount == 0) return 0f;
+            int visibleSamples = 0;
+            for (int i = 0; i < sampleCount; i++) {
+                int rendererIndex = sampleCount == 1 ? 0 : Mathf.RoundToInt(
+                    i * (renderers.Length - 1f) / (sampleCount - 1));
+                if (HasLineOfSight(target, renderers[rendererIndex].bounds.center))
+                    visibleSamples++;
+            }
+            return visibleSamples / (float)sampleCount;
+        }
+
+        private float CalculateConfidence(float distance, float visibleFraction) {
             float rangeQuality = 1f - Mathf.InverseLerp(minDist, maxDist, distance);
-            return Mathf.Clamp01(0.8f + 0.2f * rangeQuality);
+            return Mathf.Clamp01((0.8f + 0.2f * rangeQuality) * visibleFraction);
         }
 
         private Bounds ComputeWorldBounds(GameObject obj) {
