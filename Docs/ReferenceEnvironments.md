@@ -118,12 +118,16 @@ python3 Tools/ReferenceEnvironments/sdf_reference_converter.py \
   --upstream-project clearpathrobotics/clearpath_simulator --upstream-version 2.9.4
 
 unity run . --editor-version 6000.5.10f1 -- \
+  -nographics \
   -executeMethod CraneReferenceEnvironmentImport.CreateImportedReferenceScene \
   --crane-reference-manifest \
     Assets/Generated/ReferenceEnvironments/clearpath_pipeline/manifest.json \
   --crane-reference-output-scene \
     "Assets/Generated/ReferenceEnvironments/clearpath_pipeline/Clearpath Pipeline Validation.unity"
 ```
+
+This is an offline import, not a navigation run. The null-graphics flags prevent an unnecessary
+Unity window; robot motion is validated separately by an explicit runtime fixture and goal.
 
 The headless proof loaded 11 separate collision meshes and 13 renderers over bounds approximately
 199.25 × 11.33 × 128.87 m, with no renderers in canonical collision and no colliders in visual

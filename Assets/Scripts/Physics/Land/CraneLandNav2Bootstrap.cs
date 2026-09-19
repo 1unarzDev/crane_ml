@@ -3,6 +3,7 @@ using System.Globalization;
 using System.IO;
 using System.Reflection;
 using Sim.Physics.Contacts;
+using Sim.Utils.ReferenceEnvironments;
 using Sim.Utils.ROS;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -19,6 +20,11 @@ namespace Sim.Physics.Land {
             public string blocker;
             public float blockerDistance;
             public float blockerWidth;
+            public string blockerSemanticId;
+            public float blockerRemovalAfterSeconds = -1f;
+            public double blockerRemovalScheduledSimulationTime = -1d;
+            public double blockerRemovalActualSimulationTime = -1d;
+            public bool blockerRemoved;
             public Vector3 startPosition;
         }
 
@@ -52,6 +58,7 @@ namespace Sim.Physics.Land {
             float length = ReadFloat("--crane-land-corridor-length", 20f);
             float blockerDistance = ReadFloat("--crane-land-blocker-distance", 6f);
             float blockerWidth = ReadFloat("--crane-land-blocker-width", width);
+            float blockerRemoveAfter = ReadFloat("--crane-land-blocker-remove-after", -1f);
             string blocker = ReadString("--crane-land-blocker", "none").ToLowerInvariant();
             if (blocker != "none" && blocker != "partial" && blocker != "full")
                 throw new ArgumentException($"Unknown land blocker mode '{blocker}'.");
@@ -67,17 +74,19 @@ namespace Sim.Physics.Land {
 
             const float wallThickness = 0.25f;
             const float wallHeight = 2f;
-            CreateObstacle("Corridor Left Wall",
+            CreateObstacle("Corridor Left Wall", "corridor-wall-left", "boundary-wall",
                 new Vector3(-width * 0.5f - wallThickness * 0.5f, wallHeight * 0.5f,
                     length * 0.5f),
                 new Vector3(wallThickness, wallHeight, length + 4f));
-            CreateObstacle("Corridor Right Wall",
+            CreateObstacle("Corridor Right Wall", "corridor-wall-right", "boundary-wall",
                 new Vector3(width * 0.5f + wallThickness * 0.5f, wallHeight * 0.5f,
                     length * 0.5f),
                 new Vector3(wallThickness, wallHeight, length + 4f));
+            GameObject blockerObject = null;
             if (blocker != "none") {
                 float x = blocker == "partial" ? -width * 0.5f + blockerWidth * 0.5f : 0f;
-                CreateObstacle("Corridor Blocker",
+                blockerObject = CreateObstacle("Corridor Blocker", "corridor-blocker",
+                    "controlled-obstacle",
                     new Vector3(x, wallHeight * 0.5f, blockerDistance),
                     new Vector3(blockerWidth, wallHeight, wallThickness));
             }
@@ -94,32 +103,52 @@ namespace Sim.Physics.Land {
             });
 
             string truthPath = ReadString("--crane-land-evaluator-output", null);
+            var truth = new EvaluatorTruth {
+                seed = ReadInt("--crane-seed", 1),
+                corridorWidth = width,
+                corridorLength = length,
+                blocker = blocker,
+                blockerDistance = blockerDistance,
+                blockerWidth = blocker == "none" ? 0f : blockerWidth,
+                blockerSemanticId = blockerObject == null ? string.Empty : "corridor-blocker",
+                blockerRemovalAfterSeconds = blockerObject == null ? -1f : blockerRemoveAfter,
+                startPosition = body.position
+            };
             if (!string.IsNullOrWhiteSpace(truthPath)) {
-                var truth = new EvaluatorTruth {
-                    seed = ReadInt("--crane-seed", 1),
-                    corridorWidth = width,
-                    corridorLength = length,
-                    blocker = blocker,
-                    blockerDistance = blockerDistance,
-                    blockerWidth = blocker == "none" ? 0f : blockerWidth,
-                    startPosition = body.position
-                };
                 truthPath = Path.GetFullPath(truthPath);
                 string directory = Path.GetDirectoryName(truthPath);
                 if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
-                File.WriteAllText(truthPath, JsonUtility.ToJson(truth, true));
+                WriteTruth(truthPath, truth);
+            }
+            if (blockerObject != null && blockerRemoveAfter >= 0f) {
+                var removalHost = new GameObject("CRANE Timed Blocker Intervention");
+                var removal = removalHost.AddComponent<CraneTimedBlockerRemoval>();
+                removal.Configure(blockerObject, blockerRemoveAfter, actualTime => {
+                    truth.blockerRemoved = true;
+                    truth.blockerRemovalActualSimulationTime = actualTime;
+                    if (!string.IsNullOrWhiteSpace(truthPath)) WriteTruth(truthPath, truth);
+                });
+                truth.blockerRemovalScheduledSimulationTime = removal.ScheduledSimulationTime;
+                if (!string.IsNullOrWhiteSpace(truthPath)) WriteTruth(truthPath, truth);
             }
             Debug.Log($"CRANE_LAND_NAV2_READY width={width:R} length={length:R} " +
-                      $"blocker={blocker} lidar=/scan");
+                      $"blocker={blocker} blockerRemoveAfter={blockerRemoveAfter:R} lidar=/scan");
         }
 
-        private static void CreateObstacle(string name, Vector3 position, Vector3 scale) {
+        private static GameObject CreateObstacle(string name, string semanticId,
+            string semanticRole, Vector3 position, Vector3 scale) {
             GameObject obstacle = GameObject.CreatePrimitive(PrimitiveType.Cube);
             obstacle.name = name;
             obstacle.layer = CraneCollisionLayers.Environment;
             obstacle.transform.position = position;
             obstacle.transform.localScale = scale;
+            obstacle.AddComponent<CraneSemanticIdentity>().Configure(
+                semanticId, semanticRole, "crane-land-corridor-v1");
+            return obstacle;
         }
+
+        private static void WriteTruth(string path, EvaluatorTruth truth) =>
+            File.WriteAllText(path, JsonUtility.ToJson(truth, true));
 
         private static string ReadString(string key, string fallback) {
             int index = Array.IndexOf(arguments, key);

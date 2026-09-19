@@ -74,6 +74,25 @@ class LandNav2FixtureContractTests(unittest.TestCase):
         self.assertIn("FindAnyObjectByType<ROSClock>()", text)
         self.assertIn('AddComponent<ROSClock>()', text)
 
+    def test_timed_blocker_removal_is_evaluator_only_and_uses_simulation_time(self) -> None:
+        bootstrap = (ROOT / "Assets/Scripts/Physics/Land/CraneLandNav2Bootstrap.cs").read_text(
+            encoding="utf-8"
+        )
+        removal = (ROOT / "Assets/Scripts/Physics/Land/CraneTimedBlockerRemoval.cs").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('ReadFloat("--crane-land-blocker-remove-after"', bootstrap)
+        self.assertIn("Time.fixedTimeAsDouble", removal)
+        self.assertIn("blockerRemovalActualSimulationTime", bootstrap)
+        self.assertIn("target.SetActive(false)", removal)
+        self.assertIn('"corridor-blocker"', bootstrap)
+
+    def test_reference_import_documentation_is_graphics_free(self) -> None:
+        text = (ROOT / "Docs/ReferenceEnvironments.md").read_text(encoding="utf-8")
+        clearpath_section = text.split("## Clearpath pipeline offline import", 1)[1]
+        command = clearpath_section.split("```bash", 1)[1].split("```", 1)[0]
+        self.assertIn("-nographics", command)
+
 
 if __name__ == "__main__":
     unittest.main()
