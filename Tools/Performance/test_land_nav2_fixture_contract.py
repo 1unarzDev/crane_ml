@@ -132,6 +132,12 @@ class LandNav2FixtureContractTests(unittest.TestCase):
         self.assertIn("RigidbodyConstraints.FreezePositionX", hold)
         self.assertIn("RigidbodyConstraints.FreezePositionZ", hold)
         self.assertIn("target.constraints = originalConstraints", hold)
+        self.assertIn("releaseAfterSeconds >= 0f", hold)
+        self.assertIn("ScheduledReleaseSimulationTime < 0d", hold)
+        self.assertIn("Mobility release requires a configured hold boundary", bootstrap)
+        self.assertNotIn(
+            "(mobilityHoldAfter >= 0f) != (mobilityReleaseAfter >= 0f)", bootstrap
+        )
 
 
 if __name__ == "__main__":

@@ -195,9 +195,9 @@ namespace Sim.Physics.Land {
                 truth.blockerRemovalScheduledSimulationTime = removal.ScheduledSimulationTime;
                 if (!string.IsNullOrWhiteSpace(truthPath)) WriteTruth(truthPath, truth);
             }
-            if ((mobilityHoldAfter >= 0f) != (mobilityReleaseAfter >= 0f))
+            if (mobilityHoldAfter < 0f && mobilityReleaseAfter >= 0f)
                 throw new ArgumentException(
-                    "Mobility hold and release boundaries must be configured together.");
+                    "Mobility release requires a configured hold boundary.");
             if (mobilityHoldAfter >= 0f) {
                 var mobilityHost = new GameObject("CRANE Timed Mobility Hold");
                 var mobility = mobilityHost.AddComponent<CraneTimedMobilityHold>();

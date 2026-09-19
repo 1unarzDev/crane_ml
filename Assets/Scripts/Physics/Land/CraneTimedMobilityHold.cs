@@ -24,7 +24,7 @@ namespace Sim.Physics.Land {
                 : throw new ArgumentNullException(nameof(configuredTarget));
             if (holdAfterSeconds < 0f)
                 throw new ArgumentOutOfRangeException(nameof(holdAfterSeconds));
-            if (releaseAfterSeconds <= holdAfterSeconds)
+            if (releaseAfterSeconds >= 0f && releaseAfterSeconds <= holdAfterSeconds)
                 throw new ArgumentException(
                     "Mobility release must occur after the hold begins.");
             originalConstraints = target.constraints;
@@ -32,7 +32,9 @@ namespace Sim.Physics.Land {
             onReleased = releaseCallback;
             double now = Time.fixedTimeAsDouble;
             ScheduledHoldSimulationTime = now + holdAfterSeconds;
-            ScheduledReleaseSimulationTime = now + releaseAfterSeconds;
+            ScheduledReleaseSimulationTime = releaseAfterSeconds >= 0f
+                ? now + releaseAfterSeconds
+                : -1d;
         }
 
         private void FixedUpdate() {
@@ -49,7 +51,10 @@ namespace Sim.Physics.Land {
                 onHeld?.Invoke(now);
                 Debug.Log($"CRANE_LAND_MOBILITY_HELD simulationTime={now:R}");
             }
-            if (!holdApplied || now < ScheduledReleaseSimulationTime) return;
+            // A negative release boundary represents a persistent evaluator-owned hold. It lasts
+            // until the episode process exits and is distinct from a missing hold boundary.
+            if (!holdApplied || ScheduledReleaseSimulationTime < 0d ||
+                now < ScheduledReleaseSimulationTime) return;
             target.constraints = originalConstraints;
             target.linearVelocity = Vector3.zero;
             target.angularVelocity = Vector3.zero;
