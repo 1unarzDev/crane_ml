@@ -14,9 +14,11 @@ import time
 import rclpy
 from geometry_msgs.msg import PoseStamped, Twist, TwistStamped
 from nav2_msgs.action import FollowPath, NavigateToPose
+from nav2_msgs.srv import GetCostmap
 from nav_msgs.msg import OccupancyGrid, Odometry, Path
 from rclpy.action import ActionClient
 from rclpy.node import Node
+from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
 from std_msgs.msg import String
 
 
@@ -38,7 +40,10 @@ class FollowPathFixture(Node):
         self.command_count = 0
         self.output_count = 0
         self.costmap_count = 0
+        self.costmap_service_snapshot_count = 0
         self.maximum_occupied_costmap_cells = 0
+        self.costmap_request = None
+        self.next_costmap_request_wall = 0.0
         self.first_command_wall = None
         self.started_wall = time.monotonic()
         self.goal_sent_wall = None
@@ -52,8 +57,18 @@ class FollowPathFixture(Node):
             TwistStamped, args.output_topic, 10)
         self.harness_publisher = self.create_publisher(String, args.harness_topic, 10)
         self.create_subscription(Odometry, args.odom_topic, self.on_odom, 20)
+        costmap_qos = QoSProfile(
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1,
+            reliability=ReliabilityPolicy.RELIABLE,
+            # Topic delivery is optional evidence beside the bounded GetCostmap snapshots.
+            # Volatile durability matches the previously validated ROS-container path and avoids
+            # relying on cross-container transient-local replay behavior.
+            durability=DurabilityPolicy.VOLATILE,
+        )
         self.create_subscription(OccupancyGrid, args.costmap_topic,
-                                 self.on_costmap, 10)
+                                 self.on_costmap, costmap_qos)
+        self.costmap_client = self.create_client(GetCostmap, args.costmap_service)
         if args.input_type == 'stamped':
             self.create_subscription(
                 TwistStamped, args.input_topic, self.on_stamped_command, 20)
@@ -93,9 +108,34 @@ class FollowPathFixture(Node):
 
     def on_costmap(self, message):
         self.costmap_count += 1
-        occupied = sum(1 for value in message.data if value > 0)
+        self.record_costmap(message.data)
+
+    def record_costmap(self, data):
+        occupied = sum(1 for value in data if value > 0)
         self.maximum_occupied_costmap_cells = max(
             self.maximum_occupied_costmap_cells, occupied)
+
+    def request_costmap(self):
+        if self.costmap_request is not None or not self.costmap_client.service_is_ready():
+            return
+        if time.monotonic() < self.next_costmap_request_wall:
+            return
+        self.next_costmap_request_wall = time.monotonic() + self.args.costmap_sample_period
+        self.costmap_request = self.costmap_client.call_async(GetCostmap.Request())
+        self.costmap_request.add_done_callback(self.on_costmap_service)
+
+    def on_costmap_service(self, future):
+        self.costmap_request = None
+        try:
+            response = future.result()
+        except Exception as error:  # pragma: no cover - depends on live ROS service failure
+            self.get_logger().warning(f'GetCostmap request failed: {error}')
+            return
+        if response is None:
+            self.get_logger().warning('GetCostmap request returned no response')
+            return
+        self.costmap_service_snapshot_count += 1
+        self.record_costmap(response.map.data)
 
     def forward(self, twist):
         # Ignore commands from an older/preempted action while this fixture is waiting to send.
@@ -124,6 +164,7 @@ class FollowPathFixture(Node):
         if self.done or elapsed >= self.args.duration:
             self.finish('timeout' if self.result_status is None else self.result_status)
             return
+        self.request_costmap()
         if self.goal_handle is not None or self.initial_odom is None:
             return
         if time.monotonic() < self.next_goal_attempt_wall:
@@ -251,6 +292,9 @@ class FollowPathFixture(Node):
             'goalAttempts': self.goal_attempts,
             'costmapTopic': self.args.costmap_topic,
             'costmapMessages': self.costmap_count,
+            'costmapService': self.args.costmap_service,
+            'costmapServiceSnapshots': self.costmap_service_snapshot_count,
+            'costmapObservations': self.costmap_count + self.costmap_service_snapshot_count,
             'maximumOccupiedCostmapCells': self.maximum_occupied_costmap_cells,
             'goalToFirstCommandWallSeconds': (
                 self.first_command_wall - self.goal_sent_wall
@@ -261,6 +305,8 @@ class FollowPathFixture(Node):
             'deltaX': dx,
             'deltaY': dy,
             'provenance': 'latest-delivered-odometry-not-proven-internal-consumption',
+            'costmapProvenance': (
+                'nav2-get-costmap-snapshot-not-proven-controller-consumption'),
         }
         if self.args.output:
             with open(self.args.output, 'w', encoding='utf-8') as stream:
@@ -284,6 +330,8 @@ def main():
     parser.add_argument('--odom-topic', default='/crane/odom')
     parser.add_argument('--input-topic', default='/nav2/cmd_vel')
     parser.add_argument('--costmap-topic', default='/local_costmap/costmap')
+    parser.add_argument('--costmap-service', default='/local_costmap/get_costmap')
+    parser.add_argument('--costmap-sample-period', type=float, default=0.5)
     parser.add_argument('--input-type', choices=('twist', 'stamped'), default='stamped')
     parser.add_argument('--output-topic', default='/crane/cmd_vel_stamped')
     parser.add_argument('--action-mode', choices=('follow-path', 'navigate-to-pose'),

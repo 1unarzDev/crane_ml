@@ -105,8 +105,12 @@ resource_sampler_pid=""
 docker logs "${endpoint_name}" >"${result_root}/endpoint.log" 2>&1 || true
 docker logs "${controller_name}" >"${result_root}/controller.log" 2>&1 || true
 summary_args=()
+summary_args+=(--expected-navigation-status "${CRANE_EXPECTED_NAV_STATUS:-succeeded}")
 if [[ " ${CRANE_NAV2_UNITY_EXTRA_ARGS:-} " == *" --crane-reset-probe "* ]]; then
     summary_args+=(--require-reset)
+fi
+if [[ "${CRANE_REQUIRE_OCCUPIED_COSTMAP:-0}" == "1" ]]; then
+    summary_args+=(--require-occupied-costmap)
 fi
 python3 "${root_dir}/Tools/Performance/summarize_nav2_reset.py" \
     "${result_root}" --worker-id "${worker_id}" --ros-port "${ros_port}" \

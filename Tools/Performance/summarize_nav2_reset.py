@@ -61,6 +61,12 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("result_root", type=Path)
     parser.add_argument("--require-reset", action="store_true")
+    parser.add_argument("--require-occupied-costmap", action="store_true")
+    parser.add_argument(
+        "--expected-navigation-status",
+        choices=("succeeded", "timeout", "canceled", "aborted"),
+        default="succeeded",
+    )
     parser.add_argument("--worker-id", type=int, default=0)
     parser.add_argument("--ros-port", type=int)
     parser.add_argument("--ros-domain-id", type=int)
@@ -93,14 +99,23 @@ def main():
     endpoint_errors = sum("[ERROR]" in line for line in endpoint_lines)
     clock_rewinds = sum("Detected jump back in time" in line for line in controller_lines)
     goal_succeeded = any("Goal succeeded" in line for line in controller_lines)
+    goal_canceled = any("Goal canceled" in line for line in controller_lines)
+    cancellation_requested = any(
+        "Client requested to cancel the goal" in line for line in controller_lines)
+    expected_outcome_observed = {
+        "succeeded": goal_succeeded,
+        "timeout": cancellation_requested,
+        "canceled": goal_canceled,
+        "aborted": any("Goal failed" in line for line in controller_lines),
+    }[args.expected_navigation_status]
     reset = worker.get("resetProbe", {})
     external_resources = load_external_resources(root / "external-resources.csv")
     action_timing = worker.get("actionTiming", {})
     accepted_actions = worker.get("acceptedActions")
 
     valid = all((
-        fixture.get("status") == "succeeded",
-        goal_succeeded,
+        fixture.get("status") == args.expected_navigation_status,
+        expected_outcome_observed,
         worker.get("valid") is True,
         worker.get("rejectedActions") == 0,
         worker.get("staleActions") == 0,
@@ -119,6 +134,10 @@ def main():
         action_timing.get("maximumReceiveToApplicationTicks", -1) <=
             args.max_action_lag_ticks,
         not args.require_reset or reset.get("executed") is True,
+        not args.require_occupied_costmap or (
+            fixture.get("costmapObservations", 0) > 0 and
+            fixture.get("maximumOccupiedCostmapCells", 0) > 0
+        ),
     ))
 
     summary = {
@@ -129,6 +148,9 @@ def main():
                   if args.require_reset else
                   "authoritative-odometry-nav2-navigate-to-pose"),
         "resetRequired": args.require_reset,
+        "occupiedCostmapRequired": args.require_occupied_costmap,
+        "expectedNavigationStatus": args.expected_navigation_status,
+        "expectedOutcomeObserved": expected_outcome_observed,
         "workerId": args.worker_id,
         "navigation": fixture,
         "transport": {

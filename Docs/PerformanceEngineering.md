@@ -85,9 +85,17 @@ brakes on a zero-linear command; it does not synthesize an unphysical turn in pl
 
 The default 3 m no-blocker run is a vertical-slice smoke, not a benchmark scenario. A development
 run succeeded in 4.91 wall seconds at 1.00003 RTF with 301 scans and no stale/failed observations.
-Obstacle/recovery studies remain blocked on costmap-observation validation, collision truth, and
-reset/intervention controls. Runtime corridor parameters written via
+Runtime corridor parameters written via
 `--crane-land-evaluator-output` are evaluator-only and must not enter robot-visible prompts.
+
+Nav2 Jazzy applies obstacle-height limits per observation source. The land configuration therefore
+sets `scan.min_obstacle_height` and `scan.max_obstacle_height` explicitly; omitting the latter uses
+the `0.0` default and discards every point from the elevated scanner. Full costmap topics did not
+deliver samples in the isolated multi-container fixture even though publisher endpoints were
+visible. The fixture consequently samples the stock `/local_costmap/get_costmap` service at a
+bounded rate and records topic and service counts separately. A valid land fixture requires at
+least one snapshot with occupied cells. Such a snapshot proves observable Nav2 state, not the
+controller's internal consumption of that exact map.
 
 ### Training with full visual sensors
 

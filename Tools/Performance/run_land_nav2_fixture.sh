@@ -12,7 +12,8 @@ export CRANE_NAV2_PARAMS="${root_dir}/Tools/Performance/nav2_land_fixture.yaml"
 export CRANE_NAV2_COMMAND_FLAG=--crane-ros-ackermann-cmd-vel
 export CRANE_NAV2_GOAL_DISTANCE="${CRANE_NAV2_GOAL_DISTANCE:-3.0}"
 export CRANE_NAV2_ACTION_DURATION="${CRANE_NAV2_ACTION_DURATION:-20}"
-export CRANE_NAV2_COSTMAP_TOPIC="${CRANE_NAV2_COSTMAP_TOPIC:-/local_costmap/costmap_raw}"
+export CRANE_NAV2_COSTMAP_TOPIC="${CRANE_NAV2_COSTMAP_TOPIC:-/local_costmap/costmap}"
+export CRANE_REQUIRE_OCCUPIED_COSTMAP=1
 export CRANE_RESULT_ROOT="${result_root}"
 export CRANE_NAV2_UNITY_EXTRA_ARGS="--crane-land-nav2 --crane-ros-nav-child-frames lidar_link --crane-land-evaluator-output ${result_root}/worker-${worker_id}/land-evaluator-truth.json ${CRANE_NAV2_UNITY_EXTRA_ARGS:-}"
 
