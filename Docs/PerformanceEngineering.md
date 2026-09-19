@@ -73,6 +73,22 @@ render-independent `geometric` depth backend and exits with code 3 if an aquatic
 rather than silently invalidating HDRP water physics. The geometric backend observes PhysX
 colliders, not arbitrary render-only/transparent/HDRP-water surfaces.
 
+### Graphics-free land Nav2 fixture
+
+`Tools/Performance/run_land_nav2_fixture.sh` is the dedicated non-aquatic Nav2 development path.
+It selects `Land Vehicle Validation`, `train-cpu`, `-batchmode`, and `-nographics`; starts the
+shared Jazzy Nav2/ROS-TCP harness with `nav2_land_fixture.yaml`; and mounts a runtime 360-degree
+LaserScan in a deterministic primitive corridor. Commands reach the existing PhysX
+`AckermannRoverDynamics` through the same queued fixed-step provenance seam used by other CRANE
+actions. The adapter converts feasible linear/angular velocity pairs to Ackermann steering and
+brakes on a zero-linear command; it does not synthesize an unphysical turn in place.
+
+The default 3 m no-blocker run is a vertical-slice smoke, not a benchmark scenario. A development
+run succeeded in 4.91 wall seconds at 1.00003 RTF with 301 scans and no stale/failed observations.
+Obstacle/recovery studies remain blocked on costmap-observation validation, collision truth, and
+reset/intervention controls. Runtime corridor parameters written via
+`--crane-land-evaluator-output` are evaluator-only and must not enter robot-visible prompts.
+
 ### Training with full visual sensors
 
 - High Fidelity HDRP water with GPU readback.

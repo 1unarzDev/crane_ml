@@ -30,6 +30,23 @@ namespace Sim.Sensors.Lidar {
             publisher = gameObject.AddComponent<ROSPublisher>();
         }
 
+        /// <summary>Configures a runtime-created scanner before Start initializes ROS.</summary>
+        public void Configure(float minimumAngleDegrees, float maximumAngleDegrees,
+            float incrementDegrees, float minimumRange, float maximumRange,
+            int configuredBatchSize, bool showRays, string topic, string frame,
+            float publishRateHz) {
+            minAngleDegrees = minimumAngleDegrees;
+            maxAngleDegrees = maximumAngleDegrees;
+            angleIncrementDegrees = Mathf.Max(0.01f, incrementDegrees);
+            minRange = Mathf.Max(0f, minimumRange);
+            maxRange = Mathf.Max(minRange, maximumRange);
+            batchSize = Mathf.Max(1, configuredBatchSize);
+            drawRays = showRays;
+            topicName = topic;
+            frameId = frame;
+            Hz = Mathf.Max(0.1f, publishRateHz);
+        }
+
         private void Start() {
             publisher.Initialize(topicName, frameId, CreateMessage, Hz);
 

@@ -105,7 +105,8 @@ namespace Sim.Performance {
                     "Expected gpu, geometric, or off.");
             string requestedScene = ReadString(args, "--crane-scene", null);
             if (string.IsNullOrEmpty(requestedScene)) {
-                if (HasFlag(args, "--crane-land-validation"))
+                if (HasFlag(args, "--crane-land-validation") ||
+                    HasFlag(args, "--crane-land-nav2"))
                     requestedScene = "Land Vehicle Validation";
                 else if (HasFlag(args, "--crane-aerial-validation"))
                     requestedScene = "Aerial Vehicle Validation";

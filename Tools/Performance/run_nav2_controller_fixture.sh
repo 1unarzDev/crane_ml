@@ -11,10 +11,23 @@ ros_domain_id="${CRANE_ROS_DOMAIN_ID:-42}"
 worker_id="${CRANE_WORKER_ID:-0}"
 maximum_action_lag_ticks="${CRANE_MAX_ACTION_LAG_TICKS:-10}"
 command_timeout_ticks="${CRANE_COMMAND_TIMEOUT_TICKS:-25}"
+runtime_profile="${CRANE_NAV2_PROFILE:-train-gpu}"
+scene="${CRANE_SCENE:-Roboboat Course}"
+command_flag="${CRANE_NAV2_COMMAND_FLAG:---crane-ros-cmd-vel}"
+goal_distance="${CRANE_NAV2_GOAL_DISTANCE:-0.5}"
+action_duration="${CRANE_NAV2_ACTION_DURATION:-20}"
+costmap_topic="${CRANE_NAV2_COSTMAP_TOPIC:-/local_costmap/costmap}"
 endpoint_name="crane-endpoint-${run_id}"
 controller_name="crane-controller-${run_id}"
 fixture_name="crane-fixture-${run_id}"
 result_root="${CRANE_RESULT_ROOT:-${root_dir}/PerformanceResults/nav2-controller-fixture}"
+params_file="${CRANE_NAV2_PARAMS:-${root_dir}/Tools/Performance/nav2_controller_fixture.yaml}"
+params_file="$(realpath "${params_file}")"
+if [[ "${params_file}" != "${root_dir}"/* ]]; then
+    echo "Nav2 params must be inside the CRANE repository: ${params_file}" >&2
+    exit 2
+fi
+params_container="/workspace/crane_sim/${params_file#"${root_dir}"/}"
 mkdir -p "${result_root}"
 result_root="$(cd "${result_root}" && pwd)"
 resource_sampler_pid=""
@@ -40,7 +53,7 @@ sleep 1
 docker run -d --rm --name "${controller_name}" --network host --ipc host \
     -e ROS_DOMAIN_ID="${ros_domain_id}" \
     -v "${root_dir}:/workspace/crane_sim:ro" "${image}" bash -lc \
-    'source /opt/ros/jazzy/setup.bash; params=/workspace/crane_sim/Tools/Performance/nav2_controller_fixture.yaml; /opt/ros/jazzy/lib/nav2_controller/controller_server --ros-args --params-file "$params" -r cmd_vel:=/nav2/cmd_vel & p1=$!; /opt/ros/jazzy/lib/nav2_planner/planner_server --ros-args --params-file "$params" & p2=$!; /opt/ros/jazzy/lib/nav2_behaviors/behavior_server --ros-args --params-file "$params" -r cmd_vel:=/nav2/cmd_vel & p3=$!; /opt/ros/jazzy/lib/nav2_bt_navigator/bt_navigator --ros-args --params-file "$params" & p4=$!; sleep 1; /opt/ros/jazzy/lib/nav2_lifecycle_manager/lifecycle_manager --ros-args -r __node:=lifecycle_manager_controller --params-file "$params" & p5=$!; wait $p1 $p2 $p3 $p4 $p5' \
+    'source /opt/ros/jazzy/setup.bash; params='"${params_container}"'; /opt/ros/jazzy/lib/nav2_controller/controller_server --ros-args --params-file "$params" -r cmd_vel:=/nav2/cmd_vel & p1=$!; /opt/ros/jazzy/lib/nav2_planner/planner_server --ros-args --params-file "$params" & p2=$!; /opt/ros/jazzy/lib/nav2_behaviors/behavior_server --ros-args --params-file "$params" -r cmd_vel:=/nav2/cmd_vel & p3=$!; /opt/ros/jazzy/lib/nav2_bt_navigator/bt_navigator --ros-args --params-file "$params" & p4=$!; sleep 1; /opt/ros/jazzy/lib/nav2_lifecycle_manager/lifecycle_manager --ros-args -r __node:=lifecycle_manager_controller --params-file "$params" & p5=$!; wait $p1 $p2 $p3 $p4 $p5' \
     >"${result_root}/controller.container-id"
 
 sample_external_resources() {
@@ -65,8 +78,9 @@ CRANE_RESULT_ROOT="${result_root}" \
 CRANE_DURATION="${CRANE_DURATION:-30}" CRANE_WARMUP="${CRANE_WARMUP:-3}" \
 CRANE_TIME_SCALE="${CRANE_TIME_SCALE:-1}" CRANE_DISABLE_ROS=0 \
 CRANE_ROS_PORT_BASE="$((ros_port - worker_id))" ROS_DOMAIN_ID="${ros_domain_id}" \
+CRANE_SCENE="${scene}" \
 CRANE_SCENARIO=nav2-controller-follow-path \
-CRANE_EXTRA_ARGS="--crane-profile train-gpu --crane-ros-nav-state --crane-ros-cmd-vel /crane/cmd_vel_stamped --crane-action-policy bounded --crane-max-action-lag-ticks ${maximum_action_lag_ticks} --crane-command-timeout-ticks ${command_timeout_ticks} ${CRANE_NAV2_UNITY_EXTRA_ARGS:-}" \
+CRANE_EXTRA_ARGS="--crane-profile ${runtime_profile} --crane-ros-nav-state ${command_flag} /crane/cmd_vel_stamped --crane-action-policy bounded --crane-max-action-lag-ticks ${maximum_action_lag_ticks} --crane-command-timeout-ticks ${command_timeout_ticks} ${CRANE_NAV2_UNITY_EXTRA_ARGS:-}" \
     "${root_dir}/Tools/Performance/run_worker.sh" "${worker_id}" &
 player_pid=$!
 
@@ -81,7 +95,7 @@ docker run --rm --name "${fixture_name}" --network host --ipc host \
     -e ROS_DOMAIN_ID="${ros_domain_id}" \
     -v "${root_dir}:/workspace/crane_sim:ro" -v "${result_root}:/results" \
     "${image}" bash -lc \
-    'source /opt/ros/jazzy/setup.bash; exec python3 /workspace/crane_sim/Tools/Performance/nav2_follow_path_fixture.py --input-type twist --action-mode '"${nav2_action_mode}"' --distance 0.5 --duration 20 --episode-id '"${run_id}-worker-${worker_id}"' --run-id '"${run_id}"' --output /results/fixture-summary.json' \
+    'source /opt/ros/jazzy/setup.bash; exec python3 /workspace/crane_sim/Tools/Performance/nav2_follow_path_fixture.py --input-type twist --action-mode '"${nav2_action_mode}"' --distance '"${goal_distance}"' --duration '"${action_duration}"' --costmap-topic '"${costmap_topic}"' --episode-id '"${run_id}-worker-${worker_id}"' --run-id '"${run_id}"' --output /results/fixture-summary.json' \
     | tee "${result_root}/fixture.log"
 
 wait "${player_pid}"

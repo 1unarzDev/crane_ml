@@ -30,6 +30,7 @@ namespace Sim.Controllers {
         private double publishPeriod;
         private double nextPublishTime;
         private readonly List<Transform> childFrames = new();
+        private string[] requestedChildFrameNames = Array.Empty<string>();
 
         public int ResetPriority => -80;
 
@@ -49,6 +50,9 @@ namespace Sim.Controllers {
             baseFrame = childFrame;
             publishPeriod = 1.0 / Math.Max(0.1f, publishRateHz);
             nextPublishTime = 0;
+            requestedChildFrameNames = requestedChildFrames == null
+                ? Array.Empty<string>()
+                : new List<string>(requestedChildFrames).ToArray();
             CacheChildFrames(requestedChildFrames);
 
             ros = ROSConnection.GetOrCreateInstance();
@@ -97,6 +101,10 @@ namespace Sim.Controllers {
         }
 
         private void Publish(double simulationTime) {
+            // Runtime fixtures may mount sensors from another sceneLoaded callback. Retry until
+            // every requested static child exists instead of depending on callback order.
+            if (childFrames.Count < requestedChildFrameNames.Length)
+                CacheChildFrames(requestedChildFrameNames);
             HeaderMsg header = CreateHeader(simulationTime, odometryFrame);
             PointMsg position = ToRosPoint(body.position);
             QuaternionMsg orientation = body.rotation.To<FLU>();
@@ -198,8 +206,18 @@ namespace Sim.Controllers {
                 body ??= controller.GetComponentInParent<Rigidbody>();
             }
             if (body == null) {
+                foreach (MonoBehaviour candidate in UnityEngine.Object.FindObjectsByType<MonoBehaviour>(
+                             FindObjectsInactive.Exclude)) {
+                    if (candidate.GetType().FullName !=
+                        "Sim.Physics.Land.AckermannRoverDynamics") continue;
+                    body = candidate.GetComponent<Rigidbody>() ??
+                           candidate.GetComponentInParent<Rigidbody>();
+                    if (body != null) break;
+                }
+            }
+            if (body == null) {
                 Debug.LogWarning($"CRANE_ROS_NAV_STATE_UNAVAILABLE scene={scene.name} " +
-                                 "reason=no-enabled-omni-x-rigidbody");
+                                 "reason=no-supported-enabled-physics-body");
                 return;
             }
             var state = body.GetComponent<CraneROSNavigationState>() ??
