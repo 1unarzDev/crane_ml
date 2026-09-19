@@ -1,0 +1,36 @@
+{
+  "schema": "crane-reference-environment-v1",
+  "environmentId": "unity-turtlebot3-simple-warehouse-v1",
+  "upstream": [
+    {
+      "project": "Unity-Technologies/Robotics-Nav2-SLAM-Example",
+      "commit": "a0c9846eaa04f4800d3521639990e74c3b287ceb",
+      "license": "Apache-2.0",
+      "use": "TurtleBot3 dimensions and native-Unity Nav2 integration reference"
+    },
+    {
+      "project": "Unity-Technologies/Robotics-Warehouse",
+      "commit": "9fa61061d31b30686573bd2e0213f049738a8949",
+      "license": "unverified-no-license-file",
+      "use": "layout-generation design reference only; no assets copied"
+    }
+  ],
+  "canonical": {
+    "generator": "Sim.Physics.Land.CraneReferenceWarehouse",
+    "dimensionsMeters": [12.0, 18.0],
+    "shelfRows": 3,
+    "shelfColumns": 2,
+    "collisionSource": "CRANE primitive BoxCollider layout"
+  },
+  "robot": {
+    "platform": "TurtleBot3 Waffle-class",
+    "wheelSeparationMeters": 0.287,
+    "wheelRadiusMeters": 0.033,
+    "baseCollisionMeters": [0.266, 0.094, 0.266]
+  },
+  "layers": {
+    "canonicalGeometry": "authoritative collisions and semantic IDs",
+    "simulationSemantics": "robot dynamics, ROS, sensors, deterministic seed",
+    "visualPresentation": "non-colliding replaceable primitive visuals"
+  }
+}

@@ -11,6 +11,8 @@ ros_domain_id="${CRANE_ROS_DOMAIN_ID:-42}"
 worker_id="${CRANE_WORKER_ID:-0}"
 maximum_action_lag_ticks="${CRANE_MAX_ACTION_LAG_TICKS:-10}"
 command_timeout_ticks="${CRANE_COMMAND_TIMEOUT_TICKS:-25}"
+controller_extra_args="${CRANE_NAV2_CONTROLLER_EXTRA_ARGS:-}"
+bt_xml="${CRANE_NAV2_BT_XML:-}"
 runtime_profile="${CRANE_NAV2_PROFILE:-train-gpu}"
 scene="${CRANE_SCENE:-Roboboat Course}"
 command_flag="${CRANE_NAV2_COMMAND_FLAG:---crane-ros-cmd-vel}"
@@ -28,6 +30,15 @@ if [[ "${params_file}" != "${root_dir}"/* ]]; then
     exit 2
 fi
 params_container="/workspace/crane_sim/${params_file#"${root_dir}"/}"
+bt_xml_container=""
+if [[ -n "${bt_xml}" ]]; then
+    bt_xml="$(realpath "${bt_xml}")"
+    if [[ "${bt_xml}" != "${root_dir}"/* ]]; then
+        echo "Behavior tree XML must be inside the CRANE repository: ${bt_xml}" >&2
+        exit 2
+    fi
+    bt_xml_container="/workspace/crane_sim/${bt_xml#"${root_dir}"/}"
+fi
 mkdir -p "${result_root}"
 result_root="$(cd "${result_root}" && pwd)"
 resource_sampler_pid=""
@@ -52,8 +63,10 @@ sleep 1
 
 docker run -d --rm --name "${controller_name}" --network host --ipc host \
     -e ROS_DOMAIN_ID="${ros_domain_id}" \
+    -e CRANE_CONTROLLER_EXTRA_ARGS="${controller_extra_args}" \
+    -e CRANE_BT_XML_CONTAINER="${bt_xml_container}" \
     -v "${root_dir}:/workspace/crane_sim:ro" "${image}" bash -lc \
-    'source /opt/ros/jazzy/setup.bash; params='"${params_container}"'; /opt/ros/jazzy/lib/nav2_controller/controller_server --ros-args --params-file "$params" -r cmd_vel:=/nav2/cmd_vel & p1=$!; /opt/ros/jazzy/lib/nav2_planner/planner_server --ros-args --params-file "$params" & p2=$!; /opt/ros/jazzy/lib/nav2_behaviors/behavior_server --ros-args --params-file "$params" -r cmd_vel:=/nav2/cmd_vel & p3=$!; /opt/ros/jazzy/lib/nav2_bt_navigator/bt_navigator --ros-args --params-file "$params" & p4=$!; sleep 1; /opt/ros/jazzy/lib/nav2_lifecycle_manager/lifecycle_manager --ros-args -r __node:=lifecycle_manager_controller --params-file "$params" & p5=$!; wait $p1 $p2 $p3 $p4 $p5' \
+    'source /opt/ros/jazzy/setup.bash; params='"${params_container}"'; controller_extra=(); bt_extra=(); if [[ -n "${CRANE_CONTROLLER_EXTRA_ARGS:-}" ]]; then read -r -a controller_extra <<<"${CRANE_CONTROLLER_EXTRA_ARGS}"; fi; if [[ -n "${CRANE_BT_XML_CONTAINER:-}" ]]; then bt_extra=(-p "default_nav_to_pose_bt_xml:=${CRANE_BT_XML_CONTAINER}"); fi; /opt/ros/jazzy/lib/nav2_controller/controller_server --ros-args --params-file "$params" -r cmd_vel:=/nav2/cmd_vel "${controller_extra[@]}" & p1=$!; /opt/ros/jazzy/lib/nav2_planner/planner_server --ros-args --params-file "$params" & p2=$!; /opt/ros/jazzy/lib/nav2_behaviors/behavior_server --ros-args --params-file "$params" -r cmd_vel:=/nav2/cmd_vel & p3=$!; /opt/ros/jazzy/lib/nav2_bt_navigator/bt_navigator --ros-args --params-file "$params" "${bt_extra[@]}" & p4=$!; sleep 1; /opt/ros/jazzy/lib/nav2_lifecycle_manager/lifecycle_manager --ros-args -r __node:=lifecycle_manager_controller --params-file "$params" & p5=$!; wait $p1 $p2 $p3 $p4 $p5' \
     >"${result_root}/controller.container-id"
 
 sample_external_resources() {

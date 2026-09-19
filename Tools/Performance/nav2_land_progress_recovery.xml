@@ -1,0 +1,24 @@
+<!--
+  Development fixture for deterministic controller-progress recovery evidence.
+
+  Unlike Nav2's stock tree, this tree does not continuously replace the active
+  controller path. A FollowPath progress failure is followed by an Ackermann-safe
+  Wait action and a bounded retry. The exact XML must be retained with captures;
+  this is a controlled research fixture, not CRANE's general navigation policy.
+-->
+<root BTCPP_format="4" main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+    <RecoveryNode number_of_retries="2" name="NavigateRecovery">
+      <Sequence name="NavigateAttempt">
+        <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"
+                           error_code_id="{compute_path_error_code}"/>
+        <FollowPath path="{path}" controller_id="FollowPath"
+                    error_code_id="{follow_path_error_code}"/>
+      </Sequence>
+      <Sequence name="ProgressRecovery">
+        <WouldAControllerRecoveryHelp error_code="{follow_path_error_code}"/>
+        <Wait wait_duration="1.0"/>
+      </Sequence>
+    </RecoveryNode>
+  </BehaviorTree>
+</root>

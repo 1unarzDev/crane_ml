@@ -1,5 +1,15 @@
 # CRANE performance engineering
 
+## Reference navigation scenes
+
+Use `Land Vehicle Validation` or `TurtleBot3 Warehouse Validation` for routine headless Nav2
+testing. Both publish simulated time; Nav2 timeouts and recovery behaviors are invalid if `/clock`
+is absent while `use_sim_time` is enabled. Aquatic HDRP scenes require graphics-backed execution
+and must not be substituted for these CPU fixtures.
+
+See [Reference environments](ReferenceEnvironments.md) for provenance, semantic IDs, layer
+separation, and current validation status.
+
 This document records the measured state of the Unity `6000.5.10f1` / HDRP `17.5.0`
 checkout. Repository metadata that names older releases is not authoritative.
 

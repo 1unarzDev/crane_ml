@@ -38,6 +38,8 @@ class FollowPathFixture(Node):
         self.initial_odom = None
         self.odom_count = 0
         self.command_count = 0
+        self.maximum_linear_command = 0.0
+        self.maximum_angular_command = 0.0
         self.output_count = 0
         self.costmap_count = 0
         self.costmap_service_snapshot_count = 0
@@ -142,6 +144,10 @@ class FollowPathFixture(Node):
         if self.goal_sent_wall is None:
             return
         self.command_count += 1
+        self.maximum_linear_command = max(
+            self.maximum_linear_command, abs(float(twist.linear.x)))
+        self.maximum_angular_command = max(
+            self.maximum_angular_command, abs(float(twist.angular.z)))
         if self.first_command_wall is None:
             self.first_command_wall = time.monotonic()
         if self.latest_odom is None:
@@ -288,6 +294,8 @@ class FollowPathFixture(Node):
             'outputTopic': self.args.output_topic,
             'odometryMessages': self.odom_count,
             'controllerCommands': self.command_count,
+            'maximumLinearCommand': self.maximum_linear_command,
+            'maximumAngularCommand': self.maximum_angular_command,
             'returnedCommands': self.output_count,
             'goalAttempts': self.goal_attempts,
             'costmapTopic': self.args.costmap_topic,

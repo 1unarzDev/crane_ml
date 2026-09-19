@@ -3,6 +3,7 @@ using System.Globalization;
 using System.IO;
 using System.Reflection;
 using Sim.Physics.Contacts;
+using Sim.Utils.ROS;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -38,6 +39,14 @@ namespace Sim.Physics.Land {
                 AckermannRoverDynamics>(FindObjectsInactive.Exclude);
             if (rover == null)
                 throw new MissingReferenceException("Land Nav2 fixture rover is missing.");
+
+            // This validation scene does not contain the ROSClock object present in the aquatic
+            // scenes. Nav2 uses simulated time, so without /clock progress deadlines and timed
+            // recovery behaviors never advance even though sensor and command topics are active.
+            if (UnityEngine.Object.FindAnyObjectByType<ROSClock>() == null) {
+                var clockHost = new GameObject("CRANE Land ROS Clock");
+                clockHost.AddComponent<ROSClock>();
+            }
 
             float width = ReadFloat("--crane-land-corridor-width", 4f);
             float length = ReadFloat("--crane-land-corridor-length", 20f);

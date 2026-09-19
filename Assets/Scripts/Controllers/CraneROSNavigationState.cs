@@ -208,8 +208,9 @@ namespace Sim.Controllers {
             if (body == null) {
                 foreach (MonoBehaviour candidate in UnityEngine.Object.FindObjectsByType<MonoBehaviour>(
                              FindObjectsInactive.Exclude)) {
-                    if (candidate.GetType().FullName !=
-                        "Sim.Physics.Land.AckermannRoverDynamics") continue;
+                    string typeName = candidate.GetType().FullName;
+                    if (typeName != "Sim.Physics.Land.AckermannRoverDynamics" &&
+                        typeName != "Sim.Physics.Land.DifferentialDriveDynamics") continue;
                     body = candidate.GetComponent<Rigidbody>() ??
                            candidate.GetComponentInParent<Rigidbody>();
                     if (body != null) break;

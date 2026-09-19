@@ -47,6 +47,26 @@ class LandNav2FixtureContractTests(unittest.TestCase):
         self.assertEqual(text.count("min_obstacle_height: 0.0"), 2)
         self.assertEqual(text.count("always_send_full_costmap: false"), 2)
 
+    def test_controller_overrides_are_tokenized_without_eval(self) -> None:
+        text = SHARED_LAUNCHER.read_text(encoding="utf-8")
+        self.assertIn("CRANE_NAV2_CONTROLLER_EXTRA_ARGS", text)
+        self.assertIn('read -r -a controller_extra', text)
+        self.assertIn('"${controller_extra[@]}"', text)
+        self.assertNotIn("eval ", text)
+
+    def test_optional_behavior_tree_is_scoped_to_the_repository(self) -> None:
+        text = SHARED_LAUNCHER.read_text(encoding="utf-8")
+        self.assertIn("CRANE_NAV2_BT_XML", text)
+        self.assertIn("Behavior tree XML must be inside the CRANE repository", text)
+        self.assertIn("default_nav_to_pose_bt_xml", text)
+
+    def test_land_bootstrap_provides_simulated_clock_for_nav2(self) -> None:
+        text = (ROOT / "Assets/Scripts/Physics/Land/CraneLandNav2Bootstrap.cs").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("FindAnyObjectByType<ROSClock>()", text)
+        self.assertIn('AddComponent<ROSClock>()', text)
+
 
 if __name__ == "__main__":
     unittest.main()

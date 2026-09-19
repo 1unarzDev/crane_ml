@@ -8,9 +8,13 @@ using UnityEditor;
 using UnityEditor.Build.Reporting;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using Sim.Physics.Land;
 using Sim.Physics.Aerial;
 using Sim.Physics.Contacts;
+using Sim.Sensors.Lidar;
+using Sim.Utils.ReferenceEnvironments;
+using Sim.Utils.ROS;
 
 public static class CranePerformanceBuild {
     [Serializable] private sealed class BuildAssetHash {
@@ -36,9 +40,90 @@ public static class CranePerformanceBuild {
         "Assets/Scenes/Robosub Pool.unity",
         "Assets/Scenes/Roboboat Course.unity",
         "Assets/Scenes/Land Vehicle Validation.unity",
+        "Assets/Scenes/TurtleBot3 Warehouse Validation.unity",
         "Assets/Scenes/Aerial Vehicle Validation.unity",
         "Assets/Scenes/Collision Validation.unity"
     };
+
+    public static void CreateTurtleBot3WarehouseScene() {
+        const string source = "Assets/Scenes/Land Vehicle Validation.unity";
+        const string output = "Assets/Scenes/TurtleBot3 Warehouse Validation.unity";
+        Scene scene = EditorSceneManager.OpenScene(source, OpenSceneMode.Single);
+        foreach (AckermannRoverDynamics rover in UnityEngine.Object.FindObjectsByType<
+                     AckermannRoverDynamics>(FindObjectsInactive.Include))
+            UnityEngine.Object.DestroyImmediate(rover.gameObject);
+
+        foreach (Collider collider in UnityEngine.Object.FindObjectsByType<Collider>(
+                     FindObjectsInactive.Include)) {
+            if (collider.gameObject.name.Contains("Ground", StringComparison.OrdinalIgnoreCase))
+                UnityEngine.Object.DestroyImmediate(collider.gameObject);
+        }
+
+        var environment = new GameObject("Reference Environment");
+        environment.AddComponent<CraneReferenceWarehouse>().Configure(1000, 12f, 18f, 3, 2, true);
+        environment.GetComponent<CraneReferenceWarehouse>().Generate();
+
+        var robot = new GameObject("TurtleBot3 Waffle Reference");
+        robot.transform.position = new Vector3(0f, 0.08f, 0.8f);
+        var body = robot.AddComponent<Rigidbody>();
+        body.mass = 1.3729096f;
+        body.linearDamping = 0.05f;
+        body.angularDamping = 0.15f;
+        body.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
+        var baseCollider = robot.AddComponent<BoxCollider>();
+        baseCollider.center = new Vector3(0f, 0.047f, -0.064f);
+        baseCollider.size = new Vector3(0.266f, 0.094f, 0.266f);
+        baseCollider.material = new PhysicsMaterial("TurtleBot3 Chassis Slip") {
+            dynamicFriction = 0f,
+            staticFriction = 0f,
+            frictionCombine = PhysicsMaterialCombine.Minimum
+        };
+        robot.AddComponent<DifferentialDriveDynamics>().Configure(0.287f, 0.033f, 0.26f, 1.82f);
+        robot.AddComponent<CraneSemanticIdentity>().Configure("robot-turtlebot3-waffle",
+            "mobile-robot", CraneReferenceWarehouse.EnvironmentId);
+
+        CreateRobotVisual(robot.transform, "base-visual", PrimitiveType.Cube,
+            new Vector3(0f, 0.075f, -0.064f), new Vector3(0.266f, 0.12f, 0.266f),
+            new Color(0.08f, 0.10f, 0.12f), Quaternion.identity);
+        CreateRobotVisual(robot.transform, "deck-visual", PrimitiveType.Cube,
+            new Vector3(0f, 0.22f, -0.04f), new Vector3(0.22f, 0.025f, 0.20f),
+            new Color(0.05f, 0.20f, 0.50f), Quaternion.identity);
+        CreateRobotVisual(robot.transform, "wheel-left-visual", PrimitiveType.Cylinder,
+            new Vector3(-0.144f, 0.033f, 0f), new Vector3(0.066f, 0.018f, 0.066f),
+            Color.black, Quaternion.Euler(0f, 0f, 90f));
+        CreateRobotVisual(robot.transform, "wheel-right-visual", PrimitiveType.Cylinder,
+            new Vector3(0.144f, 0.033f, 0f), new Vector3(0.066f, 0.018f, 0.066f),
+            Color.black, Quaternion.Euler(0f, 0f, 90f));
+
+        var lidarHost = new GameObject("base_scan");
+        lidarHost.transform.SetParent(robot.transform, false);
+        lidarHost.transform.localPosition = new Vector3(0f, 0.23f, 0f);
+        lidarHost.AddComponent<Lidar2D>().Configure(-180f, 180f, 1f, 0.12f, 3.5f,
+            180, false, "/scan", "base_scan", 5f);
+        CreateRobotVisual(lidarHost.transform, "lidar-visual", PrimitiveType.Cylinder,
+            Vector3.zero, new Vector3(0.07f, 0.035f, 0.07f), Color.black,
+            Quaternion.identity);
+
+        if (UnityEngine.Object.FindAnyObjectByType<ROSClock>() == null)
+            new GameObject("CRANE ROS Clock").AddComponent<ROSClock>();
+        EditorSceneManager.SaveScene(scene, output);
+        AssetDatabase.SaveAssets();
+        Debug.Log($"CRANE_REFERENCE_SCENE_CREATED path={output}");
+    }
+
+    private static void CreateRobotVisual(Transform parent, string name, PrimitiveType primitive,
+        Vector3 localPosition, Vector3 localScale, Color color, Quaternion localRotation) {
+        GameObject value = GameObject.CreatePrimitive(primitive);
+        value.name = name;
+        value.transform.SetParent(parent, false);
+        value.transform.localPosition = localPosition;
+        value.transform.localRotation = localRotation;
+        value.transform.localScale = localScale;
+        Collider collider = value.GetComponent<Collider>();
+        if (collider != null) UnityEngine.Object.DestroyImmediate(collider);
+        value.GetComponent<Renderer>().sharedMaterial = new Material(
+            Shader.Find("HDRP/Lit") ?? Shader.Find("Standard")) { color = color };
+    }
 
     public static void BuildLinuxWorker() {
         string output = ReadArgument("--crane-build-output", "Builds/CRANE-Worker/CRANE.x86_64");
