@@ -82,10 +82,17 @@ The headless validation checks exact collider transforms, ray-query resolution t
 semantic wall ID, rigid-body contact against that wall, and the normal aerial dynamics suite.
 
 ```bash
-./Builds/CRANE-Worker/CRANE.x86_64 -batchmode -nographics \
-  --crane-aerial-validation --crane-aerial-scene "PX4 Walls Validation" \
-  --crane-output /tmp/crane-px4-walls-validation.json
+Tools/ReferenceEnvironments/run_reference_validation.sh px4-walls \
+  /tmp/crane-px4-walls-validation.json
 ```
+
+The launcher is root-relative, always selects the requested scene with the `train-cpu` profile and
+`-batchmode -nographics`, disables unrelated ROS transport, and verifies the scene against the
+player's build manifest. This avoids briefly initializing the default aquatic scene, opening the
+interactive submarine window, or starting an irrelevant ROS reconnect loop. It also supports `px4-aruco`,
+`px4-windy`, `clearpath-pipeline`, and a generated `f1tenth-spielberg` scene when that scene was
+included in the player build with `--crane-extra-scene`. TurtleBot3's closed-loop acceptance uses
+`Tools/Performance/run_turtlebot3_nav2_fixture.sh` because it intentionally requires ROS/Nav2.
 
 ## PX4 ArUco landmark
 
