@@ -36,6 +36,8 @@ git-filter-repo
 /[Ll]ogs/
 /[Uu]ser[Ss]ettings/
 /PerformanceResults/
+/Assets/Generated/
+/Assets/Generated.meta
 __pycache__/
 *.py[cod]
 *.slnx

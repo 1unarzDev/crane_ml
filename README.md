@@ -116,6 +116,10 @@ environments:
 - `Assets/Scenes/PX4 Windy Validation.unity`
 - `Assets/Scenes/Collision Validation.unity`
 
+External SDF reference worlds are converted offline into Git-ignored generated assets; they are
+not runtime-loaded. See [Reference environments](Docs/ReferenceEnvironments.md) for the pinned
+Clearpath pipeline procedure and its validation limits.
+
 For ROS operation, configure the scene's `ROSConnection` object with the address of the machine
 running ROS. The [mhseals_docker repository](https://github.com/mhseals/mhseals_docker) contains
 the ROS 2 Jazzy image and endpoint setup notes. Its navigation packages are separate optional

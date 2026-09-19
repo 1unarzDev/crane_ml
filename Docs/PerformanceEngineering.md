@@ -265,6 +265,9 @@ Useful arguments:
 | `--crane-land-validation` | Run the standalone Ackermann dynamics checks and exit with their result |
 | `--crane-aerial-validation` | Run the standalone multirotor dynamics checks and exit with their result |
 | `--crane-aerial-scene NAME` | Select the built aerial scene for that validator; use `PX4 Walls Validation` for the reference benchmark |
+| `--crane-reference-validation` | Validate a generated reference scene's collision/visual separation, semantic ray query, bounds, and contact |
+| `--crane-reference-scene NAME` | Select the generated scene for reference validation |
+| `--crane-extra-scene PATH` | Add one generated scene to a worker build without changing the standard committed scene list |
 | `--crane-fixture contact-heavy` | Add a deterministic 144-body contact fixture |
 | `--crane-contact-fixture-legacy-layers` | Benchmark that fixture on Default instead of classified layers for matched A/B tests |
 | `--crane-collision-validation` | Run matrix/contact/trigger/query coverage and exit with its result |

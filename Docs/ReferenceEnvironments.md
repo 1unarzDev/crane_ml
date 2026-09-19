@@ -75,6 +75,44 @@ Two headless repetitions were byte-identical and measured `(3.267, 4.732)` m dis
 Unity x/z over the fixture interval. The non-proportional response is retained as an explicit model
 calibration limitation; only deterministic signed response is claimed.
 
+## Clearpath pipeline offline import
+
+`Tools/ReferenceEnvironments/sdf_reference_converter.py` resolves local `model://` mesh
+resources, hashes the world and every dependency, retains SDF model poses/scales and semantic
+names, and emits a Unity import manifest. Source assets and the generated scene live under
+`Assets/Generated/ReferenceEnvironments/`, which is intentionally Git-ignored. The manifest keeps
+collision and visual roles separate even when the source names the same DAE for both. Collada
+hierarchy is preserved; unsupported STL is converted deterministically to OBJ. Blender/FBX
+conversion is **NOT_RUN** because Blender is not installed locally.
+
+For Clearpath simulator 2.9.4 at commit
+`ee098ad6f67b4e35d77841ed6f004b8f86cd77e4`, the pipeline proof used:
+
+```bash
+python3 Tools/ReferenceEnvironments/sdf_reference_converter.py \
+  /path/to/clearpath_simulator/clearpath_gz/worlds/pipeline.sdf \
+  --resource-root /path/to/clearpath_simulator/clearpath_gz/meshes \
+  --output-root Assets/Generated/ReferenceEnvironments/clearpath_pipeline \
+  --unity-asset-root Assets/Generated/ReferenceEnvironments/clearpath_pipeline \
+  --environment-id clearpath-pipeline-2.9.4-v1 \
+  --upstream-project clearpathrobotics/clearpath_simulator --upstream-version 2.9.4
+
+unity run . --editor-version 6000.5.10f1 -- \
+  -executeMethod CraneReferenceEnvironmentImport.CreateImportedReferenceScene \
+  --crane-reference-manifest \
+    Assets/Generated/ReferenceEnvironments/clearpath_pipeline/manifest.json \
+  --crane-reference-output-scene \
+    "Assets/Generated/ReferenceEnvironments/clearpath_pipeline/Clearpath Pipeline Validation.unity"
+```
+
+The headless proof loaded 11 separate collision meshes and 13 renderers over bounds approximately
+199.25 × 11.33 × 128.87 m, with no renderers in canonical collision and no colliders in visual
+presentation. A physics query hit semantic object `clearpath-pipeline`, and a rigid-body drop
+reported actual contact. The generated scene includes a Jackal-dimension/class differential body
+and one 2-D LiDAR configuration. ROS sensor transport, Nav2 traversal, spawn/goal calibration,
+corridor-width checks, native Gazebo comparison, and high-fidelity material matching are
+**NOT_RUN**; the run must not be presented as those validations.
+
 ## Status
 
 - TurtleBot3 warehouse: **IMPLEMENTED / TESTED** headless and with Nav2.
@@ -82,5 +120,6 @@ calibration limitation; only deterministic signed response is claimed.
 - PX4 walls: **IMPLEMENTED / TESTED** headlessly; ArUco: **IMPLEMENTED / TESTED** for layer
   separation, camera detection **NOT_RUN**; windy: **IMPLEMENTED / TESTED** for deterministic
   directional response, physical calibration **NOT_RUN**.
-- Clearpath conversion: **DEFERRED** until native formats are healthy.
+- Clearpath pipeline offline import: **IMPLEMENTED / TESTED** for source resolution, layer
+  separation, bounds, semantic ray query, and mesh contact; navigation/sensor transport **NOT_RUN**.
 - AWSIM/Flightmare: design references; asset reuse **DEFERRED** pending per-asset terms.

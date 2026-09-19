@@ -130,9 +130,15 @@ public static class CranePerformanceBuild {
 
     public static void BuildLinuxWorker() {
         string output = ReadArgument("--crane-build-output", "Builds/CRANE-Worker/CRANE.x86_64");
+        var buildScenes = new List<string>(Scenes);
+        string extraScene = ReadArgument("--crane-extra-scene", string.Empty);
+        if (!string.IsNullOrWhiteSpace(extraScene)) {
+            if (!File.Exists(extraScene)) throw new FileNotFoundException("Extra scene not found", extraScene);
+            buildScenes.Add(extraScene.Replace('\\', '/'));
+        }
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output)) ?? ".");
         var options = new BuildPlayerOptions {
-            scenes = Scenes,
+            scenes = buildScenes.ToArray(),
             locationPathName = output,
             target = BuildTarget.StandaloneLinux64,
             options = BuildOptions.Development
@@ -140,11 +146,11 @@ public static class CranePerformanceBuild {
         BuildReport report = BuildPipeline.BuildPlayer(options);
         if (report.summary.result != BuildResult.Succeeded)
             throw new Exception($"CRANE worker build failed: {report.summary.result}");
-        WriteBuildManifest(output, report);
+        WriteBuildManifest(output, report, buildScenes.ToArray());
         Debug.Log($"CRANE_BUILD_COMPLETE path={output} bytes={report.summary.totalSize}");
     }
 
-    private static void WriteBuildManifest(string output, BuildReport report) {
+    private static void WriteBuildManifest(string output, BuildReport report, string[] buildScenes) {
         var manifest = new BuildManifest {
             unityVersion = Application.unityVersion,
             buildGuid = report.summary.guid.ToString(),
@@ -153,11 +159,11 @@ public static class CranePerformanceBuild {
             projectVersionHash = HashFile("ProjectSettings/ProjectVersion.txt"),
             projectSettingsHash = HashFiles(Directory.GetFiles("ProjectSettings", "*",
                 SearchOption.AllDirectories)),
-            scenes = (string[])Scenes.Clone()
+            scenes = (string[])buildScenes.Clone()
         };
 
         var dependencies = new SortedSet<string>(StringComparer.Ordinal);
-        foreach (string scene in Scenes) {
+        foreach (string scene in buildScenes) {
             foreach (string dependency in AssetDatabase.GetDependencies(scene, true)) {
                 if (dependency.StartsWith("Assets/", StringComparison.Ordinal) && File.Exists(dependency))
                     dependencies.Add(dependency.Replace('\\', '/'));
