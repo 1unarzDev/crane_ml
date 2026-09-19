@@ -16,7 +16,7 @@ class LandNav2FixtureContractTests(unittest.TestCase):
     def test_launcher_selects_the_land_scene_and_graphics_free_profile(self) -> None:
         text = LAUNCHER.read_text(encoding="utf-8")
         shared_text = SHARED_LAUNCHER.read_text(encoding="utf-8")
-        self.assertIn("CRANE_SCENE=\"Land Vehicle Validation\"", text)
+        self.assertIn('CRANE_SCENE="${CRANE_SCENE:-Land Vehicle Validation}"', text)
         self.assertIn("CRANE_NOGRAPHICS=1", text)
         self.assertIn("CRANE_NAV2_PROFILE=train-cpu", text)
         self.assertIn("--crane-profile ${runtime_profile}", shared_text)
@@ -92,6 +92,20 @@ class LandNav2FixtureContractTests(unittest.TestCase):
         clearpath_section = text.split("## Clearpath pipeline offline import", 1)[1]
         command = clearpath_section.split("```bash", 1)[1].split("```", 1)[0]
         self.assertIn("-nographics", command)
+
+    def test_corridor_bootstrap_supports_existing_turtlebot3_differential_scene(self) -> None:
+        bootstrap = (ROOT / "Assets/Scripts/Physics/Land/CraneLandNav2Bootstrap.cs").read_text(
+            encoding="utf-8"
+        )
+        launcher = (ROOT / "Tools/Performance/run_turtlebot3_nav2_fixture.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('"TurtleBot3 Warehouse Validation"', bootstrap)
+        self.assertIn("FindAnyObjectByType<DifferentialDriveDynamics>", bootstrap)
+        self.assertIn("CraneReferenceWarehouse", bootstrap)
+        self.assertIn('CRANE_SCENE="TurtleBot3 Warehouse Validation"', launcher)
+        self.assertIn("--crane-ros-differential-cmd-vel", launcher)
+        self.assertIn("base_scan", launcher)
 
 
 if __name__ == "__main__":

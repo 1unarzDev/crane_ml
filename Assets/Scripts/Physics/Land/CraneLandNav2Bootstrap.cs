@@ -25,6 +25,7 @@ namespace Sim.Physics.Land {
             public double blockerRemovalScheduledSimulationTime = -1d;
             public double blockerRemovalActualSimulationTime = -1d;
             public bool blockerRemoved;
+            public string platform;
             public Vector3 startPosition;
         }
 
@@ -39,12 +40,31 @@ namespace Sim.Physics.Land {
         }
 
         private static void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
-            if (!enabled || !scene.name.Equals("Land Vehicle Validation",
-                    StringComparison.OrdinalIgnoreCase)) return;
-            AckermannRoverDynamics rover = UnityEngine.Object.FindAnyObjectByType<
-                AckermannRoverDynamics>(FindObjectsInactive.Exclude);
-            if (rover == null)
-                throw new MissingReferenceException("Land Nav2 fixture rover is missing.");
+            if (!enabled) return;
+            bool ackermannScene = scene.name.Equals("Land Vehicle Validation",
+                StringComparison.OrdinalIgnoreCase);
+            bool differentialScene = scene.name.Equals("TurtleBot3 Warehouse Validation",
+                StringComparison.OrdinalIgnoreCase);
+            if (!ackermannScene && !differentialScene) return;
+            AckermannRoverDynamics rover = ackermannScene
+                ? UnityEngine.Object.FindAnyObjectByType<AckermannRoverDynamics>(
+                    FindObjectsInactive.Exclude)
+                : null;
+            DifferentialDriveDynamics differential = differentialScene
+                ? UnityEngine.Object.FindAnyObjectByType<DifferentialDriveDynamics>(
+                    FindObjectsInactive.Exclude)
+                : null;
+            if (rover == null && differential == null)
+                throw new MissingReferenceException("Land Nav2 fixture robot is missing.");
+
+            // The TurtleBot3 scene's recognizable warehouse remains the normal reference scene.
+            // Corridor experiments explicitly replace only its generated environment root while
+            // retaining the existing robot, dynamics, sensors, ROS integration, and scene setup.
+            if (differentialScene) {
+                CraneReferenceWarehouse warehouse = UnityEngine.Object.FindAnyObjectByType<
+                    CraneReferenceWarehouse>(FindObjectsInactive.Include);
+                if (warehouse != null) warehouse.gameObject.SetActive(false);
+            }
 
             // This validation scene does not contain the ROSClock object present in the aquatic
             // scenes. Nav2 uses simulated time, so without /clock progress deadlines and timed
@@ -65,15 +85,23 @@ namespace Sim.Physics.Land {
             if (blocker == "partial") blockerWidth = Mathf.Min(blockerWidth, width * 0.55f);
             if (blocker == "full") blockerWidth = width;
 
-            Rigidbody body = rover.GetComponent<Rigidbody>();
-            body.position = new Vector3(0f, 0.65f, 0f);
+            Rigidbody body = rover != null
+                ? rover.GetComponent<Rigidbody>()
+                : differential.GetComponent<Rigidbody>();
+            body.position = new Vector3(0f, differentialScene ? 0.08f : 0.65f, 0f);
             body.rotation = Quaternion.identity;
             body.linearVelocity = Vector3.zero;
             body.angularVelocity = Vector3.zero;
-            rover.ResetActuators();
+            if (rover != null) rover.ResetActuators();
+            else differential.SetCommand(0f, 0f);
 
             const float wallThickness = 0.25f;
             const float wallHeight = 2f;
+            if (differentialScene) {
+                CreateObstacle("Corridor Floor", "corridor-floor", "traversable-floor",
+                    new Vector3(0f, -0.10f, length * 0.5f),
+                    new Vector3(width + 2f, 0.20f, length + 4f));
+            }
             CreateObstacle("Corridor Left Wall", "corridor-wall-left", "boundary-wall",
                 new Vector3(-width * 0.5f - wallThickness * 0.5f, wallHeight * 0.5f,
                     length * 0.5f),
@@ -91,16 +119,18 @@ namespace Sim.Physics.Land {
                     new Vector3(blockerWidth, wallHeight, wallThickness));
             }
 
-            var lidarHost = new GameObject("lidar_link");
-            lidarHost.transform.SetParent(rover.transform, false);
-            lidarHost.transform.localPosition = new Vector3(0f, 0.65f, 0.65f);
-            Type lidarType = Type.GetType("Sim.Sensors.Lidar.Lidar2D, SensorsAssembly", true);
-            Component lidar = lidarHost.AddComponent(lidarType);
-            MethodInfo configure = lidarType.GetMethod("Configure") ??
-                throw new MissingMethodException(lidarType.FullName, "Configure");
-            configure.Invoke(lidar, new object[] {
-                -180f, 180f, 1f, 0.1f, 20f, 180, false, "/scan", "lidar_link", 10f
-            });
+            if (ackermannScene) {
+                var lidarHost = new GameObject("lidar_link");
+                lidarHost.transform.SetParent(rover.transform, false);
+                lidarHost.transform.localPosition = new Vector3(0f, 0.65f, 0.65f);
+                Type lidarType = Type.GetType("Sim.Sensors.Lidar.Lidar2D, SensorsAssembly", true);
+                Component lidar = lidarHost.AddComponent(lidarType);
+                MethodInfo configure = lidarType.GetMethod("Configure") ??
+                    throw new MissingMethodException(lidarType.FullName, "Configure");
+                configure.Invoke(lidar, new object[] {
+                    -180f, 180f, 1f, 0.1f, 20f, 180, false, "/scan", "lidar_link", 10f
+                });
+            }
 
             string truthPath = ReadString("--crane-land-evaluator-output", null);
             var truth = new EvaluatorTruth {
@@ -112,6 +142,8 @@ namespace Sim.Physics.Land {
                 blockerWidth = blocker == "none" ? 0f : blockerWidth,
                 blockerSemanticId = blockerObject == null ? string.Empty : "corridor-blocker",
                 blockerRemovalAfterSeconds = blockerObject == null ? -1f : blockerRemoveAfter,
+                platform = differentialScene ? "turtlebot3-waffle-differential" :
+                    "reference-ackermann-rover",
                 startPosition = body.position
             };
             if (!string.IsNullOrWhiteSpace(truthPath)) {
@@ -132,7 +164,8 @@ namespace Sim.Physics.Land {
                 if (!string.IsNullOrWhiteSpace(truthPath)) WriteTruth(truthPath, truth);
             }
             Debug.Log($"CRANE_LAND_NAV2_READY width={width:R} length={length:R} " +
-                      $"blocker={blocker} blockerRemoveAfter={blockerRemoveAfter:R} lidar=/scan");
+                      $"blocker={blocker} blockerRemoveAfter={blockerRemoveAfter:R} " +
+                      $"platform={truth.platform} lidar=/scan");
         }
 
         private static GameObject CreateObstacle(string name, string semanticId,
