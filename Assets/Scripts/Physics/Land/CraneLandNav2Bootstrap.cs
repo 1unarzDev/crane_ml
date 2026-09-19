@@ -21,6 +21,11 @@ namespace Sim.Physics.Land {
             public float blockerDistance;
             public float blockerWidth;
             public string blockerSemanticId;
+            public bool blockerActiveInitially;
+            public float blockerActivationAfterSeconds = -1f;
+            public double blockerActivationScheduledSimulationTime = -1d;
+            public double blockerActivationActualSimulationTime = -1d;
+            public bool blockerActivated;
             public float blockerRemovalAfterSeconds = -1f;
             public double blockerRemovalScheduledSimulationTime = -1d;
             public double blockerRemovalActualSimulationTime = -1d;
@@ -78,6 +83,7 @@ namespace Sim.Physics.Land {
             float length = ReadFloat("--crane-land-corridor-length", 20f);
             float blockerDistance = ReadFloat("--crane-land-blocker-distance", 6f);
             float blockerWidth = ReadFloat("--crane-land-blocker-width", width);
+            float blockerEnableAfter = ReadFloat("--crane-land-blocker-enable-after", -1f);
             float blockerRemoveAfter = ReadFloat("--crane-land-blocker-remove-after", -1f);
             string blocker = ReadString("--crane-land-blocker", "none").ToLowerInvariant();
             if (blocker != "none" && blocker != "partial" && blocker != "full")
@@ -118,6 +124,10 @@ namespace Sim.Physics.Land {
                     new Vector3(x, wallHeight * 0.5f, blockerDistance),
                     new Vector3(blockerWidth, wallHeight, wallThickness));
             }
+            if (blockerObject == null &&
+                (blockerEnableAfter >= 0f || blockerRemoveAfter >= 0f))
+                throw new ArgumentException(
+                    "Timed blocker intervention requires a non-none blocker mode.");
 
             if (ackermannScene) {
                 var lidarHost = new GameObject("lidar_link");
@@ -141,6 +151,8 @@ namespace Sim.Physics.Land {
                 blockerDistance = blockerDistance,
                 blockerWidth = blocker == "none" ? 0f : blockerWidth,
                 blockerSemanticId = blockerObject == null ? string.Empty : "corridor-blocker",
+                blockerActiveInitially = blockerObject != null && blockerEnableAfter < 0f,
+                blockerActivationAfterSeconds = blockerObject == null ? -1f : blockerEnableAfter,
                 blockerRemovalAfterSeconds = blockerObject == null ? -1f : blockerRemoveAfter,
                 platform = differentialScene ? "turtlebot3-waffle-differential" :
                     "reference-ackermann-rover",
@@ -152,19 +164,28 @@ namespace Sim.Physics.Land {
                 if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
                 WriteTruth(truthPath, truth);
             }
-            if (blockerObject != null && blockerRemoveAfter >= 0f) {
+            if (blockerObject != null &&
+                (blockerEnableAfter >= 0f || blockerRemoveAfter >= 0f)) {
                 var removalHost = new GameObject("CRANE Timed Blocker Intervention");
                 var removal = removalHost.AddComponent<CraneTimedBlockerRemoval>();
-                removal.Configure(blockerObject, blockerRemoveAfter, actualTime => {
-                    truth.blockerRemoved = true;
-                    truth.blockerRemovalActualSimulationTime = actualTime;
-                    if (!string.IsNullOrWhiteSpace(truthPath)) WriteTruth(truthPath, truth);
-                });
+                removal.Configure(blockerObject, blockerEnableAfter, blockerRemoveAfter,
+                    actualTime => {
+                        truth.blockerActivated = true;
+                        truth.blockerActivationActualSimulationTime = actualTime;
+                        if (!string.IsNullOrWhiteSpace(truthPath)) WriteTruth(truthPath, truth);
+                    }, actualTime => {
+                        truth.blockerRemoved = true;
+                        truth.blockerRemovalActualSimulationTime = actualTime;
+                        if (!string.IsNullOrWhiteSpace(truthPath)) WriteTruth(truthPath, truth);
+                    });
+                truth.blockerActivationScheduledSimulationTime =
+                    removal.ScheduledActivationSimulationTime;
                 truth.blockerRemovalScheduledSimulationTime = removal.ScheduledSimulationTime;
                 if (!string.IsNullOrWhiteSpace(truthPath)) WriteTruth(truthPath, truth);
             }
             Debug.Log($"CRANE_LAND_NAV2_READY width={width:R} length={length:R} " +
-                      $"blocker={blocker} blockerRemoveAfter={blockerRemoveAfter:R} " +
+                      $"blocker={blocker} blockerEnableAfter={blockerEnableAfter:R} " +
+                      $"blockerRemoveAfter={blockerRemoveAfter:R} " +
                       $"platform={truth.platform} lidar=/scan");
         }
 

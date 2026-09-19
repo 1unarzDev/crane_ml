@@ -82,8 +82,11 @@ class LandNav2FixtureContractTests(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn('ReadFloat("--crane-land-blocker-remove-after"', bootstrap)
+        self.assertIn('ReadFloat("--crane-land-blocker-enable-after"', bootstrap)
         self.assertIn("Time.fixedTimeAsDouble", removal)
+        self.assertIn("blockerActivationActualSimulationTime", bootstrap)
         self.assertIn("blockerRemovalActualSimulationTime", bootstrap)
+        self.assertIn("target.SetActive(true)", removal)
         self.assertIn("target.SetActive(false)", removal)
         self.assertIn('"corridor-blocker"', bootstrap)
 
