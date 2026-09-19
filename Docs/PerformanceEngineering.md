@@ -264,6 +264,7 @@ Useful arguments:
 | `--crane-replay PATH` | Play an authoritative episode without live vehicle dynamics/controllers |
 | `--crane-land-validation` | Run the standalone Ackermann dynamics checks and exit with their result |
 | `--crane-aerial-validation` | Run the standalone multirotor dynamics checks and exit with their result |
+| `--crane-aerial-scene NAME` | Select the built aerial scene for that validator; use `PX4 Walls Validation` for the reference benchmark |
 | `--crane-fixture contact-heavy` | Add a deterministic 144-body contact fixture |
 | `--crane-contact-fixture-legacy-layers` | Benchmark that fixture on Default instead of classified layers for matched A/B tests |
 | `--crane-collision-validation` | Run matrix/contact/trigger/query coverage and exit with its result |
@@ -533,6 +534,12 @@ returned 782 telemetry packets at a 1.997× simulated clock rate, produced 2.768
 and sustained 2.000× worker RTF. This validates direct protocol-to-plant actuation, but the model
 remains unvalidated against a named real airframe or a real flight-controller process; ground
 effect and rotor/propeller aerodynamic lookup data are absent.
+
+The same validator can load `PX4 Walls Validation` with `--crane-aerial-scene`. Its 2026-09-19
+headless run verified all four source-derived box transforms, resolved `wall-box-01` at exactly
+4.5 m through a physics ray query, stopped the rigid body at the authoritative wall collider, and
+retained all aerial dynamics verdicts. This establishes scene geometry/contact/query integration,
+not PX4 SITL or Gazebo dynamics equivalence.
 
 Collision ownership is explicit in fixtures and both production aquatic scenes. `Collision Validation` proves
 Vehicle↔Environment hull/dock contact, Vehicle↔DynamicObstacle transfer, a 40 m/s CCD thin-barrier

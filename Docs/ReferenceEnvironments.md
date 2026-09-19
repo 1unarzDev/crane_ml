@@ -34,10 +34,34 @@ python3 Tools/ReferenceEnvironments/f1tenth_map_generator.py \
 Third-party maps remain external inputs. The official racetrack collection is GPL-3.0 and has
 additional layout-provenance concerns, so no track data is committed by default.
 
+## PX4 x500-class walls
+
+`PX4 Walls Validation` reconstructs the four primitive boxes in PX4-gazebo-models
+`worlds/walls.sdf` at pinned commit `bb0b9cf974acf4f1bcb5f5fcf80b88841562dea9`.
+Gazebo ENU `(x,y,z)` is mapped explicitly to Unity `(x,z,y)`. Each source box remains a separate
+canonical `BoxCollider` with a semantic ID; presentation cubes have no colliders. The source's
+infinite ground plane is represented by a documented 100 m square test envelope matching its
+visual extent.
+
+The vehicle is an x500-class semantic/reference platform using CRANE's already validated
+`MultirotorDynamics`. It is not a claim of PX4 SITL, actuator, or Gazebo dynamics equivalence.
+Exact source hash, conversion, and collision contract are retained in
+`Assets/Resources/ReferenceEnvironments/px4_gazebo_walls.json`.
+
+The headless validation checks exact collider transforms, ray-query resolution to the expected
+semantic wall ID, rigid-body contact against that wall, and the normal aerial dynamics suite.
+
+```bash
+./Builds/CRANE-Worker/CRANE.x86_64 -batchmode -nographics \
+  --crane-aerial-validation --crane-aerial-scene "PX4 Walls Validation" \
+  --crane-output /tmp/crane-px4-walls-validation.json
+```
+
 ## Status
 
 - TurtleBot3 warehouse: **IMPLEMENTED / TESTED** headless and with Nav2.
 - F1TENTH conversion: **IMPLEMENTED / TESTED** on a synthetic fixture; external tracks **NOT_RUN**.
-- PX4 walls/ArUco/wind: **NOT_RUN**.
+- PX4 walls: **IMPLEMENTED / TESTED** headlessly; ArUco scenario: **NOT_RUN**. Wind response is
+  tested through CRANE dynamics, but the pinned upstream `windy.sdf` scenario is **NOT_RUN**.
 - Clearpath conversion: **DEFERRED** until native formats are healthy.
 - AWSIM/Flightmare: design references; asset reuse **DEFERRED** pending per-asset terms.

@@ -1,0 +1,31 @@
+{
+  "schema": "crane-reference-environment-v1",
+  "environmentId": "px4-gazebo-walls-bb0b9cf-v1",
+  "upstream": [
+    {
+      "project": "PX4/PX4-gazebo-models",
+      "commit": "bb0b9cf974acf4f1bcb5f5fcf80b88841562dea9",
+      "path": "worlds/walls.sdf",
+      "sha256": "aad581c1a9c78ef81354401d89285f2dbd27462f1054137f3e0572cecd9d38a9",
+      "license": "BSD-3-Clause",
+      "use": "primitive wall poses, sizes, and benchmark identity"
+    }
+  ],
+  "canonical": {
+    "generator": "Sim.Physics.Aerial.CraneReferencePx4Walls",
+    "coordinateConversion": "Gazebo ENU (x,y,z) to Unity (x,z,y)",
+    "collisionSource": "four source SDF box collisions plus a documented finite ground-plane approximation",
+    "groundApproximationMeters": [100.0, 100.0],
+    "sourceGroundCollision": "infinite SDF plane",
+    "wallCount": 4
+  },
+  "robot": {
+    "platform": "PX4 x500-class",
+    "physics": "CRANE MultirotorDynamics; not a PX4 SITL or Gazebo dynamics equivalence claim"
+  },
+  "layers": {
+    "canonicalGeometry": "authoritative BoxColliders and semantic IDs",
+    "simulationSemantics": "CRANE rigid-body multirotor dynamics and deterministic test commands",
+    "visualPresentation": "non-colliding replaceable primitive visuals"
+  }
+}

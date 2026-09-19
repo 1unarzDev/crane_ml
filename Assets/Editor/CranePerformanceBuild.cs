@@ -42,6 +42,7 @@ public static class CranePerformanceBuild {
         "Assets/Scenes/Land Vehicle Validation.unity",
         "Assets/Scenes/TurtleBot3 Warehouse Validation.unity",
         "Assets/Scenes/Aerial Vehicle Validation.unity",
+        "Assets/Scenes/PX4 Walls Validation.unity",
         "Assets/Scenes/Collision Validation.unity"
     };
 
@@ -319,6 +320,32 @@ public static class CranePerformanceBuild {
         EditorSceneManager.SaveScene(scene, scenePath);
         AssetDatabase.SaveAssets();
         Debug.Log($"CRANE_AERIAL_SCENE_CREATED {scenePath}");
+    }
+
+    public static void CreatePx4WallsScene() {
+        const string source = "Assets/Scenes/Aerial Vehicle Validation.unity";
+        const string output = "Assets/Scenes/PX4 Walls Validation.unity";
+        Scene scene = EditorSceneManager.OpenScene(source, OpenSceneMode.Single);
+        foreach (Collider collider in UnityEngine.Object.FindObjectsByType<Collider>(
+                     FindObjectsInactive.Include)) {
+            if (collider.gameObject.name.Contains("Ground", StringComparison.OrdinalIgnoreCase))
+                UnityEngine.Object.DestroyImmediate(collider.gameObject);
+        }
+
+        var environment = new GameObject("PX4 Walls Reference Environment");
+        var reference = environment.AddComponent<CraneReferencePx4Walls>();
+        reference.Configure(true);
+        reference.Generate();
+
+        MultirotorDynamics multirotor = UnityEngine.Object.FindAnyObjectByType<MultirotorDynamics>();
+        if (multirotor == null) throw new MissingReferenceException("Aerial multirotor is missing.");
+        multirotor.gameObject.name = "PX4 x500-class Reference";
+        multirotor.gameObject.AddComponent<CraneSemanticIdentity>().Configure("robot-px4-x500-class",
+            "aerial-mobile-robot", CraneReferencePx4Walls.EnvironmentId);
+
+        EditorSceneManager.SaveScene(scene, output);
+        AssetDatabase.SaveAssets();
+        Debug.Log($"CRANE_REFERENCE_SCENE_CREATED path={output}");
     }
 
     public static void CreateCollisionValidationScene() {

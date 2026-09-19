@@ -9,6 +9,14 @@ namespace Sim.Physics.Aerial {
     [Serializable]
     internal sealed class AerialValidationResult {
         public string schema = "crane-aerial-validation-v1";
+        public string scene;
+        public string referenceEnvironmentId;
+        public int referenceWallCount;
+        public bool referenceGeometryValid;
+        public float referenceRaycastDistance;
+        public float referenceCollisionStopX;
+        public bool referenceRaycastValid;
+        public bool referenceCollisionValid;
         public string unityVersion;
         public float fixedDeltaTime;
         public float hoverMotorSpeed;
@@ -50,8 +58,10 @@ namespace Sim.Physics.Aerial {
             string[] args = Environment.GetCommandLineArgs();
             outputPath = ReadArgument(args, "--crane-output") ??
                 Path.Combine(Application.persistentDataPath, "crane-aerial-validation.json");
-            if (SceneManager.GetActiveScene().name != "Aerial Vehicle Validation") {
-                AsyncOperation load = SceneManager.LoadSceneAsync("Aerial Vehicle Validation", LoadSceneMode.Single);
+            string requestedScene = ReadArgument(args, "--crane-aerial-scene") ??
+                "Aerial Vehicle Validation";
+            if (SceneManager.GetActiveScene().name != requestedScene) {
+                AsyncOperation load = SceneManager.LoadSceneAsync(requestedScene, LoadSceneMode.Single);
                 while (load != null && !load.isDone) yield return null;
             }
             multirotor = FindAnyObjectByType<MultirotorDynamics>();
@@ -64,8 +74,19 @@ namespace Sim.Physics.Aerial {
             var result = new AerialValidationResult {
                 unityVersion = Application.unityVersion,
                 fixedDeltaTime = Time.fixedDeltaTime,
-                hoverMotorSpeed = multirotor.HoverMotorSpeed
+                hoverMotorSpeed = multirotor.HoverMotorSpeed,
+                scene = SceneManager.GetActiveScene().name,
+                referenceGeometryValid = true
             };
+            CraneReferencePx4Walls reference = FindAnyObjectByType<CraneReferencePx4Walls>();
+            if (reference != null) {
+                result.referenceEnvironmentId = CraneReferencePx4Walls.EnvironmentId;
+                result.referenceWallCount = 4;
+                result.referenceGeometryValid = reference.ValidateCanonicalGeometry(out string message);
+                if (!result.referenceGeometryValid)
+                    Debug.LogError($"CRANE_REFERENCE_GEOMETRY_INVALID {message}");
+                result.referenceRaycastValid = ValidatePx4WallRaycast(result);
+            }
 
             ResetPose(new Vector3(0f, 5f, 0f), Quaternion.identity, result.hoverMotorSpeed);
             float hoverStart = body.position.y;
@@ -96,6 +117,18 @@ namespace Sim.Physics.Aerial {
             result.windDisplacement = Mathf.Abs(body.position.x - windStart.x);
             multirotor.SetWind(Vector3.zero, Vector3.zero);
 
+            if (reference != null) {
+                ResetPose(new Vector3(3.5f, 5f, 0f), Quaternion.identity,
+                    result.hoverMotorSpeed);
+                body.linearVelocity = new Vector3(4f, 0f, 0f);
+                yield return FixedSeconds(0.8f);
+                result.referenceCollisionStopX = body.position.x;
+                result.referenceCollisionValid = body.position.x < 4.35f;
+            } else {
+                result.referenceRaycastValid = true;
+                result.referenceCollisionValid = true;
+            }
+
             ResetPose(new Vector3(0f, 1.5f, 0f), Quaternion.identity, 0f);
             multirotor.SetCommand(0f, 0f, 0f, 0f);
             yield return FixedSeconds(2f);
@@ -119,7 +152,9 @@ namespace Sim.Physics.Aerial {
             result.saturationValid = result.saturatedMotorSpeed > 0.99f &&
                 result.saturatedMotorSpeed <= 1f;
             result.valid = result.hoverValid && result.verticalValid && result.attitudeValid &&
-                result.windValid && result.landingValid && result.saturationValid;
+                result.windValid && result.landingValid && result.saturationValid &&
+                result.referenceGeometryValid && result.referenceRaycastValid &&
+                result.referenceCollisionValid;
 
             string directory = Path.GetDirectoryName(outputPath);
             if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
@@ -139,6 +174,16 @@ namespace Sim.Physics.Aerial {
             if (commandAxis == 1) result.rollAngularSpeed = response;
             else if (commandAxis == 2) result.pitchAngularSpeed = response;
             else result.yawAngularSpeed = response;
+        }
+
+        private static bool ValidatePx4WallRaycast(AerialValidationResult result) {
+            if (!UnityEngine.Physics.Raycast(new Vector3(0f, 5f, 0f), Vector3.right,
+                    out RaycastHit hit, 20f)) return false;
+            result.referenceRaycastDistance = hit.distance;
+            var identity = hit.collider.GetComponent<
+                Sim.Utils.ReferenceEnvironments.CraneSemanticIdentity>();
+            return identity != null && identity.SemanticId == "wall-box-01" &&
+                Mathf.Abs(hit.distance - 4.5f) < 0.001f;
         }
 
         private void ResetPose(Vector3 position, Quaternion rotation, float motorSpeed) {
