@@ -60,6 +60,13 @@ class LandNav2FixtureContractTests(unittest.TestCase):
         self.assertIn("Behavior tree XML must be inside the CRANE repository", text)
         self.assertIn("default_nav_to_pose_bt_xml", text)
 
+    def test_identity_is_republished_at_the_accepted_goal_boundary(self) -> None:
+        text = FIXTURE.read_text(encoding="utf-8")
+        self.assertIn("def publish_identity(self, reason)", text)
+        self.assertIn("self.publish_identity('initial_observation')", text)
+        self.assertIn("self.publish_identity('accepted_goal_republication')", text)
+        self.assertIn("delivered_to_fixture_not_proven_consumed_by_nav2", text)
+
     def test_land_bootstrap_provides_simulated_clock_for_nav2(self) -> None:
         text = (ROOT / "Assets/Scripts/Physics/Land/CraneLandNav2Bootstrap.cs").read_text(
             encoding="utf-8"

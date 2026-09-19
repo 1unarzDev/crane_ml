@@ -87,20 +87,29 @@ class FollowPathFixture(Node):
         self.odom_count += 1
         if self.initial_odom is None:
             self.initial_odom = message
-            self.publish_event({
-                'type': 'crane_identity',
-                'episode_id': self.args.episode_id,
-                'run_id': self.args.run_id,
-            })
-            self.publish_event({
-                'type': 'observation_identity',
-                'observation': 'initial_odometry',
-                'topic': self.args.odom_topic,
-                'stamp': stamp_dict(message.header.stamp),
-                'frame_id': message.header.frame_id,
-                'child_frame_id': message.child_frame_id,
-                'consumption_status': 'delivered_to_fixture_not_proven_consumed_by_nav2',
-            })
+            self.publish_identity('initial_observation')
+
+    def publish_identity(self, reason):
+        """Republish bounded identity facts so late DDS discovery does not erase provenance."""
+        if self.initial_odom is None:
+            return
+        message = self.initial_odom
+        self.publish_event({
+            'type': 'crane_identity',
+            'episode_id': self.args.episode_id,
+            'run_id': self.args.run_id,
+            'publication_reason': reason,
+        })
+        self.publish_event({
+            'type': 'observation_identity',
+            'observation': 'initial_odometry',
+            'topic': self.args.odom_topic,
+            'stamp': stamp_dict(message.header.stamp),
+            'frame_id': message.header.frame_id,
+            'child_frame_id': message.child_frame_id,
+            'consumption_status': 'delivered_to_fixture_not_proven_consumed_by_nav2',
+            'publication_reason': reason,
+        })
 
     def publish_event(self, event):
         event['wall_time_ns'] = time.time_ns()
@@ -228,6 +237,9 @@ class FollowPathFixture(Node):
             self.goal_sent_wall = None
             self.next_goal_attempt_wall = time.monotonic() + 0.5
             return
+        # The harness topic is volatile. Repeat identity after action discovery so a capture node
+        # that joined during fixture startup still receives the episode/observation boundary.
+        self.publish_identity('accepted_goal_republication')
         self.publish_event({
             'type': 'navigate_to_pose_goal',
             'action_name': self.action_name,
