@@ -67,6 +67,13 @@ class LandNav2FixtureContractTests(unittest.TestCase):
         self.assertIn("self.publish_identity('accepted_goal_republication')", text)
         self.assertIn("delivered_to_fixture_not_proven_consumed_by_nav2", text)
 
+    def test_harness_boundary_events_survive_dds_discovery(self) -> None:
+        text = FIXTURE.read_text(encoding="utf-8")
+        harness_section = text.split("harness_qos = QoSProfile(", 1)[1].split(")", 1)[0]
+        self.assertIn("ReliabilityPolicy.RELIABLE", harness_section)
+        self.assertIn("DurabilityPolicy.TRANSIENT_LOCAL", harness_section)
+        self.assertIn("depth=20", harness_section)
+
     def test_land_bootstrap_provides_simulated_clock_for_nav2(self) -> None:
         text = (ROOT / "Assets/Scripts/Physics/Land/CraneLandNav2Bootstrap.cs").read_text(
             encoding="utf-8"

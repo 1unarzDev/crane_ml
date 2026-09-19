@@ -57,7 +57,14 @@ class FollowPathFixture(Node):
         self.goal_description = None
         self.publisher = self.create_publisher(
             TwistStamped, args.output_topic, 10)
-        self.harness_publisher = self.create_publisher(String, args.harness_topic, 10)
+        harness_qos = QoSProfile(
+            history=HistoryPolicy.KEEP_LAST,
+            depth=20,
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+        )
+        self.harness_publisher = self.create_publisher(
+            String, args.harness_topic, harness_qos)
         self.create_subscription(Odometry, args.odom_topic, self.on_odom, 20)
         costmap_qos = QoSProfile(
             history=HistoryPolicy.KEEP_LAST,
