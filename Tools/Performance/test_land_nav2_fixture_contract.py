@@ -110,6 +110,22 @@ class LandNav2FixtureContractTests(unittest.TestCase):
         self.assertIn("--crane-ros-differential-cmd-vel", launcher)
         self.assertIn("base_scan", launcher)
 
+    def test_mobility_hold_is_fixed_time_and_evaluator_owned(self) -> None:
+        bootstrap = (ROOT / "Assets/Scripts/Physics/Land/CraneLandNav2Bootstrap.cs").read_text(
+            encoding="utf-8"
+        )
+        hold = (ROOT / "Assets/Scripts/Physics/Land/CraneTimedMobilityHold.cs").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('ReadFloat("--crane-land-mobility-hold-after"', bootstrap)
+        self.assertIn('ReadFloat("--crane-land-mobility-release-after"', bootstrap)
+        self.assertIn("mobilityHoldActualSimulationTime", bootstrap)
+        self.assertIn("mobilityReleaseActualSimulationTime", bootstrap)
+        self.assertIn("Time.fixedTimeAsDouble", hold)
+        self.assertIn("RigidbodyConstraints.FreezePositionX", hold)
+        self.assertIn("RigidbodyConstraints.FreezePositionZ", hold)
+        self.assertIn("target.constraints = originalConstraints", hold)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -30,6 +30,14 @@ namespace Sim.Physics.Land {
             public double blockerRemovalScheduledSimulationTime = -1d;
             public double blockerRemovalActualSimulationTime = -1d;
             public bool blockerRemoved;
+            public float mobilityHoldAfterSeconds = -1f;
+            public float mobilityReleaseAfterSeconds = -1f;
+            public double mobilityHoldScheduledSimulationTime = -1d;
+            public double mobilityHoldActualSimulationTime = -1d;
+            public double mobilityReleaseScheduledSimulationTime = -1d;
+            public double mobilityReleaseActualSimulationTime = -1d;
+            public bool mobilityHeld;
+            public bool mobilityReleased;
             public string platform;
             public Vector3 startPosition;
         }
@@ -85,6 +93,8 @@ namespace Sim.Physics.Land {
             float blockerWidth = ReadFloat("--crane-land-blocker-width", width);
             float blockerEnableAfter = ReadFloat("--crane-land-blocker-enable-after", -1f);
             float blockerRemoveAfter = ReadFloat("--crane-land-blocker-remove-after", -1f);
+            float mobilityHoldAfter = ReadFloat("--crane-land-mobility-hold-after", -1f);
+            float mobilityReleaseAfter = ReadFloat("--crane-land-mobility-release-after", -1f);
             string blocker = ReadString("--crane-land-blocker", "none").ToLowerInvariant();
             if (blocker != "none" && blocker != "partial" && blocker != "full")
                 throw new ArgumentException($"Unknown land blocker mode '{blocker}'.");
@@ -154,6 +164,8 @@ namespace Sim.Physics.Land {
                 blockerActiveInitially = blockerObject != null && blockerEnableAfter < 0f,
                 blockerActivationAfterSeconds = blockerObject == null ? -1f : blockerEnableAfter,
                 blockerRemovalAfterSeconds = blockerObject == null ? -1f : blockerRemoveAfter,
+                mobilityHoldAfterSeconds = mobilityHoldAfter,
+                mobilityReleaseAfterSeconds = mobilityReleaseAfter,
                 platform = differentialScene ? "turtlebot3-waffle-differential" :
                     "reference-ackermann-rover",
                 startPosition = body.position
@@ -183,9 +195,33 @@ namespace Sim.Physics.Land {
                 truth.blockerRemovalScheduledSimulationTime = removal.ScheduledSimulationTime;
                 if (!string.IsNullOrWhiteSpace(truthPath)) WriteTruth(truthPath, truth);
             }
+            if ((mobilityHoldAfter >= 0f) != (mobilityReleaseAfter >= 0f))
+                throw new ArgumentException(
+                    "Mobility hold and release boundaries must be configured together.");
+            if (mobilityHoldAfter >= 0f) {
+                var mobilityHost = new GameObject("CRANE Timed Mobility Hold");
+                var mobility = mobilityHost.AddComponent<CraneTimedMobilityHold>();
+                mobility.Configure(body, mobilityHoldAfter, mobilityReleaseAfter,
+                    actualTime => {
+                        truth.mobilityHeld = true;
+                        truth.mobilityHoldActualSimulationTime = actualTime;
+                        if (!string.IsNullOrWhiteSpace(truthPath)) WriteTruth(truthPath, truth);
+                    }, actualTime => {
+                        truth.mobilityReleased = true;
+                        truth.mobilityReleaseActualSimulationTime = actualTime;
+                        if (!string.IsNullOrWhiteSpace(truthPath)) WriteTruth(truthPath, truth);
+                    });
+                truth.mobilityHoldScheduledSimulationTime =
+                    mobility.ScheduledHoldSimulationTime;
+                truth.mobilityReleaseScheduledSimulationTime =
+                    mobility.ScheduledReleaseSimulationTime;
+                if (!string.IsNullOrWhiteSpace(truthPath)) WriteTruth(truthPath, truth);
+            }
             Debug.Log($"CRANE_LAND_NAV2_READY width={width:R} length={length:R} " +
                       $"blocker={blocker} blockerEnableAfter={blockerEnableAfter:R} " +
                       $"blockerRemoveAfter={blockerRemoveAfter:R} " +
+                      $"mobilityHoldAfter={mobilityHoldAfter:R} " +
+                      $"mobilityReleaseAfter={mobilityReleaseAfter:R} " +
                       $"platform={truth.platform} lidar=/scan");
         }
 
