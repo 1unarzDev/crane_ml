@@ -10,6 +10,11 @@ and must not be substituted for these CPU fixtures.
 See [Reference environments](ReferenceEnvironments.md) for provenance, semantic IDs, layer
 separation, and current validation status.
 
+Generated reference scenes are not necessarily at build index zero. For graphics-free playback,
+pass both `--crane-profile train-cpu` and `--crane-scene "SCENE NAME"`; otherwise the player
+starts in the aquatic build scene and correctly rejects the strict CPU profile. The reference
+validator is itself an external scene loader and must not independently reload the requested scene.
+
 This document records the measured state of the Unity `6000.5.10f1` / HDRP `17.5.0`
 checkout. Repository metadata that names older releases is not authoritative.
 

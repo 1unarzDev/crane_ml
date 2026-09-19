@@ -14,6 +14,7 @@ namespace Sim.Utils.ReferenceEnvironments {
         public string manifestSha256;
         public string sourceVersion;
         public int sourceObjectCount;
+        public int canonicalColliderCount;
         public int meshColliderCount;
         public int visualRendererCount;
         public int lidarCount;
@@ -33,6 +34,18 @@ namespace Sim.Utils.ReferenceEnvironments {
         public bool boundsValid;
         public bool raycastValid;
         public bool collisionValid;
+        public bool semanticSensorRayApplicable;
+        public bool semanticSensorRayValid;
+        public string semanticSensorRayId;
+        public float semanticSensorRayDistance;
+        public bool ackermannDynamicsApplicable;
+        public int ackermannGroundedWheels;
+        public float ackermannDriveDisplacement;
+        public float ackermannTurnDegrees;
+        public float ackermannUpAlignment;
+        public float ackermannBodyHeight;
+        public float ackermannVerticalSpeed;
+        public bool ackermannDynamicsValid;
         public bool valid;
     }
 
@@ -67,8 +80,8 @@ namespace Sim.Utils.ReferenceEnvironments {
                 throw new MissingReferenceException("Imported reference environment marker missing.");
             Transform canonical = environment.transform.Find("CanonicalGeometry");
             Transform visual = environment.transform.Find("VisualPresentation");
-            MeshCollider[] colliders = canonical == null ? Array.Empty<MeshCollider>() :
-                canonical.GetComponentsInChildren<MeshCollider>(true);
+            Collider[] colliders = canonical == null ? Array.Empty<Collider>() :
+                canonical.GetComponentsInChildren<Collider>(true);
             Renderer[] canonicalRenderers = canonical == null ? Array.Empty<Renderer>() :
                 canonical.GetComponentsInChildren<Renderer>(true);
             Renderer[] visualRenderers = visual == null ? Array.Empty<Renderer>() :
@@ -81,7 +94,8 @@ namespace Sim.Utils.ReferenceEnvironments {
                 manifestSha256 = environment.ManifestSha256,
                 sourceVersion = environment.SourceVersion,
                 sourceObjectCount = environment.SourceObjectCount,
-                meshColliderCount = colliders.Length,
+                canonicalColliderCount = colliders.Length,
+                meshColliderCount = colliders.Count(value => value is MeshCollider),
                 visualRendererCount = visualRenderers.Length,
                 lidarCount = FindObjectsByType<MonoBehaviour>(FindObjectsInactive.Include,
                     FindObjectsSortMode.None).Count(value =>
@@ -94,7 +108,7 @@ namespace Sim.Utils.ReferenceEnvironments {
 
             if (colliders.Length > 0) {
                 Bounds bounds = colliders[0].bounds;
-                foreach (MeshCollider collider in colliders.Skip(1)) bounds.Encapsulate(collider.bounds);
+                foreach (Collider collider in colliders.Skip(1)) bounds.Encapsulate(collider.bounds);
                 result.boundsMinX = bounds.min.x;
                 result.boundsMinY = bounds.min.y;
                 result.boundsMinZ = bounds.min.z;
@@ -128,8 +142,63 @@ namespace Sim.Utils.ReferenceEnvironments {
                     }
                 }
             }
+            MonoBehaviour lidar = FindObjectsByType<MonoBehaviour>(FindObjectsInactive.Exclude,
+                FindObjectsSortMode.None).FirstOrDefault(value =>
+                value.GetType().FullName == "Sim.Sensors.Lidar.Lidar2D");
+            result.semanticSensorRayApplicable = lidar != null;
+            if (lidar != null)
+                result.semanticSensorRayValid = FindSemanticSensorHit(lidar.transform,
+                    out result.semanticSensorRayId, out result.semanticSensorRayDistance);
+
+            MonoBehaviour ackermann = FindObjectsByType<MonoBehaviour>(FindObjectsInactive.Exclude,
+                FindObjectsSortMode.None).FirstOrDefault(value =>
+                value.GetType().FullName == "Sim.Physics.Land.AckermannRoverDynamics");
+            result.ackermannDynamicsApplicable = ackermann != null;
+            if (ackermann != null) {
+                Rigidbody robotBody = ackermann.GetComponent<Rigidbody>();
+                System.Reflection.MethodInfo setCommand = ackermann.GetType().GetMethod("SetCommand") ??
+                    throw new MissingMethodException(ackermann.GetType().FullName, "SetCommand");
+                System.Reflection.PropertyInfo groundedWheels = ackermann.GetType().GetProperty(
+                    "GroundedWheelCount") ?? throw new MissingMemberException(
+                    ackermann.GetType().FullName, "GroundedWheelCount");
+                setCommand.Invoke(ackermann, new object[] { 0f, 0f, 1f });
+                for (int i = 0; i < 25; i++) {
+                    yield return new WaitForFixedUpdate();
+                    result.ackermannGroundedWheels = Mathf.Max(result.ackermannGroundedWheels,
+                        (int)groundedWheels.GetValue(ackermann));
+                }
+                Vector3 driveStart = robotBody.position;
+                setCommand.Invoke(ackermann, new object[] { 0.30f, 0f, 0f });
+                for (int i = 0; i < 50; i++) {
+                    yield return new WaitForFixedUpdate();
+                    result.ackermannGroundedWheels = Mathf.Max(result.ackermannGroundedWheels,
+                        (int)groundedWheels.GetValue(ackermann));
+                }
+                result.ackermannDriveDisplacement = Vector2.Distance(
+                    new Vector2(driveStart.x, driveStart.z),
+                    new Vector2(robotBody.position.x, robotBody.position.z));
+                Quaternion turnStart = robotBody.rotation;
+                setCommand.Invoke(ackermann, new object[] { 0.20f, 0.5f, 0f });
+                for (int i = 0; i < 35; i++) {
+                    yield return new WaitForFixedUpdate();
+                    result.ackermannGroundedWheels = Mathf.Max(result.ackermannGroundedWheels,
+                        (int)groundedWheels.GetValue(ackermann));
+                }
+                setCommand.Invoke(ackermann, new object[] { 0f, 0f, 1f });
+                result.ackermannTurnDegrees = Quaternion.Angle(turnStart, robotBody.rotation);
+                result.ackermannUpAlignment = Vector3.Dot(robotBody.rotation * Vector3.up,
+                    Vector3.up);
+                result.ackermannBodyHeight = robotBody.position.y;
+                result.ackermannVerticalSpeed = robotBody.linearVelocity.y;
+                result.ackermannDynamicsValid = result.ackermannDriveDisplacement > 0.02f &&
+                    result.ackermannTurnDegrees > 0.25f && result.ackermannGroundedWheels >= 3 &&
+                    result.ackermannUpAlignment > 0.95f;
+            }
+
             result.valid = result.layersValid && result.boundsValid && result.raycastValid &&
-                result.collisionValid;
+                result.collisionValid &&
+                (!result.semanticSensorRayApplicable || result.semanticSensorRayValid) &&
+                (!result.ackermannDynamicsApplicable || result.ackermannDynamicsValid);
             string directory = Path.GetDirectoryName(outputPath);
             if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
             File.WriteAllText(outputPath, JsonUtility.ToJson(result, true));
@@ -150,6 +219,24 @@ namespace Sim.Utils.ReferenceEnvironments {
                 }
             }
             hit = default;
+            return false;
+        }
+
+        private static bool FindSemanticSensorHit(Transform sensor, out string semanticId,
+            out float distance) {
+            int mask = 1 << LayerMask.NameToLayer("Environment");
+            for (int angle = 0; angle < 360; angle += 5) {
+                Vector3 direction = Quaternion.Euler(0f, angle, 0f) * sensor.forward;
+                if (!UnityEngine.Physics.Raycast(sensor.position, direction, out RaycastHit hit,
+                        30f, mask, QueryTriggerInteraction.Ignore)) continue;
+                CraneSemanticIdentity identity = hit.collider.GetComponentInParent<CraneSemanticIdentity>();
+                if (identity == null || identity.SemanticRole == "drivable-track-floor") continue;
+                semanticId = identity.SemanticId;
+                distance = hit.distance;
+                return !string.IsNullOrWhiteSpace(semanticId);
+            }
+            semanticId = string.Empty;
+            distance = 0f;
             return false;
         }
 

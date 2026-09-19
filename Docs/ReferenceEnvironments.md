@@ -23,16 +23,36 @@ or explanation fidelity.
 ## F1TENTH occupancy maps
 
 `Tools/ReferenceEnvironments/f1tenth_map_generator.py` reads standard PNG/YAML maps, applies the
-ROS bottom-left origin and YAML yaw, extracts occupied-cell boundaries, merges collinear edges,
-and emits deterministic Unity-ready collider descriptors with semantic IDs and source hashes.
+ROS bottom-left origin and YAML yaw, traces occupied-cell contours, simplifies them at an explicit
+metric tolerance, and emits deterministic Unity-ready collider descriptors with semantic IDs and
+source hashes. An optional centerline CSV supplies a reproducible start pose; it does not replace
+the occupancy map as the collision authority. `CraneF1TenthMapImport` constructs separate primitive
+collision and presentation layers plus a planar F1TENTH-class Ackermann body and 270-degree LiDAR.
 
 ```bash
 python3 Tools/ReferenceEnvironments/f1tenth_map_generator.py \
-  /path/to/map.yaml --output /tmp/map.canonical.json
+  /path/to/map.yaml --centerline /path/to/centerline.csv \
+  --environment-id f1tenth-example-v1 --upstream-project owner/repository \
+  --upstream-version COMMIT --output /tmp/map.canonical.json
+
+unity run . --editor-version 6000.5.10f1 -- \
+  -nographics -executeMethod CraneF1TenthMapImport.CreateScene \
+  --crane-f1tenth-manifest /tmp/map.canonical.json \
+  --crane-f1tenth-output-scene \
+    "Assets/Generated/ReferenceEnvironments/example/F1TENTH Example Validation.unity"
 ```
 
 Third-party maps remain external inputs. The official racetrack collection is GPL-3.0 and has
-additional layout-provenance concerns, so no track data is committed by default.
+additional layout-provenance concerns, so no track data is committed by default. The 2026-09-19
+proof used `f1tenth/f1tenth_racetracks` Spielberg at commit
+`b95c4eff766f6367d66b310ea20cd2c9563712c0`. A 0.10 m tolerance reduced 29,200 raster boundary
+edges to 290 canonical wall boxes across four closed contours. Two null-graphics runs were
+byte-identical. The validator found 291 canonical colliders, 291 non-colliding visual renderers,
+one LiDAR, a semantic horizontal ray hit on `track-wall-c0003-s0012`, four grounded wheels,
+0.295 m planar drive displacement, and 5.388 degrees of steering response. The track body freezes
+roll and pitch because the source occupancy benchmark is planar; this is not vehicle-dynamics
+equivalence with F1TENTH Gym or hardware. Full-lap control, ROS transport, centerline adherence,
+and comparison of simplified wall positions against the source simulator are **NOT_RUN**.
 
 ## PX4 x500-class walls
 
@@ -116,7 +136,8 @@ corridor-width checks, native Gazebo comparison, and high-fidelity material matc
 ## Status
 
 - TurtleBot3 warehouse: **IMPLEMENTED / TESTED** headless and with Nav2.
-- F1TENTH conversion: **IMPLEMENTED / TESTED** on a synthetic fixture; external tracks **NOT_RUN**.
+- F1TENTH conversion and Unity import: **IMPLEMENTED / TESTED** on synthetic fixtures and the
+  pinned external Spielberg map; full-lap controller/ROS validation **NOT_RUN**.
 - PX4 walls: **IMPLEMENTED / TESTED** headlessly; ArUco: **IMPLEMENTED / TESTED** for layer
   separation, camera detection **NOT_RUN**; windy: **IMPLEMENTED / TESTED** for deterministic
   directional response, physical calibration **NOT_RUN**.

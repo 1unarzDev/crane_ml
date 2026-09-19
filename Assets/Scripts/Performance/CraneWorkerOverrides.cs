@@ -44,6 +44,7 @@ namespace Sim.Performance {
                 args.Contains("--crane-land-validation") ||
                 args.Contains("--crane-aerial-validation") ||
                 args.Contains("--crane-collision-validation") ||
+                args.Contains("--crane-reference-validation") ||
                 args.Contains("--crane-in-place-reset-validation") ||
                 args.Contains("--crane-replay");
             runtimeOptions = CraneRuntimeOptions.Parse(args);
