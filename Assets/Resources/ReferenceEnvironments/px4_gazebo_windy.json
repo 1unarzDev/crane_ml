@@ -1,0 +1,22 @@
+{
+  "schema": "crane-reference-environment-v1",
+  "environmentId": "px4-gazebo-windy-bb0b9cf-v1",
+  "upstream": [
+    {
+      "project": "PX4/PX4-gazebo-models",
+      "commit": "bb0b9cf974acf4f1bcb5f5fcf80b88841562dea9",
+      "path": "worlds/windy.sdf",
+      "sha256": "1289e65a807babe57ee822940ef99d78d666e20d867414cf4353901adb919aca",
+      "license": "BSD-3-Clause"
+    }
+  ],
+  "canonical": {
+    "generator": "Sim.Physics.Aerial.CraneReferencePx4Windy",
+    "sourceWindEnuMetersPerSecond": [5.0, 2.0, 0.0],
+    "unityWindMetersPerSecond": [5.0, 0.0, 2.0],
+    "coordinateConversion": "Gazebo ENU (x,y,z) to Unity (x,z,y)",
+    "application": "CRANE MultirotorDynamics air-relative drag; measured independently",
+    "nonClaim": "the source SDF alone does not establish aerodynamic force on Gazebo x500",
+    "groundApproximationMeters": [100.0, 100.0]
+  }
+}

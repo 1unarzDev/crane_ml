@@ -1,0 +1,25 @@
+{
+  "schema": "crane-reference-environment-v1",
+  "environmentId": "px4-gazebo-aruco-bb0b9cf-v1",
+  "upstream": [
+    {
+      "project": "PX4/PX4-gazebo-models",
+      "commit": "bb0b9cf974acf4f1bcb5f5fcf80b88841562dea9",
+      "license": "BSD-3-Clause",
+      "files": [
+        {"path": "worlds/aruco.sdf", "sha256": "849545b6191ec41b177064355e73cef03a8773d12a293614e2ebb10e4919ecf4"},
+        {"path": "models/arucotag/model.sdf", "sha256": "b9d567a3a8d883eff2a6961c2da6d939ec3d79e0290aac4e113be34da8eca8a0"},
+        {"path": "models/arucotag/arucotag.png", "sha256": "6e71335b7e96803e2e520b08433a95bc2b58d93c7eaad972c84560af3b180729"}
+      ]
+    }
+  ],
+  "canonical": {
+    "generator": "Sim.Physics.Aerial.CraneReferencePx4Aruco",
+    "coordinateConversion": "Gazebo ENU (x,y,z) to Unity (x,z,y)",
+    "sourceLandmarkSizeMeters": [0.5, 0.5],
+    "sourceLandmarkPoseMeters": [0.0, 0.0, 0.001],
+    "collisionContract": "the ArUco tag is render-only; canonical collision contains only ground",
+    "groundApproximationMeters": [100.0, 100.0],
+    "textureProcedure": "deterministic 6x6 nearest-neighbor reconstruction of the pinned black/white source cells"
+  }
+}

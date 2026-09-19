@@ -541,6 +541,12 @@ headless run verified all four source-derived box transforms, resolved `wall-box
 retained all aerial dynamics verdicts. This establishes scene geometry/contact/query integration,
 not PX4 SITL or Gazebo dynamics equivalence.
 
+The PX4 ArUco and windy variants use that same validator. ArUco proves its render-only marker does
+not intercept a ground physics query; camera marker recognition is not yet tested. Two windy runs
+were byte-identical under the pinned ENU `(5,2,0)` m/s input mapped to Unity `(5,0,2)`, with signed
+x/z displacement `(3.267,4.732)` m. The magnitude ratio is not calibrated, so only deterministic
+directional response is claimed.
+
 Collision ownership is explicit in fixtures and both production aquatic scenes. `Collision Validation` proves
 Vehicle↔Environment hull/dock contact, Vehicle↔DynamicObstacle transfer, a 40 m/s CCD thin-barrier
 impact, Vehicle↔SimulationTrigger overlap, and SensorQuery ray visibility with physical

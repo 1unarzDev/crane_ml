@@ -112,6 +112,8 @@ environments:
 - `Assets/Scenes/TurtleBot3 Warehouse Validation.unity`
 - `Assets/Scenes/Aerial Vehicle Validation.unity`
 - `Assets/Scenes/PX4 Walls Validation.unity`
+- `Assets/Scenes/PX4 ArUco Validation.unity`
+- `Assets/Scenes/PX4 Windy Validation.unity`
 - `Assets/Scenes/Collision Validation.unity`
 
 For ROS operation, configure the scene's `ROSConnection` object with the address of the machine

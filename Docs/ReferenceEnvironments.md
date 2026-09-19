@@ -57,11 +57,30 @@ semantic wall ID, rigid-body contact against that wall, and the normal aerial dy
   --crane-output /tmp/crane-px4-walls-validation.json
 ```
 
+## PX4 ArUco landmark
+
+`PX4 ArUco Validation` reconstructs the pinned 0.5 m square marker as a deterministic nearest-
+neighbor 6x6 black/white texture. The semantic landmark and its visual quad have no collider,
+matching the source SDF. A downward physics query through the tag must hit `ground-plane`, which
+guards against a visual upgrade silently changing task feasibility. This validates render/collision
+separation; camera-based marker detection remains **NOT_RUN**.
+
+## PX4 windy
+
+`PX4 Windy Validation` maps the pinned SDF wind `(5,2,0)` m/s from Gazebo ENU into Unity
+`(5,0,2)` m/s and applies it through CRANE's air-relative multirotor drag model. Validation requires
+measured displacement in both horizontal components. This makes the CRANE scenario behavior
+checkable without claiming that the source SDF proves equivalent aerodynamic behavior in Gazebo.
+Two headless repetitions were byte-identical and measured `(3.267, 4.732)` m displacement in
+Unity x/z over the fixture interval. The non-proportional response is retained as an explicit model
+calibration limitation; only deterministic signed response is claimed.
+
 ## Status
 
 - TurtleBot3 warehouse: **IMPLEMENTED / TESTED** headless and with Nav2.
 - F1TENTH conversion: **IMPLEMENTED / TESTED** on a synthetic fixture; external tracks **NOT_RUN**.
-- PX4 walls: **IMPLEMENTED / TESTED** headlessly; ArUco scenario: **NOT_RUN**. Wind response is
-  tested through CRANE dynamics, but the pinned upstream `windy.sdf` scenario is **NOT_RUN**.
+- PX4 walls: **IMPLEMENTED / TESTED** headlessly; ArUco: **IMPLEMENTED / TESTED** for layer
+  separation, camera detection **NOT_RUN**; windy: **IMPLEMENTED / TESTED** for deterministic
+  directional response, physical calibration **NOT_RUN**.
 - Clearpath conversion: **DEFERRED** until native formats are healthy.
 - AWSIM/Flightmare: design references; asset reuse **DEFERRED** pending per-asset terms.

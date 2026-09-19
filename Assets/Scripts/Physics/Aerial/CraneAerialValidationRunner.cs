@@ -12,6 +12,7 @@ namespace Sim.Physics.Aerial {
         public string scene;
         public string referenceEnvironmentId;
         public int referenceWallCount;
+        public int referenceLandmarkCount;
         public bool referenceGeometryValid;
         public float referenceRaycastDistance;
         public float referenceCollisionStopX;
@@ -29,6 +30,10 @@ namespace Sim.Physics.Aerial {
         public float pitchAngularSpeed;
         public float yawAngularSpeed;
         public float windDisplacement;
+        public float windLateralDisplacement;
+        public float windCommandX;
+        public float windCommandZ;
+        public bool windVectorValid;
         public float landingHeight;
         public float landingSpeed;
         public float saturatedMotorSpeed;
@@ -79,6 +84,8 @@ namespace Sim.Physics.Aerial {
                 referenceGeometryValid = true
             };
             CraneReferencePx4Walls reference = FindAnyObjectByType<CraneReferencePx4Walls>();
+            CraneReferencePx4Aruco arucoReference = FindAnyObjectByType<CraneReferencePx4Aruco>();
+            CraneReferencePx4Windy windyReference = FindAnyObjectByType<CraneReferencePx4Windy>();
             if (reference != null) {
                 result.referenceEnvironmentId = CraneReferencePx4Walls.EnvironmentId;
                 result.referenceWallCount = 4;
@@ -86,6 +93,23 @@ namespace Sim.Physics.Aerial {
                 if (!result.referenceGeometryValid)
                     Debug.LogError($"CRANE_REFERENCE_GEOMETRY_INVALID {message}");
                 result.referenceRaycastValid = ValidatePx4WallRaycast(result);
+            } else if (arucoReference != null) {
+                result.referenceEnvironmentId = CraneReferencePx4Aruco.EnvironmentId;
+                result.referenceLandmarkCount = 1;
+                result.referenceGeometryValid = arucoReference.ValidateLayers(out string message);
+                if (!result.referenceGeometryValid)
+                    Debug.LogError($"CRANE_REFERENCE_GEOMETRY_INVALID {message}");
+                result.referenceRaycastValid = ValidatePx4ArucoRaycast(result);
+                result.referenceCollisionValid = result.referenceGeometryValid &&
+                    result.referenceRaycastValid;
+            } else if (windyReference != null) {
+                result.referenceEnvironmentId = CraneReferencePx4Windy.EnvironmentId;
+                result.referenceGeometryValid = windyReference.ValidateLayers(out string message);
+                if (!result.referenceGeometryValid)
+                    Debug.LogError($"CRANE_REFERENCE_GEOMETRY_INVALID {message}");
+                result.referenceRaycastValid = ValidateGroundRaycast(result);
+                result.referenceCollisionValid = result.referenceGeometryValid &&
+                    result.referenceRaycastValid;
             }
 
             ResetPose(new Vector3(0f, 5f, 0f), Quaternion.identity, result.hoverMotorSpeed);
@@ -111,10 +135,18 @@ namespace Sim.Physics.Aerial {
             yield return MeasureAxisResponse(result, new Vector3(0f, 1f, 0f), 3);
 
             ResetPose(new Vector3(0f, 5f, 0f), Quaternion.identity, result.hoverMotorSpeed);
-            multirotor.SetWind(new Vector3(4f, 0f, 0f), new Vector3(1f, 0f, 0f));
+            Vector3 windCommand = windyReference == null ? new Vector3(4f, 0f, 0f) :
+                CraneReferencePx4Windy.UnityWindVelocity;
+            Vector3 gustCommand = windyReference == null ? new Vector3(1f, 0f, 0f) : Vector3.zero;
+            result.windCommandX = windCommand.x;
+            result.windCommandZ = windCommand.z;
+            multirotor.SetWind(windCommand, gustCommand);
             Vector3 windStart = body.position;
             yield return FixedSeconds(2f);
             result.windDisplacement = Mathf.Abs(body.position.x - windStart.x);
+            result.windLateralDisplacement = body.position.z - windStart.z;
+            result.windVectorValid = windyReference == null ||
+                (body.position.x > windStart.x + 0.05f && body.position.z > windStart.z + 0.01f);
             multirotor.SetWind(Vector3.zero, Vector3.zero);
 
             if (reference != null) {
@@ -124,7 +156,7 @@ namespace Sim.Physics.Aerial {
                 yield return FixedSeconds(0.8f);
                 result.referenceCollisionStopX = body.position.x;
                 result.referenceCollisionValid = body.position.x < 4.35f;
-            } else {
+            } else if (arucoReference == null && windyReference == null) {
                 result.referenceRaycastValid = true;
                 result.referenceCollisionValid = true;
             }
@@ -146,7 +178,7 @@ namespace Sim.Physics.Aerial {
                 result.verticalAccelerationRelativeError < 0.3f;
             result.attitudeValid = result.rollAngularSpeed > 0.1f &&
                 result.pitchAngularSpeed > 0.1f && result.yawAngularSpeed > 0.1f;
-            result.windValid = result.windDisplacement > 0.05f;
+            result.windValid = result.windDisplacement > 0.05f && result.windVectorValid;
             result.landingValid = result.landingHeight > 0.06f && result.landingHeight < 0.12f &&
                 result.landingSpeed < 0.1f;
             result.saturationValid = result.saturatedMotorSpeed > 0.99f &&
@@ -184,6 +216,26 @@ namespace Sim.Physics.Aerial {
                 Sim.Utils.ReferenceEnvironments.CraneSemanticIdentity>();
             return identity != null && identity.SemanticId == "wall-box-01" &&
                 Mathf.Abs(hit.distance - 4.5f) < 0.001f;
+        }
+
+        private static bool ValidatePx4ArucoRaycast(AerialValidationResult result) {
+            if (!UnityEngine.Physics.Raycast(new Vector3(0f, 2f, 0f), Vector3.down,
+                    out RaycastHit hit, 5f)) return false;
+            result.referenceRaycastDistance = hit.distance;
+            var identity = hit.collider.GetComponent<
+                Sim.Utils.ReferenceEnvironments.CraneSemanticIdentity>();
+            return identity != null && identity.SemanticId == "ground-plane" &&
+                Mathf.Abs(hit.distance - 2f) < 0.001f;
+        }
+
+        private static bool ValidateGroundRaycast(AerialValidationResult result) {
+            if (!UnityEngine.Physics.Raycast(new Vector3(0f, 2f, 0f), Vector3.down,
+                    out RaycastHit hit, 5f)) return false;
+            result.referenceRaycastDistance = hit.distance;
+            var identity = hit.collider.GetComponent<
+                Sim.Utils.ReferenceEnvironments.CraneSemanticIdentity>();
+            return identity != null && identity.SemanticId == "ground-plane" &&
+                Mathf.Abs(hit.distance - 2f) < 0.001f;
         }
 
         private void ResetPose(Vector3 position, Quaternion rotation, float motorSpeed) {
