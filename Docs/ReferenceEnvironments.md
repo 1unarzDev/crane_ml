@@ -4,6 +4,12 @@ CRANE reference environments keep three layers separate: canonical geometry/coll
 simulation semantics/physics, and optional visual presentation. Visual objects never own the
 authoritative colliders. Every canonical object has a stable `CraneSemanticIdentity`; this is a
 provenance handle, not proof that a robot sensed or consumed information about the object.
+`CraneSemanticEvidenceHighlighter` resolves those IDs during playback and applies a render-only
+material-property overlay to matching presentation renderers. The validation fixture checks that
+highlighting resolves at least one renderer and leaves the scene's collider count unchanged.
+The pinned upstream architecture and asset-license review is recorded in
+[ReferenceEnvironmentSourceAudit.md](ReferenceEnvironmentSourceAudit.md); AWSIM, Flightmare, and
+Robotics Warehouse assets remain references rather than bundled dependencies.
 
 ## TurtleBot3 Waffle warehouse
 
@@ -53,6 +59,10 @@ one LiDAR, a semantic horizontal ray hit on `track-wall-c0003-s0012`, four groun
 roll and pitch because the source occupancy benchmark is planar; this is not vehicle-dynamics
 equivalence with F1TENTH Gym or hardware. Full-lap control, ROS transport, centerline adherence,
 and comparison of simplified wall positions against the source simulator are **NOT_RUN**.
+
+The 2026-09-19 semantic-playback regression highlighted the raycast evidence ID `track-floor` in
+one presentation renderer while retaining all 291 canonical colliders. The result JSON SHA-256 was
+`ff63701f54e625f420b72ad96485e0c5cf7c8efb2c185ea06f04562c01089662`.
 
 ## PX4 x500-class walls
 
@@ -137,6 +147,11 @@ and one 2-D LiDAR configuration. ROS sensor transport, Nav2 traversal, spawn/goa
 corridor-width checks, native Gazebo comparison, and high-fidelity material matching are
 **NOT_RUN**; the run must not be presented as those validations.
 
+The 2026-09-19 semantic-playback regression resolved `clearpath-pipeline` through the imported
+model root to 10 presentation renderers without changing the 11 source-derived colliders. The
+result JSON SHA-256 was
+`00fa2d8d6d9febb0005cbbbe1a87fdc761e31d88dfbf429788ce488538e90686`.
+
 ## Status
 
 - TurtleBot3 warehouse: **IMPLEMENTED / TESTED** headless and with Nav2.
@@ -147,4 +162,5 @@ corridor-width checks, native Gazebo comparison, and high-fidelity material matc
   directional response, physical calibration **NOT_RUN**.
 - Clearpath pipeline offline import: **IMPLEMENTED / TESTED** for source resolution, layer
   separation, bounds, semantic ray query, and mesh contact; navigation/sensor transport **NOT_RUN**.
-- AWSIM/Flightmare: design references; asset reuse **DEFERRED** pending per-asset terms.
+- AWSIM/Flightmare: **AUDITED** design references. Shinjuku and Flightmare environment art are not
+  imported because the inspected terms do not provide a clean permissive redistribution path.

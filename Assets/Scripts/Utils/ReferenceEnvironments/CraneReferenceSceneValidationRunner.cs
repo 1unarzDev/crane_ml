@@ -38,6 +38,9 @@ namespace Sim.Utils.ReferenceEnvironments {
         public bool semanticSensorRayValid;
         public string semanticSensorRayId;
         public float semanticSensorRayDistance;
+        public bool semanticHighlightApplicable;
+        public int semanticHighlightRendererCount;
+        public bool semanticHighlightValid;
         public bool ackermannDynamicsApplicable;
         public int ackermannGroundedWheels;
         public float ackermannDriveDisplacement;
@@ -124,6 +127,19 @@ namespace Sim.Utils.ReferenceEnvironments {
                     result.raycastSemanticId = identity == null ? string.Empty : identity.SemanticId;
                     result.raycastValid = !string.IsNullOrEmpty(result.raycastSemanticId);
                     if (result.raycastValid) {
+                        var highlighterHost = new GameObject("Reference Evidence Highlighter");
+                        var highlighter = highlighterHost.AddComponent<CraneSemanticEvidenceHighlighter>();
+                        int colliderCountBefore = FindObjectsByType<Collider>(
+                            FindObjectsInactive.Include, FindObjectsSortMode.None).Length;
+                        result.semanticHighlightApplicable = true;
+                        result.semanticHighlightRendererCount = highlighter.Highlight(
+                            new[] { result.raycastSemanticId });
+                        int colliderCountAfter = FindObjectsByType<Collider>(
+                            FindObjectsInactive.Include, FindObjectsSortMode.None).Length;
+                        result.semanticHighlightValid = result.semanticHighlightRendererCount > 0 &&
+                            colliderCountBefore == colliderCountAfter;
+                        highlighter.Clear();
+                        Destroy(highlighterHost);
                         var probe = GameObject.CreatePrimitive(PrimitiveType.Sphere);
                         probe.name = "Reference Collision Probe";
                         probe.layer = LayerMask.NameToLayer("Vehicle");
@@ -197,6 +213,7 @@ namespace Sim.Utils.ReferenceEnvironments {
 
             result.valid = result.layersValid && result.boundsValid && result.raycastValid &&
                 result.collisionValid &&
+                (!result.semanticHighlightApplicable || result.semanticHighlightValid) &&
                 (!result.semanticSensorRayApplicable || result.semanticSensorRayValid) &&
                 (!result.ackermannDynamicsApplicable || result.ackermannDynamicsValid);
             string directory = Path.GetDirectoryName(outputPath);

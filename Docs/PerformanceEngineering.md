@@ -555,6 +555,12 @@ were byte-identical under the pinned ENU `(5,2,0)` m/s input mapped to Unity `(5
 x/z displacement `(3.267,4.732)` m. The magnitude ratio is not calibrated, so only deterministic
 directional response is claimed.
 
+Reference playback now resolves stable semantic IDs to presentation renderers through
+`CraneSemanticEvidenceHighlighter`, using material-property blocks only. The headless Spielberg
+and Clearpath pipeline regressions highlighted one and ten renderers respectively while retaining
+their exact pre-highlight collider counts. This validates ID-to-renderer resolution and the
+non-authoritative presentation boundary; it does not establish that a robot observed the object.
+
 Collision ownership is explicit in fixtures and both production aquatic scenes. `Collision Validation` proves
 Vehicle↔Environment hull/dock contact, Vehicle↔DynamicObstacle transfer, a 40 m/s CCD thin-barrier
 impact, Vehicle↔SimulationTrigger overlap, and SensorQuery ray visibility with physical

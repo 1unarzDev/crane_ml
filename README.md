@@ -118,7 +118,9 @@ environments:
 
 External SDF reference worlds are converted offline into Git-ignored generated assets; they are
 not runtime-loaded. See [Reference environments](Docs/ReferenceEnvironments.md) for the pinned
-Clearpath pipeline and F1TENTH occupancy-map procedures and their validation limits.
+Clearpath pipeline and F1TENTH occupancy-map procedures and their validation limits. The
+[source audit](Docs/ReferenceEnvironmentSourceAudit.md) records the reuse and licensing decisions
+for AWSIM, Flightmare, Unity's Nav2/SLAM example, and Robotics Warehouse.
 
 For ROS operation, configure the scene's `ROSConnection` object with the address of the machine
 running ROS. The [mhseals_docker repository](https://github.com/mhseals/mhseals_docker) contains
