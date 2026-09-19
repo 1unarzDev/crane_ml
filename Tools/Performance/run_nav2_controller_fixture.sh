@@ -2,7 +2,8 @@
 set -euo pipefail
 
 root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-astro_dir="${CRANE_ASTRO_DOCK:-/home/lunarz/astro_dock}"
+astro_dir="${CRANE_ASTRO_DOCK:-${root_dir}/../astro_dock}"
+astro_dir="$(cd "${astro_dir}" && pwd)"
 image="${CRANE_ROS_IMAGE:-lunarzdev/astro:cuda}"
 run_id="${CRANE_RUN_ID:-$$}"
 ros_port="${CRANE_ROS_PORT:-10000}"
@@ -80,7 +81,7 @@ docker run --rm --name "${fixture_name}" --network host --ipc host \
     -e ROS_DOMAIN_ID="${ros_domain_id}" \
     -v "${root_dir}:/workspace/crane_sim:ro" -v "${result_root}:/results" \
     "${image}" bash -lc \
-    'source /opt/ros/jazzy/setup.bash; exec python3 /workspace/crane_sim/Tools/Performance/nav2_follow_path_fixture.py --input-type twist --action-mode '"${nav2_action_mode}"' --distance 0.5 --duration 20 --output /results/fixture-summary.json' \
+    'source /opt/ros/jazzy/setup.bash; exec python3 /workspace/crane_sim/Tools/Performance/nav2_follow_path_fixture.py --input-type twist --action-mode '"${nav2_action_mode}"' --distance 0.5 --duration 20 --episode-id '"${run_id}-worker-${worker_id}"' --run-id '"${run_id}"' --output /results/fixture-summary.json' \
     | tee "${result_root}/fixture.log"
 
 wait "${player_pid}"

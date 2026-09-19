@@ -17,6 +17,7 @@ from nav2_msgs.action import FollowPath, NavigateToPose
 from nav_msgs.msg import OccupancyGrid, Odometry, Path
 from rclpy.action import ActionClient
 from rclpy.node import Node
+from std_msgs.msg import String
 
 
 ACTION_STATUS = {
@@ -46,8 +47,10 @@ class FollowPathFixture(Node):
         self.next_goal_attempt_wall = 0.0
         self.result_status = None
         self.done = False
+        self.goal_description = None
         self.publisher = self.create_publisher(
             TwistStamped, args.output_topic, 10)
+        self.harness_publisher = self.create_publisher(String, args.harness_topic, 10)
         self.create_subscription(Odometry, args.odom_topic, self.on_odom, 20)
         self.create_subscription(OccupancyGrid, args.costmap_topic,
                                  self.on_costmap, 10)
@@ -67,6 +70,26 @@ class FollowPathFixture(Node):
         self.odom_count += 1
         if self.initial_odom is None:
             self.initial_odom = message
+            self.publish_event({
+                'type': 'crane_identity',
+                'episode_id': self.args.episode_id,
+                'run_id': self.args.run_id,
+            })
+            self.publish_event({
+                'type': 'observation_identity',
+                'observation': 'initial_odometry',
+                'topic': self.args.odom_topic,
+                'stamp': stamp_dict(message.header.stamp),
+                'frame_id': message.header.frame_id,
+                'child_frame_id': message.child_frame_id,
+                'consumption_status': 'delivered_to_fixture_not_proven_consumed_by_nav2',
+            })
+
+    def publish_event(self, event):
+        event['wall_time_ns'] = time.time_ns()
+        message = String()
+        message.data = json.dumps(event, sort_keys=True, separators=(',', ':'))
+        self.harness_publisher.publish(message)
 
     def on_costmap(self, message):
         self.costmap_count += 1
@@ -127,6 +150,15 @@ class FollowPathFixture(Node):
         if self.args.action_mode == 'navigate-to-pose':
             goal = NavigateToPose.Goal()
             goal.pose = path.poses[-1]
+            self.goal_description = {
+                'frame_id': goal.pose.header.frame_id,
+                'stamp': stamp_dict(goal.pose.header.stamp),
+                'position': {
+                    'x': goal.pose.pose.position.x,
+                    'y': goal.pose.pose.position.y,
+                    'z': goal.pose.pose.position.z,
+                },
+            }
         else:
             goal = FollowPath.Goal()
             goal.path = path
@@ -149,12 +181,32 @@ class FollowPathFixture(Node):
             self.goal_sent_wall = None
             self.next_goal_attempt_wall = time.monotonic() + 0.5
             return
+        self.publish_event({
+            'type': 'navigate_to_pose_goal',
+            'action_name': self.action_name,
+            'action_mode': self.args.action_mode,
+            'goal_id': bytes(self.goal_handle.goal_id.uuid).hex(),
+            'goal_attempt': self.goal_attempts,
+            'accepted': True,
+            'goal': self.goal_description,
+        })
         result = self.goal_handle.get_result_async()
         result.add_done_callback(self.on_result)
 
     def on_result(self, future):
-        status_code = future.result().status
+        response = future.result()
+        status_code = response.status
         self.result_status = ACTION_STATUS.get(status_code, f'action-status-{status_code}')
+        payload = response.result
+        self.publish_event({
+            'type': 'navigate_to_pose_result',
+            'action_name': self.action_name,
+            'goal_id': bytes(self.goal_handle.goal_id.uuid).hex(),
+            'status_code': status_code,
+            'status': self.result_status,
+            'error_code': getattr(payload, 'error_code', None),
+            'error_msg': getattr(payload, 'error_msg', None),
+        })
         self.finish(self.result_status)
 
     def finish(self, status):
@@ -162,6 +214,19 @@ class FollowPathFixture(Node):
             return
         self.done = True
         if status == 'timeout' and self.goal_handle is not None:
+            goal_id = bytes(self.goal_handle.goal_id.uuid).hex()
+            self.publish_event({
+                'type': 'client_deadline',
+                'action_name': self.action_name,
+                'goal_id': goal_id,
+                'duration_s': self.args.duration,
+            })
+            self.publish_event({
+                'type': 'client_cancel',
+                'action_name': self.action_name,
+                'goal_id': goal_id,
+                'reason': 'fixture_deadline',
+            })
             self.goal_handle.cancel_goal_async()
         final = self.latest_odom or self.initial_odom
         dx = dy = displacement = 0.0
@@ -210,6 +275,10 @@ def yaw_from_quaternion(q):
                       1.0 - 2.0 * (q.y * q.y + q.z * q.z))
 
 
+def stamp_dict(value):
+    return {'sec': int(value.sec), 'nanosec': int(value.nanosec)}
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--odom-topic', default='/crane/odom')
@@ -224,6 +293,9 @@ def main():
     parser.add_argument('--path-points', type=int, default=20)
     parser.add_argument('--duration', type=float, default=25.0)
     parser.add_argument('--output')
+    parser.add_argument('--harness-topic', default='/crane/explanation_event')
+    parser.add_argument('--episode-id', required=True)
+    parser.add_argument('--run-id', required=True)
     args = parser.parse_args()
     rclpy.init()
     node = FollowPathFixture(args)
