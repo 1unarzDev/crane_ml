@@ -7,10 +7,12 @@ node; that is useful bounded-lag provenance, but is not proof of Nav2's internal
 """
 
 import argparse
+import base64
 import hashlib
 import json
 import math
 import time
+import zlib
 
 import rclpy
 from geometry_msgs.msg import PoseStamped, Twist, TwistStamped
@@ -46,6 +48,8 @@ class FollowPathFixture(Node):
         self.costmap_count = 0
         self.costmap_service_snapshot_count = 0
         self.maximum_occupied_costmap_cells = 0
+        self.latest_costmap_snapshot = None
+        self.docking_evaluations = []
         self.costmap_request = None
         self.next_costmap_request_wall = 0.0
         self.first_command_wall = None
@@ -84,6 +88,8 @@ class FollowPathFixture(Node):
         )
         self.create_subscription(OccupancyGrid, args.costmap_topic,
                                  self.on_costmap, costmap_qos)
+        self.create_subscription(String, args.docking_evaluator_topic,
+                                 self.on_docking_evaluation, 20)
         self.costmap_client = self.create_client(GetCostmap, args.costmap_service)
         if args.input_type == 'stamped':
             self.create_subscription(
@@ -155,6 +161,16 @@ class FollowPathFixture(Node):
         self.costmap_count += 1
         self.record_costmap(message.data)
 
+    def on_docking_evaluation(self, message):
+        try:
+            evaluation = json.loads(message.data)
+        except (TypeError, ValueError) as error:
+            self.get_logger().warning(f'Invalid docking evaluation JSON: {error}')
+            return
+        if evaluation.get('schema') != 'crane-roboboat-docking-evaluation-v1':
+            return
+        self.docking_evaluations.append(evaluation)
+
     def record_costmap(self, data):
         occupied = sum(1 for value in data if value > 0)
         self.maximum_occupied_costmap_cells = max(
@@ -181,6 +197,7 @@ class FollowPathFixture(Node):
             return
         self.costmap_service_snapshot_count += 1
         self.record_costmap(response.map.data)
+        self.latest_costmap_snapshot = encode_costmap_snapshot(response.map)
 
     def forward(self, twist):
         # Ignore commands from an older/preempted action while this fixture is waiting to send.
@@ -371,6 +388,12 @@ class FollowPathFixture(Node):
             displacement = math.hypot(dx, dy)
         action_trajectory = [
             sample for sample in self.trajectory if sample['phase'] == 'action']
+        docking_success = next((sample for sample in self.docking_evaluations
+                                if sample.get('success')), None)
+        docking_clearances = [sample.get('minimumRegionClearance')
+                              for sample in self.docking_evaluations
+                              if sample.get('hullInsideDockRegion') and
+                              sample.get('minimumRegionClearance') is not None]
         summary = {
             'schema': 'crane-nav2-controller-fixture-v1',
             'scope': ('nav2-navigate-to-pose' if self.args.action_mode == 'navigate-to-pose'
@@ -396,6 +419,19 @@ class FollowPathFixture(Node):
             'costmapServiceSnapshots': self.costmap_service_snapshot_count,
             'costmapObservations': self.costmap_count + self.costmap_service_snapshot_count,
             'maximumOccupiedCostmapCells': self.maximum_occupied_costmap_cells,
+            'latestCostmapSnapshot': self.latest_costmap_snapshot,
+            'dockingEvaluatorTopic': self.args.docking_evaluator_topic,
+            'dockingEvaluatorMessages': len(self.docking_evaluations),
+            'dockingEvaluation': (self.docking_evaluations[-1]
+                                  if self.docking_evaluations else None),
+            'dockingSuccessObserved': docking_success is not None,
+            'dockingSuccessFirstSimulationTime': (
+                docking_success.get('simulationTime') if docking_success else None),
+            'minimumDockRegionClearanceMeters': (
+                min(docking_clearances) if docking_clearances else None),
+            'maximumProhibitedContactCount': max(
+                (sample.get('prohibitedContactCount', 0)
+                 for sample in self.docking_evaluations), default=0),
             'goalToFirstCommandWallSeconds': (
                 self.first_command_wall - self.goal_sent_wall
                 if self.first_command_wall is not None and self.goal_sent_wall is not None
@@ -421,6 +457,7 @@ class FollowPathFixture(Node):
             'pathMetrics': (path_metrics(self.planned_path, self.trajectory)
                             if self.args.action_mode == 'follow-path' else None),
             'trajectory': self.trajectory,
+            'dockingEvaluations': self.docking_evaluations,
             'provenance': 'latest-delivered-odometry-not-proven-internal-consumption',
             'costmapProvenance': (
                 'nav2-get-costmap-snapshot-not-proven-controller-consumption'),
@@ -432,6 +469,8 @@ class FollowPathFixture(Node):
         console_summary = dict(summary)
         console_summary.pop('plannedPath', None)
         console_summary.pop('trajectory', None)
+        console_summary.pop('latestCostmapSnapshot', None)
+        console_summary.pop('dockingEvaluations', None)
         console_summary['trajectorySampleCount'] = len(self.trajectory)
         print(json.dumps(console_summary, sort_keys=True), flush=True)
         rclpy.shutdown()
@@ -440,6 +479,27 @@ class FollowPathFixture(Node):
 def yaw_from_quaternion(q):
     return math.atan2(2.0 * (q.w * q.z + q.x * q.y),
                       1.0 - 2.0 * (q.y * q.y + q.z * q.z))
+
+
+def encode_costmap_snapshot(message):
+    """Encode one nav2_msgs/Costmap without expanding fixture JSON by tens of thousands of cells."""
+    metadata = message.metadata
+    raw = bytes(int(value) & 0xff for value in message.data)
+    return {
+        'frameId': message.header.frame_id,
+        'stamp': stamp_dict(message.header.stamp),
+        'resolution': float(metadata.resolution),
+        'sizeX': int(metadata.size_x),
+        'sizeY': int(metadata.size_y),
+        'origin': {
+            'x': float(metadata.origin.position.x),
+            'y': float(metadata.origin.position.y),
+            'yaw': yaw_from_quaternion(metadata.origin.orientation),
+        },
+        'dataEncoding': 'base64+zlib+uint8-row-major',
+        'dataSha256': hashlib.sha256(raw).hexdigest(),
+        'data': base64.b64encode(zlib.compress(raw, level=9)).decode('ascii'),
+    }
 
 
 def stamp_dict(value):
@@ -579,6 +639,7 @@ def main():
     parser.add_argument('--costmap-topic', default='/local_costmap/costmap')
     parser.add_argument('--costmap-service', default='/local_costmap/get_costmap')
     parser.add_argument('--costmap-sample-period', type=float, default=0.5)
+    parser.add_argument('--docking-evaluator-topic', default='/crane/docking_evaluator')
     parser.add_argument('--input-type', choices=('twist', 'stamped'), default='stamped')
     parser.add_argument('--output-topic', default='/crane/cmd_vel_stamped')
     parser.add_argument('--action-mode', choices=('follow-path', 'navigate-to-pose'),

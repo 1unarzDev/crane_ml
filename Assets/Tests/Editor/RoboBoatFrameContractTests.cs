@@ -81,5 +81,41 @@ namespace Sim.Tests.Editor {
                 ref integral, ref previousDesired);
             Assert.That(integral, Is.Zero, "a stop command must discard accumulated effort");
         }
+
+        [Test]
+        public void DockingEvaluatorRequiresContinuousStoppedContactFreeHullContainment() {
+            double qualifiedSince = -1;
+            RoboBoatDockingEvaluationMessage first = RoboBoatDockingEvaluator.Evaluate(
+                x: 1f, y: -2f, yaw: 0f, surge: 0.01f, sway: 0f, yawRate: 0.01f,
+                simulationTime: 10.0, contactCount: 0, ref qualifiedSince,
+                targetX: 1f, targetY: -2f, targetYaw: 0f,
+                positionTolerance: 0.4f, headingTolerance: 0.35f,
+                stoppedSpeed: 0.05f, stoppedYawRate: 0.05f, requiredSettleSeconds: 5f,
+                regionWidth: 2f, regionDepth: 3f,
+                physicalHullLength: 1.063f, physicalHullBeam: 0.895f);
+            Assert.That(first.hullInsideDockRegion, Is.True);
+            Assert.That(first.success, Is.False);
+
+            RoboBoatDockingEvaluationMessage settled = RoboBoatDockingEvaluator.Evaluate(
+                x: 1f, y: -2f, yaw: 0f, surge: 0.01f, sway: 0f, yawRate: 0.01f,
+                simulationTime: 15.1, contactCount: 0, ref qualifiedSince,
+                targetX: 1f, targetY: -2f, targetYaw: 0f,
+                positionTolerance: 0.4f, headingTolerance: 0.35f,
+                stoppedSpeed: 0.05f, stoppedYawRate: 0.05f, requiredSettleSeconds: 5f,
+                regionWidth: 2f, regionDepth: 3f,
+                physicalHullLength: 1.063f, physicalHullBeam: 0.895f);
+            Assert.That(settled.success, Is.True);
+
+            RoboBoatDockingEvaluationMessage contact = RoboBoatDockingEvaluator.Evaluate(
+                x: 1f, y: -2f, yaw: 0f, surge: 0f, sway: 0f, yawRate: 0f,
+                simulationTime: 15.2, contactCount: 1, ref qualifiedSince,
+                targetX: 1f, targetY: -2f, targetYaw: 0f,
+                positionTolerance: 0.4f, headingTolerance: 0.35f,
+                stoppedSpeed: 0.05f, stoppedYawRate: 0.05f, requiredSettleSeconds: 5f,
+                regionWidth: 2f, regionDepth: 3f,
+                physicalHullLength: 1.063f, physicalHullBeam: 0.895f);
+            Assert.That(contact.success, Is.False);
+            Assert.That(contact.continuousQualifiedSeconds, Is.Zero);
+        }
     }
 }

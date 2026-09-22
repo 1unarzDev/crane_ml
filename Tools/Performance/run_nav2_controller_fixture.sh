@@ -27,6 +27,16 @@ goal_yaw="${CRANE_NAV2_GOAL_YAW:-}"
 action_duration="${CRANE_NAV2_ACTION_DURATION:-20}"
 post_result_duration="${CRANE_NAV2_POST_RESULT_DURATION:-0}"
 costmap_topic="${CRANE_NAV2_COSTMAP_TOPIC:-/local_costmap/costmap}"
+costmap_service="${CRANE_NAV2_COSTMAP_SERVICE:-/local_costmap/get_costmap}"
+docking_evaluator="${CRANE_DOCKING_EVALUATOR:-0}"
+docking_unity_args=""
+if [[ "${docking_evaluator}" == "1" ]]; then
+    if [[ -z "${goal_x}" || -z "${goal_y}" || -z "${goal_yaw}" ]]; then
+        echo "Docking evaluator requires CRANE_NAV2_GOAL_X/Y/YAW" >&2
+        exit 2
+    fi
+    docking_unity_args="--crane-roboboat-docking-evaluator --crane-dock-goal-x ${goal_x} --crane-dock-goal-y ${goal_y} --crane-dock-goal-yaw ${goal_yaw} --crane-dock-xy-tolerance ${CRANE_DOCK_XY_TOLERANCE:-0.4} --crane-dock-yaw-tolerance ${CRANE_DOCK_YAW_TOLERANCE:-0.35} --crane-dock-speed-tolerance ${CRANE_DOCK_SPEED_TOLERANCE:-0.05} --crane-dock-yaw-rate-tolerance ${CRANE_DOCK_YAW_RATE_TOLERANCE:-0.05} --crane-dock-settle-seconds ${CRANE_DOCK_SETTLE_SECONDS:-5} --crane-dock-width ${CRANE_DOCK_WIDTH:-2.0} --crane-dock-depth ${CRANE_DOCK_DEPTH:-3.0} --crane-dock-hull-length ${CRANE_DOCK_HULL_LENGTH:-1.063} --crane-dock-hull-beam ${CRANE_DOCK_HULL_BEAM:-0.895}"
+fi
 endpoint_name="crane-endpoint-${run_id}"
 controller_name="crane-controller-${run_id}"
 fixture_name="crane-fixture-${run_id}"
@@ -101,7 +111,7 @@ CRANE_TIME_SCALE="${CRANE_TIME_SCALE:-1}" CRANE_DISABLE_ROS=0 \
 CRANE_ROS_PORT_BASE="$((ros_port - worker_id))" ROS_DOMAIN_ID="${ros_domain_id}" \
 CRANE_SCENE="${scene}" \
 CRANE_SCENARIO=nav2-controller-follow-path \
-CRANE_EXTRA_ARGS="--crane-profile ${runtime_profile} --crane-ros-nav-state ${command_flag} /crane/cmd_vel_stamped --crane-action-policy bounded --crane-max-action-lag-ticks ${maximum_action_lag_ticks} --crane-command-timeout-ticks ${command_timeout_ticks} ${CRANE_NAV2_UNITY_EXTRA_ARGS:-}" \
+CRANE_EXTRA_ARGS="--crane-profile ${runtime_profile} --crane-ros-nav-state ${command_flag} /crane/cmd_vel_stamped --crane-action-policy bounded --crane-max-action-lag-ticks ${maximum_action_lag_ticks} --crane-command-timeout-ticks ${command_timeout_ticks} ${docking_unity_args} ${CRANE_NAV2_UNITY_EXTRA_ARGS:-}" \
     "${root_dir}/Tools/Performance/run_worker.sh" "${worker_id}" &
 player_pid=$!
 
@@ -131,7 +141,7 @@ docker run --rm --name "${fixture_name}" --network host --ipc host \
     -e ROS_DOMAIN_ID="${ros_domain_id}" \
     -v "${root_dir}:/workspace/crane_sim:ro" -v "${result_root}:/results" \
     "${image}" bash -lc \
-    'source /opt/ros/jazzy/setup.bash; exec python3 /workspace/crane_sim/Tools/Performance/nav2_follow_path_fixture.py --input-type twist --action-mode '"${nav2_action_mode}"' --distance '"${goal_distance}"' --path-heading-offset '"${path_heading_offset}"' --path-shape '"${path_shape}"' --path-lateral-amplitude '"${path_lateral_amplitude}"' --path-turn-angle '"${path_turn_angle}"' --duration '"${action_duration}"' --post-result-seconds '"${post_result_duration}"' --costmap-topic '"${costmap_topic}"' --episode-id '"${run_id}-worker-${worker_id}"' --run-id '"${run_id}"' --output /results/fixture-summary.json'"${goal_args_shell}" \
+    'source /opt/ros/jazzy/setup.bash; exec python3 /workspace/crane_sim/Tools/Performance/nav2_follow_path_fixture.py --input-type twist --action-mode '"${nav2_action_mode}"' --distance '"${goal_distance}"' --path-heading-offset '"${path_heading_offset}"' --path-shape '"${path_shape}"' --path-lateral-amplitude '"${path_lateral_amplitude}"' --path-turn-angle '"${path_turn_angle}"' --duration '"${action_duration}"' --post-result-seconds '"${post_result_duration}"' --costmap-topic '"${costmap_topic}"' --costmap-service '"${costmap_service}"' --episode-id '"${run_id}-worker-${worker_id}"' --run-id '"${run_id}"' --output /results/fixture-summary.json'"${goal_args_shell}" \
     | tee "${result_root}/fixture.log"
 
 wait "${player_pid}"
