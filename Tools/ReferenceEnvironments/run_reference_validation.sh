@@ -16,6 +16,7 @@ Targets:
   px4-windy
   clearpath-pipeline
   f1tenth-spielberg
+  turtlebot3-warehouse
 
 The selected scene must already be present in the player's crane-build-manifest.json.
 Generated F1TENTH scenes require a worker built with --crane-extra-scene.
@@ -48,6 +49,16 @@ case "${target}" in
     f1tenth-spielberg)
         scene="F1TENTH Spielberg Validation"
         runner_args=(--crane-reference-validation --crane-reference-scene "${scene}")
+        ;;
+    turtlebot3-warehouse)
+        scene="TurtleBot3 Warehouse Validation"
+        warehouse_manifest="${root_dir}/Assets/Resources/ReferenceEnvironments/unity_turtlebot3_industrial_warehouse_v2.json"
+        warehouse_hash="$(sha256sum "${warehouse_manifest}" | awk '{print $1}')"
+        runner_args=(--crane-reference-validation --crane-reference-scene "${scene}"
+            --crane-reference-environment-id crane-industrial-warehouse-v2
+            --crane-reference-manifest-sha256 "${warehouse_hash}"
+            --crane-reference-source-version 2.0.0
+            --crane-reference-source-object-count 20)
         ;;
     -h|--help)
         usage

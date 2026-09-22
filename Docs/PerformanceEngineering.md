@@ -117,8 +117,11 @@ manifest-driven warehouse, records `crane-industrial-warehouse-v2` and its route
 evaluator-only truth, and selects `nav2_warehouse_fixture.yaml` without changing the controlled
 land parameters. The warehouse radius/inflation calibration is deliberately separate from the
 frozen F/G/H corridor configuration. The current cross-aisle route remains a negative calibration:
-reducing the costmap radius/inflation changed occupied-cell counts but not the timeout endpoint.
-Do not report it as `NAVIGATION_PASS` or tune it through unrecorded retries.
+reducing the costmap radius/inflation changed occupied-cell counts but not the initial timeout
+endpoint. Subsequent diagnosis corrected a ROS-to-Unity yaw-sign defect and matched controller
+speed to the physical base. The final direction-free region-goal run succeeded after a 13.61 m
+sampled west-aisle detour. `summarize_environment_qa.py` merges this independently captured route
+result with the structural validator without inferring interactive or failure/recovery gates.
 
 ### Training with full visual sensors
 

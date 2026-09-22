@@ -120,6 +120,12 @@ class LandNav2FixtureContractTests(unittest.TestCase):
         self.assertIn("--crane-ros-differential-cmd-vel", launcher)
         self.assertIn("base_scan", launcher)
 
+    def test_differential_command_converts_ros_yaw_to_unity_yaw(self) -> None:
+        source = (ROOT / "Assets/Scripts/Physics/Land/ROSDifferentialCommand.cs").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("robot.SetCommand(command.Linear, -command.Angular)", source)
+
     def test_clearpath_launcher_preserves_the_imported_reference_environment(self) -> None:
         bootstrap = (ROOT / "Assets/Scripts/Physics/Land/CraneLandNav2Bootstrap.cs").read_text(
             encoding="utf-8"
@@ -148,6 +154,8 @@ class LandNav2FixtureContractTests(unittest.TestCase):
         self.assertIn("warehouse-cross-aisle-detour-v1", ecological)
         self.assertIn("nav2_warehouse_fixture.yaml", ecological)
         self.assertIn('CRANE_NAV2_GOAL_DISTANCE="${CRANE_NAV2_GOAL_DISTANCE:-13.0}"', ecological)
+        self.assertIn('CRANE_NAV2_ACTION_DURATION="${CRANE_NAV2_ACTION_DURATION:-75}"', ecological)
+        self.assertIn('CRANE_DURATION="${CRANE_DURATION:-90}"', ecological)
         self.assertNotIn("--crane-preserve-reference-environment", frozen)
 
     def test_warehouse_costmap_matches_manifest_robot_and_preserves_frozen_params(self) -> None:
@@ -155,8 +163,12 @@ class LandNav2FixtureContractTests(unittest.TestCase):
         controlled = PARAMETERS.read_text(encoding="utf-8")
         self.assertEqual(warehouse.count("robot_radius: 0.22"), 2)
         self.assertEqual(warehouse.count("inflation_radius: 0.55"), 2)
+        self.assertIn("desired_linear_vel: 0.26", warehouse)
+        self.assertIn("yaw_goal_tolerance: 3.14", warehouse)
         self.assertEqual(controlled.count("robot_radius: 0.75"), 2)
         self.assertEqual(controlled.count("inflation_radius: 0.9"), 2)
+        self.assertIn("desired_linear_vel: 0.8", controlled)
+        self.assertIn("yaw_goal_tolerance: 0.35", controlled)
 
     def test_mobility_hold_is_fixed_time_and_evaluator_owned(self) -> None:
         bootstrap = (ROOT / "Assets/Scripts/Physics/Land/CraneLandNav2Bootstrap.cs").read_text(

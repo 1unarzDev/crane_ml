@@ -21,6 +21,7 @@ class ReferenceValidationLauncherTests(unittest.TestCase):
         self.assertIn("px4-walls", result.stdout)
         self.assertIn("clearpath-pipeline", result.stdout)
         self.assertIn("f1tenth-spielberg", result.stdout)
+        self.assertIn("turtlebot3-warehouse", result.stdout)
 
     def test_rejects_scene_absent_from_build_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -76,6 +77,36 @@ class ReferenceValidationLauncherTests(unittest.TestCase):
         self.assertIn("--crane-disable-ros", invoked)
         self.assertIn("--crane-aerial-validation", invoked)
         self.assertIn("PX4 Walls Validation", invoked)
+
+    def test_warehouse_run_passes_manifest_identity_to_generic_validator(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            build = Path(directory)
+            player = build / "CRANE.x86_64"
+            arguments = build / "arguments.txt"
+            player.write_text(
+                "#!/usr/bin/env bash\nprintf '%s\\n' \"$@\" > \"${CRANE_FAKE_ARGS}\"\n",
+                encoding="utf-8",
+            )
+            player.chmod(0o755)
+            (build / "crane-build-manifest.json").write_text(
+                json.dumps({"scenes": ["Assets/Scenes/TurtleBot3 Warehouse Validation.unity"]}),
+                encoding="utf-8",
+            )
+            environment = os.environ | {
+                "CRANE_PLAYER": str(player),
+                "CRANE_FAKE_ARGS": str(arguments),
+                "CRANE_REFERENCE_RESULT_ROOT": str(build / "results"),
+            }
+            subprocess.run(
+                ["bash", str(LAUNCHER), "turtlebot3-warehouse"],
+                check=True,
+                env=environment,
+            )
+            invoked = arguments.read_text(encoding="utf-8").splitlines()
+        self.assertIn("-nographics", invoked)
+        self.assertIn("--crane-reference-environment-id", invoked)
+        self.assertIn("crane-industrial-warehouse-v2", invoked)
+        self.assertIn("--crane-reference-manifest-sha256", invoked)
 
 
 if __name__ == "__main__":

@@ -23,10 +23,15 @@ controller_server:
       plugin: nav2_controller::SimpleGoalChecker
       stateful: true
       xy_goal_tolerance: 0.55
-      yaw_goal_tolerance: 0.35
+      # Ecological route endpoints are manifest-defined goal regions without a required terminal
+      # heading. Do not turn the fixture's inherited start quaternion into an undeclared task.
+      yaw_goal_tolerance: 3.14
     FollowPath:
       plugin: nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController
-      desired_linear_vel: 0.8
+      # Match DifferentialDriveDynamics.MaximumLinearSpeed. If Nav2 requests 0.8 m/s and Unity
+      # clamps only linear velocity to 0.26 m/s while retaining angular velocity, the realized
+      # curvature is roughly tripled and the robot oscillates around turns.
+      desired_linear_vel: 0.26
       lookahead_dist: 0.8
       min_lookahead_dist: 0.4
       max_lookahead_dist: 1.2

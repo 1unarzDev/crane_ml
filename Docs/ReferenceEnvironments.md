@@ -40,9 +40,25 @@ used a warehouse-only 0.22 m costmap radius and 0.55 m inflation radius, conserv
 the manifest's 0.188 m base circumscribed radius. It also timed out at essentially the same pose
 (2.775 m displacement), although maximum occupied costmap cells fell from 8,750 to 4,996. This
 rules out oversized costmap inflation as the sole limiting cause; it is not a navigation pass.
-The observed controller request of 0.8 m/s is clamped by the physical base to 0.26 m/s while its
-angular request is not proportionally scaled, making realized-curvature mismatch the next
-diagnosis target. No recovery, success, or physical-cause claim is made from these calibrations.
+The observed controller request of 0.8 m/s was also clamped by the physical base to 0.26 m/s while
+its angular request was not proportionally scaled. These negative calibrations remain retained.
+
+The next diagnostic found the decisive integration defect: ROS FLU positive yaw had been applied
+as Unity positive-Y torque even though Unity `(x,z)` maps to ROS `(-y,x)`, reversing every turn
+relative to the published pose. After correcting that coordinate boundary, matching the ecological
+controller to the 0.26 m/s plant limit, and treating the manifest endpoint as a position-only goal
+region, the unchanged 13 m goal succeeded in 54.63 s. The sampled trajectory was 13.61 m long,
+excursed 2.00 m into the west aisle, passed the center divider, and returned toward the goal. The
+valid run retained 527 controller commands, 204 costmap observations, zero clock rewinds, and zero
+stale/rejected commands. A controlled 1 m corridor non-regression also succeeded with actual
+motion. This is one nominal ecological route pass, not a recovery/blockage suite.
+
+The headless warehouse validator independently reports 20 canonical colliders, 20 collider-free
+renderers, 28 unique semantic identities, collision/drop support, a semantic LiDAR hit on
+`rack-center-blocker`, unchanged-collider evidence highlighting, 0.150 m differential drive, and
+19.1 degrees of turn response. Its aggregate nominal-route record reports `STRUCTURAL_PASS`,
+`PHYSICS_PASS`, `SENSOR_PASS`, `NAVIGATION_PASS`, `HEADLESS_PASS`, and `EXPLANATION_READY` while
+leaving failure/recovery and interactive gates `NOT_RUN` and the overall verdict `PARTIAL`.
 
 ## F1TENTH occupancy maps
 
@@ -194,8 +210,8 @@ result JSON SHA-256 was
 ## Status
 
 - TurtleBot3 warehouse: v2 canonical layout and ecological route contracts **IMPLEMENTED**;
-  build/headless ROS/LiDAR/costmap path **TESTED**; representative v2 route
-  `NAVIGATION_PASS` and `EXPLANATION_READY` **NOT_ESTABLISHED**. The historical short smoke passed.
+  structural/physics/sensor/headless/explanation gates and one representative west-aisle detour
+  **PASSED**. Interactive inspection and failure/recovery scenario qualification are **NOT_RUN**.
 - F1TENTH conversion and Unity import: **IMPLEMENTED / TESTED** on synthetic fixtures and the
   pinned external Spielberg map; full-lap controller/ROS validation **NOT_RUN**.
 - PX4 walls: **IMPLEMENTED / TESTED** headlessly; ArUco: **IMPLEMENTED / TESTED** for layer
