@@ -337,6 +337,16 @@ consistency, rejects unjustified exact-count eligibility, and scans generated ro
 for scenario IDs, semantic obstacle IDs, and input source paths. Raw exports remain governed data
 and must not be committed to Git.
 
+Current-build proving-ground qualification (2026-09-22): `complete-blockage-v1` ran with the
+repository-retained 70-second task-policy tree and produced the declared `aborted` action result at
+71.809 wall seconds. Passive capture retained 629 unique transitions, including
+`Timeout IDLE -> RUNNING`, against a 16,384-record capacity with zero dropped transitions or
+recovery invocations. The run passed its contract admission and deterministic separated export;
+an independent scan found no evaluator-only keys in the robot-visible file. The absent terminal
+root transition and undetectable subscriber loss keep history `not_proven`. This supports a
+recorded task-policy terminal mechanism, not physical obstacle causation or a planner `no path`
+claim.
+
 ## F1TENTH occupancy maps
 
 `Tools/ReferenceEnvironments/f1tenth_map_generator.py` reads standard PNG/YAML maps, applies the
