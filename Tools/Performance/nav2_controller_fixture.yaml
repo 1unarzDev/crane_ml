@@ -104,8 +104,8 @@ global_costmap:
       track_unknown_space: false
       update_frequency: 5.0
       publish_frequency: 1.0
-      width: 40
-      height: 40
+      width: 60
+      height: 60
       resolution: 0.20
       robot_radius: 0.80
       plugins: [voxel_layer, inflation_layer]
