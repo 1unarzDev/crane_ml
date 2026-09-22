@@ -29,6 +29,7 @@ namespace Sim.Controllers {
         private string baseFrame;
         private double publishPeriod;
         private double nextPublishTime;
+        private bool useRoboBoatFrame;
         private readonly List<Transform> childFrames = new();
         private string[] requestedChildFrameNames = Array.Empty<string>();
 
@@ -36,7 +37,7 @@ namespace Sim.Controllers {
 
         public void Initialize(Component target, string odomTopic, string tfTopic,
             string parentFrame, string childFrame, float publishRateHz,
-            IReadOnlyList<string> requestedChildFrames) {
+            IReadOnlyList<string> requestedChildFrames, bool correctRoboBoatBow = false) {
             bodyComponent = target != null ? target : throw new ArgumentNullException(nameof(target));
             body = target switch {
                 Rigidbody rigidbody => new RigidbodyAdapter(rigidbody),
@@ -50,6 +51,7 @@ namespace Sim.Controllers {
             baseFrame = childFrame;
             publishPeriod = 1.0 / Math.Max(0.1f, publishRateHz);
             nextPublishTime = 0;
+            useRoboBoatFrame = correctRoboBoatBow;
             requestedChildFrameNames = requestedChildFrames == null
                 ? Array.Empty<string>()
                 : new List<string>(requestedChildFrames).ToArray();
@@ -107,9 +109,16 @@ namespace Sim.Controllers {
                 CacheChildFrames(requestedChildFrameNames);
             HeaderMsg header = CreateHeader(simulationTime, odometryFrame);
             PointMsg position = ToRosPoint(body.position);
-            QuaternionMsg orientation = body.rotation.To<FLU>();
+            Quaternion frameRotation = useRoboBoatFrame
+                ? RoboBoatRosFrame.Rotation(body.rotation)
+                : body.rotation;
+            QuaternionMsg orientation = frameRotation.To<FLU>();
             Vector3 localLinear = body.transform.InverseTransformDirection(body.linearVelocity);
             Vector3 localAngular = body.transform.InverseTransformDirection(body.angularVelocity);
+            if (useRoboBoatFrame) {
+                localLinear = RoboBoatRosFrame.ToRosLocalUnity(localLinear);
+                localAngular = RoboBoatRosFrame.ToRosLocalUnity(localAngular);
+            }
             Vector3Msg linear = ToRosVector(localLinear);
             Vector3Msg angular = ToRosAngularVector(localAngular);
 
@@ -133,8 +142,11 @@ namespace Sim.Controllers {
             transforms[0] = rootTransform;
             for (int i = 0; i < childFrames.Count; i++) {
                 Transform child = childFrames[i];
-                Vector3 localPosition = body.transform.InverseTransformPoint(child.position);
-                Quaternion localRotation = Quaternion.Inverse(body.rotation) * child.rotation;
+                Vector3 localPosition = useRoboBoatFrame
+                    ? RoboBoatRosFrame.WorldPointToRosLocal(
+                        body.position, body.rotation, child.position)
+                    : body.transform.InverseTransformPoint(child.position);
+                Quaternion localRotation = Quaternion.Inverse(frameRotation) * child.rotation;
                 var childTransform = new TransformStampedMsg {
                     header = CreateHeader(simulationTime, baseFrame),
                     child_frame_id = child.name
@@ -229,7 +241,7 @@ namespace Sim.Controllers {
             var state = body.GetComponent<CraneROSNavigationState>() ??
                         body.gameObject.AddComponent<CraneROSNavigationState>();
             state.Initialize(body, odometryTopic, transformTopic, odometryFrame, baseFrame,
-                publishRate, childFrames);
+                publishRate, childFrames, correctRoboBoatBow: controller != null);
         }
 
         private static string ReadString(string[] args, string key, string fallback) {

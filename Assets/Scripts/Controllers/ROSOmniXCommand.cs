@@ -145,8 +145,10 @@ namespace Sim.Controllers {
         }
 
         private void ApplyVelocityControl() {
-            Vector3 localLinear = body.transform.InverseTransformDirection(body.linearVelocity);
-            Vector3 localAngular = body.transform.InverseTransformDirection(body.angularVelocity);
+            Vector3 localLinear = RoboBoatRosFrame.ToRosLocalUnity(
+                body.transform.InverseTransformDirection(body.linearVelocity));
+            Vector3 localAngular = RoboBoatRosFrame.ToRosLocalUnity(
+                body.transform.InverseTransformDirection(body.angularVelocity));
             float measuredForward = localLinear.z;
             float measuredLateral = -localLinear.x;
             float measuredYaw = -localAngular.y;
@@ -218,13 +220,33 @@ namespace Sim.Controllers {
 
         internal static void ToControllerMotion(float forward, float lateral, float yaw,
             out Vector3 linear, out Vector3 angular) {
-            // Adapt ROS FLU to the controller axes measured through authoritative odometry. This
-            // conversion is isolated from the existing manual input path: controller X realizes
-            // ROS surge, controller Y realizes ROS sway, and positive controller yaw realizes
-            // negative ROS yaw.
-            linear = new Vector3(forward, lateral, 0f);
+            // The imported catamaran's visible bow is body-local -X (the chase camera is aft at
+            // +X), while OmniX controller X realizes body-local +Z and controller Y realizes
+            // body-local -X. Keep this correction at the ROS boundary so manual input, the mixer,
+            // and the physical model retain their established contract.
+            linear = new Vector3(-lateral, forward, 0f);
             angular = new Vector3(0f, 0f, -yaw);
         }
+    }
+
+    /// <summary>
+    /// Defines the ROS FLU body frame from the imported RoboBoat physics transform. The model's
+    /// visible bow is physics-local -X, so the ROS-frame Unity-forward axis is rotated -90 degrees
+    /// about Unity up relative to the ArticulationBody transform.
+    /// </summary>
+    internal static class RoboBoatRosFrame {
+        private static readonly Quaternion BodyFromRos = Quaternion.Euler(0f, -90f, 0f);
+        private static readonly Quaternion RosFromBody = Quaternion.Inverse(BodyFromRos);
+
+        internal static Quaternion Rotation(Quaternion bodyRotation) =>
+            bodyRotation * BodyFromRos;
+
+        internal static Vector3 ToRosLocalUnity(Vector3 bodyLocal) =>
+            RosFromBody * bodyLocal;
+
+        internal static Vector3 WorldPointToRosLocal(Vector3 bodyPosition,
+            Quaternion bodyRotation, Vector3 worldPoint) =>
+            Quaternion.Inverse(Rotation(bodyRotation)) * (worldPoint - bodyPosition);
     }
 
     internal static class ROSOmniXCommandBootstrap {

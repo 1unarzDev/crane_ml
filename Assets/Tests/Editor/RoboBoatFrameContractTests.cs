@@ -2,7 +2,9 @@ using NUnit.Framework;
 using Sim.Actuators.Motors;
 using Sim.Controllers;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace Sim.Tests.Editor {
     public sealed class RoboBoatFrameContractTests {
@@ -20,15 +22,58 @@ namespace Sim.Tests.Editor {
             ROSOmniXCommand.ToControllerMotion(0.25f, -0.5f, 0.75f,
                 out Vector3 linear, out Vector3 angular);
 
-            Assert.That(linear.x, Is.EqualTo(0.25f).Within(1e-6f),
-                "ROS surge must drive the controller axis measured as body surge");
-            Assert.That(linear.y, Is.EqualTo(-0.5f).Within(1e-6f),
-                "ROS sway must drive the controller axis measured as body sway");
+            Assert.That(linear.x, Is.EqualTo(0.5f).Within(1e-6f),
+                "ROS left sway must negate the controller axis that realizes body-local +Z");
+            Assert.That(linear.y, Is.EqualTo(0.25f).Within(1e-6f),
+                "ROS surge must drive the controller axis that realizes visible-bow local -X");
             Assert.That(linear.z, Is.Zero.Within(1e-6f));
             Assert.That(angular.x, Is.Zero.Within(1e-6f));
             Assert.That(angular.y, Is.Zero.Within(1e-6f));
             Assert.That(angular.z, Is.EqualTo(-0.75f).Within(1e-6f),
                 "positive ROS yaw must negate the controller axis measured as negative ROS yaw");
+        }
+
+        [Test]
+        public void SceneBaseRotationPublishesVisibleBowAsRosForward() {
+            Quaternion sceneBaseRotation = Quaternion.Euler(0f, 90f, 0f);
+            Quaternion rosFrameRotation = RoboBoatRosFrame.Rotation(sceneBaseRotation);
+            Vector3 worldForward = rosFrameRotation * Vector3.forward;
+
+            Assert.That(worldForward.x, Is.Zero.Within(1e-5f));
+            Assert.That(worldForward.z, Is.EqualTo(1f).Within(1e-5f));
+
+            Vector3 logicalVelocity = RoboBoatRosFrame.ToRosLocalUnity(Vector3.left);
+            var rosVelocity = CraneROSNavigationState.ToRosVector(logicalVelocity);
+            Assert.That(rosVelocity.x, Is.EqualTo(1f).Within(1e-5f));
+            Assert.That(rosVelocity.y, Is.Zero.Within(1e-5f));
+        }
+
+        [Test]
+        public void RosSurgeAlignsWithVisibleBowInRoboboatScene() {
+            Scene scene = EditorSceneManager.OpenScene(
+                "Assets/Scenes/Roboboat Course.unity", OpenSceneMode.Single);
+            GameObject root = System.Array.Find(scene.GetRootGameObjects(),
+                candidate => candidate.name == "Blastoise");
+            Assert.That(root, Is.Not.Null);
+
+            Transform baseLink = root.transform.Find("base_link");
+            Transform chaseCamera = baseLink != null ? baseLink.Find("Camera") : null;
+            Assert.That(baseLink, Is.Not.Null);
+            Assert.That(chaseCamera, Is.Not.Null);
+
+            Vector3 cameraOffset = baseLink.InverseTransformPoint(chaseCamera.position);
+            cameraOffset.y = 0f;
+            Vector3 visibleBow = -cameraOffset.normalized;
+
+            ROSOmniXCommand.ToControllerMotion(1f, 0f, 0f,
+                out Vector3 controllerLinear, out _);
+            // OmniX controller X produces base-local +Z; controller Y produces base-local -X.
+            Vector3 commandedBaseDirection = new(
+                -controllerLinear.y, 0f, controllerLinear.x);
+
+            Assert.That(Vector3.Dot(commandedBaseDirection.normalized, visibleBow),
+                Is.GreaterThan(0.999f),
+                "positive ROS surge must move from the behind-camera toward the visible bow");
         }
 
         [Test]
