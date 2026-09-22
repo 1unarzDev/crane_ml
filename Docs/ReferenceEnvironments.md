@@ -275,6 +275,33 @@ CRANE_PROVING_GROUND_LAYOUT=slalom-s-turn-v2 \
   Tools/Performance/run_land_proving_ground_nav2_fixture.sh
 ```
 
+## Ecological explanation question contract
+
+`Tools/ReferenceEnvironments/ecological_explanation_contract_v1.json` prospectively maps five
+qualified land mechanisms to ten evidence-rich question contracts: warehouse recovery-success,
+dynamic-gate recovery-success, bounded blockage termination, corrected S-turn trajectory shape,
+and U-trap route change. Each question declares the robot-visible evidence fields it needs, the
+claim classes those fields may support, and claims that must be withheld. Five questions require a
+partial answer by construction because retained runtime evidence cannot establish physical cause,
+controller consumption, no-path, optimality, or a counterfactual.
+
+The contract is `DEVELOPMENT_ONLY_NOT_FROZEN`. It is additive ecological infrastructure and cannot
+change the frozen F/G/H split, questions, prompts, or inclusion rules. Environment qualification
+hashes select useful mechanisms but are not independent study episodes or model results. The
+validator binds every entry to the exact manifest, environment, runtime seed, scenario/layout, and
+configuration hash; rejects evaluator-only fields presented as robot-visible; requires distinct
+question identities and explicit withholding boundaries; and requires a declared repetition pass
+to identify at least three runs.
+
+```bash
+python3 Tools/ReferenceEnvironments/validate_ecological_explanation_contract.py
+```
+
+The validated contract SHA-256 is
+`bfd344cb22ad307a7dd9be2fb885a555466aae3a5ca53e0e87f1fa2f62f7bd3c`.
+This is a reproducible handoff to the explanation pipeline; explanation generation,
+information-parity audit, blinded annotation, and statistical evaluation remain **NOT_RUN**.
+
 ## F1TENTH occupancy maps
 
 `Tools/ReferenceEnvironments/f1tenth_map_generator.py` reads standard PNG/YAML maps, applies the
@@ -426,16 +453,17 @@ result JSON SHA-256 was
 
 - TurtleBot3 warehouse: v2.2 canonical layout and ecological route contracts **IMPLEMENTED**;
   structural/physics/sensor/headless/explanation gates and one representative west-aisle detour
-  **PASSED**. Isolated overview/oblique/HUD/semantic/collider inspection is **PARTIAL** pending a
-  direct manual-keyboard check; one temporary-enclosure recovery-success calibration is
-  **VALIDATED**, while repeated-run qualification remains **NOT_RUN**.
+  **PASSED**. Direct keyboard Overview/Oblique/Follow and semantic/collider/trajectory inspection
+  **PASSED**; temporary-enclosure recovery-success passes a three-run exact-condition repetition
+  gate. Its evidence-rich question/withholding contracts are **VALIDATED**, while explanation
+  generation and annotation remain **NOT_RUN**.
 - Configurable land proving ground: all eight deterministic layouts **IMPLEMENTED**; structural,
   physics, sensor, headless, explanation, and deterministic inspection controls **TESTED**;
   every scenario motif has one behaviorally qualified development run across the retained v1
   catalog and additive corrected v2 slalom. Direct keyboard view switching **PASSED** for v2.
   Corrected S-turn, dynamic recovery-success, and bounded blockage abort each pass a three-run
-  exact-condition repetition gate. Broader route repetition and explanation evaluation remain
-  **NOT_RUN**.
+  exact-condition repetition gate. Contracts for those mechanisms plus U-trap route evidence are
+  **VALIDATED**; explanation generation and annotation remain **NOT_RUN**.
 - F1TENTH conversion and Unity import: **IMPLEMENTED / TESTED** on synthetic fixtures and the
   pinned external Spielberg map; full-lap controller/ROS validation **NOT_RUN**.
 - PX4 walls: **IMPLEMENTED / TESTED** headlessly; ArUco: **IMPLEMENTED / TESTED** for layer

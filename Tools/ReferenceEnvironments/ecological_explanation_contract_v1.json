@@ -1,0 +1,319 @@
+{
+  "schema": "crane-ecological-explanation-contract-v1",
+  "status": "DEVELOPMENT_ONLY_NOT_FROZEN",
+  "studyBoundary": {
+    "frozenStudyAffected": false,
+    "intendedUse": "prospective ecological land scenario and question selection",
+    "notEvidenceFor": [
+      "independent episode count",
+      "model performance",
+      "physical causation"
+    ]
+  },
+  "evidencePlanes": {
+    "robotVisible": [
+      "action.terminal_status",
+      "bt.transition_sequence",
+      "bt.invocation_ids",
+      "bt.completeness",
+      "feedback.recovery_count",
+      "trajectory.samples",
+      "trajectory.summary",
+      "runtime.bt_policy_hash",
+      "runtime.manifest_hash",
+      "runtime.configuration_hash"
+    ],
+    "evaluatorOnly": [
+      "world.obstacle_identity",
+      "world.obstacle_schedule",
+      "world.collision_geometry",
+      "scenario.expected_outcome"
+    ]
+  },
+  "scenarios": [
+    {
+      "environmentId": "crane-industrial-warehouse-v2",
+      "scenarioId": "warehouse-temporary-enclosure-recovery-v1",
+      "catalogEntryType": "scenario",
+      "manifest": "Assets/Resources/ReferenceEnvironments/unity_turtlebot3_industrial_warehouse_v2.json",
+      "manifestSha256": "c6db13e9c7190482f1eca723cb515cc7a38ce01a9caa60d6fbf9720810e68d69",
+      "runtimeSeed": 4105,
+      "configurationSha256": "e18a16cbf9524e1dec4df9fae352ea9255b9ec2d6343dfe2cb6cc8a4150fe242",
+      "qualification": {
+        "status": "REPETITION_PASS",
+        "artifactSha256": "818fd1c4118c1579d76e50f9222f06ddf68868b17f11e8a8b89bfa977a062033",
+        "runCount": 3
+      },
+      "questionContracts": [
+        {
+          "id": "warehouse-recovery-sequence-v1",
+          "family": "factual-execution",
+          "question": "What recorded recovery behavior occurred before the navigation task succeeded?",
+          "answerMode": "full_when_complete_otherwise_partial",
+          "requiredRobotVisible": [
+            "action.terminal_status",
+            "bt.transition_sequence",
+            "bt.invocation_ids",
+            "bt.completeness",
+            "feedback.recovery_count"
+          ],
+          "supportedClaimClasses": [
+            "recorded_sequence",
+            "software_mechanism"
+          ],
+          "mustWithhold": [
+            "physical_cause",
+            "exact_count_without_complete_invocations",
+            "controller_consumption"
+          ]
+        },
+        {
+          "id": "warehouse-recovery-physical-cause-v1",
+          "family": "insufficient-evidence",
+          "question": "What physical condition caused the recorded recovery behavior?",
+          "answerMode": "partial",
+          "requiredRobotVisible": [
+            "bt.transition_sequence",
+            "bt.completeness",
+            "trajectory.samples"
+          ],
+          "supportedClaimClasses": [
+            "recorded_sequence"
+          ],
+          "mustWithhold": [
+            "physical_cause",
+            "controller_consumption",
+            "counterfactual_success"
+          ]
+        }
+      ]
+    },
+    {
+      "environmentId": "crane-land-proving-ground-v1",
+      "scenarioId": "dynamic-gate-v1",
+      "catalogEntryType": "layout",
+      "manifest": "Assets/Resources/ReferenceEnvironments/crane_land_proving_ground_v1.json",
+      "manifestSha256": "bea854292d7298e04f37ed9f6cc50f49d59d51fdec0e1b78a9d5f9247beee720",
+      "runtimeSeed": 1000,
+      "configurationSha256": "48572495f1cb02f52799858c427590b2ed339c10a9f682d33b6755bface4d114",
+      "qualification": {
+        "status": "REPETITION_PASS",
+        "artifactSha256": "21010265d272b2c4b6d738f2312ba31f40c8d824c0307c337a0259325033c112",
+        "runCount": 3
+      },
+      "questionContracts": [
+        {
+          "id": "dynamic-gate-recovery-success-v1",
+          "family": "temporal",
+          "question": "What recorded execution sequence preceded the eventual navigation success?",
+          "answerMode": "full_when_complete_otherwise_partial",
+          "requiredRobotVisible": [
+            "action.terminal_status",
+            "bt.transition_sequence",
+            "bt.completeness",
+            "feedback.recovery_count",
+            "trajectory.samples"
+          ],
+          "supportedClaimClasses": [
+            "recorded_sequence",
+            "software_mechanism",
+            "trajectory_description"
+          ],
+          "mustWithhold": [
+            "physical_cause",
+            "controller_consumption"
+          ]
+        },
+        {
+          "id": "dynamic-gate-causal-attribution-v1",
+          "family": "failure-attribution",
+          "question": "Does the available runtime evidence establish what physically caused the recovery?",
+          "answerMode": "partial",
+          "requiredRobotVisible": [
+            "bt.transition_sequence",
+            "bt.completeness",
+            "trajectory.samples"
+          ],
+          "supportedClaimClasses": [
+            "recorded_sequence"
+          ],
+          "mustWithhold": [
+            "physical_cause",
+            "controller_consumption",
+            "counterfactual_success"
+          ]
+        }
+      ]
+    },
+    {
+      "environmentId": "crane-land-proving-ground-v1",
+      "scenarioId": "complete-blockage-v1",
+      "catalogEntryType": "layout",
+      "manifest": "Assets/Resources/ReferenceEnvironments/crane_land_proving_ground_v1.json",
+      "manifestSha256": "bea854292d7298e04f37ed9f6cc50f49d59d51fdec0e1b78a9d5f9247beee720",
+      "runtimeSeed": 1000,
+      "configurationSha256": "a0d85b3f7cc966e84e271fe810384659ab643df0dbf17aca0fc7ba62f7600ebe",
+      "qualification": {
+        "status": "REPETITION_PASS",
+        "artifactSha256": "f7c6a43286c06a5fe3c11873e355d0b70dc084515c56cf09d8175c8ce6b081fe",
+        "runCount": 3
+      },
+      "questionContracts": [
+        {
+          "id": "blockage-terminal-mechanism-v1",
+          "family": "failure-attribution",
+          "question": "What recorded software mechanism terminated the navigation task?",
+          "answerMode": "full_when_complete_otherwise_partial",
+          "requiredRobotVisible": [
+            "action.terminal_status",
+            "bt.transition_sequence",
+            "bt.completeness",
+            "runtime.bt_policy_hash"
+          ],
+          "supportedClaimClasses": [
+            "recorded_sequence",
+            "software_mechanism",
+            "terminal_policy"
+          ],
+          "mustWithhold": [
+            "physical_cause",
+            "no_path_without_planner_result"
+          ]
+        },
+        {
+          "id": "blockage-no-path-premise-v1",
+          "family": "misleading-premise",
+          "question": "Did the robot determine that no path existed?",
+          "answerMode": "partial",
+          "requiredRobotVisible": [
+            "action.terminal_status",
+            "bt.transition_sequence",
+            "bt.completeness",
+            "runtime.bt_policy_hash"
+          ],
+          "supportedClaimClasses": [
+            "recorded_sequence",
+            "terminal_policy"
+          ],
+          "mustWithhold": [
+            "no_path_without_planner_result",
+            "physical_cause",
+            "counterfactual_success"
+          ]
+        }
+      ]
+    },
+    {
+      "environmentId": "crane-land-proving-ground-v2",
+      "scenarioId": "slalom-s-turn-v2",
+      "catalogEntryType": "layout",
+      "manifest": "Assets/Resources/ReferenceEnvironments/crane_land_proving_ground_v2.json",
+      "manifestSha256": "3f249258362fb47ceb135b7423e77ba5716bd1ebf4b3db7cf3650a8f8f0640f2",
+      "runtimeSeed": 1000,
+      "configurationSha256": "b9f4d58a51e4273fd116ffeb946fcd61f8bd1f622c97325458a449417260ebba",
+      "qualification": {
+        "status": "REPETITION_PASS",
+        "artifactSha256": "e5a10178e8104a3009e792af35b3e0f2bbb876617dd45c6b15266117e62bbc65",
+        "runCount": 3
+      },
+      "questionContracts": [
+        {
+          "id": "slalom-recorded-route-shape-v1",
+          "family": "physical-evidence",
+          "question": "What route shape is supported by the recorded trajectory?",
+          "answerMode": "full",
+          "requiredRobotVisible": [
+            "action.terminal_status",
+            "trajectory.samples",
+            "trajectory.summary",
+            "runtime.configuration_hash"
+          ],
+          "supportedClaimClasses": [
+            "trajectory_description"
+          ],
+          "mustWithhold": [
+            "physical_cause",
+            "controller_consumption",
+            "optimality"
+          ]
+        },
+        {
+          "id": "slalom-route-optimality-v1",
+          "family": "unsupported-counterfactual",
+          "question": "Was the recorded route the best possible route through the environment?",
+          "answerMode": "partial",
+          "requiredRobotVisible": [
+            "trajectory.samples",
+            "trajectory.summary",
+            "runtime.configuration_hash"
+          ],
+          "supportedClaimClasses": [
+            "trajectory_description"
+          ],
+          "mustWithhold": [
+            "optimality",
+            "counterfactual_success",
+            "physical_cause"
+          ]
+        }
+      ]
+    },
+    {
+      "environmentId": "crane-land-proving-ground-v1",
+      "scenarioId": "u-trap-v1",
+      "catalogEntryType": "layout",
+      "manifest": "Assets/Resources/ReferenceEnvironments/crane_land_proving_ground_v1.json",
+      "manifestSha256": "bea854292d7298e04f37ed9f6cc50f49d59d51fdec0e1b78a9d5f9247beee720",
+      "runtimeSeed": 1000,
+      "configurationSha256": "049f8781979102fd92090b3de134eb7ca5d84fbd32e1fee33b1c99056d4fd706",
+      "qualification": {
+        "status": "SINGLE_RUN_NAVIGATION_PASS",
+        "artifactSha256": "bd0d0a5147044f063a525d95fc6ba9482ac8895c4cfbdfb3d470a492b6089b15",
+        "runCount": 1
+      },
+      "questionContracts": [
+        {
+          "id": "u-trap-route-change-evidence-v1",
+          "family": "physical-evidence",
+          "question": "What recorded evidence supports that the robot made a substantive route change?",
+          "answerMode": "full",
+          "requiredRobotVisible": [
+            "action.terminal_status",
+            "trajectory.samples",
+            "trajectory.summary",
+            "runtime.configuration_hash"
+          ],
+          "supportedClaimClasses": [
+            "trajectory_description"
+          ],
+          "mustWithhold": [
+            "physical_cause",
+            "controller_consumption",
+            "optimality"
+          ]
+        },
+        {
+          "id": "u-trap-recovery-premise-v1",
+          "family": "misleading-premise",
+          "question": "What recovery behavior caused the robot to leave the dead end?",
+          "answerMode": "partial",
+          "requiredRobotVisible": [
+            "bt.transition_sequence",
+            "bt.completeness",
+            "feedback.recovery_count",
+            "trajectory.samples"
+          ],
+          "supportedClaimClasses": [
+            "recorded_sequence",
+            "trajectory_description"
+          ],
+          "mustWithhold": [
+            "physical_cause",
+            "exact_count_without_complete_invocations",
+            "controller_consumption"
+          ]
+        }
+      ]
+    }
+  ]
+}
