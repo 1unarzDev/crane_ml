@@ -99,11 +99,50 @@ namespace Sim.Utils.ReferenceEnvironments {
 
         private void UpdateFollowView() {
             if (inspectionCamera == null || followTarget == null) return;
-            Vector3 position = followTarget.position - followTarget.forward * 3.2f +
-                               Vector3.up * 2.4f;
+            Vector3 lookAt = followTarget.position + Vector3.up * 0.25f;
+            Vector3 position = ResolveFollowPosition(lookAt);
             inspectionCamera.transform.position = Vector3.Lerp(
                 inspectionCamera.transform.position, position, 8f * Time.unscaledDeltaTime);
-            inspectionCamera.transform.LookAt(followTarget.position + Vector3.up * 0.25f);
+            inspectionCamera.transform.LookAt(lookAt);
+        }
+
+        private Vector3 ResolveFollowPosition(Vector3 lookAt) {
+            Vector3 forward = Vector3.ProjectOnPlane(followTarget.forward, Vector3.up).normalized;
+            if (forward.sqrMagnitude < 0.5f) forward = Vector3.forward;
+            Vector3 right = Vector3.Cross(Vector3.up, forward).normalized;
+            const float distance = 1.8f;
+            Vector3 lift = Vector3.up * 1.25f;
+            Vector3 behind = followTarget.position - forward * distance + lift;
+            if (IsFollowPositionClear(lookAt, behind)) return behind;
+
+            // Near a boundary, a side view preserves both robot scale and environment context.
+            Vector3 left = followTarget.position - right * distance + lift;
+            Vector3 rightSide = followTarget.position + right * distance + lift;
+            bool leftClear = IsFollowPositionClear(lookAt, left);
+            bool rightClear = IsFollowPositionClear(lookAt, rightSide);
+            if (leftClear && rightClear)
+                return PlanarDistanceFromCenter(left) <= PlanarDistanceFromCenter(rightSide)
+                    ? left : rightSide;
+            if (leftClear) return left;
+            if (rightClear) return rightSide;
+
+            Vector3 ahead = followTarget.position + forward * distance + lift;
+            return IsFollowPositionClear(lookAt, ahead)
+                ? ahead
+                : followTarget.position + Vector3.up * 4.5f;
+        }
+
+        private static bool IsFollowPositionClear(Vector3 lookAt, Vector3 candidate) {
+            // Start above the robot so its own chassis cannot reject every camera position.
+            Vector3 sightlineStart = lookAt + Vector3.up * 0.6f;
+            return !Physics.Linecast(sightlineStart, candidate, out _,
+                Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+        }
+
+        private float PlanarDistanceFromCenter(Vector3 position) {
+            Vector3 offsetFromCenter = position - overviewCenter;
+            offsetFromCenter.y = 0f;
+            return offsetFromCenter.sqrMagnitude;
         }
 
         private void ToggleSemanticHighlight() {

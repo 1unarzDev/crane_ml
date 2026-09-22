@@ -131,12 +131,22 @@ CRANE.x86_64 --crane-profile interactive-high \
   --crane-inspection-semantic-overlay --crane-inspection-collider-overlay
 ```
 
-An isolated 1280 × 720 player inspection on 2026-09-22 confirmed readable overview and oblique
-views, route/environment identity, semantic overlay state, visible canonical-collider wireframes,
-and the trajectory layer. Manual keyboard polling was not directly exercised, so the interactive
-gate remains conservatively `PARTIAL` rather than a full pass. The same build reran the headless
-warehouse validator successfully; presentation tooling did not change its 20 canonical colliders,
-20 collider-free renderers, or existing structural/physics/sensor/explanation verdicts.
+An isolated 1280 × 720 X11 player inspection on 2026-09-22 directly exercised keyboard input.
+Keys `1` and `2` selected readable Overview and Oblique views; `H`, `C`, and `T` changed the HUD
+and the corresponding semantic, collider, and trajectory presentation; and `3` selected Follow.
+The first Follow audit exposed an empty view because the original chase position lay outside the
+south warehouse boundary. The presentation-only controller now tests the chase sightline, falls
+back to an unobstructed lateral view near a boundary, and retains an overhead last resort. The
+rebuild showed the robot at readable scale with nearby canonical geometry while leaving that
+geometry untouched. Final screenshot SHA-256 values are
+`2c3faf7ff564b418529e4e5d527f320a4761f15949e4584440f38f7658bd4efe` (Overview),
+`0048802b8a66088ba72377a8da2707547d7281c86affbf03ab5c5ddebf6822ef` (Oblique),
+`3ff56d9237fa891236ec7aa7bed0c0929055025a41746ae1969eb6d6db073420` (overlays), and
+`a242bc03496842466c3010061e9cd0acc04b59510ce68823d30cace2a521b7f7` (Follow).
+The interactive gate therefore passes for the warehouse inspection contract. The same final build
+reproduced the prior headless validator SHA-256
+`cd3dde90795bfb1c76a60eba9d2de8f1246bb8b39ab2ab6cbdc4fa65a199eda6`, including 20 canonical
+colliders, 20 collider-free renderers, and unchanged structural/physics/sensor/explanation gates.
 
 ## Configurable land navigation proving ground
 
