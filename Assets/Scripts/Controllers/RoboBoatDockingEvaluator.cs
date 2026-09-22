@@ -120,12 +120,15 @@ namespace Sim.Controllers {
 
         private StringMsg CreateMessage() {
             Vector3 position = body.position;
-            Vector3 worldForward = body.rotation * Vector3.forward;
+            Quaternion frameRotation = RoboBoatRosFrame.Rotation(body.rotation);
+            Vector3 worldForward = frameRotation * Vector3.forward;
             float x = position.z;
             float y = -position.x;
             float yaw = Mathf.Atan2(-worldForward.x, worldForward.z);
-            Vector3 localLinear = body.transform.InverseTransformDirection(body.linearVelocity);
-            Vector3 localAngular = body.transform.InverseTransformDirection(body.angularVelocity);
+            Vector3 localLinear = RoboBoatRosFrame.ToRosLocalUnity(
+                body.transform.InverseTransformDirection(body.linearVelocity));
+            Vector3 localAngular = RoboBoatRosFrame.ToRosLocalUnity(
+                body.transform.InverseTransformDirection(body.angularVelocity));
             float surge = localLinear.z;
             float sway = -localLinear.x;
             float yawRate = -localAngular.y;

@@ -118,6 +118,7 @@ class FollowPathFixture(Node):
         self.done = False
         self.goal_description = None
         self.planned_path = []
+        self.plan_history = []
         self.trajectory = []
         self.latest_command = {'surge': 0.0, 'sway': 0.0, 'yaw': 0.0}
         self.publisher = self.create_publisher(
@@ -131,6 +132,7 @@ class FollowPathFixture(Node):
         self.harness_publisher = self.create_publisher(
             String, args.harness_topic, harness_qos)
         self.create_subscription(Odometry, args.odom_topic, self.on_odom, 20)
+        self.create_subscription(Path, args.plan_topic, self.on_plan, 20)
         costmap_qos = QoSProfile(
             history=HistoryPolicy.KEEP_LAST,
             depth=1,
@@ -165,6 +167,35 @@ class FollowPathFixture(Node):
             self.publish_identity('initial_observation')
         if self.goal_sent_wall is not None:
             self.trajectory.append(self.trajectory_sample(message))
+
+    def on_plan(self, message):
+        if not message.poses:
+            return
+        first = message.poses[0].pose
+        terminal = message.poses[-1].pose
+        terminal_tangent = None
+        if len(message.poses) >= 2:
+            previous = message.poses[-2].pose.position
+            dx = terminal.position.x - previous.x
+            dy = terminal.position.y - previous.y
+            if math.hypot(dx, dy) > 1e-6:
+                terminal_tangent = math.atan2(dy, dx)
+        self.plan_history.append({
+            'wallSeconds': time.monotonic() - self.started_wall,
+            'frameId': message.header.frame_id,
+            'poseCount': len(message.poses),
+            'first': {
+                'x': float(first.position.x),
+                'y': float(first.position.y),
+                'yaw': yaw_from_quaternion(first.orientation),
+            },
+            'terminal': {
+                'x': float(terminal.position.x),
+                'y': float(terminal.position.y),
+                'yaw': yaw_from_quaternion(terminal.orientation),
+                'incomingTangentYaw': terminal_tangent,
+            },
+        })
 
     def trajectory_sample(self, message):
         pose = message.pose.pose
@@ -428,6 +459,7 @@ class FollowPathFixture(Node):
                     'y': goal.pose.pose.position.y,
                     'z': goal.pose.pose.position.z,
                 },
+                'yaw': yaw_from_quaternion(goal.pose.pose.orientation),
             }
         else:
             goal = FollowPath.Goal()
@@ -563,6 +595,9 @@ class FollowPathFixture(Node):
             'trajectorySamplePeriodWallSeconds': self.args.trajectory_sample_period,
             'trajectoryProvenance': (
                 'sampled-delivered-odometry-not-proven-nav2-internal-state'),
+            'goal': self.goal_description,
+            'planTopic': self.args.plan_topic,
+            'planHistory': self.plan_history,
             'costmapTopic': self.args.costmap_topic,
             'costmapMessages': self.costmap_count,
             'costmapService': self.args.costmap_service,
@@ -621,6 +656,8 @@ class FollowPathFixture(Node):
         console_summary.pop('trajectory', None)
         console_summary.pop('latestCostmapSnapshot', None)
         console_summary.pop('dockingEvaluations', None)
+        console_summary.pop('planHistory', None)
+        console_summary['planCount'] = len(self.plan_history)
         console_summary['trajectorySampleCount'] = len(self.trajectory)
         print(json.dumps(console_summary, sort_keys=True), flush=True)
         rclpy.shutdown()
@@ -787,6 +824,7 @@ def main():
     parser.add_argument('--odom-topic', default='/crane/odom')
     parser.add_argument('--input-topic', default='/nav2/cmd_vel')
     parser.add_argument('--costmap-topic', default='/local_costmap/costmap')
+    parser.add_argument('--plan-topic', default='/plan')
     parser.add_argument('--costmap-service', default='/local_costmap/get_costmap')
     parser.add_argument('--costmap-sample-period', type=float, default=0.5)
     parser.add_argument('--docking-evaluator-topic', default='/crane/docking_evaluator')

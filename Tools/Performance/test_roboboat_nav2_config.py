@@ -29,6 +29,20 @@ class RoboBoatNav2ConfigTests(unittest.TestCase):
         self.assertEqual(goal_checker['xy_goal_tolerance'], 0.20)
         self.assertEqual(goal_checker['yaw_goal_tolerance'], 0.35)
 
+    def test_navigate_to_pose_preserves_final_sub_meter_approach_path(self):
+        directory = Path(__file__).parent
+        config = yaml.safe_load(
+            (directory / 'nav2_controller_fixture.yaml').read_text(encoding='utf-8'))
+        bt_path = config['bt_navigator']['ros__parameters']['default_nav_to_pose_bt_xml']
+
+        self.assertEqual(
+            bt_path,
+            '/workspace/crane_sim/Tools/Performance/nav2_roboboat_distance_replanning.xml')
+        behavior_tree = (directory / Path(bt_path).name).read_text(encoding='utf-8')
+        self.assertIn('<DistanceController distance="1.0">', behavior_tree)
+        self.assertIn('<ComputePathToPose goal="{goal}" path="{path}"', behavior_tree)
+        self.assertIn('<RecoveryNode number_of_retries="6"', behavior_tree)
+
 
 if __name__ == '__main__':
     unittest.main()

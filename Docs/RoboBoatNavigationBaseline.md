@@ -11,21 +11,30 @@ the environment scene and manual controller were not edited.
   `36202373ae186a8fd247a20b7b477312a744de99`.
 - Diagnostic fixture commit: `caedee3` (`full-forward` command response only).
 - Corrected active navigation commit: `2778bab`.
+- Visible-bow/frame correction baseline: superproject `cb0c86523f0a7d2596497a5a5fbd88724b97da18`,
+  `crane_ml` `e0495c623bcc3542be6195631d7f98e4e1286f83`, and `astro_dock`
+  `36202373ae186a8fd247a20b7b477312a744de99`. The frame correction is documented by
+  the file-level tests and runtime artifacts below because a commit cannot name its own hash.
 - ROS image: `lunarzdev/astro:cuda`; installed Nav2 Debian packages are Jazzy `1.3.12`.
 - Player SHA-256: `a7ad5b156bd9a1232544ff6fc12e5f863d8f1f2348c5b141f5c3d4230e5be292`.
 - Locked scene SHA-256: `db1399a23ff791dcf49d389381cf6f745169b671b8fb87fdc8ddeebe2342ed84`.
 - Active parameters are [nav2_controller_fixture.yaml](../Tools/Performance/nav2_controller_fixture.yaml),
   loaded explicitly by [run_nav2_controller_fixture.sh](../Tools/Performance/run_nav2_controller_fixture.sh).
   Its pre-fix blob SHA-256 was `047e0981...b401385c`; the corrected blob is
-  `9737552e...179a92`.
+  `9737552e...179a92`; the visible-bow/BT revision is
+  `0373293d0b18e900e34c9606af63718d0f66b8dba7660c72eadd144e20219039`.
+- The active BT is
+  [nav2_roboboat_distance_replanning.xml](../Tools/Performance/nav2_roboboat_distance_replanning.xml),
+  SHA-256 `e47dadf5bb1228f031e1a7a15d60f0a784c5101ffff9fd11fc36ea7458ce3dce`.
 - `nav2_land_fixture.yaml` and the land/TurtleBot launchers are alternatives for land fixtures and
-  do not control RoboBoat runs. No velocity smoother executable is launched. No custom BT is passed.
+  do not control RoboBoat runs. No velocity smoother executable is launched. No command-line BT
+  override was used for the final runs; the active BT is selected by the parameter file above.
 
 ## Current architecture
 
 ```text
 NavigateToPose (/navigate_to_pose)
-  -> BT Navigator, stock navigate_to_pose_w_replanning_and_recovery.xml
+  -> BT Navigator, nav2_roboboat_distance_replanning.xml
   -> NavfnPlanner /compute_path_to_pose (A*, rolling odom costmap)
   -> RegulatedPurePursuitController /follow_path at 10 Hz
   -> Twist on /nav2/cmd_vel
@@ -49,9 +58,10 @@ at which point effort is zeroed and integrators reset.
 
 ## Active Nav2 stack
 
-The corrected settings differ from the reconnaissance baseline only in the four marked controller
+The speed/terminal settings differ from the initial reconnaissance baseline in four controller
 values: desired speed `0.15 -> 0.8 m/s`, fixed lookahead `0.8 -> 2.0 m`, terminal rotation
-`false -> true`, and rotate speed `0.4 -> 0.2 rad/s`.
+`false -> true`, and rotate speed `0.4 -> 0.2 rad/s`. The later visible-bow correction changes the
+ROS boundary frame, and the active BT changes replanning cadence; neither changes boat physics.
 
 - Planner: `nav2_navfn_planner::NavfnPlanner`, A* enabled, unknown allowed, 0.5 m tolerance,
   expected 5 Hz.
@@ -64,8 +74,10 @@ values: desired speed `0.15 -> 0.8 m/s`, fixed lookahead `0.8 -> 2.0 m`, termina
   translation, and 0.05 rad/s stopped rotation.
 - Progress checker: `SimpleProgressChecker`; 0.05 m in 20 s.
 - Recovery behaviors: Spin, BackUp, DriveOnHeading, Wait at 10 Hz; 0.5 rad/s maximum recovery
-  rotation, 0.5 rad/s2 rotational acceleration. The stock NavigateToPose replanning/recovery BT is
-  used because `default_nav_to_pose_bt_xml` is not overridden.
+  rotation, 0.5 rad/s2 rotational acceleration. The active recovery-capable BT replans after each
+  1 m of translation. This refreshes a wave-disturbed long approach but preserves the final
+  sub-metre path; unconditional 1 Hz replanning was measured replacing it with a quantized
+  two-pose Navfn path and causing terminal orbits.
 - Local costmap: rolling `odom`, `base_link`, 20 x 20 m, 0.10 m cells, 10 Hz update/2 Hz publish.
 - Global costmap: rolling `odom`, `base_link`, 60 x 60 m, 0.20 m cells, 5 Hz update/1 Hz publish.
 - Both costmaps use a 0.80 m robot radius, 3-D VoxelLayer from `/points`, obstacle range 1-20 m,
@@ -85,12 +97,15 @@ body-velocity loop. Wave drift remains external disturbance, not commanded sway.
 
 At the Unity boundary, TwistStamped is a **desired body velocity**, not normalized thrust:
 
-- `linear.x`: ROS FLU forward/surge, m/s; Unity local `+Z`.
-- `linear.y`: ROS FLU left/sway, m/s; Unity local `-X`.
+- `linear.x`: ROS FLU forward/surge, m/s; imported physics-body local `-X`, toward the LiDAR and
+  catamaran noses and away from the chase camera/Blastoise head.
+- `linear.y`: ROS FLU left/sway, m/s; imported physics-body local `-Z`.
 - `angular.z`: ROS FLU counter-clockwise/yaw rate, rad/s; Unity local `-Y` axial rotation.
 
-`ROSOmniXCommand` clamps translation and yaw to +/-1.0 in their SI units. It measures authoritative
-body-frame velocity each fixed step. Translation uses normalized feed-forward `0.21`, Kp `0.1`, Ki
+The logical ROS body frame is a -90 degree Unity-Y rotation from the imported physics body. The
+same transform is applied to commands, odometry pose/twist, root TF, sensor-child TF, and docking
+evaluation. `ROSOmniXCommand` clamps translation and yaw to +/-1.0 in their SI units. It measures
+authoritative body-frame velocity each fixed step. Translation uses normalized feed-forward `0.21`, Kp `0.1`, Ki
 `0.1`, and integral effort limit `0.2`; yaw uses square-root feed-forward `0.24` and Kp `0.05`.
 Each resulting axis effort is clipped to [-1, 1]. The active RPP does not use sway. Manual input
 continues to call `OmniXController.SetMotion` directly and was not edited.
@@ -120,7 +135,8 @@ For requested normalized effort `(f, s, r)`, `OmniXController` computes:
 All four values are divided by `max(1, max(abs(value)))`, preserving the requested vector while
 saturating. The matrix has rank 3, symmetric pure-surge/pure-sway/pure-yaw columns, and no algebraic
 coupling. `ROSOmniXCommand.ToControllerMotion` supplies the sign conversion needed for ROS FLU.
-Axis-response tests verified surge, sway, and yaw signs independently.
+Axis-response tests verified surge, sway, and yaw signs independently. The manual input path still
+calls `OmniXController.SetMotion` directly and was not modified.
 
 `OmniThrusterConfig.asset` uses shaft velocity mode, +/-500 rad/s, 1 N m maximum motor torque,
 response factor 0.98, quadratic coefficient -0.014, equal reverse factor 1.0, and 0.03 m full
@@ -145,17 +161,19 @@ disabled. `Current` is enabled, and the scene water surface supplies waves/curre
 scene/model inputs with no calibration provenance in code; they are therefore treated as estimates,
 not measured real-platform constants, and were not changed.
 
-Full manual-equivalent forward effort (normalized effort 1.0 for 15 s) reached 1.246 m/s peak and
-1.216 m/s tail, traveled 17.47 m, then coasted 0.655 m after release. Sway stayed within 0.009 m/s
-and net yaw was 0.0012 rad. Thus the existing plant is straight and stable at full effort, but it
-cannot produce the reported 1.8 m/s without changing the current thrust/drag/scale model. The
-software adapter also clamps requests at 1.0 m/s. No physics change is justified until the real
-mass, full-throttle speed, propulsor thrust curve, and hull scale are reconciled.
+The earlier controller-X full-effort test reached 1.246 m/s peak and 1.216 m/s tail, traveled
+17.47 m, then coasted 0.655 m after release. That controller axis is imported-body `+Z`, not the
+visible bow, so it is evidence for plant response but not a valid visible-forward top-speed test.
+The corrected ROS surge loop accurately realizes requests through 1.0 m/s, which is also the
+current adapter clamp. No physics change or claim about the reported 1.8 m/s bow speed is justified
+until a corrected full-effort bow-axis test is compared with real mass, full-throttle speed,
+propulsor thrust/RPM, and hull scale.
 
 ## Geometry and frames
 
 - `odom` is the global/planning frame and `base_link` is the odometry child and rotation reference.
-  Unity `(Z, -X, Y)` maps to ROS `(X, Y, Z)`; angular vectors receive the required handedness sign.
+  Imported physics-body `(-X, -Z, Y)` maps to logical ROS `(X, Y, Z)`; angular vectors receive the
+  required handedness sign.
 - `CraneROSNavigationState` publishes odometry and TF at 50 Hz, including `lidar_link`,
   `front_camera_link`, `imu_link`, and `gps_link` when present.
 - The 3-D LiDAR is on `lidar_link` at the bow, 10 Hz, 360-degree horizontal FOV, 16 vertical beams,
@@ -181,32 +199,43 @@ Corrected results (all scene/physics unchanged, `linear.y` command always zero):
 
 | Run | Result | Fixture time | Key evidence |
 |---|---:|---:|---|
-| 8 m directly ahead, 0.8 m/s | success | 19.93 s | 0.103 m final XY, 0.021 rad yaw, 0.870 m/s peak surge |
-| 15 m gentle turn | success | 30.33 s | 0.090 m RMS / 0.292 m max cross-track, no contact |
-| far dock, seeds 1000/2000/3000 | 3/3 success | 57.88-66.68 s | dock predicate true, no contact, stopped, 0.319-0.410 m final clearance |
+| ROS surge step, 1.0 m/s for 15 s | complete | 15 s | +15.363 m bow direction, +0.582 m wave drift; 0.9996 m/s tail surge, 0.0023 m/s tail sway |
+| 8 m fixed FollowPath | success | 26.43 s | +7.837 m bow direction, -0.317 m wave drift, 0.025 rad final yaw |
+| 8 m NavigateToPose, active distance BT | success | 16.95 s | +7.854 m bow direction, zero sway command, 0.032 rad final yaw |
+| far dock `(0.864, -27.587, +pi/2)`, active distance BT | Nav2 success | 46.03 s action / 53.08 s observed | 23.37 m traveled; action result 0.267 m XY and 0.019 rad yaw; hull inside dock, zero contact |
 
 The old direct-ahead baseline took 65.83 s at 0.15 m/s. A naive 0.30 m/s change with terminal
 rotation disabled reached within 0.005 m, then looped nearly 180 degrees and timed out at 70 s.
-Enabling terminal rotation made that exact repro succeed in 38.18 s. This falsifies a sway critic
-problem: RPP has no critics and emits no sway. The failure was forward-only terminal geometry.
+Enabling terminal rotation made that exact repro succeed in 38.18 s. The later visible-bow audit
+found a separate exact 90 degree boundary error: ROS surge had been bound to imported-body `+Z`
+while the camera/LiDAR geometry proves the visible bow is imported-body `-X`. The scene-loaded
+regression failed before correction with a bow/surge dot product of `9.31e-8` and passes after it.
+RPP has no critics and emits no sway.
 
 ## Limitations, gaps, and next experiment
 
-Resolved bottlenecks, in order, were controller terminal-heading configuration and overly short
-speed/lookahead settings. Goal/stopped checking, the conservative footprint, planner geometry, and
-waves were not the cause of the aggressive circle. Remaining gaps are:
+Resolved bottlenecks were the exact 90 degree ROS/imported-body frame error, unconditional 1 Hz
+terminal replanning, controller terminal-heading configuration, and overly short speed/lookahead
+settings. Goal/stopped checking and the conservative footprint were not the cause of the visible
+sideways motion. Remaining gaps are:
 
-1. **Plant speed/scale:** full effort is 1.22 m/s steady rather than the reported 1.8 m/s. Confirm
-   with measured real mass, hull dimensions, full-throttle speed, current draw/RPM, and bollard
-   thrust; falsify by showing the simulated quantities already match those measurements.
-2. **Disturbance robustness:** three simulator seeds now pass the far dock, but wave severity/current
-   itself has not been swept. Confirm with declared low/nominal/high water settings; falsify concern
-   if success, contact, clearance, and final pose remain bounded.
+1. **Plant speed/scale:** corrected bow-axis full-effort speed is not yet measured; the old 1.22 m/s
+   result was for imported-body `+Z`. Confirm with a corrected open-loop bow-axis test plus measured
+   real mass, hull dimensions, full-throttle speed, current draw/RPM, and bollard thrust.
+2. **Disturbance robustness:** the active distance-triggered BT passed the direct-ahead and far-dock
+   runs, but wave severity/current and multiple seeds have not been swept. Confirm with declared
+   low/nominal/high water settings and repeated seeds; falsify concern if success, contact,
+   clearance, and final pose remain bounded.
 3. **Logical shape:** the 0.8 m circle is safe but conservative for a catamaran. A polygon could
    improve tight clearances, but only a failed clearance audit would justify changing it.
 4. **High-speed turns:** 0.8 m/s is validated on a gentle turn and far planner path, not every
    obstacle geometry. The 1.0 m/s adapter ceiling should not be raised until stopping-distance and
    curved-path sweeps remain collision-free.
+5. **Uncommanded station keeping:** after the far action succeeded, seven seconds with no command
+   allowed waves to drift the boat 0.219 m. It stayed inside the physical dock with zero contact,
+   but crossed the evaluator's 0.4 m pose tolerance before the required five-second settle latch.
+   Confirm whether docking requires active hold after Nav2 success before adding any hold layer;
+   do not hide this evidence by loosening tolerances or hydrodynamics.
 
 The smallest next experiment is now a full-effort speed/RPM/thrust comparison against measured
 real-platform mass, dimensions, propulsor RPM/current, bollard thrust, and calm-water top speed.

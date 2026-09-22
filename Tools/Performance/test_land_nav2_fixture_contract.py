@@ -77,6 +77,13 @@ class LandNav2FixtureContractTests(unittest.TestCase):
         self.assertIn("--require-occupied-costmap", shared_text)
         self.assertIn("--expected-navigation-status", shared_text)
 
+    def test_navigate_to_pose_capture_records_goal_and_replanned_terminal_yaw(self) -> None:
+        text = FIXTURE.read_text(encoding="utf-8")
+        self.assertIn("Path, args.plan_topic, self.on_plan", text)
+        self.assertIn("'yaw': yaw_from_quaternion(goal.pose.pose.orientation)", text)
+        self.assertIn("'incomingTangentYaw': terminal_tangent", text)
+        self.assertIn("'planHistory': self.plan_history", text)
+
     def test_laser_sources_retain_points_above_the_ground_plane(self) -> None:
         text = PARAMETERS.read_text(encoding="utf-8")
         self.assertEqual(text.count("max_obstacle_height: 2.0"), 2)

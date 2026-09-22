@@ -167,6 +167,7 @@ behavior_server:
 bt_navigator:
   ros__parameters:
     use_sim_time: true
+    default_nav_to_pose_bt_xml: /workspace/crane_sim/Tools/Performance/nav2_roboboat_distance_replanning.xml
     global_frame: odom
     robot_base_frame: base_link
     odom_topic: /crane/odom
