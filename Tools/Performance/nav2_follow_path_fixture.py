@@ -7,6 +7,7 @@ node; that is useful bounded-lag provenance, but is not proof of Nav2's internal
 """
 
 import argparse
+import hashlib
 import json
 import math
 import time
@@ -54,8 +55,13 @@ class FollowPathFixture(Node):
         self.goal_attempts = 0
         self.next_goal_attempt_wall = 0.0
         self.result_status = None
+        self.result_received_wall = None
+        self.action_result_pose = None
         self.done = False
         self.goal_description = None
+        self.planned_path = []
+        self.trajectory = []
+        self.latest_command = {'surge': 0.0, 'sway': 0.0, 'yaw': 0.0}
         self.publisher = self.create_publisher(
             TwistStamped, args.output_topic, 10)
         harness_qos = QoSProfile(
@@ -96,6 +102,26 @@ class FollowPathFixture(Node):
         if self.initial_odom is None:
             self.initial_odom = message
             self.publish_identity('initial_observation')
+        if self.goal_sent_wall is not None:
+            self.trajectory.append(self.trajectory_sample(message))
+
+    def trajectory_sample(self, message):
+        pose = message.pose.pose
+        twist = message.twist.twist
+        return {
+            'phase': ('action' if self.result_received_wall is None else 'post_result'),
+            'simSeconds': stamp_seconds(message.header.stamp),
+            'wallSeconds': time.monotonic() - self.started_wall,
+            'x': float(pose.position.x),
+            'y': float(pose.position.y),
+            'yaw': yaw_from_quaternion(pose.orientation),
+            'bodySurge': float(twist.linear.x),
+            'bodySway': float(twist.linear.y),
+            'bodyYawRate': float(twist.angular.z),
+            'commandSurge': self.latest_command['surge'],
+            'commandSway': self.latest_command['sway'],
+            'commandYaw': self.latest_command['yaw'],
+        }
 
     def publish_identity(self, reason):
         """Republish bounded identity facts so late DDS discovery does not erase provenance."""
@@ -167,6 +193,11 @@ class FollowPathFixture(Node):
             self.maximum_lateral_command, abs(float(twist.linear.y)))
         self.maximum_angular_command = max(
             self.maximum_angular_command, abs(float(twist.angular.z)))
+        self.latest_command = {
+            'surge': float(twist.linear.x),
+            'sway': float(twist.linear.y),
+            'yaw': float(twist.angular.z),
+        }
         if self.first_command_wall is None:
             self.first_command_wall = time.monotonic()
         if self.latest_odom is None:
@@ -190,6 +221,10 @@ class FollowPathFixture(Node):
             self.finish('timeout' if self.result_status is None else self.result_status)
             return
         self.request_costmap()
+        if self.result_received_wall is not None:
+            if time.monotonic() - self.result_received_wall >= self.args.post_result_seconds:
+                self.finish(self.result_status)
+            return
         if self.goal_handle is not None or self.initial_odom is None:
             return
         if time.monotonic() < self.next_goal_attempt_wall:
@@ -213,6 +248,15 @@ class FollowPathFixture(Node):
             pose.pose.position.z = odom.pose.pose.position.z
             pose.pose.orientation = odom.pose.pose.orientation
             path.poses.append(pose)
+        self.planned_path = [{
+            'x': float(odom.pose.pose.position.x),
+            'y': float(odom.pose.pose.position.y),
+            'yaw': yaw,
+        }] + [{
+            'x': float(pose.pose.position.x),
+            'y': float(pose.pose.position.y),
+            'yaw': yaw_from_quaternion(pose.pose.orientation),
+        } for pose in path.poses]
         if self.args.action_mode == 'navigate-to-pose':
             if self.args.goal_x is not None:
                 path.poses[-1].pose.position.x = self.args.goal_x
@@ -241,6 +285,7 @@ class FollowPathFixture(Node):
             if hasattr(goal, 'progress_checker_id'):
                 goal.progress_checker_id = 'progress_checker'
         self.goal_sent_wall = time.monotonic()
+        self.trajectory = [self.trajectory_sample(self.latest_odom)]
         self.goal_attempts += 1
         future = self.action.send_goal_async(goal)
         future.add_done_callback(self.on_goal_response)
@@ -274,6 +319,8 @@ class FollowPathFixture(Node):
         response = future.result()
         status_code = response.status
         self.result_status = ACTION_STATUS.get(status_code, f'action-status-{status_code}')
+        self.result_received_wall = time.monotonic()
+        self.action_result_pose = pose_dict(self.latest_odom)
         payload = response.result
         self.publish_event({
             'type': 'navigate_to_pose_result',
@@ -284,7 +331,8 @@ class FollowPathFixture(Node):
             'error_code': getattr(payload, 'error_code', None),
             'error_msg': getattr(payload, 'error_msg', None),
         })
-        self.finish(self.result_status)
+        if self.args.post_result_seconds <= 0.0:
+            self.finish(self.result_status)
 
     def finish(self, status):
         if self.done:
@@ -311,6 +359,8 @@ class FollowPathFixture(Node):
             dx = final.pose.pose.position.x - self.initial_odom.pose.pose.position.x
             dy = final.pose.pose.position.y - self.initial_odom.pose.pose.position.y
             displacement = math.hypot(dx, dy)
+        action_trajectory = [
+            sample for sample in self.trajectory if sample['phase'] == 'action']
         summary = {
             'schema': 'crane-nav2-controller-fixture-v1',
             'scope': ('nav2-navigate-to-pose' if self.args.action_mode == 'navigate-to-pose'
@@ -345,6 +395,21 @@ class FollowPathFixture(Node):
             'deltaY': dy,
             'initialPose': pose_dict(self.initial_odom),
             'finalPose': pose_dict(final),
+            'actionResultPose': self.action_result_pose,
+            'postResultSecondsRequested': self.args.post_result_seconds,
+            'postResultSecondsObserved': (
+                time.monotonic() - self.result_received_wall
+                if self.result_received_wall is not None else None),
+            'motionAtActionResult': terminal_motion(action_trajectory),
+            'terminalMotion': terminal_motion(self.trajectory),
+            'postResultCoastDistanceMeters': coast_distance(
+                self.action_result_pose, final),
+            'plannedPath': self.planned_path if self.args.action_mode == 'follow-path' else None,
+            'actionPathMetrics': (path_metrics(self.planned_path, action_trajectory)
+                                  if self.args.action_mode == 'follow-path' else None),
+            'pathMetrics': (path_metrics(self.planned_path, self.trajectory)
+                            if self.args.action_mode == 'follow-path' else None),
+            'trajectory': self.trajectory,
             'provenance': 'latest-delivered-odometry-not-proven-internal-consumption',
             'costmapProvenance': (
                 'nav2-get-costmap-snapshot-not-proven-controller-consumption'),
@@ -353,7 +418,11 @@ class FollowPathFixture(Node):
             with open(self.args.output, 'w', encoding='utf-8') as stream:
                 json.dump(summary, stream, indent=2, sort_keys=True)
                 stream.write('\n')
-        print(json.dumps(summary, sort_keys=True), flush=True)
+        console_summary = dict(summary)
+        console_summary.pop('plannedPath', None)
+        console_summary.pop('trajectory', None)
+        console_summary['trajectorySampleCount'] = len(self.trajectory)
+        print(json.dumps(console_summary, sort_keys=True), flush=True)
         rclpy.shutdown()
 
 
@@ -364,6 +433,102 @@ def yaw_from_quaternion(q):
 
 def stamp_dict(value):
     return {'sec': int(value.sec), 'nanosec': int(value.nanosec)}
+
+
+def stamp_seconds(value):
+    return float(value.sec) + float(value.nanosec) * 1e-9
+
+
+def wrapped_angle(value):
+    return math.remainder(value, 2.0 * math.pi)
+
+
+def path_metrics(path, trajectory):
+    if len(path) < 2 or not trajectory:
+        return None
+    path_length = sum(math.hypot(end['x'] - start['x'], end['y'] - start['y'])
+                      for start, end in zip(path, path[1:]))
+    canonical = json.dumps(path, sort_keys=True, separators=(',', ':')).encode('utf-8')
+    cross_tracks = []
+    heading_errors = []
+    actual_length = 0.0
+    previous = None
+    for sample in trajectory:
+        if previous is not None:
+            actual_length += math.hypot(
+                sample['x'] - previous['x'], sample['y'] - previous['y'])
+        previous = sample
+        best_distance = math.inf
+        best_heading = path[0]['yaw']
+        for start, end in zip(path, path[1:]):
+            dx = end['x'] - start['x']
+            dy = end['y'] - start['y']
+            length_squared = dx * dx + dy * dy
+            if length_squared <= 1e-12:
+                continue
+            projection = ((sample['x'] - start['x']) * dx
+                          + (sample['y'] - start['y']) * dy) / length_squared
+            projection = min(1.0, max(0.0, projection))
+            nearest_x = start['x'] + projection * dx
+            nearest_y = start['y'] + projection * dy
+            distance = math.hypot(sample['x'] - nearest_x, sample['y'] - nearest_y)
+            if distance < best_distance:
+                best_distance = distance
+                best_heading = math.atan2(dy, dx)
+        cross_tracks.append(best_distance)
+        heading_errors.append(abs(wrapped_angle(sample['yaw'] - best_heading)))
+
+    goal = path[-1]
+    final = trajectory[-1]
+    terminal_start = path[-2]
+    terminal_dx = goal['x'] - terminal_start['x']
+    terminal_dy = goal['y'] - terminal_start['y']
+    terminal_length = math.hypot(terminal_dx, terminal_dy)
+    overshoot = 0.0
+    if terminal_length > 1e-12:
+        overshoot = max(0.0, ((final['x'] - goal['x']) * terminal_dx
+                             + (final['y'] - goal['y']) * terminal_dy)
+                        / terminal_length)
+    return {
+        'pathId': f"sha256:{hashlib.sha256(canonical).hexdigest()}",
+        'plannedLengthMeters': path_length,
+        'actualLengthMeters': actual_length,
+        'rmsCrossTrackErrorMeters': math.sqrt(
+            sum(value * value for value in cross_tracks) / len(cross_tracks)),
+        'maximumCrossTrackErrorMeters': max(cross_tracks),
+        'rmsHeadingErrorRadians': math.sqrt(
+            sum(value * value for value in heading_errors) / len(heading_errors)),
+        'maximumHeadingErrorRadians': max(heading_errors),
+        'finalXYErrorMeters': math.hypot(final['x'] - goal['x'], final['y'] - goal['y']),
+        'finalYawErrorRadians': abs(wrapped_angle(final['yaw'] - goal['yaw'])),
+        'terminalOvershootMeters': overshoot,
+        'maximumBodySpeedMetersPerSecond': max(
+            math.hypot(row['bodySurge'], row['bodySway']) for row in trajectory),
+        'maximumAbsBodyYawRateRadiansPerSecond': max(
+            abs(row['bodyYawRate']) for row in trajectory),
+        'sampleCount': len(trajectory),
+    }
+
+
+def terminal_motion(trajectory):
+    if not trajectory:
+        return None
+    final = trajectory[-1]
+    return {
+        'bodySpeedMetersPerSecond': math.hypot(final['bodySurge'], final['bodySway']),
+        'absBodyYawRateRadiansPerSecond': abs(final['bodyYawRate']),
+        'bodySurgeMetersPerSecond': final['bodySurge'],
+        'bodySwayMetersPerSecond': final['bodySway'],
+        'bodyYawRateRadiansPerSecond': final['bodyYawRate'],
+    }
+
+
+def coast_distance(start_pose, final_odometry):
+    if start_pose is None or final_odometry is None:
+        return None
+    final_pose = pose_dict(final_odometry)
+    return math.hypot(
+        final_pose['x'] - start_pose['x'], final_pose['y'] - start_pose['y'])
 
 
 def pose_dict(odometry):
@@ -395,6 +560,7 @@ def main():
     parser.add_argument('--goal-yaw', type=float)
     parser.add_argument('--path-points', type=int, default=20)
     parser.add_argument('--duration', type=float, default=25.0)
+    parser.add_argument('--post-result-seconds', type=float, default=0.0)
     parser.add_argument('--output')
     parser.add_argument('--harness-topic', default='/crane/explanation_event')
     parser.add_argument('--episode-id', required=True)
@@ -404,6 +570,8 @@ def main():
         parser.error('--goal-x and --goal-y must be supplied together')
     if args.goal_x is not None and args.action_mode != 'navigate-to-pose':
         parser.error('absolute goals are supported only for navigate-to-pose')
+    if args.post_result_seconds < 0.0:
+        parser.error('--post-result-seconds must be non-negative')
     rclpy.init()
     node = FollowPathFixture(args)
     try:

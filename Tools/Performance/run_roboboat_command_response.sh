@@ -10,6 +10,7 @@ ros_port="${CRANE_ROS_PORT:-10000}"
 ros_domain_id="${CRANE_ROS_DOMAIN_ID:-42}"
 worker_id="${CRANE_WORKER_ID:-0}"
 result_root="${CRANE_RESULT_ROOT:-${root_dir}/PerformanceResults/roboboat-command-response}"
+response_suite="${CRANE_RESPONSE_SUITE:-full}"
 endpoint_name="crane-endpoint-${run_id}"
 fixture_name="crane-response-${run_id}"
 mkdir -p "${result_root}"
@@ -41,7 +42,7 @@ docker run --rm --name "${fixture_name}" --network host --ipc host \
     -e ROS_DOMAIN_ID="${ros_domain_id}" \
     -v "${root_dir}:/workspace/crane_sim:ro" -v "${result_root}:/results" \
     "${image}" bash -lc \
-    'source /opt/ros/jazzy/setup.bash; exec python3 /workspace/crane_sim/Tools/Performance/roboboat_command_response_fixture.py --samples /results/body-response.csv --output /results/body-response.json' \
+    'source /opt/ros/jazzy/setup.bash; exec python3 /workspace/crane_sim/Tools/Performance/roboboat_command_response_fixture.py --suite '"${response_suite}"' --samples /results/body-response.csv --output /results/body-response.json' \
     | tee "${result_root}/fixture.log"
 
 wait "${player_pid}"

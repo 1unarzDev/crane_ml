@@ -111,7 +111,7 @@ namespace Sim.Controllers {
             Vector3 localLinear = body.transform.InverseTransformDirection(body.linearVelocity);
             Vector3 localAngular = body.transform.InverseTransformDirection(body.angularVelocity);
             Vector3Msg linear = ToRosVector(localLinear);
-            Vector3Msg angular = ToRosVector(localAngular);
+            Vector3Msg angular = ToRosAngularVector(localAngular);
 
             var odometry = new OdometryMsg {
                 header = header,
@@ -153,6 +153,11 @@ namespace Sim.Controllers {
 
         internal static Vector3Msg ToRosVector(Vector3 unity) =>
             new(unity.z, -unity.x, unity.y);
+
+        // Unity-to-FLU is a handedness-changing reflection. Angular velocity is an axial vector,
+        // so it gains the determinant sign that polar position/linear-velocity vectors do not.
+        internal static Vector3Msg ToRosAngularVector(Vector3 unity) =>
+            new(-unity.z, unity.x, -unity.y);
 
         private static HeaderMsg CreateHeader(double seconds, string frame) {
             double integral = Math.Floor(Math.Max(0, seconds));

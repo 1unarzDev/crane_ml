@@ -98,7 +98,9 @@ def main():
         "already registered for node name" in line for line in endpoint_lines)
     endpoint_errors = sum("[ERROR]" in line for line in endpoint_lines)
     clock_rewinds = sum("Detected jump back in time" in line for line in controller_lines)
-    goal_succeeded = any("Goal succeeded" in line for line in controller_lines)
+    goal_succeeded = any(
+        "Goal succeeded" in line or "Reached the goal!" in line
+        for line in controller_lines)
     goal_canceled = any("Goal canceled" in line for line in controller_lines)
     cancellation_requested = any(
         "Client requested to cancel the goal" in line for line in controller_lines)
@@ -140,19 +142,24 @@ def main():
         ),
     ))
 
+    compact_fixture = dict(fixture)
+    compact_fixture.pop("plannedPath", None)
+    compact_fixture.pop("trajectory", None)
+    compact_fixture["detailArtifact"] = "fixture-summary.json"
+    compact_fixture["trajectorySampleCount"] = len(fixture.get("trajectory", []))
     summary = {
         "schema": ("crane-nav2-scene-reload-v1" if args.require_reset else
                    "crane-nav2-worker-fixture-v1"),
         "valid": valid,
-        "scope": ("authoritative-odometry-nav2-navigate-to-pose-after-scene-reload"
-                  if args.require_reset else
-                  "authoritative-odometry-nav2-navigate-to-pose"),
+        "scope": (
+            f"authoritative-odometry-nav2-{fixture.get('actionMode', 'unknown')}"
+            + ("-after-scene-reload" if args.require_reset else "")),
         "resetRequired": args.require_reset,
         "occupiedCostmapRequired": args.require_occupied_costmap,
         "expectedNavigationStatus": args.expected_navigation_status,
         "expectedOutcomeObserved": expected_outcome_observed,
         "workerId": args.worker_id,
-        "navigation": fixture,
+        "navigation": compact_fixture,
         "transport": {
             "rosTcpPort": args.ros_port,
             "rosDomainId": args.ros_domain_id,

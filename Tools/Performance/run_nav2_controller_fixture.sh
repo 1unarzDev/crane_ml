@@ -21,6 +21,7 @@ goal_x="${CRANE_NAV2_GOAL_X:-}"
 goal_y="${CRANE_NAV2_GOAL_Y:-}"
 goal_yaw="${CRANE_NAV2_GOAL_YAW:-}"
 action_duration="${CRANE_NAV2_ACTION_DURATION:-20}"
+post_result_duration="${CRANE_NAV2_POST_RESULT_DURATION:-0}"
 costmap_topic="${CRANE_NAV2_COSTMAP_TOPIC:-/local_costmap/costmap}"
 endpoint_name="crane-endpoint-${run_id}"
 controller_name="crane-controller-${run_id}"
@@ -126,7 +127,7 @@ docker run --rm --name "${fixture_name}" --network host --ipc host \
     -e ROS_DOMAIN_ID="${ros_domain_id}" \
     -v "${root_dir}:/workspace/crane_sim:ro" -v "${result_root}:/results" \
     "${image}" bash -lc \
-    'source /opt/ros/jazzy/setup.bash; exec python3 /workspace/crane_sim/Tools/Performance/nav2_follow_path_fixture.py --input-type twist --action-mode '"${nav2_action_mode}"' --distance '"${goal_distance}"' --duration '"${action_duration}"' --costmap-topic '"${costmap_topic}"' --episode-id '"${run_id}-worker-${worker_id}"' --run-id '"${run_id}"' --output /results/fixture-summary.json'"${goal_args_shell}" \
+    'source /opt/ros/jazzy/setup.bash; exec python3 /workspace/crane_sim/Tools/Performance/nav2_follow_path_fixture.py --input-type twist --action-mode '"${nav2_action_mode}"' --distance '"${goal_distance}"' --duration '"${action_duration}"' --post-result-seconds '"${post_result_duration}"' --costmap-topic '"${costmap_topic}"' --episode-id '"${run_id}-worker-${worker_id}"' --run-id '"${run_id}"' --output /results/fixture-summary.json'"${goal_args_shell}" \
     | tee "${result_root}/fixture.log"
 
 wait "${player_pid}"

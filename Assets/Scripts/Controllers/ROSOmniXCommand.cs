@@ -100,9 +100,19 @@ namespace Sim.Controllers {
         }
 
         private void Apply(Command command) {
-            // ROS FLU x/y maps to the controller's forward/lateral convention.
-            controller.SetMotion(new Vector3(command.Lateral, command.Forward, 0f),
-                new Vector3(0f, 0f, command.Yaw));
+            ToControllerMotion(command.Forward, command.Lateral, command.Yaw,
+                out Vector3 linear, out Vector3 angular);
+            controller.SetMotion(linear, angular);
+        }
+
+        internal static void ToControllerMotion(float forward, float lateral, float yaw,
+            out Vector3 linear, out Vector3 angular) {
+            // Adapt ROS FLU to the controller axes measured through authoritative odometry. This
+            // conversion is isolated from the existing manual input path: controller X realizes
+            // ROS surge, controller Y realizes ROS sway, and positive controller yaw realizes
+            // negative ROS yaw.
+            linear = new Vector3(forward, lateral, 0f);
+            angular = new Vector3(0f, 0f, -yaw);
         }
     }
 

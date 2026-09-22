@@ -1,0 +1,220 @@
+{
+  "commandTopic": "/crane/cmd_vel_stamped",
+  "odometryTopic": "/crane/odom",
+  "phases": [
+    {
+      "body_surge": {
+        "maximum": 0.030848361551761627,
+        "meanTail": 0.023003252781927587,
+        "minimum": 0.017457788810133934
+      },
+      "body_sway": {
+        "maximum": 0.0022038049064576626,
+        "meanTail": 0.000461752209594124,
+        "minimum": -0.0024468221236020327
+      },
+      "body_yaw_rate": {
+        "maximum": 0.001983190421015024,
+        "meanTail": -0.0014076131643378175,
+        "minimum": -0.0020482896361500025
+      },
+      "command": {
+        "surge": 0.0,
+        "sway": 0.0,
+        "yaw": 0.0
+      },
+      "deltaPose": {
+        "x": 0.0026140213012695312,
+        "y": -0.1049504280090332,
+        "yaw": 0.0009016648992437037
+      },
+      "durationSeconds": 1.0,
+      "name": "settle",
+      "sampleCount": 51
+    },
+    {
+      "body_surge": {
+        "maximum": 1.1252553462982178,
+        "meanTail": 1.1071399807929994,
+        "minimum": 0.016657648608088493
+      },
+      "body_sway": {
+        "maximum": 0.0032202135771512985,
+        "meanTail": -0.0006645321904215961,
+        "minimum": -0.00615733815357089
+      },
+      "body_yaw_rate": {
+        "maximum": 0.016644975170493126,
+        "meanTail": -0.002138779905362753,
+        "minimum": -0.00725244265049696
+      },
+      "command": {
+        "surge": 0.2,
+        "sway": 0.0,
+        "yaw": 0.0
+      },
+      "deltaPose": {
+        "x": 0.0018401145935058594,
+        "y": -1.424248218536377,
+        "yaw": 0.0011676568087786166
+      },
+      "durationSeconds": 1.5,
+      "name": "surge_positive",
+      "sampleCount": 76
+    },
+    {
+      "body_surge": {
+        "maximum": 1.1277687549591064,
+        "meanTail": 0.09439188037067651,
+        "minimum": 0.05002947896718979
+      },
+      "body_sway": {
+        "maximum": 0.004449235275387764,
+        "meanTail": 0.0035951714846305547,
+        "minimum": -0.0031817976851016283
+      },
+      "body_yaw_rate": {
+        "maximum": 0.01435489859431982,
+        "meanTail": -0.004386131593491882,
+        "minimum": -0.006784685887396336
+      },
+      "command": {
+        "surge": 0.0,
+        "sway": 0.0,
+        "yaw": 0.0
+      },
+      "deltaPose": {
+        "x": 0.002971649169921875,
+        "y": -0.5049171447753906,
+        "yaw": 0.0007789626196430532
+      },
+      "durationSeconds": 1.0,
+      "name": "surge_positive_stop",
+      "sampleCount": 53
+    },
+    {
+      "body_surge": {
+        "maximum": 0.12108117341995239,
+        "meanTail": 0.0838364154100418,
+        "minimum": 0.05098418891429901
+      },
+      "body_sway": {
+        "maximum": 1.0164482593536377,
+        "meanTail": 0.9589145570993424,
+        "minimum": -0.003273976733908057
+      },
+      "body_yaw_rate": {
+        "maximum": 0.015386799350380898,
+        "meanTail": -0.0038200019975192846,
+        "minimum": -0.005394057836383581
+      },
+      "command": {
+        "surge": 0.0,
+        "sway": 0.2,
+        "yaw": 0.0
+      },
+      "deltaPose": {
+        "x": 1.2788702249526978,
+        "y": -0.1326770782470703,
+        "yaw": 0.0077263215555061215
+      },
+      "durationSeconds": 1.5,
+      "name": "sway_positive",
+      "sampleCount": 77
+    },
+    {
+      "body_surge": {
+        "maximum": 0.08552265167236328,
+        "meanTail": 0.04096247479319572,
+        "minimum": 0.021556416526436806
+      },
+      "body_sway": {
+        "maximum": 0.9708227515220642,
+        "meanTail": 0.03831914877519012,
+        "minimum": 0.01839074119925499
+      },
+      "body_yaw_rate": {
+        "maximum": 0.008578727021813393,
+        "meanTail": -0.00207897235522978,
+        "minimum": -0.0044104065746068954
+      },
+      "command": {
+        "surge": 0.0,
+        "sway": 0.0,
+        "yaw": 0.0
+      },
+      "deltaPose": {
+        "x": 0.4081759452819824,
+        "y": -0.06203937530517578,
+        "yaw": 0.004145111932390755
+      },
+      "durationSeconds": 1.0,
+      "name": "sway_positive_stop",
+      "sampleCount": 54
+    },
+    {
+      "body_surge": {
+        "maximum": 0.08727935701608658,
+        "meanTail": 0.05325375879183412,
+        "minimum": 0.007194561883807182
+      },
+      "body_sway": {
+        "maximum": 0.048299141228199005,
+        "meanTail": -0.03306511221453547,
+        "minimum": -0.03708118200302124
+      },
+      "body_yaw_rate": {
+        "maximum": 0.8018026947975159,
+        "meanTail": 0.7879479408264161,
+        "minimum": 0.0033381774555891752
+      },
+      "command": {
+        "surge": 0.0,
+        "sway": 0.0,
+        "yaw": 0.2
+      },
+      "deltaPose": {
+        "x": 0.06308889389038086,
+        "y": -0.052660465240478516,
+        "yaw": 1.1133491021468584
+      },
+      "durationSeconds": 1.5,
+      "name": "yaw_positive",
+      "sampleCount": 79
+    },
+    {
+      "body_surge": {
+        "maximum": 0.02848893031477928,
+        "meanTail": 0.015042464761063457,
+        "minimum": 0.009594673290848732
+      },
+      "body_sway": {
+        "maximum": -0.03782721981406212,
+        "meanTail": -0.056302566453814505,
+        "minimum": -0.06020060181617737
+      },
+      "body_yaw_rate": {
+        "maximum": 0.7908238768577576,
+        "meanTail": 0.01616271600360051,
+        "minimum": -0.0018939285073429346
+      },
+      "command": {
+        "surge": 0.0,
+        "sway": 0.0,
+        "yaw": 0.0
+      },
+      "deltaPose": {
+        "x": 0.0021457672119140625,
+        "y": -0.06159639358520508,
+        "yaw": 0.2725522313712326
+      },
+      "durationSeconds": 1.0,
+      "name": "yaw_positive_stop",
+      "sampleCount": 53
+    }
+  ],
+  "sampleCount": 443,
+  "schema": "crane-roboboat-command-response-v1",
+  "status": "completed",
+  "suite": "regression"
+}

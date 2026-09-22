@@ -1,0 +1,169 @@
+{
+  "schema": "crane-nav2-worker-fixture-v1",
+  "valid": false,
+  "scope": "authoritative-odometry-nav2-navigate-to-pose",
+  "resetRequired": false,
+  "occupiedCostmapRequired": true,
+  "expectedNavigationStatus": "timeout",
+  "expectedOutcomeObserved": true,
+  "workerId": 0,
+  "navigation": {
+    "actionMode": "navigate-to-pose",
+    "actionName": "/navigate_to_pose",
+    "actionPathMetrics": null,
+    "actionResultPose": null,
+    "controllerCommands": 898,
+    "costmapMessages": 61,
+    "costmapObservations": 231,
+    "costmapProvenance": "nav2-get-costmap-snapshot-not-proven-controller-consumption",
+    "costmapService": "/local_costmap/get_costmap",
+    "costmapServiceSnapshots": 170,
+    "costmapTopic": "/local_costmap/costmap",
+    "deltaX": -0.11757612228393555,
+    "deltaY": -6.164738655090332,
+    "displacementMeters": 6.165859780281764,
+    "finalPose": {
+      "x": -2.3886561393737793,
+      "y": -10.978900909423828,
+      "yaw": -3.0029683481426903
+    },
+    "goalAttempts": 1,
+    "goalToFirstCommandWallSeconds": 0.022572900998056866,
+    "initialPose": {
+      "x": -2.2710800170898438,
+      "y": -4.814162254333496,
+      "yaw": -1.5707963267948963
+    },
+    "inputTopic": "/nav2/cmd_vel",
+    "inputType": "twist",
+    "maximumAngularCommand": 0.4811875748634338,
+    "maximumLateralCommand": 0.0,
+    "maximumLinearCommand": 0.0,
+    "maximumOccupiedCostmapCells": 5263,
+    "motionAtActionResult": {
+      "absBodyYawRateRadiansPerSecond": 0.7835234999656677,
+      "bodySpeedMetersPerSecond": 0.0798625109051705,
+      "bodySurgeMetersPerSecond": 0.017756056040525436,
+      "bodySwayMetersPerSecond": 0.07786361873149872,
+      "bodyYawRateRadiansPerSecond": 0.7835234999656677
+    },
+    "odomTopic": "/crane/odom",
+    "odometryMessages": 4348,
+    "outputTopic": "/crane/cmd_vel_stamped",
+    "pathMetrics": null,
+    "postResultCoastDistanceMeters": null,
+    "postResultSecondsObserved": null,
+    "postResultSecondsRequested": 5.0,
+    "provenance": "latest-delivered-odometry-not-proven-internal-consumption",
+    "returnedCommands": 898,
+    "schema": "crane-nav2-controller-fixture-v1",
+    "scope": "nav2-navigate-to-pose",
+    "status": "timeout",
+    "terminalMotion": {
+      "absBodyYawRateRadiansPerSecond": 0.7835234999656677,
+      "bodySpeedMetersPerSecond": 0.0798625109051705,
+      "bodySurgeMetersPerSecond": 0.017756056040525436,
+      "bodySwayMetersPerSecond": 0.07786361873149872,
+      "bodyYawRateRadiansPerSecond": 0.7835234999656677
+    },
+    "wallSeconds": 90.0308930129977,
+    "detailArtifact": "fixture-summary.json",
+    "trajectorySampleCount": 4336
+  },
+  "transport": {
+    "rosTcpPort": 10727,
+    "rosDomainId": 227,
+    "connections": 1,
+    "disconnects": 1,
+    "maximumConcurrentUnityConnections": 1,
+    "activeConnectionsAtShutdown": 0,
+    "duplicateNodeRegistrations": 0,
+    "endpointErrors": 0
+  },
+  "clock": {
+    "rewindWarnings": 0,
+    "recovered": false
+  },
+  "actions": {
+    "accepted": 893,
+    "rejected": 0,
+    "stale": 0,
+    "crossEpisode": 0,
+    "policy": "bounded-lag-latest-value",
+    "maximumLagTicks": 10,
+    "commandTimeoutTicks": 25,
+    "timing": {
+      "acceptedActions": 893,
+      "knownSourceActions": 893,
+      "meanSourceToApplicationTicks": 2.881298992161254,
+      "maximumSourceToApplicationTicks": 5,
+      "meanReceiveToApplicationTicks": 1.0,
+      "maximumReceiveToApplicationTicks": 1,
+      "maximumInterApplicationTicks": 6,
+      "commandTimeouts": 1
+    }
+  },
+  "observations": {
+    "depthAcquisitions": 1559,
+    "detectionAcquisitions": 834,
+    "lidarScans": 1043,
+    "stale": 4,
+    "failed": 0,
+    "invalidWaterSearches": 0
+  },
+  "performance": {
+    "measurementWallSeconds": 105.0084026,
+    "simulatedSeconds": 104.25674620181405,
+    "processCpuUtilizationPercent": 11.210531451318355,
+    "meanGpuFrameMilliseconds": 2.531046460122123,
+    "monoUsedBytes": 22282240,
+    "totalAllocatedMemoryBytes": 507249643
+  },
+  "externalResources": {
+    "sampleCount": 52,
+    "roles": {
+      "endpoint": {
+        "sampleCount": 26,
+        "meanCpuPercent": 10.861923076923079,
+        "maximumCpuPercent": 25.08,
+        "maximumMemoryBytes": 79261859.84
+      },
+      "controller": {
+        "sampleCount": 26,
+        "meanCpuPercent": 15.69923076923077,
+        "maximumCpuPercent": 21.98,
+        "maximumMemoryBytes": 122893107.2
+      }
+    }
+  },
+  "reset": {
+    "executed": false,
+    "reloadWallMilliseconds": 0.0,
+    "position": {
+      "rms": 0.0,
+      "max": 0.0,
+      "count": 0
+    },
+    "attitudeDegrees": {
+      "rms": 0.0,
+      "max": 0.0,
+      "count": 0
+    },
+    "linearVelocity": {
+      "rms": 0.0,
+      "max": 0.0,
+      "count": 0
+    },
+    "angularVelocity": {
+      "rms": 0.0,
+      "max": 0.0,
+      "count": 0
+    },
+    "waterHeight": {
+      "rms": 0.0,
+      "max": 0.0,
+      "count": 0
+    }
+  },
+  "realTimeFactor": 0.9928419404583348
+}
