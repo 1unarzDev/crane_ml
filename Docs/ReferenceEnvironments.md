@@ -214,6 +214,30 @@ complete-blockage abort also produce `FAILURE_RECOVERY_PASS`. The historical v1 
 remains `BLOCKED` while the v2 slalom summary passes. Aggregate records still do not silently infer
 interactive evidence from headless runs.
 
+`summarize_environment_repetitions.py` applies the prospectively written
+`land_proving_ground_repetition_contract_v1.json` to distinct per-run QA artifacts. It requires
+three runs with identical configuration identity, distinct runtime/navigation hashes, the declared
+terminal status, route acceptance, and every required gate. Exact-condition repetitions establish
+operational reproducibility only; the output explicitly rejects treating them as independent
+scenario instances or statistical sample size.
+
+Three explanation-relevant scenarios pass this repetition gate:
+
+- `slalom-s-turn-v2`: 3/3 success and S-turn acceptance; 21.121–22.207 m sampled paths,
+  82.961–89.875 s action time, exactly four lateral direction changes, and zero recoveries;
+- `dynamic-gate-v1`: 3/3 recovery-followed-by-success; 22.382–23.330 m sampled paths,
+  91.383–98.323 s action time, and maximum recovery feedback varying from 1 to 8;
+- `complete-blockage-v1`: 3/3 abort under the 70-second BT task-policy deadline before the
+  80-second client horizon; 17.519–18.151 m exploratory paths and zero recovery feedback.
+
+The repetition contract SHA-256 is
+`bfdb6d521c5e5476304169ab5b5bc55a2f00e21c3745f5e93b7df219821d1d17`. Aggregate result SHA-256
+values are respectively `e5a10178e8104a3009e792af35b3e0f2bbb876617dd45c6b15266117e62bbc65`,
+`21010265d272b2c4b6d738f2312ba31f40c8d824c0307c337a0259325033c112`, and
+`f7c6a43286c06a5fe3c11873e355d0b70dc084515c56cf09d8175c8ce6b081fe`. The original first-run
+summaries remain untouched; where they predated current artifact-hash fields, new derived summaries
+were generated from the unchanged retained inputs.
+
 ```bash
 CRANE_PROVING_GROUND_LAYOUT=alternate-corridors-v1 \
   Tools/Performance/run_land_proving_ground_nav2_fixture.sh
@@ -386,7 +410,9 @@ result JSON SHA-256 was
   physics, sensor, headless, explanation, and deterministic inspection controls **TESTED**;
   every scenario motif has one behaviorally qualified development run across the retained v1
   catalog and additive corrected v2 slalom. Direct keyboard view switching **PASSED** for v2.
-  Repeated-run qualification and explanation evaluation remain **NOT_RUN**.
+  Corrected S-turn, dynamic recovery-success, and bounded blockage abort each pass a three-run
+  exact-condition repetition gate. Broader route repetition and explanation evaluation remain
+  **NOT_RUN**.
 - F1TENTH conversion and Unity import: **IMPLEMENTED / TESTED** on synthetic fixtures and the
   pinned external Spielberg map; full-lap controller/ROS validation **NOT_RUN**.
 - PX4 walls: **IMPLEMENTED / TESTED** headlessly; ArUco: **IMPLEMENTED / TESTED** for layer
