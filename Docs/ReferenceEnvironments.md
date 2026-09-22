@@ -74,6 +74,18 @@ a Nav2 abort or recovery pass. Their launchers expect `timeout` so regression ch
 observed behavior rather than laundering cancellation into mission failure. A separate, explicit,
 bounded ecological BT/configuration is required before claiming terminal failure or recovery.
 
+That bounded ecological policy now exists separately as
+`nav2_warehouse_replanning_deadline.xml`. It retains the stock 1 Hz replanning and recovery
+subtrees but wraps them in a 70 s BehaviorTree.CPP steady-clock `Timeout`; the fixture's client
+deadline is later at 80 s. The exact policy pair produced nominal success in 53.38 s with 12.60 m
+displacement, then produced an action abort in 71.10 s under the full-width barrier after 4.57 m
+of exploratory displacement. Thus the result is a task-policy deadline, not a client timeout, and
+the obstacle run cannot by itself establish physical causation. An earlier attempted root guard
+using Nav2 Jazzy `TimeExpired` did not terminate: that condition returns failure while waiting and
+reinitializes when ticked again from inactive state. The failed run is retained as negative
+calibration rather than hidden. Raw BT transition capture is still required before the deadline
+mechanism is explanation-ready at source-provenance level.
+
 The warehouse now attaches a presentation-only reference inspection controller to its spectator
 camera. It provides top-down overview, oblique, and robot-follow views; a route/environment HUD;
 the robot trajectory; semantic evidence highlighting; and visible wireframes for the canonical

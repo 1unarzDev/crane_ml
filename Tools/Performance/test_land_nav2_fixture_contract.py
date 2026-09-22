@@ -19,6 +19,15 @@ WAREHOUSE_BLOCKAGE_LAUNCHER = (
 WAREHOUSE_NO_PATH_LAUNCHER = (
     ROOT / "Tools" / "Performance" / "run_warehouse_no_path_nav2_fixture.sh"
 )
+WAREHOUSE_DEADLINE_LAUNCHER = (
+    ROOT / "Tools" / "Performance" / "run_warehouse_deadline_nav2_fixture.sh"
+)
+WAREHOUSE_DEADLINE_BLOCKAGE_LAUNCHER = (
+    ROOT / "Tools" / "Performance" / "run_warehouse_deadline_blockage_nav2_fixture.sh"
+)
+WAREHOUSE_DEADLINE_BT = (
+    ROOT / "Tools" / "Performance" / "nav2_warehouse_replanning_deadline.xml"
+)
 
 
 class LandNav2FixtureContractTests(unittest.TestCase):
@@ -187,6 +196,26 @@ class LandNav2FixtureContractTests(unittest.TestCase):
         self.assertIn('CRANE_EXPECTED_NAV_STATUS="${CRANE_EXPECTED_NAV_STATUS:-timeout}"', text)
         self.assertIn("must not be relabeled as Nav2 failure", text)
         self.assertNotIn("Roboboat Course", text)
+
+    def test_warehouse_deadline_policy_is_explicit_and_separate_from_frozen_tree(self) -> None:
+        launcher = WAREHOUSE_DEADLINE_LAUNCHER.read_text(encoding="utf-8")
+        blockage = WAREHOUSE_DEADLINE_BLOCKAGE_LAUNCHER.read_text(encoding="utf-8")
+        tree = WAREHOUSE_DEADLINE_BT.read_text(encoding="utf-8")
+        frozen_tree = (ROOT / "Tools/Performance/nav2_land_progress_recovery.xml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("nav2_warehouse_replanning_deadline.xml", launcher)
+        self.assertIn('CRANE_NAV2_ACTION_DURATION="${CRANE_NAV2_ACTION_DURATION:-80}"', launcher)
+        self.assertIn('CRANE_DURATION="${CRANE_DURATION:-95}"', launcher)
+        self.assertIn('<Timeout msec="70000">', tree)
+        self.assertNotIn("<TimeExpired", tree)
+        self.assertIn('<RateController hz="1.0">', tree)
+        self.assertIn('<RecoveryNode number_of_retries="6" name="NavigateRecovery">', tree)
+        self.assertIn("warehouse-cross-aisle-complete-blockage-v1", blockage)
+        self.assertIn('CRANE_EXPECTED_NAV_STATUS="${CRANE_EXPECTED_NAV_STATUS:-aborted}"', blockage)
+        self.assertNotEqual(tree, frozen_tree)
+        self.assertNotIn("<Timeout", frozen_tree)
+        self.assertNotIn("Roboboat Course", launcher + blockage + tree)
 
     def test_warehouse_costmap_matches_manifest_robot_and_preserves_frozen_params(self) -> None:
         warehouse = WAREHOUSE_PARAMETERS.read_text(encoding="utf-8")
