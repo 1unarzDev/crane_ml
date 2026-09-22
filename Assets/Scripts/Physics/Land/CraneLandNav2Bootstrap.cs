@@ -43,6 +43,22 @@ namespace Sim.Physics.Land {
             public bool referenceEnvironmentPreserved;
             public string platform;
             public Vector3 startPosition;
+            public string warehouseScenarioId;
+            public string warehouseRouteId;
+            public int warehouseScenarioSeed = -1;
+            public string warehouseScenarioRobot;
+            public string warehouseExpectedChallenge;
+            public string warehouseExpectedBroadOutcome;
+            public string[] warehouseObstacleSemanticIds = Array.Empty<string>();
+            public bool[] warehouseObstacleActive = Array.Empty<bool>();
+            public double[] warehouseObstacleScheduledActivationSimulationTime =
+                Array.Empty<double>();
+            public double[] warehouseObstacleActualActivationSimulationTime =
+                Array.Empty<double>();
+            public double[] warehouseObstacleScheduledRemovalSimulationTime =
+                Array.Empty<double>();
+            public double[] warehouseObstacleActualRemovalSimulationTime =
+                Array.Empty<double>();
         }
 
         private static bool enabled;
@@ -83,9 +99,11 @@ namespace Sim.Physics.Land {
             // The TurtleBot3 scene's recognizable warehouse remains the normal reference scene.
             // Corridor experiments explicitly replace only its generated environment root while
             // retaining the existing robot, dynamics, sensors, ROS integration, and scene setup.
+            CraneReferenceWarehouse warehouse = turtlebotScene
+                ? UnityEngine.Object.FindAnyObjectByType<CraneReferenceWarehouse>(
+                    FindObjectsInactive.Include)
+                : null;
             if (turtlebotScene && !preserveReferenceEnvironment) {
-                CraneReferenceWarehouse warehouse = UnityEngine.Object.FindAnyObjectByType<
-                    CraneReferenceWarehouse>(FindObjectsInactive.Include);
                 if (warehouse != null) warehouse.gameObject.SetActive(false);
             }
 
@@ -170,6 +188,11 @@ namespace Sim.Physics.Land {
             }
 
             string truthPath = ReadString("--crane-land-evaluator-output", null);
+            if (!string.IsNullOrWhiteSpace(truthPath)) {
+                truthPath = Path.GetFullPath(truthPath);
+                string directory = Path.GetDirectoryName(truthPath);
+                if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+            }
             var truth = new EvaluatorTruth {
                 seed = ReadInt("--crane-seed", 1),
                 corridorWidth = width,
@@ -195,10 +218,17 @@ namespace Sim.Physics.Land {
                     "reference-ackermann-rover",
                 startPosition = body.position
             };
+            string warehouseScenarioId = ReadString("--crane-warehouse-scenario-id", null);
+            if (!string.IsNullOrWhiteSpace(warehouseScenarioId)) {
+                if (!turtlebotScene || !preserveReferenceEnvironment || warehouse == null)
+                    throw new ArgumentException(
+                        "Warehouse scenarios require the preserved TurtleBot3 warehouse scene.");
+                warehouse.ApplyScenario(warehouseScenarioId, state => {
+                    CopyWarehouseScenarioTruth(truth, state);
+                    if (!string.IsNullOrWhiteSpace(truthPath)) WriteTruth(truthPath, truth);
+                });
+            }
             if (!string.IsNullOrWhiteSpace(truthPath)) {
-                truthPath = Path.GetFullPath(truthPath);
-                string directory = Path.GetDirectoryName(truthPath);
-                if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
                 WriteTruth(truthPath, truth);
             }
             if (blockerObject != null &&
@@ -248,7 +278,39 @@ namespace Sim.Physics.Land {
                       $"mobilityHoldAfter={mobilityHoldAfter:R} " +
                       $"mobilityReleaseAfter={mobilityReleaseAfter:R} " +
                       $"preserveReferenceEnvironment={preserveReferenceEnvironment} " +
+                      $"warehouseScenario={warehouseScenarioId ?? "none"} " +
                       $"platform={truth.platform} lidar=/scan");
+        }
+
+        private static void CopyWarehouseScenarioTruth(EvaluatorTruth truth,
+            CraneReferenceWarehouse.ScenarioRuntimeState state) {
+            truth.warehouseScenarioId = state.scenarioId;
+            truth.warehouseRouteId = state.routeId;
+            truth.warehouseScenarioSeed = state.seed;
+            truth.warehouseScenarioRobot = state.robot;
+            truth.warehouseExpectedChallenge = state.expectedChallenge;
+            truth.warehouseExpectedBroadOutcome = state.expectedBroadOutcome;
+            int count = state.obstacles.Length;
+            truth.warehouseObstacleSemanticIds = new string[count];
+            truth.warehouseObstacleActive = new bool[count];
+            truth.warehouseObstacleScheduledActivationSimulationTime = new double[count];
+            truth.warehouseObstacleActualActivationSimulationTime = new double[count];
+            truth.warehouseObstacleScheduledRemovalSimulationTime = new double[count];
+            truth.warehouseObstacleActualRemovalSimulationTime = new double[count];
+            for (int index = 0; index < count; index++) {
+                CraneReferenceWarehouse.ScenarioObstacleRuntimeState obstacle =
+                    state.obstacles[index];
+                truth.warehouseObstacleSemanticIds[index] = obstacle.semanticId;
+                truth.warehouseObstacleActive[index] = obstacle.active;
+                truth.warehouseObstacleScheduledActivationSimulationTime[index] =
+                    obstacle.scheduledActivationSimulationTime;
+                truth.warehouseObstacleActualActivationSimulationTime[index] =
+                    obstacle.actualActivationSimulationTime;
+                truth.warehouseObstacleScheduledRemovalSimulationTime[index] =
+                    obstacle.scheduledRemovalSimulationTime;
+                truth.warehouseObstacleActualRemovalSimulationTime[index] =
+                    obstacle.actualRemovalSimulationTime;
+            }
         }
 
         private static GameObject CreateObstacle(string name, string semanticId,

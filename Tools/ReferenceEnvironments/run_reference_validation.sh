@@ -57,7 +57,7 @@ case "${target}" in
         runner_args=(--crane-reference-validation --crane-reference-scene "${scene}"
             --crane-reference-environment-id crane-industrial-warehouse-v2
             --crane-reference-manifest-sha256 "${warehouse_hash}"
-            --crane-reference-source-version 2.0.0
+            --crane-reference-source-version 2.1.0
             --crane-reference-source-object-count 20)
         ;;
     -h|--help)

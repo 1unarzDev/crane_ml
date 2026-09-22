@@ -21,6 +21,7 @@ namespace Sim.Physics.Land {
             public string generatorVersion;
             public Canonical canonical;
             public Route[] routes;
+            public Scenario[] scenarios;
         }
 
         [Serializable]
@@ -57,6 +58,48 @@ namespace Sim.Physics.Land {
             public string[] relevantObstacles;
             public string expectedChallenge;
             public string expectedBroadOutcome;
+        }
+
+        [Serializable]
+        private sealed class Scenario {
+            public string id;
+            public string routeId;
+            public int seed;
+            public string robot;
+            public ScenarioObstacle[] obstacles;
+            public string expectedChallenge;
+            public string expectedBroadOutcome;
+        }
+
+        [Serializable]
+        private sealed class ScenarioObstacle {
+            public string id;
+            public string role;
+            public float[] center;
+            public float[] size;
+            public float[] color;
+            public bool activeInitially;
+            public float activationAfterSeconds;
+            public float removalAfterSeconds;
+        }
+
+        public sealed class ScenarioObstacleRuntimeState {
+            public string semanticId;
+            public bool active;
+            public double scheduledActivationSimulationTime = -1d;
+            public double actualActivationSimulationTime = -1d;
+            public double scheduledRemovalSimulationTime = -1d;
+            public double actualRemovalSimulationTime = -1d;
+        }
+
+        public sealed class ScenarioRuntimeState {
+            public string scenarioId;
+            public string routeId;
+            public int seed;
+            public string robot;
+            public string expectedChallenge;
+            public string expectedBroadOutcome;
+            public ScenarioObstacleRuntimeState[] obstacles;
         }
 
         [SerializeField] private int seed = 2001;
@@ -101,7 +144,73 @@ namespace Sim.Physics.Land {
 
             Debug.Log($"CRANE_REFERENCE_ENVIRONMENT_READY id={EnvironmentId} seed={seed} " +
                       $"boxes={manifest.canonical.boxes.Length} " +
-                      $"regions={manifest.canonical.regions.Length} routes={manifest.routes.Length}");
+                      $"regions={manifest.canonical.regions.Length} routes={manifest.routes.Length} " +
+                      $"scenarios={manifest.scenarios.Length}");
+        }
+
+        public ScenarioRuntimeState ApplyScenario(string scenarioId,
+            Action<ScenarioRuntimeState> stateChanged = null) {
+            if (string.IsNullOrWhiteSpace(scenarioId))
+                throw new ArgumentException("Warehouse scenario ID must be non-empty.",
+                    nameof(scenarioId));
+            Manifest manifest = LoadManifest();
+            ValidateManifest(manifest);
+            Scenario scenario = Array.Find(manifest.scenarios,
+                value => string.Equals(value.id, scenarioId, StringComparison.Ordinal));
+            if (scenario == null)
+                throw new ArgumentException($"Unknown warehouse scenario '{scenarioId}'.",
+                    nameof(scenarioId));
+
+            Transform oldCanonical = transform.Find("ScenarioCanonicalGeometry");
+            Transform oldVisual = transform.Find("ScenarioVisualPresentation");
+            if (oldCanonical != null) DestroyGeneratedObject(oldCanonical.gameObject);
+            if (oldVisual != null) DestroyGeneratedObject(oldVisual.gameObject);
+            var canonical = new GameObject("ScenarioCanonicalGeometry").transform;
+            canonical.SetParent(transform, false);
+            var visual = new GameObject("ScenarioVisualPresentation").transform;
+            visual.SetParent(transform, false);
+
+            var runtime = new ScenarioRuntimeState {
+                scenarioId = scenario.id,
+                routeId = scenario.routeId,
+                seed = scenario.seed,
+                robot = scenario.robot,
+                expectedChallenge = scenario.expectedChallenge,
+                expectedBroadOutcome = scenario.expectedBroadOutcome,
+                obstacles = new ScenarioObstacleRuntimeState[scenario.obstacles.Length]
+            };
+            for (int index = 0; index < scenario.obstacles.Length; index++) {
+                ScenarioObstacle value = scenario.obstacles[index];
+                (GameObject collision, GameObject presentation) = CreateScenarioBox(
+                    canonical, visual, value);
+                var obstacleState = new ScenarioObstacleRuntimeState {
+                    semanticId = value.id,
+                    active = value.activeInitially
+                };
+                runtime.obstacles[index] = obstacleState;
+                var timingHost = new GameObject($"timing-{value.id}");
+                // Keep the timer inside the scenario-owned canonical root so reapplying a
+                // scenario destroys its pending callbacks together with its colliders.
+                timingHost.transform.SetParent(canonical, false);
+                var timing = timingHost.AddComponent<CraneTimedWarehouseObstacle>();
+                timing.Configure(collision, presentation, value.activeInitially,
+                    value.activationAfterSeconds, value.removalAfterSeconds,
+                    (active, actualTime) => {
+                        obstacleState.active = active;
+                        if (active) obstacleState.actualActivationSimulationTime = actualTime;
+                        else obstacleState.actualRemovalSimulationTime = actualTime;
+                        stateChanged?.Invoke(runtime);
+                    });
+                obstacleState.scheduledActivationSimulationTime =
+                    timing.ScheduledActivationSimulationTime;
+                obstacleState.scheduledRemovalSimulationTime =
+                    timing.ScheduledRemovalSimulationTime;
+            }
+            stateChanged?.Invoke(runtime);
+            Debug.Log($"CRANE_WAREHOUSE_SCENARIO_READY environment={EnvironmentId} " +
+                      $"scenario={runtime.scenarioId} route={runtime.routeId} " +
+                      $"seed={runtime.seed} obstacles={runtime.obstacles.Length}");
+            return runtime;
         }
 
         private Manifest LoadManifest() {
@@ -122,11 +231,12 @@ namespace Sim.Physics.Land {
             if (manifest.environmentId != EnvironmentId)
                 throw new InvalidOperationException(
                     $"Warehouse environment ID '{manifest.environmentId}' does not match '{EnvironmentId}'.");
-            if (manifest.generatorVersion != "2.0.0")
+            if (manifest.generatorVersion != "2.1.0")
                 throw new InvalidOperationException(
                     $"Unsupported warehouse generator version '{manifest.generatorVersion}'.");
             if (manifest.canonical == null || manifest.canonical.boxes == null ||
-                manifest.canonical.regions == null || manifest.routes == null)
+                manifest.canonical.regions == null || manifest.routes == null ||
+                manifest.scenarios == null)
                 throw new InvalidOperationException("Warehouse manifest is incomplete.");
             if (manifest.canonical.dimensionsMeters == null ||
                 manifest.canonical.dimensionsMeters.Length != 2)
@@ -152,6 +262,39 @@ namespace Sim.Physics.Land {
                     value.relevantObstacles == null || string.IsNullOrWhiteSpace(value.expectedChallenge) ||
                     string.IsNullOrWhiteSpace(value.expectedBroadOutcome))
                     throw new InvalidOperationException($"Route '{value.id}' is incomplete.");
+            }
+            var routeIds = new HashSet<string>(StringComparer.Ordinal);
+            foreach (Route value in manifest.routes) routeIds.Add(value.id);
+            foreach (Scenario value in manifest.scenarios) {
+                ValidateIdentity(value.id, "scenario", ids);
+                if (!routeIds.Contains(value.routeId) || value.seed < 0 ||
+                    string.IsNullOrWhiteSpace(value.robot) || value.obstacles == null ||
+                    value.obstacles.Length == 0 ||
+                    string.IsNullOrWhiteSpace(value.expectedChallenge) ||
+                    string.IsNullOrWhiteSpace(value.expectedBroadOutcome))
+                    throw new InvalidOperationException($"Scenario '{value.id}' is incomplete.");
+                foreach (ScenarioObstacle obstacle in value.obstacles) {
+                    ValidateIdentity(obstacle.id, obstacle.role, ids);
+                    ValidateTriplet(obstacle.center,
+                        $"scenario obstacle {obstacle.id} center");
+                    ValidateTriplet(obstacle.size,
+                        $"scenario obstacle {obstacle.id} size");
+                    if (obstacle.size[0] <= 0f || obstacle.size[1] <= 0f ||
+                        obstacle.size[2] <= 0f)
+                        throw new InvalidOperationException(
+                            $"Scenario obstacle '{obstacle.id}' has non-positive size.");
+                    if (!obstacle.activeInitially && obstacle.activationAfterSeconds < 0f)
+                        throw new InvalidOperationException(
+                            $"Initially inactive obstacle '{obstacle.id}' has no activation.");
+                    if (obstacle.activeInitially && obstacle.activationAfterSeconds >= 0f)
+                        throw new InvalidOperationException(
+                            $"Initially active obstacle '{obstacle.id}' also declares activation.");
+                    if (obstacle.removalAfterSeconds >= 0f &&
+                        obstacle.activationAfterSeconds >= 0f &&
+                        obstacle.removalAfterSeconds <= obstacle.activationAfterSeconds)
+                        throw new InvalidOperationException(
+                            $"Obstacle '{obstacle.id}' removal does not follow activation.");
+                }
             }
         }
 
@@ -189,6 +332,37 @@ namespace Sim.Physics.Land {
                 name = id + "-material",
                 color = color
             };
+        }
+
+        private (GameObject collision, GameObject presentation) CreateScenarioBox(
+            Transform canonical, Transform visual, ScenarioObstacle value) {
+            Vector3 center = ToVector3(value.center,
+                $"scenario obstacle {value.id} center");
+            Vector3 size = ToVector3(value.size,
+                $"scenario obstacle {value.id} size");
+            var collision = new GameObject(value.id);
+            collision.layer = CraneCollisionLayers.Environment;
+            collision.transform.SetParent(canonical, false);
+            collision.transform.localPosition = center;
+            collision.AddComponent<BoxCollider>().size = size;
+            collision.AddComponent<CraneSemanticIdentity>().Configure(
+                value.id, value.role, EnvironmentId);
+            GameObject presentation = null;
+            if (createVisualLayer) {
+                presentation = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                presentation.name = value.id + "-visual";
+                presentation.transform.SetParent(visual, false);
+                presentation.transform.localPosition = center;
+                presentation.transform.localScale = size;
+                Collider presentationCollider = presentation.GetComponent<Collider>();
+                if (presentationCollider != null) DestroyGeneratedObject(presentationCollider);
+                presentation.GetComponent<Renderer>().sharedMaterial = new Material(
+                    Shader.Find("HDRP/Lit") ?? Shader.Find("Standard")) {
+                    name = value.id + "-material",
+                    color = ToColor(value.color)
+                };
+            }
+            return (collision, presentation);
         }
 
         private static void AddRegion(Transform canonical, string id, string role,

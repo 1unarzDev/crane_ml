@@ -1,7 +1,7 @@
 {
   "schema": "crane-environment-scenario-catalog-v1",
   "environmentId": "crane-industrial-warehouse-v2",
-  "generatorVersion": "2.0.0",
+  "generatorVersion": "2.1.0",
   "upstream": [
     {
       "project": "Unity-Technologies/Robotics-Nav2-SLAM-Example",
@@ -100,6 +100,98 @@
       "relevantObstacles": ["rack-lower-east", "crate-workzone-01", "crate-workzone-02"],
       "expectedChallenge": "Navigate a blind corner into an open work zone with distractor crates.",
       "expectedBroadOutcome": "success-with-obstacle-avoidance"
+    },
+    {
+      "id": "warehouse-blocked-goal-v1",
+      "start": [0.0, 0.08, 1.2],
+      "goal": [0.0, 0.08, 4.2],
+      "approximateLengthMeters": 3.0,
+      "alternatives": [],
+      "relevantObstacles": ["blocked-goal-pallet-stack"],
+      "expectedChallenge": "The goal region is occupied by a large pallet stack visible from the start, so no collision-free terminal pose exists within tolerance.",
+      "expectedBroadOutcome": "policy-dependent-goal-obstruction-response"
+    }
+  ],
+  "scenarios": [
+    {
+      "id": "warehouse-cross-aisle-complete-blockage-v1",
+      "routeId": "warehouse-cross-aisle-detour-v1",
+      "seed": 4101,
+      "robot": "TurtleBot3 Waffle-class",
+      "obstacles": [
+        {
+          "id": "barrier-cross-aisle-static-full",
+          "role": "controlled-complete-blockage",
+          "center": [0.0, 1.0, 10.35],
+          "size": [19.8, 2.0, 0.35],
+          "color": [0.72, 0.08, 0.05],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        }
+      ],
+      "expectedChallenge": "A safety barrier spans the full warehouse width north of the lower aisles, leaving no traversable route to the cross-aisle goal.",
+      "expectedBroadOutcome": "policy-dependent-complete-blockage-response"
+    },
+    {
+      "id": "warehouse-cross-aisle-delayed-blockage-v1",
+      "routeId": "warehouse-cross-aisle-detour-v1",
+      "seed": 4102,
+      "robot": "TurtleBot3 Waffle-class",
+      "obstacles": [
+        {
+          "id": "barrier-cross-aisle-delayed-full",
+          "role": "controlled-dynamic-blockage",
+          "center": [0.0, 1.0, 10.35],
+          "size": [19.8, 2.0, 0.35],
+          "color": [0.72, 0.08, 0.05],
+          "activeInitially": false,
+          "activationAfterSeconds": 18.0,
+          "removalAfterSeconds": -1.0
+        }
+      ],
+      "expectedChallenge": "The initially open route closes at a deterministic simulation-time boundary, requiring a path change, recovery, or terminal failure.",
+      "expectedBroadOutcome": "replanning-or-recovery-after-route-closure"
+    },
+    {
+      "id": "warehouse-cross-aisle-temporary-blockage-v1",
+      "routeId": "warehouse-cross-aisle-detour-v1",
+      "seed": 4103,
+      "robot": "TurtleBot3 Waffle-class",
+      "obstacles": [
+        {
+          "id": "barrier-cross-aisle-temporary-full",
+          "role": "controlled-temporary-blockage",
+          "center": [0.0, 1.0, 10.35],
+          "size": [19.8, 2.0, 0.35],
+          "color": [0.72, 0.08, 0.05],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": 18.0
+        }
+      ],
+      "expectedChallenge": "A complete barrier is removed at a deterministic simulation-time boundary so planning or recovery can resume against the same canonical layout.",
+      "expectedBroadOutcome": "recovery-or-replan-then-success"
+    },
+    {
+      "id": "warehouse-occupied-goal-no-path-v1",
+      "routeId": "warehouse-blocked-goal-v1",
+      "seed": 4104,
+      "robot": "TurtleBot3 Waffle-class",
+      "obstacles": [
+        {
+          "id": "blocked-goal-pallet-stack",
+          "role": "controlled-occupied-goal",
+          "center": [0.0, 1.0, 4.2],
+          "size": [2.0, 2.0, 2.0],
+          "color": [0.72, 0.08, 0.05],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        }
+      ],
+      "expectedChallenge": "A visible pallet stack occupies the complete goal region; the navigation policy must either reject it, recover, remain active, or terminate without colliding.",
+      "expectedBroadOutcome": "policy-dependent-goal-obstruction-response"
     }
   ]
 }

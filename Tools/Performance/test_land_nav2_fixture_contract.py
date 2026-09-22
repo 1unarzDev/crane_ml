@@ -13,6 +13,12 @@ PARAMETERS = ROOT / "Tools" / "Performance" / "nav2_land_fixture.yaml"
 WAREHOUSE_PARAMETERS = ROOT / "Tools" / "Performance" / "nav2_warehouse_fixture.yaml"
 CLEARPATH_LAUNCHER = ROOT / "Tools" / "Performance" / "run_clearpath_pipeline_nav2_fixture.sh"
 WAREHOUSE_LAUNCHER = ROOT / "Tools" / "Performance" / "run_warehouse_nav2_fixture.sh"
+WAREHOUSE_BLOCKAGE_LAUNCHER = (
+    ROOT / "Tools" / "Performance" / "run_warehouse_blockage_nav2_fixture.sh"
+)
+WAREHOUSE_NO_PATH_LAUNCHER = (
+    ROOT / "Tools" / "Performance" / "run_warehouse_no_path_nav2_fixture.sh"
+)
 
 
 class LandNav2FixtureContractTests(unittest.TestCase):
@@ -157,6 +163,30 @@ class LandNav2FixtureContractTests(unittest.TestCase):
         self.assertIn('CRANE_NAV2_ACTION_DURATION="${CRANE_NAV2_ACTION_DURATION:-75}"', ecological)
         self.assertIn('CRANE_DURATION="${CRANE_DURATION:-90}"', ecological)
         self.assertNotIn("--crane-preserve-reference-environment", frozen)
+
+    def test_warehouse_blockage_launcher_preserves_observed_client_timeout(self) -> None:
+        ecological = WAREHOUSE_LAUNCHER.read_text(encoding="utf-8")
+        blockage = WAREHOUSE_BLOCKAGE_LAUNCHER.read_text(encoding="utf-8")
+        bootstrap = (ROOT / "Assets/Scripts/Physics/Land/CraneLandNav2Bootstrap.cs").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("CRANE_WAREHOUSE_SCENARIO_ID", ecological)
+        self.assertIn("--crane-warehouse-scenario-id", ecological)
+        self.assertIn("warehouse-cross-aisle-complete-blockage-v1", blockage)
+        self.assertIn('CRANE_EXPECTED_NAV_STATUS="${CRANE_EXPECTED_NAV_STATUS:-timeout}"', blockage)
+        self.assertIn("not a Nav2 abort", blockage)
+        self.assertIn('ReadString("--crane-warehouse-scenario-id"', bootstrap)
+        self.assertIn("CopyWarehouseScenarioTruth", bootstrap)
+        self.assertNotIn("Roboboat Course", blockage)
+
+    def test_warehouse_no_path_launcher_uses_visible_occupied_goal_calibration(self) -> None:
+        text = WAREHOUSE_NO_PATH_LAUNCHER.read_text(encoding="utf-8")
+        self.assertIn("warehouse-occupied-goal-no-path-v1", text)
+        self.assertIn('CRANE_NAV2_GOAL_DISTANCE="${CRANE_NAV2_GOAL_DISTANCE:-3.0}"', text)
+        self.assertIn('CRANE_NAV2_ACTION_DURATION="${CRANE_NAV2_ACTION_DURATION:-45}"', text)
+        self.assertIn('CRANE_EXPECTED_NAV_STATUS="${CRANE_EXPECTED_NAV_STATUS:-timeout}"', text)
+        self.assertIn("must not be relabeled as Nav2 failure", text)
+        self.assertNotIn("Roboboat Course", text)
 
     def test_warehouse_costmap_matches_manifest_robot_and_preserves_frozen_params(self) -> None:
         warehouse = WAREHOUSE_PARAMETERS.read_text(encoding="utf-8")

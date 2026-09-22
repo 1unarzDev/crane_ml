@@ -21,8 +21,12 @@ copied. TurtleBot3 dimensions come from the Apache-2.0 example.
 The active ecological layout is the manifest-driven 20 × 26 m
 `crane-industrial-warehouse-v2`, retained in
 `Assets/Resources/ReferenceEnvironments/unity_turtlebot3_industrial_warehouse_v2.json`. It has
-20 canonical boxes, eight semantic regions, and four route contracts covering alternative lower
+20 canonical boxes, eight semantic regions, and five route contracts covering alternative lower
 aisles, a center route divider, cross-aisles, a narrow gate, clutter, a work zone, and a dead end.
+Manifest version 2.1.0 also defines four scenario contracts: static full-width blockage, delayed
+blockage, temporary blockage, and an occupied goal region. Scenario colliders remain canonical;
+their collider and presentation objects change state together at deterministic fixed-simulation
+times, while scheduled and actual boundaries are retained only in evaluator truth.
 The scene serializes the manifest asset so the exact route/layout contract is a player-build
 dependency. The older simple-warehouse manifest and its successful short smoke remain historical
 infrastructure; they are not evidence that the v2 ecological routes pass.
@@ -59,6 +63,16 @@ renderers, 28 unique semantic identities, collision/drop support, a semantic LiD
 19.1 degrees of turn response. Its aggregate nominal-route record reports `STRUCTURAL_PASS`,
 `PHYSICS_PASS`, `SENSOR_PASS`, `NAVIGATION_PASS`, `HEADLESS_PASS`, and `EXPLANATION_READY` while
 leaving failure/recovery and interactive gates `NOT_RUN` and the overall verdict `PARTIAL`.
+
+The first scenario calibration is intentionally negative. Under the installed stock continuously
+replanning Nav2 tree, a full-width barrier caused substantial route reversal and path changes but
+the action remained active until the 75 s client deadline. An occupied 3 m goal likewise remained
+active until its 45 s client deadline while Nav2 repeatedly passed replacement paths to the
+controller. The final occupied-goal replication displaced 1.742 m, returned 439 controller
+commands, retained 165 costmap observations, and ended with client status `timeout`. Neither run is
+a Nav2 abort or recovery pass. Their launchers expect `timeout` so regression checks preserve the
+observed behavior rather than laundering cancellation into mission failure. A separate, explicit,
+bounded ecological BT/configuration is required before claiming terminal failure or recovery.
 
 The warehouse now attaches a presentation-only reference inspection controller to its spectator
 camera. It provides top-down overview, oblique, and robot-follow views; a route/environment HUD;
