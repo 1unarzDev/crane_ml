@@ -41,6 +41,20 @@ REGRESSION_PHASES = (
     ('yaw_positive_stop', 1.0, 0.0, 0.0, 0.0),
 )
 
+YAW_SWEEP_PHASES = (
+    ('settle', 1.0, 0.0, 0.0, 0.0),
+    ('yaw_0025', 2.0, 0.0, 0.0, 0.025),
+    ('yaw_0025_stop', 2.0, 0.0, 0.0, 0.0),
+    ('yaw_0050', 2.0, 0.0, 0.0, 0.05),
+    ('yaw_0050_stop', 2.0, 0.0, 0.0, 0.0),
+    ('yaw_0100', 2.0, 0.0, 0.0, 0.1),
+    ('yaw_0100_stop', 2.0, 0.0, 0.0, 0.0),
+    ('yaw_0200', 2.0, 0.0, 0.0, 0.2),
+    ('yaw_0200_stop', 2.0, 0.0, 0.0, 0.0),
+    ('yaw_0400', 2.0, 0.0, 0.0, 0.4),
+    ('yaw_0400_stop', 3.0, 0.0, 0.0, 0.0),
+)
+
 
 def yaw_from_quaternion(q):
     return math.atan2(2.0 * (q.w * q.z + q.x * q.y),
@@ -55,7 +69,11 @@ class CommandResponseFixture(Node):
     def __init__(self, args):
         super().__init__('crane_roboboat_command_response_fixture')
         self.args = args
-        self.phases = REGRESSION_PHASES if args.suite == 'regression' else FULL_PHASES
+        self.phases = {
+            'full': FULL_PHASES,
+            'regression': REGRESSION_PHASES,
+            'yaw-sweep': YAW_SWEEP_PHASES,
+        }[args.suite]
         self.publisher = self.create_publisher(TwistStamped, args.command_topic, 10)
         self.create_subscription(Odometry, args.odom_topic, self.on_odom, 20)
         self.latest_odom = None
@@ -183,7 +201,7 @@ def main():
     parser.add_argument('--command-topic', default='/crane/cmd_vel_stamped')
     parser.add_argument('--odom-topic', default='/crane/odom')
     parser.add_argument('--timeout', type=float, default=65.0)
-    parser.add_argument('--suite', choices=('full', 'regression'), default='full')
+    parser.add_argument('--suite', choices=('full', 'regression', 'yaw-sweep'), default='full')
     parser.add_argument('--samples', required=True)
     parser.add_argument('--output', required=True)
     args = parser.parse_args()

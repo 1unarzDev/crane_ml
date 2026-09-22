@@ -236,6 +236,7 @@ class FollowPathFixture(Node):
     def send_goal(self):
         odom = self.initial_odom
         yaw = yaw_from_quaternion(odom.pose.pose.orientation)
+        path_yaw = wrapped_angle(yaw + self.args.path_heading_offset)
         path = Path()
         path.header.frame_id = odom.header.frame_id
         path.header.stamp = odom.header.stamp
@@ -243,15 +244,16 @@ class FollowPathFixture(Node):
             distance = self.args.distance * index / self.args.path_points
             pose = PoseStamped()
             pose.header = path.header
-            pose.pose.position.x = odom.pose.pose.position.x + math.cos(yaw) * distance
-            pose.pose.position.y = odom.pose.pose.position.y + math.sin(yaw) * distance
+            pose.pose.position.x = odom.pose.pose.position.x + math.cos(path_yaw) * distance
+            pose.pose.position.y = odom.pose.pose.position.y + math.sin(path_yaw) * distance
             pose.pose.position.z = odom.pose.pose.position.z
-            pose.pose.orientation = odom.pose.pose.orientation
+            pose.pose.orientation.z = math.sin(path_yaw / 2.0)
+            pose.pose.orientation.w = math.cos(path_yaw / 2.0)
             path.poses.append(pose)
         self.planned_path = [{
             'x': float(odom.pose.pose.position.x),
             'y': float(odom.pose.pose.position.y),
-            'yaw': yaw,
+            'yaw': path_yaw,
         }] + [{
             'x': float(pose.pose.position.x),
             'y': float(pose.pose.position.y),
@@ -559,6 +561,8 @@ def main():
     parser.add_argument('--goal-y', type=float)
     parser.add_argument('--goal-yaw', type=float)
     parser.add_argument('--path-points', type=int, default=20)
+    parser.add_argument('--path-heading-offset', type=float, default=0.0,
+                        help='FollowPath heading offset from initial body yaw, radians')
     parser.add_argument('--duration', type=float, default=25.0)
     parser.add_argument('--post-result-seconds', type=float, default=0.0)
     parser.add_argument('--output')
@@ -570,6 +574,8 @@ def main():
         parser.error('--goal-x and --goal-y must be supplied together')
     if args.goal_x is not None and args.action_mode != 'navigate-to-pose':
         parser.error('absolute goals are supported only for navigate-to-pose')
+    if args.path_heading_offset != 0.0 and args.action_mode != 'follow-path':
+        parser.error('--path-heading-offset is supported only for follow-path')
     if args.post_result_seconds < 0.0:
         parser.error('--post-result-seconds must be non-negative')
     rclpy.init()
