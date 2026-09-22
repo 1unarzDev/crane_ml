@@ -55,6 +55,12 @@ YAW_SWEEP_PHASES = (
     ('yaw_0400_stop', 3.0, 0.0, 0.0, 0.0),
 )
 
+FULL_FORWARD_PHASES = (
+    ('settle', 2.0, 0.0, 0.0, 0.0),
+    ('full_forward', 15.0, 1.0, 0.0, 0.0),
+    ('full_forward_stop', 15.0, 0.0, 0.0, 0.0),
+)
+
 
 def yaw_from_quaternion(q):
     return math.atan2(2.0 * (q.w * q.z + q.x * q.y),
@@ -73,6 +79,7 @@ class CommandResponseFixture(Node):
             'full': FULL_PHASES,
             'regression': REGRESSION_PHASES,
             'yaw-sweep': YAW_SWEEP_PHASES,
+            'full-forward': FULL_FORWARD_PHASES,
         }[args.suite]
         self.publisher = self.create_publisher(TwistStamped, args.command_topic, 10)
         self.create_subscription(Odometry, args.odom_topic, self.on_odom, 20)
@@ -201,7 +208,9 @@ def main():
     parser.add_argument('--command-topic', default='/crane/cmd_vel_stamped')
     parser.add_argument('--odom-topic', default='/crane/odom')
     parser.add_argument('--timeout', type=float, default=65.0)
-    parser.add_argument('--suite', choices=('full', 'regression', 'yaw-sweep'), default='full')
+    parser.add_argument('--suite',
+                        choices=('full', 'regression', 'yaw-sweep', 'full-forward'),
+                        default='full')
     parser.add_argument('--samples', required=True)
     parser.add_argument('--output', required=True)
     args = parser.parse_args()
