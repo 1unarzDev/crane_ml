@@ -302,6 +302,15 @@ The validated contract SHA-256 is
 This is a reproducible handoff to the explanation pipeline; explanation generation,
 information-parity audit, blinded annotation, and statistical evaluation remain **NOT_RUN**.
 
+The passive Nav2 fixture now retains an ordered, bounded `BehaviorTreeLog` stream using
+`Tools/Performance/bt_transition_capture.py`. It assigns stable transition IDs and derives a unique
+recovery invocation ID only from an observed `IDLE -> RUNNING` edge on an explicitly configured
+recovery leaf. Nav2 feedback recovery counts are retained separately. Capture output also reports
+duplicates, truncation, pre-goal records, open/incomplete invocations, configured terminal-node
+observation, and limitations. Since Jazzy's topic does not provide a publisher sequence number,
+the current capture conservatively reports whole-history completeness as `not_proven` and never
+makes an exact recovery-count claim from the observed invocation list alone.
+
 ## F1TENTH occupancy maps
 
 `Tools/ReferenceEnvironments/f1tenth_map_generator.py` reads standard PNG/YAML maps, applies the
