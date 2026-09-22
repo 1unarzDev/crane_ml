@@ -11,6 +11,7 @@ import json
 import math
 import time
 
+from bt_transition_capture import BehaviorTreeTransitionCapture
 import rclpy
 from geometry_msgs.msg import PoseStamped, Twist, TwistStamped
 from nav2_msgs.action import FollowPath, NavigateToPose
@@ -29,6 +30,16 @@ ACTION_STATUS = {
     5: 'canceled',
     6: 'aborted',
 }
+
+DEFAULT_RECOVERY_NODE_NAMES = (
+    'BackUp',
+    'ClearGlobalCostmap-Context',
+    'ClearGlobalCostmap-Subtree',
+    'ClearLocalCostmap-Context',
+    'ClearLocalCostmap-Subtree',
+    'Spin',
+    'Wait',
+)
 
 
 class FollowPathFixture(Node):
@@ -54,6 +65,7 @@ class FollowPathFixture(Node):
         self.goal_attempts = 0
         self.next_goal_attempt_wall = 0.0
         self.result_status = None
+        self.result_received_wall = None
         self.feedback_count = 0
         self.maximum_recovery_count = 0
         self.recovery_count_sequence = []
@@ -61,6 +73,12 @@ class FollowPathFixture(Node):
         self.bt_transition_count = 0
         self.bt_transition_counts = {}
         self.bt_latest_transition_by_node = {}
+        self.bt_capture = BehaviorTreeTransitionCapture(
+            max_transitions=args.bt_max_transitions,
+            max_invocations=args.bt_max_invocations,
+            recovery_node_names=args.bt_recovery_node or DEFAULT_RECOVERY_NODE_NAMES,
+            terminal_node_names=args.bt_terminal_node or ('NavigateRecovery',),
+        )
         self.trajectory_samples = []
         self.next_trajectory_sample_wall = self.started_wall
         self.done = False
@@ -141,6 +159,7 @@ class FollowPathFixture(Node):
 
     def on_bt_log(self, message):
         self.bt_log_message_count += 1
+        ordered_events = []
         for event in message.event_log:
             self.bt_transition_count += 1
             key = f'{event.node_name}:{event.previous_status}->{event.current_status}'
@@ -152,6 +171,14 @@ class FollowPathFixture(Node):
                 'eventStamp': stamp_dict(event.timestamp),
                 'messageStamp': stamp_dict(message.timestamp),
             }
+            ordered_events.append({
+                'uid': int(event.uid),
+                'nodeName': event.node_name,
+                'previousStatus': event.previous_status,
+                'currentStatus': event.current_status,
+                'eventStamp': stamp_dict(event.timestamp),
+            })
+        self.bt_capture.record_message(stamp_dict(message.timestamp), ordered_events)
 
     def on_feedback(self, message):
         self.feedback_count += 1
@@ -217,7 +244,15 @@ class FollowPathFixture(Node):
     def tick(self):
         elapsed = time.monotonic() - self.started_wall
         self.sample_trajectory(elapsed)
-        if self.done or elapsed >= self.args.duration:
+        if self.done:
+            return
+        if (
+                self.result_received_wall is not None
+                and time.monotonic() - self.result_received_wall
+                >= self.args.bt_terminal_drain_seconds):
+            self.finish(self.result_status)
+            return
+        if elapsed >= self.args.duration:
             self.finish('timeout' if self.result_status is None else self.result_status)
             return
         self.request_costmap()
@@ -284,6 +319,7 @@ class FollowPathFixture(Node):
                 goal.progress_checker_id = 'progress_checker'
         self.goal_sent_wall = time.monotonic()
         self.goal_attempts += 1
+        self.bt_capture.mark_goal_sent()
         future = self.action.send_goal_async(goal, feedback_callback=self.on_feedback)
         future.add_done_callback(self.on_goal_response)
 
@@ -300,11 +336,13 @@ class FollowPathFixture(Node):
         # The harness topic is volatile. Repeat identity after action discovery so a capture node
         # that joined during fixture startup still receives the episode/observation boundary.
         self.publish_identity('accepted_goal_republication')
+        goal_id = bytes(self.goal_handle.goal_id.uuid).hex()
+        self.bt_capture.mark_goal_accepted(goal_id)
         self.publish_event({
             'type': 'navigate_to_pose_goal',
             'action_name': self.action_name,
             'action_mode': self.args.action_mode,
-            'goal_id': bytes(self.goal_handle.goal_id.uuid).hex(),
+            'goal_id': goal_id,
             'goal_attempt': self.goal_attempts,
             'accepted': True,
             'goal': self.goal_description,
@@ -316,6 +354,7 @@ class FollowPathFixture(Node):
         response = future.result()
         status_code = response.status
         self.result_status = ACTION_STATUS.get(status_code, f'action-status-{status_code}')
+        self.result_received_wall = time.monotonic()
         payload = response.result
         self.publish_event({
             'type': 'navigate_to_pose_result',
@@ -326,7 +365,9 @@ class FollowPathFixture(Node):
             'error_code': getattr(payload, 'error_code', None),
             'error_msg': getattr(payload, 'error_msg', None),
         })
-        self.finish(self.result_status)
+        # The action result and final BehaviorTreeLog transition travel on separate ROS topics.
+        # Keep spinning for one small, bounded interval so executor callback ordering does not
+        # systematically discard an already-published terminal BT record.
 
     def finish(self, status):
         if self.done:
@@ -379,6 +420,8 @@ class FollowPathFixture(Node):
             'behaviorTreeTransitions': self.bt_transition_count,
             'behaviorTreeTransitionCounts': self.bt_transition_counts,
             'behaviorTreeLatestTransitionByNode': self.bt_latest_transition_by_node,
+            'behaviorTreeCapture': self.bt_capture.summary(),
+            'behaviorTreeTerminalDrainWallSeconds': self.args.bt_terminal_drain_seconds,
             'behaviorTreeProvenance': (
                 'delivered-topic-transitions-may-omit-terminal-tick-not-proof-of-completeness'),
             'trajectorySamples': self.trajectory_samples,
@@ -439,6 +482,11 @@ def main():
     parser.add_argument('--output')
     parser.add_argument('--harness-topic', default='/crane/explanation_event')
     parser.add_argument('--bt-topic', default='/behavior_tree_log')
+    parser.add_argument('--bt-max-transitions', type=int, default=4096)
+    parser.add_argument('--bt-max-invocations', type=int, default=1024)
+    parser.add_argument('--bt-recovery-node', action='append', default=[])
+    parser.add_argument('--bt-terminal-node', action='append', default=[])
+    parser.add_argument('--bt-terminal-drain-seconds', type=float, default=0.5)
     parser.add_argument('--episode-id', required=True)
     parser.add_argument('--run-id', required=True)
     args = parser.parse_args()
