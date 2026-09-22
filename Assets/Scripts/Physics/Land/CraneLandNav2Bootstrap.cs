@@ -38,6 +38,8 @@ namespace Sim.Physics.Land {
             public double mobilityReleaseActualSimulationTime = -1d;
             public bool mobilityHeld;
             public bool mobilityReleased;
+            public string environmentId;
+            public bool referenceEnvironmentPreserved;
             public string platform;
             public Vector3 startPosition;
         }
@@ -56,8 +58,12 @@ namespace Sim.Physics.Land {
             if (!enabled) return;
             bool ackermannScene = scene.name.Equals("Land Vehicle Validation",
                 StringComparison.OrdinalIgnoreCase);
-            bool differentialScene = scene.name.Equals("TurtleBot3 Warehouse Validation",
+            bool turtlebotScene = scene.name.Equals("TurtleBot3 Warehouse Validation",
                 StringComparison.OrdinalIgnoreCase);
+            bool clearpathScene = scene.name.Equals("Clearpath Pipeline Validation",
+                StringComparison.OrdinalIgnoreCase);
+            bool differentialScene = turtlebotScene || clearpathScene;
+            bool preserveReferenceEnvironment = clearpathScene;
             if (!ackermannScene && !differentialScene) return;
             AckermannRoverDynamics rover = ackermannScene
                 ? UnityEngine.Object.FindAnyObjectByType<AckermannRoverDynamics>(
@@ -73,7 +79,7 @@ namespace Sim.Physics.Land {
             // The TurtleBot3 scene's recognizable warehouse remains the normal reference scene.
             // Corridor experiments explicitly replace only its generated environment root while
             // retaining the existing robot, dynamics, sensors, ROS integration, and scene setup.
-            if (differentialScene) {
+            if (turtlebotScene) {
                 CraneReferenceWarehouse warehouse = UnityEngine.Object.FindAnyObjectByType<
                     CraneReferenceWarehouse>(FindObjectsInactive.Include);
                 if (warehouse != null) warehouse.gameObject.SetActive(false);
@@ -104,8 +110,10 @@ namespace Sim.Physics.Land {
             Rigidbody body = rover != null
                 ? rover.GetComponent<Rigidbody>()
                 : differential.GetComponent<Rigidbody>();
-            body.position = new Vector3(0f, differentialScene ? 0.08f : 0.65f, 0f);
-            body.rotation = Quaternion.identity;
+            if (!preserveReferenceEnvironment) {
+                body.position = new Vector3(0f, differentialScene ? 0.08f : 0.65f, 0f);
+                body.rotation = Quaternion.identity;
+            }
             body.linearVelocity = Vector3.zero;
             body.angularVelocity = Vector3.zero;
             if (rover != null) rover.ResetActuators();
@@ -113,27 +121,32 @@ namespace Sim.Physics.Land {
 
             const float wallThickness = 0.25f;
             const float wallHeight = 2f;
-            if (differentialScene) {
-                CreateObstacle("Corridor Floor", "corridor-floor", "traversable-floor",
-                    new Vector3(0f, -0.10f, length * 0.5f),
-                    new Vector3(width + 2f, 0.20f, length + 4f));
-            }
-            CreateObstacle("Corridor Left Wall", "corridor-wall-left", "boundary-wall",
-                new Vector3(-width * 0.5f - wallThickness * 0.5f, wallHeight * 0.5f,
-                    length * 0.5f),
-                new Vector3(wallThickness, wallHeight, length + 4f));
-            CreateObstacle("Corridor Right Wall", "corridor-wall-right", "boundary-wall",
-                new Vector3(width * 0.5f + wallThickness * 0.5f, wallHeight * 0.5f,
-                    length * 0.5f),
-                new Vector3(wallThickness, wallHeight, length + 4f));
             GameObject blockerObject = null;
-            if (blocker != "none") {
-                float x = blocker == "partial" ? -width * 0.5f + blockerWidth * 0.5f : 0f;
-                blockerObject = CreateObstacle("Corridor Blocker", "corridor-blocker",
-                    "controlled-obstacle",
-                    new Vector3(x, wallHeight * 0.5f, blockerDistance),
-                    new Vector3(blockerWidth, wallHeight, wallThickness));
+            if (!preserveReferenceEnvironment) {
+                if (differentialScene) {
+                    CreateObstacle("Corridor Floor", "corridor-floor", "traversable-floor",
+                        new Vector3(0f, -0.10f, length * 0.5f),
+                        new Vector3(width + 2f, 0.20f, length + 4f));
+                }
+                CreateObstacle("Corridor Left Wall", "corridor-wall-left", "boundary-wall",
+                    new Vector3(-width * 0.5f - wallThickness * 0.5f, wallHeight * 0.5f,
+                        length * 0.5f),
+                    new Vector3(wallThickness, wallHeight, length + 4f));
+                CreateObstacle("Corridor Right Wall", "corridor-wall-right", "boundary-wall",
+                    new Vector3(width * 0.5f + wallThickness * 0.5f, wallHeight * 0.5f,
+                        length * 0.5f),
+                    new Vector3(wallThickness, wallHeight, length + 4f));
+                if (blocker != "none") {
+                    float x = blocker == "partial" ? -width * 0.5f + blockerWidth * 0.5f : 0f;
+                    blockerObject = CreateObstacle("Corridor Blocker", "corridor-blocker",
+                        "controlled-obstacle",
+                        new Vector3(x, wallHeight * 0.5f, blockerDistance),
+                        new Vector3(blockerWidth, wallHeight, wallThickness));
+                }
             }
+            else if (blocker != "none")
+                throw new ArgumentException(
+                    "Imported reference environments do not accept synthetic corridor blockers.");
             if (blockerObject == null &&
                 (blockerEnableAfter >= 0f || blockerRemoveAfter >= 0f))
                 throw new ArgumentException(
@@ -166,7 +179,11 @@ namespace Sim.Physics.Land {
                 blockerRemovalAfterSeconds = blockerObject == null ? -1f : blockerRemoveAfter,
                 mobilityHoldAfterSeconds = mobilityHoldAfter,
                 mobilityReleaseAfterSeconds = mobilityReleaseAfter,
-                platform = differentialScene ? "turtlebot3-waffle-differential" :
+                environmentId = clearpathScene ? "clearpath-pipeline-2.9.4-v1" :
+                    "crane-land-corridor-v1",
+                referenceEnvironmentPreserved = preserveReferenceEnvironment,
+                platform = clearpathScene ? "clearpath-jackal-class-differential" :
+                    differentialScene ? "turtlebot3-waffle-differential" :
                     "reference-ackermann-rover",
                 startPosition = body.position
             };
@@ -222,6 +239,7 @@ namespace Sim.Physics.Land {
                       $"blockerRemoveAfter={blockerRemoveAfter:R} " +
                       $"mobilityHoldAfter={mobilityHoldAfter:R} " +
                       $"mobilityReleaseAfter={mobilityReleaseAfter:R} " +
+                      $"preserveReferenceEnvironment={preserveReferenceEnvironment} " +
                       $"platform={truth.platform} lidar=/scan");
         }
 

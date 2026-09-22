@@ -10,6 +10,7 @@ LAUNCHER = ROOT / "Tools" / "Performance" / "run_land_nav2_fixture.sh"
 SHARED_LAUNCHER = ROOT / "Tools" / "Performance" / "run_nav2_controller_fixture.sh"
 FIXTURE = ROOT / "Tools" / "Performance" / "nav2_follow_path_fixture.py"
 PARAMETERS = ROOT / "Tools" / "Performance" / "nav2_land_fixture.yaml"
+CLEARPATH_LAUNCHER = ROOT / "Tools" / "Performance" / "run_clearpath_pipeline_nav2_fixture.sh"
 
 
 class LandNav2FixtureContractTests(unittest.TestCase):
@@ -116,6 +117,20 @@ class LandNav2FixtureContractTests(unittest.TestCase):
         self.assertIn('CRANE_SCENE="TurtleBot3 Warehouse Validation"', launcher)
         self.assertIn("--crane-ros-differential-cmd-vel", launcher)
         self.assertIn("base_scan", launcher)
+
+    def test_clearpath_launcher_preserves_the_imported_reference_environment(self) -> None:
+        bootstrap = (ROOT / "Assets/Scripts/Physics/Land/CraneLandNav2Bootstrap.cs").read_text(
+            encoding="utf-8"
+        )
+        launcher = CLEARPATH_LAUNCHER.read_text(encoding="utf-8")
+        self.assertIn('"Clearpath Pipeline Validation"', bootstrap)
+        self.assertIn("preserveReferenceEnvironment", bootstrap)
+        self.assertIn("if (!preserveReferenceEnvironment)", bootstrap)
+        self.assertIn('CRANE_SCENE="Clearpath Pipeline Validation"', launcher)
+        self.assertIn("--crane-ros-differential-cmd-vel", launcher)
+        self.assertIn("base_scan", launcher)
+        self.assertIn('CRANE_NAV2_GOAL_DISTANCE="${CRANE_NAV2_GOAL_DISTANCE:-1.0}"', launcher)
+        self.assertNotIn("Roboboat Course", launcher)
 
     def test_mobility_hold_is_fixed_time_and_evaluator_owned(self) -> None:
         bootstrap = (ROOT / "Assets/Scripts/Physics/Land/CraneLandNav2Bootstrap.cs").read_text(

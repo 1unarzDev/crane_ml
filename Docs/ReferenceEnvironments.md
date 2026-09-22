@@ -150,9 +150,23 @@ The headless proof loaded 11 separate collision meshes and 13 renderers over bou
 199.25 × 11.33 × 128.87 m, with no renderers in canonical collision and no colliders in visual
 presentation. A physics query hit semantic object `clearpath-pipeline`, and a rigid-body drop
 reported actual contact. The generated scene includes a Jackal-dimension/class differential body
-and one 2-D LiDAR configuration. ROS sensor transport, Nav2 traversal, spawn/goal calibration,
-corridor-width checks, native Gazebo comparison, and high-fidelity material matching are
-**NOT_RUN**; the run must not be presented as those validations.
+and one 2-D LiDAR configuration.
+
+`Tools/Performance/run_clearpath_pipeline_nav2_fixture.sh` reuses the stock land Nav2 fixture but
+selects the generated scene, differential command adapter, and `base_scan`. The land bootstrap
+recognizes this scene without disabling or replacing its imported canonical environment; synthetic
+corridor walls and blockers are not permitted in this mode. A 2026-09-21 graphics-free smoke used
+a temporary worker built with the generated scene and a 1 m forward goal. The action succeeded in
+2.978 s after 10 returned controller commands and 0.497 m odometry displacement (within the 0.55 m
+goal tolerance). It retained 451 LiDAR scans, four costmap observations with up to 11,668 occupied
+cells, zero stale/rejected commands, valid transport, and RTF 1.00002. Topic/service delivery does
+not prove controller consumption. The evaluator record identifies
+`clearpath-pipeline-2.9.4-v1`, `clearpath-jackal-class-differential`, and
+`referenceEnvironmentPreserved=true`.
+
+This validates a local ROS/Nav2 motion and sensor-transport smoke on the imported geometry. It does
+not validate a representative pipeline route, calibrated spawn/goal catalog, native Gazebo
+equivalence, high-fidelity materials, or Jackal hardware dynamics. Those remain **NOT_RUN**.
 
 The 2026-09-19 semantic-playback regression resolved `clearpath-pipeline` through the imported
 model root to 10 presentation renderers without changing the 11 source-derived colliders. The
@@ -168,6 +182,7 @@ result JSON SHA-256 was
   separation, camera detection **NOT_RUN**; windy: **IMPLEMENTED / TESTED** for deterministic
   directional response, physical calibration **NOT_RUN**.
 - Clearpath pipeline offline import: **IMPLEMENTED / TESTED** for source resolution, layer
-  separation, bounds, semantic ray query, and mesh contact; navigation/sensor transport **NOT_RUN**.
+  separation, bounds, semantic ray query, mesh contact, and a 1 m ROS/Nav2 sensor/motion smoke;
+  representative route and native-Gazebo comparison **NOT_RUN**.
 - AWSIM/Flightmare: **AUDITED** design references. Shinjuku and Flightmare environment art are not
   imported because the inspected terms do not provide a clean permissive redistribution path.
