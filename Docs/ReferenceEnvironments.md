@@ -142,7 +142,7 @@ the rolling window. The first alternate-corridors calibration used the earlier 3
 aborted immediately; the planner explicitly reported the goal outside its bounds. This negative
 calibration is retained rather than reclassified as a geometry or navigation failure.
 
-Three layouts currently have runtime navigation evidence:
+Five layouts currently have runtime navigation evidence:
 
 - `alternate-corridors-v1` succeeded in 71.21 s with 17.573 m endpoint displacement, 17.930 m of
   sampled trajectory, a 1.10 m lateral excursion, 628 delivered BT transitions, 711 returned
@@ -155,6 +155,14 @@ Three layouts currently have runtime navigation evidence:
 - `complete-blockage-v1` aborted under the separate 70 s bounded task policy at 70.33 s, before
   the 80 s client deadline, after 17.973 m of sampled exploratory motion and 4.54 m lateral span.
   This supports task-policy deadline provenance, not obstacle causation.
+- `narrow-doorway-v1` passed the centered 1.0 m opening in 69.06 s with 17.467 m endpoint
+  displacement, 17.542 m sampled path, 0.236 m lateral span, 610 delivered BT transitions, and
+  zero recovery feedback. This is a narrow-passage success; it is not labeled replanning.
+- `u-trap-v1` succeeded in 98.16 s after advancing into the trap region, reversing across 14
+  sampled intervals, reaching 3.003 m lateral excursion on an exterior route, and returning to
+  the goal. Its sampled path was 25.207 m versus 17.604 m endpoint displacement, with 871
+  delivered BT transitions and zero recovery feedback. The trajectory establishes a substantial
+  route change; delivered costmaps do not establish which observation caused it.
 
 The final Linux build passed the headless validator with six canonical colliders, six collider-free
 renderers, eight unique semantic IDs, a semantic LiDAR hit on `alternate-route-divider`, evidence
@@ -164,7 +172,17 @@ leaving its aggregate navigation and interactive fields `NOT_RUN`; per-route evi
 separately above. Isolated 1280 × 720 overview and oblique inspection captures confirmed the
 proving-ground environment/layout HUD, semantic highlight, collider wireframes, and trajectory
 state. Manual keyboard polling remains `NOT_RUN`, so the interactive gate is conservatively
-`PARTIAL`. The other five layouts are implemented but not yet navigation-qualified.
+`PARTIAL`. The other three layouts are implemented but not yet navigation-qualified.
+
+`summarize_environment_qa.py` now resolves either a warehouse route or proving-ground layout
+behind the same command interface. It verifies exact manifest and per-run configuration hashes,
+scenario-contract parity, expected terminal status, navigation displacement, and independent
+structural/physics/sensor/headless/explanation records. It emits artifact paths together with
+their SHA-256 hashes and retains `interactive=NOT_RUN` unless that gate is supplied separately.
+The five qualified proving-ground runs produce `NAVIGATION_PASS`, `HEADLESS_PASS`, and
+`EXPLANATION_READY`; dynamic-gate recovery-success and expected complete-blockage abort also
+produce `FAILURE_RECOVERY_PASS`. The overall verdict remains `PARTIAL` because the aggregate does
+not silently infer an interactive pass.
 
 ```bash
 CRANE_PROVING_GROUND_LAYOUT=alternate-corridors-v1 \
@@ -332,8 +350,9 @@ result JSON SHA-256 was
   **VALIDATED**, while repeated-run qualification remains **NOT_RUN**.
 - Configurable land proving ground: all eight deterministic layouts **IMPLEMENTED**; structural,
   physics, sensor, headless, explanation, and deterministic inspection controls **TESTED**;
-  alternate-corridor success, dynamic-gate recovery-success, and bounded complete-blockage abort
-  have one development run each. Five layouts and repeated-run qualification remain **NOT_RUN**.
+  alternate-corridor, narrow-doorway, and U-trap success, dynamic-gate recovery-success, and
+  bounded complete-blockage abort have one development run each. Three layouts and repeated-run
+  qualification remain **NOT_RUN**.
 - F1TENTH conversion and Unity import: **IMPLEMENTED / TESTED** on synthetic fixtures and the
   pinned external Spielberg map; full-lap controller/ROS validation **NOT_RUN**.
 - PX4 walls: **IMPLEMENTED / TESTED** headlessly; ArUco: **IMPLEMENTED / TESTED** for layer

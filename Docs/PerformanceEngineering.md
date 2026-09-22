@@ -120,8 +120,10 @@ frozen F/G/H corridor configuration. The current cross-aisle route remains a neg
 reducing the costmap radius/inflation changed occupied-cell counts but not the initial timeout
 endpoint. Subsequent diagnosis corrected a ROS-to-Unity yaw-sign defect and matched controller
 speed to the physical base. The final direction-free region-goal run succeeded after a 13.61 m
-sampled west-aisle detour. `summarize_environment_qa.py` merges this independently captured route
-result with the structural validator without inferring interactive or failure/recovery gates.
+sampled west-aisle detour. `summarize_environment_qa.py` merges an independently captured warehouse
+route or proving-ground layout with structural validation through one command interface. It checks
+exact manifest/configuration identity and the predeclared terminal status, hashes every referenced
+artifact, and does not infer an interactive or failure/recovery pass from a nominal success.
 
 The generic NavigateToPose fixture also records delivered `BehaviorTreeLog` transition counts,
 latest observed status per node, feedback-message count, maximum `number_of_recoveries`, and the

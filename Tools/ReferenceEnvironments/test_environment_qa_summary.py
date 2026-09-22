@@ -48,6 +48,7 @@ class EnvironmentQaSummaryTests(unittest.TestCase):
                                 ("truth", truth), ("runtime", runtime)):
                 paths[name] = root / f"{name}.json"
                 paths[name].write_text(json.dumps(value), encoding="utf-8")
+            structural_hash = hashlib.sha256(paths["structural"].read_bytes()).hexdigest()
             result = summarize(argparse.Namespace(
                 structural=paths["structural"], navigation=paths["navigation"],
                 evaluator_truth=paths["truth"], runtime_result=paths["runtime"],
@@ -60,6 +61,71 @@ class EnvironmentQaSummaryTests(unittest.TestCase):
         self.assertEqual(result["gates"]["failureRecovery"], "NOT_RUN")
         self.assertAlmostEqual(result["trajectory"]["maximumLateralExcursionMeters"], 2.0)
         self.assertGreater(result["trajectory"]["sampledPathLengthMeters"], 7.0)
+        self.assertEqual(result["scenarioKind"], "warehouse-route")
+        self.assertEqual(result["artifactSha256"]["structural"], structural_hash)
+
+    def test_merges_proving_ground_layout_and_predeclared_failure_outcome(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = {
+                "environmentId": "proving-v1",
+                "generatorVersion": "1.0.0",
+                "layouts": [{
+                    "id": "blocked-v1", "robot": "turtlebot3",
+                    "alternatives": [], "relevantObstacles": ["wall"],
+                    "expectedChallenge": "blocked", "expectedBroadOutcome": "abort",
+                }],
+            }
+            manifest_path = root / "manifest.json"
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            manifest_hash = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+            seed = 17
+            configuration_hash = hashlib.sha256(
+                f"{manifest_hash}\nblocked-v1\n{seed}".encode("utf-8")
+            ).hexdigest()
+            values = {
+                "structural": {
+                    "environmentId": "proving-v1", "manifestSha256": manifest_hash,
+                    "structuralStatus": "STRUCTURAL_PASS", "physicsStatus": "PHYSICS_PASS",
+                    "sensorStatus": "SENSOR_PASS", "headlessStatus": "HEADLESS_PASS",
+                    "explanationStatus": "EXPLANATION_READY",
+                },
+                "navigation": {
+                    "valid": True, "expectedNavigationStatus": "aborted",
+                    "expectedOutcomeObserved": True,
+                    "navigation": {"status": "aborted", "displacementMeters": 4.0,
+                                   "maximumRecoveryCount": 0},
+                },
+                "truth": {
+                    "schema": "crane-land-proving-ground-truth-v1",
+                    "environmentId": "proving-v1", "generatorVersion": "1.0.0",
+                    "manifestSha256": manifest_hash,
+                    "configurationSha256": configuration_hash, "layoutId": "blocked-v1",
+                    "seed": seed, "robot": "turtlebot3", "alternatives": [],
+                    "relevantObstacles": ["wall"], "expectedChallenge": "blocked",
+                    "expectedBroadOutcome": "abort",
+                },
+                "runtime": {"validation": [
+                    {"simulatedSeconds": 0, "bodies": [{"position": {"x": 0, "z": 0}}]},
+                    {"simulatedSeconds": 1, "bodies": [{"position": {"x": 1, "z": 4}}]},
+                    {"simulatedSeconds": 2, "bodies": [{"position": {"x": 2, "z": 3}}]},
+                ]},
+            }
+            paths = {}
+            for name, value in values.items():
+                paths[name] = root / f"{name}.json"
+                paths[name].write_text(json.dumps(value), encoding="utf-8")
+            result = summarize(argparse.Namespace(
+                structural=paths["structural"], navigation=paths["navigation"],
+                evaluator_truth=paths["truth"], runtime_result=paths["runtime"],
+                scenario_manifest=manifest_path,
+            ))
+        self.assertTrue(result["identityValid"])
+        self.assertTrue(result["routeReady"])
+        self.assertEqual(result["scenarioKind"], "proving-ground-layout")
+        self.assertEqual(result["gates"]["navigation"], "NAVIGATION_PASS")
+        self.assertEqual(result["gates"]["failureRecovery"], "FAILURE_RECOVERY_PASS")
+        self.assertEqual(result["trajectory"]["longitudinalReversalSampleCount"], 1)
 
 
 if __name__ == "__main__":
