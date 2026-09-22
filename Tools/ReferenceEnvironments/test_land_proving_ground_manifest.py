@@ -10,6 +10,10 @@ MANIFEST = (
     ROOT
     / "Assets/Resources/ReferenceEnvironments/crane_land_proving_ground_v1.json"
 )
+MANIFEST_V2 = (
+    ROOT
+    / "Assets/Resources/ReferenceEnvironments/crane_land_proving_ground_v2.json"
+)
 NAVIGATION_GATES = (
     ROOT
     / "Tools/ReferenceEnvironments/land_proving_ground_navigation_gates_v1.json"
@@ -18,6 +22,10 @@ NAVIGATION_GATES = (
 
 def load_manifest() -> dict:
     return json.loads(MANIFEST.read_text(encoding="utf-8"))
+
+
+def load_manifest_v2() -> dict:
+    return json.loads(MANIFEST_V2.read_text(encoding="utf-8"))
 
 
 def by_id(values: list[dict]) -> dict[str, dict]:
@@ -56,6 +64,33 @@ def test_behavioral_navigation_gates_cover_every_layout_without_changing_scene_i
     assert set(gates["layouts"]) == layouts
     assert gates["layouts"]["slalom-s-turn-v1"]["minimumLateralDirectionChanges"] >= 3
     assert gates["layouts"]["dynamic-gate-v1"]["minimumRecoveryCount"] >= 1
+
+
+def test_v2_preserves_v1_and_replaces_only_the_failed_slalom_topology() -> None:
+    original = load_manifest()
+    corrected = load_manifest_v2()
+    assert original["environmentId"] == "crane-land-proving-ground-v1"
+    assert corrected["schema"] == original["schema"]
+    assert corrected["environmentId"] == "crane-land-proving-ground-v2"
+    assert corrected["generatorVersion"] == "2.0.0"
+    assert corrected["sharedBoxes"] == original["sharedBoxes"]
+    assert [layout["id"] for layout in corrected["layouts"]] == ["slalom-s-turn-v2"]
+
+
+def test_v2_slalom_forces_four_alternating_openings() -> None:
+    layout = load_manifest_v2()["layouts"][0]
+    obstacles = layout["obstacles"]
+    assert len(obstacles) == 4
+    assert [box["center"][2] for box in obstacles] == [4.0, 7.5, 11.0, 14.5]
+    extents = [x_extent(box) for box in obstacles]
+    assert extents == [(-4.0, 0.5), (-0.5, 4.0), (-4.0, 0.5), (-0.5, 4.0)]
+    assert [box["center"][0] < 0 for box in obstacles] == [True, False, True, False]
+    gates = json.loads((
+        ROOT / "Tools/ReferenceEnvironments/land_proving_ground_navigation_gates_v2.json"
+    ).read_text(encoding="utf-8"))
+    assert gates["environmentId"] == load_manifest_v2()["environmentId"]
+    assert set(gates["layouts"]) == {layout["id"]}
+    assert gates["layouts"][layout["id"]]["minimumLateralDirectionChanges"] >= 3
 
 
 def test_each_layout_has_reproducible_route_and_unique_semantics() -> None:

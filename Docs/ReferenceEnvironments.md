@@ -128,7 +128,7 @@ warehouse validator successfully; presentation tooling did not change its 20 can
 ## Configurable land navigation proving ground
 
 `crane-land-proving-ground-v1` is a manifest-driven replacement for the warehouse geometry in the
-existing TurtleBot3 validation scene. The versioned catalog at
+existing TurtleBot3 validation scene. The original catalog at
 `Assets/Resources/ReferenceEnvironments/crane_land_proving_ground_v1.json` has SHA-256
 `bea854292d7298e04f37ed9f6cc50f49d59d51fdec0e1b78a9d5f9247beee720` and defines eight seeded
 layouts: staggered obstacles, an S-turn slalom, offset gates, a narrow doorway, a U-trap, alternate
@@ -137,13 +137,20 @@ validation, separate canonical and visual layers, stable semantic IDs, fixed-sim
 schedules, configuration hashes, and evaluator-only truth. The launcher selects only a layout and
 seed. Existing corridor truth remains a separate schema and is unchanged.
 
+The failed v1 slalom remains immutable. The additive
+`crane_land_proving_ground_v2.json` catalog (SHA-256
+`3f249258362fb47ceb135b7423e77ba5716bd1ebf4b3db7cf3650a8f8f0640f2`) contains only the corrected
+`slalom-s-turn-v2` revision, with four alternating partial-width barrier banks. Launchers select
+the catalog explicitly through `CRANE_PROVING_GROUND_CATALOG`; the default remains `v1`, so old
+commands and artifact identities do not silently change.
+
 The dedicated Nav2 fixture uses a 44 m longitudinal global costmap so the 18 m goal remains inside
 the rolling window. The first alternate-corridors calibration used the earlier 30 m window and
 aborted immediately; the planner explicitly reported the goal outside its bounds. This negative
 calibration is retained rather than reclassified as a geometry or navigation failure.
 
-All eight layouts now have runtime navigation evidence, but only seven satisfy their declared
-behavioral gate:
+All eight v1 layouts have runtime navigation evidence; seven satisfy their declared behavioral
+gate, and the failed slalom has an additive qualified v2 revision:
 
 - `alternate-corridors-v1` succeeded in 71.21 s with 17.573 m endpoint displacement, 17.930 m of
   sampled trajectory, a 1.10 m lateral excursion, 628 delivered BT transitions, 711 returned
@@ -172,33 +179,40 @@ behavioral gate:
 - `offset-gates-v1` succeeded in 76.86 s with a 19.571 m sampled path. It traversed both sides of
   the centerline, reaching +1.597 m and -1.455 m with two sampled lateral direction changes, so it
   satisfies the offset-route gate.
-- **NEGATIVE CALIBRATION:** `slalom-s-turn-v1` succeeded in 69.46 s but followed the exact
+- **NEGATIVE CALIBRATION RETAINED:** `slalom-s-turn-v1` succeeded in 69.46 s but followed the exact
   centerline for 17.478 m with zero angular command and zero lateral direction changes. The current
   bollards leave a straight route and therefore fail the declared S-turn navigation gate. This run
   is retained and is not counted as a qualified slalom.
+- `slalom-s-turn-v2` succeeded in 82.96 s with 17.577 m endpoint displacement, a 21.122 m sampled
+  path, lateral extrema of +1.349 m and -1.248 m, and four lateral direction changes. It delivered
+  727 BT transitions, 818 returned controller commands, and 314 costmap observations with zero
+  recoveries. These metrics satisfy the predeclared v2 S-turn gate; they do not establish which
+  delivered observation Nav2 consumed.
 
-The final Linux build passed the headless validator with six canonical colliders, six collider-free
-renderers, eight unique semantic IDs, a semantic LiDAR hit on `alternate-route-divider`, evidence
-highlighting, collision/drop support, and differential drive/turn response. It reports
+The final Linux build passed the v2 headless validator with seven canonical colliders, seven
+collider-free renderers, nine unique semantic IDs, a semantic sensor hit on
+`slalom-bank-west-near`, evidence highlighting, collision/drop support, and differential
+drive/turn response. It reports
 `STRUCTURAL_PASS`, `PHYSICS_PASS`, `SENSOR_PASS`, `HEADLESS_PASS`, and `EXPLANATION_READY` while
 leaving its aggregate navigation and interactive fields `NOT_RUN`; per-route evidence is recorded
-separately above. Isolated 1280 × 720 overview and oblique inspection captures confirmed the
-proving-ground environment/layout HUD, semantic highlight, collider wireframes, and trajectory
-state. Manual keyboard polling remains `NOT_RUN`, so the interactive gate is conservatively
-`PARTIAL`. The other three layouts are implemented but not yet navigation-qualified.
+separately above. Isolated 1280 × 720 inspection confirmed the v2 environment/layout HUD, semantic
+highlight, collider wireframes, and trajectory state. A focused `2` keypress changed the HUD and
+camera from Overview to Oblique, directly validating keyboard view control. The first keyboard
+attempt omitted the named scene and opened the default aquatic scene; it is invalid calibration
+and contributes no environment evidence.
 
 `summarize_environment_qa.py` now resolves either a warehouse route or proving-ground layout
 behind the same command interface. It verifies exact manifest and per-run configuration hashes,
 scenario-contract parity, expected terminal status, navigation displacement, and independent
 structural/physics/sensor/headless/explanation records. It emits artifact paths together with
 their SHA-256 hashes and retains `interactive=NOT_RUN` unless that gate is supplied separately.
-The optional, separately versioned `land_proving_ground_navigation_gates_v1.json` adds declared
-trajectory/recovery acceptance criteria without changing the canonical scene manifest or
-invalidating earlier run identity. The seven qualified runs produce `NAVIGATION_PASS`,
+The separately versioned v1/v2 navigation-gate catalogs add declared trajectory/recovery
+acceptance criteria without changing either canonical scene manifest or invalidating earlier run
+identity. All eight scenario motifs now have a qualified revision producing `NAVIGATION_PASS`,
 `HEADLESS_PASS`, and `EXPLANATION_READY`; dynamic-gate recovery-success and expected
-complete-blockage abort also produce `FAILURE_RECOVERY_PASS`. The slalom summary is `BLOCKED` at
-the navigation gate. Overall qualified verdicts remain `PARTIAL` because the aggregate does not
-silently infer an interactive pass.
+complete-blockage abort also produce `FAILURE_RECOVERY_PASS`. The historical v1 slalom summary
+remains `BLOCKED` while the v2 slalom summary passes. Aggregate records still do not silently infer
+interactive evidence from headless runs.
 
 ```bash
 CRANE_PROVING_GROUND_LAYOUT=alternate-corridors-v1 \
@@ -208,6 +222,10 @@ CRANE_PLAYER=/path/to/CRANE.x86_64 \
 CRANE_PROVING_GROUND_LAYOUT=alternate-corridors-v1 \
   Tools/ReferenceEnvironments/run_reference_validation.sh land-proving-ground \
   /tmp/land-proving-ground.json
+
+CRANE_PROVING_GROUND_CATALOG=v2 \
+CRANE_PROVING_GROUND_LAYOUT=slalom-s-turn-v2 \
+  Tools/Performance/run_land_proving_ground_nav2_fixture.sh
 ```
 
 ## F1TENTH occupancy maps
@@ -366,9 +384,9 @@ result JSON SHA-256 was
   **VALIDATED**, while repeated-run qualification remains **NOT_RUN**.
 - Configurable land proving ground: all eight deterministic layouts **IMPLEMENTED**; structural,
   physics, sensor, headless, explanation, and deterministic inspection controls **TESTED**;
-  alternate-corridor, narrow-doorway, and U-trap success, dynamic-gate recovery-success, and
-  bounded complete-blockage abort have one development run each. Three layouts and repeated-run
-  qualification remain **NOT_RUN**.
+  every scenario motif has one behaviorally qualified development run across the retained v1
+  catalog and additive corrected v2 slalom. Direct keyboard view switching **PASSED** for v2.
+  Repeated-run qualification and explanation evaluation remain **NOT_RUN**.
 - F1TENTH conversion and Unity import: **IMPLEMENTED / TESTED** on synthetic fixtures and the
   pinned external Spielberg map; full-lap controller/ROS validation **NOT_RUN**.
 - PX4 walls: **IMPLEMENTED / TESTED** headlessly; ArUco: **IMPLEMENTED / TESTED** for layer

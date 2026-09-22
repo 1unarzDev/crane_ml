@@ -14,10 +14,9 @@ namespace Sim.Physics.Land {
     /// semantics, and evaluator-only truth.
     /// </summary>
     internal static class CraneLandProvingGround {
-        internal const string EnvironmentId = "crane-land-proving-ground-v1";
-        internal const string GeneratorVersion = "1.0.0";
-        internal const string ManifestResource =
-            "ReferenceEnvironments/crane_land_proving_ground_v1";
+        internal const string DefaultCatalog = "v1";
+        private const string ManifestResourcePrefix =
+            "ReferenceEnvironments/crane_land_proving_ground_";
 
         [Serializable]
         private sealed class Manifest {
@@ -81,20 +80,24 @@ namespace Sim.Physics.Land {
             public double[] obstacleActualRemovalSimulationTime = Array.Empty<double>();
         }
 
-        internal static EvaluatorTruth Build(string layoutId, int requestedSeed,
+        internal static EvaluatorTruth Build(string catalogId, string layoutId, int requestedSeed,
             Rigidbody body, DifferentialDriveDynamics robot, string truthPath) {
+            if (string.IsNullOrWhiteSpace(catalogId))
+                throw new ArgumentException("Proving-ground catalog ID must be non-empty.",
+                    nameof(catalogId));
             if (string.IsNullOrWhiteSpace(layoutId))
                 throw new ArgumentException("Proving-ground layout ID must be non-empty.",
                     nameof(layoutId));
             if (body == null) throw new ArgumentNullException(nameof(body));
             if (robot == null) throw new ArgumentNullException(nameof(robot));
 
-            TextAsset asset = Resources.Load<TextAsset>(ManifestResource);
+            string resource = ResolveManifestResource(catalogId);
+            TextAsset asset = Resources.Load<TextAsset>(resource);
             if (asset == null)
                 throw new MissingReferenceException(
-                    $"Proving-ground manifest resource '{ManifestResource}' is missing.");
+                    $"Proving-ground manifest resource '{resource}' is missing.");
             Manifest manifest = JsonUtility.FromJson<Manifest>(asset.text);
-            ValidateManifest(manifest);
+            ValidateManifest(manifest, catalogId);
             Layout layout = Array.Find(manifest.layouts,
                 value => string.Equals(value.id, layoutId, StringComparison.Ordinal));
             if (layout == null)
@@ -116,12 +119,14 @@ namespace Sim.Physics.Land {
             visual.SetParent(root.transform, false);
 
             foreach (Box value in manifest.sharedBoxes)
-                CreateBox(canonical, visual, value, true);
+                CreateBox(canonical, visual, value, true, manifest.environmentId);
 
             Vector3 start = ToVector3(layout.start, $"layout {layout.id} start");
             Vector3 goal = ToVector3(layout.goal, $"layout {layout.id} goal");
-            AddSemanticPoint(canonical, "proving-start", "route-start", start);
-            AddSemanticPoint(canonical, "proving-goal", "route-goal", goal);
+            AddSemanticPoint(canonical, "proving-start", "route-start", start,
+                manifest.environmentId);
+            AddSemanticPoint(canonical, "proving-goal", "route-goal", goal,
+                manifest.environmentId);
 
             body.position = start;
             body.rotation = Quaternion.identity;
@@ -131,8 +136,8 @@ namespace Sim.Physics.Land {
 
             int count = layout.obstacles.Length;
             var truth = new EvaluatorTruth {
-                environmentId = EnvironmentId,
-                generatorVersion = GeneratorVersion,
+                environmentId = manifest.environmentId,
+                generatorVersion = manifest.generatorVersion,
                 manifestSha256 = manifestHash,
                 configurationSha256 = configurationHash,
                 layoutId = layout.id,
@@ -156,7 +161,8 @@ namespace Sim.Physics.Land {
             for (int index = 0; index < count; index++) {
                 Box value = layout.obstacles[index];
                 (GameObject collision, GameObject presentation) =
-                    CreateBox(canonical, visual, value, value.activeInitially);
+                    CreateBox(canonical, visual, value, value.activeInitially,
+                        manifest.environmentId);
                 int capturedIndex = index;
                 truth.obstacleSemanticIds[index] = value.id;
                 truth.obstacleActive[index] = value.activeInitially;
@@ -182,15 +188,23 @@ namespace Sim.Physics.Land {
                     timing.ScheduledRemovalSimulationTime;
             }
             WriteTruth(truthPath, truth);
-            ConfigureInspection(body.transform, layout);
+            ConfigureInspection(body.transform, manifest.environmentId, layout);
             UnityEngine.Physics.SyncTransforms();
-            Debug.Log($"CRANE_LAND_PROVING_GROUND_READY environment={EnvironmentId} " +
+            Debug.Log($"CRANE_LAND_PROVING_GROUND_READY environment={manifest.environmentId} " +
                       $"layout={layout.id} seed={seed} obstacles={count} " +
                       $"configurationSha256={configurationHash}");
             return truth;
         }
 
-        private static void ConfigureInspection(Transform robot, Layout layout) {
+        private static string ResolveManifestResource(string catalogId) {
+            if (catalogId != "v1" && catalogId != "v2")
+                throw new ArgumentException(
+                    $"Unsupported proving-ground catalog '{catalogId}'.", nameof(catalogId));
+            return ManifestResourcePrefix + catalogId;
+        }
+
+        private static void ConfigureInspection(Transform robot, string environmentId,
+            Layout layout) {
             GameObject spectator = GameObject.Find("Spectator Camera");
             CraneReferenceInspectionController inspection =
                 spectator?.GetComponent<CraneReferenceInspectionController>();
@@ -200,16 +214,16 @@ namespace Sim.Physics.Land {
                     "CRANE proving-ground inspection unavailable: spectator camera/controller missing.");
                 return;
             }
-            inspection.Configure(camera, robot, EnvironmentId, layout.id,
+            inspection.Configure(camera, robot, environmentId, layout.id,
                 layout.relevantObstacles, new Vector3(0f, 0f, 10f));
         }
 
-        private static void ValidateManifest(Manifest manifest) {
+        private static void ValidateManifest(Manifest manifest, string catalogId) {
             if (manifest == null)
                 throw new InvalidOperationException("Proving-ground manifest could not be parsed.");
             if (manifest.schema != "crane-land-proving-ground-catalog-v1" ||
-                manifest.environmentId != EnvironmentId ||
-                manifest.generatorVersion != GeneratorVersion)
+                manifest.environmentId != $"crane-land-proving-ground-{catalogId}" ||
+                string.IsNullOrWhiteSpace(manifest.generatorVersion))
                 throw new InvalidOperationException("Unsupported proving-ground manifest identity.");
             ValidateTripletPair(manifest.dimensionsMeters, "dimensions", 2);
             if (manifest.sharedBoxes == null || manifest.layouts == null ||
@@ -266,7 +280,8 @@ namespace Sim.Physics.Land {
         }
 
         private static (GameObject collision, GameObject presentation) CreateBox(
-            Transform canonical, Transform visual, Box value, bool active) {
+            Transform canonical, Transform visual, Box value, bool active,
+            string environmentId) {
             Vector3 center = ToVector3(value.center, $"box {value.id} center");
             Vector3 size = ToVector3(value.size, $"box {value.id} size");
             var collision = new GameObject(value.id);
@@ -275,7 +290,7 @@ namespace Sim.Physics.Land {
             collision.transform.localPosition = center;
             collision.AddComponent<BoxCollider>().size = size;
             collision.AddComponent<CraneSemanticIdentity>().Configure(
-                value.id, value.role, EnvironmentId);
+                value.id, value.role, environmentId);
 
             GameObject presentation = GameObject.CreatePrimitive(PrimitiveType.Cube);
             presentation.name = value.id + "-visual";
@@ -295,11 +310,11 @@ namespace Sim.Physics.Land {
         }
 
         private static void AddSemanticPoint(Transform canonical, string id, string role,
-            Vector3 position) {
+            Vector3 position, string environmentId) {
             var point = new GameObject(id);
             point.transform.SetParent(canonical, false);
             point.transform.localPosition = position;
-            point.AddComponent<CraneSemanticIdentity>().Configure(id, role, EnvironmentId);
+            point.AddComponent<CraneSemanticIdentity>().Configure(id, role, environmentId);
         }
 
         private static void WriteTruth(string path, EvaluatorTruth truth) {

@@ -125,6 +125,9 @@ namespace Sim.Physics.Land {
             float mobilityReleaseAfter = ReadFloat("--crane-land-mobility-release-after", -1f);
             string provingGroundLayout =
                 ReadString("--crane-land-proving-ground-layout", null);
+            string provingGroundCatalog =
+                ReadString("--crane-land-proving-ground-catalog",
+                    CraneLandProvingGround.DefaultCatalog);
             string blocker = ReadString("--crane-land-blocker", "none").ToLowerInvariant();
             if (blocker != "none" && blocker != "partial" && blocker != "full")
                 throw new ArgumentException($"Unknown land blocker mode '{blocker}'.");
@@ -159,7 +162,7 @@ namespace Sim.Physics.Land {
                     throw new ArgumentException(
                         "Proving-ground layouts cannot be combined with legacy corridor interventions.");
                 CraneLandProvingGround.EvaluatorTruth provingTruth =
-                    CraneLandProvingGround.Build(provingGroundLayout,
+                    CraneLandProvingGround.Build(provingGroundCatalog, provingGroundLayout,
                         ReadInt("--crane-seed", -1), body, differential, truthPath);
                 Debug.Log($"CRANE_LAND_NAV2_READY provingGround={provingTruth.layoutId} " +
                           $"seed={provingTruth.seed} platform=turtlebot3-waffle-differential " +

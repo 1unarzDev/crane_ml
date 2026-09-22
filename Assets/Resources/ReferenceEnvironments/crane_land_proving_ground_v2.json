@@ -1,0 +1,31 @@
+{
+  "schema": "crane-land-proving-ground-catalog-v1",
+  "environmentId": "crane-land-proving-ground-v2",
+  "generatorVersion": "2.0.0",
+  "dimensionsMeters": [8.0, 22.0],
+  "sharedBoxes": [
+    {"id":"proving-floor","role":"traversable-floor","center":[0.0,-0.10,10.0],"size":[10.0,0.20,24.0],"color":[0.24,0.27,0.30]},
+    {"id":"proving-west-boundary","role":"boundary-wall","center":[-4.125,1.0,10.0],"size":[0.25,2.0,24.0],"color":[0.44,0.48,0.52]},
+    {"id":"proving-east-boundary","role":"boundary-wall","center":[4.125,1.0,10.0],"size":[0.25,2.0,24.0],"color":[0.44,0.48,0.52]}
+  ],
+  "layouts": [
+    {
+      "id": "slalom-s-turn-v2",
+      "seed": 5202,
+      "robot": "TurtleBot3 Waffle-class",
+      "start": [0.0,0.08,0.0],
+      "goal": [0.0,0.08,18.0],
+      "approximateLengthMeters": 22.0,
+      "alternatives": ["alternating east-west openings"],
+      "relevantObstacles": ["slalom-bank-west-near", "slalom-bank-east-mid-near", "slalom-bank-west-mid-far", "slalom-bank-east-far"],
+      "expectedChallenge": "Follow an S-shaped route through four alternating partial-width industrial barrier banks.",
+      "expectedBroadOutcome": "slalom-success-or-path-following-stress",
+      "obstacles": [
+        {"id":"slalom-bank-west-near","role":"slalom-barrier-bank","center":[-1.75,1.0,4.0],"size":[4.5,2.0,0.5],"color":[0.88,0.70,0.10],"activeInitially":true,"activationAfterSeconds":-1.0,"removalAfterSeconds":-1.0},
+        {"id":"slalom-bank-east-mid-near","role":"slalom-barrier-bank","center":[1.75,1.0,7.5],"size":[4.5,2.0,0.5],"color":[0.88,0.70,0.10],"activeInitially":true,"activationAfterSeconds":-1.0,"removalAfterSeconds":-1.0},
+        {"id":"slalom-bank-west-mid-far","role":"slalom-barrier-bank","center":[-1.75,1.0,11.0],"size":[4.5,2.0,0.5],"color":[0.88,0.70,0.10],"activeInitially":true,"activationAfterSeconds":-1.0,"removalAfterSeconds":-1.0},
+        {"id":"slalom-bank-east-far","role":"slalom-barrier-bank","center":[1.75,1.0,14.5],"size":[4.5,2.0,0.5],"color":[0.88,0.70,0.10],"activeInitially":true,"activationAfterSeconds":-1.0,"removalAfterSeconds":-1.0}
+      ]
+    }
+  ]
+}
