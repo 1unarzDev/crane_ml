@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using System.Threading;
 using RosMessageTypes.Geometry;
+using Sim.Utils;
 using Sim.Utils.Performance;
 using Sim.Utils.ROS;
 using UnityEngine;
@@ -30,9 +31,22 @@ namespace Sim.Controllers {
                 command.Forward, command.Lateral, command.Yaw
             }));
         private OmniXController controller;
+        private IPhysicsBody body;
         private string topic;
         private float linearScale;
         private float yawScale;
+        private float linearFeedForward;
+        private float yawFeedForward;
+        private float linearProportionalGain;
+        private float yawProportionalGain;
+        private float linearIntegralGain;
+        private float linearIntegralEffortLimit;
+        private float forwardIntegralEffort;
+        private float lateralIntegralEffort;
+        private float previousForwardDesired;
+        private float previousLateralDesired;
+        private Command desiredVelocity;
+        private bool hasDesiredVelocity;
         private long sequence;
         private long lastApplicationTick = -1;
         private long timeoutTicks;
@@ -41,16 +55,38 @@ namespace Sim.Controllers {
         public int ResetPriority => -40;
 
         public void Initialize(OmniXController target, string commandTopic,
-            float maximumLinearVelocity, float maximumYawRate, long commandTimeoutTicks) {
+            float maximumLinearVelocity, float maximumYawRate, long commandTimeoutTicks,
+            float linearVelocityFeedForward, float yawRateFeedForward,
+            float linearVelocityProportionalGain, float yawRateProportionalGain,
+            float linearVelocityIntegralGain, float linearVelocityIntegralEffortLimit) {
             controller = target ?? throw new ArgumentNullException(nameof(target));
+            var articulation = controller.GetComponent<ArticulationBody>() ??
+                               controller.GetComponentInParent<ArticulationBody>();
+            var rigidbody = controller.GetComponent<Rigidbody>() ??
+                            controller.GetComponentInParent<Rigidbody>();
+            body = articulation != null ? new ArticulationBodyAdapter(articulation) :
+                   rigidbody != null ? new RigidbodyAdapter(rigidbody) :
+                   throw new MissingComponentException(
+                       $"{controller.name} requires a physics body for velocity feedback");
             topic = commandTopic;
             linearScale = Mathf.Max(0.0001f, maximumLinearVelocity);
             yawScale = Mathf.Max(0.0001f, maximumYawRate);
+            linearFeedForward = Mathf.Max(0f, linearVelocityFeedForward);
+            yawFeedForward = Mathf.Max(0f, yawRateFeedForward);
+            linearProportionalGain = Mathf.Max(0f, linearVelocityProportionalGain);
+            yawProportionalGain = Mathf.Max(0f, yawRateProportionalGain);
+            linearIntegralGain = Mathf.Max(0f, linearVelocityIntegralGain);
+            linearIntegralEffortLimit = Mathf.Clamp01(linearVelocityIntegralEffortLimit);
             timeoutTicks = Math.Max(1, commandTimeoutTicks);
             var subscriber = gameObject.AddComponent<ROSSubscriber>();
             subscriber.Initialize<TwistStampedMsg>(topic, Receive);
             Debug.Log($"CRANE_ROS_COMMAND_READY topic={topic} controller={controller.name} " +
                       $"linearScale={linearScale:R} yawScale={yawScale:R} " +
+                      $"linearFeedForward={linearFeedForward:R} " +
+                      $"yawFeedForward={yawFeedForward:R} " +
+                      $"linearKp={linearProportionalGain:R} yawKp={yawProportionalGain:R} " +
+                      $"linearKi={linearIntegralGain:R} " +
+                      $"linearIntegralLimit={linearIntegralEffortLimit:R} " +
                       $"timeoutTicks={timeoutTicks}");
         }
 
@@ -63,7 +99,8 @@ namespace Sim.Controllers {
             sequence = 0;
             lastApplicationTick = -1;
             stoppedForTimeout = false;
-            Apply(new Command(0f, 0f, 0f));
+            ResetLinearIntegral();
+            Stop();
         }
 
         private void Receive(TwistStampedMsg message) {
@@ -72,9 +109,9 @@ namespace Sim.Controllers {
             long sourceTick = seconds < 0 ? -1 :
                 (long)Math.Round(seconds / Time.fixedDeltaTime, MidpointRounding.AwayFromZero);
             var command = new Command(
-                Mathf.Clamp((float)message.twist.linear.x / linearScale, -1f, 1f),
-                Mathf.Clamp((float)message.twist.linear.y / linearScale, -1f, 1f),
-                Mathf.Clamp((float)message.twist.angular.z / yawScale, -1f, 1f));
+                Mathf.Clamp((float)message.twist.linear.x, -linearScale, linearScale),
+                Mathf.Clamp((float)message.twist.linear.y, -linearScale, linearScale),
+                Mathf.Clamp((float)message.twist.angular.z, -yawScale, yawScale));
             pending.Receive(command, $"ros:{topic}", Interlocked.Increment(ref sequence),
                 sourceTick);
         }
@@ -83,26 +120,100 @@ namespace Sim.Controllers {
             if (controller == null) return;
             if (controller.movementOverride) {
                 pending.Clear();
+                hasDesiredVelocity = false;
+                ResetLinearIntegral();
                 return;
             }
-            if (pending.TryApply(Apply, out _)) {
+            if (pending.TryApply(SetDesiredVelocity, out _)) {
                 lastApplicationTick = CraneRuntimeMetrics.SimulationTick;
                 stoppedForTimeout = false;
             }
             else if (!stoppedForTimeout && lastApplicationTick >= 0 &&
                      CraneRuntimeMetrics.SimulationTick - lastApplicationTick > timeoutTicks) {
-                Apply(new Command(0f, 0f, 0f));
+                Stop();
                 stoppedForTimeout = true;
                 CraneRuntimeMetrics.ReportCommandTimeout();
                 Debug.LogWarning($"CRANE_ROS_COMMAND_TIMEOUT topic={topic} " +
                                  $"lastApplicationTick={lastApplicationTick}");
             }
+            if (hasDesiredVelocity) ApplyVelocityControl();
         }
 
-        private void Apply(Command command) {
-            ToControllerMotion(command.Forward, command.Lateral, command.Yaw,
+        private void SetDesiredVelocity(Command command) {
+            desiredVelocity = command;
+            hasDesiredVelocity = true;
+        }
+
+        private void ApplyVelocityControl() {
+            Vector3 localLinear = body.transform.InverseTransformDirection(body.linearVelocity);
+            Vector3 localAngular = body.transform.InverseTransformDirection(body.angularVelocity);
+            float measuredForward = localLinear.z;
+            float measuredLateral = -localLinear.x;
+            float measuredYaw = -localAngular.y;
+            UpdateNormalizedLinearIntegral(desiredVelocity.Forward, measuredForward, linearScale,
+                linearIntegralGain, linearIntegralEffortLimit, Time.fixedDeltaTime,
+                ref forwardIntegralEffort, ref previousForwardDesired);
+            UpdateNormalizedLinearIntegral(desiredVelocity.Lateral, measuredLateral, linearScale,
+                linearIntegralGain, linearIntegralEffortLimit, Time.fixedDeltaTime,
+                ref lateralIntegralEffort, ref previousLateralDesired);
+            var effort = new Command(
+                Mathf.Clamp(CalculateNormalizedLinearEffort(
+                    desiredVelocity.Forward, measuredForward, linearScale,
+                    linearFeedForward, linearProportionalGain) + forwardIntegralEffort, -1f, 1f),
+                Mathf.Clamp(CalculateNormalizedLinearEffort(
+                    desiredVelocity.Lateral, measuredLateral, linearScale,
+                    linearFeedForward, linearProportionalGain) + lateralIntegralEffort, -1f, 1f),
+                CalculateNormalizedYawEffort(desiredVelocity.Yaw, measuredYaw, yawScale,
+                    yawFeedForward, yawProportionalGain));
+            ToControllerMotion(effort.Forward, effort.Lateral, effort.Yaw,
                 out Vector3 linear, out Vector3 angular);
             controller.SetMotion(linear, angular);
+        }
+
+        private void Stop() {
+            desiredVelocity = new Command(0f, 0f, 0f);
+            hasDesiredVelocity = false;
+            ResetLinearIntegral();
+            controller.SetMotion(Vector3.zero, Vector3.zero);
+        }
+
+        private void ResetLinearIntegral() {
+            forwardIntegralEffort = 0f;
+            lateralIntegralEffort = 0f;
+            previousForwardDesired = 0f;
+            previousLateralDesired = 0f;
+        }
+
+        internal static float CalculateNormalizedLinearEffort(float desired, float measured,
+            float scale, float feedForward, float proportionalGain) {
+            float normalizedDesired = desired / Mathf.Max(0.0001f, scale);
+            float normalizedError = (desired - measured) / Mathf.Max(0.0001f, scale);
+            float modelEffort = feedForward * normalizedDesired;
+            return Mathf.Clamp(modelEffort + proportionalGain * normalizedError, -1f, 1f);
+        }
+
+        internal static float CalculateNormalizedYawEffort(float desired, float measured,
+            float scale, float feedForward, float proportionalGain) {
+            float normalizedDesired = desired / Mathf.Max(0.0001f, scale);
+            float normalizedError = (desired - measured) / Mathf.Max(0.0001f, scale);
+            float modelEffort = Mathf.Sign(normalizedDesired) * feedForward *
+                                Mathf.Sqrt(Mathf.Abs(normalizedDesired));
+            return Mathf.Clamp(modelEffort + proportionalGain * normalizedError, -1f, 1f);
+        }
+
+        internal static void UpdateNormalizedLinearIntegral(float desired, float measured,
+            float scale, float integralGain, float integralEffortLimit, float deltaTime,
+            ref float integralEffort, ref float previousDesired) {
+            if (Mathf.Abs(desired) < 0.0001f || desired * previousDesired < 0f) {
+                integralEffort = 0f;
+            }
+            else {
+                float normalizedError = (desired - measured) / Mathf.Max(0.0001f, scale);
+                integralEffort = Mathf.Clamp(
+                    integralEffort + integralGain * normalizedError * Mathf.Max(0f, deltaTime),
+                    -Mathf.Abs(integralEffortLimit), Mathf.Abs(integralEffortLimit));
+            }
+            previousDesired = desired;
         }
 
         internal static void ToControllerMotion(float forward, float lateral, float yaw,
@@ -121,6 +232,12 @@ namespace Sim.Controllers {
         private static float linearScale;
         private static float yawScale;
         private static long timeoutTicks;
+        private static float linearFeedForward;
+        private static float yawFeedForward;
+        private static float linearProportionalGain;
+        private static float yawProportionalGain;
+        private static float linearIntegralGain;
+        private static float linearIntegralEffortLimit;
         private static bool enabled;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
@@ -133,6 +250,13 @@ namespace Sim.Controllers {
                 args[flag + 1] : "/crane/cmd_vel_stamped";
             linearScale = ReadFloat(args, "--crane-cmd-vel-linear-scale", 1f);
             yawScale = ReadFloat(args, "--crane-cmd-vel-yaw-scale", 1f);
+            linearFeedForward = ReadFloat(args, "--crane-cmd-vel-linear-feed-forward", 0.21f);
+            yawFeedForward = ReadFloat(args, "--crane-cmd-vel-yaw-feed-forward", 0.24f);
+            linearProportionalGain = ReadFloat(args, "--crane-cmd-vel-linear-kp", 0.1f);
+            yawProportionalGain = ReadFloat(args, "--crane-cmd-vel-yaw-kp", 0.05f);
+            linearIntegralGain = ReadFloat(args, "--crane-cmd-vel-linear-ki", 0.1f);
+            linearIntegralEffortLimit = ReadFloat(
+                args, "--crane-cmd-vel-linear-integral-limit", 0.2f);
             timeoutTicks = ReadLong(args, "--crane-command-timeout-ticks", 25);
             SceneManager.sceneLoaded += OnSceneLoaded;
         }
@@ -148,7 +272,9 @@ namespace Sim.Controllers {
             }
             var adapter = controller.gameObject.GetComponent<ROSOmniXCommand>() ??
                 controller.gameObject.AddComponent<ROSOmniXCommand>();
-            adapter.Initialize(controller, topic, linearScale, yawScale, timeoutTicks);
+            adapter.Initialize(controller, topic, linearScale, yawScale, timeoutTicks,
+                linearFeedForward, yawFeedForward, linearProportionalGain,
+                yawProportionalGain, linearIntegralGain, linearIntegralEffortLimit);
         }
 
         private static float ReadFloat(string[] args, string key, float fallback) {

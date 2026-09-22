@@ -11,6 +11,7 @@ ros_domain_id="${CRANE_ROS_DOMAIN_ID:-42}"
 worker_id="${CRANE_WORKER_ID:-0}"
 result_root="${CRANE_RESULT_ROOT:-${root_dir}/PerformanceResults/roboboat-command-response}"
 response_suite="${CRANE_RESPONSE_SUITE:-full}"
+unity_extra_args="${CRANE_ROBOBOAT_UNITY_EXTRA_ARGS:-}"
 thruster_diagnostic_arg=""
 if [[ "${CRANE_THRUSTER_DIAGNOSTICS:-0}" == "1" ]]; then
     thruster_diagnostic_arg="--crane-roboboat-thruster-diagnostics"
@@ -37,7 +38,7 @@ CRANE_DURATION="${CRANE_DURATION:-65}" CRANE_WARMUP="${CRANE_WARMUP:-3}" \
 CRANE_TIME_SCALE=1 CRANE_DISABLE_ROS=0 \
 CRANE_ROS_PORT_BASE="$((ros_port - worker_id))" ROS_DOMAIN_ID="${ros_domain_id}" \
 CRANE_SCENE="Roboboat Course" CRANE_SCENARIO=roboboat-command-response \
-CRANE_EXTRA_ARGS="--crane-profile train-gpu --crane-ros-nav-state --crane-ros-cmd-vel /crane/cmd_vel_stamped --crane-action-policy bounded --crane-max-action-lag-ticks 10 --crane-command-timeout-ticks 25 ${thruster_diagnostic_arg}" \
+CRANE_EXTRA_ARGS="--crane-profile train-gpu --crane-ros-nav-state --crane-ros-cmd-vel /crane/cmd_vel_stamped --crane-action-policy bounded --crane-max-action-lag-ticks 10 --crane-command-timeout-ticks 25 ${thruster_diagnostic_arg} ${unity_extra_args}" \
     "${root_dir}/Tools/Performance/run_worker.sh" "${worker_id}" &
 player_pid=$!
 

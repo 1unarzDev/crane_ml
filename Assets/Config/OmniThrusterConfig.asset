@@ -15,7 +15,7 @@ MonoBehaviour:
   <thrustK>k__BackingField: -0.014
   <backK>k__BackingField: 1
   <height>k__BackingField: 0.03
-  <controlMode>k__BackingField: 0
+  <controlMode>k__BackingField: 1
   <rotationAxis>k__BackingField: 1
   <maxTorque>k__BackingField: 1
   <maxAngularVelocity>k__BackingField: 500

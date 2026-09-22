@@ -16,10 +16,12 @@ controller_server:
       required_movement_radius: 0.05
       movement_time_allowance: 20.0
     goal_checker:
-      plugin: nav2_controller::SimpleGoalChecker
+      plugin: nav2_controller::StoppedGoalChecker
       stateful: true
       xy_goal_tolerance: 0.40
       yaw_goal_tolerance: 0.35
+      trans_stopped_velocity: 0.05
+      rot_stopped_velocity: 0.05
     FollowPath:
       plugin: nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController
       desired_linear_vel: 0.15
@@ -31,8 +33,10 @@ controller_server:
       transform_tolerance: 0.2
       use_velocity_scaled_lookahead_dist: true
       use_collision_detection: true
-      use_rotate_to_heading: true
+      use_rotate_to_heading: false
       allow_reversing: false
+      min_approach_linear_velocity: 0.02
+      approach_velocity_scaling_dist: 2.0
       max_robot_pose_search_dist: 10.0
 
 local_costmap:
