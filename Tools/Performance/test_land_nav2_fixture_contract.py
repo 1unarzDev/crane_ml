@@ -11,6 +11,7 @@ SHARED_LAUNCHER = ROOT / "Tools" / "Performance" / "run_nav2_controller_fixture.
 FIXTURE = ROOT / "Tools" / "Performance" / "nav2_follow_path_fixture.py"
 PARAMETERS = ROOT / "Tools" / "Performance" / "nav2_land_fixture.yaml"
 CLEARPATH_LAUNCHER = ROOT / "Tools" / "Performance" / "run_clearpath_pipeline_nav2_fixture.sh"
+WAREHOUSE_LAUNCHER = ROOT / "Tools" / "Performance" / "run_warehouse_nav2_fixture.sh"
 
 
 class LandNav2FixtureContractTests(unittest.TestCase):
@@ -131,6 +132,21 @@ class LandNav2FixtureContractTests(unittest.TestCase):
         self.assertIn("base_scan", launcher)
         self.assertIn('CRANE_NAV2_GOAL_DISTANCE="${CRANE_NAV2_GOAL_DISTANCE:-1.0}"', launcher)
         self.assertNotIn("Roboboat Course", launcher)
+
+    def test_ecological_warehouse_launcher_is_separate_from_frozen_corridor(self) -> None:
+        bootstrap = (ROOT / "Assets/Scripts/Physics/Land/CraneLandNav2Bootstrap.cs").read_text(
+            encoding="utf-8"
+        )
+        ecological = WAREHOUSE_LAUNCHER.read_text(encoding="utf-8")
+        frozen = (ROOT / "Tools/Performance/run_turtlebot3_nav2_fixture.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("--crane-preserve-reference-environment", bootstrap)
+        self.assertIn("turtlebotScene && preserveRequested", bootstrap)
+        self.assertIn("--crane-preserve-reference-environment", ecological)
+        self.assertIn("warehouse-cross-aisle-detour-v1", ecological)
+        self.assertIn('CRANE_NAV2_GOAL_DISTANCE="${CRANE_NAV2_GOAL_DISTANCE:-13.0}"', ecological)
+        self.assertNotIn("--crane-preserve-reference-environment", frozen)
 
     def test_mobility_hold_is_fixed_time_and_evaluator_owned(self) -> None:
         bootstrap = (ROOT / "Assets/Scripts/Physics/Land/CraneLandNav2Bootstrap.cs").read_text(

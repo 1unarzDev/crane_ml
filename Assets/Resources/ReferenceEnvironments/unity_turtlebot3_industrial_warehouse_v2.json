@@ -1,0 +1,105 @@
+{
+  "schema": "crane-environment-scenario-catalog-v1",
+  "environmentId": "crane-industrial-warehouse-v2",
+  "generatorVersion": "2.0.0",
+  "upstream": [
+    {
+      "project": "Unity-Technologies/Robotics-Nav2-SLAM-Example",
+      "commit": "a0c9846eaa04f4800d3521639990e74c3b287ceb",
+      "license": "Apache-2.0",
+      "use": "TurtleBot3 dimensions and native-Unity Nav2 integration reference"
+    },
+    {
+      "project": "Unity-Technologies/Robotics-Warehouse",
+      "commit": "9fa61061d31b30686573bd2e0213f049738a8949",
+      "license": "unverified-no-license-file",
+      "use": "layout-generation design reference only; no assets copied"
+    }
+  ],
+  "canonical": {
+    "dimensionsMeters": [20.0, 26.0],
+    "collisionSource": "CRANE primitive BoxCollider layout",
+    "boxes": [
+      {"id":"floor","role":"traversable-floor","center":[0.0,-0.1,13.0],"size":[20.0,0.2,26.0],"color":[0.34,0.36,0.38]},
+      {"id":"wall-west","role":"boundary-wall","center":[-10.0,1.25,13.0],"size":[0.2,2.5,26.0],"color":[0.42,0.43,0.45]},
+      {"id":"wall-east","role":"boundary-wall","center":[10.0,1.25,13.0],"size":[0.2,2.5,26.0],"color":[0.42,0.43,0.45]},
+      {"id":"wall-south","role":"boundary-wall","center":[0.0,1.25,0.0],"size":[20.0,2.5,0.2],"color":[0.42,0.43,0.45]},
+      {"id":"wall-north","role":"boundary-wall","center":[0.0,1.25,26.0],"size":[20.0,2.5,0.2],"color":[0.42,0.43,0.45]},
+      {"id":"rack-lower-west","role":"shelving-obstacle","center":[-5.5,0.9,6.5],"size":[1.6,1.8,7.0],"color":[0.18,0.32,0.48]},
+      {"id":"rack-lower-east","role":"shelving-obstacle","center":[5.5,0.9,6.5],"size":[1.6,1.8,7.0],"color":[0.18,0.32,0.48]},
+      {"id":"rack-center-blocker","role":"route-divider","center":[0.0,0.9,7.5],"size":[2.4,1.8,3.5],"color":[0.68,0.42,0.08]},
+      {"id":"rack-north-west","role":"shelving-obstacle","center":[-5.5,0.9,17.5],"size":[1.6,1.8,6.0],"color":[0.18,0.32,0.48]},
+      {"id":"rack-north-center","role":"shelving-obstacle","center":[0.0,0.9,18.0],"size":[1.8,1.8,5.0],"color":[0.18,0.32,0.48]},
+      {"id":"rack-north-east","role":"shelving-obstacle","center":[5.5,0.9,17.5],"size":[1.6,1.8,6.0],"color":[0.18,0.32,0.48]},
+      {"id":"column-cross-west","role":"structural-column","center":[-2.8,1.25,12.2],"size":[0.7,2.5,0.7],"color":[0.52,0.53,0.55]},
+      {"id":"column-cross-east","role":"structural-column","center":[2.8,1.25,12.2],"size":[0.7,2.5,0.7],"color":[0.52,0.53,0.55]},
+      {"id":"pallet-cross-01","role":"movable-clutter","center":[-6.8,0.25,11.5],"size":[1.2,0.5,1.0],"color":[0.42,0.23,0.08],"seedJitterX":0.35},
+      {"id":"crate-workzone-01","role":"distractor-obstacle","center":[7.6,0.6,12.6],"size":[1.2,1.2,1.2],"color":[0.45,0.20,0.08]},
+      {"id":"crate-workzone-02","role":"distractor-obstacle","center":[8.0,0.4,14.3],"size":[0.8,0.8,0.8],"color":[0.45,0.20,0.08]},
+      {"id":"dead-end-west-back","role":"dead-end-wall","center":[-7.5,1.0,23.8],"size":[4.0,2.0,0.4],"color":[0.38,0.24,0.12]},
+      {"id":"dead-end-west-side","role":"dead-end-wall","center":[-9.0,1.0,21.8],"size":[0.4,2.0,4.0],"color":[0.38,0.24,0.12]},
+      {"id":"gate-north-west","role":"narrow-gate","center":[-2.6,0.65,22.5],"size":[2.4,1.3,0.8],"color":[0.72,0.58,0.12]},
+      {"id":"gate-north-east","role":"narrow-gate","center":[2.6,0.65,22.5],"size":[2.4,1.3,0.8],"color":[0.72,0.58,0.12]}
+    ],
+    "regions": [
+      {"id":"start-zone-south","role":"spawn-region","position":[0.0,0.0,1.2]},
+      {"id":"aisle-west","role":"navigation-corridor","position":[-3.2,0.0,8.0]},
+      {"id":"aisle-east","role":"navigation-corridor","position":[3.2,0.0,8.0]},
+      {"id":"cross-aisle-south","role":"navigation-cross-aisle","position":[0.0,0.0,11.8]},
+      {"id":"cross-aisle-north","role":"navigation-cross-aisle","position":[0.0,0.0,22.5]},
+      {"id":"open-work-zone-east","role":"open-work-zone","position":[7.5,0.0,13.5]},
+      {"id":"dead-end-zone-west","role":"dead-end-region","position":[-7.4,0.0,22.2]},
+      {"id":"goal-zone-north","role":"goal-region","position":[0.0,0.0,24.5]}
+    ]
+  },
+  "robot": {
+    "platform": "TurtleBot3 Waffle-class",
+    "wheelSeparationMeters": 0.287,
+    "wheelRadiusMeters": 0.033,
+    "baseCollisionMeters": [0.266, 0.094, 0.266],
+    "lidarFrame": "base_scan",
+    "lidarTransformMeters": [0.0, 0.23, 0.0]
+  },
+  "routes": [
+    {
+      "id": "warehouse-cross-aisle-detour-v1",
+      "start": [0.0, 0.08, 1.2],
+      "goal": [0.0, 0.08, 14.2],
+      "approximateLengthMeters": 16.5,
+      "alternatives": ["west-lower-aisle", "east-lower-aisle"],
+      "relevantObstacles": ["rack-center-blocker", "column-cross-west", "column-cross-east"],
+      "expectedChallenge": "Discover the center route divider, choose a side aisle, and return through the south cross-aisle.",
+      "expectedBroadOutcome": "success-with-multi-turn-detour"
+    },
+    {
+      "id": "warehouse-detour-north-v1",
+      "start": [0.0, 0.08, 1.2],
+      "goal": [0.0, 0.08, 24.0],
+      "approximateLengthMeters": 27.0,
+      "alternatives": ["west-lower-aisle", "east-lower-aisle"],
+      "relevantObstacles": ["rack-center-blocker", "rack-north-center", "gate-north-west", "gate-north-east"],
+      "expectedChallenge": "Choose a side aisle, cross back around the north-center rack, and traverse the offset north gate.",
+      "expectedBroadOutcome": "success-with-multi-turn-detour"
+    },
+    {
+      "id": "warehouse-dead-end-west-v1",
+      "start": [0.0, 0.08, 1.2],
+      "goal": [-7.4, 0.08, 22.2],
+      "approximateLengthMeters": 30.0,
+      "alternatives": ["approach-from-south"],
+      "relevantObstacles": ["dead-end-west-back", "dead-end-west-side", "rack-north-west"],
+      "expectedChallenge": "A goal inside the west dead-end region should expose approach and recovery behavior.",
+      "expectedBroadOutcome": "development-calibration-required"
+    },
+    {
+      "id": "warehouse-workzone-east-v1",
+      "start": [0.0, 0.08, 1.2],
+      "goal": [7.5, 0.08, 13.5],
+      "approximateLengthMeters": 18.0,
+      "alternatives": ["east-lower-aisle", "south-perimeter"],
+      "relevantObstacles": ["rack-lower-east", "crate-workzone-01", "crate-workzone-02"],
+      "expectedChallenge": "Navigate a blind corner into an open work zone with distractor crates.",
+      "expectedBroadOutcome": "success-with-obstacle-avoidance"
+    }
+  ]
+}

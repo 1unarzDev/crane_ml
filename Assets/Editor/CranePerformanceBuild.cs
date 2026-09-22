@@ -62,12 +62,20 @@ public static class CranePerformanceBuild {
                 UnityEngine.Object.DestroyImmediate(collider.gameObject);
         }
 
+        const string warehouseManifestPath =
+            "Assets/Resources/ReferenceEnvironments/" +
+            "unity_turtlebot3_industrial_warehouse_v2.json";
+        TextAsset warehouseManifest = AssetDatabase.LoadAssetAtPath<TextAsset>(warehouseManifestPath);
+        if (warehouseManifest == null)
+            throw new FileNotFoundException("Warehouse manifest asset is missing",
+                warehouseManifestPath);
         var environment = new GameObject("Reference Environment");
-        environment.AddComponent<CraneReferenceWarehouse>().Configure(1000, 12f, 18f, 3, 2, true);
+        environment.AddComponent<CraneReferenceWarehouse>().Configure(2001, true,
+            warehouseManifest);
         environment.GetComponent<CraneReferenceWarehouse>().Generate();
 
         var robot = new GameObject("TurtleBot3 Waffle Reference");
-        robot.transform.position = new Vector3(0f, 0.08f, 0.8f);
+        robot.transform.position = new Vector3(0f, 0.08f, 1.2f);
         var body = robot.AddComponent<Rigidbody>();
         body.mass = 1.3729096f;
         body.linearDamping = 0.05f;

@@ -39,6 +39,7 @@ namespace Sim.Physics.Land {
             public bool mobilityHeld;
             public bool mobilityReleased;
             public string environmentId;
+            public string scenarioId;
             public bool referenceEnvironmentPreserved;
             public string platform;
             public Vector3 startPosition;
@@ -63,7 +64,10 @@ namespace Sim.Physics.Land {
             bool clearpathScene = scene.name.Equals("Clearpath Pipeline Validation",
                 StringComparison.OrdinalIgnoreCase);
             bool differentialScene = turtlebotScene || clearpathScene;
-            bool preserveReferenceEnvironment = clearpathScene;
+            bool preserveRequested = Array.IndexOf(arguments,
+                "--crane-preserve-reference-environment") >= 0;
+            bool preserveReferenceEnvironment = clearpathScene ||
+                (turtlebotScene && preserveRequested);
             if (!ackermannScene && !differentialScene) return;
             AckermannRoverDynamics rover = ackermannScene
                 ? UnityEngine.Object.FindAnyObjectByType<AckermannRoverDynamics>(
@@ -79,7 +83,7 @@ namespace Sim.Physics.Land {
             // The TurtleBot3 scene's recognizable warehouse remains the normal reference scene.
             // Corridor experiments explicitly replace only its generated environment root while
             // retaining the existing robot, dynamics, sensors, ROS integration, and scene setup.
-            if (turtlebotScene) {
+            if (turtlebotScene && !preserveReferenceEnvironment) {
                 CraneReferenceWarehouse warehouse = UnityEngine.Object.FindAnyObjectByType<
                     CraneReferenceWarehouse>(FindObjectsInactive.Include);
                 if (warehouse != null) warehouse.gameObject.SetActive(false);
@@ -180,7 +184,11 @@ namespace Sim.Physics.Land {
                 mobilityHoldAfterSeconds = mobilityHoldAfter,
                 mobilityReleaseAfterSeconds = mobilityReleaseAfter,
                 environmentId = clearpathScene ? "clearpath-pipeline-2.9.4-v1" :
+                    preserveReferenceEnvironment ? CraneReferenceWarehouse.EnvironmentId :
                     "crane-land-corridor-v1",
+                scenarioId = ReadString("--crane-land-scenario-id",
+                    preserveReferenceEnvironment ? "unspecified-reference-route" :
+                    "controlled-corridor"),
                 referenceEnvironmentPreserved = preserveReferenceEnvironment,
                 platform = clearpathScene ? "clearpath-jackal-class-differential" :
                     differentialScene ? "turtlebot3-waffle-differential" :
