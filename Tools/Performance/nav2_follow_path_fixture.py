@@ -241,14 +241,22 @@ class FollowPathFixture(Node):
         path.header.frame_id = odom.header.frame_id
         path.header.stamp = odom.header.stamp
         for index in range(1, self.args.path_points + 1):
-            distance = self.args.distance * index / self.args.path_points
+            fraction = index / self.args.path_points
+            forward, lateral, tangent = path_sample(
+                self.args.path_shape, self.args.distance, fraction,
+                self.args.path_lateral_amplitude, self.args.path_turn_angle)
+            pose_yaw = wrapped_angle(path_yaw + tangent)
             pose = PoseStamped()
             pose.header = path.header
-            pose.pose.position.x = odom.pose.pose.position.x + math.cos(path_yaw) * distance
-            pose.pose.position.y = odom.pose.pose.position.y + math.sin(path_yaw) * distance
+            pose.pose.position.x = (odom.pose.pose.position.x +
+                                    math.cos(path_yaw) * forward -
+                                    math.sin(path_yaw) * lateral)
+            pose.pose.position.y = (odom.pose.pose.position.y +
+                                    math.sin(path_yaw) * forward +
+                                    math.cos(path_yaw) * lateral)
             pose.pose.position.z = odom.pose.pose.position.z
-            pose.pose.orientation.z = math.sin(path_yaw / 2.0)
-            pose.pose.orientation.w = math.cos(path_yaw / 2.0)
+            pose.pose.orientation.z = math.sin(pose_yaw / 2.0)
+            pose.pose.orientation.w = math.cos(pose_yaw / 2.0)
             path.poses.append(pose)
         self.planned_path = [{
             'x': float(odom.pose.pose.position.x),
@@ -368,6 +376,7 @@ class FollowPathFixture(Node):
             'scope': ('nav2-navigate-to-pose' if self.args.action_mode == 'navigate-to-pose'
                       else 'nav2-controller-server-follow-path'),
             'actionMode': self.args.action_mode,
+            'pathShape': self.args.path_shape,
             'actionName': self.action_name,
             'status': status,
             'odomTopic': self.args.odom_topic,
@@ -533,6 +542,25 @@ def coast_distance(start_pose, final_odometry):
         final_pose['x'] - start_pose['x'], final_pose['y'] - start_pose['y'])
 
 
+def path_sample(shape, length, fraction, lateral_amplitude, turn_angle):
+    """Return forward, left, and tangent-yaw offsets in the initial path frame."""
+    if shape == 'straight':
+        return length * fraction, 0.0, 0.0
+    if shape == 'gentle-turn':
+        angle = turn_angle * fraction
+        radius = length / max(abs(turn_angle), 1e-6)
+        signed_radius = math.copysign(radius, turn_angle)
+        return (signed_radius * math.sin(angle),
+                signed_radius * (1.0 - math.cos(angle)), angle)
+    if shape == 's-turn':
+        forward = length * fraction
+        lateral = 0.5 * lateral_amplitude * (1.0 - math.cos(2.0 * math.pi * fraction))
+        slope = (lateral_amplitude * math.pi / max(length, 1e-6) *
+                 math.sin(2.0 * math.pi * fraction))
+        return forward, lateral, math.atan(slope)
+    raise ValueError(f'unsupported path shape: {shape}')
+
+
 def pose_dict(odometry):
     if odometry is None:
         return None
@@ -563,6 +591,10 @@ def main():
     parser.add_argument('--path-points', type=int, default=20)
     parser.add_argument('--path-heading-offset', type=float, default=0.0,
                         help='FollowPath heading offset from initial body yaw, radians')
+    parser.add_argument('--path-shape', choices=('straight', 'gentle-turn', 's-turn'),
+                        default='straight')
+    parser.add_argument('--path-lateral-amplitude', type=float, default=2.0)
+    parser.add_argument('--path-turn-angle', type=float, default=math.pi / 4.0)
     parser.add_argument('--duration', type=float, default=25.0)
     parser.add_argument('--post-result-seconds', type=float, default=0.0)
     parser.add_argument('--output')
@@ -576,6 +608,8 @@ def main():
         parser.error('absolute goals are supported only for navigate-to-pose')
     if args.path_heading_offset != 0.0 and args.action_mode != 'follow-path':
         parser.error('--path-heading-offset is supported only for follow-path')
+    if args.path_shape != 'straight' and args.action_mode != 'follow-path':
+        parser.error('--path-shape is supported only for follow-path')
     if args.post_result_seconds < 0.0:
         parser.error('--post-result-seconds must be non-negative')
     rclpy.init()
