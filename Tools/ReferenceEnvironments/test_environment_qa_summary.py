@@ -127,6 +127,69 @@ class EnvironmentQaSummaryTests(unittest.TestCase):
         self.assertEqual(result["gates"]["failureRecovery"], "FAILURE_RECOVERY_PASS")
         self.assertEqual(result["trajectory"]["longitudinalReversalSampleCount"], 1)
 
+    def test_behavioral_gate_rejects_success_that_does_not_exercise_declared_route_shape(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest = {
+                "environmentId": "proving-v1", "generatorVersion": "1.0.0",
+                "layouts": [{
+                    "id": "slalom-v1", "robot": "turtlebot3", "alternatives": [],
+                    "relevantObstacles": ["post"], "expectedChallenge": "S-turn",
+                    "expectedBroadOutcome": "success",
+                }],
+            }
+            manifest_path = root / "manifest.json"
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            manifest_hash = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+            seed = 5
+            values = {
+                "structural": {
+                    "environmentId": "proving-v1", "manifestSha256": manifest_hash,
+                    "structuralStatus": "STRUCTURAL_PASS", "physicsStatus": "PHYSICS_PASS",
+                    "sensorStatus": "SENSOR_PASS", "headlessStatus": "HEADLESS_PASS",
+                    "explanationStatus": "EXPLANATION_READY",
+                },
+                "navigation": {"valid": True, "navigation": {
+                    "status": "succeeded", "displacementMeters": 18.0,
+                    "maximumRecoveryCount": 0,
+                }},
+                "truth": {
+                    "schema": "crane-land-proving-ground-truth-v1",
+                    "environmentId": "proving-v1", "generatorVersion": "1.0.0",
+                    "manifestSha256": manifest_hash, "layoutId": "slalom-v1", "seed": seed,
+                    "configurationSha256": hashlib.sha256(
+                        f"{manifest_hash}\nslalom-v1\n{seed}".encode("utf-8")
+                    ).hexdigest(),
+                    "robot": "turtlebot3", "alternatives": [],
+                    "relevantObstacles": ["post"], "expectedChallenge": "S-turn",
+                    "expectedBroadOutcome": "success",
+                },
+                "runtime": {"validation": [
+                    {"simulatedSeconds": 0, "bodies": [{"position": {"x": 0, "z": 0}}]},
+                    {"simulatedSeconds": 1, "bodies": [{"position": {"x": 0, "z": 9}}]},
+                    {"simulatedSeconds": 2, "bodies": [{"position": {"x": 0, "z": 18}}]},
+                ]},
+                "gates": {"environmentId": "proving-v1", "layouts": {"slalom-v1": {
+                    "minimumPositiveLateralMeters": 0.5,
+                    "maximumNegativeLateralMeters": -0.5,
+                    "minimumLateralDirectionChanges": 2,
+                }}},
+            }
+            paths = {}
+            for name, value in values.items():
+                paths[name] = root / f"{name}.json"
+                paths[name].write_text(json.dumps(value), encoding="utf-8")
+            result = summarize(argparse.Namespace(
+                structural=paths["structural"], navigation=paths["navigation"],
+                evaluator_truth=paths["truth"], runtime_result=paths["runtime"],
+                scenario_manifest=manifest_path, navigation_gates=paths["gates"],
+            ))
+        self.assertTrue(result["identityValid"])
+        self.assertEqual(result["routeAcceptance"]["status"], "FAIL")
+        self.assertFalse(result["routeReady"])
+        self.assertEqual(result["gates"]["navigation"], "PARTIAL")
+        self.assertEqual(result["verdict"], "BLOCKED")
+
 
 if __name__ == "__main__":
     unittest.main()

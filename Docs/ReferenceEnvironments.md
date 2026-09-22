@@ -142,7 +142,8 @@ the rolling window. The first alternate-corridors calibration used the earlier 3
 aborted immediately; the planner explicitly reported the goal outside its bounds. This negative
 calibration is retained rather than reclassified as a geometry or navigation failure.
 
-Five layouts currently have runtime navigation evidence:
+All eight layouts now have runtime navigation evidence, but only seven satisfy their declared
+behavioral gate:
 
 - `alternate-corridors-v1` succeeded in 71.21 s with 17.573 m endpoint displacement, 17.930 m of
   sampled trajectory, a 1.10 m lateral excursion, 628 delivered BT transitions, 711 returned
@@ -163,6 +164,18 @@ Five layouts currently have runtime navigation evidence:
   the goal. Its sampled path was 25.207 m versus 17.604 m endpoint displacement, with 871
   delivered BT transitions and zero recovery feedback. The trajectory establishes a substantial
   route change; delivered costmaps do not establish which observation caused it.
+- `staggered-obstacles-v1` succeeded in 73.06 s with 17.546 m endpoint displacement and an
+  18.331 m sampled path. Its trajectory reached +0.506 m and -0.347 m laterally and changed
+  lateral direction three times, satisfying the separately versioned weave gate. The first launch
+  on ROS domain 233 was infrastructure-invalid because Fast DDS could not derive valid ports; the
+  valid rerun used domain 220.
+- `offset-gates-v1` succeeded in 76.86 s with a 19.571 m sampled path. It traversed both sides of
+  the centerline, reaching +1.597 m and -1.455 m with two sampled lateral direction changes, so it
+  satisfies the offset-route gate.
+- **NEGATIVE CALIBRATION:** `slalom-s-turn-v1` succeeded in 69.46 s but followed the exact
+  centerline for 17.478 m with zero angular command and zero lateral direction changes. The current
+  bollards leave a straight route and therefore fail the declared S-turn navigation gate. This run
+  is retained and is not counted as a qualified slalom.
 
 The final Linux build passed the headless validator with six canonical colliders, six collider-free
 renderers, eight unique semantic IDs, a semantic LiDAR hit on `alternate-route-divider`, evidence
@@ -179,10 +192,13 @@ behind the same command interface. It verifies exact manifest and per-run config
 scenario-contract parity, expected terminal status, navigation displacement, and independent
 structural/physics/sensor/headless/explanation records. It emits artifact paths together with
 their SHA-256 hashes and retains `interactive=NOT_RUN` unless that gate is supplied separately.
-The five qualified proving-ground runs produce `NAVIGATION_PASS`, `HEADLESS_PASS`, and
-`EXPLANATION_READY`; dynamic-gate recovery-success and expected complete-blockage abort also
-produce `FAILURE_RECOVERY_PASS`. The overall verdict remains `PARTIAL` because the aggregate does
-not silently infer an interactive pass.
+The optional, separately versioned `land_proving_ground_navigation_gates_v1.json` adds declared
+trajectory/recovery acceptance criteria without changing the canonical scene manifest or
+invalidating earlier run identity. The seven qualified runs produce `NAVIGATION_PASS`,
+`HEADLESS_PASS`, and `EXPLANATION_READY`; dynamic-gate recovery-success and expected
+complete-blockage abort also produce `FAILURE_RECOVERY_PASS`. The slalom summary is `BLOCKED` at
+the navigation gate. Overall qualified verdicts remain `PARTIAL` because the aggregate does not
+silently infer an interactive pass.
 
 ```bash
 CRANE_PROVING_GROUND_LAYOUT=alternate-corridors-v1 \

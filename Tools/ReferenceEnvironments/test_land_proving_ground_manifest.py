@@ -10,6 +10,10 @@ MANIFEST = (
     ROOT
     / "Assets/Resources/ReferenceEnvironments/crane_land_proving_ground_v1.json"
 )
+NAVIGATION_GATES = (
+    ROOT
+    / "Tools/ReferenceEnvironments/land_proving_ground_navigation_gates_v1.json"
+)
 
 
 def load_manifest() -> dict:
@@ -41,6 +45,17 @@ def test_catalog_identity_and_required_topologies() -> None:
         "complete-blockage-v1",
         "dynamic-gate-v1",
     }
+
+
+def test_behavioral_navigation_gates_cover_every_layout_without_changing_scene_identity() -> None:
+    layouts = set(by_id(load_manifest()["layouts"]))
+    gates = json.loads(NAVIGATION_GATES.read_text(encoding="utf-8"))
+    assert gates["schema"] == "crane-land-proving-ground-navigation-gates-v1"
+    assert gates["environmentId"] == "crane-land-proving-ground-v1"
+    assert gates["trajectorySampleDeadbandMeters"] == 0.15
+    assert set(gates["layouts"]) == layouts
+    assert gates["layouts"]["slalom-s-turn-v1"]["minimumLateralDirectionChanges"] >= 3
+    assert gates["layouts"]["dynamic-gate-v1"]["minimumRecoveryCount"] >= 1
 
 
 def test_each_layout_has_reproducible_route_and_unique_semantics() -> None:
