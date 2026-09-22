@@ -311,6 +311,26 @@ observation, and limitations. Since Jazzy's topic does not provide a publisher s
 the current capture conservatively reports whole-history completeness as `not_proven` and never
 makes an exact recovery-count claim from the observed invocation list alone.
 
+Export a qualified ecological run into physically separate evidence planes:
+
+```bash
+python3 Tools/ReferenceEnvironments/export_ecological_evidence.py \
+  --fixture-summary /path/to/fixture-summary.json \
+  --evaluator-truth /path/to/land-evaluator-truth.json \
+  --environment-manifest \
+    Assets/Resources/ReferenceEnvironments/unity_turtlebot3_industrial_warehouse_v2.json \
+  --bt-xml Tools/Performance/nav2_warehouse_replanning_recovery.xml \
+  --output-root /new/output/root \
+  --episode-id opaque-episode-id
+```
+
+The exporter refuses any existing output root. It writes only
+`robot_visible/evidence.json`, `evaluator_only/truth.json`, and a top-level content-free hash
+manifest. It verifies environment/scenario/configuration identity against the ecological question
+contract, checks transition/invocation inventory consistency, rejects unjustified exact-count
+eligibility, and scans generated robot-visible values for scenario IDs, semantic obstacle IDs, and
+input source paths. Raw exports remain governed data and must not be committed to Git.
+
 ## F1TENTH occupancy maps
 
 `Tools/ReferenceEnvironments/f1tenth_map_generator.py` reads standard PNG/YAML maps, applies the
