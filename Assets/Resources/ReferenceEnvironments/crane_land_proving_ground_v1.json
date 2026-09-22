@@ -1,0 +1,148 @@
+{
+  "schema": "crane-land-proving-ground-catalog-v1",
+  "environmentId": "crane-land-proving-ground-v1",
+  "generatorVersion": "1.0.0",
+  "dimensionsMeters": [8.0, 22.0],
+  "sharedBoxes": [
+    {"id":"proving-floor","role":"traversable-floor","center":[0.0,-0.10,10.0],"size":[10.0,0.20,24.0],"color":[0.24,0.27,0.30]},
+    {"id":"proving-west-boundary","role":"boundary-wall","center":[-4.125,1.0,10.0],"size":[0.25,2.0,24.0],"color":[0.44,0.48,0.52]},
+    {"id":"proving-east-boundary","role":"boundary-wall","center":[4.125,1.0,10.0],"size":[0.25,2.0,24.0],"color":[0.44,0.48,0.52]}
+  ],
+  "layouts": [
+    {
+      "id": "staggered-obstacles-v1",
+      "seed": 5101,
+      "robot": "TurtleBot3 Waffle-class",
+      "start": [0.0,0.08,0.0],
+      "goal": [0.0,0.08,18.0],
+      "approximateLengthMeters": 20.0,
+      "alternatives": ["right-left-right weave", "left-right-left weave"],
+      "relevantObstacles": ["stagger-left-near", "stagger-right-mid", "stagger-left-far"],
+      "expectedChallenge": "Replan through alternating partial-width barriers with three forced lateral changes.",
+      "expectedBroadOutcome": "avoidance-and-multi-turn-success",
+      "obstacles": [
+        {"id":"stagger-left-near","role":"staggered-obstacle","center":[-2.1,1.0,4.5],"size":[3.4,2.0,0.5],"color":[0.82,0.38,0.12],"activeInitially":true,"activationAfterSeconds":-1.0,"removalAfterSeconds":-1.0},
+        {"id":"stagger-right-mid","role":"staggered-obstacle","center":[2.1,1.0,9.0],"size":[3.4,2.0,0.5],"color":[0.82,0.38,0.12],"activeInitially":true,"activationAfterSeconds":-1.0,"removalAfterSeconds":-1.0},
+        {"id":"stagger-left-far","role":"staggered-obstacle","center":[-2.1,1.0,13.5],"size":[3.4,2.0,0.5],"color":[0.82,0.38,0.12],"activeInitially":true,"activationAfterSeconds":-1.0,"removalAfterSeconds":-1.0}
+      ]
+    },
+    {
+      "id": "slalom-s-turn-v1",
+      "seed": 5102,
+      "robot": "TurtleBot3 Waffle-class",
+      "start": [0.0,0.08,0.0],
+      "goal": [0.0,0.08,18.0],
+      "approximateLengthMeters": 21.0,
+      "alternatives": ["alternating inside line", "wide outside line"],
+      "relevantObstacles": ["slalom-post-1", "slalom-post-2", "slalom-post-3", "slalom-post-4"],
+      "expectedChallenge": "Follow an S-shaped route around alternating industrial bollard groups.",
+      "expectedBroadOutcome": "slalom-success-or-path-following-stress",
+      "obstacles": [
+        {"id":"slalom-post-1","role":"slalom-bollard","center":[-1.5,0.8,4.0],"size":[1.2,1.6,1.2],"color":[0.88,0.70,0.10],"activeInitially":true,"activationAfterSeconds":-1.0,"removalAfterSeconds":-1.0},
+        {"id":"slalom-post-2","role":"slalom-bollard","center":[1.5,0.8,7.5],"size":[1.2,1.6,1.2],"color":[0.88,0.70,0.10],"activeInitially":true,"activationAfterSeconds":-1.0,"removalAfterSeconds":-1.0},
+        {"id":"slalom-post-3","role":"slalom-bollard","center":[-1.5,0.8,11.0],"size":[1.2,1.6,1.2],"color":[0.88,0.70,0.10],"activeInitially":true,"activationAfterSeconds":-1.0,"removalAfterSeconds":-1.0},
+        {"id":"slalom-post-4","role":"slalom-bollard","center":[1.5,0.8,14.5],"size":[1.2,1.6,1.2],"color":[0.88,0.70,0.10],"activeInitially":true,"activationAfterSeconds":-1.0,"removalAfterSeconds":-1.0}
+      ]
+    },
+    {
+      "id": "offset-gates-v1",
+      "seed": 5103,
+      "robot": "TurtleBot3 Waffle-class",
+      "start": [0.0,0.08,0.0],
+      "goal": [0.0,0.08,18.0],
+      "approximateLengthMeters": 20.0,
+      "alternatives": ["west first gate then east", "east staging pocket then west gate"],
+      "relevantObstacles": ["gate-1-west", "gate-1-east", "gate-2-west", "gate-2-east"],
+      "expectedChallenge": "Traverse two laterally offset 1.4 m gates requiring a pronounced route change.",
+      "expectedBroadOutcome": "offset-gate-success",
+      "obstacles": [
+        {"id":"gate-1-west","role":"offset-gate-wall","center":[-3.1,1.0,6.0],"size":[1.8,2.0,0.5],"color":[0.18,0.54,0.76],"activeInitially":true,"activationAfterSeconds":-1.0,"removalAfterSeconds":-1.0},
+        {"id":"gate-1-east","role":"offset-gate-wall","center":[1.6,1.0,6.0],"size":[4.8,2.0,0.5],"color":[0.18,0.54,0.76],"activeInitially":true,"activationAfterSeconds":-1.0,"removalAfterSeconds":-1.0},
+        {"id":"gate-2-west","role":"offset-gate-wall","center":[-1.6,1.0,12.0],"size":[4.8,2.0,0.5],"color":[0.18,0.54,0.76],"activeInitially":true,"activationAfterSeconds":-1.0,"removalAfterSeconds":-1.0},
+        {"id":"gate-2-east","role":"offset-gate-wall","center":[3.1,1.0,12.0],"size":[1.8,2.0,0.5],"color":[0.18,0.54,0.76],"activeInitially":true,"activationAfterSeconds":-1.0,"removalAfterSeconds":-1.0}
+      ]
+    },
+    {
+      "id": "narrow-doorway-v1",
+      "seed": 5104,
+      "robot": "TurtleBot3 Waffle-class",
+      "start": [0.0,0.08,0.0],
+      "goal": [0.0,0.08,18.0],
+      "approximateLengthMeters": 18.5,
+      "alternatives": ["center doorway"],
+      "relevantObstacles": ["doorway-west-jamb", "doorway-east-jamb"],
+      "expectedChallenge": "Pass a centered 1.0 m doorway with limited clearance and strong wall returns.",
+      "expectedBroadOutcome": "narrow-passage-success-or-controller-failure",
+      "obstacles": [
+        {"id":"doorway-west-jamb","role":"narrow-doorway-wall","center":[-2.25,1.0,9.0],"size":[3.5,2.0,0.6],"color":[0.42,0.62,0.30],"activeInitially":true,"activationAfterSeconds":-1.0,"removalAfterSeconds":-1.0},
+        {"id":"doorway-east-jamb","role":"narrow-doorway-wall","center":[2.25,1.0,9.0],"size":[3.5,2.0,0.6],"color":[0.42,0.62,0.30],"activeInitially":true,"activationAfterSeconds":-1.0,"removalAfterSeconds":-1.0}
+      ]
+    },
+    {
+      "id": "u-trap-v1",
+      "seed": 5105,
+      "robot": "TurtleBot3 Waffle-class",
+      "start": [0.0,0.08,0.0],
+      "goal": [0.0,0.08,18.0],
+      "approximateLengthMeters": 23.0,
+      "alternatives": ["west exterior", "east exterior"],
+      "relevantObstacles": ["u-trap-back", "u-trap-west", "u-trap-east"],
+      "expectedChallenge": "Avoid or exit a forward-facing U-shaped trap and choose an exterior route.",
+      "expectedBroadOutcome": "dead-end-avoidance-or-recovery",
+      "obstacles": [
+        {"id":"u-trap-back","role":"dead-end-wall","center":[0.0,1.0,10.5],"size":[4.5,2.0,0.5],"color":[0.62,0.25,0.48],"activeInitially":true,"activationAfterSeconds":-1.0,"removalAfterSeconds":-1.0},
+        {"id":"u-trap-west","role":"dead-end-side-wall","center":[-2.0,1.0,8.0],"size":[0.5,2.0,5.5],"color":[0.62,0.25,0.48],"activeInitially":true,"activationAfterSeconds":-1.0,"removalAfterSeconds":-1.0},
+        {"id":"u-trap-east","role":"dead-end-side-wall","center":[2.0,1.0,8.0],"size":[0.5,2.0,5.5],"color":[0.62,0.25,0.48],"activeInitially":true,"activationAfterSeconds":-1.0,"removalAfterSeconds":-1.0}
+      ]
+    },
+    {
+      "id": "alternate-corridors-v1",
+      "seed": 5106,
+      "robot": "TurtleBot3 Waffle-class",
+      "start": [0.0,0.08,0.0],
+      "goal": [0.0,0.08,18.0],
+      "approximateLengthMeters": 20.0,
+      "alternatives": ["west corridor", "east corridor"],
+      "relevantObstacles": ["alternate-route-divider", "alternate-west-clutter", "alternate-east-clutter"],
+      "expectedChallenge": "Choose between two long corridors with asymmetric clutter and rejoin near the goal.",
+      "expectedBroadOutcome": "route-selection-and-success",
+      "obstacles": [
+        {"id":"alternate-route-divider","role":"route-divider","center":[0.0,1.0,9.5],"size":[0.6,2.0,10.0],"color":[0.64,0.44,0.18],"activeInitially":true,"activationAfterSeconds":-1.0,"removalAfterSeconds":-1.0},
+        {"id":"alternate-west-clutter","role":"route-distractor","center":[-2.6,0.7,7.0],"size":[1.0,1.4,1.0],"color":[0.78,0.56,0.14],"activeInitially":true,"activationAfterSeconds":-1.0,"removalAfterSeconds":-1.0},
+        {"id":"alternate-east-clutter","role":"route-distractor","center":[2.5,0.7,12.5],"size":[1.2,1.4,1.2],"color":[0.78,0.56,0.14],"activeInitially":true,"activationAfterSeconds":-1.0,"removalAfterSeconds":-1.0}
+      ]
+    },
+    {
+      "id": "complete-blockage-v1",
+      "seed": 5107,
+      "robot": "TurtleBot3 Waffle-class",
+      "start": [0.0,0.08,0.0],
+      "goal": [0.0,0.08,18.0],
+      "approximateLengthMeters": 18.0,
+      "alternatives": [],
+      "relevantObstacles": ["complete-blockage-wall"],
+      "expectedChallenge": "Detect that the only longitudinal route is physically closed.",
+      "expectedBroadOutcome": "no-path-or-bounded-terminal-failure",
+      "obstacles": [
+        {"id":"complete-blockage-wall","role":"complete-blockage","center":[0.0,1.0,9.0],"size":[8.0,2.0,0.6],"color":[0.80,0.12,0.12],"activeInitially":true,"activationAfterSeconds":-1.0,"removalAfterSeconds":-1.0}
+      ]
+    },
+    {
+      "id": "dynamic-gate-v1",
+      "seed": 5108,
+      "robot": "TurtleBot3 Waffle-class",
+      "start": [0.0,0.08,0.0],
+      "goal": [0.0,0.08,18.0],
+      "approximateLengthMeters": 19.0,
+      "alternatives": ["wait for reopened center gate", "use side clearance if available"],
+      "relevantObstacles": ["dynamic-gate-west", "dynamic-gate-east", "dynamic-gate-panel"],
+      "expectedChallenge": "Respond to a center gate inserted at 20 s and removed at 45 s simulation time.",
+      "expectedBroadOutcome": "path-change-or-wait-then-success",
+      "obstacles": [
+        {"id":"dynamic-gate-west","role":"dynamic-gate-wall","center":[-2.5,1.0,8.0],"size":[3.0,2.0,0.5],"color":[0.16,0.60,0.58],"activeInitially":true,"activationAfterSeconds":-1.0,"removalAfterSeconds":-1.0},
+        {"id":"dynamic-gate-east","role":"dynamic-gate-wall","center":[2.5,1.0,8.0],"size":[3.0,2.0,0.5],"color":[0.16,0.60,0.58],"activeInitially":true,"activationAfterSeconds":-1.0,"removalAfterSeconds":-1.0},
+        {"id":"dynamic-gate-panel","role":"controlled-dynamic-blocker","center":[0.0,1.0,8.0],"size":[2.0,2.0,0.5],"color":[0.92,0.42,0.08],"activeInitially":false,"activationAfterSeconds":20.0,"removalAfterSeconds":45.0}
+      ]
+    }
+  ]
+}

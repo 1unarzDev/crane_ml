@@ -22,6 +22,7 @@ class ReferenceValidationLauncherTests(unittest.TestCase):
         self.assertIn("clearpath-pipeline", result.stdout)
         self.assertIn("f1tenth-spielberg", result.stdout)
         self.assertIn("turtlebot3-warehouse", result.stdout)
+        self.assertIn("land-proving-ground", result.stdout)
 
     def test_rejects_scene_absent_from_build_manifest(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -107,6 +108,14 @@ class ReferenceValidationLauncherTests(unittest.TestCase):
         self.assertIn("--crane-reference-environment-id", invoked)
         self.assertIn("crane-industrial-warehouse-v2", invoked)
         self.assertIn("--crane-reference-manifest-sha256", invoked)
+
+    def test_land_proving_ground_uses_manifest_hash_and_runtime_layout(self) -> None:
+        text = LAUNCHER.read_text(encoding="utf-8")
+        self.assertIn("land-proving-ground)", text)
+        self.assertIn("crane_land_proving_ground_v1.json", text)
+        self.assertIn("--crane-land-proving-ground-layout", text)
+        self.assertIn("crane-land-proving-ground-v1", text)
+        self.assertIn("CRANE_PROVING_GROUND_LAYOUT:-alternate-corridors-v1", text)
 
 
 if __name__ == "__main__":

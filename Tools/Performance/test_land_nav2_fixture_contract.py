@@ -31,6 +31,15 @@ WAREHOUSE_DEADLINE_BT = (
 WAREHOUSE_RECOVERY_LAUNCHER = (
     ROOT / "Tools" / "Performance" / "run_warehouse_recovery_nav2_fixture.sh"
 )
+PROVING_GROUND_LAUNCHER = (
+    ROOT / "Tools" / "Performance" / "run_land_proving_ground_nav2_fixture.sh"
+)
+PROVING_GROUND_SOURCE = (
+    ROOT / "Assets" / "Scripts" / "Physics" / "Land" / "CraneLandProvingGround.cs"
+)
+PROVING_GROUND_PARAMETERS = (
+    ROOT / "Tools" / "Performance" / "nav2_land_proving_ground_fixture.yaml"
+)
 
 
 class LandNav2FixtureContractTests(unittest.TestCase):
@@ -148,6 +157,31 @@ class LandNav2FixtureContractTests(unittest.TestCase):
         self.assertIn('CRANE_SCENE="TurtleBot3 Warehouse Validation"', launcher)
         self.assertIn("--crane-ros-differential-cmd-vel", launcher)
         self.assertIn("base_scan", launcher)
+
+    def test_proving_ground_is_manifest_selected_without_changing_corridor_truth(self) -> None:
+        bootstrap = (ROOT / "Assets/Scripts/Physics/Land/CraneLandNav2Bootstrap.cs").read_text(
+            encoding="utf-8"
+        )
+        source = PROVING_GROUND_SOURCE.read_text(encoding="utf-8")
+        launcher = PROVING_GROUND_LAUNCHER.read_text(encoding="utf-8")
+        parameters = PROVING_GROUND_PARAMETERS.read_text(encoding="utf-8")
+        self.assertIn('ReadString("--crane-land-proving-ground-layout", null)', bootstrap)
+        self.assertIn("CraneLandProvingGround.Build", bootstrap)
+        self.assertIn('schema = "crane-land-corridor-truth-v1"', bootstrap)
+        self.assertIn('schema = "crane-land-proving-ground-truth-v1"', source)
+        self.assertIn("CanonicalGeometry", source)
+        self.assertIn("VisualPresentation", source)
+        self.assertIn("configurationSha256", source)
+        self.assertIn("CraneTimedWarehouseObstacle", source)
+        self.assertIn("ConfigureInspection(body.transform, layout)", source)
+        self.assertIn("CraneReferenceInspectionController", source)
+        self.assertIn("layout.relevantObstacles", source)
+        self.assertIn('CRANE_PROVING_GROUND_LAYOUT:-alternate-corridors-v1', launcher)
+        self.assertIn("--crane-land-proving-ground-layout", launcher)
+        self.assertIn("nav2_land_proving_ground_fixture.yaml", launcher)
+        self.assertIn("width: 44", parameters)
+        self.assertIn("height: 12", parameters)
+        self.assertNotIn("Roboboat Course", bootstrap + source + launcher)
 
     def test_differential_command_converts_ros_yaw_to_unity_yaw(self) -> None:
         source = (ROOT / "Assets/Scripts/Physics/Land/ROSDifferentialCommand.cs").read_text(

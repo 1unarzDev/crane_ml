@@ -125,6 +125,57 @@ gate remains conservatively `PARTIAL` rather than a full pass. The same build re
 warehouse validator successfully; presentation tooling did not change its 20 canonical colliders,
 20 collider-free renderers, or existing structural/physics/sensor/explanation verdicts.
 
+## Configurable land navigation proving ground
+
+`crane-land-proving-ground-v1` is a manifest-driven replacement for the warehouse geometry in the
+existing TurtleBot3 validation scene. The versioned catalog at
+`Assets/Resources/ReferenceEnvironments/crane_land_proving_ground_v1.json` has SHA-256
+`bea854292d7298e04f37ed9f6cc50f49d59d51fdec0e1b78a9d5f9247beee720` and defines eight seeded
+layouts: staggered obstacles, an S-turn slalom, offset gates, a narrow doorway, a U-trap, alternate
+corridors, complete blockage, and a dynamic gate. The generator, not the launcher, owns manifest
+validation, separate canonical and visual layers, stable semantic IDs, fixed-simulation-time
+schedules, configuration hashes, and evaluator-only truth. The launcher selects only a layout and
+seed. Existing corridor truth remains a separate schema and is unchanged.
+
+The dedicated Nav2 fixture uses a 44 m longitudinal global costmap so the 18 m goal remains inside
+the rolling window. The first alternate-corridors calibration used the earlier 30 m window and
+aborted immediately; the planner explicitly reported the goal outside its bounds. This negative
+calibration is retained rather than reclassified as a geometry or navigation failure.
+
+Three layouts currently have runtime navigation evidence:
+
+- `alternate-corridors-v1` succeeded in 71.21 s with 17.573 m endpoint displacement, 17.930 m of
+  sampled trajectory, a 1.10 m lateral excursion, 628 delivered BT transitions, 711 returned
+  controller commands, 268 costmap observations, and zero recovery feedback;
+- `dynamic-gate-v1` activated its canonical gate at simulation time 20.040 s and removed it at
+  45.040 s, then succeeded in 91.38 s with maximum recovery feedback 1, a delivered `FollowPath`
+  failure and contextual local-costmap clear, 22.328 m sampled trajectory, and 1.723 m lateral
+  span; this sequence does not establish which scan Nav2 consumed or that the gate physically
+  caused the recovery;
+- `complete-blockage-v1` aborted under the separate 70 s bounded task policy at 70.33 s, before
+  the 80 s client deadline, after 17.973 m of sampled exploratory motion and 4.54 m lateral span.
+  This supports task-policy deadline provenance, not obstacle causation.
+
+The final Linux build passed the headless validator with six canonical colliders, six collider-free
+renderers, eight unique semantic IDs, a semantic LiDAR hit on `alternate-route-divider`, evidence
+highlighting, collision/drop support, and differential drive/turn response. It reports
+`STRUCTURAL_PASS`, `PHYSICS_PASS`, `SENSOR_PASS`, `HEADLESS_PASS`, and `EXPLANATION_READY` while
+leaving its aggregate navigation and interactive fields `NOT_RUN`; per-route evidence is recorded
+separately above. Isolated 1280 × 720 overview and oblique inspection captures confirmed the
+proving-ground environment/layout HUD, semantic highlight, collider wireframes, and trajectory
+state. Manual keyboard polling remains `NOT_RUN`, so the interactive gate is conservatively
+`PARTIAL`. The other five layouts are implemented but not yet navigation-qualified.
+
+```bash
+CRANE_PROVING_GROUND_LAYOUT=alternate-corridors-v1 \
+  Tools/Performance/run_land_proving_ground_nav2_fixture.sh
+
+CRANE_PLAYER=/path/to/CRANE.x86_64 \
+CRANE_PROVING_GROUND_LAYOUT=alternate-corridors-v1 \
+  Tools/ReferenceEnvironments/run_reference_validation.sh land-proving-ground \
+  /tmp/land-proving-ground.json
+```
+
 ## F1TENTH occupancy maps
 
 `Tools/ReferenceEnvironments/f1tenth_map_generator.py` reads standard PNG/YAML maps, applies the
@@ -279,6 +330,10 @@ result JSON SHA-256 was
   **PASSED**. Isolated overview/oblique/HUD/semantic/collider inspection is **PARTIAL** pending a
   direct manual-keyboard check; one temporary-enclosure recovery-success calibration is
   **VALIDATED**, while repeated-run qualification remains **NOT_RUN**.
+- Configurable land proving ground: all eight deterministic layouts **IMPLEMENTED**; structural,
+  physics, sensor, headless, explanation, and deterministic inspection controls **TESTED**;
+  alternate-corridor success, dynamic-gate recovery-success, and bounded complete-blockage abort
+  have one development run each. Five layouts and repeated-run qualification remain **NOT_RUN**.
 - F1TENTH conversion and Unity import: **IMPLEMENTED / TESTED** on synthetic fixtures and the
   pinned external Spielberg map; full-lap controller/ROS validation **NOT_RUN**.
 - PX4 walls: **IMPLEMENTED / TESTED** headlessly; ArUco: **IMPLEMENTED / TESTED** for layer

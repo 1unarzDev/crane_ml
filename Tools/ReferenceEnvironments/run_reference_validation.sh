@@ -17,6 +17,7 @@ Targets:
   clearpath-pipeline
   f1tenth-spielberg
   turtlebot3-warehouse
+  land-proving-ground
 
 The selected scene must already be present in the player's crane-build-manifest.json.
 Generated F1TENTH scenes require a worker built with --crane-extra-scene.
@@ -59,6 +60,27 @@ case "${target}" in
             --crane-reference-manifest-sha256 "${warehouse_hash}"
             --crane-reference-source-version 2.2.0
             --crane-reference-source-object-count 20)
+        ;;
+    land-proving-ground)
+        scene="TurtleBot3 Warehouse Validation"
+        layout="${CRANE_PROVING_GROUND_LAYOUT:-alternate-corridors-v1}"
+        proving_manifest="${root_dir}/Assets/Resources/ReferenceEnvironments/crane_land_proving_ground_v1.json"
+        proving_hash="$(sha256sum "${proving_manifest}" | awk '{print $1}')"
+        proving_objects="$(python3 - "${proving_manifest}" "${layout}" <<'PY'
+import json
+import pathlib
+import sys
+manifest = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+layout = next(value for value in manifest["layouts"] if value["id"] == sys.argv[2])
+print(len(manifest["sharedBoxes"]) + len(layout["obstacles"]))
+PY
+)"
+        runner_args=(--crane-reference-validation --crane-reference-scene "${scene}"
+            --crane-reference-environment-id crane-land-proving-ground-v1
+            --crane-reference-manifest-sha256 "${proving_hash}"
+            --crane-reference-source-version 1.0.0
+            --crane-reference-source-object-count "${proving_objects}"
+            --crane-land-nav2 --crane-land-proving-ground-layout "${layout}")
         ;;
     -h|--help)
         usage

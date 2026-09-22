@@ -123,6 +123,8 @@ namespace Sim.Physics.Land {
             float blockerRemoveAfter = ReadFloat("--crane-land-blocker-remove-after", -1f);
             float mobilityHoldAfter = ReadFloat("--crane-land-mobility-hold-after", -1f);
             float mobilityReleaseAfter = ReadFloat("--crane-land-mobility-release-after", -1f);
+            string provingGroundLayout =
+                ReadString("--crane-land-proving-ground-layout", null);
             string blocker = ReadString("--crane-land-blocker", "none").ToLowerInvariant();
             if (blocker != "none" && blocker != "partial" && blocker != "full")
                 throw new ArgumentException($"Unknown land blocker mode '{blocker}'.");
@@ -140,6 +142,30 @@ namespace Sim.Physics.Land {
             body.angularVelocity = Vector3.zero;
             if (rover != null) rover.ResetActuators();
             else differential.SetCommand(0f, 0f);
+
+            string truthPath = ReadString("--crane-land-evaluator-output", null);
+            if (!string.IsNullOrWhiteSpace(truthPath)) {
+                truthPath = Path.GetFullPath(truthPath);
+                string directory = Path.GetDirectoryName(truthPath);
+                if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+            }
+            if (!string.IsNullOrWhiteSpace(provingGroundLayout)) {
+                if (!turtlebotScene || preserveReferenceEnvironment)
+                    throw new ArgumentException(
+                        "The land proving ground requires the replaceable TurtleBot3 scene.");
+                if (blocker != "none" || blockerEnableAfter >= 0f ||
+                    blockerRemoveAfter >= 0f || mobilityHoldAfter >= 0f ||
+                    mobilityReleaseAfter >= 0f)
+                    throw new ArgumentException(
+                        "Proving-ground layouts cannot be combined with legacy corridor interventions.");
+                CraneLandProvingGround.EvaluatorTruth provingTruth =
+                    CraneLandProvingGround.Build(provingGroundLayout,
+                        ReadInt("--crane-seed", -1), body, differential, truthPath);
+                Debug.Log($"CRANE_LAND_NAV2_READY provingGround={provingTruth.layoutId} " +
+                          $"seed={provingTruth.seed} platform=turtlebot3-waffle-differential " +
+                          "lidar=/scan");
+                return;
+            }
 
             const float wallThickness = 0.25f;
             const float wallHeight = 2f;
@@ -187,12 +213,6 @@ namespace Sim.Physics.Land {
                 });
             }
 
-            string truthPath = ReadString("--crane-land-evaluator-output", null);
-            if (!string.IsNullOrWhiteSpace(truthPath)) {
-                truthPath = Path.GetFullPath(truthPath);
-                string directory = Path.GetDirectoryName(truthPath);
-                if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
-            }
             var truth = new EvaluatorTruth {
                 seed = ReadInt("--crane-seed", 1),
                 corridorWidth = width,
