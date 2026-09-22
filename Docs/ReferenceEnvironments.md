@@ -23,8 +23,9 @@ The active ecological layout is the manifest-driven 20 × 26 m
 `Assets/Resources/ReferenceEnvironments/unity_turtlebot3_industrial_warehouse_v2.json`. It has
 20 canonical boxes, eight semantic regions, and five route contracts covering alternative lower
 aisles, a center route divider, cross-aisles, a narrow gate, clutter, a work zone, and a dead end.
-Manifest version 2.1.0 also defines four scenario contracts: static full-width blockage, delayed
-blockage, temporary blockage, and an occupied goal region. Scenario colliders remain canonical;
+Manifest version 2.2.0 also defines five scenario contracts: static full-width blockage, delayed
+blockage, temporary blockage, a four-wall temporary recovery enclosure, and an occupied goal
+region. Scenario colliders remain canonical;
 their collider and presentation objects change state together at deterministic fixed-simulation
 times, while scheduled and actual boundaries are retained only in evaluator truth.
 The scene serializes the manifest asset so the exact route/layout contract is a player-build
@@ -83,8 +84,24 @@ of exploratory displacement. Thus the result is a task-policy deadline, not a cl
 the obstacle run cannot by itself establish physical causation. An earlier attempted root guard
 using Nav2 Jazzy `TimeExpired` did not terminate: that condition returns failure while waiting and
 reinitializes when ticked again from inactive state. The failed run is retained as negative
-calibration rather than hidden. Raw BT transition capture is still required before the deadline
-mechanism is explanation-ready at source-provenance level.
+calibration rather than hidden. An instrumented replication retained 629 delivered BT transitions,
+the task-policy `Timeout` entering `RUNNING`, and zero recoveries. The terminal transition may be
+absent because the installed Nav2 Jazzy topic logger can omit terminal-tick transitions, so the
+action result and exact BT hash remain necessary provenance. This makes the bounded deadline
+mechanism explanation-ready for the narrow task-policy claim, not for obstacle causation.
+
+The separate development tree `nav2_warehouse_replanning_recovery.xml` gives the same navigation
+and recovery policy a 90 s task deadline. In the manifest's temporary-enclosure scenario, four
+canonical walls activated around the nominal trajectory at simulation time 18.040 s and were
+removed at 34.040 s. The first 70 s calibration exercised 15 recovery leaf invocations and resumed
+motion after removal, but aborted about 1.4 m short of the goal; that negative result is retained.
+One bounded 90 s follow-up succeeded in 82.93 s with maximum recovery feedback 20, 4,499 delivered
+BT transitions, planner and controller failures, contextual costmap clears, system-level clearing,
+spin, wait, and backup transitions. The exact policy SHA-256 is
+`9fb490be79d16c482d9c1b1a8f2f946d142e0d21ed3d4f5901aa3065304329d1`. A matching unobstructed
+control succeeded in 53.62 s with zero recoveries. These are development calibrations, not
+independent explanation-study episodes; delivered transitions and evaluator-only wall timing do
+not establish which physical observation Nav2 consumed or prove obstacle causation.
 
 The warehouse now attaches a presentation-only reference inspection controller to its spectator
 camera. It provides top-down overview, oblique, and robot-follow views; a route/environment HUD;
@@ -257,10 +274,11 @@ result JSON SHA-256 was
 
 ## Status
 
-- TurtleBot3 warehouse: v2 canonical layout and ecological route contracts **IMPLEMENTED**;
+- TurtleBot3 warehouse: v2.2 canonical layout and ecological route contracts **IMPLEMENTED**;
   structural/physics/sensor/headless/explanation gates and one representative west-aisle detour
   **PASSED**. Isolated overview/oblique/HUD/semantic/collider inspection is **PARTIAL** pending a
-  direct manual-keyboard check; failure/recovery scenario qualification is **NOT_RUN**.
+  direct manual-keyboard check; one temporary-enclosure recovery-success calibration is
+  **VALIDATED**, while repeated-run qualification remains **NOT_RUN**.
 - F1TENTH conversion and Unity import: **IMPLEMENTED / TESTED** on synthetic fixtures and the
   pinned external Spielberg map; full-lap controller/ROS validation **NOT_RUN**.
 - PX4 walls: **IMPLEMENTED / TESTED** headlessly; ArUco: **IMPLEMENTED / TESTED** for layer

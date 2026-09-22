@@ -231,7 +231,7 @@ namespace Sim.Physics.Land {
             if (manifest.environmentId != EnvironmentId)
                 throw new InvalidOperationException(
                     $"Warehouse environment ID '{manifest.environmentId}' does not match '{EnvironmentId}'.");
-            if (manifest.generatorVersion != "2.1.0")
+            if (manifest.generatorVersion != "2.2.0")
                 throw new InvalidOperationException(
                     $"Unsupported warehouse generator version '{manifest.generatorVersion}'.");
             if (manifest.canonical == null || manifest.canonical.boxes == null ||

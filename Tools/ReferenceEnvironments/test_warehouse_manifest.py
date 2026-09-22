@@ -22,7 +22,7 @@ class WarehouseManifestTests(unittest.TestCase):
     def test_manifest_has_versioned_identity_and_large_canonical_footprint(self) -> None:
         self.assertEqual(self.manifest["schema"], "crane-environment-scenario-catalog-v1")
         self.assertEqual(self.manifest["environmentId"], "crane-industrial-warehouse-v2")
-        self.assertEqual(self.manifest["generatorVersion"], "2.1.0")
+        self.assertEqual(self.manifest["generatorVersion"], "2.2.0")
         self.assertEqual(self.manifest["canonical"]["dimensionsMeters"], [20.0, 26.0])
 
     def test_semantic_ids_are_unique_and_route_references_resolve(self) -> None:
@@ -119,6 +119,40 @@ class WarehouseManifestTests(unittest.TestCase):
             self.assertTrue(scenario["robot"])
             self.assertTrue(scenario["expectedChallenge"])
             self.assertTrue(scenario["expectedBroadOutcome"])
+
+    def test_temporary_enclosure_contains_nominal_pose_without_overlap(self) -> None:
+        scenario = next(
+            value for value in self.manifest["scenarios"]
+            if value["id"] == "warehouse-temporary-enclosure-recovery-v1"
+        )
+        obstacles = {value["id"]: value for value in scenario["obstacles"]}
+        self.assertEqual(len(obstacles), 4)
+        self.assertTrue(all(not value["activeInitially"] for value in obstacles.values()))
+        self.assertEqual(
+            {value["activationAfterSeconds"] for value in obstacles.values()}, {18.0}
+        )
+        self.assertEqual(
+            {value["removalAfterSeconds"] for value in obstacles.values()}, {34.0}
+        )
+        # Retained nominal odometry at the activation boundary maps to approximately
+        # Unity (x=-0.79, z=4.28), strictly inside all four inner faces.
+        nominal_x, nominal_z = -0.79, 4.28
+        west_inner = obstacles["recovery-enclosure-west"]["center"][0] + (
+            obstacles["recovery-enclosure-west"]["size"][0] * 0.5
+        )
+        east_inner = obstacles["recovery-enclosure-east"]["center"][0] - (
+            obstacles["recovery-enclosure-east"]["size"][0] * 0.5
+        )
+        south_inner = obstacles["recovery-enclosure-south"]["center"][2] + (
+            obstacles["recovery-enclosure-south"]["size"][2] * 0.5
+        )
+        north_inner = obstacles["recovery-enclosure-north"]["center"][2] - (
+            obstacles["recovery-enclosure-north"]["size"][2] * 0.5
+        )
+        self.assertLess(west_inner, nominal_x)
+        self.assertGreater(east_inner, nominal_x)
+        self.assertLess(south_inner, nominal_z)
+        self.assertGreater(north_inner, nominal_z)
 
     def test_occupied_goal_is_inside_obstacle_beyond_goal_tolerance(self) -> None:
         route = next(

@@ -28,6 +28,9 @@ WAREHOUSE_DEADLINE_BLOCKAGE_LAUNCHER = (
 WAREHOUSE_DEADLINE_BT = (
     ROOT / "Tools" / "Performance" / "nav2_warehouse_replanning_deadline.xml"
 )
+WAREHOUSE_RECOVERY_LAUNCHER = (
+    ROOT / "Tools" / "Performance" / "run_warehouse_recovery_nav2_fixture.sh"
+)
 
 
 class LandNav2FixtureContractTests(unittest.TestCase):
@@ -227,6 +230,18 @@ class LandNav2FixtureContractTests(unittest.TestCase):
         self.assertNotEqual(tree, frozen_tree)
         self.assertNotIn("<Timeout", frozen_tree)
         self.assertNotIn("Roboboat Course", launcher + blockage + tree)
+
+    def test_warehouse_recovery_launcher_selects_temporary_physical_enclosure(self) -> None:
+        text = WAREHOUSE_RECOVERY_LAUNCHER.read_text(encoding="utf-8")
+        tree = (
+            ROOT / "Tools/Performance/nav2_warehouse_replanning_recovery.xml"
+        ).read_text(encoding="utf-8")
+        self.assertIn("warehouse-temporary-enclosure-recovery-v1", text)
+        self.assertIn("nav2_warehouse_replanning_recovery.xml", text)
+        self.assertIn('CRANE_NAV2_ACTION_DURATION="${CRANE_NAV2_ACTION_DURATION:-100}"', text)
+        self.assertIn('<Timeout msec="90000">', tree)
+        self.assertIn('CRANE_EXPECTED_NAV_STATUS="${CRANE_EXPECTED_NAV_STATUS:-succeeded}"', text)
+        self.assertNotIn("Roboboat Course", text + tree)
 
     def test_warehouse_costmap_matches_manifest_robot_and_preserves_frozen_params(self) -> None:
         warehouse = WAREHOUSE_PARAMETERS.read_text(encoding="utf-8")

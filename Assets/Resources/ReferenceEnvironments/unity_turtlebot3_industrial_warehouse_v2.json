@@ -1,7 +1,7 @@
 {
   "schema": "crane-environment-scenario-catalog-v1",
   "environmentId": "crane-industrial-warehouse-v2",
-  "generatorVersion": "2.1.0",
+  "generatorVersion": "2.2.0",
   "upstream": [
     {
       "project": "Unity-Technologies/Robotics-Nav2-SLAM-Example",
@@ -172,6 +172,56 @@
       ],
       "expectedChallenge": "A complete barrier is removed at a deterministic simulation-time boundary so planning or recovery can resume against the same canonical layout.",
       "expectedBroadOutcome": "recovery-or-replan-then-success"
+    },
+    {
+      "id": "warehouse-temporary-enclosure-recovery-v1",
+      "routeId": "warehouse-cross-aisle-detour-v1",
+      "seed": 4105,
+      "robot": "TurtleBot3 Waffle-class",
+      "obstacles": [
+        {
+          "id": "recovery-enclosure-north",
+          "role": "controlled-temporary-enclosure",
+          "center": [-0.8, 1.0, 5.35],
+          "size": [3.0, 2.0, 0.25],
+          "color": [0.95, 0.55, 0.05],
+          "activeInitially": false,
+          "activationAfterSeconds": 18.0,
+          "removalAfterSeconds": 34.0
+        },
+        {
+          "id": "recovery-enclosure-south",
+          "role": "controlled-temporary-enclosure",
+          "center": [-0.8, 1.0, 3.45],
+          "size": [3.0, 2.0, 0.25],
+          "color": [0.95, 0.55, 0.05],
+          "activeInitially": false,
+          "activationAfterSeconds": 18.0,
+          "removalAfterSeconds": 34.0
+        },
+        {
+          "id": "recovery-enclosure-west",
+          "role": "controlled-temporary-enclosure",
+          "center": [-2.2, 1.0, 4.4],
+          "size": [0.25, 2.0, 2.15],
+          "color": [0.95, 0.55, 0.05],
+          "activeInitially": false,
+          "activationAfterSeconds": 18.0,
+          "removalAfterSeconds": 34.0
+        },
+        {
+          "id": "recovery-enclosure-east",
+          "role": "controlled-temporary-enclosure",
+          "center": [0.6, 1.0, 4.4],
+          "size": [0.25, 2.0, 2.15],
+          "color": [0.95, 0.55, 0.05],
+          "activeInitially": false,
+          "activationAfterSeconds": 18.0,
+          "removalAfterSeconds": 34.0
+        }
+      ],
+      "expectedChallenge": "A four-wall safety enclosure activates around the nominal trajectory and later opens, creating a physical progress failure opportunity followed by route resumption.",
+      "expectedBroadOutcome": "controller-recovery-then-success-or-calibration-failure"
     },
     {
       "id": "warehouse-occupied-goal-no-path-v1",
