@@ -85,6 +85,15 @@ class LandNav2FixtureContractTests(unittest.TestCase):
         self.assertIn("self.publish_identity('accepted_goal_republication')", text)
         self.assertIn("delivered_to_fixture_not_proven_consumed_by_nav2", text)
 
+    def test_fixture_records_bounded_bt_and_recovery_feedback_metrics(self) -> None:
+        text = FIXTURE.read_text(encoding="utf-8")
+        self.assertIn("BehaviorTreeLog", text)
+        self.assertIn("feedback_callback=self.on_feedback", text)
+        self.assertIn("'maximumRecoveryCount'", text)
+        self.assertIn("'recoveryCountSequence'", text)
+        self.assertIn("'behaviorTreeTransitionCounts'", text)
+        self.assertIn("may-omit-terminal-tick-not-proof-of-completeness", text)
+
     def test_harness_boundary_events_survive_dds_discovery(self) -> None:
         text = FIXTURE.read_text(encoding="utf-8")
         harness_section = text.split("harness_qos = QoSProfile(", 1)[1].split(")", 1)[0]

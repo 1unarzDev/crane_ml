@@ -123,6 +123,13 @@ speed to the physical base. The final direction-free region-goal run succeeded a
 sampled west-aisle detour. `summarize_environment_qa.py` merges this independently captured route
 result with the structural validator without inferring interactive or failure/recovery gates.
 
+The generic NavigateToPose fixture also records delivered `BehaviorTreeLog` transition counts,
+latest observed status per node, feedback-message count, maximum `number_of_recoveries`, and the
+ordered recovery-count changes. These are QA summaries, not a replacement for the explanation
+capture's retained raw event stream. The summary explicitly marks BT delivery as potentially
+incomplete because Nav2 Jazzy can omit terminal-tick transitions; a nearby topic message also does
+not prove internal sensor consumption.
+
 ### Training with full visual sensors
 
 - High Fidelity HDRP water with GPU readback.

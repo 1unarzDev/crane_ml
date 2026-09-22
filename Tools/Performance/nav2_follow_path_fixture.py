@@ -14,6 +14,7 @@ import time
 import rclpy
 from geometry_msgs.msg import PoseStamped, Twist, TwistStamped
 from nav2_msgs.action import FollowPath, NavigateToPose
+from nav2_msgs.msg import BehaviorTreeLog
 from nav2_msgs.srv import GetCostmap
 from nav_msgs.msg import OccupancyGrid, Odometry, Path
 from rclpy.action import ActionClient
@@ -53,6 +54,13 @@ class FollowPathFixture(Node):
         self.goal_attempts = 0
         self.next_goal_attempt_wall = 0.0
         self.result_status = None
+        self.feedback_count = 0
+        self.maximum_recovery_count = 0
+        self.recovery_count_sequence = []
+        self.bt_log_message_count = 0
+        self.bt_transition_count = 0
+        self.bt_transition_counts = {}
+        self.bt_latest_transition_by_node = {}
         self.done = False
         self.goal_description = None
         self.publisher = self.create_publisher(
@@ -77,6 +85,7 @@ class FollowPathFixture(Node):
         )
         self.create_subscription(OccupancyGrid, args.costmap_topic,
                                  self.on_costmap, costmap_qos)
+        self.create_subscription(BehaviorTreeLog, args.bt_topic, self.on_bt_log, 10)
         self.costmap_client = self.create_client(GetCostmap, args.costmap_service)
         if args.input_type == 'stamped':
             self.create_subscription(
@@ -127,6 +136,28 @@ class FollowPathFixture(Node):
     def on_costmap(self, message):
         self.costmap_count += 1
         self.record_costmap(message.data)
+
+    def on_bt_log(self, message):
+        self.bt_log_message_count += 1
+        for event in message.event_log:
+            self.bt_transition_count += 1
+            key = f'{event.node_name}:{event.previous_status}->{event.current_status}'
+            self.bt_transition_counts[key] = self.bt_transition_counts.get(key, 0) + 1
+            self.bt_latest_transition_by_node[event.node_name] = {
+                'uid': int(event.uid),
+                'previousStatus': event.previous_status,
+                'currentStatus': event.current_status,
+                'eventStamp': stamp_dict(event.timestamp),
+                'messageStamp': stamp_dict(message.timestamp),
+            }
+
+    def on_feedback(self, message):
+        self.feedback_count += 1
+        feedback = message.feedback
+        recoveries = int(feedback.number_of_recoveries)
+        self.maximum_recovery_count = max(self.maximum_recovery_count, recoveries)
+        if not self.recovery_count_sequence or self.recovery_count_sequence[-1] != recoveries:
+            self.recovery_count_sequence.append(recoveries)
 
     def record_costmap(self, data):
         occupied = sum(1 for value in data if value > 0)
@@ -231,7 +262,7 @@ class FollowPathFixture(Node):
                 goal.progress_checker_id = 'progress_checker'
         self.goal_sent_wall = time.monotonic()
         self.goal_attempts += 1
-        future = self.action.send_goal_async(goal)
+        future = self.action.send_goal_async(goal, feedback_callback=self.on_feedback)
         future.add_done_callback(self.on_goal_response)
 
     def on_goal_response(self, future):
@@ -317,6 +348,16 @@ class FollowPathFixture(Node):
             'maximumAngularCommand': self.maximum_angular_command,
             'returnedCommands': self.output_count,
             'goalAttempts': self.goal_attempts,
+            'navigateToPoseFeedbackMessages': self.feedback_count,
+            'maximumRecoveryCount': self.maximum_recovery_count,
+            'recoveryCountSequence': self.recovery_count_sequence,
+            'behaviorTreeTopic': self.args.bt_topic,
+            'behaviorTreeLogMessages': self.bt_log_message_count,
+            'behaviorTreeTransitions': self.bt_transition_count,
+            'behaviorTreeTransitionCounts': self.bt_transition_counts,
+            'behaviorTreeLatestTransitionByNode': self.bt_latest_transition_by_node,
+            'behaviorTreeProvenance': (
+                'delivered-topic-transitions-may-omit-terminal-tick-not-proof-of-completeness'),
             'costmapTopic': self.args.costmap_topic,
             'costmapMessages': self.costmap_count,
             'costmapService': self.args.costmap_service,
@@ -369,6 +410,7 @@ def main():
     parser.add_argument('--duration', type=float, default=25.0)
     parser.add_argument('--output')
     parser.add_argument('--harness-topic', default='/crane/explanation_event')
+    parser.add_argument('--bt-topic', default='/behavior_tree_log')
     parser.add_argument('--episode-id', required=True)
     parser.add_argument('--run-id', required=True)
     args = parser.parse_args()
