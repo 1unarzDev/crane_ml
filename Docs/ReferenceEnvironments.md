@@ -298,14 +298,17 @@ python3 Tools/ReferenceEnvironments/validate_ecological_explanation_contract.py
 ```
 
 The validated contract SHA-256 is
-`ff2b2c45606a8f918fd4a4d70194dcfa9ceeac1a031245a94cc3bbbfa529209d`.
+`65b10d62259e741c296d3fe20de4653bd00cde7b6ccce46763c9a6be195124ac`.
 This is a reproducible handoff to the explanation pipeline; explanation generation,
 information-parity audit, blinded annotation, and statistical evaluation remain **NOT_RUN**.
 
 Each scenario also declares fail-closed runtime-admission criteria. An export must match the
 declared terminal status, minimum recorded recovery-invocation and trajectory inventories,
-required BT node observations, and zero-drop requirements. A matching scenario/configuration hash
-does not qualify a run whose intended mechanism did not occur.
+required BT node observations, predeclared route-shape thresholds where applicable, and zero-drop
+requirements. A matching scenario/configuration hash does not qualify a run whose intended
+mechanism did not occur. Route-shape admission uses signed lateral extrema and a fixed 0.15 m
+direction-change deadband, and the same metrics are exposed in the robot-visible trajectory
+summary.
 
 The passive Nav2 fixture now retains an ordered, bounded `BehaviorTreeLog` stream using
 `Tools/Performance/bt_transition_capture.py`. It assigns stable transition IDs and derives a unique
@@ -346,6 +349,14 @@ an independent scan found no evaluator-only keys in the robot-visible file. The 
 root transition and undetectable subscriber loss keep history `not_proven`. This supports a
 recorded task-policy terminal mechanism, not physical obstacle causation or a planner `no path`
 claim.
+
+The same current build also requalified `slalom-s-turn-v2`: structural, physics, sensor, headless,
+navigation, and explanation-readiness gates pass; the action succeeded at 87.410 seconds; and the
+QA trajectory covers 21.467 m with signed lateral extrema +1.343/-1.342 m and four direction
+changes. Ordered capture retained 763 unique transitions with zero drops. Its ecological export
+passes the contract's +0.75/-0.75 m and three-direction-change thresholds, is deterministic across
+output roots, and passes the independent robot-visible leakage scan. These observations support a
+recorded S-shaped trajectory, not route optimality, physical cause, or controller consumption.
 
 ## F1TENTH occupancy maps
 

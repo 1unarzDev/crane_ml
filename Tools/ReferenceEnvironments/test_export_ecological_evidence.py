@@ -223,6 +223,15 @@ class EcologicalEvidenceExportTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "minimum recorded recovery"):
             self.do_export()
 
+    def test_export_rejects_trajectory_that_misses_declared_route_shape(self) -> None:
+        value = json.loads(self.contract.read_text())
+        value["scenarios"][0]["runtimeAcceptance"]["trajectoryCriteria"] = {
+            "minimumLateralDirectionChanges": 1
+        }
+        write(self.contract, value)
+        with self.assertRaisesRegex(ValueError, "trajectory does not satisfy"):
+            self.do_export()
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -47,9 +47,36 @@ def trajectory_summary(samples: list[dict[str, Any]]) -> dict[str, Any]:
             "sampledPathLengthMeters": 0.0,
             "endpointDisplacementMeters": 0.0,
             "maximumLateralExcursionMeters": 0.0,
+            "minimumLateralMeters": 0.0,
+            "maximumLateralMeters": 0.0,
+            "lateralDirectionDeadbandMeters": 0.15,
+            "lateralDirectionChangeCount": 0,
         }
     first = points[0]
     last = points[-1]
+    lateral_deadband = 0.15
+    lateral_direction_changes = 0
+    lateral_direction = 0
+    lateral_extreme = first[1]
+    for _, lateral in points[1:]:
+        if lateral_direction == 0:
+            delta = lateral - lateral_extreme
+            if abs(delta) >= lateral_deadband:
+                lateral_direction = 1 if delta > 0 else -1
+                lateral_extreme = lateral
+        elif lateral_direction > 0:
+            if lateral > lateral_extreme:
+                lateral_extreme = lateral
+            elif lateral_extreme - lateral >= lateral_deadband:
+                lateral_direction_changes += 1
+                lateral_direction = -1
+                lateral_extreme = lateral
+        elif lateral < lateral_extreme:
+            lateral_extreme = lateral
+        elif lateral - lateral_extreme >= lateral_deadband:
+            lateral_direction_changes += 1
+            lateral_direction = 1
+            lateral_extreme = lateral
     return {
         "sampleCount": len(points),
         "sampledPathLengthMeters": sum(
@@ -58,6 +85,10 @@ def trajectory_summary(samples: list[dict[str, Any]]) -> dict[str, Any]:
         ),
         "endpointDisplacementMeters": math.hypot(last[0] - first[0], last[1] - first[1]),
         "maximumLateralExcursionMeters": max(abs(value[1] - first[1]) for value in points),
+        "minimumLateralMeters": min(value[1] - first[1] for value in points),
+        "maximumLateralMeters": max(value[1] - first[1] for value in points),
+        "lateralDirectionDeadbandMeters": lateral_deadband,
+        "lateralDirectionChangeCount": lateral_direction_changes,
     }
 
 
@@ -214,6 +245,47 @@ def validate_runtime_acceptance(
     if len(samples) < minimum_samples:
         raise ValueError(
             "Runtime lacks the minimum trajectory samples required by the ecological contract"
+        )
+
+    summary = trajectory_summary(samples)
+    trajectory_criteria = acceptance.get("trajectoryCriteria", {})
+    trajectory_checks = {
+        "minimumPositiveLateralMeters": lambda threshold: (
+            summary["maximumLateralMeters"] >= threshold
+        ),
+        "maximumNegativeLateralMeters": lambda threshold: (
+            summary["minimumLateralMeters"] <= threshold
+        ),
+        "minimumAbsoluteLateralMeters": lambda threshold: (
+            max(
+                abs(summary["minimumLateralMeters"]),
+                abs(summary["maximumLateralMeters"]),
+            ) >= threshold
+        ),
+        "maximumAbsoluteLateralMeters": lambda threshold: (
+            max(
+                abs(summary["minimumLateralMeters"]),
+                abs(summary["maximumLateralMeters"]),
+            ) <= threshold
+        ),
+        "minimumLateralDirectionChanges": lambda threshold: (
+            summary["lateralDirectionChangeCount"] >= threshold
+        ),
+    }
+    unknown_criteria = sorted(set(trajectory_criteria) - set(trajectory_checks))
+    if unknown_criteria:
+        raise ValueError(
+            "Ecological contract has unsupported trajectory criteria: "
+            + ", ".join(unknown_criteria)
+        )
+    failed_criteria = [
+        name for name, threshold in trajectory_criteria.items()
+        if not trajectory_checks[name](threshold)
+    ]
+    if failed_criteria:
+        raise ValueError(
+            "Runtime trajectory does not satisfy ecological contract criteria: "
+            + ", ".join(sorted(failed_criteria))
         )
 
     observed_nodes = {

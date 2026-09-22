@@ -15,6 +15,13 @@ EXPECTED_SCHEMA = "crane-ecological-explanation-contract-v1"
 ALLOWED_ANSWER_MODES = {"full", "partial", "full_when_complete_otherwise_partial"}
 ALLOWED_QUALIFICATION = {"REPETITION_PASS", "SINGLE_RUN_NAVIGATION_PASS"}
 ALLOWED_TERMINAL_STATUSES = {"succeeded", "aborted", "canceled", "timeout"}
+ALLOWED_TRAJECTORY_CRITERIA = {
+    "minimumPositiveLateralMeters",
+    "maximumNegativeLateralMeters",
+    "minimumAbsoluteLateralMeters",
+    "maximumAbsoluteLateralMeters",
+    "minimumLateralDirectionChanges",
+}
 
 
 def load(path: Path) -> dict[str, Any]:
@@ -148,6 +155,26 @@ def validate(contract_path: Path, root: Path = ROOT) -> dict[str, Any]:
             or len(required_nodes) != len(set(required_nodes))
         ):
             raise ValueError(f"Invalid required transition nodes for {scenario_id}")
+        trajectory_criteria = acceptance.get("trajectoryCriteria", {})
+        if not isinstance(trajectory_criteria, dict) or not set(
+            trajectory_criteria
+        ) <= ALLOWED_TRAJECTORY_CRITERIA:
+            raise ValueError(f"Invalid trajectory criteria for {scenario_id}")
+        for name, value in trajectory_criteria.items():
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
+                raise ValueError(f"Invalid trajectory criterion {name} for {scenario_id}")
+            if name == "minimumLateralDirectionChanges" and (
+                not isinstance(value, int) or value < 0
+            ):
+                raise ValueError(f"Invalid trajectory criterion {name} for {scenario_id}")
+            if name in {
+                "minimumPositiveLateralMeters",
+                "minimumAbsoluteLateralMeters",
+                "maximumAbsoluteLateralMeters",
+            } and value < 0:
+                raise ValueError(f"Invalid trajectory criterion {name} for {scenario_id}")
+            if name == "maximumNegativeLateralMeters" and value > 0:
+                raise ValueError(f"Invalid trajectory criterion {name} for {scenario_id}")
         for field in (
             "requireZeroDroppedTransitions",
             "requireZeroDroppedRecoveryInvocations",

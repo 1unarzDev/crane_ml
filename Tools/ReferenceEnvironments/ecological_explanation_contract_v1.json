@@ -254,6 +254,11 @@
         ],
         "minimumRecordedRecoveryInvocations": 0,
         "minimumTrajectorySamples": 2,
+        "trajectoryCriteria": {
+          "minimumPositiveLateralMeters": 0.75,
+          "maximumNegativeLateralMeters": -0.75,
+          "minimumLateralDirectionChanges": 3
+        },
         "requiredTransitionNodeNames": [],
         "requireZeroDroppedTransitions": true,
         "requireZeroDroppedRecoveryInvocations": true
@@ -319,6 +324,9 @@
         ],
         "minimumRecordedRecoveryInvocations": 0,
         "minimumTrajectorySamples": 2,
+        "trajectoryCriteria": {
+          "minimumAbsoluteLateralMeters": 2.5
+        },
         "requiredTransitionNodeNames": [],
         "requireZeroDroppedTransitions": true,
         "requireZeroDroppedRecoveryInvocations": true

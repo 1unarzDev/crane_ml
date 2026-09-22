@@ -84,6 +84,18 @@ class EcologicalExplanationContractTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Missing runtime acceptance"):
                 MODULE.validate(path)
 
+    def test_rejects_unknown_runtime_trajectory_criterion(self) -> None:
+        contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
+        changed = copy.deepcopy(contract)
+        changed["scenarios"][0]["runtimeAcceptance"]["trajectoryCriteria"] = {
+            "looksCurvy": True
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "contract.json"
+            path.write_text(json.dumps(changed), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "Invalid trajectory criteria"):
+                MODULE.validate(path)
+
 
 if __name__ == "__main__":
     unittest.main()
