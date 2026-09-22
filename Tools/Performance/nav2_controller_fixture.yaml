@@ -24,16 +24,16 @@ controller_server:
       rot_stopped_velocity: 0.05
     FollowPath:
       plugin: nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController
-      desired_linear_vel: 0.15
-      lookahead_dist: 0.8
+      desired_linear_vel: 0.8
+      lookahead_dist: 2.0
       min_lookahead_dist: 0.2
       max_lookahead_dist: 0.6
       lookahead_time: 1.5
-      rotate_to_heading_angular_vel: 0.4
+      rotate_to_heading_angular_vel: 0.2
       transform_tolerance: 0.2
       use_velocity_scaled_lookahead_dist: false
       use_collision_detection: true
-      use_rotate_to_heading: false
+      use_rotate_to_heading: true
       allow_reversing: false
       min_approach_linear_velocity: 0.02
       approach_velocity_scaling_dist: 2.0
