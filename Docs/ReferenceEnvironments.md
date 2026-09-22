@@ -18,13 +18,31 @@ Unity's Nav2/SLAM example using CRANE-owned primitive geometry. The separate Rob
 repository has no license file at the pinned revision, so none of its meshes or textures were
 copied. TurtleBot3 dimensions come from the Apache-2.0 example.
 
-Provenance and layer contracts are retained in
-`Assets/Resources/ReferenceEnvironments/unity_turtlebot3_simple_warehouse.json`.
+The active ecological layout is the manifest-driven 20 × 26 m
+`crane-industrial-warehouse-v2`, retained in
+`Assets/Resources/ReferenceEnvironments/unity_turtlebot3_industrial_warehouse_v2.json`. It has
+20 canonical boxes, eight semantic regions, and four route contracts covering alternative lower
+aisles, a center route divider, cross-aisles, a narrow gate, clutter, a work zone, and a dead end.
+The scene serializes the manifest asset so the exact route/layout contract is a player-build
+dependency. The older simple-warehouse manifest and its successful short smoke remain historical
+infrastructure; they are not evidence that the v2 ecological routes pass.
 
 The 2026-09-19 headless Nav2 smoke succeeded for a 2 m goal in 6.08 s, displaced 1.469 m (within
 the configured 0.55 m goal tolerance), captured 136 LiDAR scans and 22 populated costmap
 observations, and ran at RTF 1.00007. This validates the integration path, not benchmark difficulty
 or explanation fidelity.
+
+On 2026-09-21, the first v2 cross-aisle calibration retained the canonical warehouse rather than
+substituting the controlled corridor. The 13 m goal timed out after 60 s: the robot displaced
+2.770 m, received 597 returned controller commands and 199 costmap observations, turned near the
+center divider, then oscillated while creeping toward the side aisle. A second predeclared run
+used a warehouse-only 0.22 m costmap radius and 0.55 m inflation radius, conservatively matched to
+the manifest's 0.188 m base circumscribed radius. It also timed out at essentially the same pose
+(2.775 m displacement), although maximum occupied costmap cells fell from 8,750 to 4,996. This
+rules out oversized costmap inflation as the sole limiting cause; it is not a navigation pass.
+The observed controller request of 0.8 m/s is clamped by the physical base to 0.26 m/s while its
+angular request is not proportionally scaled, making realized-curvature mismatch the next
+diagnosis target. No recovery, success, or physical-cause claim is made from these calibrations.
 
 ## F1TENTH occupancy maps
 
@@ -175,7 +193,9 @@ result JSON SHA-256 was
 
 ## Status
 
-- TurtleBot3 warehouse: **IMPLEMENTED / TESTED** headless and with Nav2.
+- TurtleBot3 warehouse: v2 canonical layout and ecological route contracts **IMPLEMENTED**;
+  build/headless ROS/LiDAR/costmap path **TESTED**; representative v2 route
+  `NAVIGATION_PASS` and `EXPLANATION_READY` **NOT_ESTABLISHED**. The historical short smoke passed.
 - F1TENTH conversion and Unity import: **IMPLEMENTED / TESTED** on synthetic fixtures and the
   pinned external Spielberg map; full-lap controller/ROS validation **NOT_RUN**.
 - PX4 walls: **IMPLEMENTED / TESTED** headlessly; ArUco: **IMPLEMENTED / TESTED** for layer
