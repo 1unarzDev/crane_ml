@@ -1,0 +1,31 @@
+{
+  "schema": "crane-land-proving-ground-catalog-v1",
+  "environmentId": "crane-land-proving-ground-v3",
+  "generatorVersion": "3.0.0",
+  "dimensionsMeters": [8.0, 22.0],
+  "sharedBoxes": [
+    {"id":"proving-floor","role":"traversable-floor","center":[0.0,-0.10,10.0],"size":[10.0,0.20,24.0],"color":[0.24,0.27,0.30]},
+    {"id":"proving-west-boundary","role":"boundary-wall","center":[-4.125,1.0,10.0],"size":[0.25,2.0,24.0],"color":[0.44,0.48,0.52]},
+    {"id":"proving-east-boundary","role":"boundary-wall","center":[4.125,1.0,10.0],"size":[0.25,2.0,24.0],"color":[0.44,0.48,0.52]}
+  ],
+  "layouts": [
+    {
+      "id": "temporary-enclosure-recovery-v3",
+      "seed": 5303,
+      "robot": "TurtleBot3 Waffle-class",
+      "start": [0.0,0.08,0.0],
+      "goal": [0.0,0.08,18.0],
+      "approximateLengthMeters": 18.0,
+      "alternatives": ["resume the forward route after the temporary enclosure opens"],
+      "relevantObstacles": ["enclosure-north", "enclosure-south", "enclosure-west", "enclosure-east"],
+      "expectedChallenge": "A four-wall enclosure activates around the nominal trajectory at 18 s and opens at 34 s, creating a bounded physical progress-failure opportunity before route resumption.",
+      "expectedBroadOutcome": "recorded-recovery-then-success-or-calibration-failure",
+      "obstacles": [
+        {"id":"enclosure-north","role":"controlled-temporary-enclosure","center":[0.0,1.0,4.75],"size":[3.0,2.0,0.25],"color":[0.95,0.55,0.05],"activeInitially":false,"activationAfterSeconds":18.0,"removalAfterSeconds":34.0},
+        {"id":"enclosure-south","role":"controlled-temporary-enclosure","center":[0.0,1.0,2.85],"size":[3.0,2.0,0.25],"color":[0.95,0.55,0.05],"activeInitially":false,"activationAfterSeconds":18.0,"removalAfterSeconds":34.0},
+        {"id":"enclosure-west","role":"controlled-temporary-enclosure","center":[-1.4,1.0,3.8],"size":[0.25,2.0,2.15],"color":[0.95,0.55,0.05],"activeInitially":false,"activationAfterSeconds":18.0,"removalAfterSeconds":34.0},
+        {"id":"enclosure-east","role":"controlled-temporary-enclosure","center":[1.4,1.0,3.8],"size":[0.25,2.0,2.15],"color":[0.95,0.55,0.05],"activeInitially":false,"activationAfterSeconds":18.0,"removalAfterSeconds":34.0}
+      ]
+    }
+  ]
+}

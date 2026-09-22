@@ -1,0 +1,10 @@
+{
+  "schema": "crane-land-proving-ground-navigation-gates-v1",
+  "environmentId": "crane-land-proving-ground-v3",
+  "trajectorySampleDeadbandMeters": 0.15,
+  "layouts": {
+    "temporary-enclosure-recovery-v3": {
+      "minimumRecoveryCount": 1
+    }
+  }
+}

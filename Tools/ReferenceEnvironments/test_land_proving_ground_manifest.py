@@ -14,6 +14,10 @@ MANIFEST_V2 = (
     ROOT
     / "Assets/Resources/ReferenceEnvironments/crane_land_proving_ground_v2.json"
 )
+MANIFEST_V3 = (
+    ROOT
+    / "Assets/Resources/ReferenceEnvironments/crane_land_proving_ground_v3.json"
+)
 NAVIGATION_GATES = (
     ROOT
     / "Tools/ReferenceEnvironments/land_proving_ground_navigation_gates_v1.json"
@@ -26,6 +30,10 @@ def load_manifest() -> dict:
 
 def load_manifest_v2() -> dict:
     return json.loads(MANIFEST_V2.read_text(encoding="utf-8"))
+
+
+def load_manifest_v3() -> dict:
+    return json.loads(MANIFEST_V3.read_text(encoding="utf-8"))
 
 
 def by_id(values: list[dict]) -> dict[str, dict]:
@@ -91,6 +99,47 @@ def test_v2_slalom_forces_four_alternating_openings() -> None:
     assert gates["environmentId"] == load_manifest_v2()["environmentId"]
     assert set(gates["layouts"]) == {layout["id"]}
     assert gates["layouts"][layout["id"]]["minimumLateralDirectionChanges"] >= 3
+
+
+def test_v3_preserves_prior_catalogs_and_adds_only_bounded_recovery_layout() -> None:
+    original = load_manifest()
+    corrected = load_manifest_v2()
+    recovery = load_manifest_v3()
+    assert recovery["schema"] == original["schema"] == corrected["schema"]
+    assert recovery["environmentId"] == "crane-land-proving-ground-v3"
+    assert recovery["generatorVersion"] == "3.0.0"
+    assert recovery["sharedBoxes"] == original["sharedBoxes"] == corrected["sharedBoxes"]
+    assert [layout["id"] for layout in recovery["layouts"]] == [
+        "temporary-enclosure-recovery-v3"
+    ]
+
+
+def test_v3_recovery_layout_is_a_bounded_four_wall_enclosure() -> None:
+    layout = load_manifest_v3()["layouts"][0]
+    obstacles = by_id(layout["obstacles"])
+    assert set(obstacles) == {
+        "enclosure-north", "enclosure-south", "enclosure-west", "enclosure-east"
+    }
+    assert all(value["role"] == "controlled-temporary-enclosure"
+               for value in obstacles.values())
+    assert all(value["activeInitially"] is False for value in obstacles.values())
+    assert {value["activationAfterSeconds"] for value in obstacles.values()} == {18.0}
+    assert {value["removalAfterSeconds"] for value in obstacles.values()} == {34.0}
+
+    north = obstacles["enclosure-north"]
+    south = obstacles["enclosure-south"]
+    west = obstacles["enclosure-west"]
+    east = obstacles["enclosure-east"]
+    assert north["center"][2] > south["center"][2]
+    assert west["center"][0] < 0 < east["center"][0]
+    assert north["size"][0] == south["size"][0] == 3.0
+    assert west["size"][2] == east["size"][2] == 2.15
+
+    gates = json.loads((
+        ROOT / "Tools/ReferenceEnvironments/land_proving_ground_navigation_gates_v3.json"
+    ).read_text(encoding="utf-8"))
+    assert gates["environmentId"] == load_manifest_v3()["environmentId"]
+    assert gates["layouts"][layout["id"]]["minimumRecoveryCount"] >= 1
 
 
 def test_each_layout_has_reproducible_route_and_unique_semantics() -> None:

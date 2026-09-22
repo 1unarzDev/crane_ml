@@ -358,6 +358,19 @@ passes the contract's +0.75/-0.75 m and three-direction-change thresholds, is de
 output roots, and passes the independent robot-visible leakage scan. These observations support a
 recorded S-shaped trajectory, not route optimality, physical cause, or controller consumption.
 
+An additive `crane-land-proving-ground-v3` catalog retains v1/v2 unchanged and adds
+`temporary-enclosure-recovery-v3`. Four walls activate around the nominal trajectory at 18 seconds
+and are removed at 34 seconds. Its first current-build calibration passed structural, physics,
+sensor, headless, navigation, failure/recovery, and explanation-readiness gates: all four walls
+activated at 18.040 simulated seconds and were removed at 34.040 seconds; NavigateToPose succeeded;
+feedback changed from recovery count 0 to 1; and 756 unique BT transitions were retained against a
+16,384-record capacity with zero drops. The delivered transition stream contains FollowPath
+failure, a successful controller-recovery guard, and `ClearLocalCostmap-Context IDLE -> SUCCESS`,
+but no configured recovery leaf produced the strict `IDLE -> RUNNING` edge required for a stable
+recovery-invocation ID. The run therefore remains a retained calibration and is not admitted to
+the ecological separated export. It supports the observed software sequence and feedback count,
+not an exact attempt count or a physical-causation claim.
+
 ## F1TENTH occupancy maps
 
 `Tools/ReferenceEnvironments/f1tenth_map_generator.py` reads standard PNG/YAML maps, applies the
