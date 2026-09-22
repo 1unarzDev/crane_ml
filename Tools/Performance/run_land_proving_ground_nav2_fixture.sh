@@ -12,6 +12,7 @@ export CRANE_NAV2_PARAMS="${CRANE_NAV2_PARAMS:-${root_dir}/Tools/Performance/nav
 export CRANE_NAV2_GOAL_DISTANCE="${CRANE_NAV2_GOAL_DISTANCE:-18.0}"
 export CRANE_NAV2_ACTION_DURATION="${CRANE_NAV2_ACTION_DURATION:-100}"
 export CRANE_DURATION="${CRANE_DURATION:-110}"
+export CRANE_BT_MAX_TRANSITIONS="${CRANE_BT_MAX_TRANSITIONS:-16384}"
 export CRANE_LAND_SCENARIO_ID="${CRANE_LAND_SCENARIO_ID:-${layout}}"
 export CRANE_NAV2_UNITY_EXTRA_ARGS="--crane-land-proving-ground-catalog ${catalog} --crane-land-proving-ground-layout ${layout} ${CRANE_NAV2_UNITY_EXTRA_ARGS:-}"
 

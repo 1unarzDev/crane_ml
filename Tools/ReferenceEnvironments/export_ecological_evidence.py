@@ -245,7 +245,13 @@ def export(
         },
         "bt": {
             "transitionSequence": transitions,
+            "transitionCapacity": capture.get("transitionCapacity"),
+            "retainedTransitionCount": capture.get("retainedTransitionCount", len(transitions)),
             "recoveryInvocations": invocations,
+            "recoveryInvocationCapacity": capture.get("recoveryInvocationCapacity"),
+            "retainedRecoveryInvocationCount": capture.get(
+                "retainedRecoveryInvocationCount", len(invocations)
+            ),
             "observedRecoveryInvocationStartCount": capture.get(
                 "observedRecoveryInvocationStartCount"
             ),

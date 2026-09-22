@@ -99,6 +99,7 @@ class LandNav2FixtureContractTests(unittest.TestCase):
 
     def test_fixture_records_bounded_bt_and_recovery_feedback_metrics(self) -> None:
         text = FIXTURE.read_text(encoding="utf-8")
+        shared_text = SHARED_LAUNCHER.read_text(encoding="utf-8")
         self.assertIn("BehaviorTreeLog", text)
         self.assertIn("feedback_callback=self.on_feedback", text)
         self.assertIn("'maximumRecoveryCount'", text)
@@ -109,6 +110,9 @@ class LandNav2FixtureContractTests(unittest.TestCase):
         self.assertIn("--bt-max-invocations", text)
         self.assertIn("--bt-terminal-drain-seconds", text)
         self.assertIn("mark_goal_accepted(goal_id)", text)
+        self.assertIn('CRANE_BT_MAX_TRANSITIONS:-4096', shared_text)
+        self.assertIn('CRANE_BT_MAX_INVOCATIONS:-1024', shared_text)
+        self.assertIn("BehaviorTree capture bounds must be positive integers", shared_text)
         self.assertIn("may-omit-terminal-tick-not-proof-of-completeness", text)
         self.assertIn("'trajectorySamples'", text)
         self.assertIn("sampled-delivered-odometry-not-proven-nav2-internal-state", text)
@@ -226,8 +230,13 @@ class LandNav2FixtureContractTests(unittest.TestCase):
         self.assertIn("nav2_warehouse_fixture.yaml", ecological)
         self.assertIn('CRANE_NAV2_GOAL_DISTANCE="${CRANE_NAV2_GOAL_DISTANCE:-13.0}"', ecological)
         self.assertIn('CRANE_NAV2_ACTION_DURATION="${CRANE_NAV2_ACTION_DURATION:-75}"', ecological)
+        self.assertIn('CRANE_BT_MAX_TRANSITIONS="${CRANE_BT_MAX_TRANSITIONS:-16384}"', ecological)
         self.assertIn('CRANE_DURATION="${CRANE_DURATION:-90}"', ecological)
         self.assertNotIn("--crane-preserve-reference-environment", frozen)
+
+    def test_proving_ground_uses_ecological_bt_capture_headroom(self) -> None:
+        text = PROVING_GROUND_LAUNCHER.read_text(encoding="utf-8")
+        self.assertIn('CRANE_BT_MAX_TRANSITIONS="${CRANE_BT_MAX_TRANSITIONS:-16384}"', text)
 
     def test_warehouse_blockage_launcher_preserves_observed_client_timeout(self) -> None:
         ecological = WAREHOUSE_LAUNCHER.read_text(encoding="utf-8")

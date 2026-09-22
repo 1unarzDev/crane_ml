@@ -184,11 +184,15 @@ class BehaviorTreeTransitionCapture:
             reasons.append("one or more recovery nodes started while a prior invocation was open")
         return {
             "orderedTransitions": self.records,
+            "transitionCapacity": self.max_transitions,
+            "retainedTransitionCount": len(self.records),
             "uniqueTransitionCount": self.unique_transition_count,
             "duplicateTransitionCount": self.duplicate_transition_count,
             "deduplicationWindowTransitions": self.max_transitions,
             "droppedTransitionCount": self.dropped_transition_count,
             "recoveryInvocations": self.recovery_invocations,
+            "recoveryInvocationCapacity": self.max_invocations,
+            "retainedRecoveryInvocationCount": len(self.recovery_invocations),
             "observedRecoveryInvocationStartCount": self.recovery_invocation_count,
             "droppedRecoveryInvocationCount": self.dropped_recovery_invocation_count,
             "recoveryNodeClassifier": {

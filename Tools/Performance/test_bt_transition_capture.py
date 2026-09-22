@@ -153,8 +153,12 @@ class BehaviorTreeTransitionCaptureTests(unittest.TestCase):
 
         summary = capture.summary()
         self.assertEqual(len(summary["orderedTransitions"]), 1)
+        self.assertEqual(summary["transitionCapacity"], 1)
+        self.assertEqual(summary["retainedTransitionCount"], 1)
         self.assertEqual(summary["droppedTransitionCount"], 2)
         self.assertEqual(len(summary["recoveryInvocations"]), 1)
+        self.assertEqual(summary["recoveryInvocationCapacity"], 1)
+        self.assertEqual(summary["retainedRecoveryInvocationCount"], 1)
         self.assertEqual(summary["droppedRecoveryInvocationCount"], 1)
         self.assertIn("bounded capture dropped records", summary["completeness"]["limitations"])
 

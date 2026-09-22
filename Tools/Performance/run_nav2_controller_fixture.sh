@@ -19,6 +19,13 @@ command_flag="${CRANE_NAV2_COMMAND_FLAG:---crane-ros-cmd-vel}"
 goal_distance="${CRANE_NAV2_GOAL_DISTANCE:-0.5}"
 action_duration="${CRANE_NAV2_ACTION_DURATION:-20}"
 costmap_topic="${CRANE_NAV2_COSTMAP_TOPIC:-/local_costmap/costmap}"
+bt_max_transitions="${CRANE_BT_MAX_TRANSITIONS:-4096}"
+bt_max_invocations="${CRANE_BT_MAX_INVOCATIONS:-1024}"
+if [[ ! "${bt_max_transitions}" =~ ^[1-9][0-9]*$ || \
+      ! "${bt_max_invocations}" =~ ^[1-9][0-9]*$ ]]; then
+    echo "BehaviorTree capture bounds must be positive integers" >&2
+    exit 2
+fi
 endpoint_name="crane-endpoint-${run_id}"
 controller_name="crane-controller-${run_id}"
 fixture_name="crane-fixture-${run_id}"
@@ -108,7 +115,7 @@ docker run --rm --name "${fixture_name}" --network host --ipc host \
     -e ROS_DOMAIN_ID="${ros_domain_id}" \
     -v "${root_dir}:/workspace/crane_sim:ro" -v "${result_root}:/results" \
     "${image}" bash -lc \
-    'source /opt/ros/jazzy/setup.bash; exec python3 /workspace/crane_sim/Tools/Performance/nav2_follow_path_fixture.py --input-type twist --action-mode '"${nav2_action_mode}"' --distance '"${goal_distance}"' --duration '"${action_duration}"' --costmap-topic '"${costmap_topic}"' --episode-id '"${run_id}-worker-${worker_id}"' --run-id '"${run_id}"' --output /results/fixture-summary.json' \
+    'source /opt/ros/jazzy/setup.bash; exec python3 /workspace/crane_sim/Tools/Performance/nav2_follow_path_fixture.py --input-type twist --action-mode '"${nav2_action_mode}"' --distance '"${goal_distance}"' --duration '"${action_duration}"' --costmap-topic '"${costmap_topic}"' --bt-max-transitions '"${bt_max_transitions}"' --bt-max-invocations '"${bt_max_invocations}"' --episode-id '"${run_id}-worker-${worker_id}"' --run-id '"${run_id}"' --output /results/fixture-summary.json' \
     | tee "${result_root}/fixture.log"
 
 wait "${player_pid}"
