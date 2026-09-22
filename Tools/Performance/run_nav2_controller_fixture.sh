@@ -17,6 +17,9 @@ runtime_profile="${CRANE_NAV2_PROFILE:-train-gpu}"
 scene="${CRANE_SCENE:-Roboboat Course}"
 command_flag="${CRANE_NAV2_COMMAND_FLAG:---crane-ros-cmd-vel}"
 goal_distance="${CRANE_NAV2_GOAL_DISTANCE:-0.5}"
+goal_x="${CRANE_NAV2_GOAL_X:-}"
+goal_y="${CRANE_NAV2_GOAL_Y:-}"
+goal_yaw="${CRANE_NAV2_GOAL_YAW:-}"
 action_duration="${CRANE_NAV2_ACTION_DURATION:-20}"
 costmap_topic="${CRANE_NAV2_COSTMAP_TOPIC:-/local_costmap/costmap}"
 endpoint_name="crane-endpoint-${run_id}"
@@ -103,12 +106,27 @@ player_pid=$!
 fixture_delay="${CRANE_FIXTURE_DELAY:-$(awk -v warmup="${CRANE_WARMUP:-3}" 'BEGIN { print warmup + 4 }')}"
 sleep "${fixture_delay}"
 nav2_action_mode="${CRANE_NAV2_ACTION_MODE:-navigate-to-pose}"
+goal_args=()
+if [[ -n "${goal_x}" || -n "${goal_y}" ]]; then
+    if [[ -z "${goal_x}" || -z "${goal_y}" ]]; then
+        echo "CRANE_NAV2_GOAL_X and CRANE_NAV2_GOAL_Y must be supplied together" >&2
+        exit 2
+    fi
+    goal_args+=(--goal-x "${goal_x}" --goal-y "${goal_y}")
+fi
+if [[ -n "${goal_yaw}" ]]; then
+    goal_args+=(--goal-yaw "${goal_yaw}")
+fi
+goal_args_shell=""
+if (( ${#goal_args[@]} > 0 )); then
+    printf -v goal_args_shell ' %q' "${goal_args[@]}"
+fi
 
 docker run --rm --name "${fixture_name}" --network host --ipc host \
     -e ROS_DOMAIN_ID="${ros_domain_id}" \
     -v "${root_dir}:/workspace/crane_sim:ro" -v "${result_root}:/results" \
     "${image}" bash -lc \
-    'source /opt/ros/jazzy/setup.bash; exec python3 /workspace/crane_sim/Tools/Performance/nav2_follow_path_fixture.py --input-type twist --action-mode '"${nav2_action_mode}"' --distance '"${goal_distance}"' --duration '"${action_duration}"' --costmap-topic '"${costmap_topic}"' --episode-id '"${run_id}-worker-${worker_id}"' --run-id '"${run_id}"' --output /results/fixture-summary.json' \
+    'source /opt/ros/jazzy/setup.bash; exec python3 /workspace/crane_sim/Tools/Performance/nav2_follow_path_fixture.py --input-type twist --action-mode '"${nav2_action_mode}"' --distance '"${goal_distance}"' --duration '"${action_duration}"' --costmap-topic '"${costmap_topic}"' --episode-id '"${run_id}-worker-${worker_id}"' --run-id '"${run_id}"' --output /results/fixture-summary.json'"${goal_args_shell}" \
     | tee "${result_root}/fixture.log"
 
 wait "${player_pid}"

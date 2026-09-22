@@ -39,6 +39,7 @@ class FollowPathFixture(Node):
         self.odom_count = 0
         self.command_count = 0
         self.maximum_linear_command = 0.0
+        self.maximum_lateral_command = 0.0
         self.maximum_angular_command = 0.0
         self.output_count = 0
         self.costmap_count = 0
@@ -162,6 +163,8 @@ class FollowPathFixture(Node):
         self.command_count += 1
         self.maximum_linear_command = max(
             self.maximum_linear_command, abs(float(twist.linear.x)))
+        self.maximum_lateral_command = max(
+            self.maximum_lateral_command, abs(float(twist.linear.y)))
         self.maximum_angular_command = max(
             self.maximum_angular_command, abs(float(twist.angular.z)))
         if self.first_command_wall is None:
@@ -211,6 +214,14 @@ class FollowPathFixture(Node):
             pose.pose.orientation = odom.pose.pose.orientation
             path.poses.append(pose)
         if self.args.action_mode == 'navigate-to-pose':
+            if self.args.goal_x is not None:
+                path.poses[-1].pose.position.x = self.args.goal_x
+                path.poses[-1].pose.position.y = self.args.goal_y
+                goal_yaw = yaw if self.args.goal_yaw is None else self.args.goal_yaw
+                path.poses[-1].pose.orientation.x = 0.0
+                path.poses[-1].pose.orientation.y = 0.0
+                path.poses[-1].pose.orientation.z = math.sin(goal_yaw / 2.0)
+                path.poses[-1].pose.orientation.w = math.cos(goal_yaw / 2.0)
             goal = NavigateToPose.Goal()
             goal.pose = path.poses[-1]
             self.goal_description = {
@@ -314,6 +325,7 @@ class FollowPathFixture(Node):
             'odometryMessages': self.odom_count,
             'controllerCommands': self.command_count,
             'maximumLinearCommand': self.maximum_linear_command,
+            'maximumLateralCommand': self.maximum_lateral_command,
             'maximumAngularCommand': self.maximum_angular_command,
             'returnedCommands': self.output_count,
             'goalAttempts': self.goal_attempts,
@@ -331,6 +343,8 @@ class FollowPathFixture(Node):
             'displacementMeters': displacement,
             'deltaX': dx,
             'deltaY': dy,
+            'initialPose': pose_dict(self.initial_odom),
+            'finalPose': pose_dict(final),
             'provenance': 'latest-delivered-odometry-not-proven-internal-consumption',
             'costmapProvenance': (
                 'nav2-get-costmap-snapshot-not-proven-controller-consumption'),
@@ -352,6 +366,17 @@ def stamp_dict(value):
     return {'sec': int(value.sec), 'nanosec': int(value.nanosec)}
 
 
+def pose_dict(odometry):
+    if odometry is None:
+        return None
+    pose = odometry.pose.pose
+    return {
+        'x': float(pose.position.x),
+        'y': float(pose.position.y),
+        'yaw': yaw_from_quaternion(pose.orientation),
+    }
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--odom-topic', default='/crane/odom')
@@ -365,6 +390,9 @@ def main():
                         default='follow-path')
     parser.add_argument('--action-name')
     parser.add_argument('--distance', type=float, default=0.5)
+    parser.add_argument('--goal-x', type=float)
+    parser.add_argument('--goal-y', type=float)
+    parser.add_argument('--goal-yaw', type=float)
     parser.add_argument('--path-points', type=int, default=20)
     parser.add_argument('--duration', type=float, default=25.0)
     parser.add_argument('--output')
@@ -372,6 +400,10 @@ def main():
     parser.add_argument('--episode-id', required=True)
     parser.add_argument('--run-id', required=True)
     args = parser.parse_args()
+    if (args.goal_x is None) != (args.goal_y is None):
+        parser.error('--goal-x and --goal-y must be supplied together')
+    if args.goal_x is not None and args.action_mode != 'navigate-to-pose':
+        parser.error('absolute goals are supported only for navigate-to-pose')
     rclpy.init()
     node = FollowPathFixture(args)
     try:
