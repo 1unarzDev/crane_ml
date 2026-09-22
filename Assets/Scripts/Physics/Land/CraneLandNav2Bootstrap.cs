@@ -38,8 +38,27 @@ namespace Sim.Physics.Land {
             public double mobilityReleaseActualSimulationTime = -1d;
             public bool mobilityHeld;
             public bool mobilityReleased;
+            public string environmentId;
+            public string scenarioId;
+            public bool referenceEnvironmentPreserved;
             public string platform;
             public Vector3 startPosition;
+            public string warehouseScenarioId;
+            public string warehouseRouteId;
+            public int warehouseScenarioSeed = -1;
+            public string warehouseScenarioRobot;
+            public string warehouseExpectedChallenge;
+            public string warehouseExpectedBroadOutcome;
+            public string[] warehouseObstacleSemanticIds = Array.Empty<string>();
+            public bool[] warehouseObstacleActive = Array.Empty<bool>();
+            public double[] warehouseObstacleScheduledActivationSimulationTime =
+                Array.Empty<double>();
+            public double[] warehouseObstacleActualActivationSimulationTime =
+                Array.Empty<double>();
+            public double[] warehouseObstacleScheduledRemovalSimulationTime =
+                Array.Empty<double>();
+            public double[] warehouseObstacleActualRemovalSimulationTime =
+                Array.Empty<double>();
         }
 
         private static bool enabled;
@@ -56,8 +75,15 @@ namespace Sim.Physics.Land {
             if (!enabled) return;
             bool ackermannScene = scene.name.Equals("Land Vehicle Validation",
                 StringComparison.OrdinalIgnoreCase);
-            bool differentialScene = scene.name.Equals("TurtleBot3 Warehouse Validation",
+            bool turtlebotScene = scene.name.Equals("TurtleBot3 Warehouse Validation",
                 StringComparison.OrdinalIgnoreCase);
+            bool clearpathScene = scene.name.Equals("Clearpath Pipeline Validation",
+                StringComparison.OrdinalIgnoreCase);
+            bool differentialScene = turtlebotScene || clearpathScene;
+            bool preserveRequested = Array.IndexOf(arguments,
+                "--crane-preserve-reference-environment") >= 0;
+            bool preserveReferenceEnvironment = clearpathScene ||
+                (turtlebotScene && preserveRequested);
             if (!ackermannScene && !differentialScene) return;
             AckermannRoverDynamics rover = ackermannScene
                 ? UnityEngine.Object.FindAnyObjectByType<AckermannRoverDynamics>(
@@ -73,9 +99,11 @@ namespace Sim.Physics.Land {
             // The TurtleBot3 scene's recognizable warehouse remains the normal reference scene.
             // Corridor experiments explicitly replace only its generated environment root while
             // retaining the existing robot, dynamics, sensors, ROS integration, and scene setup.
-            if (differentialScene) {
-                CraneReferenceWarehouse warehouse = UnityEngine.Object.FindAnyObjectByType<
-                    CraneReferenceWarehouse>(FindObjectsInactive.Include);
+            CraneReferenceWarehouse warehouse = turtlebotScene
+                ? UnityEngine.Object.FindAnyObjectByType<CraneReferenceWarehouse>(
+                    FindObjectsInactive.Include)
+                : null;
+            if (turtlebotScene && !preserveReferenceEnvironment) {
                 if (warehouse != null) warehouse.gameObject.SetActive(false);
             }
 
@@ -95,6 +123,11 @@ namespace Sim.Physics.Land {
             float blockerRemoveAfter = ReadFloat("--crane-land-blocker-remove-after", -1f);
             float mobilityHoldAfter = ReadFloat("--crane-land-mobility-hold-after", -1f);
             float mobilityReleaseAfter = ReadFloat("--crane-land-mobility-release-after", -1f);
+            string provingGroundLayout =
+                ReadString("--crane-land-proving-ground-layout", null);
+            string provingGroundCatalog =
+                ReadString("--crane-land-proving-ground-catalog",
+                    CraneLandProvingGround.DefaultCatalog);
             string blocker = ReadString("--crane-land-blocker", "none").ToLowerInvariant();
             if (blocker != "none" && blocker != "partial" && blocker != "full")
                 throw new ArgumentException($"Unknown land blocker mode '{blocker}'.");
@@ -104,36 +137,67 @@ namespace Sim.Physics.Land {
             Rigidbody body = rover != null
                 ? rover.GetComponent<Rigidbody>()
                 : differential.GetComponent<Rigidbody>();
-            body.position = new Vector3(0f, differentialScene ? 0.08f : 0.65f, 0f);
-            body.rotation = Quaternion.identity;
+            if (!preserveReferenceEnvironment) {
+                body.position = new Vector3(0f, differentialScene ? 0.08f : 0.65f, 0f);
+                body.rotation = Quaternion.identity;
+            }
             body.linearVelocity = Vector3.zero;
             body.angularVelocity = Vector3.zero;
             if (rover != null) rover.ResetActuators();
             else differential.SetCommand(0f, 0f);
 
+            string truthPath = ReadString("--crane-land-evaluator-output", null);
+            if (!string.IsNullOrWhiteSpace(truthPath)) {
+                truthPath = Path.GetFullPath(truthPath);
+                string directory = Path.GetDirectoryName(truthPath);
+                if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+            }
+            if (!string.IsNullOrWhiteSpace(provingGroundLayout)) {
+                if (!turtlebotScene || preserveReferenceEnvironment)
+                    throw new ArgumentException(
+                        "The land proving ground requires the replaceable TurtleBot3 scene.");
+                if (blocker != "none" || blockerEnableAfter >= 0f ||
+                    blockerRemoveAfter >= 0f || mobilityHoldAfter >= 0f ||
+                    mobilityReleaseAfter >= 0f)
+                    throw new ArgumentException(
+                        "Proving-ground layouts cannot be combined with legacy corridor interventions.");
+                CraneLandProvingGround.EvaluatorTruth provingTruth =
+                    CraneLandProvingGround.Build(provingGroundCatalog, provingGroundLayout,
+                        ReadInt("--crane-seed", -1), body, differential, truthPath);
+                Debug.Log($"CRANE_LAND_NAV2_READY provingGround={provingTruth.layoutId} " +
+                          $"seed={provingTruth.seed} platform=turtlebot3-waffle-differential " +
+                          "lidar=/scan");
+                return;
+            }
+
             const float wallThickness = 0.25f;
             const float wallHeight = 2f;
-            if (differentialScene) {
-                CreateObstacle("Corridor Floor", "corridor-floor", "traversable-floor",
-                    new Vector3(0f, -0.10f, length * 0.5f),
-                    new Vector3(width + 2f, 0.20f, length + 4f));
-            }
-            CreateObstacle("Corridor Left Wall", "corridor-wall-left", "boundary-wall",
-                new Vector3(-width * 0.5f - wallThickness * 0.5f, wallHeight * 0.5f,
-                    length * 0.5f),
-                new Vector3(wallThickness, wallHeight, length + 4f));
-            CreateObstacle("Corridor Right Wall", "corridor-wall-right", "boundary-wall",
-                new Vector3(width * 0.5f + wallThickness * 0.5f, wallHeight * 0.5f,
-                    length * 0.5f),
-                new Vector3(wallThickness, wallHeight, length + 4f));
             GameObject blockerObject = null;
-            if (blocker != "none") {
-                float x = blocker == "partial" ? -width * 0.5f + blockerWidth * 0.5f : 0f;
-                blockerObject = CreateObstacle("Corridor Blocker", "corridor-blocker",
-                    "controlled-obstacle",
-                    new Vector3(x, wallHeight * 0.5f, blockerDistance),
-                    new Vector3(blockerWidth, wallHeight, wallThickness));
+            if (!preserveReferenceEnvironment) {
+                if (differentialScene) {
+                    CreateObstacle("Corridor Floor", "corridor-floor", "traversable-floor",
+                        new Vector3(0f, -0.10f, length * 0.5f),
+                        new Vector3(width + 2f, 0.20f, length + 4f));
+                }
+                CreateObstacle("Corridor Left Wall", "corridor-wall-left", "boundary-wall",
+                    new Vector3(-width * 0.5f - wallThickness * 0.5f, wallHeight * 0.5f,
+                        length * 0.5f),
+                    new Vector3(wallThickness, wallHeight, length + 4f));
+                CreateObstacle("Corridor Right Wall", "corridor-wall-right", "boundary-wall",
+                    new Vector3(width * 0.5f + wallThickness * 0.5f, wallHeight * 0.5f,
+                        length * 0.5f),
+                    new Vector3(wallThickness, wallHeight, length + 4f));
+                if (blocker != "none") {
+                    float x = blocker == "partial" ? -width * 0.5f + blockerWidth * 0.5f : 0f;
+                    blockerObject = CreateObstacle("Corridor Blocker", "corridor-blocker",
+                        "controlled-obstacle",
+                        new Vector3(x, wallHeight * 0.5f, blockerDistance),
+                        new Vector3(blockerWidth, wallHeight, wallThickness));
+                }
             }
+            else if (blocker != "none")
+                throw new ArgumentException(
+                    "Imported reference environments do not accept synthetic corridor blockers.");
             if (blockerObject == null &&
                 (blockerEnableAfter >= 0f || blockerRemoveAfter >= 0f))
                 throw new ArgumentException(
@@ -152,7 +216,6 @@ namespace Sim.Physics.Land {
                 });
             }
 
-            string truthPath = ReadString("--crane-land-evaluator-output", null);
             var truth = new EvaluatorTruth {
                 seed = ReadInt("--crane-seed", 1),
                 corridorWidth = width,
@@ -166,14 +229,29 @@ namespace Sim.Physics.Land {
                 blockerRemovalAfterSeconds = blockerObject == null ? -1f : blockerRemoveAfter,
                 mobilityHoldAfterSeconds = mobilityHoldAfter,
                 mobilityReleaseAfterSeconds = mobilityReleaseAfter,
-                platform = differentialScene ? "turtlebot3-waffle-differential" :
+                environmentId = clearpathScene ? "clearpath-pipeline-2.9.4-v1" :
+                    preserveReferenceEnvironment ? CraneReferenceWarehouse.EnvironmentId :
+                    "crane-land-corridor-v1",
+                scenarioId = ReadString("--crane-land-scenario-id",
+                    preserveReferenceEnvironment ? "unspecified-reference-route" :
+                    "controlled-corridor"),
+                referenceEnvironmentPreserved = preserveReferenceEnvironment,
+                platform = clearpathScene ? "clearpath-jackal-class-differential" :
+                    differentialScene ? "turtlebot3-waffle-differential" :
                     "reference-ackermann-rover",
                 startPosition = body.position
             };
+            string warehouseScenarioId = ReadString("--crane-warehouse-scenario-id", null);
+            if (!string.IsNullOrWhiteSpace(warehouseScenarioId)) {
+                if (!turtlebotScene || !preserveReferenceEnvironment || warehouse == null)
+                    throw new ArgumentException(
+                        "Warehouse scenarios require the preserved TurtleBot3 warehouse scene.");
+                warehouse.ApplyScenario(warehouseScenarioId, state => {
+                    CopyWarehouseScenarioTruth(truth, state);
+                    if (!string.IsNullOrWhiteSpace(truthPath)) WriteTruth(truthPath, truth);
+                });
+            }
             if (!string.IsNullOrWhiteSpace(truthPath)) {
-                truthPath = Path.GetFullPath(truthPath);
-                string directory = Path.GetDirectoryName(truthPath);
-                if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
                 WriteTruth(truthPath, truth);
             }
             if (blockerObject != null &&
@@ -222,7 +300,40 @@ namespace Sim.Physics.Land {
                       $"blockerRemoveAfter={blockerRemoveAfter:R} " +
                       $"mobilityHoldAfter={mobilityHoldAfter:R} " +
                       $"mobilityReleaseAfter={mobilityReleaseAfter:R} " +
+                      $"preserveReferenceEnvironment={preserveReferenceEnvironment} " +
+                      $"warehouseScenario={warehouseScenarioId ?? "none"} " +
                       $"platform={truth.platform} lidar=/scan");
+        }
+
+        private static void CopyWarehouseScenarioTruth(EvaluatorTruth truth,
+            CraneReferenceWarehouse.ScenarioRuntimeState state) {
+            truth.warehouseScenarioId = state.scenarioId;
+            truth.warehouseRouteId = state.routeId;
+            truth.warehouseScenarioSeed = state.seed;
+            truth.warehouseScenarioRobot = state.robot;
+            truth.warehouseExpectedChallenge = state.expectedChallenge;
+            truth.warehouseExpectedBroadOutcome = state.expectedBroadOutcome;
+            int count = state.obstacles.Length;
+            truth.warehouseObstacleSemanticIds = new string[count];
+            truth.warehouseObstacleActive = new bool[count];
+            truth.warehouseObstacleScheduledActivationSimulationTime = new double[count];
+            truth.warehouseObstacleActualActivationSimulationTime = new double[count];
+            truth.warehouseObstacleScheduledRemovalSimulationTime = new double[count];
+            truth.warehouseObstacleActualRemovalSimulationTime = new double[count];
+            for (int index = 0; index < count; index++) {
+                CraneReferenceWarehouse.ScenarioObstacleRuntimeState obstacle =
+                    state.obstacles[index];
+                truth.warehouseObstacleSemanticIds[index] = obstacle.semanticId;
+                truth.warehouseObstacleActive[index] = obstacle.active;
+                truth.warehouseObstacleScheduledActivationSimulationTime[index] =
+                    obstacle.scheduledActivationSimulationTime;
+                truth.warehouseObstacleActualActivationSimulationTime[index] =
+                    obstacle.actualActivationSimulationTime;
+                truth.warehouseObstacleScheduledRemovalSimulationTime[index] =
+                    obstacle.scheduledRemovalSimulationTime;
+                truth.warehouseObstacleActualRemovalSimulationTime[index] =
+                    obstacle.actualRemovalSimulationTime;
+            }
         }
 
         private static GameObject CreateObstacle(string name, string semanticId,

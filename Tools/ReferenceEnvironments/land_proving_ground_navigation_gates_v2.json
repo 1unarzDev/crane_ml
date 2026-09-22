@@ -1,0 +1,12 @@
+{
+  "schema": "crane-land-proving-ground-navigation-gates-v1",
+  "environmentId": "crane-land-proving-ground-v2",
+  "trajectorySampleDeadbandMeters": 0.15,
+  "layouts": {
+    "slalom-s-turn-v2": {
+      "minimumPositiveLateralMeters": 0.75,
+      "maximumNegativeLateralMeters": -0.75,
+      "minimumLateralDirectionChanges": 3
+    }
+  }
+}

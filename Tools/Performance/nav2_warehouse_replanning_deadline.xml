@@ -1,0 +1,72 @@
+<!--
+  Ecological warehouse policy derived from Nav2 Jazzy's stock
+  navigate_to_pose_w_replanning_and_recovery.xml.
+
+  The stock planning/controller recovery structure and 1 Hz replanning are retained. A steady-clock
+  task deadline is made explicit at the root so a continuously moving exploratory plan cannot run
+  until the external fixture cancels it. BehaviorTree.CPP's Timeout decorator is deliberately used
+  instead of Nav2 Jazzy's TimeExpired condition: TimeExpired returns FAILURE while waiting and is
+  reinitialized on the next tick when used as a root guard, so it cannot enforce this deadline.
+  Expiration is a BT/task-policy failure, not evidence that any particular obstacle physically
+  caused the failure.
+
+  This tree is ecological-only. It must not replace the hash-frozen controlled-study tree.
+-->
+<root BTCPP_format="4" main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+    <Timeout msec="70000">
+      <RecoveryNode number_of_retries="6" name="NavigateRecovery">
+        <PipelineSequence name="NavigateWithReplanning">
+          <ControllerSelector selected_controller="{selected_controller}"
+                              default_controller="FollowPath"
+                              topic_name="controller_selector"/>
+          <PlannerSelector selected_planner="{selected_planner}"
+                           default_planner="GridBased"
+                           topic_name="planner_selector"/>
+          <RateController hz="1.0">
+            <RecoveryNode number_of_retries="1" name="ComputePathToPose">
+              <ComputePathToPose goal="{goal}" path="{path}"
+                                 planner_id="{selected_planner}"
+                                 error_code_id="{compute_path_error_code}"/>
+              <Sequence name="PlannerContextRecovery">
+                <WouldAPlannerRecoveryHelp error_code="{compute_path_error_code}"/>
+                <ClearEntireCostmap name="ClearGlobalCostmap-Context"
+                                    service_name="global_costmap/clear_entirely_global_costmap"/>
+              </Sequence>
+            </RecoveryNode>
+          </RateController>
+          <RecoveryNode number_of_retries="1" name="FollowPath">
+            <FollowPath path="{path}" controller_id="{selected_controller}"
+                        error_code_id="{follow_path_error_code}"/>
+            <Sequence name="ControllerContextRecovery">
+              <WouldAControllerRecoveryHelp error_code="{follow_path_error_code}"/>
+              <ClearEntireCostmap name="ClearLocalCostmap-Context"
+                                  service_name="local_costmap/clear_entirely_local_costmap"/>
+            </Sequence>
+          </RecoveryNode>
+        </PipelineSequence>
+        <Sequence name="SystemRecovery">
+          <Fallback name="RecoveryEligibility">
+            <WouldAControllerRecoveryHelp error_code="{follow_path_error_code}"/>
+            <WouldAPlannerRecoveryHelp error_code="{compute_path_error_code}"/>
+          </Fallback>
+          <ReactiveFallback name="RecoveryFallback">
+            <GoalUpdated/>
+            <RoundRobin name="RecoveryActions">
+              <Sequence name="ClearingActions">
+                <ClearEntireCostmap name="ClearLocalCostmap-Subtree"
+                                    service_name="local_costmap/clear_entirely_local_costmap"/>
+                <ClearEntireCostmap name="ClearGlobalCostmap-Subtree"
+                                    service_name="global_costmap/clear_entirely_global_costmap"/>
+              </Sequence>
+              <Spin spin_dist="1.57" error_code_id="{spin_error_code}"/>
+              <Wait wait_duration="5.0"/>
+              <BackUp backup_dist="0.30" backup_speed="0.15"
+                      error_code_id="{backup_error_code}"/>
+            </RoundRobin>
+          </ReactiveFallback>
+        </Sequence>
+      </RecoveryNode>
+    </Timeout>
+  </BehaviorTree>
+</root>

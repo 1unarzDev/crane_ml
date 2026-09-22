@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEngine;
@@ -18,6 +19,8 @@ namespace Sim.Utils.ReferenceEnvironments {
         public int meshColliderCount;
         public int visualRendererCount;
         public int lidarCount;
+        public int semanticIdentityCount;
+        public int duplicateSemanticIdCount;
         public float boundsMinX;
         public float boundsMinY;
         public float boundsMinZ;
@@ -49,6 +52,21 @@ namespace Sim.Utils.ReferenceEnvironments {
         public float ackermannBodyHeight;
         public float ackermannVerticalSpeed;
         public bool ackermannDynamicsValid;
+        public bool differentialDynamicsApplicable;
+        public float differentialDriveDisplacement;
+        public float differentialTurnDegrees;
+        public float differentialUpAlignment;
+        public float differentialBodyHeight;
+        public float differentialVerticalSpeed;
+        public bool differentialDynamicsValid;
+        public string structuralStatus;
+        public string physicsStatus;
+        public string sensorStatus;
+        public string navigationStatus = "NOT_RUN";
+        public string interactiveStatus = "NOT_RUN";
+        public string headlessStatus;
+        public string explanationStatus;
+        public string verdict;
         public bool valid;
     }
 
@@ -77,12 +95,31 @@ namespace Sim.Utils.ReferenceEnvironments {
         }
 
         private IEnumerator Validate(string outputPath) {
-            CraneImportedReferenceEnvironment environment =
+            string[] args = Environment.GetCommandLineArgs();
+            CraneImportedReferenceEnvironment imported =
                 FindAnyObjectByType<CraneImportedReferenceEnvironment>();
+            Transform environment = imported == null
+                ? GameObject.Find("Reference Environment")?.transform
+                : imported.transform;
             if (environment == null)
-                throw new MissingReferenceException("Imported reference environment marker missing.");
-            Transform canonical = environment.transform.Find("CanonicalGeometry");
-            Transform visual = environment.transform.Find("VisualPresentation");
+                throw new MissingReferenceException("Reference environment root missing.");
+            string environmentId = imported == null
+                ? ReadArgument(args, "--crane-reference-environment-id")
+                : imported.EnvironmentId;
+            string manifestSha256 = imported == null
+                ? ReadArgument(args, "--crane-reference-manifest-sha256")
+                : imported.ManifestSha256;
+            string sourceVersion = imported == null
+                ? ReadArgument(args, "--crane-reference-source-version")
+                : imported.SourceVersion;
+            int sourceObjectCount = imported == null
+                ? ReadIntArgument(args, "--crane-reference-source-object-count")
+                : imported.SourceObjectCount;
+            if (string.IsNullOrWhiteSpace(environmentId) ||
+                string.IsNullOrWhiteSpace(manifestSha256))
+                throw new ArgumentException("Native reference environments require identity and manifest hash.");
+            Transform canonical = environment.Find("CanonicalGeometry");
+            Transform visual = environment.Find("VisualPresentation");
             Collider[] colliders = canonical == null ? Array.Empty<Collider>() :
                 canonical.GetComponentsInChildren<Collider>(true);
             Renderer[] canonicalRenderers = canonical == null ? Array.Empty<Renderer>() :
@@ -91,20 +128,29 @@ namespace Sim.Utils.ReferenceEnvironments {
                 visual.GetComponentsInChildren<Renderer>(true);
             Collider[] visualColliders = visual == null ? Array.Empty<Collider>() :
                 visual.GetComponentsInChildren<Collider>(true);
+            CraneSemanticIdentity[] identities = canonical == null
+                ? Array.Empty<CraneSemanticIdentity>()
+                : canonical.GetComponentsInChildren<CraneSemanticIdentity>(true);
+            int duplicateSemanticIds = identities.GroupBy(value => value.SemanticId,
+                StringComparer.Ordinal).Count(group => string.IsNullOrWhiteSpace(group.Key) ||
+                group.Count() > 1);
             var result = new ReferenceSceneValidationResult {
                 scene = SceneManager.GetActiveScene().name,
-                environmentId = environment.EnvironmentId,
-                manifestSha256 = environment.ManifestSha256,
-                sourceVersion = environment.SourceVersion,
-                sourceObjectCount = environment.SourceObjectCount,
+                environmentId = environmentId,
+                manifestSha256 = manifestSha256,
+                sourceVersion = sourceVersion,
+                sourceObjectCount = sourceObjectCount,
                 canonicalColliderCount = colliders.Length,
                 meshColliderCount = colliders.Count(value => value is MeshCollider),
                 visualRendererCount = visualRenderers.Length,
+                semanticIdentityCount = identities.Length,
+                duplicateSemanticIdCount = duplicateSemanticIds,
                 lidarCount = FindObjectsByType<MonoBehaviour>(FindObjectsInactive.Include,
                     FindObjectsSortMode.None).Count(value =>
                     value.GetType().FullName == "Sim.Sensors.Lidar.Lidar2D"),
                 layersValid = colliders.Length > 0 && visualRenderers.Length > 0 &&
                     canonicalRenderers.Length == 0 && visualColliders.Length == 0 &&
+                    identities.Length > 0 && duplicateSemanticIds == 0 &&
                     colliders.All(value => value.gameObject.layer ==
                         LayerMask.NameToLayer("Environment"))
             };
@@ -211,11 +257,54 @@ namespace Sim.Utils.ReferenceEnvironments {
                     result.ackermannUpAlignment > 0.95f;
             }
 
+            MonoBehaviour differential = FindObjectsByType<MonoBehaviour>(FindObjectsInactive.Exclude,
+                FindObjectsSortMode.None).FirstOrDefault(value =>
+                value.GetType().FullName == "Sim.Physics.Land.DifferentialDriveDynamics");
+            result.differentialDynamicsApplicable = differential != null;
+            if (differential != null) {
+                Rigidbody robotBody = differential.GetComponent<Rigidbody>();
+                System.Reflection.MethodInfo setCommand = differential.GetType().GetMethod("SetCommand") ??
+                    throw new MissingMethodException(differential.GetType().FullName, "SetCommand");
+                setCommand.Invoke(differential, new object[] { 0f, 0f });
+                for (int i = 0; i < 25; i++) yield return new WaitForFixedUpdate();
+                Vector3 driveStart = robotBody.position;
+                setCommand.Invoke(differential, new object[] { 0.15f, 0f });
+                for (int i = 0; i < 50; i++) yield return new WaitForFixedUpdate();
+                result.differentialDriveDisplacement = Vector2.Distance(
+                    new Vector2(driveStart.x, driveStart.z),
+                    new Vector2(robotBody.position.x, robotBody.position.z));
+                Quaternion turnStart = robotBody.rotation;
+                setCommand.Invoke(differential, new object[] { 0f, 0.5f });
+                for (int i = 0; i < 35; i++) yield return new WaitForFixedUpdate();
+                setCommand.Invoke(differential, new object[] { 0f, 0f });
+                result.differentialTurnDegrees = Quaternion.Angle(turnStart, robotBody.rotation);
+                result.differentialUpAlignment = Vector3.Dot(robotBody.rotation * Vector3.up,
+                    Vector3.up);
+                result.differentialBodyHeight = robotBody.position.y;
+                result.differentialVerticalSpeed = robotBody.linearVelocity.y;
+                result.differentialDynamicsValid = result.differentialDriveDisplacement > 0.05f &&
+                    result.differentialTurnDegrees > 5f && result.differentialUpAlignment > 0.95f &&
+                    robotBody.position.y > -0.2f;
+            }
+
             result.valid = result.layersValid && result.boundsValid && result.raycastValid &&
                 result.collisionValid &&
                 (!result.semanticHighlightApplicable || result.semanticHighlightValid) &&
                 (!result.semanticSensorRayApplicable || result.semanticSensorRayValid) &&
-                (!result.ackermannDynamicsApplicable || result.ackermannDynamicsValid);
+                (!result.ackermannDynamicsApplicable || result.ackermannDynamicsValid) &&
+                (!result.differentialDynamicsApplicable || result.differentialDynamicsValid);
+            result.structuralStatus = result.layersValid ? "STRUCTURAL_PASS" : "PARTIAL";
+            result.physicsStatus = result.boundsValid && result.raycastValid && result.collisionValid &&
+                (!result.ackermannDynamicsApplicable || result.ackermannDynamicsValid) &&
+                (!result.differentialDynamicsApplicable || result.differentialDynamicsValid)
+                ? "PHYSICS_PASS" : "PARTIAL";
+            result.sensorStatus = !result.semanticSensorRayApplicable || result.semanticSensorRayValid
+                ? "SENSOR_PASS" : "PARTIAL";
+            result.headlessStatus = result.valid ? "HEADLESS_PASS" : "PARTIAL";
+            result.explanationStatus = identities.Length > 0 && duplicateSemanticIds == 0 &&
+                (!result.semanticHighlightApplicable || result.semanticHighlightValid)
+                ? "EXPLANATION_READY" : "PARTIAL";
+            result.verdict = result.valid ? "PARTIAL" : "BLOCKED";
             string directory = Path.GetDirectoryName(outputPath);
             if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
             File.WriteAllText(outputPath, JsonUtility.ToJson(result, true));
@@ -260,6 +349,11 @@ namespace Sim.Utils.ReferenceEnvironments {
         private static string ReadArgument(string[] args, string key) {
             int index = Array.IndexOf(args, key);
             return index >= 0 && index + 1 < args.Length ? args[index + 1] : null;
+        }
+
+        private static int ReadIntArgument(string[] args, string key) {
+            string value = ReadArgument(args, key);
+            return int.TryParse(value, out int parsed) ? parsed : 0;
         }
     }
 

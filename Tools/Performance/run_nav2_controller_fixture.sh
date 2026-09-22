@@ -39,6 +39,13 @@ if [[ "${docking_evaluator}" == "1" ]]; then
     fi
     docking_unity_args="--crane-roboboat-docking-evaluator --crane-dock-goal-x ${goal_x} --crane-dock-goal-y ${goal_y} --crane-dock-goal-yaw ${goal_yaw} --crane-dock-xy-tolerance ${CRANE_DOCK_XY_TOLERANCE:-0.4} --crane-dock-yaw-tolerance ${CRANE_DOCK_YAW_TOLERANCE:-0.35} --crane-dock-speed-tolerance ${CRANE_DOCK_SPEED_TOLERANCE:-0.05} --crane-dock-yaw-rate-tolerance ${CRANE_DOCK_YAW_RATE_TOLERANCE:-0.05} --crane-dock-settle-seconds ${CRANE_DOCK_SETTLE_SECONDS:-5} --crane-dock-width ${CRANE_DOCK_WIDTH:-2.0} --crane-dock-depth ${CRANE_DOCK_DEPTH:-3.0} --crane-dock-hull-length ${CRANE_DOCK_HULL_LENGTH:-1.063} --crane-dock-hull-beam ${CRANE_DOCK_HULL_BEAM:-0.895}"
 fi
+bt_max_transitions="${CRANE_BT_MAX_TRANSITIONS:-4096}"
+bt_max_invocations="${CRANE_BT_MAX_INVOCATIONS:-1024}"
+if [[ ! "${bt_max_transitions}" =~ ^[1-9][0-9]*$ || \
+      ! "${bt_max_invocations}" =~ ^[1-9][0-9]*$ ]]; then
+    echo "BehaviorTree capture bounds must be positive integers" >&2
+    exit 2
+fi
 endpoint_name="crane-endpoint-${run_id}"
 controller_name="crane-controller-${run_id}"
 fixture_name="crane-fixture-${run_id}"
@@ -158,9 +165,10 @@ fi
 
 docker run --rm --name "${fixture_name}" --network host --ipc host \
     -e ROS_DOMAIN_ID="${ros_domain_id}" \
+    -e CRANE_BT_XML_CONTAINER="${bt_xml_container}" \
     -v "${root_dir}:/workspace/crane_sim:ro" -v "${result_root}:/results" \
     "${image}" bash -lc \
-    'source /opt/ros/jazzy/setup.bash; exec python3 /workspace/crane_sim/Tools/Performance/nav2_follow_path_fixture.py --input-type twist --action-mode '"${nav2_action_mode}"' --distance '"${goal_distance}"' --path-heading-offset '"${path_heading_offset}"' --path-shape '"${path_shape}"' --path-lateral-amplitude '"${path_lateral_amplitude}"' --path-turn-angle '"${path_turn_angle}"' --duration '"${action_duration}"' --post-result-seconds '"${post_result_duration}"' --costmap-topic '"${costmap_topic}"' --costmap-service '"${costmap_service}"' --episode-id '"${run_id}-worker-${worker_id}"' --run-id '"${run_id}"' --output /results/fixture-summary.json'"${goal_args_shell}${path_file_arg_shell}" \
+    'source /opt/ros/jazzy/setup.bash; bt_fixture_extra=(); if [[ -n "${CRANE_BT_XML_CONTAINER:-}" ]]; then bt_fixture_extra=(--bt-xml "${CRANE_BT_XML_CONTAINER}"); fi; exec python3 /workspace/crane_sim/Tools/Performance/nav2_follow_path_fixture.py --input-type twist --action-mode '"${nav2_action_mode}"' --distance '"${goal_distance}"' --path-heading-offset '"${path_heading_offset}"' --path-shape '"${path_shape}"' --path-lateral-amplitude '"${path_lateral_amplitude}"' --path-turn-angle '"${path_turn_angle}"' --duration '"${action_duration}"' --post-result-seconds '"${post_result_duration}"' --costmap-topic '"${costmap_topic}"' --costmap-service '"${costmap_service}"' --bt-max-transitions '"${bt_max_transitions}"' --bt-max-invocations '"${bt_max_invocations}"' "${bt_fixture_extra[@]}" --episode-id '"${run_id}-worker-${worker_id}"' --run-id '"${run_id}"' --output /results/fixture-summary.json'"${goal_args_shell}${path_file_arg_shell}" \
     | tee "${result_root}/fixture.log"
 
 wait "${player_pid}"

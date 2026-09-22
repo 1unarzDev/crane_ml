@@ -122,6 +122,12 @@ Clearpath pipeline and F1TENTH occupancy-map procedures and their validation lim
 [source audit](Docs/ReferenceEnvironmentSourceAudit.md) records the reuse and licensing decisions
 for AWSIM, Flightmare, Unity's Nav2/SLAM example, and Robotics Warehouse.
 
+The closed TRUSTMORE ecological pilot set is deliberately narrower than the environment catalog:
+warehouse temporary-enclosure recovery, proving-ground complete blockage, and corrected S-turn.
+`dynamic-gate-v1` is retained as historical calibration only, and U-trap is not pilot-ready because
+no current qualified export exists. Environment/platform development stops at this boundary;
+physical obstacle causation and internal controller consumption remain explicitly unestablished.
+
 For ROS operation, configure the scene's `ROSConnection` object with the address of the machine
 running ROS. The [mhseals_docker repository](https://github.com/mhseals/mhseals_docker) contains
 the ROS 2 Jazzy image and endpoint setup notes. Its navigation packages are separate optional

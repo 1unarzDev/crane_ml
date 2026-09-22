@@ -640,7 +640,10 @@ Validation samples stream incrementally to JSONL and the final result retains a 
 bounded tail (256 by default). Whole-run invalid-water counts remain cumulative even when old
 samples leave memory. A 41-sample test retained three and streamed all 41 at 2.006×. Multi-hour
 stress runs are still needed, along with representative production ground/aerial scenes, a live
-ROS closed loop, and worker counts beyond eight on several hardware classes.
+ROS closed loop, and worker counts beyond eight on several hardware classes. These are long-term
+platform gaps, not all TRUSTMORE 2026 submission gates: the current empirical priority is
+obstacle-rich land/Nav2, while aerial and underwater explanation validation are
+`DEFERRED_POST_SUBMISSION`.
 
 ### Determinism
 
@@ -792,6 +795,11 @@ interchangeable.
 
 The next work should follow measured cost rather than this list mechanically:
 
+For the TRUSTMORE 2026 deadline, environment work is narrower than this platform roadmap:
+warehouse/industrial land, the configurable navigation proving ground, and their interactive and
+headless QA come first. Aerial calibration and underwater explanation integration remain valid
+future work but are `DEFERRED_POST_SUBMISSION`.
+
 1. Re-profile GPU depth/render cost without benchmark-only full-frame hashing, then prototype one
    bounded minimal-depth path against the current observation contract.
 2. Separate presentation camera ownership from required HDRP water updates.
@@ -802,8 +810,8 @@ The next work should follow measured cost rather than this list mechanically:
 5. Complete remaining reset contracts, then compare production in-place reset with scene reload
    and a fresh process.
 6. Stream validation output and run multi-hour memory and queue stress tests.
-7. Extend representative ground/contact coverage and calibrate the aerial fixture against a
-   production airframe and flight-controller/SITL path.
+7. Extend representative ground/contact coverage. After submission, calibrate the aerial fixture
+   against a production airframe and flight-controller/SITL path.
 8. Extend aggregate worker scaling beyond eight and across different CPU/GPU balances.
 9. Revisit an explicit scheduler only after step and reset boundaries are testable.
 

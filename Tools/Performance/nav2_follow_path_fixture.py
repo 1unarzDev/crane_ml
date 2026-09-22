@@ -11,12 +11,18 @@ import base64
 import hashlib
 import json
 import math
+from pathlib import Path as FilePath
 import time
 import zlib
 
+from bt_transition_capture import (
+    BehaviorTreeTransitionCapture,
+    direct_terminal_recovery_nodes_from_bt_xml,
+)
 import rclpy
 from geometry_msgs.msg import PoseStamped, Twist, TwistStamped
 from nav2_msgs.action import FollowPath, NavigateToPose
+from nav2_msgs.msg import BehaviorTreeLog
 from nav2_msgs.srv import GetCostmap
 from nav_msgs.msg import OccupancyGrid, Odometry, Path
 from rclpy.action import ActionClient
@@ -34,6 +40,15 @@ ACTION_STATUS = {
     6: 'aborted',
 }
 
+DEFAULT_RECOVERY_NODE_NAMES = (
+    'BackUp',
+    'ClearGlobalCostmap-Context',
+    'ClearGlobalCostmap-Subtree',
+    'ClearLocalCostmap-Context',
+    'ClearLocalCostmap-Subtree',
+    'Spin',
+    'Wait',
+)
 
 class FollowPathFixture(Node):
     def __init__(self, args):
@@ -64,6 +79,42 @@ class FollowPathFixture(Node):
         self.result_status = None
         self.result_received_wall = None
         self.action_result_pose = None
+        self.feedback_count = 0
+        self.maximum_recovery_count = 0
+        self.recovery_count_sequence = []
+        self.bt_log_message_count = 0
+        self.bt_transition_count = 0
+        self.bt_transition_counts = {}
+        self.bt_latest_transition_by_node = {}
+        configured_recovery_nodes = args.bt_recovery_node or DEFAULT_RECOVERY_NODE_NAMES
+        configured_direct_terminal_nodes = args.bt_direct_terminal_recovery_node
+        direct_terminal_classifier_basis = "explicit_cli_allowlist"
+        direct_terminal_classifier_sha256 = None
+        if not configured_direct_terminal_nodes and args.bt_xml:
+            bt_xml_path = FilePath(args.bt_xml)
+            derived_nodes = direct_terminal_recovery_nodes_from_bt_xml(bt_xml_path)
+            configured_direct_terminal_nodes = tuple(
+                name for name in derived_nodes if name in configured_recovery_nodes
+            )
+            direct_terminal_classifier_basis = (
+                "loaded_bt_xml_clear_entire_costmap_without_completion_preconditions"
+            )
+            direct_terminal_classifier_sha256 = hashlib.sha256(
+                bt_xml_path.read_bytes()
+            ).hexdigest()
+        elif not configured_direct_terminal_nodes:
+            direct_terminal_classifier_basis = "none_without_loaded_tree_provenance"
+        self.bt_capture = BehaviorTreeTransitionCapture(
+            max_transitions=args.bt_max_transitions,
+            max_invocations=args.bt_max_invocations,
+            recovery_node_names=configured_recovery_nodes,
+            direct_terminal_recovery_node_names=configured_direct_terminal_nodes,
+            direct_terminal_classifier_basis=direct_terminal_classifier_basis,
+            direct_terminal_classifier_sha256=direct_terminal_classifier_sha256,
+            terminal_node_names=args.bt_terminal_node or ('NavigateRecovery',),
+        )
+        self.trajectory_samples = []
+        self.next_trajectory_sample_wall = self.started_wall
         self.done = False
         self.goal_description = None
         self.planned_path = []
@@ -93,6 +144,7 @@ class FollowPathFixture(Node):
                                  self.on_costmap, costmap_qos)
         self.create_subscription(String, args.docking_evaluator_topic,
                                  self.on_docking_evaluation, 20)
+        self.create_subscription(BehaviorTreeLog, args.bt_topic, self.on_bt_log, 10)
         self.costmap_client = self.create_client(GetCostmap, args.costmap_service)
         if args.input_type == 'stamped':
             self.create_subscription(
@@ -174,6 +226,37 @@ class FollowPathFixture(Node):
             return
         self.docking_evaluations.append(evaluation)
 
+    def on_bt_log(self, message):
+        self.bt_log_message_count += 1
+        ordered_events = []
+        for event in message.event_log:
+            self.bt_transition_count += 1
+            key = f'{event.node_name}:{event.previous_status}->{event.current_status}'
+            self.bt_transition_counts[key] = self.bt_transition_counts.get(key, 0) + 1
+            self.bt_latest_transition_by_node[event.node_name] = {
+                'uid': int(event.uid),
+                'previousStatus': event.previous_status,
+                'currentStatus': event.current_status,
+                'eventStamp': stamp_dict(event.timestamp),
+                'messageStamp': stamp_dict(message.timestamp),
+            }
+            ordered_events.append({
+                'uid': int(event.uid),
+                'nodeName': event.node_name,
+                'previousStatus': event.previous_status,
+                'currentStatus': event.current_status,
+                'eventStamp': stamp_dict(event.timestamp),
+            })
+        self.bt_capture.record_message(stamp_dict(message.timestamp), ordered_events)
+
+    def on_feedback(self, message):
+        self.feedback_count += 1
+        feedback = message.feedback
+        recoveries = int(feedback.number_of_recoveries)
+        self.maximum_recovery_count = max(self.maximum_recovery_count, recoveries)
+        if not self.recovery_count_sequence or self.recovery_count_sequence[-1] != recoveries:
+            self.recovery_count_sequence.append(recoveries)
+
     def record_costmap(self, data):
         occupied = sum(1 for value in data if value > 0)
         self.maximum_occupied_costmap_cells = max(
@@ -237,13 +320,21 @@ class FollowPathFixture(Node):
 
     def tick(self):
         elapsed = time.monotonic() - self.started_wall
-        if self.done or elapsed >= self.args.duration:
+        self.sample_trajectory(elapsed)
+        if self.done:
+            return
+        if (
+                self.result_received_wall is not None
+                and time.monotonic() - self.result_received_wall
+                >= max(self.args.post_result_seconds,
+                       self.args.bt_terminal_drain_seconds)):
+            self.finish(self.result_status)
+            return
+        if elapsed >= self.args.duration:
             self.finish('timeout' if self.result_status is None else self.result_status)
             return
         self.request_costmap()
         if self.result_received_wall is not None:
-            if time.monotonic() - self.result_received_wall >= self.args.post_result_seconds:
-                self.finish(self.result_status)
             return
         if self.goal_handle is not None or self.initial_odom is None:
             return
@@ -252,6 +343,25 @@ class FollowPathFixture(Node):
         if not self.action.server_is_ready():
             return
         self.send_goal()
+
+    def sample_trajectory(self, elapsed, force=False):
+        if self.latest_odom is None:
+            return
+        now = time.monotonic()
+        if not force and now < self.next_trajectory_sample_wall:
+            return
+        pose = self.latest_odom.pose.pose
+        sample = {
+            'wallSeconds': elapsed,
+            'stamp': stamp_dict(self.latest_odom.header.stamp),
+            'x': float(pose.position.x),
+            'y': float(pose.position.y),
+            'yaw': yaw_from_quaternion(pose.orientation),
+        }
+        if not self.trajectory_samples or (
+                sample['stamp'] != self.trajectory_samples[-1]['stamp']):
+            self.trajectory_samples.append(sample)
+        self.next_trajectory_sample_wall = now + self.args.trajectory_sample_period
 
     def send_goal(self):
         odom = self.initial_odom
@@ -329,7 +439,8 @@ class FollowPathFixture(Node):
         self.goal_sent_wall = time.monotonic()
         self.trajectory = [self.trajectory_sample(self.latest_odom)]
         self.goal_attempts += 1
-        future = self.action.send_goal_async(goal)
+        self.bt_capture.mark_goal_sent()
+        future = self.action.send_goal_async(goal, feedback_callback=self.on_feedback)
         future.add_done_callback(self.on_goal_response)
 
     def on_goal_response(self, future):
@@ -345,11 +456,13 @@ class FollowPathFixture(Node):
         # The harness topic is volatile. Repeat identity after action discovery so a capture node
         # that joined during fixture startup still receives the episode/observation boundary.
         self.publish_identity('accepted_goal_republication')
+        goal_id = bytes(self.goal_handle.goal_id.uuid).hex()
+        self.bt_capture.mark_goal_accepted(goal_id)
         self.publish_event({
             'type': 'navigate_to_pose_goal',
             'action_name': self.action_name,
             'action_mode': self.args.action_mode,
-            'goal_id': bytes(self.goal_handle.goal_id.uuid).hex(),
+            'goal_id': goal_id,
             'goal_attempt': self.goal_attempts,
             'accepted': True,
             'goal': self.goal_description,
@@ -373,13 +486,15 @@ class FollowPathFixture(Node):
             'error_code': getattr(payload, 'error_code', None),
             'error_msg': getattr(payload, 'error_msg', None),
         })
-        if self.args.post_result_seconds <= 0.0:
-            self.finish(self.result_status)
+        # The action result and final BehaviorTreeLog transition travel on separate ROS topics.
+        # Keep spinning for the greater of the requested post-result observation and bounded BT
+        # drain intervals so neither terminal motion nor an already-published BT record is lost.
 
     def finish(self, status):
         if self.done:
             return
         self.done = True
+        self.sample_trajectory(time.monotonic() - self.started_wall, force=True)
         if status == 'timeout' and self.goal_handle is not None:
             goal_id = bytes(self.goal_handle.goal_id.uuid).hex()
             self.publish_event({
@@ -432,6 +547,22 @@ class FollowPathFixture(Node):
             'maximumAngularCommand': self.maximum_angular_command,
             'returnedCommands': self.output_count,
             'goalAttempts': self.goal_attempts,
+            'navigateToPoseFeedbackMessages': self.feedback_count,
+            'maximumRecoveryCount': self.maximum_recovery_count,
+            'recoveryCountSequence': self.recovery_count_sequence,
+            'behaviorTreeTopic': self.args.bt_topic,
+            'behaviorTreeLogMessages': self.bt_log_message_count,
+            'behaviorTreeTransitions': self.bt_transition_count,
+            'behaviorTreeTransitionCounts': self.bt_transition_counts,
+            'behaviorTreeLatestTransitionByNode': self.bt_latest_transition_by_node,
+            'behaviorTreeCapture': self.bt_capture.summary(),
+            'behaviorTreeTerminalDrainWallSeconds': self.args.bt_terminal_drain_seconds,
+            'behaviorTreeProvenance': (
+                'delivered-topic-transitions-may-omit-terminal-tick-not-proof-of-completeness'),
+            'trajectorySamples': self.trajectory_samples,
+            'trajectorySamplePeriodWallSeconds': self.args.trajectory_sample_period,
+            'trajectoryProvenance': (
+                'sampled-delivered-odometry-not-proven-nav2-internal-state'),
             'costmapTopic': self.args.costmap_topic,
             'costmapMessages': self.costmap_count,
             'costmapService': self.args.costmap_service,
@@ -678,8 +809,17 @@ def main():
     parser.add_argument('--path-turn-angle', type=float, default=math.pi / 4.0)
     parser.add_argument('--duration', type=float, default=25.0)
     parser.add_argument('--post-result-seconds', type=float, default=0.0)
+    parser.add_argument('--trajectory-sample-period', type=float, default=1.0)
     parser.add_argument('--output')
     parser.add_argument('--harness-topic', default='/crane/explanation_event')
+    parser.add_argument('--bt-topic', default='/behavior_tree_log')
+    parser.add_argument('--bt-max-transitions', type=int, default=4096)
+    parser.add_argument('--bt-max-invocations', type=int, default=1024)
+    parser.add_argument('--bt-recovery-node', action='append', default=[])
+    parser.add_argument('--bt-direct-terminal-recovery-node', action='append', default=[])
+    parser.add_argument('--bt-xml')
+    parser.add_argument('--bt-terminal-node', action='append', default=[])
+    parser.add_argument('--bt-terminal-drain-seconds', type=float, default=0.5)
     parser.add_argument('--episode-id', required=True)
     parser.add_argument('--run-id', required=True)
     args = parser.parse_args()

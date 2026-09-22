@@ -1,0 +1,36 @@
+{
+  "schema": "crane-land-proving-ground-navigation-gates-v1",
+  "environmentId": "crane-land-proving-ground-v1",
+  "trajectorySampleDeadbandMeters": 0.15,
+  "layouts": {
+    "staggered-obstacles-v1": {
+      "minimumPositiveLateralMeters": 0.35,
+      "maximumNegativeLateralMeters": -0.20,
+      "minimumLateralDirectionChanges": 2
+    },
+    "slalom-s-turn-v1": {
+      "minimumPositiveLateralMeters": 0.50,
+      "maximumNegativeLateralMeters": -0.50,
+      "minimumLateralDirectionChanges": 3
+    },
+    "offset-gates-v1": {
+      "minimumPositiveLateralMeters": 1.00,
+      "maximumNegativeLateralMeters": -1.00,
+      "minimumLateralDirectionChanges": 1
+    },
+    "narrow-doorway-v1": {
+      "maximumAbsoluteLateralMeters": 0.60
+    },
+    "u-trap-v1": {
+      "minimumAbsoluteLateralMeters": 2.50,
+      "minimumLongitudinalReversalSamples": 5
+    },
+    "alternate-corridors-v1": {
+      "minimumAbsoluteLateralMeters": 0.80
+    },
+    "complete-blockage-v1": {},
+    "dynamic-gate-v1": {
+      "minimumRecoveryCount": 1
+    }
+  }
+}

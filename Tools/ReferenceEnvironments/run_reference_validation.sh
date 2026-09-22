@@ -16,6 +16,8 @@ Targets:
   px4-windy
   clearpath-pipeline
   f1tenth-spielberg
+  turtlebot3-warehouse
+  land-proving-ground
 
 The selected scene must already be present in the player's crane-build-manifest.json.
 Generated F1TENTH scenes require a worker built with --crane-extra-scene.
@@ -48,6 +50,52 @@ case "${target}" in
     f1tenth-spielberg)
         scene="F1TENTH Spielberg Validation"
         runner_args=(--crane-reference-validation --crane-reference-scene "${scene}")
+        ;;
+    turtlebot3-warehouse)
+        scene="TurtleBot3 Warehouse Validation"
+        warehouse_manifest="${root_dir}/Assets/Resources/ReferenceEnvironments/unity_turtlebot3_industrial_warehouse_v2.json"
+        warehouse_hash="$(sha256sum "${warehouse_manifest}" | awk '{print $1}')"
+        runner_args=(--crane-reference-validation --crane-reference-scene "${scene}"
+            --crane-reference-environment-id crane-industrial-warehouse-v2
+            --crane-reference-manifest-sha256 "${warehouse_hash}"
+            --crane-reference-source-version 2.2.0
+            --crane-reference-source-object-count 20)
+        ;;
+    land-proving-ground)
+        scene="TurtleBot3 Warehouse Validation"
+        catalog="${CRANE_PROVING_GROUND_CATALOG:-v1}"
+        layout="${CRANE_PROVING_GROUND_LAYOUT:-alternate-corridors-v1}"
+        if [[ ! "${catalog}" =~ ^v[0-9]+$ ]]; then
+            echo "Invalid proving-ground catalog: ${catalog}" >&2
+            exit 64
+        fi
+        proving_manifest="${root_dir}/Assets/Resources/ReferenceEnvironments/crane_land_proving_ground_${catalog}.json"
+        if [[ ! -f "${proving_manifest}" ]]; then
+            echo "Missing proving-ground catalog: ${proving_manifest}" >&2
+            exit 66
+        fi
+        proving_hash="$(sha256sum "${proving_manifest}" | awk '{print $1}')"
+        readarray -t proving_values < <(python3 - "${proving_manifest}" "${layout}" <<'PY'
+import json
+import pathlib
+import sys
+manifest = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+layout = next(value for value in manifest["layouts"] if value["id"] == sys.argv[2])
+print(len(manifest["sharedBoxes"]) + len(layout["obstacles"]))
+print(manifest["environmentId"])
+print(manifest["generatorVersion"])
+PY
+)
+        proving_objects="${proving_values[0]}"
+        proving_environment="${proving_values[1]}"
+        proving_version="${proving_values[2]}"
+        runner_args=(--crane-reference-validation --crane-reference-scene "${scene}"
+            --crane-reference-environment-id "${proving_environment}"
+            --crane-reference-manifest-sha256 "${proving_hash}"
+            --crane-reference-source-version "${proving_version}"
+            --crane-reference-source-object-count "${proving_objects}"
+            --crane-land-nav2 --crane-land-proving-ground-catalog "${catalog}"
+            --crane-land-proving-ground-layout "${layout}")
         ;;
     -h|--help)
         usage

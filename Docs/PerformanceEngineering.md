@@ -112,6 +112,28 @@ bounded rate and records topic and service counts separately. A valid land fixtu
 least one snapshot with occupied cells. Such a snapshot proves observable Nav2 state, not the
 controller's internal consumption of that exact map.
 
+`Tools/Performance/run_warehouse_nav2_fixture.sh` is the ecological counterpart. It preserves the
+manifest-driven warehouse, records `crane-industrial-warehouse-v2` and its route ID in
+evaluator-only truth, and selects `nav2_warehouse_fixture.yaml` without changing the controlled
+land parameters. The warehouse radius/inflation calibration is deliberately separate from the
+frozen F/G/H corridor configuration. The current cross-aisle route remains a negative calibration:
+reducing the costmap radius/inflation changed occupied-cell counts but not the initial timeout
+endpoint. Subsequent diagnosis corrected a ROS-to-Unity yaw-sign defect and matched controller
+speed to the physical base. The final direction-free region-goal run succeeded after a 13.61 m
+sampled west-aisle detour. `summarize_environment_qa.py` merges an independently captured warehouse
+route or proving-ground layout with structural validation through one command interface. It checks
+exact manifest/configuration identity and the predeclared terminal status, hashes every referenced
+artifact, and does not infer an interactive or failure/recovery pass from a nominal success.
+
+The generic NavigateToPose fixture also records delivered `BehaviorTreeLog` transition counts,
+latest observed status per node, feedback-message count, maximum `number_of_recoveries`, and the
+ordered recovery-count changes. It also samples delivered odometry at a declared wall-time period
+for route-shape QA while explicitly withholding any internal-consumption claim. These are QA
+summaries, not a replacement for the explanation
+capture's retained raw event stream. The summary explicitly marks BT delivery as potentially
+incomplete because Nav2 Jazzy can omit terminal-tick transitions; a nearby topic message also does
+not prove internal sensor consumption.
+
 ### Training with full visual sensors
 
 - High Fidelity HDRP water with GPU readback.
