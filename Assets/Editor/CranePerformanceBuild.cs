@@ -117,6 +117,23 @@ public static class CranePerformanceBuild {
 
         if (UnityEngine.Object.FindAnyObjectByType<ROSClock>() == null)
             new GameObject("CRANE ROS Clock").AddComponent<ROSClock>();
+
+        Camera spectator = GameObject.Find("Spectator Camera")?.GetComponent<Camera>();
+        if (spectator == null)
+            throw new MissingReferenceException("Warehouse spectator camera is missing.");
+        var inspection = spectator.gameObject.GetComponent<CraneReferenceInspectionController>();
+        if (inspection == null)
+            inspection = spectator.gameObject.AddComponent<CraneReferenceInspectionController>();
+        inspection.Configure(spectator, robot.transform, CraneReferenceWarehouse.EnvironmentId,
+            "warehouse-cross-aisle-detour-v1",
+            new[] { "rack-center-blocker", "column-cross-west", "column-cross-east" },
+            new Vector3(0f, 0f, 13f));
+
+        Light sceneLight = GameObject.Find("Directional Light")?.GetComponent<Light>();
+        if (sceneLight != null) {
+            sceneLight.intensity = 0.65f;
+            sceneLight.shadows = LightShadows.Soft;
+        }
         EditorSceneManager.SaveScene(scene, output);
         AssetDatabase.SaveAssets();
         Debug.Log($"CRANE_REFERENCE_SCENE_CREATED path={output}");

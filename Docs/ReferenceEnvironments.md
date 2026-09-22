@@ -60,6 +60,28 @@ renderers, 28 unique semantic identities, collision/drop support, a semantic LiD
 `PHYSICS_PASS`, `SENSOR_PASS`, `NAVIGATION_PASS`, `HEADLESS_PASS`, and `EXPLANATION_READY` while
 leaving failure/recovery and interactive gates `NOT_RUN` and the overall verdict `PARTIAL`.
 
+The warehouse now attaches a presentation-only reference inspection controller to its spectator
+camera. It provides top-down overview, oblique, and robot-follow views; a route/environment HUD;
+the robot trajectory; semantic evidence highlighting; and visible wireframes for the canonical
+box colliders. These overlays do not add or mutate colliders, rigid bodies, sensors, or navigation
+state. Keyboard controls are `1`/`2`/`3` for views and `H`/`C`/`T` for semantic, collider, and
+trajectory overlays. Equivalent launch flags make screenshots reproducible without synthesized
+keyboard input:
+
+```bash
+CRANE.x86_64 --crane-profile interactive-high \
+  --crane-scene "TurtleBot3 Warehouse Validation" --crane-disable-ros \
+  --crane-inspection-view oblique \
+  --crane-inspection-semantic-overlay --crane-inspection-collider-overlay
+```
+
+An isolated 1280 × 720 player inspection on 2026-09-22 confirmed readable overview and oblique
+views, route/environment identity, semantic overlay state, visible canonical-collider wireframes,
+and the trajectory layer. Manual keyboard polling was not directly exercised, so the interactive
+gate remains conservatively `PARTIAL` rather than a full pass. The same build reran the headless
+warehouse validator successfully; presentation tooling did not change its 20 canonical colliders,
+20 collider-free renderers, or existing structural/physics/sensor/explanation verdicts.
+
 ## F1TENTH occupancy maps
 
 `Tools/ReferenceEnvironments/f1tenth_map_generator.py` reads standard PNG/YAML maps, applies the
@@ -211,7 +233,8 @@ result JSON SHA-256 was
 
 - TurtleBot3 warehouse: v2 canonical layout and ecological route contracts **IMPLEMENTED**;
   structural/physics/sensor/headless/explanation gates and one representative west-aisle detour
-  **PASSED**. Interactive inspection and failure/recovery scenario qualification are **NOT_RUN**.
+  **PASSED**. Isolated overview/oblique/HUD/semantic/collider inspection is **PARTIAL** pending a
+  direct manual-keyboard check; failure/recovery scenario qualification is **NOT_RUN**.
 - F1TENTH conversion and Unity import: **IMPLEMENTED / TESTED** on synthetic fixtures and the
   pinned external Spielberg map; full-lap controller/ROS validation **NOT_RUN**.
 - PX4 walls: **IMPLEMENTED / TESTED** headlessly; ArUco: **IMPLEMENTED / TESTED** for layer
