@@ -6,10 +6,31 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from summarize_environment_qa import summarize
+from summarize_environment_qa import route_acceptance, summarize
 
 
 class EnvironmentQaSummaryTests(unittest.TestCase):
+    def test_route_acceptance_rejects_unknown_navigation_gate_criteria(self):
+        with tempfile.TemporaryDirectory() as directory:
+            catalog_path = Path(directory) / "navigation-gates.json"
+            catalog_path.write_text(json.dumps({
+                "environmentId": "proving-v1",
+                "layouts": {
+                    "slalom-v1": {"minimumLateralMetersTypo": 1.0},
+                },
+            }), encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                ValueError, "unsupported navigation gate criteria.*minimumLateralMetersTypo"
+            ):
+                route_acceptance(
+                    catalog_path,
+                    "proving-v1",
+                    "slalom-v1",
+                    {"maximumUnityX": 2.0},
+                    {"maximumRecoveryCount": 0},
+                )
+
     def test_merges_independent_nominal_gates_without_inventing_interactive_or_failure_pass(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

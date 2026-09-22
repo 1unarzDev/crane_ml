@@ -73,6 +73,11 @@ class EcologicalEvidenceExportTests(unittest.TestCase):
                 "status": "succeeded",
                 "maximumRecoveryCount": 1,
                 "recoveryCountSequence": [0, 1],
+                "costmapMessages": 3,
+                "costmapObservations": 5,
+                "costmapServiceSnapshots": 2,
+                "maximumOccupiedCostmapCells": 123,
+                "costmapProvenance": "delivered_costmap_not_proven_controller_consumption",
                 "trajectoryProvenance": "sampled-delivered-odometry",
                 "trajectorySamples": [
                     {"x": 0.0, "y": 0.0, "yaw": 0.0},
@@ -105,6 +110,17 @@ class EcologicalEvidenceExportTests(unittest.TestCase):
                     "duplicateTransitionCount": 0,
                     "droppedTransitionCount": 0,
                     "droppedRecoveryInvocationCount": 0,
+                    "recoveryNodeClassifier": {
+                        "basis": "configured_exact_leaf_name_and_idle_departure",
+                        "nodeNames": ["Wait"],
+                        "directTerminalNodeNames": [],
+                        "directTerminalClassifierBasis": "loaded_bt_xml",
+                        "directTerminalClassifierSha256": None,
+                        "invocationStartPatterns": {
+                            "allConfiguredLeaves": ["IDLE->RUNNING"],
+                            "directTerminalLeaves": ["IDLE->SUCCESS"],
+                        },
+                    },
                     "completeness": {
                         "historyStatus": "not_proven",
                         "exactRecoveryCountEligible": False,
@@ -165,6 +181,99 @@ class EcologicalEvidenceExportTests(unittest.TestCase):
             [value["evidencePlane"] for value in result["files"]],
             ["robot_visible", "evaluator_only"],
         )
+
+    def test_export_carries_source_qualification_for_each_recovery_invocation(self) -> None:
+        self.do_export()
+        evidence = json.loads(
+            (self.root / "export/robot_visible/evidence.json").read_text(encoding="utf-8")
+        )
+        policy_hash = hashlib.sha256(self.bt_xml.read_bytes()).hexdigest()
+        invocation = evidence["bt"]["recoveryInvocations"][0]
+
+        self.assertEqual(invocation["sourceQualification"], {
+            "classifierBasis": "configured_exact_leaf_name_and_idle_departure",
+            "classifierRule": "configured_leaf_idle_to_running",
+            "observedStartTransition": {
+                "currentStatus": "RUNNING",
+                "nodeName": "Wait",
+                "previousStatus": "IDLE",
+                "recordId": "bt-transition-000001",
+                "uid": 7,
+            },
+            "policySha256": policy_hash,
+        })
+        self.assertEqual(
+            evidence["bt"]["recoveryNodeClassifier"]["nodeNames"], ["Wait"]
+        )
+
+    def test_export_labels_costmap_summary_as_delivered_not_consumed(self) -> None:
+        self.do_export()
+        evidence = json.loads(
+            (self.root / "export/robot_visible/evidence.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(evidence["observations"]["costmap"], {
+            "deliveredMessageCount": 3,
+            "maximumOccupiedCellCount": 123,
+            "observationCount": 5,
+            "provenance": "delivered_costmap_not_proven_controller_consumption",
+            "serviceSnapshotCount": 2,
+        })
+        self.assertFalse(evidence["withholding"]["controllerConsumptionEstablished"])
+
+    def test_export_rejects_recovery_invocation_not_licensed_by_classifier(self) -> None:
+        value = json.loads(self.fixture.read_text())
+        value["behaviorTreeCapture"]["recoveryNodeClassifier"]["nodeNames"] = []
+        write(self.fixture, value)
+        with self.assertRaisesRegex(ValueError, "not licensed by recovery classifier"):
+            self.do_export()
+
+    def test_export_binds_direct_terminal_recovery_to_policy_source_hash(self) -> None:
+        value = json.loads(self.fixture.read_text())
+        policy_hash = hashlib.sha256(self.bt_xml.read_bytes()).hexdigest()
+        transition = value["behaviorTreeCapture"]["orderedTransitions"][0]
+        transition["nodeName"] = "ClearLocalCostmap-Context"
+        transition["currentStatus"] = "SUCCESS"
+        invocation = value["behaviorTreeCapture"]["recoveryInvocations"][0]
+        invocation.update({
+            "nodeName": "ClearLocalCostmap-Context",
+            "endTransitionId": "bt-transition-000001",
+            "terminalStatus": "SUCCESS",
+            "complete": True,
+            "observationPattern": "idle_to_terminal",
+        })
+        classifier = value["behaviorTreeCapture"]["recoveryNodeClassifier"]
+        classifier.update({
+            "nodeNames": ["ClearLocalCostmap-Context"],
+            "directTerminalNodeNames": ["ClearLocalCostmap-Context"],
+            "directTerminalClassifierBasis": (
+                "loaded_bt_xml_clear_entire_costmap_without_completion_preconditions"
+            ),
+            "directTerminalClassifierSha256": policy_hash,
+            "directTerminalInterpretation": (
+                "source_verified_leaf_completed_in_one_bt_tick; "
+                "not_proof_of_external_side_effect_or_physical_cause"
+            ),
+        })
+        value["behaviorTreeCapture"]["recoveryInvocations"] = [invocation]
+        write(self.fixture, value)
+        contract = json.loads(self.contract.read_text())
+        contract["scenarios"][0]["runtimeAcceptance"][
+            "requiredTransitionNodeNames"
+        ] = ["ClearLocalCostmap-Context"]
+        write(self.contract, contract)
+
+        self.do_export()
+        evidence = json.loads(
+            (self.root / "export/robot_visible/evidence.json").read_text(encoding="utf-8")
+        )
+        qualification = evidence["bt"]["recoveryInvocations"][0][
+            "sourceQualification"
+        ]
+        self.assertEqual(
+            qualification["classifierRule"],
+            "source_verified_direct_terminal_idle_to_success",
+        )
+        self.assertEqual(qualification["directTerminalClassifierSha256"], policy_hash)
 
     def test_export_is_deterministic_across_output_roots(self) -> None:
         first = self.do_export("first")

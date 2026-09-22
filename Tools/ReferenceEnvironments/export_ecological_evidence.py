@@ -216,6 +216,77 @@ def validate_capture(capture: dict[str, Any]) -> None:
             raise ValueError("Exact recovery-count eligibility contradicts capture completeness")
 
 
+def source_qualified_recovery_invocations(
+    capture: dict[str, Any], policy_hash: str
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Bind every derived invocation to its classifier rule and observed start edge."""
+    classifier = capture.get("recoveryNodeClassifier")
+    if not isinstance(classifier, dict):
+        raise ValueError("Fixture lacks recovery node classifier provenance")
+    node_names = set(classifier.get("nodeNames", []))
+    direct_terminal_names = set(classifier.get("directTerminalNodeNames", []))
+    transitions = {
+        value.get("recordId"): value for value in capture["orderedTransitions"]
+    }
+    classifier_source_hash = classifier.get("directTerminalClassifierSha256")
+    if classifier_source_hash is not None and classifier_source_hash != policy_hash:
+        raise ValueError("Recovery classifier source hash does not match exported BT policy")
+
+    qualified = []
+    for invocation in capture["recoveryInvocations"]:
+        node_name = invocation.get("nodeName")
+        if node_name not in node_names:
+            raise ValueError(
+                f"Recovery invocation {invocation.get('invocationId')!r} is not licensed by "
+                "recovery classifier"
+            )
+        start = transitions.get(invocation.get("startTransitionId"))
+        if start is None:
+            raise ValueError("Recovery invocation lacks its observed start transition")
+        if start.get("nodeName") != node_name or start.get("uid") != invocation.get("uid"):
+            raise ValueError("Recovery invocation identity disagrees with its start transition")
+
+        edge = (start.get("previousStatus"), start.get("currentStatus"))
+        qualification = {
+            "classifierBasis": classifier.get("basis"),
+            "policySha256": policy_hash,
+            "observedStartTransition": {
+                "recordId": start.get("recordId"),
+                "nodeName": start.get("nodeName"),
+                "uid": start.get("uid"),
+                "previousStatus": start.get("previousStatus"),
+                "currentStatus": start.get("currentStatus"),
+            },
+        }
+        if edge == ("IDLE", "RUNNING"):
+            qualification["classifierRule"] = "configured_leaf_idle_to_running"
+        elif edge == ("IDLE", "SUCCESS") and node_name in direct_terminal_names:
+            if classifier_source_hash != policy_hash:
+                raise ValueError(
+                    "Direct-terminal recovery invocation lacks matching classifier source hash"
+                )
+            qualification.update({
+                "classifierRule": "source_verified_direct_terminal_idle_to_success",
+                "directTerminalClassifierBasis": classifier.get(
+                    "directTerminalClassifierBasis"
+                ),
+                "directTerminalClassifierSha256": classifier_source_hash,
+                "directTerminalInterpretation": classifier.get(
+                    "directTerminalInterpretation"
+                ),
+            })
+        else:
+            raise ValueError(
+                f"Recovery invocation {invocation.get('invocationId')!r} start edge {edge!r} "
+                "is not licensed by recovery classifier"
+            )
+
+        exported = dict(invocation)
+        exported["sourceQualification"] = qualification
+        qualified.append(exported)
+    return qualified, dict(classifier)
+
+
 def validate_runtime_acceptance(
     fixture: dict[str, Any], capture: dict[str, Any], selected_contract: dict[str, Any]
 ) -> None:
@@ -355,6 +426,11 @@ def export(
     )
     validate_runtime_acceptance(fixture, capture, selected_contract)
 
+    policy_hash = sha256(bt_xml_path)
+    qualified_invocations, recovery_classifier = source_qualified_recovery_invocations(
+        capture, policy_hash
+    )
+
     goal_ids = sorted({
         value.get("goalId") for value in transitions if value.get("goalId") is not None
     })
@@ -374,7 +450,8 @@ def export(
             "transitionSequence": transitions,
             "transitionCapacity": capture.get("transitionCapacity"),
             "retainedTransitionCount": capture.get("retainedTransitionCount", len(transitions)),
-            "recoveryInvocations": invocations,
+            "recoveryInvocations": qualified_invocations,
+            "recoveryNodeClassifier": recovery_classifier,
             "recoveryInvocationCapacity": capture.get("recoveryInvocationCapacity"),
             "retainedRecoveryInvocationCount": capture.get(
                 "retainedRecoveryInvocationCount", len(invocations)
@@ -400,8 +477,17 @@ def export(
             "summary": trajectory_summary(samples),
             "provenance": fixture.get("trajectoryProvenance"),
         },
+        "observations": {
+            "costmap": {
+                "deliveredMessageCount": fixture.get("costmapMessages"),
+                "observationCount": fixture.get("costmapObservations"),
+                "serviceSnapshotCount": fixture.get("costmapServiceSnapshots"),
+                "maximumOccupiedCellCount": fixture.get("maximumOccupiedCostmapCells"),
+                "provenance": fixture.get("costmapProvenance"),
+            },
+        },
         "runtime": {
-            "btPolicySha256": sha256(bt_xml_path),
+            "btPolicySha256": policy_hash,
             "environmentManifestSha256": manifest_hash,
             "configurationSha256": configuration_hash,
         },
@@ -432,7 +518,7 @@ def export(
             "fixtureSummary": sha256(fixture_path),
             "worldTruth": sha256(truth_path),
             "environmentManifest": manifest_hash,
-            "btPolicy": sha256(bt_xml_path),
+            "btPolicy": policy_hash,
             "ecologicalContract": sha256(contract_path),
         },
     }

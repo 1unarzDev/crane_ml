@@ -99,6 +99,22 @@ def route_acceptance(path: Path | None, environment_id: str, scenario_id: str,
             "catalog": str(path), "catalogSha256": sha256(path),
         }
 
+    supported_criteria = {
+        "minimumPositiveLateralMeters",
+        "maximumNegativeLateralMeters",
+        "minimumAbsoluteLateralMeters",
+        "maximumAbsoluteLateralMeters",
+        "minimumLateralDirectionChanges",
+        "minimumLongitudinalReversalSamples",
+        "minimumRecoveryCount",
+    }
+    unknown_criteria = sorted(set(criteria) - supported_criteria)
+    if unknown_criteria:
+        raise ValueError(
+            "Navigation gate has unsupported navigation gate criteria: "
+            + ", ".join(unknown_criteria)
+        )
+
     checks: dict[str, bool] = {}
     if "minimumPositiveLateralMeters" in criteria:
         checks["minimumPositiveLateralMeters"] = (

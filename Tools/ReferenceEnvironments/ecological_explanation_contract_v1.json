@@ -34,6 +34,7 @@
     {
       "environmentId": "crane-industrial-warehouse-v2",
       "scenarioId": "warehouse-temporary-enclosure-recovery-v1",
+      "pilotStatus": "PILOT_READY",
       "catalogEntryType": "scenario",
       "manifest": "Assets/Resources/ReferenceEnvironments/unity_turtlebot3_industrial_warehouse_v2.json",
       "manifestSha256": "c6db13e9c7190482f1eca723cb515cc7a38ce01a9caa60d6fbf9720810e68d69",
@@ -101,6 +102,7 @@
     {
       "environmentId": "crane-land-proving-ground-v1",
       "scenarioId": "dynamic-gate-v1",
+      "pilotStatus": "HISTORICAL_CALIBRATION_ONLY",
       "catalogEntryType": "layout",
       "manifest": "Assets/Resources/ReferenceEnvironments/crane_land_proving_ground_v1.json",
       "manifestSha256": "bea854292d7298e04f37ed9f6cc50f49d59d51fdec0e1b78a9d5f9247beee720",
@@ -168,6 +170,7 @@
     {
       "environmentId": "crane-land-proving-ground-v1",
       "scenarioId": "complete-blockage-v1",
+      "pilotStatus": "PILOT_READY",
       "catalogEntryType": "layout",
       "manifest": "Assets/Resources/ReferenceEnvironments/crane_land_proving_ground_v1.json",
       "manifestSha256": "bea854292d7298e04f37ed9f6cc50f49d59d51fdec0e1b78a9d5f9247beee720",
@@ -238,6 +241,7 @@
     {
       "environmentId": "crane-land-proving-ground-v2",
       "scenarioId": "slalom-s-turn-v2",
+      "pilotStatus": "PILOT_READY",
       "catalogEntryType": "layout",
       "manifest": "Assets/Resources/ReferenceEnvironments/crane_land_proving_ground_v2.json",
       "manifestSha256": "3f249258362fb47ceb135b7423e77ba5716bd1ebf4b3db7cf3650a8f8f0640f2",
@@ -308,6 +312,7 @@
     {
       "environmentId": "crane-land-proving-ground-v1",
       "scenarioId": "u-trap-v1",
+      "pilotStatus": "NOT_READY_NO_QUALIFIED_EXPORT",
       "catalogEntryType": "layout",
       "manifest": "Assets/Resources/ReferenceEnvironments/crane_land_proving_ground_v1.json",
       "manifestSha256": "bea854292d7298e04f37ed9f6cc50f49d59d51fdec0e1b78a9d5f9247beee720",

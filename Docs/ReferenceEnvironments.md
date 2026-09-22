@@ -277,13 +277,17 @@ CRANE_PROVING_GROUND_LAYOUT=slalom-s-turn-v2 \
 
 ## Ecological explanation question contract
 
-`Tools/ReferenceEnvironments/ecological_explanation_contract_v1.json` prospectively maps five
-qualified land mechanisms to ten evidence-rich question contracts: warehouse recovery-success,
-dynamic-gate recovery-success, bounded blockage termination, corrected S-turn trajectory shape,
-and U-trap route change. Each question declares the robot-visible evidence fields it needs, the
-claim classes those fields may support, and claims that must be withheld. Five questions require a
-partial answer by construction because retained runtime evidence cannot establish physical cause,
-controller consumption, no-path, optimality, or a counterfactual.
+`Tools/ReferenceEnvironments/ecological_explanation_contract_v1.json` retains five land mechanisms
+and ten evidence-rich question contracts, but explicitly separates historical infrastructure from
+the current pilot. The pilot-ready set is exactly warehouse temporary-enclosure recovery,
+`complete-blockage-v1`, and corrected `slalom-s-turn-v2`. `dynamic-gate-v1` remains a preserved
+historical calibration whose earlier 3/3 recovery-success result is not currently pilot-qualified;
+no further tuning is planned. U-trap remains a useful question/route contract but is
+`NOT_READY_NO_QUALIFIED_EXPORT`, because no current qualified ecological export was found. Each
+question declares the robot-visible evidence fields it needs, the claim classes those fields may
+support, and claims that must be withheld. Five questions require a partial answer by construction
+because retained runtime evidence cannot establish physical cause, controller consumption,
+no-path, optimality, or a counterfactual.
 
 The contract is `DEVELOPMENT_ONLY_NOT_FROZEN`. It is additive ecological infrastructure and cannot
 change the frozen F/G/H split, questions, prompts, or inclusion rules. Environment qualification
@@ -298,7 +302,7 @@ python3 Tools/ReferenceEnvironments/validate_ecological_explanation_contract.py
 ```
 
 The validated contract SHA-256 is
-`65b10d62259e741c296d3fe20de4653bd00cde7b6ccce46763c9a6be195124ac`.
+`4963cbc3aadf8aa61676ca7b365af32bd54b17a9256c84a47a2c8cba115b14f3`.
 This is a reproducible handoff to the explanation pipeline; explanation generation,
 information-parity audit, blinded annotation, and statistical evaluation remain **NOT_RUN**.
 
@@ -324,6 +328,14 @@ publisher sequence number, the current capture conservatively reports whole-hist
 as `not_proven` and never makes an exact recovery-count claim from the observed invocation list
 alone. A direct service-leaf completion establishes a recorded software invocation, not a changed
 costmap, physical cause, or causal contribution to the later outcome.
+
+The exporter carries this bounded derivation into each robot-visible recovery invocation: exact
+policy SHA-256, classifier basis/rule, and the referenced observed start transition. Direct
+`IDLE -> SUCCESS` events additionally require the classifier's source hash to equal the exported BT
+policy hash. The full `recoveryNodeClassifier` record is retained alongside the invocations.
+Delivered costmap message/snapshot counts and maximum observed occupancy are also exported when
+available, with their recorded provenance. They remain delivered observations, not proof that the
+controller consumed them or that an obstacle physically caused recovery or replanning.
 
 Export a qualified ecological run into physically separate evidence planes:
 
@@ -553,9 +565,10 @@ result JSON SHA-256 was
   physics, sensor, headless, explanation, and deterministic inspection controls **TESTED**;
   every scenario motif has one behaviorally qualified development run across the retained v1
   catalog and additive corrected v2 slalom. Direct keyboard view switching **PASSED** for v2.
-  Corrected S-turn, dynamic recovery-success, and bounded blockage abort each pass a three-run
-  exact-condition repetition gate. Contracts for those mechanisms plus U-trap route evidence are
-  **VALIDATED**; explanation generation and annotation remain **NOT_RUN**.
+  Corrected S-turn, historical dynamic recovery-success, and bounded blockage abort each pass a
+  three-run exact-condition repetition gate. For the current pilot, only corrected S-turn and
+  bounded blockage are **PILOT_READY**. Dynamic-gate is **HISTORICAL_CALIBRATION_ONLY** and U-trap
+  is **NOT_READY_NO_QUALIFIED_EXPORT**. Explanation generation and annotation remain **NOT_RUN**.
 - F1TENTH conversion and Unity import: **IMPLEMENTED / TESTED** on synthetic fixtures and the
   pinned external Spielberg map; full-lap controller/ROS validation **NOT_RUN**.
 - PX4 walls: **IMPLEMENTED / TESTED** headlessly; ArUco: **IMPLEMENTED / TESTED** for layer

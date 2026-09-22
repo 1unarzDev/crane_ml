@@ -14,6 +14,11 @@ ROOT = Path(__file__).resolve().parents[2]
 EXPECTED_SCHEMA = "crane-ecological-explanation-contract-v1"
 ALLOWED_ANSWER_MODES = {"full", "partial", "full_when_complete_otherwise_partial"}
 ALLOWED_QUALIFICATION = {"REPETITION_PASS", "SINGLE_RUN_NAVIGATION_PASS"}
+ALLOWED_PILOT_STATUS = {
+    "PILOT_READY",
+    "HISTORICAL_CALIBRATION_ONLY",
+    "NOT_READY_NO_QUALIFIED_EXPORT",
+}
 ALLOWED_TERMINAL_STATUSES = {"succeeded", "aborted", "canceled", "timeout"}
 ALLOWED_TRAJECTORY_CRITERIA = {
     "minimumPositiveLateralMeters",
@@ -80,6 +85,7 @@ def validate(contract_path: Path, root: Path = ROOT) -> dict[str, Any]:
     manifest_hashes: dict[str, str] = {}
     question_count = 0
     partial_count = 0
+    pilot_ready_scenarios: list[list[str]] = []
     for scenario in contract.get("scenarios", []):
         environment_id = scenario.get("environmentId")
         scenario_id = scenario.get("scenarioId")
@@ -89,6 +95,11 @@ def validate(contract_path: Path, root: Path = ROOT) -> dict[str, Any]:
         if key in scenario_keys:
             raise ValueError(f"Duplicate ecological scenario contract: {key}")
         scenario_keys.add(key)
+        pilot_status = scenario.get("pilotStatus")
+        if pilot_status not in ALLOWED_PILOT_STATUS:
+            raise ValueError(f"Unsupported pilot status for {scenario_id}")
+        if pilot_status == "PILOT_READY":
+            pilot_ready_scenarios.append([environment_id, scenario_id])
 
         entry_type = scenario.get("catalogEntryType")
         if entry_type not in {"layout", "scenario"}:
@@ -228,6 +239,7 @@ def validate(contract_path: Path, root: Path = ROOT) -> dict[str, Any]:
         "scenarioCount": len(scenario_keys),
         "questionCount": question_count,
         "partialAnswerQuestionCount": partial_count,
+        "pilotReadyScenarios": pilot_ready_scenarios,
         "manifestSha256": manifest_hashes,
         "frozenStudyAffected": False,
     }

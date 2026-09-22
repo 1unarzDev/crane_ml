@@ -23,6 +23,11 @@ class EcologicalExplanationContractTests(unittest.TestCase):
         self.assertEqual(result["scenarioCount"], 5)
         self.assertEqual(result["questionCount"], 10)
         self.assertEqual(result["partialAnswerQuestionCount"], 5)
+        self.assertEqual(result["pilotReadyScenarios"], [
+            ["crane-industrial-warehouse-v2", "warehouse-temporary-enclosure-recovery-v1"],
+            ["crane-land-proving-ground-v1", "complete-blockage-v1"],
+            ["crane-land-proving-ground-v2", "slalom-s-turn-v2"],
+        ])
         self.assertFalse(result["frozenStudyAffected"])
 
     def test_rejects_evaluator_only_evidence_as_robot_visible(self) -> None:
