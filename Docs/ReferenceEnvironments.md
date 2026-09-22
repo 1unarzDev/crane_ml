@@ -376,9 +376,23 @@ but it was captured before the source-verified direct-terminal classifier was im
 therefore contains no recovery-invocation record. Replaying the unchanged retained transition
 sequence through the new classifier deterministically identifies one completed
 `ClearLocalCostmap-Context` invocation at transition 193; this diagnostic does not mutate or
-retroactively qualify the old artifact. A fresh live capture and fail-closed separated export
-remain `NOT_RUN`. The calibration supports the observed software sequence and feedback count, not
-an exact whole-episode count or a physical-causation claim.
+retroactively qualify the old artifact. A fresh live capture was then attempted under the
+fail-closed export-eligibility gates. The first attempt was infrastructure-invalid before goal
+submission because the fixture's ROS `Path` import shadowed `pathlib.Path`; it is not a robot
+episode. After that defect was fixed, a fresh capture retained 2,672 unique transitions and eight
+complete, reset-delimited, source-qualified recovery invocations with zero drops or invocation
+anomalies. The action nevertheless aborted after 91.661 seconds, about 17.4 m from its start, while
+the run contract required success.
+The QA summary therefore reports `BLOCKED`/`routeReady=false`, and no ecological export was made.
+The eight observed invocations were three `ClearLocalCostmap-Context` completions and one each of
+`ClearLocalCostmap-Subtree`, `ClearGlobalCostmap-Subtree`, `Spin`, `Wait`, and `BackUp`; `Spin`
+terminated `FAILURE` and the others terminated `SUCCESS`. Whole-history completeness remains
+`not_proven` because the topic has no publisher sequence number and the configured terminal root
+transition was not observed. Together, the historical success and corrected negative run qualify
+the recorder's direct-terminal classification but show that v3 is not yet a stable
+recovery-followed-by-success scenario. Neither run is export-qualified. They support recorded
+software invocations and sequence only, not an exact whole-episode count, changed costmap contents,
+controller consumption, physical causation, or a causal claim about the final outcome.
 
 ## F1TENTH occupancy maps
 
