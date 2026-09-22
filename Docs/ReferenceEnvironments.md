@@ -312,12 +312,18 @@ summary.
 
 The passive Nav2 fixture now retains an ordered, bounded `BehaviorTreeLog` stream using
 `Tools/Performance/bt_transition_capture.py`. It assigns stable transition IDs and derives a unique
-recovery invocation ID only from an observed `IDLE -> RUNNING` edge on an explicitly configured
-recovery leaf. Nav2 feedback recovery counts are retained separately. Capture output also reports
-duplicates, truncation, pre-goal records, open/incomplete invocations, configured terminal-node
-observation, and limitations. Since Jazzy's topic does not provide a publisher sequence number,
-the current capture conservatively reports whole-history completeness as `not_proven` and never
-makes an exact recovery-count claim from the observed invocation list alone.
+recovery invocation ID from an observed `IDLE -> RUNNING` edge on an explicitly configured
+recovery leaf. It also admits direct `IDLE -> SUCCESS` completion only for the separately
+allowlisted costmap-clear leaves whose pinned Nav2 service-node implementation can complete within
+one BT tick. Guards are not on that allowlist. A second activation of the same UID requires an
+observed terminal-to-IDLE reset; a restart without that boundary is reported as anomalous rather
+than counted. Nav2 feedback recovery counts are retained separately. Capture output also reports
+the transition pattern, duplicates, truncation, pre-goal records, open/incomplete invocations,
+configured terminal-node observation, and limitations. Since Jazzy's topic does not provide a
+publisher sequence number, the current capture conservatively reports whole-history completeness
+as `not_proven` and never makes an exact recovery-count claim from the observed invocation list
+alone. A direct service-leaf completion establishes a recorded software invocation, not a changed
+costmap, physical cause, or causal contribution to the later outcome.
 
 Export a qualified ecological run into physically separate evidence planes:
 
@@ -366,10 +372,13 @@ activated at 18.040 simulated seconds and were removed at 34.040 seconds; Naviga
 feedback changed from recovery count 0 to 1; and 756 unique BT transitions were retained against a
 16,384-record capacity with zero drops. The delivered transition stream contains FollowPath
 failure, a successful controller-recovery guard, and `ClearLocalCostmap-Context IDLE -> SUCCESS`,
-but no configured recovery leaf produced the strict `IDLE -> RUNNING` edge required for a stable
-recovery-invocation ID. The run therefore remains a retained calibration and is not admitted to
-the ecological separated export. It supports the observed software sequence and feedback count,
-not an exact attempt count or a physical-causation claim.
+but it was captured before the source-verified direct-terminal classifier was implemented and
+therefore contains no recovery-invocation record. Replaying the unchanged retained transition
+sequence through the new classifier deterministically identifies one completed
+`ClearLocalCostmap-Context` invocation at transition 193; this diagnostic does not mutate or
+retroactively qualify the old artifact. A fresh live capture and fail-closed separated export
+remain `NOT_RUN`. The calibration supports the observed software sequence and feedback count, not
+an exact whole-episode count or a physical-causation claim.
 
 ## F1TENTH occupancy maps
 

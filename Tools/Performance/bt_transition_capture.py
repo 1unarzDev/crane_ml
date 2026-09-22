@@ -3,17 +3,36 @@
 
 This module is ROS-independent so transition/invocation behavior can be regression tested without
 a ROS installation.  A BehaviorTreeLog node UID identifies a node instance in the tree; it is not
-an attempt ID.  Invocation IDs here are assigned only when a configured recovery leaf transitions
-from IDLE to RUNNING.
+an attempt ID. Invocation IDs are assigned when a configured recovery leaf leaves IDLE for RUNNING
+or a source-verified service leaf completes directly at SUCCESS within one BehaviorTree tick.
 """
 
 from __future__ import annotations
 
 from collections import deque
+from pathlib import Path
 from typing import Iterable, Mapping
+import xml.etree.ElementTree as ET
 
 
 TERMINAL_STATUSES = frozenset(("SUCCESS", "FAILURE"))
+COMPLETION_OVERRIDE_ATTRIBUTES = frozenset(("_skipIf", "_failureIf", "_successIf", "_while"))
+
+
+def direct_terminal_recovery_nodes_from_bt_xml(path: Path) -> tuple[str, ...]:
+    """Return source-verified ClearEntireCostmap instance names without BT preconditions."""
+    root = ET.parse(path).getroot()
+    names = set()
+    for element in root.iter():
+        tag = element.tag.rsplit("}", 1)[-1]
+        if tag != "ClearEntireCostmap":
+            continue
+        if COMPLETION_OVERRIDE_ATTRIBUTES.intersection(element.attrib):
+            continue
+        name = element.attrib.get("name")
+        if name:
+            names.add(name)
+    return tuple(sorted(names))
 
 
 class BehaviorTreeTransitionCapture:
@@ -26,16 +45,31 @@ class BehaviorTreeTransitionCapture:
         max_invocations: int,
         recovery_node_names: Iterable[str],
         terminal_node_names: Iterable[str],
+        direct_terminal_recovery_node_names: Iterable[str] = (),
+        direct_terminal_classifier_basis: str = "explicit_configuration",
+        direct_terminal_classifier_sha256: str | None = None,
     ) -> None:
         if max_transitions < 1 or max_invocations < 1:
             raise ValueError("BehaviorTree capture bounds must be positive")
         self.max_transitions = max_transitions
         self.max_invocations = max_invocations
         self.recovery_node_names = frozenset(recovery_node_names)
+        self.direct_terminal_recovery_node_names = frozenset(
+            direct_terminal_recovery_node_names
+        )
+        self.direct_terminal_classifier_basis = direct_terminal_classifier_basis
+        self.direct_terminal_classifier_sha256 = direct_terminal_classifier_sha256
+        unknown_direct_nodes = self.direct_terminal_recovery_node_names - self.recovery_node_names
+        if unknown_direct_nodes:
+            raise ValueError(
+                "Direct-terminal recovery nodes must also be configured recovery nodes: "
+                + ", ".join(sorted(unknown_direct_nodes))
+            )
         self.terminal_node_names = frozenset(terminal_node_names)
         self.records = []
         self.recovery_invocations = []
         self._active_recovery_invocations = {}
+        self._recovery_nodes_awaiting_reset = {}
         self._seen_fingerprints = set()
         self._fingerprint_order = deque()
         self.log_message_count = 0
@@ -110,13 +144,31 @@ class BehaviorTreeTransitionCapture:
         if not self.goal_accepted or record["nodeName"] not in self.recovery_node_names:
             return
         key = (record["uid"], record["nodeName"])
-        if record["previousStatus"] == "IDLE" and record["currentStatus"] == "RUNNING":
+        if (
+            record["previousStatus"] in TERMINAL_STATUSES
+            and record["currentStatus"] == "IDLE"
+        ):
+            self._recovery_nodes_awaiting_reset.pop(key, None)
+            return
+        leaves_idle = record["previousStatus"] == "IDLE"
+        starts_running = leaves_idle and record["currentStatus"] == "RUNNING"
+        completes_in_tick = (
+            leaves_idle
+            and record["nodeName"] in self.direct_terminal_recovery_node_names
+            and record["currentStatus"] == "SUCCESS"
+        )
+        if starts_running or completes_in_tick:
             # A repeated publication is removed by the fingerprint check. An actual second start
             # while the first invocation is open is anomalous and must not silently become a count.
             if key in self._active_recovery_invocations:
                 self._active_recovery_invocations[key]["overlappingStartTransitionId"] = record[
                     "recordId"
                 ]
+                return
+            if key in self._recovery_nodes_awaiting_reset:
+                self._recovery_nodes_awaiting_reset[key][
+                    "restartWithoutResetTransitionId"
+                ] = record["recordId"]
                 return
             self.recovery_invocation_count += 1
             invocation = {
@@ -125,15 +177,21 @@ class BehaviorTreeTransitionCapture:
                 "uid": record["uid"],
                 "goalId": record["goalId"],
                 "startTransitionId": record["recordId"],
-                "endTransitionId": None,
-                "terminalStatus": None,
-                "complete": False,
+                "endTransitionId": record["recordId"] if completes_in_tick else None,
+                "terminalStatus": record["currentStatus"] if completes_in_tick else None,
+                "complete": completes_in_tick,
+                "observationPattern": (
+                    "idle_to_terminal" if completes_in_tick else "idle_to_running"
+                ),
             }
             if len(self.recovery_invocations) < self.max_invocations:
                 self.recovery_invocations.append(invocation)
-                self._active_recovery_invocations[key] = invocation
+                if not completes_in_tick:
+                    self._active_recovery_invocations[key] = invocation
             else:
                 self.dropped_recovery_invocation_count += 1
+            if completes_in_tick:
+                self._recovery_nodes_awaiting_reset[key] = invocation
             return
 
         invocation = self._active_recovery_invocations.get(key)
@@ -143,6 +201,8 @@ class BehaviorTreeTransitionCapture:
         invocation["terminalStatus"] = record["currentStatus"]
         invocation["complete"] = record["currentStatus"] in TERMINAL_STATUSES
         del self._active_recovery_invocations[key]
+        if invocation["complete"]:
+            self._recovery_nodes_awaiting_reset[key] = invocation
 
     def summary(self) -> dict:
         open_ids = sorted(
@@ -158,6 +218,11 @@ class BehaviorTreeTransitionCapture:
             invocation["invocationId"]
             for invocation in self.recovery_invocations
             if "overlappingStartTransitionId" in invocation
+        )
+        restart_without_reset_ids = sorted(
+            invocation["invocationId"]
+            for invocation in self.recovery_invocations
+            if "restartWithoutResetTransitionId" in invocation
         )
         reasons = [
             "BehaviorTreeLog has no publisher sequence number, so subscriber-side message loss "
@@ -182,6 +247,10 @@ class BehaviorTreeTransitionCapture:
             reasons.append("one or more retained recovery invocations lack a terminal status")
         if overlapping_ids:
             reasons.append("one or more recovery nodes started while a prior invocation was open")
+        if restart_without_reset_ids:
+            reasons.append(
+                "one or more recovery nodes appeared to restart without an observed reset"
+            )
         return {
             "orderedTransitions": self.records,
             "transitionCapacity": self.max_transitions,
@@ -196,8 +265,19 @@ class BehaviorTreeTransitionCapture:
             "observedRecoveryInvocationStartCount": self.recovery_invocation_count,
             "droppedRecoveryInvocationCount": self.dropped_recovery_invocation_count,
             "recoveryNodeClassifier": {
-                "basis": "configured_exact_node_name_allowlist",
+                "basis": "configured_exact_leaf_name_and_idle_departure",
                 "nodeNames": sorted(self.recovery_node_names),
+                "directTerminalNodeNames": sorted(self.direct_terminal_recovery_node_names),
+                "directTerminalClassifierBasis": self.direct_terminal_classifier_basis,
+                "directTerminalClassifierSha256": self.direct_terminal_classifier_sha256,
+                "directTerminalInterpretation": (
+                    "source_verified_leaf_completed_in_one_bt_tick; "
+                    "not_proof_of_external_side_effect_or_physical_cause"
+                ),
+                "invocationStartPatterns": {
+                    "allConfiguredLeaves": ["IDLE->RUNNING"],
+                    "directTerminalLeaves": ["IDLE->SUCCESS"],
+                },
             },
             "completeness": {
                 "historyStatus": "not_proven",
@@ -212,6 +292,7 @@ class BehaviorTreeTransitionCapture:
                 "openRecoveryInvocationIds": open_ids,
                 "incompleteRecoveryInvocationIds": incomplete_ids,
                 "overlappingRecoveryInvocationIds": overlapping_ids,
+                "restartWithoutResetRecoveryInvocationIds": restart_without_reset_ids,
                 "messageLossDetectable": False,
                 "exactRecoveryCountEligible": False,
                 "limitations": reasons,

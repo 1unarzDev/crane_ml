@@ -113,9 +113,10 @@ nav2_action_mode="${CRANE_NAV2_ACTION_MODE:-navigate-to-pose}"
 
 docker run --rm --name "${fixture_name}" --network host --ipc host \
     -e ROS_DOMAIN_ID="${ros_domain_id}" \
+    -e CRANE_BT_XML_CONTAINER="${bt_xml_container}" \
     -v "${root_dir}:/workspace/crane_sim:ro" -v "${result_root}:/results" \
     "${image}" bash -lc \
-    'source /opt/ros/jazzy/setup.bash; exec python3 /workspace/crane_sim/Tools/Performance/nav2_follow_path_fixture.py --input-type twist --action-mode '"${nav2_action_mode}"' --distance '"${goal_distance}"' --duration '"${action_duration}"' --costmap-topic '"${costmap_topic}"' --bt-max-transitions '"${bt_max_transitions}"' --bt-max-invocations '"${bt_max_invocations}"' --episode-id '"${run_id}-worker-${worker_id}"' --run-id '"${run_id}"' --output /results/fixture-summary.json' \
+    'source /opt/ros/jazzy/setup.bash; bt_fixture_extra=(); if [[ -n "${CRANE_BT_XML_CONTAINER:-}" ]]; then bt_fixture_extra=(--bt-xml "${CRANE_BT_XML_CONTAINER}"); fi; exec python3 /workspace/crane_sim/Tools/Performance/nav2_follow_path_fixture.py --input-type twist --action-mode '"${nav2_action_mode}"' --distance '"${goal_distance}"' --duration '"${action_duration}"' --costmap-topic '"${costmap_topic}"' --bt-max-transitions '"${bt_max_transitions}"' --bt-max-invocations '"${bt_max_invocations}"' "${bt_fixture_extra[@]}" --episode-id '"${run_id}-worker-${worker_id}"' --run-id '"${run_id}"' --output /results/fixture-summary.json' \
     | tee "${result_root}/fixture.log"
 
 wait "${player_pid}"

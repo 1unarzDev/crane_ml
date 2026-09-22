@@ -7,11 +7,16 @@ node; that is useful bounded-lag provenance, but is not proof of Nav2's internal
 """
 
 import argparse
+import hashlib
 import json
 import math
+from pathlib import Path
 import time
 
-from bt_transition_capture import BehaviorTreeTransitionCapture
+from bt_transition_capture import (
+    BehaviorTreeTransitionCapture,
+    direct_terminal_recovery_nodes_from_bt_xml,
+)
 import rclpy
 from geometry_msgs.msg import PoseStamped, Twist, TwistStamped
 from nav2_msgs.action import FollowPath, NavigateToPose
@@ -40,7 +45,6 @@ DEFAULT_RECOVERY_NODE_NAMES = (
     'Spin',
     'Wait',
 )
-
 
 class FollowPathFixture(Node):
     def __init__(self, args):
@@ -73,10 +77,31 @@ class FollowPathFixture(Node):
         self.bt_transition_count = 0
         self.bt_transition_counts = {}
         self.bt_latest_transition_by_node = {}
+        configured_recovery_nodes = args.bt_recovery_node or DEFAULT_RECOVERY_NODE_NAMES
+        configured_direct_terminal_nodes = args.bt_direct_terminal_recovery_node
+        direct_terminal_classifier_basis = "explicit_cli_allowlist"
+        direct_terminal_classifier_sha256 = None
+        if not configured_direct_terminal_nodes and args.bt_xml:
+            bt_xml_path = Path(args.bt_xml)
+            derived_nodes = direct_terminal_recovery_nodes_from_bt_xml(bt_xml_path)
+            configured_direct_terminal_nodes = tuple(
+                name for name in derived_nodes if name in configured_recovery_nodes
+            )
+            direct_terminal_classifier_basis = (
+                "loaded_bt_xml_clear_entire_costmap_without_completion_preconditions"
+            )
+            direct_terminal_classifier_sha256 = hashlib.sha256(
+                bt_xml_path.read_bytes()
+            ).hexdigest()
+        elif not configured_direct_terminal_nodes:
+            direct_terminal_classifier_basis = "none_without_loaded_tree_provenance"
         self.bt_capture = BehaviorTreeTransitionCapture(
             max_transitions=args.bt_max_transitions,
             max_invocations=args.bt_max_invocations,
-            recovery_node_names=args.bt_recovery_node or DEFAULT_RECOVERY_NODE_NAMES,
+            recovery_node_names=configured_recovery_nodes,
+            direct_terminal_recovery_node_names=configured_direct_terminal_nodes,
+            direct_terminal_classifier_basis=direct_terminal_classifier_basis,
+            direct_terminal_classifier_sha256=direct_terminal_classifier_sha256,
             terminal_node_names=args.bt_terminal_node or ('NavigateRecovery',),
         )
         self.trajectory_samples = []
@@ -485,6 +510,8 @@ def main():
     parser.add_argument('--bt-max-transitions', type=int, default=4096)
     parser.add_argument('--bt-max-invocations', type=int, default=1024)
     parser.add_argument('--bt-recovery-node', action='append', default=[])
+    parser.add_argument('--bt-direct-terminal-recovery-node', action='append', default=[])
+    parser.add_argument('--bt-xml')
     parser.add_argument('--bt-terminal-node', action='append', default=[])
     parser.add_argument('--bt-terminal-drain-seconds', type=float, default=0.5)
     parser.add_argument('--episode-id', required=True)
