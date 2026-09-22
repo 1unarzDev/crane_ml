@@ -109,6 +109,7 @@ class LandNav2FixtureContractTests(unittest.TestCase):
         self.assertIn("--bt-max-transitions", text)
         self.assertIn("--bt-direct-terminal-recovery-node", text)
         self.assertIn("--bt-xml", text)
+        self.assertIn("FilePath(args.bt_xml)", text)
         self.assertIn("--bt-max-invocations", text)
         self.assertIn("--bt-terminal-drain-seconds", text)
         launcher = (ROOT / "Tools/Performance/run_nav2_controller_fixture.sh").read_text()

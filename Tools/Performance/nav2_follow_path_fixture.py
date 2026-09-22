@@ -10,7 +10,7 @@ import argparse
 import hashlib
 import json
 import math
-from pathlib import Path
+from pathlib import Path as FilePath
 import time
 
 from bt_transition_capture import (
@@ -82,7 +82,7 @@ class FollowPathFixture(Node):
         direct_terminal_classifier_basis = "explicit_cli_allowlist"
         direct_terminal_classifier_sha256 = None
         if not configured_direct_terminal_nodes and args.bt_xml:
-            bt_xml_path = Path(args.bt_xml)
+            bt_xml_path = FilePath(args.bt_xml)
             derived_nodes = direct_terminal_recovery_nodes_from_bt_xml(bt_xml_path)
             configured_direct_terminal_nodes = tuple(
                 name for name in derived_nodes if name in configured_recovery_nodes
