@@ -61,6 +61,8 @@ class FollowPathFixture(Node):
         self.bt_transition_count = 0
         self.bt_transition_counts = {}
         self.bt_latest_transition_by_node = {}
+        self.trajectory_samples = []
+        self.next_trajectory_sample_wall = self.started_wall
         self.done = False
         self.goal_description = None
         self.publisher = self.create_publisher(
@@ -214,6 +216,7 @@ class FollowPathFixture(Node):
 
     def tick(self):
         elapsed = time.monotonic() - self.started_wall
+        self.sample_trajectory(elapsed)
         if self.done or elapsed >= self.args.duration:
             self.finish('timeout' if self.result_status is None else self.result_status)
             return
@@ -225,6 +228,25 @@ class FollowPathFixture(Node):
         if not self.action.server_is_ready():
             return
         self.send_goal()
+
+    def sample_trajectory(self, elapsed, force=False):
+        if self.latest_odom is None:
+            return
+        now = time.monotonic()
+        if not force and now < self.next_trajectory_sample_wall:
+            return
+        pose = self.latest_odom.pose.pose
+        sample = {
+            'wallSeconds': elapsed,
+            'stamp': stamp_dict(self.latest_odom.header.stamp),
+            'x': float(pose.position.x),
+            'y': float(pose.position.y),
+            'yaw': yaw_from_quaternion(pose.orientation),
+        }
+        if not self.trajectory_samples or (
+                sample['stamp'] != self.trajectory_samples[-1]['stamp']):
+            self.trajectory_samples.append(sample)
+        self.next_trajectory_sample_wall = now + self.args.trajectory_sample_period
 
     def send_goal(self):
         odom = self.initial_odom
@@ -310,6 +332,7 @@ class FollowPathFixture(Node):
         if self.done:
             return
         self.done = True
+        self.sample_trajectory(time.monotonic() - self.started_wall, force=True)
         if status == 'timeout' and self.goal_handle is not None:
             goal_id = bytes(self.goal_handle.goal_id.uuid).hex()
             self.publish_event({
@@ -358,6 +381,10 @@ class FollowPathFixture(Node):
             'behaviorTreeLatestTransitionByNode': self.bt_latest_transition_by_node,
             'behaviorTreeProvenance': (
                 'delivered-topic-transitions-may-omit-terminal-tick-not-proof-of-completeness'),
+            'trajectorySamples': self.trajectory_samples,
+            'trajectorySamplePeriodWallSeconds': self.args.trajectory_sample_period,
+            'trajectoryProvenance': (
+                'sampled-delivered-odometry-not-proven-nav2-internal-state'),
             'costmapTopic': self.args.costmap_topic,
             'costmapMessages': self.costmap_count,
             'costmapService': self.args.costmap_service,
@@ -408,6 +435,7 @@ def main():
     parser.add_argument('--distance', type=float, default=0.5)
     parser.add_argument('--path-points', type=int, default=20)
     parser.add_argument('--duration', type=float, default=25.0)
+    parser.add_argument('--trajectory-sample-period', type=float, default=1.0)
     parser.add_argument('--output')
     parser.add_argument('--harness-topic', default='/crane/explanation_event')
     parser.add_argument('--bt-topic', default='/behavior_tree_log')

@@ -125,7 +125,9 @@ result with the structural validator without inferring interactive or failure/re
 
 The generic NavigateToPose fixture also records delivered `BehaviorTreeLog` transition counts,
 latest observed status per node, feedback-message count, maximum `number_of_recoveries`, and the
-ordered recovery-count changes. These are QA summaries, not a replacement for the explanation
+ordered recovery-count changes. It also samples delivered odometry at a declared wall-time period
+for route-shape QA while explicitly withholding any internal-consumption claim. These are QA
+summaries, not a replacement for the explanation
 capture's retained raw event stream. The summary explicitly marks BT delivery as potentially
 incomplete because Nav2 Jazzy can omit terminal-tick transitions; a nearby topic message also does
 not prove internal sensor consumption.

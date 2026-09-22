@@ -93,6 +93,8 @@ class LandNav2FixtureContractTests(unittest.TestCase):
         self.assertIn("'recoveryCountSequence'", text)
         self.assertIn("'behaviorTreeTransitionCounts'", text)
         self.assertIn("may-omit-terminal-tick-not-proof-of-completeness", text)
+        self.assertIn("'trajectorySamples'", text)
+        self.assertIn("sampled-delivered-odometry-not-proven-nav2-internal-state", text)
 
     def test_harness_boundary_events_survive_dds_discovery(self) -> None:
         text = FIXTURE.read_text(encoding="utf-8")
