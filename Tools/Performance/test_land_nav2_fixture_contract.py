@@ -41,6 +41,8 @@ class LandNav2FixtureContractTests(unittest.TestCase):
         self.assertIn("CRANE_NAV2_COSTMAP_SERVICE", shared_text)
         self.assertIn("CRANE_DOCKING_EVALUATOR", shared_text)
         self.assertIn("dockingSuccessObserved", fixture_text)
+        self.assertIn("CRANE_NAV2_PATH_FILE", shared_text)
+        self.assertIn("suppliedPathFileSha256", fixture_text)
         self.assertIn("CRANE_REQUIRE_OCCUPIED_COSTMAP=1", launcher_text)
         self.assertIn("--require-occupied-costmap", shared_text)
         self.assertIn("--expected-navigation-status", shared_text)

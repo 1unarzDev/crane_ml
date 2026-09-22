@@ -24,6 +24,8 @@ from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, HistoryPolicy, QoSProfile, ReliabilityPolicy
 from std_msgs.msg import String
 
+from nav2_path_spec import load_path_spec
+
 
 ACTION_STATUS = {
     2: 'executing',
@@ -37,6 +39,7 @@ class FollowPathFixture(Node):
     def __init__(self, args):
         super().__init__('crane_nav2_follow_path_fixture')
         self.args = args
+        self.supplied_path = load_path_spec(args.path_file) if args.path_file else None
         self.latest_odom = None
         self.initial_odom = None
         self.odom_count = 0
@@ -255,25 +258,37 @@ class FollowPathFixture(Node):
         yaw = yaw_from_quaternion(odom.pose.pose.orientation)
         path_yaw = wrapped_angle(yaw + self.args.path_heading_offset)
         path = Path()
-        path.header.frame_id = odom.header.frame_id
+        path.header.frame_id = (self.supplied_path['frameId']
+                                if self.supplied_path else odom.header.frame_id)
         path.header.stamp = odom.header.stamp
-        for index in range(1, self.args.path_points + 1):
-            fraction = index / self.args.path_points
-            forward, lateral, tangent = path_sample(
-                self.args.path_shape, self.args.distance, fraction,
-                self.args.path_lateral_amplitude, self.args.path_turn_angle)
-            pose_yaw = wrapped_angle(path_yaw + tangent)
+        if path.header.frame_id != odom.header.frame_id:
+            raise ValueError(
+                f"supplied path frame {path.header.frame_id} does not match odometry "
+                f"frame {odom.header.frame_id}")
+        if self.supplied_path:
+            samples = self.supplied_path['poses']
+        else:
+            samples = []
+            for index in range(1, self.args.path_points + 1):
+                fraction = index / self.args.path_points
+                forward, lateral, tangent = path_sample(
+                    self.args.path_shape, self.args.distance, fraction,
+                    self.args.path_lateral_amplitude, self.args.path_turn_angle)
+                samples.append({
+                    'x': (odom.pose.pose.position.x +
+                          math.cos(path_yaw) * forward - math.sin(path_yaw) * lateral),
+                    'y': (odom.pose.pose.position.y +
+                          math.sin(path_yaw) * forward + math.cos(path_yaw) * lateral),
+                    'yaw': wrapped_angle(path_yaw + tangent),
+                })
+        for sample in samples:
             pose = PoseStamped()
             pose.header = path.header
-            pose.pose.position.x = (odom.pose.pose.position.x +
-                                    math.cos(path_yaw) * forward -
-                                    math.sin(path_yaw) * lateral)
-            pose.pose.position.y = (odom.pose.pose.position.y +
-                                    math.sin(path_yaw) * forward +
-                                    math.cos(path_yaw) * lateral)
+            pose.pose.position.x = sample['x']
+            pose.pose.position.y = sample['y']
             pose.pose.position.z = odom.pose.pose.position.z
-            pose.pose.orientation.z = math.sin(pose_yaw / 2.0)
-            pose.pose.orientation.w = math.cos(pose_yaw / 2.0)
+            pose.pose.orientation.z = math.sin(sample['yaw'] / 2.0)
+            pose.pose.orientation.w = math.cos(sample['yaw'] / 2.0)
             path.poses.append(pose)
         self.planned_path = [{
             'x': float(odom.pose.pose.position.x),
@@ -400,6 +415,10 @@ class FollowPathFixture(Node):
                       else 'nav2-controller-server-follow-path'),
             'actionMode': self.args.action_mode,
             'pathShape': self.args.path_shape,
+            'suppliedPathFile': (self.supplied_path['sourcePath']
+                                 if self.supplied_path else None),
+            'suppliedPathFileSha256': (self.supplied_path['sourceSha256']
+                                       if self.supplied_path else None),
             'actionName': self.action_name,
             'status': status,
             'odomTopic': self.args.odom_topic,
@@ -650,6 +669,7 @@ def main():
     parser.add_argument('--goal-y', type=float)
     parser.add_argument('--goal-yaw', type=float)
     parser.add_argument('--path-points', type=int, default=20)
+    parser.add_argument('--path-file')
     parser.add_argument('--path-heading-offset', type=float, default=0.0,
                         help='FollowPath heading offset from initial body yaw, radians')
     parser.add_argument('--path-shape', choices=('straight', 'gentle-turn', 's-turn'),
@@ -671,6 +691,8 @@ def main():
         parser.error('--path-heading-offset is supported only for follow-path')
     if args.path_shape != 'straight' and args.action_mode != 'follow-path':
         parser.error('--path-shape is supported only for follow-path')
+    if args.path_file and args.action_mode != 'follow-path':
+        parser.error('--path-file is supported only for follow-path')
     if args.post_result_seconds < 0.0:
         parser.error('--post-result-seconds must be non-negative')
     rclpy.init()

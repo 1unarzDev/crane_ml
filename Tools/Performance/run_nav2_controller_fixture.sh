@@ -16,11 +16,13 @@ bt_xml="${CRANE_NAV2_BT_XML:-}"
 runtime_profile="${CRANE_NAV2_PROFILE:-train-gpu}"
 scene="${CRANE_SCENE:-Roboboat Course}"
 command_flag="${CRANE_NAV2_COMMAND_FLAG:---crane-ros-cmd-vel}"
+nav2_action_mode="${CRANE_NAV2_ACTION_MODE:-navigate-to-pose}"
 goal_distance="${CRANE_NAV2_GOAL_DISTANCE:-0.5}"
 path_heading_offset="${CRANE_NAV2_PATH_HEADING_OFFSET:-0}"
 path_shape="${CRANE_NAV2_PATH_SHAPE:-straight}"
 path_lateral_amplitude="${CRANE_NAV2_PATH_LATERAL_AMPLITUDE:-2.0}"
 path_turn_angle="${CRANE_NAV2_PATH_TURN_ANGLE:-0.7853981633974483}"
+path_file="${CRANE_NAV2_PATH_FILE:-}"
 goal_x="${CRANE_NAV2_GOAL_X:-}"
 goal_y="${CRANE_NAV2_GOAL_Y:-}"
 goal_yaw="${CRANE_NAV2_GOAL_YAW:-}"
@@ -48,6 +50,15 @@ if [[ "${params_file}" != "${root_dir}"/* ]]; then
     exit 2
 fi
 params_container="/workspace/crane_sim/${params_file#"${root_dir}"/}"
+path_file_container=""
+if [[ -n "${path_file}" ]]; then
+    path_file="$(realpath "${path_file}")"
+    if [[ "${path_file}" != "${root_dir}"/* ]]; then
+        echo "Nav2 supplied path must be inside the CRANE repository: ${path_file}" >&2
+        exit 2
+    fi
+    path_file_container="/workspace/crane_sim/${path_file#"${root_dir}"/}"
+fi
 bt_xml_container=""
 if [[ -n "${bt_xml}" ]]; then
     bt_xml="$(realpath "${bt_xml}")"
@@ -120,28 +131,36 @@ player_pid=$!
 # activation margin before presenting the acceptance goal.
 fixture_delay="${CRANE_FIXTURE_DELAY:-$(awk -v warmup="${CRANE_WARMUP:-3}" 'BEGIN { print warmup + 4 }')}"
 sleep "${fixture_delay}"
-nav2_action_mode="${CRANE_NAV2_ACTION_MODE:-navigate-to-pose}"
 goal_args=()
 if [[ -n "${goal_x}" || -n "${goal_y}" ]]; then
     if [[ -z "${goal_x}" || -z "${goal_y}" ]]; then
         echo "CRANE_NAV2_GOAL_X and CRANE_NAV2_GOAL_Y must be supplied together" >&2
         exit 2
     fi
-    goal_args+=(--goal-x "${goal_x}" --goal-y "${goal_y}")
+    if [[ "${nav2_action_mode}" == "navigate-to-pose" ]]; then
+        goal_args+=(--goal-x "${goal_x}" --goal-y "${goal_y}")
+    elif [[ "${docking_evaluator}" != "1" ]]; then
+        echo "CRANE_NAV2_GOAL_X/Y require NavigateToPose or the docking evaluator" >&2
+        exit 2
+    fi
 fi
-if [[ -n "${goal_yaw}" ]]; then
+if [[ -n "${goal_yaw}" && "${nav2_action_mode}" == "navigate-to-pose" ]]; then
     goal_args+=(--goal-yaw "${goal_yaw}")
 fi
 goal_args_shell=""
 if (( ${#goal_args[@]} > 0 )); then
     printf -v goal_args_shell ' %q' "${goal_args[@]}"
 fi
+path_file_arg_shell=""
+if [[ -n "${path_file_container}" ]]; then
+    printf -v path_file_arg_shell ' --path-file %q' "${path_file_container}"
+fi
 
 docker run --rm --name "${fixture_name}" --network host --ipc host \
     -e ROS_DOMAIN_ID="${ros_domain_id}" \
     -v "${root_dir}:/workspace/crane_sim:ro" -v "${result_root}:/results" \
     "${image}" bash -lc \
-    'source /opt/ros/jazzy/setup.bash; exec python3 /workspace/crane_sim/Tools/Performance/nav2_follow_path_fixture.py --input-type twist --action-mode '"${nav2_action_mode}"' --distance '"${goal_distance}"' --path-heading-offset '"${path_heading_offset}"' --path-shape '"${path_shape}"' --path-lateral-amplitude '"${path_lateral_amplitude}"' --path-turn-angle '"${path_turn_angle}"' --duration '"${action_duration}"' --post-result-seconds '"${post_result_duration}"' --costmap-topic '"${costmap_topic}"' --costmap-service '"${costmap_service}"' --episode-id '"${run_id}-worker-${worker_id}"' --run-id '"${run_id}"' --output /results/fixture-summary.json'"${goal_args_shell}" \
+    'source /opt/ros/jazzy/setup.bash; exec python3 /workspace/crane_sim/Tools/Performance/nav2_follow_path_fixture.py --input-type twist --action-mode '"${nav2_action_mode}"' --distance '"${goal_distance}"' --path-heading-offset '"${path_heading_offset}"' --path-shape '"${path_shape}"' --path-lateral-amplitude '"${path_lateral_amplitude}"' --path-turn-angle '"${path_turn_angle}"' --duration '"${action_duration}"' --post-result-seconds '"${post_result_duration}"' --costmap-topic '"${costmap_topic}"' --costmap-service '"${costmap_service}"' --episode-id '"${run_id}-worker-${worker_id}"' --run-id '"${run_id}"' --output /results/fixture-summary.json'"${goal_args_shell}${path_file_arg_shell}" \
     | tee "${result_root}/fixture.log"
 
 wait "${player_pid}"
