@@ -49,7 +49,10 @@ namespace Sim.Physics.Land {
 
         private void FixedUpdate() {
             if (robot == null) return;
-            if (pending.TryApply(command => robot.SetCommand(command.Linear, command.Angular), out _)) {
+            // ROS FLU positive yaw turns left. Unity's positive Y rotation turns +Z toward +X,
+            // which is ROS right because position maps as (x, y) = (z, -x). Negate yaw at the
+            // coordinate boundary so command direction agrees with the published FLU pose.
+            if (pending.TryApply(command => robot.SetCommand(command.Linear, -command.Angular), out _)) {
                 lastApplicationTick = CraneRuntimeMetrics.SimulationTick;
                 stoppedForTimeout = false;
             }
