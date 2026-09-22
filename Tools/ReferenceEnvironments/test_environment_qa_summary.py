@@ -127,6 +127,93 @@ class EnvironmentQaSummaryTests(unittest.TestCase):
         self.assertEqual(result["gates"]["failureRecovery"], "FAILURE_RECOVERY_PASS")
         self.assertEqual(result["trajectory"]["longitudinalReversalSampleCount"], 1)
 
+    def test_resolves_warehouse_dynamic_scenario_and_configuration_identity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            route = {"id": "detour", "approximateLengthMeters": 12.0}
+            scenario = {
+                "id": "temporary-enclosure", "routeId": "detour", "seed": 4105,
+                "robot": "TurtleBot3", "expectedChallenge": "recover then resume",
+                "expectedBroadOutcome": "recovery-success",
+                "obstacles": [{"id": "north"}, {"id": "south"}],
+            }
+            manifest = {
+                "environmentId": "warehouse-v2", "routes": [route],
+                "scenarios": [scenario],
+            }
+            manifest_path = root / "manifest.json"
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            manifest_hash = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+            values = {
+                "structural": {
+                    "environmentId": "warehouse-v2", "manifestSha256": manifest_hash,
+                    "structuralStatus": "STRUCTURAL_PASS", "physicsStatus": "PHYSICS_PASS",
+                    "sensorStatus": "SENSOR_PASS", "headlessStatus": "HEADLESS_PASS",
+                    "explanationStatus": "EXPLANATION_READY",
+                },
+                "navigation": {"valid": True, "navigation": {
+                    "status": "succeeded", "displacementMeters": 11.0,
+                    "maximumRecoveryCount": 2,
+                }},
+                "truth": {
+                    "environmentId": "warehouse-v2", "scenarioId": "temporary-enclosure",
+                    "platform": "turtlebot3", "referenceEnvironmentPreserved": True,
+                    "warehouseScenarioId": "temporary-enclosure",
+                    "warehouseRouteId": "detour", "warehouseScenarioSeed": 4105,
+                    "warehouseScenarioRobot": "TurtleBot3",
+                    "warehouseExpectedChallenge": "recover then resume",
+                    "warehouseExpectedBroadOutcome": "recovery-success",
+                    "warehouseObstacleSemanticIds": ["north", "south"],
+                },
+                "runtime": {"validation": [
+                    {"simulatedSeconds": 0,
+                     "bodies": [{"position": {"x": 0, "z": 0}}]},
+                    {"simulatedSeconds": 1,
+                     "bodies": [{"position": {"x": 1, "z": 5}}]},
+                ]},
+            }
+            paths = {}
+            for name, value in values.items():
+                paths[name] = root / f"{name}.json"
+                paths[name].write_text(json.dumps(value), encoding="utf-8")
+            result = summarize(argparse.Namespace(
+                structural=paths["structural"], navigation=paths["navigation"],
+                evaluator_truth=paths["truth"], runtime_result=paths["runtime"],
+                scenario_manifest=manifest_path,
+            ))
+        expected_hash = hashlib.sha256(
+            f"{manifest_hash}\ntemporary-enclosure\ndetour\n4105".encode("utf-8")
+        ).hexdigest()
+        self.assertTrue(result["identityValid"])
+        self.assertEqual(result["scenarioKind"], "warehouse-scenario")
+        self.assertEqual(result["configurationSha256"], expected_hash)
+        self.assertEqual(result["routeContract"]["scenario"], scenario)
+        self.assertEqual(result["gates"]["failureRecovery"], "FAILURE_RECOVERY_PASS")
+
+    def test_rejects_warehouse_scenario_truth_with_wrong_obstacle_identity(self):
+        manifest = {
+            "environmentId": "warehouse-v2",
+            "routes": [{"id": "detour"}],
+            "scenarios": [{
+                "id": "temporary-enclosure", "routeId": "detour", "seed": 7,
+                "robot": "TurtleBot3", "expectedChallenge": "recover",
+                "expectedBroadOutcome": "success", "obstacles": [{"id": "wall"}],
+            }],
+        }
+        truth = {
+            "environmentId": "warehouse-v2", "scenarioId": "temporary-enclosure",
+            "platform": "turtlebot3", "referenceEnvironmentPreserved": True,
+            "warehouseScenarioId": "temporary-enclosure", "warehouseRouteId": "detour",
+            "warehouseScenarioSeed": 7, "warehouseScenarioRobot": "TurtleBot3",
+            "warehouseExpectedChallenge": "recover",
+            "warehouseExpectedBroadOutcome": "success",
+            "warehouseObstacleSemanticIds": ["different-wall"],
+        }
+        result = __import__("summarize_environment_qa").scenario_contract(
+            manifest, truth, "manifest-hash"
+        )
+        self.assertFalse(result["contractMatches"])
+
     def test_behavioral_gate_rejects_success_that_does_not_exercise_declared_route_shape(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -143,7 +143,8 @@ def route_acceptance(path: Path | None, environment_id: str, scenario_id: str,
     }
 
 
-def scenario_contract(manifest: dict[str, Any], truth: dict[str, Any]) -> dict[str, Any]:
+def scenario_contract(manifest: dict[str, Any], truth: dict[str, Any],
+                      manifest_hash: str) -> dict[str, Any]:
     """Resolve a warehouse route or proving-ground layout behind one internal seam."""
     schema = truth.get("schema")
     if schema == "crane-land-proving-ground-truth-v1":
@@ -175,17 +176,60 @@ def scenario_contract(manifest: dict[str, Any], truth: dict[str, Any]) -> dict[s
         }
 
     scenario_id = truth.get("scenarioId")
+    warehouse_scenario = next(
+        (value for value in manifest.get("scenarios", [])
+         if value.get("id") == scenario_id),
+        None,
+    )
+    if warehouse_scenario is not None:
+        route_id = warehouse_scenario.get("routeId")
+        route = next(
+            (value for value in manifest.get("routes", []) if value.get("id") == route_id),
+            None,
+        )
+        obstacle_ids = [
+            value.get("id") for value in warehouse_scenario.get("obstacles", [])
+        ]
+        seed = truth.get("warehouseScenarioSeed")
+        configuration_hash = hashlib.sha256(
+            f"{manifest_hash}\n{scenario_id}\n{route_id}\n{seed}".encode("utf-8")
+        ).hexdigest()
+        contract_matches = bool(route) and all((
+            truth.get("referenceEnvironmentPreserved") is True,
+            truth.get("warehouseScenarioId") == scenario_id,
+            truth.get("warehouseRouteId") == route_id,
+            seed == warehouse_scenario.get("seed"),
+            truth.get("warehouseScenarioRobot") == warehouse_scenario.get("robot"),
+            truth.get("warehouseExpectedChallenge")
+            == warehouse_scenario.get("expectedChallenge"),
+            truth.get("warehouseExpectedBroadOutcome")
+            == warehouse_scenario.get("expectedBroadOutcome"),
+            truth.get("warehouseObstacleSemanticIds") == obstacle_ids,
+        ))
+        return {
+            "kind": "warehouse-scenario",
+            "id": scenario_id,
+            "contract": {"route": route, "scenario": warehouse_scenario},
+            "robot": truth.get("platform"),
+            "contractMatches": contract_matches,
+            "configurationSha256": configuration_hash,
+        }
+
     contract = next(
         (value for value in manifest.get("routes", []) if value.get("id") == scenario_id),
         None,
     )
+    seed = truth.get("seed")
+    configuration_hash = hashlib.sha256(
+        f"{manifest_hash}\n{scenario_id}\n{seed}".encode("utf-8")
+    ).hexdigest()
     return {
         "kind": "warehouse-route",
         "id": scenario_id,
         "contract": contract,
         "robot": truth.get("platform"),
         "contractMatches": bool(contract) and truth.get("referenceEnvironmentPreserved") is True,
-        "configurationSha256": None,
+        "configurationSha256": configuration_hash,
     }
 
 
@@ -197,13 +241,14 @@ def summarize(args: argparse.Namespace) -> dict[str, Any]:
     runtime = load(args.runtime_result)
     navigation = navigation_record.get("navigation", navigation_record)
     environment_id = structural.get("environmentId")
-    scenario = scenario_contract(manifest, truth)
+    manifest_hash = sha256(args.scenario_manifest)
+    scenario = scenario_contract(manifest, truth, manifest_hash)
     scenario_id = scenario["id"]
     truth_manifest_hash = truth.get("manifestSha256") or structural.get("manifestSha256", "")
     identity_valid = (
         environment_id
         and environment_id == truth.get("environmentId") == manifest.get("environmentId")
-        and structural.get("manifestSha256", "").lower() == sha256(args.scenario_manifest)
+        and structural.get("manifestSha256", "").lower() == manifest_hash
         and str(truth_manifest_hash).lower() == structural.get("manifestSha256", "").lower()
         and scenario["contractMatches"]
     )

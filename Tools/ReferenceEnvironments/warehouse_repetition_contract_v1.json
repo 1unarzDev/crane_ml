@@ -1,0 +1,21 @@
+{
+  "schema": "crane-environment-repetition-contract-v1",
+  "scenarios": [
+    {
+      "environmentId": "crane-industrial-warehouse-v2",
+      "scenarioId": "warehouse-temporary-enclosure-recovery-v1",
+      "minimumRuns": 3,
+      "expectedNavigationStatus": "succeeded",
+      "minimumRecoveryCount": 1,
+      "requiredGates": {
+        "structural": "STRUCTURAL_PASS",
+        "physics": "PHYSICS_PASS",
+        "sensor": "SENSOR_PASS",
+        "navigation": "NAVIGATION_PASS",
+        "failureRecovery": "FAILURE_RECOVERY_PASS",
+        "headless": "HEADLESS_PASS",
+        "explanation": "EXPLANATION_READY"
+      }
+    }
+  ]
+}

@@ -103,6 +103,19 @@ control succeeded in 53.62 s with zero recoveries. These are development calibra
 independent explanation-study episodes; delivered transitions and evaluator-only wall timing do
 not establish which physical observation Nav2 consumed or prove obstacle causation.
 
+The prospectively fixed `warehouse_repetition_contract_v1.json` then required three distinct
+runtime/navigation artifacts with the same exact scenario identity, success after at least one
+recorded recovery, route acceptance, and every structural, physics, sensor, navigation, recovery,
+headless, and explanation-readiness gate. The temporary-enclosure scenario passed 3/3 runs. They
+displaced 12.590--12.597 m, sampled 14.295--15.918 m paths, completed in 70.522--82.931 s, and
+reported maximum recovery feedback from 16 to 20. The configuration SHA-256 is
+`e18a16cbf9524e1dec4df9fae352ea9255b9ec2d6343dfe2cb6cc8a4150fe242`; the contract SHA-256 is
+`9cb872500cd19a638eb8f39446f125a93e3c63d2028d0dc22212c123ab0b295f`; and the aggregate summary
+SHA-256 is `818fd1c4118c1579d76e50f9222f06ddf68868b17f11e8a8b89bfa977a062033`.
+Recovery-count variability is retained rather than treated as a scenario invariant. These
+exact-condition repetitions establish operational reproducibility, not three independent study
+episodes, controller consumption, or physical causation.
+
 The warehouse now attaches a presentation-only reference inspection controller to its spectator
 camera. It provides top-down overview, oblique, and robot-follow views; a route/environment HUD;
 the robot trajectory; semantic evidence highlighting; and visible wireframes for the canonical

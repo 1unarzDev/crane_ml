@@ -7,6 +7,7 @@ from pathlib import Path
 
 SCRIPT = Path(__file__).with_name("summarize_environment_repetitions.py")
 CONTRACT = Path(__file__).with_name("land_proving_ground_repetition_contract_v1.json")
+WAREHOUSE_CONTRACT = Path(__file__).with_name("warehouse_repetition_contract_v1.json")
 SPEC = importlib.util.spec_from_file_location("repetition_summary", SCRIPT)
 MODULE = importlib.util.module_from_spec(SPEC)
 assert SPEC.loader is not None
@@ -36,6 +37,19 @@ class EnvironmentRepetitionSummaryTests(unittest.TestCase):
             ["minimumRecoveryCount"],
             1,
         )
+
+    def test_warehouse_contract_requires_recovery_success_repetition(self) -> None:
+        contract = json.loads(WAREHOUSE_CONTRACT.read_text(encoding="utf-8"))
+        self.assertEqual(contract["schema"], "crane-environment-repetition-contract-v1")
+        self.assertEqual(len(contract["scenarios"]), 1)
+        scenario = contract["scenarios"][0]
+        self.assertEqual(scenario["environmentId"], "crane-industrial-warehouse-v2")
+        self.assertEqual(
+            scenario["scenarioId"], "warehouse-temporary-enclosure-recovery-v1"
+        )
+        self.assertEqual(scenario["minimumRuns"], 3)
+        self.assertEqual(scenario["expectedNavigationStatus"], "succeeded")
+        self.assertEqual(scenario["minimumRecoveryCount"], 1)
 
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
