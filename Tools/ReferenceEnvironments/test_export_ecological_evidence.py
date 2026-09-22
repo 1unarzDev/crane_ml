@@ -120,6 +120,14 @@ class EcologicalEvidenceExportTests(unittest.TestCase):
                     "scenarioId": "hidden-enclosure",
                     "manifestSha256": manifest_hash,
                     "configurationSha256": configuration_hash,
+                    "runtimeAcceptance": {
+                        "terminalStatuses": ["succeeded"],
+                        "minimumRecordedRecoveryInvocations": 1,
+                        "minimumTrajectorySamples": 2,
+                        "requiredTransitionNodeNames": ["Wait"],
+                        "requireZeroDroppedTransitions": True,
+                        "requireZeroDroppedRecoveryInvocations": True,
+                    },
                     "questionContracts": [{"id": "question-1"}],
                 }],
             },
@@ -198,6 +206,21 @@ class EcologicalEvidenceExportTests(unittest.TestCase):
         value["behaviorTreeCapture"]["completeness"]["exactRecoveryCountEligible"] = True
         write(self.fixture, value)
         with self.assertRaisesRegex(ValueError, "eligibility contradicts"):
+            self.do_export()
+
+    def test_export_rejects_runtime_terminal_status_mismatch(self) -> None:
+        value = json.loads(self.fixture.read_text())
+        value["status"] = "aborted"
+        write(self.fixture, value)
+        with self.assertRaisesRegex(ValueError, "terminal status"):
+            self.do_export()
+
+    def test_export_rejects_missing_declared_recovery_mechanism(self) -> None:
+        value = json.loads(self.fixture.read_text())
+        value["behaviorTreeCapture"]["recoveryInvocations"] = []
+        value["behaviorTreeCapture"]["observedRecoveryInvocationStartCount"] = 0
+        write(self.fixture, value)
+        with self.assertRaisesRegex(ValueError, "minimum recorded recovery"):
             self.do_export()
 
 

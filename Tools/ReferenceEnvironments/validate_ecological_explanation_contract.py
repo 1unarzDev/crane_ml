@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[2]
 EXPECTED_SCHEMA = "crane-ecological-explanation-contract-v1"
 ALLOWED_ANSWER_MODES = {"full", "partial", "full_when_complete_otherwise_partial"}
 ALLOWED_QUALIFICATION = {"REPETITION_PASS", "SINGLE_RUN_NAVIGATION_PASS"}
+ALLOWED_TERMINAL_STATUSES = {"succeeded", "aborted", "canceled", "timeout"}
 
 
 def load(path: Path) -> dict[str, Any]:
@@ -121,6 +122,38 @@ def validate(contract_path: Path, root: Path = ROOT) -> dict[str, Any]:
             raise ValueError(f"Invalid qualification run count for {scenario_id}")
         if qualification["status"] == "REPETITION_PASS" and run_count < 3:
             raise ValueError(f"Repetition pass needs at least three runs for {scenario_id}")
+
+        acceptance = scenario.get("runtimeAcceptance")
+        if not isinstance(acceptance, dict):
+            raise ValueError(f"Missing runtime acceptance criteria for {scenario_id}")
+        terminal_statuses = acceptance.get("terminalStatuses")
+        if (
+            not isinstance(terminal_statuses, list)
+            or not terminal_statuses
+            or len(terminal_statuses) != len(set(terminal_statuses))
+            or not set(terminal_statuses) <= ALLOWED_TERMINAL_STATUSES
+        ):
+            raise ValueError(f"Invalid terminal statuses for {scenario_id}")
+        for field in (
+            "minimumRecordedRecoveryInvocations",
+            "minimumTrajectorySamples",
+        ):
+            value = acceptance.get(field, 0)
+            if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+                raise ValueError(f"Invalid {field} for {scenario_id}")
+        required_nodes = acceptance.get("requiredTransitionNodeNames", [])
+        if (
+            not isinstance(required_nodes, list)
+            or any(not isinstance(value, str) or not value for value in required_nodes)
+            or len(required_nodes) != len(set(required_nodes))
+        ):
+            raise ValueError(f"Invalid required transition nodes for {scenario_id}")
+        for field in (
+            "requireZeroDroppedTransitions",
+            "requireZeroDroppedRecoveryInvocations",
+        ):
+            if acceptance.get(field) is not True:
+                raise ValueError(f"{field} must be true for {scenario_id}")
 
         questions = scenario.get("questionContracts", [])
         if not questions:

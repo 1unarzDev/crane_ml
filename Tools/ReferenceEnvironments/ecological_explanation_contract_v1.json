@@ -44,6 +44,16 @@
         "artifactSha256": "818fd1c4118c1579d76e50f9222f06ddf68868b17f11e8a8b89bfa977a062033",
         "runCount": 3
       },
+      "runtimeAcceptance": {
+        "terminalStatuses": [
+          "succeeded"
+        ],
+        "minimumRecordedRecoveryInvocations": 1,
+        "minimumTrajectorySamples": 2,
+        "requiredTransitionNodeNames": [],
+        "requireZeroDroppedTransitions": true,
+        "requireZeroDroppedRecoveryInvocations": true
+      },
       "questionContracts": [
         {
           "id": "warehouse-recovery-sequence-v1",
@@ -101,6 +111,16 @@
         "artifactSha256": "21010265d272b2c4b6d738f2312ba31f40c8d824c0307c337a0259325033c112",
         "runCount": 3
       },
+      "runtimeAcceptance": {
+        "terminalStatuses": [
+          "succeeded"
+        ],
+        "minimumRecordedRecoveryInvocations": 1,
+        "minimumTrajectorySamples": 2,
+        "requiredTransitionNodeNames": [],
+        "requireZeroDroppedTransitions": true,
+        "requireZeroDroppedRecoveryInvocations": true
+      },
       "questionContracts": [
         {
           "id": "dynamic-gate-recovery-success-v1",
@@ -157,6 +177,18 @@
         "status": "REPETITION_PASS",
         "artifactSha256": "f7c6a43286c06a5fe3c11873e355d0b70dc084515c56cf09d8175c8ce6b081fe",
         "runCount": 3
+      },
+      "runtimeAcceptance": {
+        "terminalStatuses": [
+          "aborted"
+        ],
+        "minimumRecordedRecoveryInvocations": 0,
+        "minimumTrajectorySamples": 2,
+        "requiredTransitionNodeNames": [
+          "Timeout"
+        ],
+        "requireZeroDroppedTransitions": true,
+        "requireZeroDroppedRecoveryInvocations": true
       },
       "questionContracts": [
         {
@@ -216,6 +248,16 @@
         "artifactSha256": "e5a10178e8104a3009e792af35b3e0f2bbb876617dd45c6b15266117e62bbc65",
         "runCount": 3
       },
+      "runtimeAcceptance": {
+        "terminalStatuses": [
+          "succeeded"
+        ],
+        "minimumRecordedRecoveryInvocations": 0,
+        "minimumTrajectorySamples": 2,
+        "requiredTransitionNodeNames": [],
+        "requireZeroDroppedTransitions": true,
+        "requireZeroDroppedRecoveryInvocations": true
+      },
       "questionContracts": [
         {
           "id": "slalom-recorded-route-shape-v1",
@@ -270,6 +312,16 @@
         "status": "SINGLE_RUN_NAVIGATION_PASS",
         "artifactSha256": "bd0d0a5147044f063a525d95fc6ba9482ac8895c4cfbdfb3d470a492b6089b15",
         "runCount": 1
+      },
+      "runtimeAcceptance": {
+        "terminalStatuses": [
+          "succeeded"
+        ],
+        "minimumRecordedRecoveryInvocations": 0,
+        "minimumTrajectorySamples": 2,
+        "requiredTransitionNodeNames": [],
+        "requireZeroDroppedTransitions": true,
+        "requireZeroDroppedRecoveryInvocations": true
       },
       "questionContracts": [
         {

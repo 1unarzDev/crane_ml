@@ -298,9 +298,14 @@ python3 Tools/ReferenceEnvironments/validate_ecological_explanation_contract.py
 ```
 
 The validated contract SHA-256 is
-`bfd344cb22ad307a7dd9be2fb885a555466aae3a5ca53e0e87f1fa2f62f7bd3c`.
+`ff2b2c45606a8f918fd4a4d70194dcfa9ceeac1a031245a94cc3bbbfa529209d`.
 This is a reproducible handoff to the explanation pipeline; explanation generation,
 information-parity audit, blinded annotation, and statistical evaluation remain **NOT_RUN**.
+
+Each scenario also declares fail-closed runtime-admission criteria. An export must match the
+declared terminal status, minimum recorded recovery-invocation and trajectory inventories,
+required BT node observations, and zero-drop requirements. A matching scenario/configuration hash
+does not qualify a run whose intended mechanism did not occur.
 
 The passive Nav2 fixture now retains an ordered, bounded `BehaviorTreeLog` stream using
 `Tools/Performance/bt_transition_capture.py`. It assigns stable transition IDs and derives a unique
@@ -327,9 +332,10 @@ python3 Tools/ReferenceEnvironments/export_ecological_evidence.py \
 The exporter refuses any existing output root. It writes only
 `robot_visible/evidence.json`, `evaluator_only/truth.json`, and a top-level content-free hash
 manifest. It verifies environment/scenario/configuration identity against the ecological question
-contract, checks transition/invocation inventory consistency, rejects unjustified exact-count
-eligibility, and scans generated robot-visible values for scenario IDs, semantic obstacle IDs, and
-input source paths. Raw exports remain governed data and must not be committed to Git.
+contract, applies its runtime-admission criteria, checks transition/invocation inventory
+consistency, rejects unjustified exact-count eligibility, and scans generated robot-visible values
+for scenario IDs, semantic obstacle IDs, and input source paths. Raw exports remain governed data
+and must not be committed to Git.
 
 ## F1TENTH occupancy maps
 

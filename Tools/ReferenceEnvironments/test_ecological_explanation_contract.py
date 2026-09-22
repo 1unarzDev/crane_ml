@@ -74,6 +74,16 @@ class EcologicalExplanationContractTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "at least three runs"):
                 MODULE.validate(path)
 
+    def test_rejects_missing_runtime_acceptance_criteria(self) -> None:
+        contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
+        changed = copy.deepcopy(contract)
+        del changed["scenarios"][0]["runtimeAcceptance"]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "contract.json"
+            path.write_text(json.dumps(changed), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "Missing runtime acceptance"):
+                MODULE.validate(path)
+
 
 if __name__ == "__main__":
     unittest.main()

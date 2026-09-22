@@ -185,6 +185,60 @@ def validate_capture(capture: dict[str, Any]) -> None:
             raise ValueError("Exact recovery-count eligibility contradicts capture completeness")
 
 
+def validate_runtime_acceptance(
+    fixture: dict[str, Any], capture: dict[str, Any], selected_contract: dict[str, Any]
+) -> None:
+    """Reject runs that have the right scenario identity but the wrong observed mechanism."""
+    acceptance = selected_contract.get("runtimeAcceptance")
+    if not isinstance(acceptance, dict):
+        raise ValueError("Ecological contract lacks runtime acceptance criteria")
+
+    status = fixture.get("status")
+    allowed_statuses = acceptance.get("terminalStatuses", [])
+    if status not in allowed_statuses:
+        raise ValueError(
+            f"Runtime terminal status {status!r} does not satisfy ecological contract "
+            f"{allowed_statuses!r}"
+        )
+
+    invocations = capture["recoveryInvocations"]
+    minimum_invocations = acceptance.get("minimumRecordedRecoveryInvocations", 0)
+    if len(invocations) < minimum_invocations:
+        raise ValueError(
+            "Runtime lacks the minimum recorded recovery invocations required by the "
+            "ecological contract"
+        )
+
+    samples = fixture.get("trajectorySamples", [])
+    minimum_samples = acceptance.get("minimumTrajectorySamples", 0)
+    if len(samples) < minimum_samples:
+        raise ValueError(
+            "Runtime lacks the minimum trajectory samples required by the ecological contract"
+        )
+
+    observed_nodes = {
+        value.get("nodeName") for value in capture["orderedTransitions"]
+        if isinstance(value.get("nodeName"), str)
+    }
+    required_nodes = set(acceptance.get("requiredTransitionNodeNames", []))
+    missing_nodes = sorted(required_nodes - observed_nodes)
+    if missing_nodes:
+        raise ValueError(
+            f"Runtime lacks required BT transition nodes: {', '.join(missing_nodes)}"
+        )
+
+    if acceptance.get("requireZeroDroppedTransitions") is True and int(
+        capture.get("droppedTransitionCount", 0)
+    ) != 0:
+        raise ValueError("Runtime has dropped BT transitions forbidden by ecological contract")
+    if acceptance.get("requireZeroDroppedRecoveryInvocations") is True and int(
+        capture.get("droppedRecoveryInvocationCount", 0)
+    ) != 0:
+        raise ValueError(
+            "Runtime has dropped recovery invocations forbidden by ecological contract"
+        )
+
+
 def export(
     *, fixture_path: Path, truth_path: Path, environment_manifest_path: Path,
     bt_xml_path: Path, contract_path: Path, output_root: Path, episode_id: str,
@@ -227,6 +281,7 @@ def export(
         ecological_contract, environment_id, scenario_id,
         manifest_hash, configuration_hash,
     )
+    validate_runtime_acceptance(fixture, capture, selected_contract)
 
     goal_ids = sorted({
         value.get("goalId") for value in transitions if value.get("goalId") is not None
