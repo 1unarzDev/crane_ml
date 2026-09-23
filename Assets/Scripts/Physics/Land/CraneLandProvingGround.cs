@@ -40,6 +40,9 @@ namespace Sim.Physics.Land {
             public string[] relevantObstacles;
             public string expectedChallenge;
             public string expectedBroadOutcome;
+            public string studySplit;
+            public string diagnosticMechanism;
+            public int generatorSeed;
             public Box[] obstacles;
         }
 
@@ -72,6 +75,9 @@ namespace Sim.Physics.Land {
             public string[] relevantObstacles = Array.Empty<string>();
             public string expectedChallenge;
             public string expectedBroadOutcome;
+            public string studySplit;
+            public string diagnosticMechanism;
+            public int generatorSeed;
             public string[] obstacleSemanticIds = Array.Empty<string>();
             public bool[] obstacleActive = Array.Empty<bool>();
             public double[] obstacleScheduledActivationSimulationTime = Array.Empty<double>();
@@ -150,6 +156,9 @@ namespace Sim.Physics.Land {
                 relevantObstacles = layout.relevantObstacles,
                 expectedChallenge = layout.expectedChallenge,
                 expectedBroadOutcome = layout.expectedBroadOutcome,
+                studySplit = layout.studySplit,
+                diagnosticMechanism = layout.diagnosticMechanism,
+                generatorSeed = layout.generatorSeed,
                 obstacleSemanticIds = new string[count],
                 obstacleActive = new bool[count],
                 obstacleScheduledActivationSimulationTime = Filled(count, -1d),
@@ -197,7 +206,8 @@ namespace Sim.Physics.Land {
         }
 
         private static string ResolveManifestResource(string catalogId) {
-            if (catalogId != "v1" && catalogId != "v2" && catalogId != "v3")
+            if (catalogId != "v1" && catalogId != "v2" && catalogId != "v3" &&
+                catalogId != "v4")
                 throw new ArgumentException(
                     $"Unsupported proving-ground catalog '{catalogId}'.", nameof(catalogId));
             return ManifestResourcePrefix + catalogId;
