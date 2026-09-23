@@ -27,6 +27,8 @@ public static class CranePerformanceBuild {
         public string schema = "crane-build-manifest-v1";
         public string unityVersion;
         public string buildGuid;
+        public string sourceCommit;
+        public bool sourceDirty;
         public string packageManifestHash;
         public string packageLockHash;
         public string projectVersionHash;
@@ -179,6 +181,10 @@ public static class CranePerformanceBuild {
         var manifest = new BuildManifest {
             unityVersion = Application.unityVersion,
             buildGuid = report.summary.guid.ToString(),
+            sourceCommit = ReadArgument("--crane-source-commit", string.Empty),
+            sourceDirty = string.Equals(
+                ReadArgument("--crane-source-dirty", "false"), "true",
+                StringComparison.OrdinalIgnoreCase),
             packageManifestHash = HashFile("Packages/manifest.json"),
             packageLockHash = HashFile("Packages/packages-lock.json"),
             projectVersionHash = HashFile("ProjectSettings/ProjectVersion.txt"),

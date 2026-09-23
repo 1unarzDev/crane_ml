@@ -347,6 +347,15 @@ class LandNav2FixtureContractTests(unittest.TestCase):
             "(mobilityHoldAfter >= 0f) != (mobilityReleaseAfter >= 0f)", bootstrap
         )
 
+    def test_worker_build_manifest_accepts_explicit_source_identity(self) -> None:
+        build = (ROOT / "Assets/Editor/CranePerformanceBuild.cs").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('ReadArgument("--crane-source-commit", string.Empty)', build)
+        self.assertIn('ReadArgument("--crane-source-dirty", "false")', build)
+        self.assertIn("public string sourceCommit;", build)
+        self.assertIn("public bool sourceDirty;", build)
+
 
 if __name__ == "__main__":
     unittest.main()
