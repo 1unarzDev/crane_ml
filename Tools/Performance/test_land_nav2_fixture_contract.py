@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 """Static regression checks for the graphics-free land Nav2 launcher."""
 
+import ast
+import hashlib
+import json
+import math
 from pathlib import Path
+from types import SimpleNamespace
 import unittest
 
 
@@ -83,6 +88,50 @@ class LandNav2FixtureContractTests(unittest.TestCase):
         self.assertIn("'yaw': yaw_from_quaternion(goal.pose.pose.orientation)", text)
         self.assertIn("'incomingTangentYaw': terminal_tangent", text)
         self.assertIn("'planHistory': self.plan_history", text)
+        self.assertIn("summarize_delivered_plan(", text)
+        self.assertIn("'pathId':", text)
+        self.assertIn("'plannedLengthMeters':", text)
+        self.assertIn("'maximumAbsLateralDeviationFromRequestedRouteMeters':", text)
+        self.assertIn("'minimumSignedLateralDeviationFromRequestedRouteMeters':", text)
+        self.assertIn("'maximumSignedLateralDeviationFromRequestedRouteMeters':", text)
+        self.assertIn("'planHistoryProvenance':", text)
+        self.assertIn(
+            "delivered-nav-msgs-path-summary-not-proven-controller-consumed", text)
+
+    def test_delivered_plan_summary_measures_path_change_without_ros_import(self) -> None:
+        source = FIXTURE.read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        function = next(
+            node for node in tree.body
+            if isinstance(node, ast.FunctionDef)
+            and node.name == "summarize_delivered_plan"
+        )
+        namespace = {"hashlib": hashlib, "json": json, "math": math}
+        exec(compile(ast.Module(body=[function], type_ignores=[]), str(FIXTURE), "exec"), namespace)
+        summarize = namespace["summarize_delivered_plan"]
+        points = [
+            {"x": 0.0, "y": 0.0, "yaw": 0.0},
+            {"x": 5.0, "y": 2.0, "yaw": 0.0},
+            {"x": 10.0, "y": -1.0, "yaw": 0.0},
+        ]
+
+        result = summarize(
+            points,
+            SimpleNamespace(x=0.0, y=0.0),
+            {"x": 10.0, "y": 0.0},
+        )
+
+        self.assertTrue(result["requestedRouteGeometryAvailable"])
+        self.assertAlmostEqual(result["maximumAbsLateralDeviationFromRequestedRouteMeters"], 2.0)
+        self.assertAlmostEqual(result["minimumSignedLateralDeviationFromRequestedRouteMeters"], -1.0)
+        self.assertAlmostEqual(result["maximumSignedLateralDeviationFromRequestedRouteMeters"], 2.0)
+        self.assertAlmostEqual(
+            result["plannedLengthMeters"], math.hypot(5.0, 2.0) + math.hypot(5.0, -3.0))
+        self.assertRegex(result["pathId"], r"^sha256:[0-9a-f]{64}$")
+
+        missing = summarize(points)
+        self.assertFalse(missing["requestedRouteGeometryAvailable"])
+        self.assertIsNone(missing["maximumAbsLateralDeviationFromRequestedRouteMeters"])
 
     def test_laser_sources_retain_points_above_the_ground_plane(self) -> None:
         text = PARAMETERS.read_text(encoding="utf-8")

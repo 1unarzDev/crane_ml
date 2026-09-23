@@ -173,6 +173,16 @@ class FollowPathFixture(Node):
             return
         first = message.poses[0].pose
         terminal = message.poses[-1].pose
+        plan_points = [{
+            'x': float(item.pose.position.x),
+            'y': float(item.pose.position.y),
+            'yaw': yaw_from_quaternion(item.pose.orientation),
+        } for item in message.poses]
+        plan_summary = summarize_delivered_plan(
+            plan_points,
+            self.initial_odom.pose.pose.position if self.initial_odom is not None else None,
+            self.goal_description.get('position') if self.goal_description else None,
+        )
         terminal_tangent = None
         if len(message.poses) >= 2:
             previous = message.poses[-2].pose.position
@@ -182,8 +192,10 @@ class FollowPathFixture(Node):
                 terminal_tangent = math.atan2(dy, dx)
         self.plan_history.append({
             'wallSeconds': time.monotonic() - self.started_wall,
+            'stamp': stamp_dict(message.header.stamp),
             'frameId': message.header.frame_id,
             'poseCount': len(message.poses),
+            **plan_summary,
             'first': {
                 'x': float(first.position.x),
                 'y': float(first.position.y),
@@ -598,6 +610,8 @@ class FollowPathFixture(Node):
             'goal': self.goal_description,
             'planTopic': self.args.plan_topic,
             'planHistory': self.plan_history,
+            'planHistoryProvenance': (
+                'delivered-nav-msgs-path-summary-not-proven-controller-consumed'),
             'costmapTopic': self.args.costmap_topic,
             'costmapMessages': self.costmap_count,
             'costmapService': self.args.costmap_service,
@@ -699,6 +713,50 @@ def stamp_seconds(value):
 
 def wrapped_angle(value):
     return math.remainder(value, 2.0 * math.pi)
+
+
+def summarize_delivered_plan(points, requested_start=None, requested_goal=None):
+    """Return bounded geometry for a delivered plan without retaining all poses.
+
+    Signed deviation is positive to the left of the requested start-to-goal direction.  These
+    measurements establish what the fixture received on the plan topic, not that a controller
+    consumed the plan or that a particular costmap observation caused its geometry.
+    """
+
+    canonical = json.dumps(points, sort_keys=True, separators=(',', ':')).encode('utf-8')
+    summary = {
+        'pathId': f"sha256:{hashlib.sha256(canonical).hexdigest()}",
+        'plannedLengthMeters': sum(
+            math.hypot(end['x'] - start['x'], end['y'] - start['y'])
+            for start, end in zip(points, points[1:])),
+        'requestedRouteGeometryAvailable': False,
+        'maximumAbsLateralDeviationFromRequestedRouteMeters': None,
+        'minimumSignedLateralDeviationFromRequestedRouteMeters': None,
+        'maximumSignedLateralDeviationFromRequestedRouteMeters': None,
+    }
+    if requested_start is None or requested_goal is None:
+        return summary
+    start_x = float(requested_start.x)
+    start_y = float(requested_start.y)
+    goal_x = float(requested_goal['x'])
+    goal_y = float(requested_goal['y'])
+    route_dx = goal_x - start_x
+    route_dy = goal_y - start_y
+    route_length = math.hypot(route_dx, route_dy)
+    if route_length <= 1e-9:
+        return summary
+    signed = [
+        (route_dx * (point['y'] - start_y) - route_dy * (point['x'] - start_x))
+        / route_length
+        for point in points
+    ]
+    summary.update({
+        'requestedRouteGeometryAvailable': True,
+        'maximumAbsLateralDeviationFromRequestedRouteMeters': max(map(abs, signed)),
+        'minimumSignedLateralDeviationFromRequestedRouteMeters': min(signed),
+        'maximumSignedLateralDeviationFromRequestedRouteMeters': max(signed),
+    })
+    return summary
 
 
 def path_metrics(path, trajectory):
