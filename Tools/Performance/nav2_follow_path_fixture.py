@@ -196,6 +196,7 @@ class FollowPathFixture(Node):
             'frameId': message.header.frame_id,
             'poseCount': len(message.poses),
             **plan_summary,
+            'poses': plan_points,
             'first': {
                 'x': float(first.position.x),
                 'y': float(first.position.y),
@@ -611,7 +612,7 @@ class FollowPathFixture(Node):
             'planTopic': self.args.plan_topic,
             'planHistory': self.plan_history,
             'planHistoryProvenance': (
-                'delivered-nav-msgs-path-summary-not-proven-controller-consumed'),
+                'delivered-nav-msgs-path-not-proven-controller-consumed'),
             'costmapTopic': self.args.costmap_topic,
             'costmapMessages': self.costmap_count,
             'costmapService': self.args.costmap_service,

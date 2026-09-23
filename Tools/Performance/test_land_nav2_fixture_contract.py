@@ -88,6 +88,7 @@ class LandNav2FixtureContractTests(unittest.TestCase):
         self.assertIn("'yaw': yaw_from_quaternion(goal.pose.pose.orientation)", text)
         self.assertIn("'incomingTangentYaw': terminal_tangent", text)
         self.assertIn("'planHistory': self.plan_history", text)
+        self.assertIn("'poses': plan_points", text)
         self.assertIn("summarize_delivered_plan(", text)
         self.assertIn("'pathId':", text)
         self.assertIn("'plannedLengthMeters':", text)
@@ -96,7 +97,7 @@ class LandNav2FixtureContractTests(unittest.TestCase):
         self.assertIn("'maximumSignedLateralDeviationFromRequestedRouteMeters':", text)
         self.assertIn("'planHistoryProvenance':", text)
         self.assertIn(
-            "delivered-nav-msgs-path-summary-not-proven-controller-consumed", text)
+            "delivered-nav-msgs-path-not-proven-controller-consumed", text)
 
     def test_delivered_plan_summary_measures_path_change_without_ros_import(self) -> None:
         source = FIXTURE.read_text(encoding="utf-8")
