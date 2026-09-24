@@ -167,6 +167,22 @@ The failed v1 slalom remains immutable. The additive
 the catalog explicitly through `CRANE_PROVING_GROUND_CATALOG`; the default remains `v1`, so old
 commands and artifact identities do not silently change.
 
+The diagnostic-study catalogs are isolated by intended use. `v4` retains the existing sealed
+confirmatory inventory and must not be regenerated, renamed, or inspected merely to develop a
+method. The additive `v5` catalog is explicitly **DEVELOPMENT ONLY**: it contains 12 fresh
+connected-detour and 12 fresh nominal-clear-route geometries under disjoint identifiers and seed
+ranges. It exists for bounded candidate iteration and is permanently ineligible for confirmation
+or replication. Generate it reproducibly with:
+
+```bash
+python3 Tools/ReferenceEnvironments/generate_diagnostic_land_development_catalog.py \
+  --output Assets/Resources/ReferenceEnvironments/crane_land_proving_ground_v5.json
+```
+
+Selecting different intervention timing on one layout extends the authenticated configuration
+hash, but related interventions, masks, and reruns still belong to one statistical cluster. The
+catalog therefore provides 24 potential development clusters, not an unlimited sample source.
+
 The dedicated Nav2 fixture uses a 44 m longitudinal global costmap so the 18 m goal remains inside
 the rolling window. The first alternate-corridors calibration used the earlier 30 m window and
 aborted immediately; the planner explicitly reported the goal outside its bounds. This negative

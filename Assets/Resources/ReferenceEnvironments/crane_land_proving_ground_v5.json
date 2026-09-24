@@ -1,0 +1,2187 @@
+{
+  "schema": "crane-land-proving-ground-catalog-v1",
+  "environmentId": "crane-land-proving-ground-v5",
+  "generatorVersion": "diagnostic-land-development-catalog-v2",
+  "generator": {
+    "algorithm": "fixed-stratum Python random.Random parameter sampling",
+    "developmentOnly": true,
+    "studyAdmission": "development-only-never-confirmatory-or-replication",
+    "sourceCatalogGeneratorVersion": "diagnostic-land-catalog-v1",
+    "effectiveRadiusMeters": 0.77,
+    "validationGridResolutionMeters": 0.1,
+    "developmentCount": 24,
+    "connectedDetourCount": 12,
+    "nominalClearRouteCount": 12,
+    "catalogContentSha256WithoutSelfHash": "f37b28ef192158184f8fb850c85d0f819c22b997b621c58d8e286e7787b52b85"
+  },
+  "dimensionsMeters": [
+    5.0,
+    22.0
+  ],
+  "sharedBoxes": [
+    {
+      "id": "diagnostic-floor",
+      "role": "traversable-floor",
+      "center": [
+        0.0,
+        -0.1,
+        10.0
+      ],
+      "size": [
+        7.0,
+        0.2,
+        24.0
+      ],
+      "color": [
+        0.24,
+        0.27,
+        0.3
+      ],
+      "activeInitially": true,
+      "activationAfterSeconds": -1.0,
+      "removalAfterSeconds": -1.0
+    },
+    {
+      "id": "diagnostic-west-boundary",
+      "role": "boundary-wall",
+      "center": [
+        -2.625,
+        1.0,
+        10.0
+      ],
+      "size": [
+        0.25,
+        2.0,
+        24.0
+      ],
+      "color": [
+        0.44,
+        0.48,
+        0.52
+      ],
+      "activeInitially": true,
+      "activationAfterSeconds": -1.0,
+      "removalAfterSeconds": -1.0
+    },
+    {
+      "id": "diagnostic-east-boundary",
+      "role": "boundary-wall",
+      "center": [
+        2.625,
+        1.0,
+        10.0
+      ],
+      "size": [
+        0.25,
+        2.0,
+        24.0
+      ],
+      "color": [
+        0.44,
+        0.48,
+        0.52
+      ],
+      "activeInitially": true,
+      "activationAfterSeconds": -1.0,
+      "removalAfterSeconds": -1.0
+    },
+    {
+      "id": "diagnostic-south-boundary",
+      "role": "boundary-wall",
+      "center": [
+        0.0,
+        1.0,
+        -2.125
+      ],
+      "size": [
+        5.5,
+        2.0,
+        0.25
+      ],
+      "color": [
+        0.44,
+        0.48,
+        0.52
+      ],
+      "activeInitially": true,
+      "activationAfterSeconds": -1.0,
+      "removalAfterSeconds": -1.0
+    },
+    {
+      "id": "diagnostic-north-boundary",
+      "role": "boundary-wall",
+      "center": [
+        0.0,
+        1.0,
+        22.125
+      ],
+      "size": [
+        5.5,
+        2.0,
+        0.25
+      ],
+      "color": [
+        0.44,
+        0.48,
+        0.52
+      ],
+      "activeInitially": true,
+      "activationAfterSeconds": -1.0,
+      "removalAfterSeconds": -1.0
+    }
+  ],
+  "layouts": [
+    {
+      "id": "diagnostic-candidate-v2-development-connected-detour-001",
+      "seed": 81000,
+      "robot": "TurtleBot3 Waffle-class",
+      "start": [
+        0.0,
+        0.08,
+        0.0
+      ],
+      "goal": [
+        0.0,
+        0.08,
+        18.0
+      ],
+      "approximateLengthMeters": 22.0,
+      "alternatives": [
+        "right opening then left opening"
+      ],
+      "relevantObstacles": [
+        "diagnostic-candidate-v2-development-connected-detour-001-near",
+        "diagnostic-candidate-v2-development-connected-detour-001-far"
+      ],
+      "expectedChallenge": "Two alternating partial barriers restrict the direct route but retain a detour.",
+      "expectedBroadOutcome": "avoidance-and-path-change",
+      "studySplit": "candidate-v2-development",
+      "diagnosticMechanism": "connected-detour",
+      "generatorSeed": 81000,
+      "obstacles": [
+        {
+          "id": "diagnostic-candidate-v2-development-connected-detour-001-near",
+          "role": "partial-route-barrier",
+          "center": [
+            -1.116,
+            1.0,
+            6.683
+          ],
+          "size": [
+            2.769,
+            2.0,
+            0.581
+          ],
+          "color": [
+            0.82,
+            0.38,
+            0.12
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        },
+        {
+          "id": "diagnostic-candidate-v2-development-connected-detour-001-far",
+          "role": "partial-route-barrier",
+          "center": [
+            1.116,
+            1.0,
+            13.304
+          ],
+          "size": [
+            2.769,
+            2.0,
+            0.581
+          ],
+          "color": [
+            0.82,
+            0.38,
+            0.12
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        }
+      ]
+    },
+    {
+      "id": "diagnostic-candidate-v2-development-connected-detour-002",
+      "seed": 81001,
+      "robot": "TurtleBot3 Waffle-class",
+      "start": [
+        0.0,
+        0.08,
+        0.0
+      ],
+      "goal": [
+        0.0,
+        0.08,
+        18.0
+      ],
+      "approximateLengthMeters": 22.0,
+      "alternatives": [
+        "left opening then right opening"
+      ],
+      "relevantObstacles": [
+        "diagnostic-candidate-v2-development-connected-detour-002-near",
+        "diagnostic-candidate-v2-development-connected-detour-002-far"
+      ],
+      "expectedChallenge": "Two alternating partial barriers restrict the direct route but retain a detour.",
+      "expectedBroadOutcome": "avoidance-and-path-change",
+      "studySplit": "candidate-v2-development",
+      "diagnosticMechanism": "connected-detour",
+      "generatorSeed": 81001,
+      "obstacles": [
+        {
+          "id": "diagnostic-candidate-v2-development-connected-detour-002-near",
+          "role": "partial-route-barrier",
+          "center": [
+            1.119,
+            1.0,
+            6.653
+          ],
+          "size": [
+            2.762,
+            2.0,
+            0.567
+          ],
+          "color": [
+            0.82,
+            0.38,
+            0.12
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        },
+        {
+          "id": "diagnostic-candidate-v2-development-connected-detour-002-far",
+          "role": "partial-route-barrier",
+          "center": [
+            -1.119,
+            1.0,
+            11.85
+          ],
+          "size": [
+            2.762,
+            2.0,
+            0.567
+          ],
+          "color": [
+            0.82,
+            0.38,
+            0.12
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        }
+      ]
+    },
+    {
+      "id": "diagnostic-candidate-v2-development-connected-detour-003",
+      "seed": 81002,
+      "robot": "TurtleBot3 Waffle-class",
+      "start": [
+        0.0,
+        0.08,
+        0.0
+      ],
+      "goal": [
+        0.0,
+        0.08,
+        18.0
+      ],
+      "approximateLengthMeters": 22.0,
+      "alternatives": [
+        "right opening then left opening"
+      ],
+      "relevantObstacles": [
+        "diagnostic-candidate-v2-development-connected-detour-003-near",
+        "diagnostic-candidate-v2-development-connected-detour-003-far"
+      ],
+      "expectedChallenge": "Two alternating partial barriers restrict the direct route but retain a detour.",
+      "expectedBroadOutcome": "avoidance-and-path-change",
+      "studySplit": "candidate-v2-development",
+      "diagnosticMechanism": "connected-detour",
+      "generatorSeed": 81002,
+      "obstacles": [
+        {
+          "id": "diagnostic-candidate-v2-development-connected-detour-003-near",
+          "role": "partial-route-barrier",
+          "center": [
+            -1.109,
+            1.0,
+            5.915
+          ],
+          "size": [
+            2.782,
+            2.0,
+            0.713
+          ],
+          "color": [
+            0.82,
+            0.38,
+            0.12
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        },
+        {
+          "id": "diagnostic-candidate-v2-development-connected-detour-003-far",
+          "role": "partial-route-barrier",
+          "center": [
+            1.109,
+            1.0,
+            12.043
+          ],
+          "size": [
+            2.782,
+            2.0,
+            0.713
+          ],
+          "color": [
+            0.82,
+            0.38,
+            0.12
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        }
+      ]
+    },
+    {
+      "id": "diagnostic-candidate-v2-development-connected-detour-004",
+      "seed": 81003,
+      "robot": "TurtleBot3 Waffle-class",
+      "start": [
+        0.0,
+        0.08,
+        0.0
+      ],
+      "goal": [
+        0.0,
+        0.08,
+        18.0
+      ],
+      "approximateLengthMeters": 22.0,
+      "alternatives": [
+        "left opening then right opening"
+      ],
+      "relevantObstacles": [
+        "diagnostic-candidate-v2-development-connected-detour-004-near",
+        "diagnostic-candidate-v2-development-connected-detour-004-far"
+      ],
+      "expectedChallenge": "Two alternating partial barriers restrict the direct route but retain a detour.",
+      "expectedBroadOutcome": "avoidance-and-path-change",
+      "studySplit": "candidate-v2-development",
+      "diagnosticMechanism": "connected-detour",
+      "generatorSeed": 81003,
+      "obstacles": [
+        {
+          "id": "diagnostic-candidate-v2-development-connected-detour-004-near",
+          "role": "partial-route-barrier",
+          "center": [
+            1.036,
+            1.0,
+            4.883
+          ],
+          "size": [
+            2.928,
+            2.0,
+            0.605
+          ],
+          "color": [
+            0.82,
+            0.38,
+            0.12
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        },
+        {
+          "id": "diagnostic-candidate-v2-development-connected-detour-004-far",
+          "role": "partial-route-barrier",
+          "center": [
+            -1.036,
+            1.0,
+            11.096
+          ],
+          "size": [
+            2.928,
+            2.0,
+            0.605
+          ],
+          "color": [
+            0.82,
+            0.38,
+            0.12
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        }
+      ]
+    },
+    {
+      "id": "diagnostic-candidate-v2-development-connected-detour-005",
+      "seed": 81004,
+      "robot": "TurtleBot3 Waffle-class",
+      "start": [
+        0.0,
+        0.08,
+        0.0
+      ],
+      "goal": [
+        0.0,
+        0.08,
+        18.0
+      ],
+      "approximateLengthMeters": 22.0,
+      "alternatives": [
+        "right opening then left opening"
+      ],
+      "relevantObstacles": [
+        "diagnostic-candidate-v2-development-connected-detour-005-near",
+        "diagnostic-candidate-v2-development-connected-detour-005-far"
+      ],
+      "expectedChallenge": "Two alternating partial barriers restrict the direct route but retain a detour.",
+      "expectedBroadOutcome": "avoidance-and-path-change",
+      "studySplit": "candidate-v2-development",
+      "diagnosticMechanism": "connected-detour",
+      "generatorSeed": 81004,
+      "obstacles": [
+        {
+          "id": "diagnostic-candidate-v2-development-connected-detour-005-near",
+          "role": "partial-route-barrier",
+          "center": [
+            -0.967,
+            1.0,
+            6.937
+          ],
+          "size": [
+            3.065,
+            2.0,
+            0.698
+          ],
+          "color": [
+            0.82,
+            0.38,
+            0.12
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        },
+        {
+          "id": "diagnostic-candidate-v2-development-connected-detour-005-far",
+          "role": "partial-route-barrier",
+          "center": [
+            0.967,
+            1.0,
+            13.331
+          ],
+          "size": [
+            3.065,
+            2.0,
+            0.698
+          ],
+          "color": [
+            0.82,
+            0.38,
+            0.12
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        }
+      ]
+    },
+    {
+      "id": "diagnostic-candidate-v2-development-connected-detour-006",
+      "seed": 81005,
+      "robot": "TurtleBot3 Waffle-class",
+      "start": [
+        0.0,
+        0.08,
+        0.0
+      ],
+      "goal": [
+        0.0,
+        0.08,
+        18.0
+      ],
+      "approximateLengthMeters": 22.0,
+      "alternatives": [
+        "left opening then right opening"
+      ],
+      "relevantObstacles": [
+        "diagnostic-candidate-v2-development-connected-detour-006-near",
+        "diagnostic-candidate-v2-development-connected-detour-006-far"
+      ],
+      "expectedChallenge": "Two alternating partial barriers restrict the direct route but retain a detour.",
+      "expectedBroadOutcome": "avoidance-and-path-change",
+      "studySplit": "candidate-v2-development",
+      "diagnosticMechanism": "connected-detour",
+      "generatorSeed": 81005,
+      "obstacles": [
+        {
+          "id": "diagnostic-candidate-v2-development-connected-detour-006-near",
+          "role": "partial-route-barrier",
+          "center": [
+            1.114,
+            1.0,
+            5.268
+          ],
+          "size": [
+            2.772,
+            2.0,
+            0.48
+          ],
+          "color": [
+            0.82,
+            0.38,
+            0.12
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        },
+        {
+          "id": "diagnostic-candidate-v2-development-connected-detour-006-far",
+          "role": "partial-route-barrier",
+          "center": [
+            -1.114,
+            1.0,
+            12.213
+          ],
+          "size": [
+            2.772,
+            2.0,
+            0.48
+          ],
+          "color": [
+            0.82,
+            0.38,
+            0.12
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        }
+      ]
+    },
+    {
+      "id": "diagnostic-candidate-v2-development-connected-detour-007",
+      "seed": 81006,
+      "robot": "TurtleBot3 Waffle-class",
+      "start": [
+        0.0,
+        0.08,
+        0.0
+      ],
+      "goal": [
+        0.0,
+        0.08,
+        18.0
+      ],
+      "approximateLengthMeters": 22.0,
+      "alternatives": [
+        "right opening then left opening"
+      ],
+      "relevantObstacles": [
+        "diagnostic-candidate-v2-development-connected-detour-007-near",
+        "diagnostic-candidate-v2-development-connected-detour-007-far"
+      ],
+      "expectedChallenge": "Two alternating partial barriers restrict the direct route but retain a detour.",
+      "expectedBroadOutcome": "avoidance-and-path-change",
+      "studySplit": "candidate-v2-development",
+      "diagnosticMechanism": "connected-detour",
+      "generatorSeed": 81006,
+      "obstacles": [
+        {
+          "id": "diagnostic-candidate-v2-development-connected-detour-007-near",
+          "role": "partial-route-barrier",
+          "center": [
+            -1.001,
+            1.0,
+            5.494
+          ],
+          "size": [
+            2.997,
+            2.0,
+            0.494
+          ],
+          "color": [
+            0.82,
+            0.38,
+            0.12
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        },
+        {
+          "id": "diagnostic-candidate-v2-development-connected-detour-007-far",
+          "role": "partial-route-barrier",
+          "center": [
+            1.001,
+            1.0,
+            11.481
+          ],
+          "size": [
+            2.997,
+            2.0,
+            0.494
+          ],
+          "color": [
+            0.82,
+            0.38,
+            0.12
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        }
+      ]
+    },
+    {
+      "id": "diagnostic-candidate-v2-development-connected-detour-008",
+      "seed": 81007,
+      "robot": "TurtleBot3 Waffle-class",
+      "start": [
+        0.0,
+        0.08,
+        0.0
+      ],
+      "goal": [
+        0.0,
+        0.08,
+        18.0
+      ],
+      "approximateLengthMeters": 22.0,
+      "alternatives": [
+        "left opening then right opening"
+      ],
+      "relevantObstacles": [
+        "diagnostic-candidate-v2-development-connected-detour-008-near",
+        "diagnostic-candidate-v2-development-connected-detour-008-far"
+      ],
+      "expectedChallenge": "Two alternating partial barriers restrict the direct route but retain a detour.",
+      "expectedBroadOutcome": "avoidance-and-path-change",
+      "studySplit": "candidate-v2-development",
+      "diagnosticMechanism": "connected-detour",
+      "generatorSeed": 81007,
+      "obstacles": [
+        {
+          "id": "diagnostic-candidate-v2-development-connected-detour-008-near",
+          "role": "partial-route-barrier",
+          "center": [
+            0.981,
+            1.0,
+            5.738
+          ],
+          "size": [
+            3.039,
+            2.0,
+            0.455
+          ],
+          "color": [
+            0.82,
+            0.38,
+            0.12
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        },
+        {
+          "id": "diagnostic-candidate-v2-development-connected-detour-008-far",
+          "role": "partial-route-barrier",
+          "center": [
+            -0.981,
+            1.0,
+            10.925
+          ],
+          "size": [
+            3.039,
+            2.0,
+            0.455
+          ],
+          "color": [
+            0.82,
+            0.38,
+            0.12
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        }
+      ]
+    },
+    {
+      "id": "diagnostic-candidate-v2-development-connected-detour-009",
+      "seed": 81008,
+      "robot": "TurtleBot3 Waffle-class",
+      "start": [
+        0.0,
+        0.08,
+        0.0
+      ],
+      "goal": [
+        0.0,
+        0.08,
+        18.0
+      ],
+      "approximateLengthMeters": 22.0,
+      "alternatives": [
+        "right opening then left opening"
+      ],
+      "relevantObstacles": [
+        "diagnostic-candidate-v2-development-connected-detour-009-near",
+        "diagnostic-candidate-v2-development-connected-detour-009-far"
+      ],
+      "expectedChallenge": "Two alternating partial barriers restrict the direct route but retain a detour.",
+      "expectedBroadOutcome": "avoidance-and-path-change",
+      "studySplit": "candidate-v2-development",
+      "diagnosticMechanism": "connected-detour",
+      "generatorSeed": 81008,
+      "obstacles": [
+        {
+          "id": "diagnostic-candidate-v2-development-connected-detour-009-near",
+          "role": "partial-route-barrier",
+          "center": [
+            -1.044,
+            1.0,
+            6.544
+          ],
+          "size": [
+            2.913,
+            2.0,
+            0.477
+          ],
+          "color": [
+            0.82,
+            0.38,
+            0.12
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        },
+        {
+          "id": "diagnostic-candidate-v2-development-connected-detour-009-far",
+          "role": "partial-route-barrier",
+          "center": [
+            1.044,
+            1.0,
+            12.487
+          ],
+          "size": [
+            2.913,
+            2.0,
+            0.477
+          ],
+          "color": [
+            0.82,
+            0.38,
+            0.12
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        }
+      ]
+    },
+    {
+      "id": "diagnostic-candidate-v2-development-connected-detour-010",
+      "seed": 81009,
+      "robot": "TurtleBot3 Waffle-class",
+      "start": [
+        0.0,
+        0.08,
+        0.0
+      ],
+      "goal": [
+        0.0,
+        0.08,
+        18.0
+      ],
+      "approximateLengthMeters": 22.0,
+      "alternatives": [
+        "left opening then right opening"
+      ],
+      "relevantObstacles": [
+        "diagnostic-candidate-v2-development-connected-detour-010-near",
+        "diagnostic-candidate-v2-development-connected-detour-010-far"
+      ],
+      "expectedChallenge": "Two alternating partial barriers restrict the direct route but retain a detour.",
+      "expectedBroadOutcome": "avoidance-and-path-change",
+      "studySplit": "candidate-v2-development",
+      "diagnosticMechanism": "connected-detour",
+      "generatorSeed": 81009,
+      "obstacles": [
+        {
+          "id": "diagnostic-candidate-v2-development-connected-detour-010-near",
+          "role": "partial-route-barrier",
+          "center": [
+            0.978,
+            1.0,
+            6.519
+          ],
+          "size": [
+            3.043,
+            2.0,
+            0.613
+          ],
+          "color": [
+            0.82,
+            0.38,
+            0.12
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        },
+        {
+          "id": "diagnostic-candidate-v2-development-connected-detour-010-far",
+          "role": "partial-route-barrier",
+          "center": [
+            -0.978,
+            1.0,
+            12.86
+          ],
+          "size": [
+            3.043,
+            2.0,
+            0.613
+          ],
+          "color": [
+            0.82,
+            0.38,
+            0.12
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        }
+      ]
+    },
+    {
+      "id": "diagnostic-candidate-v2-development-connected-detour-011",
+      "seed": 81010,
+      "robot": "TurtleBot3 Waffle-class",
+      "start": [
+        0.0,
+        0.08,
+        0.0
+      ],
+      "goal": [
+        0.0,
+        0.08,
+        18.0
+      ],
+      "approximateLengthMeters": 22.0,
+      "alternatives": [
+        "right opening then left opening"
+      ],
+      "relevantObstacles": [
+        "diagnostic-candidate-v2-development-connected-detour-011-near",
+        "diagnostic-candidate-v2-development-connected-detour-011-far"
+      ],
+      "expectedChallenge": "Two alternating partial barriers restrict the direct route but retain a detour.",
+      "expectedBroadOutcome": "avoidance-and-path-change",
+      "studySplit": "candidate-v2-development",
+      "diagnosticMechanism": "connected-detour",
+      "generatorSeed": 81010,
+      "obstacles": [
+        {
+          "id": "diagnostic-candidate-v2-development-connected-detour-011-near",
+          "role": "partial-route-barrier",
+          "center": [
+            -1.129,
+            1.0,
+            5.417
+          ],
+          "size": [
+            2.742,
+            2.0,
+            0.541
+          ],
+          "color": [
+            0.82,
+            0.38,
+            0.12
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        },
+        {
+          "id": "diagnostic-candidate-v2-development-connected-detour-011-far",
+          "role": "partial-route-barrier",
+          "center": [
+            1.129,
+            1.0,
+            11.703
+          ],
+          "size": [
+            2.742,
+            2.0,
+            0.541
+          ],
+          "color": [
+            0.82,
+            0.38,
+            0.12
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        }
+      ]
+    },
+    {
+      "id": "diagnostic-candidate-v2-development-connected-detour-012",
+      "seed": 81011,
+      "robot": "TurtleBot3 Waffle-class",
+      "start": [
+        0.0,
+        0.08,
+        0.0
+      ],
+      "goal": [
+        0.0,
+        0.08,
+        18.0
+      ],
+      "approximateLengthMeters": 22.0,
+      "alternatives": [
+        "left opening then right opening"
+      ],
+      "relevantObstacles": [
+        "diagnostic-candidate-v2-development-connected-detour-012-near",
+        "diagnostic-candidate-v2-development-connected-detour-012-far"
+      ],
+      "expectedChallenge": "Two alternating partial barriers restrict the direct route but retain a detour.",
+      "expectedBroadOutcome": "avoidance-and-path-change",
+      "studySplit": "candidate-v2-development",
+      "diagnosticMechanism": "connected-detour",
+      "generatorSeed": 81011,
+      "obstacles": [
+        {
+          "id": "diagnostic-candidate-v2-development-connected-detour-012-near",
+          "role": "partial-route-barrier",
+          "center": [
+            1.079,
+            1.0,
+            4.867
+          ],
+          "size": [
+            2.841,
+            2.0,
+            0.589
+          ],
+          "color": [
+            0.82,
+            0.38,
+            0.12
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        },
+        {
+          "id": "diagnostic-candidate-v2-development-connected-detour-012-far",
+          "role": "partial-route-barrier",
+          "center": [
+            -1.079,
+            1.0,
+            11.218
+          ],
+          "size": [
+            2.841,
+            2.0,
+            0.589
+          ],
+          "color": [
+            0.82,
+            0.38,
+            0.12
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        }
+      ]
+    },
+    {
+      "id": "diagnostic-candidate-v2-development-nominal-clear-route-001",
+      "seed": 82000,
+      "robot": "TurtleBot3 Waffle-class",
+      "start": [
+        0.0,
+        0.08,
+        0.0
+      ],
+      "goal": [
+        0.0,
+        0.08,
+        18.0
+      ],
+      "approximateLengthMeters": 22.0,
+      "alternatives": [
+        "center route"
+      ],
+      "relevantObstacles": [
+        "diagnostic-candidate-v2-development-nominal-clear-route-001-clutter-1",
+        "diagnostic-candidate-v2-development-nominal-clear-route-001-clutter-2",
+        "diagnostic-candidate-v2-development-nominal-clear-route-001-clutter-3"
+      ],
+      "expectedChallenge": "Side clutter is visible while the requested center route remains clear.",
+      "expectedBroadOutcome": "nominal-success",
+      "studySplit": "candidate-v2-development",
+      "diagnosticMechanism": "nominal-clear-route",
+      "generatorSeed": 82000,
+      "obstacles": [
+        {
+          "id": "diagnostic-candidate-v2-development-nominal-clear-route-001-clutter-1",
+          "role": "irrelevant-side-clutter",
+          "center": [
+            -1.862,
+            1.0,
+            3.341
+          ],
+          "size": [
+            0.648,
+            2.0,
+            0.648
+          ],
+          "color": [
+            0.18,
+            0.54,
+            0.76
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        },
+        {
+          "id": "diagnostic-candidate-v2-development-nominal-clear-route-001-clutter-2",
+          "role": "irrelevant-side-clutter",
+          "center": [
+            1.784,
+            1.0,
+            9.577
+          ],
+          "size": [
+            0.46,
+            2.0,
+            0.46
+          ],
+          "color": [
+            0.18,
+            0.54,
+            0.76
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        },
+        {
+          "id": "diagnostic-candidate-v2-development-nominal-clear-route-001-clutter-3",
+          "role": "irrelevant-side-clutter",
+          "center": [
+            -1.889,
+            1.0,
+            13.201
+          ],
+          "size": [
+            0.479,
+            2.0,
+            0.479
+          ],
+          "color": [
+            0.18,
+            0.54,
+            0.76
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        }
+      ]
+    },
+    {
+      "id": "diagnostic-candidate-v2-development-nominal-clear-route-002",
+      "seed": 82001,
+      "robot": "TurtleBot3 Waffle-class",
+      "start": [
+        0.0,
+        0.08,
+        0.0
+      ],
+      "goal": [
+        0.0,
+        0.08,
+        18.0
+      ],
+      "approximateLengthMeters": 22.0,
+      "alternatives": [
+        "center route"
+      ],
+      "relevantObstacles": [
+        "diagnostic-candidate-v2-development-nominal-clear-route-002-clutter-1",
+        "diagnostic-candidate-v2-development-nominal-clear-route-002-clutter-2",
+        "diagnostic-candidate-v2-development-nominal-clear-route-002-clutter-3"
+      ],
+      "expectedChallenge": "Side clutter is visible while the requested center route remains clear.",
+      "expectedBroadOutcome": "nominal-success",
+      "studySplit": "candidate-v2-development",
+      "diagnosticMechanism": "nominal-clear-route",
+      "generatorSeed": 82001,
+      "obstacles": [
+        {
+          "id": "diagnostic-candidate-v2-development-nominal-clear-route-002-clutter-1",
+          "role": "irrelevant-side-clutter",
+          "center": [
+            1.713,
+            1.0,
+            4.32
+          ],
+          "size": [
+            0.602,
+            2.0,
+            0.602
+          ],
+          "color": [
+            0.18,
+            0.54,
+            0.76
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        },
+        {
+          "id": "diagnostic-candidate-v2-development-nominal-clear-route-002-clutter-2",
+          "role": "irrelevant-side-clutter",
+          "center": [
+            -1.982,
+            1.0,
+            8.956
+          ],
+          "size": [
+            0.48,
+            2.0,
+            0.48
+          ],
+          "color": [
+            0.18,
+            0.54,
+            0.76
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        },
+        {
+          "id": "diagnostic-candidate-v2-development-nominal-clear-route-002-clutter-3",
+          "role": "irrelevant-side-clutter",
+          "center": [
+            1.929,
+            1.0,
+            12.517
+          ],
+          "size": [
+            0.581,
+            2.0,
+            0.581
+          ],
+          "color": [
+            0.18,
+            0.54,
+            0.76
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        }
+      ]
+    },
+    {
+      "id": "diagnostic-candidate-v2-development-nominal-clear-route-003",
+      "seed": 82002,
+      "robot": "TurtleBot3 Waffle-class",
+      "start": [
+        0.0,
+        0.08,
+        0.0
+      ],
+      "goal": [
+        0.0,
+        0.08,
+        18.0
+      ],
+      "approximateLengthMeters": 22.0,
+      "alternatives": [
+        "center route"
+      ],
+      "relevantObstacles": [
+        "diagnostic-candidate-v2-development-nominal-clear-route-003-clutter-1",
+        "diagnostic-candidate-v2-development-nominal-clear-route-003-clutter-2",
+        "diagnostic-candidate-v2-development-nominal-clear-route-003-clutter-3"
+      ],
+      "expectedChallenge": "Side clutter is visible while the requested center route remains clear.",
+      "expectedBroadOutcome": "nominal-success",
+      "studySplit": "candidate-v2-development",
+      "diagnosticMechanism": "nominal-clear-route",
+      "generatorSeed": 82002,
+      "obstacles": [
+        {
+          "id": "diagnostic-candidate-v2-development-nominal-clear-route-003-clutter-1",
+          "role": "irrelevant-side-clutter",
+          "center": [
+            -1.998,
+            1.0,
+            3.673
+          ],
+          "size": [
+            0.469,
+            2.0,
+            0.469
+          ],
+          "color": [
+            0.18,
+            0.54,
+            0.76
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        },
+        {
+          "id": "diagnostic-candidate-v2-development-nominal-clear-route-003-clutter-2",
+          "role": "irrelevant-side-clutter",
+          "center": [
+            1.909,
+            1.0,
+            8.922
+          ],
+          "size": [
+            0.554,
+            2.0,
+            0.554
+          ],
+          "color": [
+            0.18,
+            0.54,
+            0.76
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        },
+        {
+          "id": "diagnostic-candidate-v2-development-nominal-clear-route-003-clutter-3",
+          "role": "irrelevant-side-clutter",
+          "center": [
+            -1.852,
+            1.0,
+            12.368
+          ],
+          "size": [
+            0.548,
+            2.0,
+            0.548
+          ],
+          "color": [
+            0.18,
+            0.54,
+            0.76
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        }
+      ]
+    },
+    {
+      "id": "diagnostic-candidate-v2-development-nominal-clear-route-004",
+      "seed": 82003,
+      "robot": "TurtleBot3 Waffle-class",
+      "start": [
+        0.0,
+        0.08,
+        0.0
+      ],
+      "goal": [
+        0.0,
+        0.08,
+        18.0
+      ],
+      "approximateLengthMeters": 22.0,
+      "alternatives": [
+        "center route"
+      ],
+      "relevantObstacles": [
+        "diagnostic-candidate-v2-development-nominal-clear-route-004-clutter-1",
+        "diagnostic-candidate-v2-development-nominal-clear-route-004-clutter-2",
+        "diagnostic-candidate-v2-development-nominal-clear-route-004-clutter-3"
+      ],
+      "expectedChallenge": "Side clutter is visible while the requested center route remains clear.",
+      "expectedBroadOutcome": "nominal-success",
+      "studySplit": "candidate-v2-development",
+      "diagnosticMechanism": "nominal-clear-route",
+      "generatorSeed": 82003,
+      "obstacles": [
+        {
+          "id": "diagnostic-candidate-v2-development-nominal-clear-route-004-clutter-1",
+          "role": "irrelevant-side-clutter",
+          "center": [
+            1.659,
+            1.0,
+            5.378
+          ],
+          "size": [
+            0.598,
+            2.0,
+            0.598
+          ],
+          "color": [
+            0.18,
+            0.54,
+            0.76
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        },
+        {
+          "id": "diagnostic-candidate-v2-development-nominal-clear-route-004-clutter-2",
+          "role": "irrelevant-side-clutter",
+          "center": [
+            -1.872,
+            1.0,
+            9.889
+          ],
+          "size": [
+            0.567,
+            2.0,
+            0.567
+          ],
+          "color": [
+            0.18,
+            0.54,
+            0.76
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        },
+        {
+          "id": "diagnostic-candidate-v2-development-nominal-clear-route-004-clutter-3",
+          "role": "irrelevant-side-clutter",
+          "center": [
+            1.659,
+            1.0,
+            12.032
+          ],
+          "size": [
+            0.612,
+            2.0,
+            0.612
+          ],
+          "color": [
+            0.18,
+            0.54,
+            0.76
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        }
+      ]
+    },
+    {
+      "id": "diagnostic-candidate-v2-development-nominal-clear-route-005",
+      "seed": 82004,
+      "robot": "TurtleBot3 Waffle-class",
+      "start": [
+        0.0,
+        0.08,
+        0.0
+      ],
+      "goal": [
+        0.0,
+        0.08,
+        18.0
+      ],
+      "approximateLengthMeters": 22.0,
+      "alternatives": [
+        "center route"
+      ],
+      "relevantObstacles": [
+        "diagnostic-candidate-v2-development-nominal-clear-route-005-clutter-1",
+        "diagnostic-candidate-v2-development-nominal-clear-route-005-clutter-2",
+        "diagnostic-candidate-v2-development-nominal-clear-route-005-clutter-3"
+      ],
+      "expectedChallenge": "Side clutter is visible while the requested center route remains clear.",
+      "expectedBroadOutcome": "nominal-success",
+      "studySplit": "candidate-v2-development",
+      "diagnosticMechanism": "nominal-clear-route",
+      "generatorSeed": 82004,
+      "obstacles": [
+        {
+          "id": "diagnostic-candidate-v2-development-nominal-clear-route-005-clutter-1",
+          "role": "irrelevant-side-clutter",
+          "center": [
+            -1.738,
+            1.0,
+            4.485
+          ],
+          "size": [
+            0.512,
+            2.0,
+            0.512
+          ],
+          "color": [
+            0.18,
+            0.54,
+            0.76
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        },
+        {
+          "id": "diagnostic-candidate-v2-development-nominal-clear-route-005-clutter-2",
+          "role": "irrelevant-side-clutter",
+          "center": [
+            1.984,
+            1.0,
+            9.305
+          ],
+          "size": [
+            0.49,
+            2.0,
+            0.49
+          ],
+          "color": [
+            0.18,
+            0.54,
+            0.76
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        },
+        {
+          "id": "diagnostic-candidate-v2-development-nominal-clear-route-005-clutter-3",
+          "role": "irrelevant-side-clutter",
+          "center": [
+            -1.673,
+            1.0,
+            12.884
+          ],
+          "size": [
+            0.541,
+            2.0,
+            0.541
+          ],
+          "color": [
+            0.18,
+            0.54,
+            0.76
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        }
+      ]
+    },
+    {
+      "id": "diagnostic-candidate-v2-development-nominal-clear-route-006",
+      "seed": 82005,
+      "robot": "TurtleBot3 Waffle-class",
+      "start": [
+        0.0,
+        0.08,
+        0.0
+      ],
+      "goal": [
+        0.0,
+        0.08,
+        18.0
+      ],
+      "approximateLengthMeters": 22.0,
+      "alternatives": [
+        "center route"
+      ],
+      "relevantObstacles": [
+        "diagnostic-candidate-v2-development-nominal-clear-route-006-clutter-1",
+        "diagnostic-candidate-v2-development-nominal-clear-route-006-clutter-2",
+        "diagnostic-candidate-v2-development-nominal-clear-route-006-clutter-3"
+      ],
+      "expectedChallenge": "Side clutter is visible while the requested center route remains clear.",
+      "expectedBroadOutcome": "nominal-success",
+      "studySplit": "candidate-v2-development",
+      "diagnosticMechanism": "nominal-clear-route",
+      "generatorSeed": 82005,
+      "obstacles": [
+        {
+          "id": "diagnostic-candidate-v2-development-nominal-clear-route-006-clutter-1",
+          "role": "irrelevant-side-clutter",
+          "center": [
+            2.0,
+            1.0,
+            5.357
+          ],
+          "size": [
+            0.545,
+            2.0,
+            0.545
+          ],
+          "color": [
+            0.18,
+            0.54,
+            0.76
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        },
+        {
+          "id": "diagnostic-candidate-v2-development-nominal-clear-route-006-clutter-2",
+          "role": "irrelevant-side-clutter",
+          "center": [
+            -1.878,
+            1.0,
+            7.867
+          ],
+          "size": [
+            0.528,
+            2.0,
+            0.528
+          ],
+          "color": [
+            0.18,
+            0.54,
+            0.76
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        },
+        {
+          "id": "diagnostic-candidate-v2-development-nominal-clear-route-006-clutter-3",
+          "role": "irrelevant-side-clutter",
+          "center": [
+            1.93,
+            1.0,
+            12.226
+          ],
+          "size": [
+            0.517,
+            2.0,
+            0.517
+          ],
+          "color": [
+            0.18,
+            0.54,
+            0.76
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        }
+      ]
+    },
+    {
+      "id": "diagnostic-candidate-v2-development-nominal-clear-route-007",
+      "seed": 82006,
+      "robot": "TurtleBot3 Waffle-class",
+      "start": [
+        0.0,
+        0.08,
+        0.0
+      ],
+      "goal": [
+        0.0,
+        0.08,
+        18.0
+      ],
+      "approximateLengthMeters": 22.0,
+      "alternatives": [
+        "center route"
+      ],
+      "relevantObstacles": [
+        "diagnostic-candidate-v2-development-nominal-clear-route-007-clutter-1",
+        "diagnostic-candidate-v2-development-nominal-clear-route-007-clutter-2",
+        "diagnostic-candidate-v2-development-nominal-clear-route-007-clutter-3"
+      ],
+      "expectedChallenge": "Side clutter is visible while the requested center route remains clear.",
+      "expectedBroadOutcome": "nominal-success",
+      "studySplit": "candidate-v2-development",
+      "diagnosticMechanism": "nominal-clear-route",
+      "generatorSeed": 82006,
+      "obstacles": [
+        {
+          "id": "diagnostic-candidate-v2-development-nominal-clear-route-007-clutter-1",
+          "role": "irrelevant-side-clutter",
+          "center": [
+            -1.762,
+            1.0,
+            5.482
+          ],
+          "size": [
+            0.45,
+            2.0,
+            0.45
+          ],
+          "color": [
+            0.18,
+            0.54,
+            0.76
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        },
+        {
+          "id": "diagnostic-candidate-v2-development-nominal-clear-route-007-clutter-2",
+          "role": "irrelevant-side-clutter",
+          "center": [
+            1.73,
+            1.0,
+            9.803
+          ],
+          "size": [
+            0.498,
+            2.0,
+            0.498
+          ],
+          "color": [
+            0.18,
+            0.54,
+            0.76
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        },
+        {
+          "id": "diagnostic-candidate-v2-development-nominal-clear-route-007-clutter-3",
+          "role": "irrelevant-side-clutter",
+          "center": [
+            -1.654,
+            1.0,
+            13.049
+          ],
+          "size": [
+            0.564,
+            2.0,
+            0.564
+          ],
+          "color": [
+            0.18,
+            0.54,
+            0.76
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        }
+      ]
+    },
+    {
+      "id": "diagnostic-candidate-v2-development-nominal-clear-route-008",
+      "seed": 82007,
+      "robot": "TurtleBot3 Waffle-class",
+      "start": [
+        0.0,
+        0.08,
+        0.0
+      ],
+      "goal": [
+        0.0,
+        0.08,
+        18.0
+      ],
+      "approximateLengthMeters": 22.0,
+      "alternatives": [
+        "center route"
+      ],
+      "relevantObstacles": [
+        "diagnostic-candidate-v2-development-nominal-clear-route-008-clutter-1",
+        "diagnostic-candidate-v2-development-nominal-clear-route-008-clutter-2",
+        "diagnostic-candidate-v2-development-nominal-clear-route-008-clutter-3"
+      ],
+      "expectedChallenge": "Side clutter is visible while the requested center route remains clear.",
+      "expectedBroadOutcome": "nominal-success",
+      "studySplit": "candidate-v2-development",
+      "diagnosticMechanism": "nominal-clear-route",
+      "generatorSeed": 82007,
+      "obstacles": [
+        {
+          "id": "diagnostic-candidate-v2-development-nominal-clear-route-008-clutter-1",
+          "role": "irrelevant-side-clutter",
+          "center": [
+            1.956,
+            1.0,
+            4.191
+          ],
+          "size": [
+            0.518,
+            2.0,
+            0.518
+          ],
+          "color": [
+            0.18,
+            0.54,
+            0.76
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        },
+        {
+          "id": "diagnostic-candidate-v2-development-nominal-clear-route-008-clutter-2",
+          "role": "irrelevant-side-clutter",
+          "center": [
+            -1.877,
+            1.0,
+            8.481
+          ],
+          "size": [
+            0.642,
+            2.0,
+            0.642
+          ],
+          "color": [
+            0.18,
+            0.54,
+            0.76
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        },
+        {
+          "id": "diagnostic-candidate-v2-development-nominal-clear-route-008-clutter-3",
+          "role": "irrelevant-side-clutter",
+          "center": [
+            1.822,
+            1.0,
+            13.455
+          ],
+          "size": [
+            0.609,
+            2.0,
+            0.609
+          ],
+          "color": [
+            0.18,
+            0.54,
+            0.76
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        }
+      ]
+    },
+    {
+      "id": "diagnostic-candidate-v2-development-nominal-clear-route-009",
+      "seed": 82008,
+      "robot": "TurtleBot3 Waffle-class",
+      "start": [
+        0.0,
+        0.08,
+        0.0
+      ],
+      "goal": [
+        0.0,
+        0.08,
+        18.0
+      ],
+      "approximateLengthMeters": 22.0,
+      "alternatives": [
+        "center route"
+      ],
+      "relevantObstacles": [
+        "diagnostic-candidate-v2-development-nominal-clear-route-009-clutter-1",
+        "diagnostic-candidate-v2-development-nominal-clear-route-009-clutter-2",
+        "diagnostic-candidate-v2-development-nominal-clear-route-009-clutter-3"
+      ],
+      "expectedChallenge": "Side clutter is visible while the requested center route remains clear.",
+      "expectedBroadOutcome": "nominal-success",
+      "studySplit": "candidate-v2-development",
+      "diagnosticMechanism": "nominal-clear-route",
+      "generatorSeed": 82008,
+      "obstacles": [
+        {
+          "id": "diagnostic-candidate-v2-development-nominal-clear-route-009-clutter-1",
+          "role": "irrelevant-side-clutter",
+          "center": [
+            -1.707,
+            1.0,
+            4.133
+          ],
+          "size": [
+            0.458,
+            2.0,
+            0.458
+          ],
+          "color": [
+            0.18,
+            0.54,
+            0.76
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        },
+        {
+          "id": "diagnostic-candidate-v2-development-nominal-clear-route-009-clutter-2",
+          "role": "irrelevant-side-clutter",
+          "center": [
+            1.918,
+            1.0,
+            7.539
+          ],
+          "size": [
+            0.588,
+            2.0,
+            0.588
+          ],
+          "color": [
+            0.18,
+            0.54,
+            0.76
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        },
+        {
+          "id": "diagnostic-candidate-v2-development-nominal-clear-route-009-clutter-3",
+          "role": "irrelevant-side-clutter",
+          "center": [
+            -1.754,
+            1.0,
+            12.775
+          ],
+          "size": [
+            0.562,
+            2.0,
+            0.562
+          ],
+          "color": [
+            0.18,
+            0.54,
+            0.76
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        }
+      ]
+    },
+    {
+      "id": "diagnostic-candidate-v2-development-nominal-clear-route-010",
+      "seed": 82009,
+      "robot": "TurtleBot3 Waffle-class",
+      "start": [
+        0.0,
+        0.08,
+        0.0
+      ],
+      "goal": [
+        0.0,
+        0.08,
+        18.0
+      ],
+      "approximateLengthMeters": 22.0,
+      "alternatives": [
+        "center route"
+      ],
+      "relevantObstacles": [
+        "diagnostic-candidate-v2-development-nominal-clear-route-010-clutter-1",
+        "diagnostic-candidate-v2-development-nominal-clear-route-010-clutter-2",
+        "diagnostic-candidate-v2-development-nominal-clear-route-010-clutter-3"
+      ],
+      "expectedChallenge": "Side clutter is visible while the requested center route remains clear.",
+      "expectedBroadOutcome": "nominal-success",
+      "studySplit": "candidate-v2-development",
+      "diagnosticMechanism": "nominal-clear-route",
+      "generatorSeed": 82009,
+      "obstacles": [
+        {
+          "id": "diagnostic-candidate-v2-development-nominal-clear-route-010-clutter-1",
+          "role": "irrelevant-side-clutter",
+          "center": [
+            1.929,
+            1.0,
+            3.873
+          ],
+          "size": [
+            0.479,
+            2.0,
+            0.479
+          ],
+          "color": [
+            0.18,
+            0.54,
+            0.76
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        },
+        {
+          "id": "diagnostic-candidate-v2-development-nominal-clear-route-010-clutter-2",
+          "role": "irrelevant-side-clutter",
+          "center": [
+            -1.938,
+            1.0,
+            8.792
+          ],
+          "size": [
+            0.582,
+            2.0,
+            0.582
+          ],
+          "color": [
+            0.18,
+            0.54,
+            0.76
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        },
+        {
+          "id": "diagnostic-candidate-v2-development-nominal-clear-route-010-clutter-3",
+          "role": "irrelevant-side-clutter",
+          "center": [
+            1.73,
+            1.0,
+            13.88
+          ],
+          "size": [
+            0.611,
+            2.0,
+            0.611
+          ],
+          "color": [
+            0.18,
+            0.54,
+            0.76
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        }
+      ]
+    },
+    {
+      "id": "diagnostic-candidate-v2-development-nominal-clear-route-011",
+      "seed": 82010,
+      "robot": "TurtleBot3 Waffle-class",
+      "start": [
+        0.0,
+        0.08,
+        0.0
+      ],
+      "goal": [
+        0.0,
+        0.08,
+        18.0
+      ],
+      "approximateLengthMeters": 22.0,
+      "alternatives": [
+        "center route"
+      ],
+      "relevantObstacles": [
+        "diagnostic-candidate-v2-development-nominal-clear-route-011-clutter-1",
+        "diagnostic-candidate-v2-development-nominal-clear-route-011-clutter-2",
+        "diagnostic-candidate-v2-development-nominal-clear-route-011-clutter-3"
+      ],
+      "expectedChallenge": "Side clutter is visible while the requested center route remains clear.",
+      "expectedBroadOutcome": "nominal-success",
+      "studySplit": "candidate-v2-development",
+      "diagnosticMechanism": "nominal-clear-route",
+      "generatorSeed": 82010,
+      "obstacles": [
+        {
+          "id": "diagnostic-candidate-v2-development-nominal-clear-route-011-clutter-1",
+          "role": "irrelevant-side-clutter",
+          "center": [
+            -1.749,
+            1.0,
+            3.909
+          ],
+          "size": [
+            0.577,
+            2.0,
+            0.577
+          ],
+          "color": [
+            0.18,
+            0.54,
+            0.76
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        },
+        {
+          "id": "diagnostic-candidate-v2-development-nominal-clear-route-011-clutter-2",
+          "role": "irrelevant-side-clutter",
+          "center": [
+            1.904,
+            1.0,
+            8.326
+          ],
+          "size": [
+            0.492,
+            2.0,
+            0.492
+          ],
+          "color": [
+            0.18,
+            0.54,
+            0.76
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        },
+        {
+          "id": "diagnostic-candidate-v2-development-nominal-clear-route-011-clutter-3",
+          "role": "irrelevant-side-clutter",
+          "center": [
+            -1.903,
+            1.0,
+            12.25
+          ],
+          "size": [
+            0.63,
+            2.0,
+            0.63
+          ],
+          "color": [
+            0.18,
+            0.54,
+            0.76
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        }
+      ]
+    },
+    {
+      "id": "diagnostic-candidate-v2-development-nominal-clear-route-012",
+      "seed": 82011,
+      "robot": "TurtleBot3 Waffle-class",
+      "start": [
+        0.0,
+        0.08,
+        0.0
+      ],
+      "goal": [
+        0.0,
+        0.08,
+        18.0
+      ],
+      "approximateLengthMeters": 22.0,
+      "alternatives": [
+        "center route"
+      ],
+      "relevantObstacles": [
+        "diagnostic-candidate-v2-development-nominal-clear-route-012-clutter-1",
+        "diagnostic-candidate-v2-development-nominal-clear-route-012-clutter-2",
+        "diagnostic-candidate-v2-development-nominal-clear-route-012-clutter-3"
+      ],
+      "expectedChallenge": "Side clutter is visible while the requested center route remains clear.",
+      "expectedBroadOutcome": "nominal-success",
+      "studySplit": "candidate-v2-development",
+      "diagnosticMechanism": "nominal-clear-route",
+      "generatorSeed": 82011,
+      "obstacles": [
+        {
+          "id": "diagnostic-candidate-v2-development-nominal-clear-route-012-clutter-1",
+          "role": "irrelevant-side-clutter",
+          "center": [
+            1.733,
+            1.0,
+            4.85
+          ],
+          "size": [
+            0.55,
+            2.0,
+            0.55
+          ],
+          "color": [
+            0.18,
+            0.54,
+            0.76
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        },
+        {
+          "id": "diagnostic-candidate-v2-development-nominal-clear-route-012-clutter-2",
+          "role": "irrelevant-side-clutter",
+          "center": [
+            -1.749,
+            1.0,
+            8.813
+          ],
+          "size": [
+            0.506,
+            2.0,
+            0.506
+          ],
+          "color": [
+            0.18,
+            0.54,
+            0.76
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        },
+        {
+          "id": "diagnostic-candidate-v2-development-nominal-clear-route-012-clutter-3",
+          "role": "irrelevant-side-clutter",
+          "center": [
+            1.878,
+            1.0,
+            12.977
+          ],
+          "size": [
+            0.468,
+            2.0,
+            0.468
+          ],
+          "color": [
+            0.18,
+            0.54,
+            0.76
+          ],
+          "activeInitially": true,
+          "activationAfterSeconds": -1.0,
+          "removalAfterSeconds": -1.0
+        }
+      ]
+    }
+  ]
+}
