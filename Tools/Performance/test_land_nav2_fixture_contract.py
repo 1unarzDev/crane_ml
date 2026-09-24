@@ -421,12 +421,28 @@ class LandNav2FixtureContractTests(unittest.TestCase):
         )
         payload = json.loads(catalog.read_text(encoding="utf-8"))
 
-        self.assertIn('catalogId != "v4" && catalogId != "v5"', proving)
+        self.assertIn('catalogId != "v4" && catalogId != "v5" && catalogId != "v6"', proving)
         self.assertEqual(payload["environmentId"], "crane-land-proving-ground-v5")
         self.assertTrue(payload["generator"]["developmentOnly"])
         self.assertEqual(
             payload["generator"]["studyAdmission"],
             "development-only-never-confirmatory-or-replication",
+        )
+
+    def test_proving_ground_accepts_reserved_physical_cohort_catalog(self) -> None:
+        proving = PROVING_GROUND_SOURCE.read_text(encoding="utf-8")
+        catalog = (
+            ROOT
+            / "Assets/Resources/ReferenceEnvironments/crane_land_proving_ground_v6.json"
+        )
+        payload = json.loads(catalog.read_text(encoding="utf-8"))
+
+        self.assertIn('catalogId != "v5" && catalogId != "v6"', proving)
+        self.assertEqual(payload["environmentId"], "crane-land-proving-ground-v6")
+        self.assertFalse(payload["generator"]["semanticConfirmationActive"])
+        self.assertEqual(
+            payload["generator"]["studyAdmission"],
+            "reserved-physical-evidence-only-until-separate-campaign-activation",
         )
 
     def test_worker_build_manifest_accepts_explicit_source_identity(self) -> None:
