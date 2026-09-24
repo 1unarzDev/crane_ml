@@ -123,6 +123,10 @@ namespace Sim.Physics.Land {
             float blockerRemoveAfter = ReadFloat("--crane-land-blocker-remove-after", -1f);
             float mobilityHoldAfter = ReadFloat("--crane-land-mobility-hold-after", -1f);
             float mobilityReleaseAfter = ReadFloat("--crane-land-mobility-release-after", -1f);
+            float provingGroundMobilityHoldAfter = ReadFloat(
+                "--crane-land-proving-ground-mobility-hold-after", -1f);
+            float provingGroundMobilityReleaseAfter = ReadFloat(
+                "--crane-land-proving-ground-mobility-release-after", -1f);
             string provingGroundLayout =
                 ReadString("--crane-land-proving-ground-layout", null);
             string provingGroundCatalog =
@@ -163,12 +167,19 @@ namespace Sim.Physics.Land {
                         "Proving-ground layouts cannot be combined with legacy corridor interventions.");
                 CraneLandProvingGround.EvaluatorTruth provingTruth =
                     CraneLandProvingGround.Build(provingGroundCatalog, provingGroundLayout,
-                        ReadInt("--crane-seed", -1), body, differential, truthPath);
+                        ReadInt("--crane-seed", -1), body, differential, truthPath,
+                        provingGroundMobilityHoldAfter, provingGroundMobilityReleaseAfter);
                 Debug.Log($"CRANE_LAND_NAV2_READY provingGround={provingTruth.layoutId} " +
                           $"seed={provingTruth.seed} platform=turtlebot3-waffle-differential " +
+                          $"mobilityHoldAfter={provingGroundMobilityHoldAfter:R} " +
+                          $"mobilityReleaseAfter={provingGroundMobilityReleaseAfter:R} " +
                           "lidar=/scan");
                 return;
             }
+            if (provingGroundMobilityHoldAfter >= 0f ||
+                provingGroundMobilityReleaseAfter >= 0f)
+                throw new ArgumentException(
+                    "Proving-ground mobility interventions require a proving-ground layout.");
 
             const float wallThickness = 0.25f;
             const float wallHeight = 2f;

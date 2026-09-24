@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
@@ -84,10 +85,20 @@ namespace Sim.Physics.Land {
             public double[] obstacleActualActivationSimulationTime = Array.Empty<double>();
             public double[] obstacleScheduledRemovalSimulationTime = Array.Empty<double>();
             public double[] obstacleActualRemovalSimulationTime = Array.Empty<double>();
+            public float mobilityHoldAfterSeconds = -1f;
+            public float mobilityReleaseAfterSeconds = -1f;
+            public double mobilityHoldScheduledSimulationTime = -1d;
+            public double mobilityHoldActualSimulationTime = -1d;
+            public double mobilityReleaseScheduledSimulationTime = -1d;
+            public double mobilityReleaseActualSimulationTime = -1d;
+            public bool mobilityHeld;
+            public bool mobilityReleased;
         }
 
         internal static EvaluatorTruth Build(string catalogId, string layoutId, int requestedSeed,
-            Rigidbody body, DifferentialDriveDynamics robot, string truthPath) {
+            Rigidbody body, DifferentialDriveDynamics robot, string truthPath,
+            float mobilityHoldAfterSeconds = -1f,
+            float mobilityReleaseAfterSeconds = -1f) {
             if (string.IsNullOrWhiteSpace(catalogId))
                 throw new ArgumentException("Proving-ground catalog ID must be non-empty.",
                     nameof(catalogId));
@@ -96,6 +107,13 @@ namespace Sim.Physics.Land {
                     nameof(layoutId));
             if (body == null) throw new ArgumentNullException(nameof(body));
             if (robot == null) throw new ArgumentNullException(nameof(robot));
+            if (mobilityHoldAfterSeconds < 0f && mobilityReleaseAfterSeconds >= 0f)
+                throw new ArgumentException(
+                    "Proving-ground mobility release requires a configured hold boundary.");
+            if (mobilityReleaseAfterSeconds >= 0f &&
+                mobilityReleaseAfterSeconds <= mobilityHoldAfterSeconds)
+                throw new ArgumentException(
+                    "Proving-ground mobility release must occur after the hold begins.");
 
             string resource = ResolveManifestResource(catalogId);
             TextAsset asset = Resources.Load<TextAsset>(resource);
@@ -111,8 +129,14 @@ namespace Sim.Physics.Land {
                     nameof(layoutId));
             int seed = requestedSeed >= 0 ? requestedSeed : layout.seed;
             string manifestHash = Sha256(asset.bytes);
-            string configurationHash = Sha256(Encoding.UTF8.GetBytes(
-                $"{manifestHash}\n{layout.id}\n{seed}"));
+            string configurationIdentity = $"{manifestHash}\n{layout.id}\n{seed}";
+            // Preserve the established no-intervention identity. Only an explicitly configured
+            // proving-ground execution intervention extends the authenticated configuration.
+            if (mobilityHoldAfterSeconds >= 0f)
+                configurationIdentity += string.Format(CultureInfo.InvariantCulture,
+                    "\nmobility-hold={0:R}\nmobility-release={1:R}",
+                    mobilityHoldAfterSeconds, mobilityReleaseAfterSeconds);
+            string configurationHash = Sha256(Encoding.UTF8.GetBytes(configurationIdentity));
 
             GameObject existing = GameObject.Find("Reference Environment");
             if (existing != null) UnityEngine.Object.Destroy(existing);
@@ -164,7 +188,9 @@ namespace Sim.Physics.Land {
                 obstacleScheduledActivationSimulationTime = Filled(count, -1d),
                 obstacleActualActivationSimulationTime = Filled(count, -1d),
                 obstacleScheduledRemovalSimulationTime = Filled(count, -1d),
-                obstacleActualRemovalSimulationTime = Filled(count, -1d)
+                obstacleActualRemovalSimulationTime = Filled(count, -1d),
+                mobilityHoldAfterSeconds = mobilityHoldAfterSeconds,
+                mobilityReleaseAfterSeconds = mobilityReleaseAfterSeconds
             };
 
             for (int index = 0; index < count; index++) {
@@ -196,11 +222,32 @@ namespace Sim.Physics.Land {
                 truth.obstacleScheduledRemovalSimulationTime[index] =
                     timing.ScheduledRemovalSimulationTime;
             }
+            if (mobilityHoldAfterSeconds >= 0f) {
+                var mobilityHost = new GameObject("CRANE Proving-Ground Timed Mobility Hold");
+                mobilityHost.transform.SetParent(canonical, false);
+                var mobility = mobilityHost.AddComponent<CraneTimedMobilityHold>();
+                mobility.Configure(body, mobilityHoldAfterSeconds, mobilityReleaseAfterSeconds,
+                    actualTime => {
+                        truth.mobilityHeld = true;
+                        truth.mobilityHoldActualSimulationTime = actualTime;
+                        WriteTruth(truthPath, truth);
+                    }, actualTime => {
+                        truth.mobilityReleased = true;
+                        truth.mobilityReleaseActualSimulationTime = actualTime;
+                        WriteTruth(truthPath, truth);
+                    });
+                truth.mobilityHoldScheduledSimulationTime =
+                    mobility.ScheduledHoldSimulationTime;
+                truth.mobilityReleaseScheduledSimulationTime =
+                    mobility.ScheduledReleaseSimulationTime;
+            }
             WriteTruth(truthPath, truth);
             ConfigureInspection(body.transform, manifest.environmentId, layout);
             UnityEngine.Physics.SyncTransforms();
             Debug.Log($"CRANE_LAND_PROVING_GROUND_READY environment={manifest.environmentId} " +
                       $"layout={layout.id} seed={seed} obstacles={count} " +
+                      $"mobilityHoldAfter={mobilityHoldAfterSeconds:R} " +
+                      $"mobilityReleaseAfter={mobilityReleaseAfterSeconds:R} " +
                       $"configurationSha256={configurationHash}");
             return truth;
         }

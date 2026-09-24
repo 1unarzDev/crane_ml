@@ -397,6 +397,22 @@ class LandNav2FixtureContractTests(unittest.TestCase):
             "(mobilityHoldAfter >= 0f) != (mobilityReleaseAfter >= 0f)", bootstrap
         )
 
+    def test_proving_ground_mobility_hold_is_separately_bound_into_truth(self) -> None:
+        bootstrap = (ROOT / "Assets/Scripts/Physics/Land/CraneLandNav2Bootstrap.cs").read_text(
+            encoding="utf-8"
+        )
+        proving = PROVING_GROUND_SOURCE.read_text(encoding="utf-8")
+
+        self.assertIn("--crane-land-proving-ground-mobility-hold-after", bootstrap)
+        self.assertIn("--crane-land-proving-ground-mobility-release-after", bootstrap)
+        self.assertIn("provingGroundMobilityHoldAfter", bootstrap)
+        self.assertIn("mobilityHoldAfterSeconds = mobilityHoldAfterSeconds", proving)
+        self.assertIn("mobilityHoldScheduledSimulationTime", proving)
+        self.assertIn("mobilityHoldActualSimulationTime", proving)
+        self.assertIn("AddComponent<CraneTimedMobilityHold>()", proving)
+        self.assertIn("Proving-ground mobility release requires", proving)
+        self.assertIn("mobilityHoldAfterSeconds, mobilityReleaseAfterSeconds", proving)
+
     def test_worker_build_manifest_accepts_explicit_source_identity(self) -> None:
         build = (ROOT / "Assets/Editor/CranePerformanceBuild.cs").read_text(
             encoding="utf-8"
