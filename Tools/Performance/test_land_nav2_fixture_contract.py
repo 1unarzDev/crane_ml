@@ -48,6 +48,21 @@ PROVING_GROUND_PARAMETERS = (
 
 
 class LandNav2FixtureContractTests(unittest.TestCase):
+    def test_feedback_recovery_count_distinguishes_absent_field_from_zero(self):
+        source = FIXTURE.read_text(encoding="utf-8")
+        module = ast.parse(source)
+        function = next(
+            node
+            for node in module.body
+            if isinstance(node, ast.FunctionDef) and node.name == "feedback_recovery_count"
+        )
+        namespace = {}
+        exec(compile(ast.Module(body=[function], type_ignores=[]), "<feedback-helper>", "exec"), namespace)
+        extract = namespace["feedback_recovery_count"]
+        self.assertEqual(extract(SimpleNamespace(number_of_recoveries=0)), 0)
+        self.assertEqual(extract(SimpleNamespace(number_of_recoveries=3)), 3)
+        self.assertIsNone(extract(SimpleNamespace(speed=0.2)))
+
     def test_launcher_selects_the_land_scene_and_graphics_free_profile(self) -> None:
         text = LAUNCHER.read_text(encoding="utf-8")
         shared_text = SHARED_LAUNCHER.read_text(encoding="utf-8")

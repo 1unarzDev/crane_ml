@@ -50,6 +50,12 @@ DEFAULT_RECOVERY_NODE_NAMES = (
     'Wait',
 )
 
+
+def feedback_recovery_count(feedback):
+    """Return a recovery count only for action feedback schemas that define one."""
+    value = getattr(feedback, 'number_of_recoveries', None)
+    return None if value is None else int(value)
+
 class FollowPathFixture(Node):
     def __init__(self, args):
         super().__init__('crane_nav2_follow_path_fixture')
@@ -80,6 +86,7 @@ class FollowPathFixture(Node):
         self.result_received_wall = None
         self.action_result_pose = None
         self.feedback_count = 0
+        self.recovery_count_feedback_available = False
         self.maximum_recovery_count = 0
         self.recovery_count_sequence = []
         self.bt_log_message_count = 0
@@ -296,7 +303,10 @@ class FollowPathFixture(Node):
     def on_feedback(self, message):
         self.feedback_count += 1
         feedback = message.feedback
-        recoveries = int(feedback.number_of_recoveries)
+        recoveries = feedback_recovery_count(feedback)
+        if recoveries is None:
+            return
+        self.recovery_count_feedback_available = True
         self.maximum_recovery_count = max(self.maximum_recovery_count, recoveries)
         if not self.recovery_count_sequence or self.recovery_count_sequence[-1] != recoveries:
             self.recovery_count_sequence.append(recoveries)
@@ -593,6 +603,8 @@ class FollowPathFixture(Node):
             'returnedCommands': self.output_count,
             'goalAttempts': self.goal_attempts,
             'navigateToPoseFeedbackMessages': self.feedback_count,
+            'actionFeedbackMessages': self.feedback_count,
+            'recoveryCountFeedbackAvailable': self.recovery_count_feedback_available,
             'maximumRecoveryCount': self.maximum_recovery_count,
             'recoveryCountSequence': self.recovery_count_sequence,
             'behaviorTreeTopic': self.args.bt_topic,
