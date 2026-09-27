@@ -481,6 +481,26 @@ class LandNav2FixtureContractTests(unittest.TestCase):
             "p-contract-v4-development-only-never-confirmatory-or-replication",
         )
 
+    def test_proving_ground_accepts_causal_restraint_reserved_catalog(self) -> None:
+        proving = PROVING_GROUND_SOURCE.read_text(encoding="utf-8")
+        catalog = (
+            ROOT
+            / "Assets/Resources/ReferenceEnvironments/crane_land_proving_ground_v8.json"
+        )
+        payload = json.loads(catalog.read_text(encoding="utf-8"))
+
+        self.assertRegex(
+            proving,
+            r'catalogId != "v7"\s*&&\s*catalogId != "v8"',
+        )
+        self.assertEqual(payload["environmentId"], "crane-land-proving-ground-v8")
+        self.assertFalse(payload["generator"]["developmentOnly"])
+        self.assertFalse(payload["generator"]["semanticConfirmationActive"])
+        self.assertEqual(
+            payload["generator"]["studyAdmission"],
+            "causal-restraint-reserved-until-parent-campaign-activation",
+        )
+
     def test_worker_build_manifest_accepts_explicit_source_identity(self) -> None:
         build = (ROOT / "Assets/Editor/CranePerformanceBuild.cs").read_text(
             encoding="utf-8"
