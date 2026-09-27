@@ -254,7 +254,8 @@ namespace Sim.Physics.Land {
 
         private static string ResolveManifestResource(string catalogId) {
             if (catalogId != "v1" && catalogId != "v2" && catalogId != "v3" &&
-                catalogId != "v4" && catalogId != "v5" && catalogId != "v6")
+                catalogId != "v4" && catalogId != "v5" && catalogId != "v6" &&
+                catalogId != "v7")
                 throw new ArgumentException(
                     $"Unsupported proving-ground catalog '{catalogId}'.", nameof(catalogId));
             return ManifestResourcePrefix + catalogId;

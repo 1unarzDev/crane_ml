@@ -460,6 +460,27 @@ class LandNav2FixtureContractTests(unittest.TestCase):
             "reserved-physical-evidence-only-until-separate-campaign-activation",
         )
 
+    def test_proving_ground_accepts_contract_limit_development_catalog(self) -> None:
+        proving = PROVING_GROUND_SOURCE.read_text(encoding="utf-8")
+        catalog = (
+            ROOT
+            / "Assets/Resources/ReferenceEnvironments/crane_land_proving_ground_v7.json"
+        )
+        payload = json.loads(catalog.read_text(encoding="utf-8"))
+
+        # The player must resolve the same v7 catalog accepted by the capture runner.
+        # Otherwise scene construction aborts before evaluator truth and actuation exist.
+        self.assertRegex(
+            proving,
+            r'catalogId != "v6"\s*&&\s*catalogId != "v7"',
+        )
+        self.assertEqual(payload["environmentId"], "crane-land-proving-ground-v7")
+        self.assertTrue(payload["generator"]["developmentOnly"])
+        self.assertEqual(
+            payload["generator"]["studyAdmission"],
+            "p-contract-v4-development-only-never-confirmatory-or-replication",
+        )
+
     def test_worker_build_manifest_accepts_explicit_source_identity(self) -> None:
         build = (ROOT / "Assets/Editor/CranePerformanceBuild.cs").read_text(
             encoding="utf-8"
