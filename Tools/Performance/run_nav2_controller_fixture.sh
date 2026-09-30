@@ -141,9 +141,13 @@ sleep "${fixture_delay}"
 # ROS simulation time must be running for lifecycle configuration. Readback is
 # opt-in, after warmup and before the acceptance action; it never sets values.
 if [[ "${CRANE_CAPTURE_RUNTIME_PARAMETERS:-0}" == "1" ]]; then
-    docker exec "${controller_name}" bash -lc \
+    if ! docker exec "${controller_name}" bash -lc \
         'source /opt/ros/jazzy/setup.bash; exec python3 /workspace/crane_sim/Tools/Performance/capture_nav2_runtime_parameters.py' \
-        >"${result_root}/runtime-parameters.json.tmp"
+        >"${result_root}/runtime-parameters.json.tmp"; then
+        # Reap this bounded worker before releasing its domain/port for reuse.
+        wait "${player_pid}" || true
+        exit 1
+    fi
     mv "${result_root}/runtime-parameters.json.tmp" "${result_root}/runtime-parameters.json"
 fi
 goal_args=()
