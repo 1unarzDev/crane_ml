@@ -222,6 +222,8 @@ class FollowPathFixture(Node):
         twist = message.twist.twist
         return {
             'phase': ('action' if self.result_received_wall is None else 'post_result'),
+            'frameId': message.header.frame_id,
+            'childFrameId': message.child_frame_id,
             'simSeconds': stamp_seconds(message.header.stamp),
             'wallSeconds': time.monotonic() - self.started_wall,
             'x': float(pose.position.x),
@@ -531,6 +533,19 @@ class FollowPathFixture(Node):
         self.result_status = ACTION_STATUS.get(status_code, f'action-status-{status_code}')
         self.result_received_wall = time.monotonic()
         self.action_result_pose = pose_dict(self.latest_odom)
+        # Additive capture only: receipt time is an event; odometry stamp is a measurement.
+        self.terminal_event_v2 = {
+            'schema': 'crane-terminal-result-event/v2',
+            'action_name': self.action_name,
+            'goal_id': bytes(self.goal_handle.goal_id.uuid).hex(),
+            'status': self.result_status,
+            'receipt_wall_seconds': self.result_received_wall - self.started_wall,
+            'receipt_clock': 'fixture-monotonic',
+            'measurement': self.trajectory_sample(self.latest_odom),
+            'measurement_source': self.args.odom_topic,
+            'measurement_clock': 'ros-header-stamp',
+            'limit': 'Latest delivered odometry is not the exact physical state at receipt.',
+        }
         payload = response.result
         self.publish_event({
             'type': 'navigate_to_pose_result',
@@ -655,6 +670,7 @@ class FollowPathFixture(Node):
             'initialPose': pose_dict(self.initial_odom),
             'finalPose': pose_dict(final),
             'actionResultPose': self.action_result_pose,
+            'terminalEventV2': getattr(self, 'terminal_event_v2', None),
             'postResultSecondsRequested': self.args.post_result_seconds,
             'postResultSecondsObserved': (
                 time.monotonic() - self.result_received_wall
