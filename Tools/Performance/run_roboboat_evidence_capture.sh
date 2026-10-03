@@ -27,6 +27,8 @@ export CRANE_NAV2_GOAL_YAW="${CRANE_NAV2_GOAL_YAW:-1.5707963267948966}"
 export CRANE_DOCKING_EVALUATOR=1
 export CRANE_DURATION="${CRANE_DURATION:-180}"
 export CRANE_WARMUP=3
+# Half-speed simulation gives the ROS round-trip wall-time headroom without relaxing lag limits.
+export CRANE_TIME_SCALE="${CRANE_TIME_SCALE:-0.5}"
 export CRANE_NAV2_ACTION_DURATION="${CRANE_NAV2_ACTION_DURATION:-155}"
 export CRANE_NAV2_POST_RESULT_DURATION=15
 export CRANE_REQUIRE_OCCUPIED_COSTMAP=1
@@ -34,7 +36,7 @@ export CRANE_NOGRAPHICS=0
 export CRANE_SCREEN_WIDTH=1600
 export CRANE_SCREEN_HEIGHT=900
 if [[ "$mode" == interactive ]]; then
-    visual_args="--crane-evidence-overlay --crane-evidence-first-dock --crane-disable-rgb --crane-disable-lidar-debug-rays --crane-evidence-capture ${CRANE_RESULT_ROOT}/first-dock.png --crane-evidence-capture-delay 25 --crane-evidence-capture-2 ${CRANE_RESULT_ROOT}/mid.png --crane-evidence-capture-delay-2 70 --crane-evidence-capture-3 ${CRANE_RESULT_ROOT}/final.png --crane-evidence-capture-delay-3 145 --crane-interactive-width 1600 --crane-interactive-height 900"
+    visual_args="--crane-evidence-overlay --crane-evidence-first-dock --crane-disable-rgb --crane-disable-lidar-debug-rays --crane-evidence-capture ${CRANE_RESULT_ROOT}/first-dock.png --crane-evidence-capture-delay 25 --crane-evidence-capture-2 ${CRANE_RESULT_ROOT}/mid.png --crane-evidence-capture-delay-2 30 --crane-evidence-capture-3 ${CRANE_RESULT_ROOT}/final.png --crane-evidence-capture-delay-3 145 --crane-interactive-width 1600 --crane-interactive-height 900"
 fi
 # Nav2 uses LiDAR /points. Avoid unrelated asynchronous RGB/depth readback backlog;
 # the full-sensor diagnostic failures remain retained under the reproduction artifacts.
