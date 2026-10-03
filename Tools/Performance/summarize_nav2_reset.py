@@ -61,6 +61,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("result_root", type=Path)
     parser.add_argument("--require-reset", action="store_true")
+    parser.add_argument("--external-player", action="store_true",
+                        help="Verify external navigation without claiming worker/reset validity")
     parser.add_argument("--require-occupied-costmap", action="store_true")
     parser.add_argument(
         "--expected-navigation-status",
@@ -76,7 +78,8 @@ def main():
     root = args.result_root
 
     fixture = load_json(root / "fixture-summary.json")
-    worker = load_json(root / f"worker-{args.worker_id}" / "result.json")
+    worker = ({} if args.external_player else
+              load_json(root / f"worker-{args.worker_id}" / "result.json"))
     endpoint_lines = (root / "endpoint.log").read_text(encoding="utf-8").splitlines()
     controller_lines = (root / "controller.log").read_text(
         encoding="utf-8", errors="replace").splitlines()
@@ -142,6 +145,25 @@ def main():
         ),
     ))
 
+    # An interactive player has no measured worker artifact. Its live ROS evidence can
+    # verify navigation, but cannot prove bounded action timing or reset correctness.
+    external_navigation_verified = args.external_player and all((
+        fixture.get("status") == args.expected_navigation_status,
+        expected_outcome_observed,
+        fixture.get("odometryMessages", 0) > 0,
+        fixture.get("controllerCommands", 0) > 0,
+        fixture.get("returnedCommands", 0) > 0,
+        fixture.get("displacementMeters", 0) > 0.01,
+        duplicate_registrations == 0,
+        endpoint_errors == 0,
+        maximum_active <= 1,
+        not args.require_occupied_costmap or (
+            fixture.get("costmapObservations", 0) > 0 and
+            fixture.get("maximumOccupiedCostmapCells", 0) > 0
+        ),
+        not args.require_reset,
+    ))
+
     compact_fixture = dict(fixture)
     compact_fixture.pop("plannedPath", None)
     compact_fixture.pop("trajectory", None)
@@ -204,10 +226,19 @@ def main():
         "reset": reset,
         "realTimeFactor": worker.get("realTimeFactor"),
     }
+    if args.external_player:
+        summary.update({
+            "schema": "crane-nav2-external-player-fixture-v1",
+            "valid": False,
+            "strictValid": False,
+            "externalNavigationVerified": external_navigation_verified,
+            "verificationLimit": "No worker artifact: action timing, reset and benchmark validity unverified",
+        })
     output = root / "navigation-reset-summary.json"
     output.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(summary, sort_keys=True))
-    raise SystemExit(0 if valid else 1)
+    successful = external_navigation_verified if args.external_player else valid
+    raise SystemExit(0 if successful else 1)
 
 
 if __name__ == "__main__":
