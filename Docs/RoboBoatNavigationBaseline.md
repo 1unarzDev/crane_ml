@@ -242,3 +242,22 @@ real-platform mass, dimensions, propulsor RPM/current, bollard thrust, and calm-
 That directly separates a scale/thrust-model error from an incorrect 1.8 m/s expectation without
 speculative hydrodynamic tuning. A declared low/nominal/high wave sweep is the next navigation-only
 robustness check.
+
+## Read-only evidence overlay and screenshot protocol
+
+`Assets/Scripts/Visualization/Nav2EvidenceOverlay.cs` is an optional read-only overlay. It renders
+the received Nav2 path as a cyan line, accumulated odometry as a yellow line, and occupancy-grid
+cells as low-opacity 3-D tiles. Tile height and color encode occupancy while transparency preserves
+the water, dock, and boat silhouette beneath the costmap. Unknown cells are hidden by default. The
+overlay subscribes only to serialized topics and does not alter the controller or physics.
+
+It also subscribes to the serialized `TwistStamped` command topic and draws a magenta arrow from
+the latest odometry pose. The arrow is a published desired body velocity, scaled for visibility; it
+is not measured motion or thrust feedback. Keep it visually distinct from the yellow odometry line
+and record the topic, frame, timestamp, and scale in any capture manifest.
+
+For a valid visual pass, capture (1) an oblique scene with water and dock visible under the
+transparent costmap, (2) a top-down scene showing plan versus odometry, and (3) a close-up of any
+replan/obstacle region. Verify the ROS frame transform against a known pose, use one replay window
+for timestamps, and inspect each export at final manuscript size. No screenshot pass is claimed
+until a Unity Editor or replay renderer is available.
