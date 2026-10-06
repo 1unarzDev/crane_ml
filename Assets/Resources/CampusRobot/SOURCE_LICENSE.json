@@ -1,0 +1,38 @@
+{
+  "schema": "crane-campus-robot-visuals-v1",
+  "license": "Apache-2.0",
+  "licenseUrl": "https://github.com/ROBOTIS-GIT/turtlebot3/blob/main/LICENSE",
+  "source": "ROBOTIS-GIT/turtlebot3",
+  "modifications": "Visual meshes converted from millimeter ROS FLU coordinates to meter Unity coordinates; deterministic 0.8 mm vertex clustering and 2 mm LODs. Visual placement follows manufacturer Waffle URDF. No source drivetrain/collider settings imported.",
+  "files": [
+    {
+      "id": "base",
+      "file": "waffle_base.stl",
+      "url": "https://raw.githubusercontent.com/ROBOTIS-GIT/turtlebot3/main/turtlebot3_description/meshes/bases/waffle_base.stl",
+      "sha256": "fcc85458c31f6c4bf2afdc93469128c49723189c5a4c07b8c91baebc132e9a0d"
+    },
+    {
+      "id": "wheel",
+      "file": "left_tire.stl",
+      "url": "https://raw.githubusercontent.com/ROBOTIS-GIT/turtlebot3/main/turtlebot3_description/meshes/wheels/left_tire.stl",
+      "sha256": "578c9452ee51c2f71e5e6723b503d784e58a6ac317fa53ee308e645f204c8d6a"
+    },
+    {
+      "id": "lidar",
+      "file": "lds.stl",
+      "url": "https://raw.githubusercontent.com/ROBOTIS-GIT/turtlebot3/main/turtlebot3_description/meshes/sensors/lds.stl",
+      "sha256": "98f0bd7046159f83caab9509293112ef13534368535669124b91b5114c3132f6"
+    },
+    {
+      "id": "wheel_right",
+      "file": "right_tire.stl",
+      "url": "https://raw.githubusercontent.com/ROBOTIS-GIT/turtlebot3/main/turtlebot3_description/meshes/wheels/right_tire.stl",
+      "sha256": "407aaf271ba7051c6186b220e1dc36b2a6eca688fced66a3347f49747b684596"
+    }
+  ],
+  "urdfReference": {
+    "url": "https://raw.githubusercontent.com/ROBOTIS-GIT/turtlebot3/main/turtlebot3_description/urdf/turtlebot3_waffle.urdf",
+    "sha256": "f9fa59f734cf444f857effaa2334a1b71e0f07bacc63d029accf3f5093c69032",
+    "file": "source_turtlebot3_waffle.urdf.txt"
+  }
+}

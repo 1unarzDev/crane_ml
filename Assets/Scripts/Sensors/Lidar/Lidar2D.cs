@@ -21,6 +21,21 @@ namespace Sim.Sensors.Lidar {
         [SerializeField] private float Hz = 5.0f;
         public ROSPublisher publisher { get; set; }
 
+        private System.Random errorRandom;
+        private float rangeSigma, dropoutProbability;
+        private string responseClass = "off";
+        private int delayScans;
+        private readonly System.Collections.Generic.Queue<LaserScanMsg> delayedScans = new();
+        public long ErrorDropouts { get; private set; }
+        public void ConfigureErrors(int seed, float sigma, float dropout, int latencyScans, string materialClass) {
+            if (!float.IsFinite(sigma) || !float.IsFinite(dropout) || sigma > .1f || sigma < 0 || dropout < 0 || dropout > .5f || latencyScans < 0 || latencyScans > 3)
+                throw new ArgumentOutOfRangeException("LiDAR error profile");
+            errorRandom = new System.Random(seed); rangeSigma = sigma; dropoutProbability = dropout;
+            delayScans = latencyScans; responseClass = materialClass ?? "off";
+            delayedScans.Clear(); ErrorDropouts = 0;
+        }
+        private double Gaussian() { return Math.Sqrt(-2*Math.Log(Math.Max(1e-12,errorRandom.NextDouble()))) * Math.Cos(2*Math.PI*errorRandom.NextDouble()); }
+
         private Vector3[] scanDirVectors;
         private float[] distances;
         private NativeArray<RaycastCommand> commands;
@@ -64,7 +79,13 @@ namespace Sim.Sensors.Lidar {
         public LaserScanMsg CreateMessage() {
             using var marker = CraneProfiler.Lidar.Auto();
             float[] dists = PerformScan(scanDirVectors);
-            return DistancesToLaserscan(dists);
+            var current = DistancesToLaserscan(dists);
+            if (errorRandom == null || delayScans == 0) return current;
+            delayedScans.Enqueue(current);
+            // Acquisition stamps are preserved. During queue warmup hold the earliest acquisition
+            // rather than publishing newer stamps and subsequently jumping backwards.
+            if (delayedScans.Count <= delayScans) return delayedScans.Peek();
+            return delayedScans.Dequeue();
         }
 
         private Vector3[] GenerateScanVectors() {
@@ -104,6 +125,17 @@ namespace Sim.Sensors.Lidar {
                 if (hit.collider != null && (transform.position - hit.point).sqrMagnitude > minRange * minRange) {
                     Vector3 beam = transform.InverseTransformPoint(hit.point);
                     distances[i] = hit.distance;
+                    if (errorRandom != null) {
+                        var response = hit.collider.GetComponentInParent<CraneLidarResponse>();
+                        float chance = dropoutProbability;
+                        if (response != null && responseClass != "off") {
+                            float grazing = 1-Mathf.Abs(Vector3.Dot(hit.normal,(transform.rotation*dirs[i]).normalized));
+                            chance += responseClass == "reflective" && response.Class == "reflective" ? .08f + .12f*grazing :
+                                      responseClass == "dark" && response.Class == "dark" ? .12f : 0;
+                        }
+                        if (errorRandom.NextDouble() < chance) { distances[i] = float.NaN; ErrorDropouts++; }
+                        else distances[i] = Mathf.Clamp(hit.distance+(float)Gaussian()*rangeSigma,minRange,maxRange);
+                    }
                     hitCount++;
                     minimumHitRange = Mathf.Min(minimumHitRange, hit.distance);
                     maximumHitRange = Mathf.Max(maximumHitRange, hit.distance);
@@ -138,7 +170,7 @@ namespace Sim.Sensors.Lidar {
                 scan_time = 1.0f / Hz,
                 range_min = minRange,
                 range_max = maxRange,
-                ranges = dists
+                ranges = delayScans > 0 ? (float[])dists.Clone() : dists
             };
             return msg;
         }

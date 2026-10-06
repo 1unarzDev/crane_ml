@@ -107,3 +107,7 @@ UserSettings/EditorUserSettings.asset
 UserSettings/Layouts/default-2023.dwlt
 ProjectSettings/TimeManager.asset
 ProjectSettings/DynamicsManager.asset
+
+# Optional locally licensed campus visual packs; never redistribute implicitly.
+/Assets/LocalCampusVisuals/
+/Assets/LocalCampusVisuals.meta

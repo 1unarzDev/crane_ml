@@ -1,0 +1,72 @@
+{
+  "source": "https://polyhaven.com/a/concrete_floor_02",
+  "api": "https://api.polyhaven.com/files/concrete_floor_02",
+  "license": "CC0-1.0",
+  "licenseUrl": "https://polyhaven.com/license",
+  "files": [
+    {
+      "file": "concrete_floor_02_diff_1k.jpg",
+      "sha256": "6db84a6d87dc50508b9d134d6fbd2b7e876b8081a5f43a118a249ca18de73af5"
+    },
+    {
+      "file": "concrete_floor_02_nor_gl_1k.jpg",
+      "sha256": "fcda391b57a816d646ae15544688be53790478da5cd48dbe514b3c6901415e61"
+    },
+    {
+      "file": "asphalt_02_diff_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_02/asphalt_02_diff_1k.jpg",
+      "sha256": "1aa5ce99f58a625c71d48cfc3e68b65ca85ccb00f39e045c0a928608a0ea25ed",
+      "source": "https://polyhaven.com/a/asphalt_02",
+      "license": "CC0-1.0"
+    },
+    {
+      "file": "asphalt_02_nor_gl_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/asphalt_02/asphalt_02_nor_gl_1k.jpg",
+      "sha256": "42a1c381b53204e83a982db2864479a30bc127bbdeebb1006f8ee51bff099df3",
+      "source": "https://polyhaven.com/a/asphalt_02",
+      "license": "CC0-1.0"
+    },
+    {
+      "file": "gravel_diff_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/gravel/gravel_diff_1k.jpg",
+      "sha256": "9f668e7926d2e8347eddc9090360da26848b55a12ba306e332cd08ac98c534cf",
+      "source": "https://polyhaven.com/a/gravel",
+      "license": "CC0-1.0"
+    },
+    {
+      "file": "gravel_nor_gl_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/gravel/gravel_nor_gl_1k.jpg",
+      "sha256": "c991b6a99a0f29c5096d2d502b33a8bd98ff643c536987427ef31276c6183f04",
+      "source": "https://polyhaven.com/a/gravel",
+      "license": "CC0-1.0"
+    },
+    {
+      "file": "rusty_corrugated_iron_diff_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rusty_corrugated_iron/rusty_corrugated_iron_diff_1k.jpg",
+      "sha256": "2525deb17323eefe39e8a90c6384033e31832b6aa9736bea27f81f4148508087",
+      "source": "https://polyhaven.com/a/rusty_corrugated_iron",
+      "license": "CC0-1.0"
+    },
+    {
+      "file": "rusty_corrugated_iron_nor_gl_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/rusty_corrugated_iron/rusty_corrugated_iron_nor_gl_1k.jpg",
+      "sha256": "09f015ab44ff5e5a2f8e3f4718f2848df9eaa1ce42f184d361a5b902f200a216",
+      "source": "https://polyhaven.com/a/rusty_corrugated_iron",
+      "license": "CC0-1.0"
+    },
+    {
+      "file": "grey_plaster_02_diff_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/grey_plaster_02/grey_plaster_02_diff_1k.jpg",
+      "sha256": "c455b6513a37908480eedd59f697719649aca97d3c76525718a77d7d600e2d22",
+      "source": "https://polyhaven.com/a/grey_plaster_02",
+      "license": "CC0-1.0"
+    },
+    {
+      "file": "grey_plaster_02_nor_gl_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Textures/jpg/1k/grey_plaster_02/grey_plaster_02_nor_gl_1k.jpg",
+      "sha256": "f827876a78beebdbfca173ded1cd448117b433a0f9772a7c866bca91cb27884a",
+      "source": "https://polyhaven.com/a/grey_plaster_02",
+      "license": "CC0-1.0"
+    }
+  ]
+}

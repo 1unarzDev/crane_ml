@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CRANE physical TurtleBot acquisition-aligned calibration sample",
+  "type": "object",
+  "required": ["simulationTime", "position", "yaw", "velocity"],
+  "properties": {
+    "simulationTime": {"type": "number", "description": "Seconds from common trial command-program origin; real samples use acquisition time, not receive time."},
+    "position": {"type": "object", "required": ["x", "y", "z"], "description": "Meters in the declared Unity/right-up-forward comparison frame; conversion from physical FLU must be recorded."},
+    "yaw": {"type": "number", "description": "Degrees, right-handed Unity Y convention; physical ROS yaw must be sign-converted."},
+    "velocity": {"type": "object", "required": ["x", "y", "z"]},
+    "trial": {"enum": ["CAL-01", "CAL-02", "CAL-03", "CAL-04", "CAL-05", "CAL-06", "CAL-07", "CAL-08"]},
+    "measurementSource": {"type": "string"},
+    "clockUncertaintySeconds": {"type": "number", "minimum": 0},
+    "surface": {"type": "string"}
+  }
+}

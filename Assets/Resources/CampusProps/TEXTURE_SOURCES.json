@@ -1,0 +1,279 @@
+{
+  "licenseReference": "https://polyhaven.com/license",
+  "sources": [
+    {
+      "asset": "old_military_compressor",
+      "file": "old_military_compressor_diff_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/old_military_compressor/old_military_compressor_diff_1k.jpg",
+      "sha256": "cb02b7b02cee27c7f04187be26b9a9079a58725353c56726c939b051178424a4",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "old_military_compressor",
+      "file": "old_military_compressor_nor_gl_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/old_military_compressor/old_military_compressor_nor_gl_1k.jpg",
+      "sha256": "f7e289152c3edf5c4edd406ac470b9d69412dceb8c700a5d7b3e5e0cb7f6e7b8",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "old_military_compressor",
+      "file": "old_military_compressor_metal_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/old_military_compressor/old_military_compressor_metal_1k.jpg",
+      "sha256": "c78a086378d28915b62c9f60f5ab7844a7eec81b9cb004aaf0136c6b8976f1b2",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "old_military_compressor",
+      "file": "old_military_compressor_rough_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/old_military_compressor/old_military_compressor_rough_1k.jpg",
+      "sha256": "b139f0a13753eb63fc9c9b478b37a6151ef5a0e30289132c5c2881af6f4877e0",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "drill_press_01",
+      "file": "drill_press_01_diff_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/drill_press_01/drill_press_01_diff_1k.jpg",
+      "sha256": "bc0971499313e295fa25279a41c3f0891df644c1d09bdefee0c7bbe9407c5aaf",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "drill_press_01",
+      "file": "drill_press_01_nor_gl_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/drill_press_01/drill_press_01_nor_gl_1k.jpg",
+      "sha256": "2d835501d523e299d9503389465a4c528ce8442efafa26d38fba3c6abc44bee8",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "drill_press_01",
+      "file": "drill_press_01_metal_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/drill_press_01/drill_press_01_metal_1k.jpg",
+      "sha256": "df23c24e772afd2334d0229fe98eda34825f6cafc4ca144eb950764b4e8de25e",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "drill_press_01",
+      "file": "drill_press_01_rough_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/drill_press_01/drill_press_01_rough_1k.jpg",
+      "sha256": "e84e79620e9c3ca5be4248ec265db37a299650f7eb14ac3f191b843313257718",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "metal_toolbox",
+      "file": "metal_toolbox_diff_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/metal_toolbox/metal_toolbox_diff_1k.jpg",
+      "sha256": "21e1d21880e49db3fde0457d53b78a70db61234a201da9f0181dd0880b110473",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "metal_toolbox",
+      "file": "metal_toolbox_nor_gl_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/metal_toolbox/metal_toolbox_nor_gl_1k.jpg",
+      "sha256": "7ba19a233bcfff9c3d95b62c3a992c8e19cb2d6355c98d6e12bdc756a8af44cf",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "metal_toolbox",
+      "file": "metal_toolbox_metal_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/metal_toolbox/metal_toolbox_metal_1k.jpg",
+      "sha256": "a1b2a8f24fcb840e9a38929d2c315d986a47e269b39b750ab4750256d359777e",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "metal_toolbox",
+      "file": "metal_toolbox_rough_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/metal_toolbox/metal_toolbox_rough_1k.jpg",
+      "sha256": "85b7cea2c48d55b6b313d717835ffc0e5185fb5a98dbe56442299d515310a515",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "portable_welding_cart",
+      "file": "portable_welding_cart_diff_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/portable_welding_cart/portable_welding_cart_diff_1k.jpg",
+      "sha256": "3efec798f2f63c7dc68bd22deee74d12de0453195ee7f568f9e171d848624208",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "portable_welding_cart",
+      "file": "portable_welding_cart_nor_gl_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/portable_welding_cart/portable_welding_cart_nor_gl_1k.jpg",
+      "sha256": "1ed87f8854486f3ba5fd426b1947584cdae3374e27f441ef46ef513fbfbc39a2",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "portable_welding_cart",
+      "file": "portable_welding_cart_metal_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/portable_welding_cart/portable_welding_cart_metal_1k.jpg",
+      "sha256": "a3ce1c15a97b33675a956a6f55ce29d7f61eeb1b1bcb5068d2dadf608ac48da3",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "portable_welding_cart",
+      "file": "portable_welding_cart_rough_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/portable_welding_cart/portable_welding_cart_rough_1k.jpg",
+      "sha256": "26e1ae6e2b5585bf06757b63baf934b908f85d620d35f30ef39a1aab9d3ad77c",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "metal_tool_chest",
+      "file": "metal_tool_chest_diff_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/metal_tool_chest/metal_tool_chest_diff_1k.jpg",
+      "sha256": "da37ba2a8d064637c7206cb091597275986e788ce379bee58a96c949cce06511",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "metal_tool_chest",
+      "file": "metal_tool_chest_nor_gl_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/metal_tool_chest/metal_tool_chest_nor_gl_1k.jpg",
+      "sha256": "bc5a4009a544a9504849b951afd984d6ac7c5adb0d43c5a08c0a834f8e811a01",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "metal_tool_chest",
+      "file": "metal_tool_chest_metal_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/metal_tool_chest/metal_tool_chest_metal_1k.jpg",
+      "sha256": "86dfa7451abc9b1d6b15ba9de55240ece06e706e5b175200853747eb28a92e17",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "metal_tool_chest",
+      "file": "metal_tool_chest_rough_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/metal_tool_chest/metal_tool_chest_rough_1k.jpg",
+      "sha256": "1cf4c19a46ed0f9898847eec0d2a1bdd5cfe8288d7d6cd674384ac13d14a74f0",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "metal_office_desk",
+      "file": "metal_office_desk_diff_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/metal_office_desk/metal_office_desk_diff_1k.jpg",
+      "sha256": "1f02e3e77e8f82a3600664c991bd45c1c187452d61e9ede4336c6f90f7fa3139",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "metal_office_desk",
+      "file": "metal_office_desk_nor_gl_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/metal_office_desk/metal_office_desk_nor_gl_1k.jpg",
+      "sha256": "f57eb004937e46392151b803e0cb1d88983958d01ad11d93df78a82cfcc6c407",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "metal_office_desk",
+      "file": "metal_office_desk_metal_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/metal_office_desk/metal_office_desk_metal_1k.jpg",
+      "sha256": "53637ca828805bba0461926c20db040a7b2acc7cf9433ca15c604b75a7d215f9",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "metal_office_desk",
+      "file": "metal_office_desk_rough_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/metal_office_desk/metal_office_desk_rough_1k.jpg",
+      "sha256": "c5f2514647da7f380d9ac5f4824abf5a930730ef4dcdcaca78af7d437ad30bf7",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "bench_vice_01",
+      "file": "bench_vice_01.fbx",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/fbx/1k/bench_vice_01/bench_vice_01_1k.fbx",
+      "sha256": "34bbae6c8b3c8d5409012e42fc673e4acb2b1ae6db66d5701a82e8a2568cceb6",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "bench_vice_01",
+      "file": "bench_vice_01_diff_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/bench_vice_01/bench_vice_01_diff_1k.jpg",
+      "sha256": "e453c1bc7c283fb6a9c8da0638173809dfafb8310f5e81112705f5ecf88b5ab7",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "bench_vice_01",
+      "file": "bench_vice_01_nor_gl_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/bench_vice_01/bench_vice_01_nor_gl_1k.jpg",
+      "sha256": "691b3a3888e689785bdd792522769839cd662d841071e2ea11184b70c012a65e",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "bench_vice_01",
+      "file": "bench_vice_01_metal_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/bench_vice_01/bench_vice_01_metal_1k.jpg",
+      "sha256": "5192af4688abe63ec33af2974a011a8a0cbe3ce91a45a062922d70442cfc9500",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "bench_vice_01",
+      "file": "bench_vice_01_rough_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/bench_vice_01/bench_vice_01_rough_1k.jpg",
+      "sha256": "68beba360b08d16879edc4b5cc59f7b7ff096ef0b63bb6b259bdcfe29322d31e",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "retro_multimeter",
+      "file": "retro_multimeter.fbx",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/fbx/1k/retro_multimeter/retro_multimeter_1k.fbx",
+      "sha256": "f3b459c105d11da9dc92e06b2b616b0c63c5f97cb636e8d04d75a0e28e4467b5",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "retro_multimeter",
+      "file": "retro_multimeter_diff_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/retro_multimeter/retro_multimeter_diff_1k.jpg",
+      "sha256": "46baf6d9026f3cc79cfe6105c20101ec4436f728ced143f1647931b6d68a2e3b",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "retro_multimeter",
+      "file": "retro_multimeter_nor_gl_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/retro_multimeter/retro_multimeter_nor_gl_1k.jpg",
+      "sha256": "d30fd3007cb35e62a0a5171d148df0dba3bee688e96c76d4ffbc314761fac183",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "retro_multimeter",
+      "file": "retro_multimeter_metal_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/retro_multimeter/retro_multimeter_metal_1k.jpg",
+      "sha256": "2164f7f328b02a21ed22ae8eaa9acc6ddc11cd49c52d83398c994cbecc89bc9f",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "retro_multimeter",
+      "file": "retro_multimeter_rough_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/retro_multimeter/retro_multimeter_rough_1k.jpg",
+      "sha256": "904bc436182d4e19d5076fb86e969d8d1a2cd79e06f62df9456b5fe7bf867443",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "adjustable_wrench",
+      "file": "adjustable_wrench.fbx",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/fbx/1k/adjustable_wrench/adjustable_wrench_1k.fbx",
+      "sha256": "6e5939b9e7f92bb4659cd2b758352b27b748efd91deac902b3aa3b5b5795baa1",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "adjustable_wrench",
+      "file": "adjustable_wrench_diff_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/adjustable_wrench/adjustable_wrench_diff_1k.jpg",
+      "sha256": "d4725eb3c741e337c28c0ed57712ecdfb5f3ee34f130907e34cea0b8e7809595",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "adjustable_wrench",
+      "file": "adjustable_wrench_nor_gl_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/adjustable_wrench/adjustable_wrench_nor_gl_1k.jpg",
+      "sha256": "68eb00858eefe4d80a75640c81dc4b202a3b946fd5800d7d2ea3cad29d8e0120",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "adjustable_wrench",
+      "file": "adjustable_wrench_metal_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/adjustable_wrench/adjustable_wrench_metal_1k.jpg",
+      "sha256": "61f2b01dc6728db308115b9fc18fb17763b76e219f3b57816b1bbe2d18955c81",
+      "license": "CC0-1.0"
+    },
+    {
+      "asset": "adjustable_wrench",
+      "file": "adjustable_wrench_rough_1k.jpg",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/jpg/1k/adjustable_wrench/adjustable_wrench_rough_1k.jpg",
+      "sha256": "0112641ff0257d1f7564d5421abe7b324720bde3923f303b786b706513174cc5",
+      "license": "CC0-1.0"
+    }
+  ],
+  "derivedMasks": "HDRP R=metallic,G=1,B=1,A=1-roughness from licensed source maps"
+}

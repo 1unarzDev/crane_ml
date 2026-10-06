@@ -115,6 +115,11 @@ namespace Sim.Physics.Land {
                 clockHost.AddComponent<ROSClock>();
             }
 
+            if (turtlebotScene && Array.IndexOf(arguments, "--crane-campus") >= 0) {
+                CraneIndustrialCampus.Build(differential, arguments);
+                return;
+            }
+
             float width = ReadFloat("--crane-land-corridor-width", 4f);
             float length = ReadFloat("--crane-land-corridor-length", 20f);
             float blockerDistance = ReadFloat("--crane-land-blocker-distance", 6f);

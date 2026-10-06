@@ -16,6 +16,10 @@ namespace Sim.Physics.Land {
         [SerializeField] private float maximumAngularAcceleration = 6.0f;
 
         private Rigidbody body;
+        private CraneCampusRobotModel campusModel;
+        public float CommandedLinear => commandedLinear;
+        public float CommandedAngular => commandedAngular;
+        public void SetCampusModel(CraneCampusRobotModel model) => campusModel = model;
         private float commandedLinear;
         private float commandedAngular;
 
@@ -43,6 +47,7 @@ namespace Sim.Physics.Land {
         }
 
         private void FixedUpdate() {
+            if (campusModel != null) { campusModel.Step(commandedLinear, commandedAngular); return; }
             Vector3 localVelocity = transform.InverseTransformDirection(body.linearVelocity);
             float linearError = commandedLinear - localVelocity.z;
             float linearDelta = Mathf.Clamp(linearError,
@@ -66,7 +71,7 @@ namespace Sim.Physics.Land {
 
         public void ResetEpisode(in CraneEpisodeResetContext context,
             CraneEpisodeResetPhase phase) {
-            if (phase == CraneEpisodeResetPhase.BeforePhysics) SetCommand(0f, 0f);
+            if (phase == CraneEpisodeResetPhase.BeforePhysics) { SetCommand(0f, 0f); campusModel?.ResetModel(); }
         }
     }
 }

@@ -10,6 +10,7 @@ namespace Sim.Utils.ReferenceEnvironments {
     /// geometry, colliders, rigid bodies, sensors, or navigation state.
     /// </summary>
     public sealed class CraneReferenceInspectionController : MonoBehaviour {
+        public bool HideHud {get;set;}
         private enum ViewMode { Overview, Oblique, Follow }
 
         [SerializeField] private Camera inspectionCamera;
@@ -28,6 +29,24 @@ namespace Sim.Utils.ReferenceEnvironments {
         private bool semanticHighlightEnabled;
         private bool colliderOverlayEnabled;
         private bool trajectoryEnabled = true;
+        private float trajectoryHeightOffset=.12f;
+        private bool explicitView;
+        private bool stableFollow;
+        private Vector3 stableForward, retainedFollowOffset;
+        private float obstructedSeconds;
+        public void ConfigureStableFollow() {
+            stableFollow=true;
+            stableForward=followTarget!=null?Vector3.ProjectOnPlane(followTarget.forward,Vector3.up).normalized:Vector3.forward;
+            if(stableForward.sqrMagnitude<.5f)stableForward=Vector3.forward;
+        }
+        public void ConfigureTrajectory(float heightOffset,bool visible,Color color) {
+            trajectoryHeightOffset=heightOffset;trajectoryEnabled=visible;
+            if(trajectoryRenderer!=null){trajectoryRenderer.enabled=visible;trajectoryRenderer.sharedMaterial.SetColor("_UnlitColor",color);}
+        }
+        public void SelectView(string requested) {
+            if(!Enum.TryParse(requested,true,out ViewMode selected))throw new ArgumentException(requested);
+            explicitView=true;SetView(selected);
+        }
 
         public void Configure(Camera camera, Transform target, string environment, string route,
             string[] obstacleIds, Vector3 center) {
@@ -47,9 +66,9 @@ namespace Sim.Utils.ReferenceEnvironments {
         }
 
         private void Start() {
-            SetView(ViewMode.Overview);
+            if(!explicitView)SetView(ViewMode.Overview);
             if (followTarget != null) AddTrajectoryPoint(followTarget.position);
-            ApplyCommandLineOptions(Environment.GetCommandLineArgs());
+            if(!explicitView)ApplyCommandLineOptions(Environment.GetCommandLineArgs());
         }
 
         private void Update() {
@@ -72,6 +91,10 @@ namespace Sim.Utils.ReferenceEnvironments {
                 if (trajectory.Count == 0 ||
                     Vector3.Distance(trajectory[^1], followTarget.position) >= 0.15f)
                     AddTrajectoryPoint(followTarget.position);
+                if(trajectoryRenderer!=null&&trajectoryEnabled&&trajectory.Count>0) {
+                    trajectoryRenderer.positionCount=trajectory.Count+1;
+                    trajectoryRenderer.SetPosition(trajectory.Count,followTarget.position+Vector3.up*trajectoryHeightOffset);
+                }
                 if (viewMode == ViewMode.Follow) UpdateFollowView();
             }
 
@@ -101,19 +124,27 @@ namespace Sim.Utils.ReferenceEnvironments {
             if (inspectionCamera == null || followTarget == null) return;
             Vector3 lookAt = followTarget.position + Vector3.up * 0.25f;
             Vector3 position = ResolveFollowPosition(lookAt);
-            inspectionCamera.transform.position = Vector3.Lerp(
-                inspectionCamera.transform.position, position, 8f * Time.unscaledDeltaTime);
-            inspectionCamera.transform.LookAt(lookAt);
+            float blend=stableFollow?1-Mathf.Exp(-3f*Mathf.Min(Time.unscaledDeltaTime,.1f)):8f*Time.unscaledDeltaTime;
+            inspectionCamera.transform.position=Vector3.Lerp(inspectionCamera.transform.position,position,blend);
+            if(stableFollow)inspectionCamera.transform.rotation=Quaternion.Slerp(inspectionCamera.transform.rotation,
+                Quaternion.LookRotation(lookAt-inspectionCamera.transform.position),blend);
+            else inspectionCamera.transform.LookAt(lookAt);
         }
 
         private Vector3 ResolveFollowPosition(Vector3 lookAt) {
-            Vector3 forward = Vector3.ProjectOnPlane(followTarget.forward, Vector3.up).normalized;
+            Vector3 forward = stableFollow?stableForward:Vector3.ProjectOnPlane(followTarget.forward, Vector3.up).normalized;
+            if(stableFollow&&retainedFollowOffset.sqrMagnitude>.1f) {
+                Vector3 retained=followTarget.position+retainedFollowOffset;
+                if(IsFollowPositionClear(lookAt,retained))obstructedSeconds=0;
+                else obstructedSeconds+=Mathf.Min(Time.unscaledDeltaTime,.1f);
+                if(obstructedSeconds<.8f)return retained;
+            }
             if (forward.sqrMagnitude < 0.5f) forward = Vector3.forward;
             Vector3 right = Vector3.Cross(Vector3.up, forward).normalized;
             const float distance = 1.8f;
             Vector3 lift = Vector3.up * 1.25f;
             Vector3 behind = followTarget.position - forward * distance + lift;
-            if (IsFollowPositionClear(lookAt, behind)) return behind;
+            if (IsFollowPositionClear(lookAt, behind)) return RetainFollow(behind);
 
             // Near a boundary, a side view preserves both robot scale and environment context.
             Vector3 left = followTarget.position - right * distance + lift;
@@ -122,14 +153,19 @@ namespace Sim.Utils.ReferenceEnvironments {
             bool rightClear = IsFollowPositionClear(lookAt, rightSide);
             if (leftClear && rightClear)
                 return PlanarDistanceFromCenter(left) <= PlanarDistanceFromCenter(rightSide)
-                    ? left : rightSide;
-            if (leftClear) return left;
-            if (rightClear) return rightSide;
+                    ? RetainFollow(left) : RetainFollow(rightSide);
+            if (leftClear) return RetainFollow(left);
+            if (rightClear) return RetainFollow(rightSide);
 
             Vector3 ahead = followTarget.position + forward * distance + lift;
             return IsFollowPositionClear(lookAt, ahead)
-                ? ahead
-                : followTarget.position + Vector3.up * 4.5f;
+                ? RetainFollow(ahead)
+                : RetainFollow(followTarget.position + Vector3.up * 4.5f);
+        }
+
+        private Vector3 RetainFollow(Vector3 position) {
+            if(stableFollow){retainedFollowOffset=position-followTarget.position;obstructedSeconds=0;}
+            return position;
         }
 
         private static bool IsFollowPositionClear(Vector3 lookAt, Vector3 candidate) {
@@ -186,7 +222,7 @@ namespace Sim.Utils.ReferenceEnvironments {
         }
 
         private void AddTrajectoryPoint(Vector3 point) {
-            point.y += 0.12f;
+            point.y += trajectoryHeightOffset;
             trajectory.Add(point);
             trajectoryRenderer.positionCount = trajectory.Count;
             trajectoryRenderer.SetPosition(trajectory.Count - 1, point);
@@ -239,6 +275,7 @@ namespace Sim.Utils.ReferenceEnvironments {
         }
 
         private void OnGUI() {
+            if(HideHud)return;
             const float width = 500f;
             GUI.Box(new Rect(14f, 14f, width, 116f), GUIContent.none);
             GUI.Label(new Rect(28f, 24f, width - 24f, 24f),

@@ -1,0 +1,93 @@
+{
+  "sources": [
+    {
+      "asset": "desk_lamp_arm_01",
+      "page": "https://polyhaven.com/a/desk_lamp_arm_01",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/fbx/1k/desk_lamp_arm_01/desk_lamp_arm_01_1k.fbx",
+      "sha256": "f8c7a9e2b09ce34349c40426574dd22416477ef3f0218291d19231c35503e443",
+      "license": "CC0-1.0",
+      "use": "geometry only; original photographic textures omitted; CRANE plain HDRP materials"
+    },
+    {
+      "asset": "metal_office_desk",
+      "page": "https://polyhaven.com/a/metal_office_desk",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/fbx/1k/metal_office_desk/metal_office_desk_1k.fbx",
+      "sha256": "858d23fe96547b3c5d0d5d29db858598554b3d06e5af1e45f2f9c3e6be19cd91",
+      "license": "CC0-1.0",
+      "use": "native geometry and restored 1k PBR maps; source map provenance in TEXTURE_SOURCES.json"
+    },
+    {
+      "asset": "hanging_industrial_lamp",
+      "page": "https://polyhaven.com/a/hanging_industrial_lamp",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/fbx/1k/hanging_industrial_lamp/hanging_industrial_lamp_1k.fbx",
+      "sha256": "c18164a9bff969d1f80213fff1fddfe312c636854acafb06c71dca896d316a71",
+      "license": "CC0-1.0",
+      "use": "geometry only; original photographic textures omitted; CRANE plain HDRP materials"
+    },
+    {
+      "asset": "old_military_compressor",
+      "page": "https://polyhaven.com/a/old_military_compressor",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/fbx/1k/old_military_compressor/old_military_compressor_1k.fbx",
+      "sha256": "d7c22cc38f533a1ea768544a74df28b2d67bd44fa05df73ec78a132ca6131994",
+      "license": "CC0-1.0",
+      "use": "native geometry and restored 1k PBR maps; source map provenance in TEXTURE_SOURCES.json"
+    },
+    {
+      "asset": "metal_tool_chest",
+      "page": "https://polyhaven.com/a/metal_tool_chest",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/fbx/1k/metal_tool_chest/metal_tool_chest_1k.fbx",
+      "sha256": "1536f3683956db4780a71d9cbf8d9b00b8a9243b68dd79d47b5131e61dad1f80",
+      "license": "CC0-1.0",
+      "use": "native geometry and restored 1k PBR maps; source map provenance in TEXTURE_SOURCES.json"
+    },
+    {
+      "asset": "portable_welding_cart",
+      "page": "https://polyhaven.com/a/portable_welding_cart",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/fbx/1k/portable_welding_cart/portable_welding_cart_1k.fbx",
+      "sha256": "4a51e3640f2ec14cdb3acf099035ef7c24e0af0c38b89f145ef320b4f501987a",
+      "license": "CC0-1.0",
+      "use": "native geometry and restored 1k PBR maps; source map provenance in TEXTURE_SOURCES.json"
+    },
+    {
+      "asset": "drill_press_01",
+      "page": "https://polyhaven.com/a/drill_press_01",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/fbx/1k/drill_press_01/drill_press_01_1k.fbx",
+      "sha256": "b68a8037f535aa388c674a95d6733cdd997eb4e146f96f44f36a1f4a381df35d",
+      "license": "CC0-1.0",
+      "use": "native geometry and restored 1k PBR maps; source map provenance in TEXTURE_SOURCES.json"
+    },
+    {
+      "asset": "metal_toolbox",
+      "page": "https://polyhaven.com/a/metal_toolbox",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/fbx/1k/metal_toolbox/metal_toolbox_1k.fbx",
+      "sha256": "bf46eab37ecae1d207cdf10cf67cd8b43004453bf0625930c038926d28d902b9",
+      "license": "CC0-1.0",
+      "use": "native geometry and restored 1k PBR maps; source map provenance in TEXTURE_SOURCES.json"
+    },
+    {
+      "asset": "bench_vice_01",
+      "page": "https://polyhaven.com/a/bench_vice_01",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/fbx/1k/bench_vice_01/bench_vice_01_1k.fbx",
+      "sha256": "34bbae6c8b3c8d5409012e42fc673e4acb2b1ae6db66d5701a82e8a2568cceb6",
+      "license": "CC0-1.0",
+      "use": "native geometry and restored 1k PBR maps; source map provenance in TEXTURE_SOURCES.json"
+    },
+    {
+      "asset": "retro_multimeter",
+      "page": "https://polyhaven.com/a/retro_multimeter",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/fbx/1k/retro_multimeter/retro_multimeter_1k.fbx",
+      "sha256": "f3b459c105d11da9dc92e06b2b616b0c63c5f97cb636e8d04d75a0e28e4467b5",
+      "license": "CC0-1.0",
+      "use": "native geometry and restored 1k PBR maps; source map provenance in TEXTURE_SOURCES.json"
+    },
+    {
+      "asset": "adjustable_wrench",
+      "page": "https://polyhaven.com/a/adjustable_wrench",
+      "url": "https://dl.polyhaven.org/file/ph-assets/Models/fbx/1k/adjustable_wrench/adjustable_wrench_1k.fbx",
+      "sha256": "6e5939b9e7f92bb4659cd2b758352b27b748efd91deac902b3aa3b5b5795baa1",
+      "license": "CC0-1.0",
+      "use": "native geometry and restored 1k PBR maps; source map provenance in TEXTURE_SOURCES.json"
+    }
+  ],
+  "licenseReference": "https://polyhaven.com/license"
+}
