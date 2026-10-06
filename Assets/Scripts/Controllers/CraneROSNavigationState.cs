@@ -58,12 +58,27 @@ namespace Sim.Controllers {
             CacheChildFrames(requestedChildFrames);
 
             ros = ROSConnection.GetOrCreateInstance();
+            if (Unity.Robotics.ROSTCPConnector.MessageGeneration.MessageRegistry
+                    .GetRosMessageName<OdometryMsg>() != null &&
+                Unity.Robotics.ROSTCPConnector.MessageGeneration.MessageRegistry
+                    .GetRosMessageName<TFMessageMsg>() != null)
+                RegisterTopics();
+        }
+
+        private bool topicsRegistered;
+        private void RegisterTopics() {
+            if (topicsRegistered) return;
             ros.RegisterPublisher<OdometryMsg>(odometryTopic);
             ros.RegisterPublisher<TFMessageMsg>(transformTopic);
+            topicsRegistered = true;
             Debug.Log($"CRANE_ROS_NAV_STATE_READY body={bodyComponent.name} " +
                       $"bodyType={bodyComponent.GetType().Name} odom={odometryTopic} " +
                       $"tf={transformTopic} frames={odometryFrame}->{baseFrame} " +
-                      $"rateHz={publishRateHz:R} childFrames={childFrames.Count}");
+                      $"rateHz={1.0 / publishPeriod:R} childFrames={childFrames.Count}");
+        }
+
+        private void Start() {
+            if (ros != null) RegisterTopics();
         }
 
         private void CacheChildFrames(IReadOnlyList<string> requestedFrames) {

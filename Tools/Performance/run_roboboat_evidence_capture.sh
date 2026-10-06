@@ -6,8 +6,8 @@ set -euo pipefail
 root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 mode="${1:-interactive}"
 case "$mode" in
-    headless) profile=train-gpu; visual_args="" ;;
-    interactive) profile=interactive-high ;;
+    headless) profile=train-gpu; visual_args=""; export CRANE_BATCHMODE=1 ;;
+    interactive) profile=interactive-high; export CRANE_BATCHMODE=0 ;;
     *) echo "Usage: $0 [headless|interactive]" >&2; exit 2 ;;
 esac
 export CRANE_RUN_ID="${CRANE_RUN_ID:-roboboat-evidence-${mode}-$(date -u +%Y%m%dT%H%M%SZ)}"

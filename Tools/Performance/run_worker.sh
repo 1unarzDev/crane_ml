@@ -43,9 +43,19 @@ if [[ "${CRANE_DISABLE_DETECTIONS:-0}" == "1" ]]; then sensor_args+=(--crane-dis
 extra_args=()
 if [[ -n "${CRANE_EXTRA_ARGS:-}" ]]; then read -r -a extra_args <<<"${CRANE_EXTRA_ARGS}"; fi
 player_args=()
-if [[ "${CRANE_NOGRAPHICS:-0}" == "1" ]]; then player_args+=(-batchmode -nographics); fi
+# GPU batch runs keep a rendering device for sensors without mapping a window.
+# Graphics-free runs additionally detach from the compositor below.
+if [[ "${CRANE_NOGRAPHICS:-0}" == "1" || "${CRANE_BATCHMODE:-0}" == "1" ]]; then player_args+=(-batchmode); fi
+if [[ "${CRANE_NOGRAPHICS:-0}" == "1" ]]; then player_args+=(-nographics); fi
 
-export SDL_VIDEODRIVER="${CRANE_SDL_VIDEODRIVER:-x11}"
+if [[ "${CRANE_NOGRAPHICS:-0}" == "1" ]]; then
+    # Headless must not acquire a compositor connection, including during startup.
+    # Unity's batchmode/nographics flags remain authoritative for rendering.
+    unset DISPLAY WAYLAND_DISPLAY
+    export SDL_VIDEODRIVER=dummy
+else
+    export SDL_VIDEODRIVER="${CRANE_SDL_VIDEODRIVER:-x11}"
+fi
 export ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-$((worker_id + 1))}"
 
 "${player}" \

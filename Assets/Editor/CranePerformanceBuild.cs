@@ -155,9 +155,17 @@ public static class CranePerformanceBuild {
             Shader.Find("HDRP/Lit") ?? Shader.Find("Standard")) { color = color };
     }
 
-    public static void BuildLinuxWorker() {
+    public static void BuildLinuxWorker() => BuildLinuxWorkerWithInitialScene(null);
+
+    /// <summary>Choose a product-specific startup scene without editing shared scene settings.</summary>
+    public static void BuildLinuxWorkerWithInitialScene(string initialScene) {
         string output = ReadArgument("--crane-build-output", "Builds/CRANE-Worker/CRANE.x86_64");
         var buildScenes = new List<string>(Scenes);
+        if (!string.IsNullOrEmpty(initialScene)) {
+            if (!buildScenes.Remove(initialScene))
+                throw new ArgumentException("Initial scene is not a worker scene: " + initialScene);
+            buildScenes.Insert(0, initialScene);
+        }
         string extraScene = ReadArgument("--crane-extra-scene", string.Empty);
         if (!string.IsNullOrWhiteSpace(extraScene)) {
             if (!File.Exists(extraScene)) throw new FileNotFoundException("Extra scene not found", extraScene);

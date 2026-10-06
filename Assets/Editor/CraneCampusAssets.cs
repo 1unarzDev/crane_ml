@@ -46,7 +46,10 @@ public static class CraneCampusAssets {
             CraneIndustrialCampus.ValidateVisualMaterial(material);EditorUtility.SetDirty(material);
         }
         AssetDatabase.SaveAssets();
-        CranePerformanceBuild.BuildLinuxWorker();
+        // Begin directly in the land scene. The shared worker's index-zero pool
+        // would otherwise be rendered briefly while --crane-scene loads asynchronously.
+        CranePerformanceBuild.BuildLinuxWorkerWithInitialScene(
+            "Assets/Scenes/TurtleBot3 Warehouse Validation.unity");
     }
     public static void ValidateMaterials() {
         var material=new Material(Shader.Find("HDRP/Lit"));

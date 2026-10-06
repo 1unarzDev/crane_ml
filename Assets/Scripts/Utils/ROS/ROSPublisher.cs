@@ -23,6 +23,7 @@ namespace Sim.Utils.ROS {
 
         private Func<object> createMessage;
         private Action<string, object> publishTyped;
+        private Action registerAfterRuntimeInitialization;
         private long observationSequence;
         private long observationEpisode = -1;
         public int ResetPriority => -100;
@@ -56,7 +57,12 @@ namespace Sim.Utils.ROS {
             if (TransportSuppressed) return;
 
             ros = ROSConnection.GetOrCreateInstance();
-            ros.RegisterPublisher<T>(topicName);
+            // sceneLoaded for the initial build scene precedes generated message
+            // registry initialization. Start runs after all runtime init methods.
+            if (Unity.Robotics.ROSTCPConnector.MessageGeneration.MessageRegistry
+                    .GetRosMessageName<T>() == null)
+                registerAfterRuntimeInitialization = () => ros.RegisterPublisher<T>(topicName);
+            else ros.RegisterPublisher<T>(topicName);
 
             var wrapperMethod = typeof(ROSPublisher)
                 .GetMethod(nameof(PublishWrapper), BindingFlags.Static | BindingFlags.NonPublic)
@@ -68,6 +74,11 @@ namespace Sim.Utils.ROS {
                     ros,
                     wrapperMethod
                 );
+        }
+
+        private void Start() {
+            registerAfterRuntimeInitialization?.Invoke();
+            registerAfterRuntimeInitialization = null;
         }
 
         private void FixedUpdate() {
