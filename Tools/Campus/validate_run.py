@@ -7,7 +7,8 @@ from ramp_evidence import ramp_traversal
 from sensor_error_evidence import sensor_error_evidence
 from surface_evidence import transition_evidence
 from contact_evidence import classified_contacts
-p=argparse.ArgumentParser();p.add_argument('run',type=pathlib.Path);p.add_argument('--require-recovery',action='store_true');p.add_argument('--require-detour',action='store_true');p.add_argument('--require-dynamic',action='store_true');p.add_argument('--require-no-path',action='store_true');a=p.parse_args();r=a.run
+from slalom_evidence import slalom_evidence
+p=argparse.ArgumentParser();p.add_argument('run',type=pathlib.Path);p.add_argument('--require-recovery',action='store_true');p.add_argument('--require-detour',action='store_true');p.add_argument('--require-dynamic',action='store_true');p.add_argument('--require-no-path',action='store_true');p.add_argument('--require-slalom',action='store_true');a=p.parse_args();r=a.run
 f=json.loads((r/'fixture-summary.json').read_text());s=json.loads((r/'scenario.json').read_text());h=json.loads((r/'navigation-reset-summary.json').read_text());t=[json.loads(x) for x in (r/'telemetry.jsonl').read_text().splitlines()];events=[json.loads(x) for x in (r/'events.jsonl').read_text().splitlines()] if (r/'events.jsonl').exists() else []
 paths=f.get('planHistory',[]);ids={x.get('pathId') for x in paths};motion=f.get('pathMetrics',{});topic_counts={};stamps={};frames=set();scan_valid=scan_total=0;scan_min=math.inf;scan_max=0;observed_plans=[]
 with gzip.open(r/'ros-evidence.jsonl.gz','rt') as stream:
@@ -33,6 +34,16 @@ surface_evidence=None
 if s['id']=='proving_surface_transition':
  surface_evidence=transition_evidence(t)
  checks.update(surface_evidence['checks'])
+slalom_traversal=None
+course_ids={'prove-course-left','prove-course-right'}
+scenario_obstacle_ids={b['id'] for b in s['obstacles']}
+if a.require_slalom or course_ids.issubset(scenario_obstacle_ids):
+ slalom_manifest=json.loads((r/'manifest.json').read_text())
+ all_ids={b['id'] for b in slalom_manifest['boxes']+s['obstacles']}
+ checks['forcedSlalomGeometryPresent']=(course_ids|{f'slalom-bank-{i}' for i in range(3)}).issubset(all_ids)
+ if checks['forcedSlalomGeometryPresent']:
+  slalom_traversal=slalom_evidence(slalom_manifest,s,t)
+  checks.update(slalom_traversal['checks'])
 ramp_evidence=None
 if s['id']=='dock_ramp':
  ramp_evidence=ramp_traversal(json.loads((r/'manifest.json').read_text()),s,t)
@@ -84,4 +95,5 @@ report['terrainFilter']=terrain_filter
 report['sensorErrorEvidence']=sensor_evidence
 report['surfaceTransitionEvidence']=surface_evidence
 report['contactEvidence']=contact_evidence
+report['slalomTraversalEvidence']=slalom_traversal
 (r/'campus-validation.json').write_text(json.dumps(report,indent=2)+'\n');print(json.dumps({'state':report['state'],'checks':checks},indent=2));raise SystemExit(0 if all(checks.values()) else 1)
