@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Render recorded geometry, an observed plan and measured robot motion."""
-import argparse,json,math
+import argparse,json,math,textwrap
 from pathlib import Path
 import matplotlib
 matplotlib.use('Agg')
@@ -30,7 +30,9 @@ def main():
     axis.set_xlim(min(x+[s['goal'][0]])-3,max(x+[s['goal'][0]])+3)
     axis.set_ylim(min(z+[s['goal'][1]])-1.5,max(z+[s['goal'][1]])+1.5)
     axis.set_aspect('equal');axis.set_xlabel('Unity map X (m)');axis.set_ylabel('Unity map Z (m)');axis.grid(alpha=.15)
-    axis.legend(loc='best',fontsize=8);axis.set_title(f"{s['routeName']} · seed {s['seed']}\nNav2: {fixture.get('status','capture in progress')}",fontsize=11)
+    axis.legend(loc='upper center',bbox_to_anchor=(.5,-.08),fontsize=8,ncol=2)
+    title=textwrap.fill(f"{s['routeName']} · seed {s['seed']}",width=48)
+    axis.set_title(f"{title}\nNav2: {fixture.get('status','capture in progress')}",fontsize=11)
     fig.savefig(run/'navigation-evidence.png',dpi=160)
     fig.savefig(run/'navigation-evidence.svg')
 
