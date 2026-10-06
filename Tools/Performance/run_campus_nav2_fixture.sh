@@ -4,8 +4,8 @@ root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 mode="${1:-headless}"
 scenario="${2:-warehouse_nominal}"
 case "$mode" in
-  headless) export CRANE_NOGRAPHICS=1 CRANE_NAV2_PROFILE=train-cpu ;;
-  interactive) export CRANE_NOGRAPHICS=0 CRANE_NAV2_PROFILE=interactive-high ;;
+  headless) export CRANE_NOGRAPHICS=1 CRANE_BATCHMODE=1 CRANE_NAV2_PROFILE=train-cpu ;;
+  interactive) export CRANE_NOGRAPHICS=0 CRANE_BATCHMODE=0 CRANE_NAV2_PROFILE=interactive-high ;;
   *) echo 'Usage: run_campus_nav2_fixture.sh [headless|interactive] [scenario]' >&2; exit 2 ;;
 esac
 manifest="${CRANE_CAMPUS_MANIFEST:-$root_dir/Assets/Resources/ReferenceEnvironments/industrial_logistics_campus_v1.json}"

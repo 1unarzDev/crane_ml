@@ -12,8 +12,8 @@ scenario="${CRANE_CALIBRATION_SCENARIO:-$scenario}";duration="${CRANE_CALIBRATIO
 export CRANE_PLAYER="${CRANE_PLAYER:-$root/Builds/CRANE-Campus/CRANE.x86_64}"
 export CRANE_RESULT_ROOT="${CRANE_RESULT_ROOT:-$root/PerformanceResults/campus-$trial-$step-$mode}"
 mkdir -p "$CRANE_RESULT_ROOT"
-profile=train-cpu;export CRANE_NOGRAPHICS=1
-if [[ "$mode" == interactive ]]; then profile=interactive-high;export CRANE_NOGRAPHICS=0 CRANE_SCREEN_WIDTH=1600 CRANE_SCREEN_HEIGHT=900; fi
+profile=train-cpu;export CRANE_NOGRAPHICS=1 CRANE_BATCHMODE=1
+if [[ "$mode" == interactive ]]; then profile=interactive-high;export CRANE_NOGRAPHICS=0 CRANE_BATCHMODE=0 CRANE_SCREEN_WIDTH=1600 CRANE_SCREEN_HEIGHT=900; fi
 export CRANE_SCENE='TurtleBot3 Warehouse Validation' CRANE_DURATION="$duration" CRANE_WARMUP=3
 contact_args=''
 if [[ "${CRANE_CAMPUS_CONTACT_WHEELS:-1}" == 1 ]]; then contact_args=--crane-campus-contact-wheels; fi
