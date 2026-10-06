@@ -17,6 +17,13 @@ if [[ "$mode" == interactive ]]; then profile=interactive-high;export CRANE_NOGR
 export CRANE_SCENE='TurtleBot3 Warehouse Validation' CRANE_DURATION="$duration" CRANE_WARMUP=3
 contact_args=''
 if [[ "${CRANE_CAMPUS_CONTACT_WHEELS:-1}" == 1 ]]; then contact_args=--crane-campus-contact-wheels; fi
-export CRANE_EXTRA_ARGS="--crane-profile $profile --crane-land-nav2 --crane-campus --crane-campus-model $contact_args --crane-campus-scenario $scenario --crane-campus-fixed-step $step --crane-campus-calibration $trial --crane-campus-output $CRANE_RESULT_ROOT --crane-interactive-width 1600 --crane-interactive-height 900 ${CRANE_CALIBRATION_EXTRA_ARGS:-}"
+export CRANE_EXTRA_ARGS="--crane-profile $profile --crane-land-nav2 --crane-campus --crane-campus-model $contact_args --crane-campus-scenario $scenario --crane-campus-fixed-step $step --crane-campus-calibration $trial --crane-campus-telemetry-hz 100 --crane-campus-output $CRANE_RESULT_ROOT --crane-interactive-width 1600 --crane-interactive-height 900 ${CRANE_CALIBRATION_EXTRA_ARGS:-}"
+window_helper_pid=""
+cleanup() { if [[ -n "$window_helper_pid" ]]; then kill "$window_helper_pid" >/dev/null 2>&1 || true; wait "$window_helper_pid" 2>/dev/null || true; fi; }
+trap cleanup EXIT
+if [[ "$mode" == interactive ]]; then
+ python3 "$root/Tools/Campus/configure_graphical_window.py" --run "$CRANE_RESULT_ROOT" &
+ window_helper_pid=$!
+fi
 "$root/Tools/Performance/run_worker.sh" 0 > "$CRANE_RESULT_ROOT/launch.log" 2>&1
 python3 "$root/Tools/Campus/analyze_calibration.py" "$CRANE_RESULT_ROOT" --trial "$trial"

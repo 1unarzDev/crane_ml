@@ -5,9 +5,15 @@ Uses a 0.1 m grid and 0.24 m circular footprint. This is an independent geometry
 check, not a replacement for LiDAR/Nav2/controller/contact runtime validation.
 Ramps/thresholds/surfaces are traversable here; traversal needs physical trials.
 """
-import collections,json,math,pathlib
+import argparse,collections,json,math,pathlib
 root=pathlib.Path(__file__).resolve().parents[2]
-m=json.loads((root/'Assets/Resources/ReferenceEnvironments/industrial_logistics_campus_v1.json').read_text())
+p=argparse.ArgumentParser(description=__doc__)
+p.add_argument('--manifest',type=pathlib.Path,default=root/'Assets/Resources/ReferenceEnvironments/industrial_logistics_campus_v1.json')
+p.add_argument('--scenario',help='Check only this resolved scenario; omit to check all scenarios.')
+args=p.parse_args()
+m=json.loads(args.manifest.read_text())
+if args.scenario and not any(s['id']==args.scenario for s in m['scenarios']):
+ p.error('Unknown scenario: '+args.scenario)
 step=.1; bounds=(-16,40,0,62)
 def point(i,j):return bounds[0]+i*step,bounds[2]+j*step
 def cell(p):return round((p[0]-bounds[0])/step),round((p[1]-bounds[2])/step)
@@ -20,6 +26,7 @@ def blocked(x,z,boxes):
  return False
 results=[]
 for s in m['scenarios']:
+ if args.scenario and s['id']!=args.scenario:continue
  # Final stable obstacle state. Timed moving obstacles require runtime verification.
  boxes=m['boxes']+[b for b in s['obstacles'] if b['remove']<0 and not any(b['velocity'])]
  # Rasterize obstacles once rather than evaluating all boxes for every BFS neighbor.

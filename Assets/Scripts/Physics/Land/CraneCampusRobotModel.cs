@@ -222,9 +222,23 @@ namespace Sim.Physics.Land {
             public string leftSurface,rightSurface;public int collisionCount,activeContacts;
         }
         CraneIndustrialCampus campus;DifferentialDriveDynamics drive;Rigidbody body;
-        StreamWriter writer;double nextSample;int collisions,activeContacts;
-        public void Configure(CraneIndustrialCampus owner,DifferentialDriveDynamics controller){campus=owner;drive=controller;body=GetComponent<Rigidbody>();writer=new StreamWriter(Path.Combine(owner.OutputDirectory,"telemetry.jsonl"));writer.AutoFlush=true;}
-        void FixedUpdate(){if(campus==null||Time.fixedTimeAsDouble<nextSample)return;nextSample=Time.fixedTimeAsDouble+.1;
+        StreamWriter writer;double nextSample,samplePeriod=.1;int collisions,activeContacts;
+        public void Configure(CraneIndustrialCampus owner,DifferentialDriveDynamics controller){
+            campus=owner;drive=controller;body=GetComponent<Rigidbody>();
+            string[] args=Environment.GetCommandLineArgs();int index=Array.IndexOf(args,"--crane-campus-telemetry-hz");
+            if(index>=0){
+                if(index+1>=args.Length)throw new ArgumentException("Telemetry frequency requires a value");
+                float hz=float.Parse(args[index+1],CultureInfo.InvariantCulture);
+                if(!float.IsFinite(hz)||hz<1||hz>200)throw new ArgumentOutOfRangeException("Telemetry frequency must be 1–200 Hz");
+                samplePeriod=Math.Max(Time.fixedDeltaTime,1.0/hz);
+            }
+            writer=new StreamWriter(Path.Combine(owner.OutputDirectory,"telemetry.jsonl"));writer.AutoFlush=true;
+            campus.RecordEvent("telemetry-profile","body",$"periodSeconds={samplePeriod.ToString("R",CultureInfo.InvariantCulture)}; fixedStepBound=true");
+        }
+        void FixedUpdate(){if(campus==null||Time.fixedTimeAsDouble<nextSample)return;
+            // Advance the phase rather than restarting the period at every sample;
+            // float fixed-step rounding must not turn a 10 Hz stream into 9 Hz.
+            do{nextSample+=samplePeriod;}while(nextSample<=Time.fixedTimeAsDouble);
             var model=GetComponent<CraneCampusRobotModel>();float clearance=5;
             foreach(var c in UnityEngine.Physics.OverlapSphere(body.position,5)){
                 if(c.attachedRigidbody==body||c.transform.IsChildOf(body.transform))continue;var s=c.GetComponentInParent<CraneSemanticIdentity>();
