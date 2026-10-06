@@ -695,7 +695,9 @@ namespace Sim.Physics.Land {
         void LateUpdate(){if(Target!=null){Target.SetPositionAndRotation(transform.position,transform.rotation);Target.gameObject.SetActive(GetComponent<Collider>().enabled);}}
     }
     public sealed class CraneCampusObstacle:MonoBehaviour {
+        [Serializable] sealed class PoseEvidence {public Vector3 position;public bool colliderEnabled;}
         CraneIndustrialCampus campus;CampusBox spec;Collider shape;Rigidbody mover;bool active,removed;
+        double nextPoseSample;
         public void Initialize(CraneIndustrialCampus owner,CampusBox box){campus=owner;spec=box;shape=GetComponent<Collider>();active=box.activate<=0;shape.enabled=active;
             if(box.velocity!=null&&Array.Exists(box.velocity,v=>v!=0)) {
                 mover=gameObject.AddComponent<Rigidbody>();mover.isKinematic=true;mover.useGravity=false;
@@ -704,7 +706,15 @@ namespace Sim.Physics.Land {
         }
         void FixedUpdate(){double t=campus.Elapsed;if(!active&&!removed&&t>=spec.activate){active=true;shape.enabled=true;campus.RecordEvent("obstacle-activated",spec.id,"authoritative collider and visual enabled");}
             if(active&&spec.remove>0&&t>=spec.remove){active=false;removed=true;shape.enabled=false;campus.RecordEvent("obstacle-removed",spec.id,"authoritative collider and visual disabled");}
-            if(active&&mover!=null)mover.MovePosition(mover.position+new Vector3(spec.velocity[0],spec.velocity[1],spec.velocity[2])*Time.fixedDeltaTime);
+            if(active&&mover!=null){
+                // Capture the actual pre-step Rigidbody pose, matching body telemetry's
+                // fixed-step acquisition convention; never substitute the commanded path.
+                if(Time.fixedTimeAsDouble>=nextPoseSample){
+                    campus.RecordEvent("obstacle-pose",spec.id,JsonUtility.ToJson(new PoseEvidence{position=mover.position,colliderEnabled=shape.enabled}));
+                    do{nextPoseSample+=.1;}while(nextPoseSample<=Time.fixedTimeAsDouble);
+                }
+                mover.MovePosition(mover.position+new Vector3(spec.velocity[0],spec.velocity[1],spec.velocity[2])*Time.fixedDeltaTime);
+            }
         }
     }
 }

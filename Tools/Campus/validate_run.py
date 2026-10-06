@@ -2,6 +2,7 @@
 """Keep action success, measured behavior, transport, sensing and benchmark validity distinct."""
 import argparse,json,pathlib,gzip,math,statistics,hashlib,subprocess,sys
 from no_path_evidence import planner_failure_evidence
+from dynamic_evidence import measured_encounter
 p=argparse.ArgumentParser();p.add_argument('run',type=pathlib.Path);p.add_argument('--require-recovery',action='store_true');p.add_argument('--require-detour',action='store_true');p.add_argument('--require-dynamic',action='store_true');p.add_argument('--require-no-path',action='store_true');a=p.parse_args();r=a.run
 f=json.loads((r/'fixture-summary.json').read_text());s=json.loads((r/'scenario.json').read_text());h=json.loads((r/'navigation-reset-summary.json').read_text());t=[json.loads(x) for x in (r/'telemetry.jsonl').read_text().splitlines()];events=[json.loads(x) for x in (r/'events.jsonl').read_text().splitlines()] if (r/'events.jsonl').exists() else []
 paths=f.get('planHistory',[]);ids={x.get('pathId') for x in paths};motion=f.get('pathMetrics',{});topic_counts={};stamps={};frames=set();scan_valid=scan_total=0;scan_min=math.inf;scan_max=0;observed_plans=[]
@@ -47,16 +48,8 @@ encounters=[]
 if a.require_dynamic:
  for obstacle in s['obstacles']:
   if not any(obstacle['velocity']):continue
-  event=next((e for e in events if e['type']=='obstacle-activated' and e['id']==obstacle['id']),None)
-  if event is None:continue
-  distances=[]
-  for row in t:
-   elapsed=row['simulationTime']-event['simulationTime']
-   if 0<=elapsed<=obstacle['remove']-obstacle['activate']:
-    cx=obstacle['center'][0]+obstacle['velocity'][0]*elapsed;cz=obstacle['center'][2]+obstacle['velocity'][2]*elapsed
-    distances.append((math.hypot(row['position']['x']-cx,row['position']['z']-cz),row['simulationTime'],row['position'],[cx,cz]))
-  closest=min(distances,key=lambda x:x[0]) if distances else None
-  encounters.append({'obstacle':obstacle['id'],'minimumCenterDistanceMeters':closest[0] if closest else None,'closestSimulationTime':closest[1] if closest else None,'measuredRobotPosition':closest[2] if closest else None,'expectedCartCenterXZ':closest[3] if closest else None,'provenance':'Robot telemetry and configured fixed-step kinematic trajectory; cart pose inferred, not independently sampled.'})
+  encounters.append(measured_encounter(obstacle['id'],events,t))
+ checks['actualMovingObstaclePosesMeasured']=bool(encounters) and all(e['actualPoseSamples']>=2 and e['monotonicAcquisitionTimes'] and e['measuredCartDisplacementMeters']>.1 for e in encounters)
  checks['dynamicObstacleEncounterWithinTwoMeters']=any(e['minimumCenterDistanceMeters'] is not None and e['minimumCenterDistanceMeters']<2 for e in encounters)
 worker=json.loads((r/'worker-0/result.json').read_text());physics=next(x for x in worker['markers'] if x['name']=='Physics.Simulate')
 report={'schema':'crane-campus-runtime-qa-v1','state':'NAVIGATION_PASS' if all(checks.values()) else 'PARTIAL','checks':checks,'scenario':s['id'],'seed':s['seed'],'nav2Status':f['status'],'displacementMeters':f['displacementMeters'],'pathMetrics':motion,'sampledExecutedPathMeters':sum(math.hypot(v['position']['x']-u['position']['x'],v['position']['z']-u['position']['z']) for u,v in zip(t,t[1:])),'timedDetourEvidence':detour_evidence,'distinctPlanCount':len(ids),'maximumRecoveryFeedback':f['maximumRecoveryCount'],'observedRecoveryInvocationStarts':f.get('behaviorTreeCapture',{}).get('observedRecoveryInvocationStartCount'),'exactRecoveryCountEstablished':f.get('behaviorTreeCapture',{}).get('completeness',{}).get('exactRecoveryCountEligible',False),'topicCounts':topic_counts,'acquisitionRatesHz':rates,'scanFiniteFraction':scan_valid/max(1,scan_total),'frames':sorted(frames),'collisionCount':t[-1]['collisionCount'],'wheelSlipProxyMean':statistics.mean(x['slipProxy'] for x in t),'minimumRadialClearanceProxyMeters':min(x['minimumClearance'] for x in t),'physicsSimulateTotalMilliseconds':physics['totalMilliseconds'],'physicsMillisecondsPerFixedStepEstimate':physics['totalMilliseconds']/max(1,worker['simulatedSeconds']/t[0]['fixedDeltaTime']),'gpuFrameMilliseconds':worker['meanGpuFrameMilliseconds'],'realTimeFactor':worker['realTimeFactor'],'allocatedBytes':worker['totalAllocatedMemoryBytes'],'boundaries':['Observed plan changes are not exact planner-invocation counts.','Recovery feedback and subscriber-observed BT invocation starts do not exclude message loss.','Wheel slip and radial clearance are explicit proxies; no physical calibration or exact geometric clearance claim.']}
