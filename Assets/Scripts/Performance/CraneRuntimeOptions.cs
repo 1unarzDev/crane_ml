@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using System.IO;
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.Rendering.HighDefinition;
 
 namespace Sim.Performance {
@@ -16,6 +17,8 @@ namespace Sim.Performance {
         private int originalCullingMask;
         private RenderTexture originalTarget;
         private bool configured;
+        private readonly RenderPipeline.StandardRequest batchRequest = new();
+        private bool loggedBatchRendering;
 
         public void Configure(Camera camera) {
             if (configured) return;
@@ -33,6 +36,21 @@ namespace Sim.Performance {
             camera.targetTexture = target;
             camera.enabled = true;
             if (camera.TryGetComponent(out AudioListener listener)) listener.enabled = false;
+        }
+
+        private void LateUpdate() {
+            if (!Application.isBatchMode || !configured || targetCamera == null ||
+                target == null || !target.IsCreated()) return;
+            // Unity batch mode does not automatically render enabled cameras.
+            // HDRP water CPU search data is produced by its render-pipeline update,
+            // so explicitly submit the same small offscreen driver in GPU batch.
+            batchRequest.destination = target;
+            if (!RenderPipeline.SupportsRenderRequest(targetCamera, batchRequest)) return;
+            RenderPipeline.SubmitRenderRequest(targetCamera, batchRequest);
+            if (!loggedBatchRendering) {
+                Debug.Log("CRANE_WATER_BATCH_RENDER_REQUEST_READY target=64x64");
+                loggedBatchRendering = true;
+            }
         }
 
         private void OnDestroy() {
