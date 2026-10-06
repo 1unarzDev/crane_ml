@@ -39,3 +39,33 @@ def test_annex_task_variation_is_reproducible_and_stays_in_task_areas():
   assert -12.72<=trial['start'][0]<=-12.58 and 5.1<=trial['start'][1]<=5.8
   assert -12.48<=trial['goal'][0]<=-12.32 and 22.2<=trial['goal'][1]<=23.5
   assert trial['goal'][1]-trial['start'][1]>16
+
+
+def test_surface_pad_bevels_join_floor_and_pad_without_lips():
+ """An 8–16 mm square edge stalls the physical wheel; preserve pad heights.
+
+ Check world-space top-face endpoints, including thickness and rotation,
+ rather than accepting a ramp ID whose collider still leaves a step.
+ """
+ import math
+ m=json.loads(MANIFEST.read_text()); boxes={b['id']:b for b in m['boxes']}
+ for pad_id,height in [('metal-test-plate',.012),('rubber-test-mat',.016),('epoxy-test-pad',.008),('concrete-test-pad',.010)]:
+  pad=boxes[pad_id]
+  assert abs(pad['center'][1]+pad['size'][1]/2-height)<1e-8
+  for side,sign in [('south',-1),('north',1)]:
+   bevel=boxes[pad_id+'-'+side+'-bevel']
+   assert bevel['kind']=='ramp' and bevel['surface']==pad['surface']
+   assert bevel['yaw']==0 and bevel['size'][0]==pad['size'][0]
+   angle=math.radians(bevel['pitch'])
+   endpoints=[]
+   for end in (-1,1):
+    local_y=bevel['size'][1]/2; local_z=end*bevel['size'][2]/2
+    y=bevel['center'][1]+math.cos(angle)*local_y-math.sin(angle)*local_z
+    z=bevel['center'][2]+math.sin(angle)*local_y+math.cos(angle)*local_z
+    endpoints.append((y,z))
+   lower,upper=sorted(endpoints)
+   assert abs(lower[0])<1e-6 and abs(upper[0]-height)<1e-6
+   edge=pad['center'][2]+sign*pad['size'][2]/2
+   assert abs(upper[1]-edge)<.0002
+   assert abs(lower[1]-(edge+sign*.15))<.0002
+   assert 0<abs(bevel['pitch'])<7

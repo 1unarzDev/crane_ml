@@ -117,7 +117,9 @@ namespace Sim.Physics.Land {
             }
             string calibration=Arg(args,"--crane-campus-calibration","");
             Robot=drive.GetComponent<Rigidbody>();
-            Robot.position=calibration=="CAL-05"?new Vector3(24,.01f,6.4f):calibration=="CAL-06"?new Vector3(0,.01f,28.5f):new Vector3(Scenario.start[0],.01f,Scenario.start[1]);
+            // CAL-05 starts on the surveyed 10 mm concrete pad and drives across its
+            // bevel into compacted dirt; allow gravity to settle the initial body pose.
+            Robot.position=calibration=="CAL-05"?new Vector3(24,.03f,17.4f):calibration=="CAL-06"?new Vector3(0,.01f,28.5f):new Vector3(Scenario.start[0],.01f,Scenario.start[1]);
             Robot.rotation=Quaternion.Euler(0,Scenario.startYaw,0);
             // Rigidbody pose assignment can precede transform publication in manual stepping.
             // Joint actors must be constructed from the same world pose as their chassis.
@@ -223,6 +225,8 @@ namespace Sim.Physics.Land {
             return pair;
         }
         Material Material(string kind,string surface) {
+            // Upward traversable ramps use the same surface finish as their adjoining pad.
+            if(kind=="ramp")kind="floor";
             string key=kind+":"+surface;if(materials.TryGetValue(key,out var m))return m;
             var template=Resources.Load<Material>("CampusMaterials/Profiles/"+surface);
             m=template!=null?new Material(template):new Material(Shader.Find("HDRP/Lit"));ownedResources.Add(m);m.enableInstancing=true;

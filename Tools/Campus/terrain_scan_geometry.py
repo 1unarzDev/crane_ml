@@ -25,7 +25,11 @@ def terrain_return(point, surfaces, tolerance=.008):
         yz=math.sin(yaw)*dx+math.cos(yaw)*dz
         ly=math.cos(pitch)*dy+math.sin(pitch)*yz
         lz=-math.sin(pitch)*dy+math.cos(pitch)*yz
-        if abs(lx)<=box['size'][0]/2 and abs(lz)<=box['size'][2]/2 and abs(ly-box['size'][1]/2)<=tolerance:
+        # Retain boundary returns: an upper slab side can be within the height
+        # tolerance of its top face. A conservative 2 mm interior margin avoids
+        # labelling those vertical faces as traversable ground.
+        edge_margin=min(.002,tolerance)
+        if abs(lx)<box['size'][0]/2-edge_margin and abs(lz)<box['size'][2]/2-edge_margin and abs(ly-box['size'][1]/2)<=tolerance:
             return True
     return False
 
