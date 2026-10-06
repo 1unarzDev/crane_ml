@@ -17,12 +17,49 @@ PY
 export CRANE_RUN_ID="${CRANE_RUN_ID:-campus-${scenario}-$(date -u +%Y%m%dT%H%M%SZ)}"
 export CRANE_RESULT_ROOT="${CRANE_RESULT_ROOT:-$root_dir/PerformanceResults/$CRANE_RUN_ID}"
 mkdir -p "$CRANE_RESULT_ROOT"
+python3 "$root_dir/Tools/Campus/validate_campus.py" --manifest "$manifest" > "$CRANE_RESULT_ROOT/manifest-structural-validation.json"
 export CRANE_PLAYER="${CRANE_PLAYER:-$root_dir/Builds/CRANE-Campus/CRANE.x86_64}"
 export CRANE_SCENE='TurtleBot3 Warehouse Validation'
 export CRANE_SEED_BASE="${CRANE_SEED_BASE:-$seed}"
 export CRANE_ROS_PORT="${CRANE_ROS_PORT:-12086}"
 export CRANE_ROS_DOMAIN_ID="${CRANE_ROS_DOMAIN_ID:-222}"
 export CRANE_NAV2_PARAMS="$root_dir/Tools/Performance/nav2_campus_fixture.yaml"
+export CRANE_CAMPUS_TERRAIN_FILTER="${CRANE_CAMPUS_TERRAIN_FILTER:-0}"
+if [[ "$CRANE_CAMPUS_TERRAIN_FILTER" == 1 ]]; then
+  mkdir -p "$root_dir/PerformanceResults"
+  terrain_params="$root_dir/PerformanceResults/terrain-$CRANE_RUN_ID.yaml"
+  python3 - "$CRANE_NAV2_PARAMS" "$terrain_params" <<'PY'
+import pathlib,sys
+text=pathlib.Path(sys.argv[1]).read_text()
+source='''        observation_sources: scan
+        scan:
+          topic: /scan
+          data_type: LaserScan
+          marking: true
+          clearing: true'''
+replacement='''        observation_sources: scan scan_clearing
+        scan_clearing:
+          topic: /scan
+          data_type: LaserScan
+          marking: false
+          clearing: true
+          inf_is_valid: true
+          min_obstacle_height: 0.0
+          max_obstacle_height: 2.0
+          raytrace_min_range: 0.1
+          raytrace_max_range: 3.5
+        scan:
+          topic: /campus/navigation_scan
+          data_type: LaserScan
+          marking: true
+          clearing: false'''
+assert text.count(source)==2,'Expected both campus obstacle layers'
+pathlib.Path(sys.argv[2]).write_text(text.replace(source,replacement))
+PY
+  export CRANE_NAV2_PARAMS="$terrain_params"
+elif [[ "$CRANE_CAMPUS_TERRAIN_FILTER" != 0 ]]; then
+  echo 'CRANE_CAMPUS_TERRAIN_FILTER must be 0 or 1' >&2; exit 2
+fi
 export CRANE_NAV2_COMMAND_FLAG=--crane-ros-differential-cmd-vel
 export CRANE_NAV2_GOAL_X="$goal_x" CRANE_NAV2_GOAL_Y="$goal_y"
 export CRANE_NAV2_ACTION_DURATION="${CRANE_NAV2_ACTION_DURATION:-180}"
@@ -42,14 +79,21 @@ cp "$manifest" "$CRANE_RESULT_ROOT/source-manifest.json"
 cp "$CRANE_NAV2_PARAMS" "$CRANE_RESULT_ROOT/nav2-params.yaml"
 env | sort | sed -n '/^CRANE_/p' > "$CRANE_RESULT_ROOT/launch-environment.txt"
 observer_name="crane-campus-evidence-$CRANE_RUN_ID"
+terrain_name="crane-campus-terrain-$CRANE_RUN_ID"
 window_helper_pid=""
-cleanup() { if [[ -n "$window_helper_pid" ]]; then kill "$window_helper_pid" >/dev/null 2>&1 || true; wait "$window_helper_pid" 2>/dev/null || true; fi; docker stop -t 5 "$observer_name" >/dev/null 2>&1 || true; docker rm "$observer_name" >/dev/null 2>&1 || true; }
+cleanup() { if [[ -n "$window_helper_pid" ]]; then kill "$window_helper_pid" >/dev/null 2>&1 || true; wait "$window_helper_pid" 2>/dev/null || true; fi; docker stop -t 5 "$observer_name" >/dev/null 2>&1 || true; docker rm "$observer_name" >/dev/null 2>&1 || true; if [[ "$CRANE_CAMPUS_TERRAIN_FILTER" == 1 ]]; then docker logs "$terrain_name" > "$CRANE_RESULT_ROOT/terrain-filter.log" 2>&1 || true; docker rm -f "$terrain_name" >/dev/null 2>&1 || true; fi; }
 trap cleanup EXIT
 # Passive evidence collector starts before the action; scan, TF and acquisition stamps are retained.
 docker run -d --name "$observer_name" --network host --ipc host -e ROS_DOMAIN_ID="$CRANE_ROS_DOMAIN_ID" \
   -v "$root_dir:/workspace/crane_sim:ro" -v "$CRANE_RESULT_ROOT:/results" "${CRANE_ROS_IMAGE:-lunarzdev/astro:cuda}" bash -lc \
   'source /opt/ros/jazzy/setup.bash; exec python3 /workspace/crane_sim/Tools/Campus/capture_ros.py --output /results/ros-evidence.jsonl.gz --seconds '"$((CRANE_DURATION+10))" \
   > "$CRANE_RESULT_ROOT/evidence-container-id"
+if [[ "$CRANE_CAMPUS_TERRAIN_FILTER" == 1 ]]; then
+  docker run -d --name "$terrain_name" --network host --ipc host -e ROS_DOMAIN_ID="$CRANE_ROS_DOMAIN_ID" \
+    -v "$root_dir:/workspace/crane_sim:ro" -v "$CRANE_RESULT_ROOT:/results" "${CRANE_ROS_IMAGE:-lunarzdev/astro:cuda}" bash -lc \
+    'source /opt/ros/jazzy/setup.bash; exec python3 /workspace/crane_sim/Tools/Campus/nav2_terrain_scan_filter.py --manifest /results/manifest.json --output /results/terrain-filter-summary.json' \
+    > "$CRANE_RESULT_ROOT/terrain-container-id"
+fi
 if [[ "$mode" == interactive ]]; then
   python3 "$root_dir/Tools/Campus/configure_graphical_window.py" --run "$CRANE_RESULT_ROOT" &
   window_helper_pid=$!

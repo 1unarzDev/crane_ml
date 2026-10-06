@@ -1645,7 +1645,7 @@
       "seed": 4101,
       "start": [
         9,
-        32
+        31
       ],
       "goal": [
         9,
@@ -1654,7 +1654,7 @@
       "startYaw": 0,
       "goalYaw": 0,
       "routeName": "dock_ramp",
-      "approximateLengthMeters": 8,
+      "approximateLengthMeters": 9,
       "expectedChallenge": "shallow ramp",
       "expectedOutcome": "succeeded",
       "alternateRouteAvailable": false,

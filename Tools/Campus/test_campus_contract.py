@@ -4,6 +4,12 @@ ROOT=pathlib.Path(__file__).resolve().parents[2]
 MANIFEST=ROOT/'Assets/Resources/ReferenceEnvironments/industrial_logistics_campus_v1.json'
 def test_manifest_structure():
  subprocess.run([sys.executable,str(ROOT/'Tools/Campus/validate_campus.py')],check=True,capture_output=True)
+def test_start_in_doorway_wall_is_rejected(tmp_path):
+ m=json.loads(MANIFEST.read_text())
+ next(s for s in m['scenarios'] if s['id']=='dock_ramp')['start']=[9,30]
+ source=tmp_path/'invalid-spawn.json';source.write_text(json.dumps(m))
+ result=subprocess.run([sys.executable,str(ROOT/'Tools/Campus/validate_campus.py'),'--manifest',str(source)],capture_output=True,text=True)
+ assert result.returncode!=0 and 'dock_ramp start overlaps warehouse-door-east' in result.stderr
 def test_low_geometry_has_collision_and_distinct_surfaces():
  m=json.loads(MANIFEST.read_text());b={b['id']:b for b in m['boxes']}
  assert b['threshold']['size'][1]==.003

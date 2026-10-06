@@ -24,7 +24,7 @@ def publish_state():
  if latest_state[0] is not None:status_publisher.publish(String(data=json.dumps(latest_state[0])))
 node.create_timer(1.,publish_state)
 node.create_subscription(Clock,'/clock',lambda m:stamp.__setitem__(0,m.clock.sec+m.clock.nanosec*1e-9),10)
-for topic,typ in [('/scan',LaserScan),('/crane/odom',Odometry),('/crane/cmd_vel_stamped',TwistStamped),('/tf',TFMessage),('/plan',Path),('/local_costmap/costmap',OccupancyGrid),('/campus/imu',Imu),('/campus/wheel_odom',Odometry),('/navigate_to_pose/_action/status',GoalStatusArray)]:
+for topic,typ in [('/scan',LaserScan),('/campus/navigation_scan',LaserScan),('/crane/odom',Odometry),('/crane/cmd_vel_stamped',TwistStamped),('/tf',TFMessage),('/plan',Path),('/local_costmap/costmap',OccupancyGrid),('/campus/imu',Imu),('/campus/wheel_odom',Odometry),('/navigate_to_pose/_action/status',GoalStatusArray)]:
  def record(m,t=topic):
   if t=='/navigate_to_pose/_action/status' and m.status_list:
    status=m.status_list[-1].status;latest_state[0]={'state':{0:'unknown',1:'accepted',2:'executing',3:'canceling',4:'succeeded',5:'canceled',6:'aborted'}.get(status,'unknown'),'rosTime':stamp[0]};publish_state()
