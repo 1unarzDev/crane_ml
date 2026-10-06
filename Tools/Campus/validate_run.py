@@ -6,6 +6,7 @@ from dynamic_evidence import measured_encounter
 from ramp_evidence import ramp_traversal
 from sensor_error_evidence import sensor_error_evidence
 from surface_evidence import transition_evidence
+from contact_evidence import classified_contacts
 p=argparse.ArgumentParser();p.add_argument('run',type=pathlib.Path);p.add_argument('--require-recovery',action='store_true');p.add_argument('--require-detour',action='store_true');p.add_argument('--require-dynamic',action='store_true');p.add_argument('--require-no-path',action='store_true');a=p.parse_args();r=a.run
 f=json.loads((r/'fixture-summary.json').read_text());s=json.loads((r/'scenario.json').read_text());h=json.loads((r/'navigation-reset-summary.json').read_text());t=[json.loads(x) for x in (r/'telemetry.jsonl').read_text().splitlines()];events=[json.loads(x) for x in (r/'events.jsonl').read_text().splitlines()] if (r/'events.jsonl').exists() else []
 paths=f.get('planHistory',[]);ids={x.get('pathId') for x in paths};motion=f.get('pathMetrics',{});topic_counts={};stamps={};frames=set();scan_valid=scan_total=0;scan_min=math.inf;scan_max=0;observed_plans=[]
@@ -20,8 +21,10 @@ with gzip.open(r/'ros-evidence.jsonl.gz','rt') as stream:
    scan_total+=len(m['ranges']);finite=[v for v in m['ranges'] if v is not None];scan_valid+=len(finite)
    if finite:scan_min=min(scan_min,min(finite));scan_max=max(scan_max,max(finite))
 rates={k:(len(v)-1)/(v[-1]-v[0]) for k,v in stamps.items() if len(v)>1 and v[-1]>v[0]}
-checks={'expectedNav2Outcome':f['status']==s['expectedOutcome'],'strictHarnessValid':h['valid'],'receivedCommandsAndMotion':f['returnedCommands']>0 and (s['expectedOutcome']=='aborted' or f['displacementMeters']>7),'receivedPlanOrDocumentedPlannerFailure':bool(paths) or (s['expectedOutcome']=='aborted' and 'failed' in (r/'controller.log').read_text().lower()),'occupiedCostmap':f['maximumOccupiedCostmapCells']>0,'receivedScan':topic_counts.get('/scan',0)>0,'correctFrames':{'odom','base_link','base_scan'}.issubset(frames),'scanCadence':4.5<=rates.get('/scan',0)<=5.5,'imuCadence':45<=rates.get('/campus/imu',0)<=55,'receivedWheelOdometry':topic_counts.get('/campus/wheel_odom',0)>0,'finiteRangesWithinProfile':.119<=scan_min<=scan_max<=3.501,'noRobotFall':min(x['position']['y'] for x in t)>-.1,'stableUncommandedStartup':max(math.hypot(x['position']['x']-t[0]['position']['x'],x['position']['z']-t[0]['position']['z']) for x in t if x['simulationTime']<=next((v['simulationTime'] for v in t if v['commandLinear'] or v['commandAngular']),t[-1]['simulationTime']))<.05,'surfaceMeasured':any(x['leftSurface'] not in ['unknown','legacy'] for x in t),'nonpenetratingNominal':t[-1]['collisionCount']==0 if s['expectedOutcome']=='succeeded' and s['id'] not in ['dock_threshold','dock_ramp'] else True}
+checks={'expectedNav2Outcome':f['status']==s['expectedOutcome'],'strictHarnessValid':h['valid'],'receivedCommandsAndMotion':f['returnedCommands']>0 and (s['expectedOutcome']=='aborted' or f['displacementMeters']>7),'receivedPlanOrDocumentedPlannerFailure':bool(paths) or (s['expectedOutcome']=='aborted' and 'failed' in (r/'controller.log').read_text().lower()),'occupiedCostmap':f['maximumOccupiedCostmapCells']>0,'receivedScan':topic_counts.get('/scan',0)>0,'correctFrames':{'odom','base_link','base_scan'}.issubset(frames),'scanCadence':4.5<=rates.get('/scan',0)<=5.5,'imuCadence':45<=rates.get('/campus/imu',0)<=55,'receivedWheelOdometry':topic_counts.get('/campus/wheel_odom',0)>0,'finiteRangesWithinProfile':.119<=scan_min<=scan_max<=3.501,'noRobotFall':min(x['position']['y'] for x in t)>-.1,'stableUncommandedStartup':max(math.hypot(x['position']['x']-t[0]['position']['x'],x['position']['z']-t[0]['position']['z']) for x in t if x['simulationTime']<=next((v['simulationTime'] for v in t if v['commandLinear'] or v['commandAngular']),t[-1]['simulationTime']))<.05,'surfaceMeasured':any(x['leftSurface'] not in ['unknown','legacy'] for x in t)}
 if a.require_recovery:checks['observedRecovery']=f['maximumRecoveryCount']>0
+contact_evidence=classified_contacts(json.loads((r/'manifest.json').read_text()),s,events)
+checks['noProhibitedObstacleContacts']=contact_evidence['noProhibitedObstacleContacts'] if s['expectedOutcome']=='succeeded' else True
 sensor_evidence=None
 if s['sensorProfile']!='off':
  sensor_evidence=sensor_error_evidence(events,s['sensorProfile'])
@@ -80,4 +83,5 @@ report['rampTraversalEvidence']=ramp_evidence
 report['terrainFilter']=terrain_filter
 report['sensorErrorEvidence']=sensor_evidence
 report['surfaceTransitionEvidence']=surface_evidence
+report['contactEvidence']=contact_evidence
 (r/'campus-validation.json').write_text(json.dumps(report,indent=2)+'\n');print(json.dumps({'state':report['state'],'checks':checks},indent=2));raise SystemExit(0 if all(checks.values()) else 1)
