@@ -90,7 +90,7 @@ planner_server:
     GridBased:
       plugin: nav2_navfn_planner::NavfnPlanner
       tolerance: 0.2
-      use_astar: true
+      use_astar: false
       allow_unknown: true
 global_costmap:
   global_costmap:
