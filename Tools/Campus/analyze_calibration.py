@@ -12,6 +12,13 @@ pos=lambda r:(r['position']['x'],r['position']['z'])
 dist=lambda a,b:math.dist(pos(a),pos(b))
 path=sum(dist(a,b) for a,b in zip(rows,rows[1:]));release=next((r for r in rows if r['simulationTime']>moving[-1]['simulationTime'] and r['commandLinear']==0),rows[-1]);stop=next((r for r in rows if r['simulationTime']>=release['simulationTime'] and math.hypot(r['velocity']['x'],r['velocity']['z'])<.01),rows[-1])
 result={'schema':'crane-turtlebot-calibration-v1','trial':args.trial,'dataSource':'simulation','seed':json.loads((args.run/'scenario.json').read_text())['seed'],'physicalFitAvailable':False,'initialPosition':rows[0]['position'],'maximumHeightMeters':max(x['position']['y'] for x in rows),'maximumUncommandedSettlingDisplacementMeters':max(dist(rows[0],x) for x in rows if x['simulationTime']<command_origin),'commandProgramOriginUnitySeconds':command_origin,'comparisonTimeOrigin':'first nonzero command acquisition','fixedStepSeconds':rows[0]['fixedDeltaTime'],'durationSeconds':rows[-1]['simulationTime']-rows[0]['simulationTime'],'endpointDistanceMeters':dist(rows[0],rows[-1]),'sampledPathMeters':path,'finalYawDegrees':rows[-1]['yaw'],'maximumYawExcursionDegrees':max(unwrapped)-min(unwrapped),'sampledAbsoluteYawTravelDegrees':sum(abs(x) for x in yaw_steps),'maximumAngularSpeedRadiansPerSecond':max(abs(r['angularVelocity']['y']) for r in rows),'commandedAbsoluteAngularTravelDegrees':sum(abs(r['commandAngular'])*(n['simulationTime']-r['simulationTime'])*180/math.pi for r,n in zip(rows,rows[1:])),'maximumSpeedMetersPerSecond':max(math.hypot(r['velocity']['x'],r['velocity']['z']) for r in rows),'stoppingDistanceMeters':dist(release,stop),'meanWheelSlipProxy':statistics.mean(r['slipProxy'] for r in moving),'collisionCount':rows[-1]['collisionCount'],'minimumRadialClearanceProxyMeters':min(r['minimumClearance'] for r in rows),'realComparison':None}
+# Wheel integration is deliberately separate from the ground-truth Nav2 pose.
+# Report measured position disagreement; yaw drift is unavailable in this stream.
+odometry_errors=[math.dist((r['wheelOdometryPosition']['x'],r['wheelOdometryPosition']['z']),pos(r)) for r in rows]
+result.update(finalWheelOdometryPositionErrorMeters=odometry_errors[-1],
+              maximumWheelOdometryPositionErrorMeters=max(odometry_errors),
+              wheelOdometryPositionRmseMeters=math.sqrt(statistics.mean(e*e for e in odometry_errors)),
+              finalOdometryErrorPerTraveledMeter=odometry_errors[-1]/path if path>0 else None)
 result.update(initial_response(rows,command_origin))
 result['commandTimeOriginPrecision']=origin_precision
 if args.real:
