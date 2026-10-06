@@ -27,12 +27,27 @@ namespace Sim.Sensors.Lidar {
         private int delayScans;
         private readonly System.Collections.Generic.Queue<LaserScanMsg> delayedScans = new();
         public long ErrorDropouts { get; private set; }
+        long errorScans,geometricReturns,materialReturns,materialDropouts,noiseSamples;
+        double noiseSum,noiseSquaredSum;
+        [Serializable] sealed class ErrorEvidence {
+            public long scans,geometricReturns,injectedDropouts,materialReturns,materialDropouts,noiseSamples;
+            public double noiseSumMeters,noiseSquaredSumMetersSquared;
+            public float configuredSigmaMeters,configuredDropoutProbability;
+            public int latencyScans;public string materialClass;
+        }
+        public string ErrorDiagnosticsJson()=>JsonUtility.ToJson(new ErrorEvidence{
+            scans=errorScans,geometricReturns=geometricReturns,injectedDropouts=ErrorDropouts,
+            materialReturns=materialReturns,materialDropouts=materialDropouts,noiseSamples=noiseSamples,
+            noiseSumMeters=noiseSum,noiseSquaredSumMetersSquared=noiseSquaredSum,
+            configuredSigmaMeters=rangeSigma,configuredDropoutProbability=dropoutProbability,
+            latencyScans=delayScans,materialClass=responseClass});
         public void ConfigureErrors(int seed, float sigma, float dropout, int latencyScans, string materialClass) {
             if (!float.IsFinite(sigma) || !float.IsFinite(dropout) || sigma > .1f || sigma < 0 || dropout < 0 || dropout > .5f || latencyScans < 0 || latencyScans > 3)
                 throw new ArgumentOutOfRangeException("LiDAR error profile");
             errorRandom = new System.Random(seed); rangeSigma = sigma; dropoutProbability = dropout;
             delayScans = latencyScans; responseClass = materialClass ?? "off";
             delayedScans.Clear(); ErrorDropouts = 0;
+            errorScans=geometricReturns=materialReturns=materialDropouts=noiseSamples=0;noiseSum=noiseSquaredSum=0;
         }
         private double Gaussian() { return Math.Sqrt(-2*Math.Log(Math.Max(1e-12,errorRandom.NextDouble()))) * Math.Cos(2*Math.PI*errorRandom.NextDouble()); }
 
@@ -105,6 +120,7 @@ namespace Sim.Sensors.Lidar {
         }
 
         private float[] PerformScan(Vector3[] dirs) {
+            if(errorRandom!=null)errorScans++;
             int numPoints = dirs.Length;
             int hitCount = 0;
             float minimumHitRange = float.PositiveInfinity;
@@ -126,15 +142,21 @@ namespace Sim.Sensors.Lidar {
                     Vector3 beam = transform.InverseTransformPoint(hit.point);
                     distances[i] = hit.distance;
                     if (errorRandom != null) {
+                        geometricReturns++;
                         var response = hit.collider.GetComponentInParent<CraneLidarResponse>();
+                        bool materialMatch=response!=null&&responseClass!="off"&&response.Class==responseClass;
+                        if(materialMatch)materialReturns++;
                         float chance = dropoutProbability;
                         if (response != null && responseClass != "off") {
                             float grazing = 1-Mathf.Abs(Vector3.Dot(hit.normal,(transform.rotation*dirs[i]).normalized));
                             chance += responseClass == "reflective" && response.Class == "reflective" ? .08f + .12f*grazing :
                                       responseClass == "dark" && response.Class == "dark" ? .12f : 0;
                         }
-                        if (errorRandom.NextDouble() < chance) { distances[i] = float.NaN; ErrorDropouts++; }
-                        else distances[i] = Mathf.Clamp(hit.distance+(float)Gaussian()*rangeSigma,minRange,maxRange);
+                        if (errorRandom.NextDouble() < chance) { distances[i] = float.NaN; ErrorDropouts++;if(materialMatch)materialDropouts++; }
+                        else {
+                            distances[i] = Mathf.Clamp(hit.distance+(float)Gaussian()*rangeSigma,minRange,maxRange);
+                            double realizedError=distances[i]-hit.distance;noiseSamples++;noiseSum+=realizedError;noiseSquaredSum+=realizedError*realizedError;
+                        }
                     }
                     hitCount++;
                     minimumHitRange = Mathf.Min(minimumHitRange, hit.distance);

@@ -52,6 +52,7 @@ namespace Sim.Physics.Land {
         bool visuals;
         double started;
         float previousFixedStep,previousMaximumCatchup;
+        Component diagnosticLidar;System.Reflection.MethodInfo lidarDiagnostics;double nextSensorEvidence;
 
         public static CraneIndustrialCampus Build(DifferentialDriveDynamics drive, string[] args) {
             var old = UnityEngine.Object.FindAnyObjectByType<CraneReferenceWarehouse>();
@@ -141,6 +142,7 @@ namespace Sim.Physics.Land {
                     float dropout=float.Parse(Arg(args,"--crane-campus-lidar-dropout",Scenario.sensorProfile=="off"?"0":"0.01"),CultureInfo.InvariantCulture);
                     int latency=int.Parse(Arg(args,"--crane-campus-lidar-latency-scans","0"),CultureInfo.InvariantCulture);
                     lidarType.GetMethod("ConfigureErrors").Invoke(lidar,new object[]{Seed+313,sigma,dropout,latency,Scenario.sensorProfile});
+                    diagnosticLidar=lidar;lidarDiagnostics=lidarType.GetMethod("ErrorDiagnosticsJson");
                     RecordEvent("lidar-profile","base_scan",$"sigmaMeters={sigma:R}; dropout={dropout:R}; latencyScans={latency}; materialClass={Scenario.sensorProfile}");
                 }
             }
@@ -681,6 +683,11 @@ namespace Sim.Physics.Land {
         public void RecordEvent(string type,string id,string detail) {
             File.AppendAllText(Path.Combine(OutputDirectory,"events.jsonl"),
                 JsonUtility.ToJson(new CampusEvent{type=type,id=id,detail=detail,simulationTime=Time.fixedTimeAsDouble,rosTime=Sim.Utils.ROS.Clock.time})+"\n");
+        }
+        void FixedUpdate(){
+            if(diagnosticLidar==null||lidarDiagnostics==null||Time.fixedTimeAsDouble<nextSensorEvidence)return;
+            nextSensorEvidence=Time.fixedTimeAsDouble+1;
+            RecordEvent("lidar-error-evidence","base_scan",(string)lidarDiagnostics.Invoke(diagnosticLidar,null));
         }
         [Serializable] sealed class CampusEvent {public string type,id,detail;public double simulationTime,rosTime;}
     }
