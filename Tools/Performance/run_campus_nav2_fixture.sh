@@ -42,11 +42,16 @@ cp "$manifest" "$CRANE_RESULT_ROOT/source-manifest.json"
 cp "$CRANE_NAV2_PARAMS" "$CRANE_RESULT_ROOT/nav2-params.yaml"
 env | sort | sed -n '/^CRANE_/p' > "$CRANE_RESULT_ROOT/launch-environment.txt"
 observer_name="crane-campus-evidence-$CRANE_RUN_ID"
-cleanup() { docker stop -t 5 "$observer_name" >/dev/null 2>&1 || true; docker rm "$observer_name" >/dev/null 2>&1 || true; }
+window_helper_pid=""
+cleanup() { if [[ -n "$window_helper_pid" ]]; then kill "$window_helper_pid" >/dev/null 2>&1 || true; wait "$window_helper_pid" 2>/dev/null || true; fi; docker stop -t 5 "$observer_name" >/dev/null 2>&1 || true; docker rm "$observer_name" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 # Passive evidence collector starts before the action; scan, TF and acquisition stamps are retained.
 docker run -d --name "$observer_name" --network host --ipc host -e ROS_DOMAIN_ID="$CRANE_ROS_DOMAIN_ID" \
   -v "$root_dir:/workspace/crane_sim:ro" -v "$CRANE_RESULT_ROOT:/results" "${CRANE_ROS_IMAGE:-lunarzdev/astro:cuda}" bash -lc \
   'source /opt/ros/jazzy/setup.bash; exec python3 /workspace/crane_sim/Tools/Campus/capture_ros.py --output /results/ros-evidence.jsonl.gz --seconds '"$((CRANE_DURATION+10))" \
   > "$CRANE_RESULT_ROOT/evidence-container-id"
+if [[ "$mode" == interactive ]]; then
+  python3 "$root_dir/Tools/Campus/configure_graphical_window.py" --run "$CRANE_RESULT_ROOT" &
+  window_helper_pid=$!
+fi
 "$root_dir/Tools/Performance/run_nav2_controller_fixture.sh"

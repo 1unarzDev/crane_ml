@@ -26,7 +26,12 @@ controller_server:
       yaw_goal_tolerance: 3.14
     FollowPath:
       plugin: nav2_regulated_pure_pursuit_controller::RegulatedPurePursuitController
-      desired_linear_vel: 0.26
+      desired_linear_vel: 0.22
+      use_cost_regulated_linear_velocity_scaling: true
+      cost_scaling_dist: 0.32
+      cost_scaling_gain: 0.8
+      inflation_cost_scaling_factor: 10.0
+      regulated_linear_scaling_min_speed: 0.08
       lookahead_dist: 0.28
       min_lookahead_dist: 0.18
       max_lookahead_dist: 0.4
@@ -36,7 +41,7 @@ controller_server:
       use_velocity_scaled_lookahead_dist: true
       use_collision_detection: true
       use_rotate_to_heading: false
-      allow_reversing: true
+      allow_reversing: false
       max_robot_pose_search_dist: 20.0
 local_costmap:
   local_costmap:
@@ -161,7 +166,7 @@ bt_navigator:
     robot_base_frame: base_link
     odom_topic: /crane/odom
     bt_loop_duration: 10
-    default_server_timeout: 20
+    default_server_timeout: 200
     wait_for_service_timeout: 1000
     action_server_result_timeout: 60.0
     navigators:
