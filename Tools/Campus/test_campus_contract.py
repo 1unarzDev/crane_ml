@@ -69,3 +69,17 @@ def test_surface_pad_bevels_join_floor_and_pad_without_lips():
    assert abs(upper[1]-edge)<.0002
    assert abs(lower[1]-(edge+sign*.15))<.0002
    assert 0<abs(bevel['pitch'])<7
+
+
+def test_proving_slalom_has_connected_alternating_tight_gates():
+ from check_topology import connectivity
+ from slalom_evidence import slalom_evidence
+ m=json.loads(MANIFEST.read_text());scenario=next(s for s in m['scenarios'] if s['id']=='proving_slalom')
+ topology=connectivity(m,scenario)
+ assert topology['reachable'] and not topology['startBlocked'] and not topology['goalBlocked']
+ assert topology['gridPathLengthMeters']>30
+ physical=slalom_evidence(m,scenario,[])
+ assert all(physical['checks'][f'gate{i}IsTightPhysicalGap'] for i in range(3))
+ assert [g['side'] for g in physical['gates']]==['right','left','right']
+ assert all(abs(g['clearWidthMeters']-1.1)<1e-6 for g in physical['gates'])
+ assert not scenario['alternateRouteAvailable']

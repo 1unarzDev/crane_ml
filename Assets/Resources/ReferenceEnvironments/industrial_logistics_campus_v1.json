@@ -826,12 +826,12 @@
       "id": "slalom-bank-0",
       "kind": "barrier",
       "center": [
-        25,
+        28.8875,
         0.45,
         23
       ],
       "size": [
-        5,
+        4.774999999999999,
         0.9,
         0.5
       ],
@@ -842,12 +842,12 @@
       "id": "slalom-bank-1",
       "kind": "barrier",
       "center": [
-        31,
+        30.1125,
         0.45,
         27
       ],
       "size": [
-        5,
+        4.774999999999999,
         0.9,
         0.5
       ],
@@ -858,12 +858,12 @@
       "id": "slalom-bank-2",
       "kind": "barrier",
       "center": [
-        25,
+        28.8875,
         0.45,
         31
       ],
       "size": [
-        5,
+        4.774999999999999,
         0.9,
         0.5
       ],
@@ -2012,24 +2012,125 @@
       "robot": "turtlebot3-waffle-reference",
       "seed": 4101,
       "start": [
-        28,
+        29.5,
         18
       ],
       "goal": [
-        28,
+        29.5,
         38
       ],
       "startYaw": 0,
       "goalYaw": 0,
       "routeName": "proving_slalom",
-      "approximateLengthMeters": 25,
-      "expectedChallenge": "slalom bank avoidance",
+      "approximateLengthMeters": 27,
+      "expectedChallenge": "Three mandatory alternating 1.10 m clear gates in a six-meter-wide temporary proving course",
       "expectedOutcome": "succeeded",
-      "alternateRouteAvailable": true,
-      "obstacles": [],
+      "alternateRouteAvailable": false,
+      "obstacles": [
+        {
+          "id": "prove-course-left",
+          "kind": "barrier",
+          "surface": "normal-concrete",
+          "center": [
+            26.5,
+            0.45,
+            28
+          ],
+          "size": [
+            0.25,
+            0.9,
+            24
+          ],
+          "yaw": 0,
+          "activate": 0,
+          "remove": -1,
+          "velocity": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "id": "prove-course-right",
+          "kind": "barrier",
+          "surface": "normal-concrete",
+          "center": [
+            32.5,
+            0.45,
+            28
+          ],
+          "size": [
+            0.25,
+            0.9,
+            24
+          ],
+          "yaw": 0,
+          "activate": 0,
+          "remove": -1,
+          "velocity": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "id": "prove-course-south",
+          "kind": "barrier",
+          "surface": "normal-concrete",
+          "center": [
+            29.5,
+            0.45,
+            16
+          ],
+          "size": [
+            6,
+            0.9,
+            0.25
+          ],
+          "yaw": 0,
+          "activate": 0,
+          "remove": -1,
+          "velocity": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "id": "prove-course-north",
+          "kind": "barrier",
+          "surface": "normal-concrete",
+          "center": [
+            29.5,
+            0.45,
+            40
+          ],
+          "size": [
+            6,
+            0.9,
+            0.25
+          ],
+          "yaw": 0,
+          "activate": 0,
+          "remove": -1,
+          "velocity": [
+            0,
+            0,
+            0
+          ]
+        }
+      ],
       "surfaceConfiguration": "campus-eight-surface-priors-v1",
       "sensorProfile": "off",
-      "evidenceAnnotations": []
+      "evidenceAnnotations": [
+        "prove-course-left",
+        "prove-course-right",
+        "prove-course-south",
+        "prove-course-north",
+        "slalom-bank-0",
+        "slalom-bank-1",
+        "slalom-bank-2"
+      ]
     },
     {
       "id": "proving_offset_gates",
