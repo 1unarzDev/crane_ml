@@ -291,6 +291,47 @@ timestamp. Override topics, frames, or rate with `--crane-ros-odom-topic`,
 `--crane-ros-nav-state-hz`; override the comma-separated child set with
 `--crane-ros-nav-child-frames` or pass `none`.
 
+### Boat thruster PWM input and sensor contract
+
+`--crane-ros-thruster-pwm [/thrusters/pwm]` drives the four thrusters from
+`std_msgs/UInt16MultiArray` ESC pulse widths (physical outputs 1-4, microseconds): the signal the
+boat's ODROID puts on its PWM pins. mhseals_hardware's `thruster_pwm_node` publishes it with
+`output_backend: topic`, after the boat's own mixer, channel map and calibration, so the simulator
+exercises the tuned allocation rather than `OmniXController`'s mixer. Each pulse maps through the
+shared `EscPwm` model (1100-1900 us, 1500 neutral) onto `+/-ThrusterConfig.GetMaxCommand()`;
+`--crane-pwm-deadband` adds an ESC deadband in microseconds. `--crane-pwm-outputs FL,FR,RR,RL`
+names the physical output wired to each thruster (default `1,2,3,4`), the simulator's equivalent
+of the boat wiring that `thruster_identify` discovers. Like the velocity input it enqueues in the
+callback, applies in `FixedUpdate`, and goes neutral after `--crane-command-timeout-ticks`; the
+publisher repeats at 20 Hz so silence means a lost link. The input refuses to start beside
+`--crane-ros-cmd-vel` or without `--crane-disable-sitl`, so two thruster sources never fight.
+
+`--crane-roboboat-contract` publishes what the boat's flight controller provides through MAVROS,
+letting mhseals_nav's localization run unchanged with `odom.launch.py fcu:=false` and no ArduPilot:
+
+| Topic | Type | Content |
+| --- | --- | --- |
+| `/odom/mavros` | `nav_msgs/Odometry`, 20 Hz | `odom` pose, body-frame (`base_link`) velocity; `--crane-fcu-velocity-sigma` adds noise |
+| `/imu/raw` | `sensor_msgs/Imu`, 20 Hz | attitude, body rates and specific force (+g up at rest), `base_link` |
+| `/gps/fix` | `sensor_msgs/NavSatFix`, 5 Hz | ENU position about `--crane-gps-origin lat,lon`; `--crane-gps-sigma` adds noise |
+
+Frames follow REP 103 and the RoboBoat bow correction used by `CraneROSNavigationState`. The scene's
+own `Imu` and `GPS` components are disabled under the contract: they publish the same topics
+without the bow correction and with an empty fix. Ground truth stays on `/crane/odom` for scoring
+but without `odom -> base_link` TF, which the EKF owns. `--crane-contract-seed` fixes the noise.
+
+The boat's full stack therefore runs as:
+
+```bash
+<player> --crane-disable-sitl --crane-ros-thruster-pwm --crane-roboboat-contract
+ros2 launch mhseals_nav robot.launch.py sim:=true fcu:=false
+ros2 run mhseals_hardware thruster_pwm_node --ros-args -p output_backend:=topic
+```
+
+`CRANE_RESPONSE_INPUT=pwm Tools/Performance/run_roboboat_command_response.sh` runs the axis
+response fixture through this input with boat-mixed pulses, checked by
+`check_roboboat_axis_response.py` like the velocity input.
+
 The included acceptance fixture runs the real Jazzy Nav2 lifecycle manager, BT navigator, NavFn
 planner, behavior server, LiDAR-fed voxel/inflation global and local costmaps, Regulated Pure
 Pursuit controller, and `NavigateToPose` action. It uses authoritative Unity `odom` as its global

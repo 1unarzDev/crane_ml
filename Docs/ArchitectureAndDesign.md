@@ -14,7 +14,9 @@ CRANE is a Unity 6 robotics simulator for testing reusable autonomous-navigation
 vehicles and operating domains. Unity owns the world, physical interaction, and sensor
 generation. ROS 2 owns the external navigation stack: mapping, estimation, planning, control,
 and other model computation. An ArduPilot JSON/SITL UDP path is also available under a legacy
-`MAVROSConnection` class name.
+`MAVROSConnection` class name; it is an optional bridge for other platforms (such as multirotors)
+and not part of the RoboBoat path, which takes ESC pulses over ROS (`ROSThrusterPwmCommand`) and
+publishes the flight-controller topics itself (`CraneRoboBoatSensorContract`).
 
 The intended workloads include reinforcement learning, black-box optimization, synthetic dataset
 generation, regression testing, and closed-loop robotics research. These workloads require many
@@ -262,6 +264,10 @@ sensor cost from transport cost. `ROSSubscriber` registers controller callbacks 
 connector. Clock helpers expose simulation time to ROS consumers. The MAVROS bridge provides a
 separate UDP integration for SITL-style communication. Despite its serialized legacy class name
 `MAVROSConnection`, this is the ArduPilot JSON backend servo/telemetry protocol, not a MAVROS node.
+Its pulse mapping is the shared `EscPwm` model, which `ROSThrusterPwmCommand` also uses. Known
+issue, not fixed: the bridge's JSON telemetry is not in ArduPilot's frames (z-up position instead
+of NED, world-frame gyro, raw Unity Euler angles, constant acceleration), so a real SITL vehicle
+would see inconsistent state; anyone reviving it for drones should correct those first.
 
 Simulation time is necessary but is not a processing barrier. An accelerated Unity worker must
 not repeatedly apply an old command while the ROS controller is still computing. `ROSThruster`
