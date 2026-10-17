@@ -463,8 +463,34 @@ namespace Sim.Sensors.Lidar {
                     Debug.LogError($"CRANE LiDAR packing validation found {mismatches} mismatches " +
                                    $"across {data.Length} bytes.");
             }
+            if (ReturnsOnly) {
+                // As a real driver publishes: only the rays that hit something. Over open
+                // water most rays miss, so this is most of the cloud's size.
+                data = Returns(data);
+                msg.width = (uint)(data.Length / 12);
+                msg.row_step = msg.point_step * msg.width;
+            }
+            else {
+                msg.is_dense = false;  // misses are NaN points
+            }
             msg.data = data;
             return msg;
+        }
+
+        private static readonly bool ReturnsOnly =
+            Array.IndexOf(Environment.GetCommandLineArgs(), "--crane-lidar-returns-only") >= 0;
+
+        /// <summary>Keep the 12-byte points whose x is a number.</summary>
+        public static byte[] Returns(byte[] packed) {
+            int kept = 0;
+            byte[] compact = new byte[packed.Length];
+            for (int offset = 0; offset + 12 <= packed.Length; offset += 12) {
+                if (float.IsNaN(BitConverter.ToSingle(packed, offset))) continue;
+                Buffer.BlockCopy(packed, offset, compact, kept, 12);
+                kept += 12;
+            }
+            Array.Resize(ref compact, kept);
+            return compact;
         }
     }
 }

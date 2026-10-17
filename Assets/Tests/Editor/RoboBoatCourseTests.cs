@@ -106,6 +106,16 @@ namespace Sim.Tests.Editor {
         }
 
         [Test]
+        public void LidarReturnsOnlyDropsTheMisses() {
+            var packed = new byte[36];
+            System.Buffer.BlockCopy(new[] { 1f, 2f, 3f, float.NaN, float.NaN, float.NaN, 4f, 5f, 6f },
+                0, packed, 0, 36);
+            byte[] kept = Sim.Sensors.Lidar.Lidar3D.Returns(packed);
+            Assert.That(kept.Length, Is.EqualTo(24));
+            Assert.That(System.BitConverter.ToSingle(kept, 12), Is.EqualTo(4f));
+        }
+
+        [Test]
         public void DisturbanceWaitsThenRampsIn() {
             RoboBoatPhysics.DisturbanceAfter = 30f;
             Assert.That(RoboBoatPhysics.Disturbance(20f), Is.EqualTo(0f));
