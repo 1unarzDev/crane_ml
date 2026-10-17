@@ -606,3 +606,37 @@ bounded connection-task teardown from `OnDestroy`. The paired
 endpoint removes executor-owned ROS nodes and clears its registration tables on disconnect. Do not
 replace either side with an unpinned upstream version without rerunning the live transport,
 scene-reload, and reconnect fixtures.
+
+
+## RoboBoat realism profile, courses and weather
+
+With `--crane-roboboat-contract` the boat carries the real platform's numbers
+(`RoboBoatPhysics.cs`; `--crane-roboboat-legacy-physics` keeps the scene as authored):
+
+- 30 kg loaded, mass spread over the hull and frame links; rotor links untouched.
+- Four Blue Robotics T200 at 16 V: 51.5 N forward, 40.2 N reverse, thrust with the square of
+  the ESC command through a 0.1 s spin-up (the rotor joints top out near 150 rad/s, so their
+  speed is not used as a thrust measure).
+- One hull model replaces GeneralDynamics, the per-face current drag and Fossen damping: linear
+  plus quadratic drag in REP-103 body axes on the velocity relative to the water (surge
+  30 + 27|u|, top speed 1.83 m/s at full surge; sway 40 + 60|v|; yaw 20 + 30|r|; heave, roll and
+  pitch damped). A current therefore carries the boat.
+- The LiDAR is a VLP-16 (16 rings, 2 degrees apart over +-15 degrees, 0.2 degree steps, 10 Hz) in
+  lidar_link REP-103 axes.
+
+| Flag | Effect |
+| --- | --- |
+| `--crane-roboboat-course <json>` | Builds a course from a spec (course frame = boat start, x ahead, y to port) by cloning the scene's buoys, docks and vessels; hides the legacy task groups; registers every element with the detection sensor; adds banners to dock bays |
+| `--crane-roboboat-course-truth <json>` | Writes what was placed (world frame of `/crane/odom`, each element tagged with its task, dock bays with banners and occupancy) for the referee |
+| `--crane-water-current speed,toward_deg` | Sets the water current (toward, counter-clockwise from world +x) |
+| `--crane-wind speed,toward_deg` | World-fixed wind: drag on the hull's above-water area (0.30 m^2 ahead, 0.40 m^2 abeam, Cd 1) with Ornstein-Uhlenbeck gusts (25 %, 8 s) and veer (10 deg, 30 s), seeded by `--crane-seed` |
+| `--crane-disturbance-after s` | Wind and current start after `s` seconds and ramp in over 10 s, so runs begin where the boat was placed |
+| `--crane-lidar-returns-only` | Publishes only LiDAR returns, as the Velodyne driver does |
+| `--crane-lidar-water-level y` | Drops returns below the water surface (a LiDAR does not see the seabed) |
+
+`Tools/RoboBoat/courses/roboboat_2025.json` lays out the 2025 tasks (handbook 3.2): navigation
+channel, follow the path with yellow buoys, a three-bay dock (one bay occupied), the speed
+challenge with its blue mark and black buoys, and the black return gate. Detections are published
+in front_camera_link REP-103 axes. Run headless with `-batchmode` and an X display for the
+Vulkan device (`CRANE_BATCHMODE=1 DISPLAY=:1`); without any display the NVIDIA Vulkan device
+fails to start.

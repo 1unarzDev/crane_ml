@@ -176,8 +176,9 @@ Buoyancy applies displaced-water force at the computed center of buoyancy. Enabl
 `GeneralDynamics` applies triangle-based viscous resistance and pressure/suction drag (linear 100,
 quadratic 30, reference speed 1 m/s). The Fossen component and its added-mass model are present but
 disabled. `Current` is enabled, and the scene water surface supplies waves/current. These values are
-scene/model inputs with no calibration provenance in code; they are therefore treated as estimates,
-not measured real-platform constants, and were not changed.
+scene/model inputs with no calibration provenance in code. With the RoboBoat contract they are
+replaced by the realism profile described in `SimulationPhysicsAndRuntimeModes.md` (30 kg, T200
+thrust, relative-water hull drag calibrated to the real 1.8 m/s top speed).
 
 The earlier controller-X full-effort test reached 1.246 m/s peak and 1.216 m/s tail, traveled
 17.47 m, then coasted 0.655 m after release. That controller axis is imported-body `+Z`, not the
