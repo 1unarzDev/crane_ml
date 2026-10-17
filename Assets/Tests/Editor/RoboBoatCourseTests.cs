@@ -104,5 +104,14 @@ namespace Sim.Tests.Editor {
                 Is.LessThan(RoboBoatHull.TopSpeed(thrust, RoboBoatHull.Surge)),
                 "a catamaran is draggier abeam");
         }
+
+        [Test]
+        public void DisturbanceWaitsThenRampsIn() {
+            RoboBoatPhysics.DisturbanceAfter = 30f;
+            Assert.That(RoboBoatPhysics.Disturbance(20f), Is.EqualTo(0f));
+            Assert.That(RoboBoatPhysics.Disturbance(35f), Is.EqualTo(0.5f).Within(1e-6f));
+            Assert.That(RoboBoatPhysics.Disturbance(60f), Is.EqualTo(1f));
+            RoboBoatPhysics.DisturbanceAfter = -10f;
+        }
     }
 }

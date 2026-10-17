@@ -24,9 +24,17 @@ namespace Sim.Controllers {
         internal const float ResidualLinearDamping = 0.05f;
         internal const float ResidualAngularDamping = 0.2f;
 
+        /// <summary>How much of the wind and current is on: 0 until
+        /// ``--crane-disturbance-after`` seconds of the scene, then ramping to 1 over 10 s,
+        /// so a run can start from a boat sitting where it was placed.</summary>
+        internal static float DisturbanceAfter;
+        internal static float Disturbance(float sceneTime) =>
+            Mathf.Clamp01((sceneTime - DisturbanceAfter) / 10f);
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Install() {
             string[] args = Environment.GetCommandLineArgs();
+            DisturbanceAfter = ReadFloat(args, "--crane-disturbance-after", -10f);
             bool contract = Array.IndexOf(args, CraneRoboBoatSensorContractBootstrap.Flag) >= 0;
             bool wind = Array.IndexOf(args, RoboBoatWind.Flag) >= 0;
             bool legacy = Array.IndexOf(args, "--crane-roboboat-legacy-physics") >= 0;
@@ -136,6 +144,7 @@ namespace Sim.Controllers {
             if (water != null) {
                 float angle = water.largeOrientationValue * Mathf.Deg2Rad;
                 current = water.largeCurrentSpeedValue *
+                          RoboBoatPhysics.Disturbance(Time.timeSinceLevelLoad) *
                           new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
             }
             Quaternion frame = RoboBoatRosFrame.Rotation(body.transform.rotation);
@@ -210,7 +219,8 @@ namespace Sim.Controllers {
             float dt = Time.fixedDeltaTime;
             gust = Wander(gust, GustIntensity, GustTime, dt);
             veer = Wander(veer, VeerDeg * Mathf.Deg2Rad, VeerTime, dt);
-            float speed = Mathf.Max(0f, meanSpeed * (1f + gust));
+            float speed = Mathf.Max(0f, meanSpeed * (1f + gust)) *
+                          RoboBoatPhysics.Disturbance(Time.timeSinceLevelLoad);
             float toward = meanToward + veer;
             var air = new Vector2(speed * Mathf.Cos(toward), speed * Mathf.Sin(toward));
             Vector2 boat = RoboBoatCourse.UnityToRos(body.linearVelocity);
