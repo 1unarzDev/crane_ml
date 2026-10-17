@@ -20,6 +20,13 @@ namespace Sim.Controllers {
         internal const float T200Forward = 51.5f;      // N, 5.25 kgf at 16 V
         internal const float T200Reverse = 40.2f;      // N, 4.1 kgf at 16 V
         internal const float T200SpinUp = 0.1f;        // s, a T200 from rest to commanded speed
+        // Whole-boat inertia about the centre of mass, kg m^2, roll / pitch / yaw. Two hulls
+        // carry 60 % of the 30 kg as slender 1.06 m bodies 0.33 m either side of the centre
+        // line; the deck, electronics and batteries carry the rest as a 0.5 x 0.4 x 0.25 m
+        // box: roll 2 * 9 * 0.33^2 + 12 * (0.4^2 + 0.25^2) / 12 = 2.2, pitch
+        // 2 * 9 * 1.06^2 / 12 + 12 * (0.5^2 + 0.25^2) / 12 = 2.0, yaw
+        // 2 * 9 * (1.06^2 / 12 + 0.33^2) + 12 * (0.5^2 + 0.4^2) / 12 = 4.1.
+        internal static readonly Vector3 BoatInertia = new(2.2f, 2.0f, 4.1f);
         // Unity damping is not water; keep a trace for numerical calm only.
         internal const float ResidualLinearDamping = 0.05f;
         internal const float ResidualAngularDamping = 0.2f;
@@ -76,12 +83,9 @@ namespace Sim.Controllers {
                 link.jointType == ArticulationJointType.FixedJoint).ToArray();
             float rotors = all.Except(links).Sum(link => link.mass);
             float[] masses = ScaledMasses(links.Select(link => link.mass).ToArray(), Mass - rotors);
-            for (int i = 0; i < links.Length; i++) {
-                links[i].mass = masses[i];
-                // The authored tensors were placeholders (10, 15, 10 kg m^2 on a 3 kg link);
-                // let PhysX integrate the colliders at the new masses instead.
-                links[i].automaticInertiaTensor = true;
-            }
+            for (int i = 0; i < links.Length; i++) links[i].mass = masses[i];
+            Vector3 before = Composite(root, all);
+            SetInertia(root, all, BoatInertia);
             foreach (ArticulationBody link in all) {
                 link.linearDamping = ResidualLinearDamping;
                 link.angularDamping = ResidualAngularDamping;
@@ -100,6 +104,7 @@ namespace Sim.Controllers {
                 extra.enabled = false;
             var hull = root.gameObject.AddComponent<RoboBoatHull>();
             hull.body = root;
+            hull.links = all;
             // The LiDAR as a Velodyne VLP-16: 16 rings 2 degrees apart over +-15 degrees and
             // 0.2 degree steps at 10 Hz. (The pattern spaces rings FOV / count apart.)
             // Its mount follows the imported hull's axes, so the cloud gets the same turn
@@ -110,11 +115,74 @@ namespace Sim.Controllers {
                     Quaternion.Inverse(lidar.transform.rotation) *
                     RoboBoatRosFrame.Rotation(root.transform.rotation)));
             }
-            Vector3 inertia = links.Aggregate(Vector3.zero, (sum, link) => sum + link.inertiaTensor);
+            Vector3 inertia = Composite(root, all);
             Debug.Log($"CRANE_ROBOBOAT_PHYSICS mass={all.Sum(link => link.mass):R} " +
                       $"links={links.Length}+{all.Length - links.Length} thrust={T200Forward:R}/{T200Reverse:R}N " +
-                      $"top_speed={RoboBoatHull.TopSpeed(4 * T200Forward * Mathf.Sqrt(0.5f), RoboBoatHull.Surge):R} link_inertia_sum=({inertia.x:R},{inertia.y:R}," +
+                      $"top_speed={RoboBoatHull.TopSpeed(4 * T200Forward * Mathf.Sqrt(0.5f), RoboBoatHull.Surge):R} " +
+                      $"scene_inertia_rpy=({before.x:F2},{before.y:F2},{before.z:F2}) inertia_rpy=({inertia.x:R},{inertia.y:R}," +
                       $"{inertia.z:R})");
+        }
+
+        /// <summary>Body axes (bow, port, up) of the hull in world space.</summary>
+        private static (Vector3, Vector3, Vector3) Axes(ArticulationBody root) {
+            Quaternion frame = RoboBoatRosFrame.Rotation(root.transform.rotation);
+            return (frame * Vector3.forward, Vector3.Cross(frame * Vector3.forward, frame * Vector3.up),
+                frame * Vector3.up);
+        }
+
+        private static Vector3 CentreOfMass(ArticulationBody[] links) =>
+            links.Aggregate(Vector3.zero, (sum, link) => sum + link.mass * link.worldCenterOfMass) /
+            links.Sum(link => link.mass);
+
+        /// <summary>Moment of inertia of one link about ``axis`` through ``point``.</summary>
+        private static float About(ArticulationBody link, Vector3 axis, Vector3 point) {
+            Vector3 local = Quaternion.Inverse(link.transform.rotation * link.inertiaTensorRotation) * axis;
+            float own = Vector3.Dot(Vector3.Scale(local, local), link.inertiaTensor);
+            Vector3 d = link.worldCenterOfMass - point;
+            return own + link.mass * (d.sqrMagnitude - Mathf.Pow(Vector3.Dot(d, axis), 2));
+        }
+
+        /// <summary>The whole boat's roll, pitch and yaw inertia about its centre of mass.</summary>
+        internal static Vector3 Composite(ArticulationBody root, ArticulationBody[] links) {
+            var (bow, port, up) = Axes(root);
+            Vector3 com = CentreOfMass(links);
+            return new Vector3(links.Sum(l => About(l, bow, com)), links.Sum(l => About(l, port, com)),
+                links.Sum(l => About(l, up, com)));
+        }
+
+        /// <summary>Give the boat ``target`` (roll, pitch, yaw) about its centre of mass: the
+        /// other links keep small tensors and their mass offsets, the root takes the rest.</summary>
+        private static void SetInertia(ArticulationBody root, ArticulationBody[] links, Vector3 target) {
+            foreach (var link in links.Where(link => !link.isRoot)) {
+                link.automaticInertiaTensor = false;
+                link.inertiaTensor = Vector3.one * Mathf.Max(1e-6f, 1e-3f * link.mass);
+                link.inertiaTensorRotation = Quaternion.identity;
+            }
+            // PhysX ignores a zero tensor, so start the root from a small one.
+            const float floor = 0.05f;
+            root.automaticInertiaTensor = false;
+            root.inertiaTensorRotation = Quaternion.identity;
+            root.inertiaTensor = Vector3.one * floor;
+            var (bow, port, up) = Axes(root);
+            Vector3 com = CentreOfMass(links);
+            Vector3 rest = new Vector3(links.Sum(l => About(l, bow, com)),
+                links.Sum(l => About(l, port, com)), links.Sum(l => About(l, up, com))) -
+                Vector3.one * floor;
+            // Where the links' own spread already exceeds the target (roll: the hulls sit
+            // wide and low), that is the boat's; the root only adds what is missing.
+            Vector3 need = Vector3.Max(target - rest, Vector3.one * floor);  // roll, pitch, yaw
+            // Into the root's local axes, whichever way the imported mesh points them.
+            Vector3 tensor = Vector3.zero;
+            for (int k = 0; k < 3; k++) {
+                Vector3 axis = root.transform.rotation * new Vector3(k == 0 ? 1 : 0, k == 1 ? 1 : 0, k == 2 ? 1 : 0);
+                float[] fit = { Mathf.Abs(Vector3.Dot(axis, bow)), Mathf.Abs(Vector3.Dot(axis, port)),
+                    Mathf.Abs(Vector3.Dot(axis, up)) };
+                int best = fit[0] >= fit[1] && fit[0] >= fit[2] ? 0 : fit[1] >= fit[2] ? 1 : 2;
+                tensor[k] = need[best];
+            }
+            root.inertiaTensor = tensor;
+            Debug.Log($"CRANE_ROBOBOAT_INERTIA rest_rpy=({rest.x:F2},{rest.y:F2},{rest.z:F2}) " +
+                      $"root_local=({tensor.x:F2},{tensor.y:F2},{tensor.z:F2})");
         }
 
         internal static float ReadFloat(string[] args, string key, float fallback) {
@@ -141,7 +209,9 @@ namespace Sim.Controllers {
         internal static readonly Vector2 Roll = new(30f, 10f);    // twin hulls resist rolling
         internal static readonly Vector2 Pitch = new(30f, 10f);
         internal ArticulationBody body;
+        internal ArticulationBody[] links;
         private UnityEngine.Rendering.HighDefinition.WaterSurface water;
+        private int steps;
 
         internal static float Drag(float velocity, Vector2 coefficients) =>
             -(coefficients.x + coefficients.y * Mathf.Abs(velocity)) * velocity;
@@ -154,6 +224,12 @@ namespace Sim.Controllers {
             water = FindAnyObjectByType<UnityEngine.Rendering.HighDefinition.WaterSurface>();
 
         private void FixedUpdate() {
+            if (++steps == 50 && links != null) {
+                Vector3 i = RoboBoatPhysics.Composite(body, links);
+                Debug.Log($"CRANE_ROBOBOAT_INERTIA_CHECK rpy=({i.x:F2},{i.y:F2},{i.z:F2}) " +
+                          $"root=({body.inertiaTensor.x:F2},{body.inertiaTensor.y:F2},{body.inertiaTensor.z:F2}) " +
+                          $"root_rotation={body.inertiaTensorRotation.eulerAngles} auto={body.automaticInertiaTensor}");
+            }
             Vector3 current = Vector3.zero;
             if (water != null) {
                 float angle = water.largeOrientationValue * Mathf.Deg2Rad;
