@@ -141,6 +141,19 @@ namespace Sim.Sensors.Vision {
             publisher = gameObject.AddComponent<ROSPublisher>();
         }
 
+        /// <summary>Replace every labelled target, e.g. with a course built at runtime.</summary>
+        public void ReplaceTargets(IEnumerable<KeyValuePair<GameObject, string>> targets) {
+            objectDict.Clear();
+            renderersByObject.Clear();
+            objects.Clear();
+            foreach (var (target, label) in targets) {
+                if (target == null || string.IsNullOrEmpty(label)) continue;
+                objectDict[target] = label;
+                renderersByObject[target] = target.GetComponentsInChildren<Renderer>();
+                objects.Add(new ObjectEntry { obj = target, id = label });
+            }
+        }
+
         private void Start() {
             publisher.Initialize(topicName, frameId, CreateMessage, Hz, true);
         }
@@ -233,15 +246,16 @@ namespace Sim.Sensors.Vision {
 
                 // Rotation in camera frame
                 Quaternion cameraSpaceRotation =
-                    Quaternion.Inverse(obj.transform.rotation) *
-                    sensorCamera.transform.rotation;
+                    Quaternion.Inverse(sensorCamera.transform.rotation) *
+                    obj.transform.rotation;
 
                 // Convert to ROS
                 Vector3 rosPosition = UnityToROSPosition(cameraSpaceCenter);
                 Quaternion rosRotation = UnityToROSRotation(cameraSpaceRotation);
 
                 detections.Add(
-                    GenerateDetection(rosPosition, rosRotation, localSize, id,
+                    GenerateDetection(rosPosition, rosRotation,
+                        new Vector3(localSize.z, localSize.x, localSize.y), id,
                         CalculateConfidence(dist, visibleFraction))
                 );
             }
@@ -376,12 +390,15 @@ namespace Sim.Sensors.Vision {
             size = max - min;
         }
 
-        private Vector3 UnityToROSPosition(Vector3 unityPos) {
-            return new Vector3(unityPos.x, unityPos.z, unityPos.y);
+        // The camera looks along its +z with +y up; front_camera_link is REP-103 FLU
+        // (x forward, y left, z up), so a Unity (x, y, z) is ROS (z, -x, y).
+        public static Vector3 UnityToROSPosition(Vector3 unityPos) {
+            return new Vector3(unityPos.z, -unityPos.x, unityPos.y);
         }
 
-        private Quaternion UnityToROSRotation(Quaternion unityRot) {
-            return Quaternion.AngleAxis(-90f, Vector3.forward) * Quaternion.AngleAxis(-90f, Vector3.up) * Quaternion.AngleAxis(-90f, Vector3.forward) * unityRot;
+        // The same change of basis for rotations; it reverses handedness, hence -w.
+        public static Quaternion UnityToROSRotation(Quaternion unityRot) {
+            return new Quaternion(unityRot.z, -unityRot.x, unityRot.y, -unityRot.w);
         }
     }
 }
