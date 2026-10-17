@@ -97,7 +97,7 @@ namespace Sim.Tests.Editor {
             // Four T200 at 45 degrees give 146 N along the bow at full surge.
             float thrust = 4f * RoboBoatPhysics.T200Forward * Mathf.Sqrt(0.5f);
             Assert.That(RoboBoatHull.TopSpeed(thrust, RoboBoatHull.Surge),
-                Is.EqualTo(1.8f).Within(0.05f));
+                Is.EqualTo(2.5f).Within(0.05f));
             Assert.That(RoboBoatHull.Drag(RoboBoatHull.TopSpeed(thrust, RoboBoatHull.Surge),
                 RoboBoatHull.Surge), Is.EqualTo(-thrust).Within(0.01f));
             Assert.That(RoboBoatHull.TopSpeed(thrust, RoboBoatHull.Sway),

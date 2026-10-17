@@ -619,7 +619,7 @@ With `--crane-roboboat-contract` the boat carries the real platform's numbers
   speed is not used as a thrust measure).
 - One hull model replaces GeneralDynamics, the per-face current drag and Fossen damping: linear
   plus quadratic drag in REP-103 body axes on the velocity relative to the water (surge
-  30 + 27|u|, top speed 1.83 m/s at full surge; sway 40 + 60|v|; yaw 20 + 30|r|; heave, roll and
+  10 + 19.4|u|, top speed 2.5 m/s at full surge; sway 15 + 41.7|v|; yaw 10 + 19.3|r|; heave, roll and
   pitch damped). A current therefore carries the boat.
 - The LiDAR is a VLP-16 (16 rings, 2 degrees apart over +-15 degrees, 0.2 degree steps, 10 Hz) in
   lidar_link REP-103 axes.

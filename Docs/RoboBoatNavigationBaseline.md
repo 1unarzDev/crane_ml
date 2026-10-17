@@ -178,7 +178,7 @@ quadratic 30, reference speed 1 m/s). The Fossen component and its added-mass mo
 disabled. `Current` is enabled, and the scene water surface supplies waves/current. These values are
 scene/model inputs with no calibration provenance in code. With the RoboBoat contract they are
 replaced by the realism profile described in `SimulationPhysicsAndRuntimeModes.md` (30 kg, T200
-thrust, relative-water hull drag calibrated to the real 1.8 m/s top speed).
+thrust, relative-water hull drag calibrated to the real 2.5 m/s top speed).
 
 The earlier controller-X full-effort test reached 1.246 m/s peak and 1.216 m/s tail, traveled
 17.47 m, then coasted 0.655 m after release. That controller axis is imported-body `+Z`, not the

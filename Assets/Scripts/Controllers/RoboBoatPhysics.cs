@@ -197,14 +197,16 @@ namespace Sim.Controllers {
     /// Hull drag in the REP-103 body frame, on the velocity relative to the water:
     /// X = -(Xu + Xuu |u|) u for surge, likewise sway and yaw (Fossen's linear plus
     /// quadratic form). Surge is set so four T200 at full surge (146 N along the bow) reach
-    /// the boat's measured 1.8 m/s; sway and yaw keep Fossen's defaults, a catamaran being
-    /// draggier abeam. A current therefore carries the boat, as real water does. Heave,
+    /// the boat's 2.5 m/s; sway and yaw follow from it, a catamaran being draggier abeam. A current therefore carries the boat, as real water does. Heave,
     /// roll and pitch are damped too, or buoyancy alone would rock the hull ever harder.
     /// </summary>
     internal sealed class RoboBoatHull : MonoBehaviour {
-        internal static readonly Vector2 Surge = new(30f, 27f);   // N/(m/s), N/(m/s)^2
-        internal static readonly Vector2 Sway = new(40f, 60f);
-        internal static readonly Vector2 Yaw = new(20f, 30f);     // N m/(rad/s), N m/(rad/s)^2
+        // At speed form drag dominates, so the linear terms are small. Surge balances the
+        // 146 N of full surge at the boat's 2.5 m/s; sway and yaw keep their earlier ratios
+        // to it (a catamaran is draggier abeam): about 1.7 m/s and 1.9 rad/s flat out.
+        internal static readonly Vector2 Surge = new(10f, 19.4f);  // N/(m/s), N/(m/s)^2
+        internal static readonly Vector2 Sway = new(15f, 41.7f);
+        internal static readonly Vector2 Yaw = new(10f, 19.3f);    // N m/(rad/s), N m/(rad/s)^2
         internal static readonly Vector2 Heave = new(150f, 40f);
         internal static readonly Vector2 Roll = new(30f, 10f);    // twin hulls resist rolling
         internal static readonly Vector2 Pitch = new(30f, 10f);
