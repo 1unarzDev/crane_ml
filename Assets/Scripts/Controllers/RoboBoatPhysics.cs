@@ -100,6 +100,16 @@ namespace Sim.Controllers {
                 extra.enabled = false;
             var hull = root.gameObject.AddComponent<RoboBoatHull>();
             hull.body = root;
+            // The LiDAR as a Velodyne VLP-16: 16 rings 2 degrees apart over +-15 degrees and
+            // 0.2 degree steps at 10 Hz. (The pattern spaces rings FOV / count apart.)
+            // Its mount follows the imported hull's axes, so the cloud gets the same turn
+            // into REP-103 as the body (x forward in lidar_link, as the real driver gives).
+            foreach (var lidar in root.GetComponentsInChildren<Sim.Sensors.Lidar.Lidar3D>()) {
+                lidar.Configure(1800, 16, 32f * Mathf.Deg2Rad, 100f);
+                lidar.SetFrameCorrection(Quaternion.Inverse(
+                    Quaternion.Inverse(lidar.transform.rotation) *
+                    RoboBoatRosFrame.Rotation(root.transform.rotation)));
+            }
             Vector3 inertia = links.Aggregate(Vector3.zero, (sum, link) => sum + link.inertiaTensor);
             Debug.Log($"CRANE_ROBOBOAT_PHYSICS mass={all.Sum(link => link.mass):R} " +
                       $"links={links.Length}+{all.Length - links.Length} thrust={T200Forward:R}/{T200Reverse:R}N " +
@@ -120,12 +130,16 @@ namespace Sim.Controllers {
     /// X = -(Xu + Xuu |u|) u for surge, likewise sway and yaw (Fossen's linear plus
     /// quadratic form). Surge is set so four T200 at full surge (146 N along the bow) reach
     /// the boat's measured 1.8 m/s; sway and yaw keep Fossen's defaults, a catamaran being
-    /// draggier abeam. A current therefore carries the boat, as real water does.
+    /// draggier abeam. A current therefore carries the boat, as real water does. Heave,
+    /// roll and pitch are damped too, or buoyancy alone would rock the hull ever harder.
     /// </summary>
     internal sealed class RoboBoatHull : MonoBehaviour {
         internal static readonly Vector2 Surge = new(30f, 27f);   // N/(m/s), N/(m/s)^2
         internal static readonly Vector2 Sway = new(40f, 60f);
         internal static readonly Vector2 Yaw = new(20f, 30f);     // N m/(rad/s), N m/(rad/s)^2
+        internal static readonly Vector2 Heave = new(150f, 40f);
+        internal static readonly Vector2 Roll = new(30f, 10f);    // twin hulls resist rolling
+        internal static readonly Vector2 Pitch = new(30f, 10f);
         internal ArticulationBody body;
         private UnityEngine.Rendering.HighDefinition.WaterSurface water;
 
@@ -150,10 +164,15 @@ namespace Sim.Controllers {
             Quaternion frame = RoboBoatRosFrame.Rotation(body.transform.rotation);
             Vector3 bow = frame * Vector3.forward, port = Vector3.Cross(bow, Vector3.up);
             Vector3 relative = body.linearVelocity - current;
+            Vector3 up = frame * Vector3.up;
             float u = Vector3.Dot(relative, bow), v = Vector3.Dot(relative, port);
-            float r = -body.angularVelocity.y;  // Unity turns clockwise about +y
-            body.AddForce(bow * Drag(u, Surge) + port * Drag(v, Sway));
-            body.AddTorque(-Vector3.up * Drag(r, Yaw));
+            float w = Vector3.Dot(relative, up);
+            body.AddForce(bow * Drag(u, Surge) + port * Drag(v, Sway) + up * Drag(w, Heave));
+            // Damping opposes the rate about each body axis, whatever the handedness.
+            Vector3 spin = body.angularVelocity;
+            body.AddTorque(up * Drag(Vector3.Dot(spin, up), Yaw) +
+                           bow * Drag(Vector3.Dot(spin, bow), Roll) +
+                           port * Drag(Vector3.Dot(spin, port), Pitch));
         }
     }
 

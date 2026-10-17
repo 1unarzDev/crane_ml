@@ -209,6 +209,7 @@ namespace Sim.Controllers {
                 clone.name = $"{template.name} {element.label}".Trim();
                 clone.transform.localScale = template.transform.lossyScale * element.scale;
                 if (!string.IsNullOrEmpty(element.color)) Recolor(clone, element.color);
+                MakeSolid(clone);
                 if (!string.IsNullOrEmpty(element.label))
                     targets.Add(new KeyValuePair<GameObject, string>(clone, element.label));
                 truth.elements.Add(new RoboBoatCourseTruthElement {
@@ -358,6 +359,19 @@ namespace Sim.Controllers {
                         (row + 0.5f) / size) ? color : Color.white);
             texture.Apply();
             return texture;
+        }
+
+        /// <summary>Real buoys are solid: a LiDAR sees them and a hull bumps them. Give an
+        /// element without colliders a convex one per mesh, on the obstacle layer.</summary>
+        private static void MakeSolid(GameObject value) {
+            if (value.GetComponentsInChildren<Collider>().Length > 0) return;
+            foreach (var filter in value.GetComponentsInChildren<MeshFilter>()) {
+                if (filter.sharedMesh == null) continue;
+                var collider = filter.gameObject.AddComponent<MeshCollider>();
+                collider.sharedMesh = filter.sharedMesh;
+                collider.convex = true;
+                filter.gameObject.layer = Sim.Physics.Contacts.CraneCollisionLayers.DynamicObstacle;
+            }
         }
 
         private static void Recolor(GameObject value, string hex) {
