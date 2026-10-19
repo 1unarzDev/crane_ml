@@ -72,6 +72,7 @@ namespace Crane.MainVenueV8 {
             if (stream == null || !CraneFaultRuntimeV8.Finite(completedPhysicsTime) || completedPhysicsTime < 0) throw new InvalidOperationException("Invalid capture state/time");
             if (!previousValid) {
                 previousVelocity = body.linearVelocity; previousTime = completedPhysicsTime; previousValid = true;
+                foreach(var wheel in wheels) {float ignored;wheel.ObserveInterval(completedPhysicsTime,out ignored);}
                 bumperActive = false; forwardImpulse = 0; return;
             }
             double dt = completedPhysicsTime - previousTime;
@@ -85,12 +86,13 @@ namespace Crane.MainVenueV8 {
             if (motors.Length > 0) Emit("motor_status", "{\"fault\":\"enum\"}", completedPhysicsTime,
                                     "\"fault\":\"" + (outputDisabled ? "output_disabled" : "none") + "\"");
             if (wheels.Length > 0) {
-                float surfaceSpeed = 0; bool allContact = true;
+                float surfaceSpeed = 0; bool allContact = true, allMeasured = true;
                 for (int i = 0; i < wheels.Length; i++) {
-                    surfaceSpeed += wheels[i].SurfaceSpeed;
+                    float measured;bool ready=wheels[i].ObserveInterval(completedPhysicsTime,out measured);
+                    allMeasured &= ready;surfaceSpeed += measured;
                     allContact &= wheels[i].Touching;
                 }
-                Emit("encoders", "{\"speed\":\"m/s\",\"uncertainty\":\"m/s\",\"in_contact\":\"bool\"}", completedPhysicsTime,
+                if(allMeasured) Emit("encoders", "{\"speed\":\"m/s\",\"uncertainty\":\"m/s\",\"in_contact\":\"bool\"}", completedPhysicsTime,
                      "\"speed\":" + N(surfaceSpeed / wheels.Length) + ",\"uncertainty\":0,\"in_contact\":" + (allContact ? "true" : "false"));
             }
             previousVelocity = body.linearVelocity; previousTime = completedPhysicsTime;
