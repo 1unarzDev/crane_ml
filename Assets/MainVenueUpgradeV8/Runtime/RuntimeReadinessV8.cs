@@ -19,9 +19,10 @@ namespace Crane.MainVenueV8 {
                 }
             }
             if (robot == null) return false;
-            var body = robot.GetComponent<Rigidbody>();
-            if (body == null || body.isKinematic) { reason = "dynamic Rigidbody unavailable"; return false; }
-            try { CraneFaultRuntimeV8.ResolveWheels(body, spec.encoders); CraneFaultRuntimeV8.ResolveMotors(body, spec); }
+            try {
+                var body = PhysicalBodyV8.Resolve(robot);
+                CraneFaultRuntimeV8.ResolveWheels(body.component, spec.encoders); CraneFaultRuntimeV8.ResolveMotors(body.component, spec);
+            }
             catch (ArgumentException error) { reason = error.Message; return false; }
             reason = "bindings resolved"; return true;
         }

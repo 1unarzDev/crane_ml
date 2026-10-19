@@ -19,7 +19,7 @@ namespace Crane.MainVenueV8 {
 
     [DefaultExecutionOrder(32000)]
     public sealed class CraneSensorRecorderV8 : MonoBehaviour {
-        Rigidbody body;
+        PhysicalBodyV8 body;
         Behaviour[] motors;
         EncoderChannelV8[] wheels;
         EncoderBindingV8[] bindings;
@@ -35,12 +35,11 @@ namespace Crane.MainVenueV8 {
         }
         public void Configure(FaultSpecV8 spec, string path, StreamWriter privateEvents = null) {
             if (stream != null) throw new InvalidOperationException("Recorder already configured");
-            body = GetComponent<Rigidbody>();
-            if (body == null) throw new ArgumentException("Robot Rigidbody required");
+            body = PhysicalBodyV8.Resolve(gameObject);
             bindings = spec.encoders;
-            wheels = CraneFaultRuntimeV8.ResolveWheels(body, bindings);
+            wheels = CraneFaultRuntimeV8.ResolveWheels(body.component, bindings);
             foreach (var wheel in wheels) wheel.AttachContactObserver();
-            motors = CraneFaultRuntimeV8.ResolveMotors(body, spec);
+            motors = CraneFaultRuntimeV8.ResolveMotors(body.component, spec);
             stream = new StreamWriter(new FileStream(path, FileMode.CreateNew, FileAccess.Write));
             privateLog = privateEvents;
             previousVelocity = body.linearVelocity;
@@ -49,6 +48,7 @@ namespace Crane.MainVenueV8 {
         void OnCollisionEnter(Collision c) { ObserveCollision(c); }
         void OnCollisionStay(Collision c) { ObserveCollision(c); }
         void ObserveCollision(Collision c) {
+            if (body == null || !body.contactMassQualified) return;
             // Frontal bumper scope: ordinary floor support is not bumper contact.
             bool frontal = false;
             Vector3 receiverNormal = Vector3.zero;
@@ -79,8 +79,8 @@ namespace Crane.MainVenueV8 {
             Vector3 properAcceleration = (body.linearVelocity - previousVelocity) / (float)dt - UnityEngine.Physics.gravity;
             Emit("imu", "{\"acceleration\":\"m/s^2\",\"uncertainty\":\"m/s^2\"}", completedPhysicsTime,
                  "\"acceleration\":" + N(Vector3.Dot(properAcceleration, transform.forward)) + ",\"uncertainty\":0");
-            Emit("contact", "{\"active\":\"bool\",\"forward_impulse\":\"N*s\",\"mass\":\"kg\",\"uncertainty\":\"N*s\"}", completedPhysicsTime,
-                 "\"active\":" + (bumperActive ? "true" : "false") + ",\"forward_impulse\":" + N(forwardImpulse) + ",\"mass\":" + N(body.mass) + ",\"uncertainty\":0");
+            if (body.contactMassQualified) Emit("contact", "{\"active\":\"bool\",\"forward_impulse\":\"N*s\",\"mass\":\"kg\",\"uncertainty\":\"N*s\"}", completedPhysicsTime,
+                 "\"active\":" + (bumperActive ? "true" : "false") + ",\"forward_impulse\":" + N(forwardImpulse) + ",\"mass\":" + N(body.contactMass) + ",\"uncertainty\":0");
             bool outputDisabled = Array.Exists(motors, m => !m.enabled);
             if (motors.Length > 0) Emit("motor_status", "{\"fault\":\"enum\"}", completedPhysicsTime,
                                     "\"fault\":\"" + (outputDisabled ? "output_disabled" : "none") + "\"");

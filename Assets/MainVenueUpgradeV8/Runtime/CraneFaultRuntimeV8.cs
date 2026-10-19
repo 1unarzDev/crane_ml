@@ -38,7 +38,7 @@ namespace Crane.MainVenueV8 {
             public readonly Dictionary<WheelCollider, float> motorTorques = new Dictionary<WheelCollider, float>();
             public readonly Dictionary<WheelCollider, FrictionState> friction = new Dictionary<WheelCollider, FrictionState>();
         }
-        Rigidbody target;
+        PhysicalBodyV8 target;
         Behaviour[] motors;
         EncoderBindingV8[] bindings;
         readonly List<EventState> events = new List<EventState>();
@@ -83,12 +83,11 @@ namespace Crane.MainVenueV8 {
             if (configured) throw new InvalidOperationException("No in-place episode reconfiguration");
             Validate(spec);
             if (!Finite(now) || now < 0) throw new ArgumentException("Finite nonnegative runtime origin required");
-            target = GetComponent<Rigidbody>();
-            if (target == null || target.isKinematic) throw new ArgumentException("Dynamic robot Rigidbody required");
+            target = PhysicalBodyV8.Resolve(gameObject);
             bindings = spec.encoders;
-            motors = ResolveMotors(target, spec);
+            motors = ResolveMotors(target.component, spec);
             // Fail before any actuation if an encoder is a virtual/reference shaft.
-            ResolveWheels(target, bindings);
+            ResolveWheels(target.component, bindings);
             foreach (var e in spec.events) events.Add(new EventState { spec = e });
             StartedAt = now;
             privateEvent = privateLogger;
@@ -96,12 +95,16 @@ namespace Crane.MainVenueV8 {
             privateEvent?.Invoke("{\"event\":\"runtime_ready\",\"simulation_origin_s\":" + now.ToString("R", CultureInfo.InvariantCulture) + "}");
         }
 
-        public static EncoderChannelV8[] ResolveWheels(Rigidbody robot, EncoderBindingV8[] descriptors) {
+        public static EncoderChannelV8[] ResolveWheels(Component robot, EncoderBindingV8[] descriptors) {
             var wheels = new List<EncoderChannelV8>();
-            foreach (var b in descriptors) wheels.Add(EncoderChannelV8.Resolve(robot, b));
+            foreach (var b in descriptors) {
+                var rigid = robot as Rigidbody;
+                if (rigid == null) throw new ArgumentException("Physical encoders currently require a Rigidbody robot");
+                wheels.Add(EncoderChannelV8.Resolve(rigid, b));
+            }
             return wheels.ToArray();
         }
-        public static Behaviour[] ResolveMotors(Rigidbody robot, FaultSpecV8 spec) {
+        public static Behaviour[] ResolveMotors(Component robot, FaultSpecV8 spec) {
             var result = new List<Behaviour>();
             var bindings = new List<MotorBindingV8>(spec.motors);
             if (!string.IsNullOrWhiteSpace(spec.motor_component)) bindings.Add(new MotorBindingV8 { path = "", component_type = spec.motor_component });
@@ -139,11 +142,11 @@ namespace Crane.MainVenueV8 {
                 foreach (var motor in motors) { state.motorEnabled.Add(motor, motor.enabled); motor.enabled = false; }
                 // PhysX WheelColliders retain their last applied torque even when
                 // a controller stops updating. A real output cut must zero it.
-                foreach (var wheel in target.GetComponentsInChildren<WheelCollider>()) { state.motorTorques.Add(wheel, wheel.motorTorque); wheel.motorTorque = 0; }
+                foreach (var wheel in target.transform.GetComponentsInChildren<WheelCollider>()) { state.motorTorques.Add(wheel, wheel.motorTorque); wheel.motorTorque = 0; }
             }
             else if (e.kind == "slip") {
                 state.material = new PhysicsMaterial("v8-low-friction") { staticFriction = 0, dynamicFriction = 0, frictionCombine = PhysicsMaterialCombine.Minimum };
-                foreach (var wheel in ResolveWheels(target, bindings)) {
+                foreach (var wheel in ResolveWheels(target.component, bindings)) {
                     if (wheel.wheel != null) {
                         state.friction.Add(wheel.wheel, new FrictionState { forward = wheel.wheel.forwardFriction, sideways = wheel.wheel.sidewaysFriction });
                         var forward = wheel.wheel.forwardFriction; var sideways = wheel.wheel.sidewaysFriction;
