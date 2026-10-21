@@ -1,0 +1,605 @@
+{
+  "cAlpha": 12.0,
+  "cKappa": 12.0,
+  "climbTorque": [
+    {
+      "angle": 0.3107894883497013,
+      "crr": 0.0,
+      "totalTorque": 15.0
+    },
+    {
+      "angle": 0.2907279346597207,
+      "crr": 0.02,
+      "totalTorque": 15.0
+    },
+    {
+      "angle": 0.5348174581667207,
+      "crr": 0.0,
+      "totalTorque": 25.0
+    },
+    {
+      "angle": 0.514701682547873,
+      "crr": 0.02,
+      "totalTorque": 25.0
+    },
+    {
+      "angle": 0.7945631169752017,
+      "crr": 0.0,
+      "totalTorque": 35.0
+    },
+    {
+      "angle": 0.7743621652085768,
+      "crr": 0.02,
+      "totalTorque": 35.0
+    }
+  ],
+  "climbTraction": [
+    {
+      "angle": 0.2914567944778671,
+      "cgFromRear": 0.25,
+      "crr": 0.0,
+      "driven": "all",
+      "mu": 0.3
+    },
+    {
+      "angle": 0.2914567944778671,
+      "cgFromRear": 0.2,
+      "crr": 0.0,
+      "driven": "all",
+      "mu": 0.3
+    },
+    {
+      "angle": 0.27300870308671055,
+      "cgFromRear": 0.25,
+      "crr": 0.02,
+      "driven": "all",
+      "mu": 0.3
+    },
+    {
+      "angle": 0.27300870308671055,
+      "cgFromRear": 0.2,
+      "crr": 0.02,
+      "driven": "all",
+      "mu": 0.3
+    },
+    {
+      "angle": 0.13313632755164762,
+      "cgFromRear": 0.25,
+      "crr": 0.0,
+      "driven": "front",
+      "mu": 0.3
+    },
+    {
+      "angle": 0.10673567264913564,
+      "cgFromRear": 0.2,
+      "crr": 0.0,
+      "driven": "front",
+      "mu": 0.3
+    },
+    {
+      "angle": 0.11555434167368744,
+      "cgFromRear": 0.25,
+      "crr": 0.02,
+      "driven": "front",
+      "mu": 0.3
+    },
+    {
+      "angle": 0.08904958263449778,
+      "cgFromRear": 0.2,
+      "crr": 0.02,
+      "driven": "front",
+      "mu": 0.3
+    },
+    {
+      "angle": 0.16883190201112075,
+      "cgFromRear": 0.25,
+      "crr": 0.0,
+      "driven": "rear",
+      "mu": 0.3
+    },
+    {
+      "angle": 0.20176234432028706,
+      "cgFromRear": 0.2,
+      "crr": 0.0,
+      "driven": "rear",
+      "mu": 0.3
+    },
+    {
+      "angle": 0.146666493797193,
+      "cgFromRear": 0.25,
+      "crr": 0.02,
+      "driven": "rear",
+      "mu": 0.3
+    },
+    {
+      "angle": 0.17985349979247822,
+      "cgFromRear": 0.2,
+      "crr": 0.02,
+      "driven": "rear",
+      "mu": 0.3
+    },
+    {
+      "angle": 0.46364760900080604,
+      "cgFromRear": 0.25,
+      "crr": 0.0,
+      "driven": "all",
+      "mu": 0.5
+    },
+    {
+      "angle": 0.46364760900080604,
+      "cgFromRear": 0.2,
+      "crr": 0.0,
+      "driven": "all",
+      "mu": 0.5
+    },
+    {
+      "angle": 0.4475199751571699,
+      "cgFromRear": 0.25,
+      "crr": 0.02,
+      "driven": "all",
+      "mu": 0.5
+    },
+    {
+      "angle": 0.4475199751571699,
+      "cgFromRear": 0.2,
+      "crr": 0.02,
+      "driven": "all",
+      "mu": 0.5
+    },
+    {
+      "angle": 0.20539538918976735,
+      "cgFromRear": 0.25,
+      "crr": 0.0,
+      "driven": "front",
+      "mu": 0.5
+    },
+    {
+      "angle": 0.16514867741462685,
+      "cgFromRear": 0.2,
+      "crr": 0.0,
+      "driven": "front",
+      "mu": 0.5
+    },
+    {
+      "angle": 0.18937004997584467,
+      "cgFromRear": 0.25,
+      "crr": 0.02,
+      "driven": "front",
+      "mu": 0.5
+    },
+    {
+      "angle": 0.14888994760949725,
+      "cgFromRear": 0.2,
+      "crr": 0.02,
+      "driven": "front",
+      "mu": 0.5
+    },
+    {
+      "angle": 0.3028848683749714,
+      "cgFromRear": 0.25,
+      "crr": 0.0,
+      "driven": "rear",
+      "mu": 0.5
+    },
+    {
+      "angle": 0.3587706702705722,
+      "cgFromRear": 0.2,
+      "crr": 0.0,
+      "driven": "rear",
+      "mu": 0.5
+    },
+    {
+      "angle": 0.2799498225237911,
+      "cgFromRear": 0.25,
+      "crr": 0.02,
+      "driven": "rear",
+      "mu": 0.5
+    },
+    {
+      "angle": 0.33667481938672716,
+      "cgFromRear": 0.2,
+      "crr": 0.02,
+      "driven": "rear",
+      "mu": 0.5
+    },
+    {
+      "angle": 0.6107259643892085,
+      "cgFromRear": 0.25,
+      "crr": 0.0,
+      "driven": "all",
+      "mu": 0.7
+    },
+    {
+      "angle": 0.6107259643892085,
+      "cgFromRear": 0.2,
+      "crr": 0.0,
+      "driven": "all",
+      "mu": 0.7
+    },
+    {
+      "angle": 0.5971766580926774,
+      "cgFromRear": 0.25,
+      "crr": 0.02,
+      "driven": "all",
+      "mu": 0.7
+    },
+    {
+      "angle": 0.5971766580926774,
+      "cgFromRear": 0.2,
+      "crr": 0.02,
+      "driven": "all",
+      "mu": 0.7
+    },
+    {
+      "angle": 0.26691298758740034,
+      "cgFromRear": 0.25,
+      "crr": 0.0,
+      "driven": "front",
+      "mu": 0.7
+    },
+    {
+      "angle": 0.21535769969773805,
+      "cgFromRear": 0.2,
+      "crr": 0.0,
+      "driven": "front",
+      "mu": 0.7
+    },
+    {
+      "angle": 0.2523179808864271,
+      "cgFromRear": 0.25,
+      "crr": 0.02,
+      "driven": "front",
+      "mu": 0.7
+    },
+    {
+      "angle": 0.2003985538258785,
+      "cgFromRear": 0.2,
+      "crr": 0.02,
+      "driven": "front",
+      "mu": 0.7
+    },
+    {
+      "angle": 0.4524748895620667,
+      "cgFromRear": 0.25,
+      "crr": 0.0,
+      "driven": "rear",
+      "mu": 0.7
+    },
+    {
+      "angle": 0.5280744484263595,
+      "cgFromRear": 0.2,
+      "crr": 0.0,
+      "driven": "rear",
+      "mu": 0.7
+    },
+    {
+      "angle": 0.4297622790966885,
+      "cgFromRear": 0.25,
+      "crr": 0.02,
+      "driven": "rear",
+      "mu": 0.7
+    },
+    {
+      "angle": 0.5070985043923368,
+      "cgFromRear": 0.2,
+      "crr": 0.02,
+      "driven": "rear",
+      "mu": 0.7
+    }
+  ],
+  "crossSlopeHold": {
+    "creep": [
+      {
+        "slope": 0.03490658503988659,
+        "vy": 0.00014799214304207005
+      },
+      {
+        "slope": 0.08726646259971647,
+        "vy": 0.0003808744426065769
+      },
+      {
+        "slope": 0.17453292519943295,
+        "vy": 0.000806801068587488
+      },
+      {
+        "slope": 0.3490658503988659,
+        "vy": 0.001898779326796174
+      }
+    ],
+    "limit": 0.6107259643892086
+  },
+  "geometry": {
+    "cgFromRear": 0.25,
+    "cgHeight": 0.2,
+    "cgLateral": 0.03,
+    "mass": 50.0,
+    "track": 0.55,
+    "wheelRadius": 0.1,
+    "wheelbase": 0.5
+  },
+  "gravity": 9.81,
+  "holdLimit": [
+    {
+      "angle": 0.2914567944778671,
+      "mu": 0.3
+    },
+    {
+      "angle": 0.4636476090008061,
+      "mu": 0.5
+    },
+    {
+      "angle": 0.6107259643892086,
+      "mu": 0.7
+    },
+    {
+      "angle": 0.7853981633974483,
+      "mu": 1.0
+    }
+  ],
+  "loadTransfer": [
+    {
+      "acc": -2.0,
+      "front": 332.2773385050097,
+      "kind": "long",
+      "rear": 136.3152094111,
+      "slope": -0.3
+    },
+    {
+      "acc": 0.0,
+      "front": 292.2773385050097,
+      "kind": "long",
+      "rear": 176.3152094111,
+      "slope": -0.3
+    },
+    {
+      "acc": 1.5,
+      "front": 262.2773385050097,
+      "kind": "long",
+      "rear": 206.3152094111,
+      "slope": -0.3
+    },
+    {
+      "acc": -2.0,
+      "front": 285.25,
+      "kind": "long",
+      "rear": 205.25,
+      "slope": 0.0
+    },
+    {
+      "acc": 0.0,
+      "front": 245.25,
+      "kind": "long",
+      "rear": 245.25,
+      "slope": 0.0
+    },
+    {
+      "acc": 1.5,
+      "front": 215.25,
+      "kind": "long",
+      "rear": 275.25,
+      "slope": 0.0
+    },
+    {
+      "acc": -2.0,
+      "front": 264.43745518832816,
+      "kind": "long",
+      "rear": 223.61208788054353,
+      "slope": 0.1
+    },
+    {
+      "acc": 0.0,
+      "front": 224.43745518832816,
+      "kind": "long",
+      "rear": 263.6120878805435,
+      "slope": 0.1
+    },
+    {
+      "acc": 1.5,
+      "front": 194.43745518832816,
+      "kind": "long",
+      "rear": 293.6120878805435,
+      "slope": 0.1
+    },
+    {
+      "acc": -2.0,
+      "front": 229.0851146187982,
+      "kind": "long",
+      "rear": 246.16642823027306,
+      "slope": 0.25
+    },
+    {
+      "acc": 0.0,
+      "front": 189.0851146187982,
+      "kind": "long",
+      "rear": 286.166428230273,
+      "slope": 0.25
+    },
+    {
+      "acc": 1.5,
+      "front": 159.0851146187982,
+      "kind": "long",
+      "rear": 316.166428230273,
+      "slope": 0.25
+    },
+    {
+      "acc": -1.5,
+      "kind": "lat",
+      "left": 339.83865343252893,
+      "right": 128.75389448358078,
+      "slope": -0.3
+    },
+    {
+      "acc": 0.0,
+      "kind": "lat",
+      "left": 312.5659261598017,
+      "right": 156.02662175630803,
+      "slope": -0.3
+    },
+    {
+      "acc": 2.0,
+      "kind": "lat",
+      "left": 276.2022897961653,
+      "right": 192.3902581199444,
+      "slope": -0.3
+    },
+    {
+      "acc": -1.5,
+      "kind": "lat",
+      "left": 299.27727272727276,
+      "right": 191.22272727272724,
+      "slope": 0.0
+    },
+    {
+      "acc": 0.0,
+      "kind": "lat",
+      "left": 272.00454545454545,
+      "right": 218.49545454545455,
+      "slope": 0.0
+    },
+    {
+      "acc": 2.0,
+      "kind": "lat",
+      "left": 235.6409090909091,
+      "right": 254.8590909090909,
+      "slope": 0.0
+    },
+    {
+      "acc": -1.5,
+      "kind": "lat",
+      "left": 280.11173175082183,
+      "right": 207.93781131804985,
+      "slope": 0.1
+    },
+    {
+      "acc": 0.0,
+      "kind": "lat",
+      "left": 252.83900447809455,
+      "right": 235.21053859077713,
+      "slope": 0.1
+    },
+    {
+      "acc": 2.0,
+      "kind": "lat",
+      "left": 216.4753681144582,
+      "right": 271.5741749544135,
+      "slope": 0.1
+    },
+    {
+      "acc": -1.5,
+      "kind": "lat",
+      "left": 246.6934403019964,
+      "right": 228.55810254707487,
+      "slope": 0.25
+    },
+    {
+      "acc": 0.0,
+      "kind": "lat",
+      "left": 219.42071302926914,
+      "right": 255.83082981980212,
+      "slope": 0.25
+    },
+    {
+      "acc": 2.0,
+      "kind": "lat",
+      "left": 183.05707666563276,
+      "right": 292.1944661834385,
+      "slope": 0.25
+    }
+  ],
+  "mu": 0.7,
+  "rollingResistance": [
+    {
+      "force": 9.81,
+      "slopeDeg": 0
+    },
+    {
+      "force": 9.66096405704976,
+      "slopeDeg": 10
+    },
+    {
+      "force": 8.890879390829536,
+      "slopeDeg": 25
+    }
+  ],
+  "schema": "crane-terrain-unity-references-v1",
+  "tip": {
+    "lateralRoll": 0.9903981394010225,
+    "lateralRollNoOffset": 0.9420000403794636,
+    "longitudinalPitch": 0.8960553845713439
+  },
+  "velocityEpsilon": 0.05,
+  "yawEquivariance": {
+    "creep": 0.0013000450467048066,
+    "headingsDeg": [
+      0,
+      30,
+      60,
+      90,
+      120,
+      150,
+      180,
+      210,
+      240,
+      270,
+      300,
+      330
+    ],
+    "planeForce": 126.95074162278642,
+    "slopeDeg": 15.0
+  },
+  "zeroCommand": {
+    "creep": [
+      {
+        "creep": 7.3342476004739e-05,
+        "crr": 0.0,
+        "slopeDeg": 1
+      },
+      {
+        "creep": 7.321837542195474e-05,
+        "crr": 0.02,
+        "slopeDeg": 1
+      },
+      {
+        "creep": 0.0003808744426065769,
+        "crr": 0.0,
+        "slopeDeg": 5
+      },
+      {
+        "creep": 0.000380181878208606,
+        "crr": 0.02,
+        "slopeDeg": 5
+      },
+      {
+        "creep": 0.000806801068587488,
+        "crr": 0.0,
+        "slopeDeg": 10
+      },
+      {
+        "creep": 0.0008051729944950102,
+        "crr": 0.02,
+        "slopeDeg": 10
+      },
+      {
+        "creep": 0.001898779326796174,
+        "crr": 0.0,
+        "slopeDeg": 20
+      },
+      {
+        "creep": 0.0018936353469031584,
+        "crr": 0.02,
+        "slopeDeg": 20
+      },
+      {
+        "creep": 0.0038537426164580914,
+        "crr": 0.0,
+        "slopeDeg": 30
+      },
+      {
+        "creep": 0.0038334226975125585,
+        "crr": 0.02,
+        "slopeDeg": 30
+      }
+    ],
+    "holdLimit": 0.6107259643892086
+  }
+}
