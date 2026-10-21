@@ -1,0 +1,16 @@
+{
+ "schema": "crane-aerial-tumble-flip-v1",
+ "profile": "rotors_firefly_hex",
+ "dt": 0.0025,
+ "omega0": [
+  0.02,
+  3.0,
+  0.02
+ ],
+ "flipTime": 4.428467427409205,
+ "inertiaDiag": [
+  0.0347563,
+  0.0458929,
+  0.0977
+ ]
+}

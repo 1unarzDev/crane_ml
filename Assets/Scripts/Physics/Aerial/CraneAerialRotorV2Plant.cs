@@ -20,6 +20,7 @@ namespace Sim.Physics.Aerial {
         private StateV2 state;
         private double[] targetSpeed;
         private Rigidbody body;
+        private double[] inertiaUnityDiag;
 
         public int RotorCount => spec?.Rotors.Length ?? 0;
         public double[] RotorSpeeds => state?.RotorSpeed;
@@ -50,6 +51,7 @@ namespace Sim.Physics.Aerial {
             body.inertiaTensorRotation = Quaternion.identity;
             body.inertiaTensor = new Vector3((float)spec.Inertia[1, 1], (float)spec.Inertia[2, 2],
                 (float)spec.Inertia[0, 0]);
+            inertiaUnityDiag = new[] { spec.Inertia[1, 1], spec.Inertia[2, 2], spec.Inertia[0, 0] };
             state = new StateV2(spec.Rotors.Length);
             targetSpeed = new double[spec.Rotors.Length];
             Debug.Log($"CRANE_AERIAL_PROFILE id={Profile.Id} sha256={Profile.Sha256}");
@@ -79,6 +81,9 @@ namespace Sim.Physics.Aerial {
                 new double[3], out double[] fFlu, out double[] tFlu);
             double[] fRuf = MulV(Transpose(MfluFromRuf), fFlu);
             double[] tRuf = Neg(MulV(Transpose(MfluFromRuf), tFlu));
+            // Rigidbody applies no -w x (I w); add it in Unity body axes (matches inertiaTensor above).
+            double[] tg = CraneRotorModelV2.RigidBodyGyroTorque(inertiaUnityDiag, wBodyRuf);
+            tRuf[0] += tg[0]; tRuf[1] += tg[1]; tRuf[2] += tg[2];
             body.AddRelativeForce((float)fRuf[0], (float)fRuf[1], (float)fRuf[2], ForceMode.Force);
             body.AddRelativeTorque((float)tRuf[0], (float)tRuf[1], (float)tRuf[2], ForceMode.Force);
             if (spec.Battery != null)

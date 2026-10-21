@@ -175,6 +175,16 @@ namespace Sim.Physics.Aerial {
             out double[] force, out double[] torque) =>
             Wrench(v, QuatToMatrix(s.Q), s.P, s.V, s.Omega, s.RotorSpeed, windWorld, out force, out torque);
 
+        /// <summary>
+        /// Rigid-body gyroscopic torque -w x (I w) for a diagonal inertia, all in the same body axes.
+        /// UnityEngine.Rigidbody does not apply it (ArticulationBody does), so a plant driving a
+        /// Rigidbody must add it explicitly. Separate from the rotor-angular-momentum term in Wrench.
+        /// </summary>
+        public static double[] RigidBodyGyroTorque(double[] inertiaDiag, double[] omegaBody) {
+            var iw = new[] { inertiaDiag[0] * omegaBody[0], inertiaDiag[1] * omegaBody[1], inertiaDiag[2] * omegaBody[2] };
+            return Scale(Cross(omegaBody, iw), -1.0);
+        }
+
         public static double[] SpecificForceBody(VehicleSpecV2 v, StateV2 s, double[] windWorld) {
             Wrench(v, s, windWorld, out double[] f, out _);
             return Scale(f, 1.0 / v.Mass);

@@ -82,12 +82,34 @@ def run(sc):
                 initial=init, commands=commands, samples=samples)
 
 
+def tumble_flip_oracle(dt=0.0025):
+    """Torque-free tumble of the firefly inertia near the intermediate (y) axis; zero-crossing time of omega_y."""
+    v = load_vehicle("rotors_firefly_hex", with_battery=False)
+    v.gravity = 0.0
+    s = am.initial_state(v, p=(0, 0, 0))
+    s.omega = np.array([0.02, 3.0, 0.02])
+    n, prev = 0, s.omega[1]
+    while n < 20000:
+        s = am.step(v, s, np.zeros(len(v.rotors)), dt)
+        n += 1
+        if prev > 0 >= s.omega[1]:
+            t = (n - 1 + prev / (prev - s.omega[1])) * dt
+            return dict(schema="crane-aerial-tumble-flip-v1", profile="rotors_firefly_hex", dt=dt,
+                        omega0=[0.02, 3.0, 0.02], flipTime=t,
+                        inertiaDiag=[float(x) for x in np.diag(v.inertia)])
+        prev = s.omega[1]
+    raise RuntimeError("no flip")
+
+
 def main():
     out = Path(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_OUT
     out.parent.mkdir(parents=True, exist_ok=True)
     doc = dict(schema="crane-aerial-rotor-parity-v1", oracle="Tools/Aerial/aerial_model.py",
                scenarios=[run(sc) for sc in SCENARIOS])
     out.write_text(json.dumps(doc, indent=0, allow_nan=False) + "\n", encoding="utf-8")
+    flip = HERE.parent.parent / "Assets/Tests/PlayMode/tumble_flip_oracle.json"
+    flip.parent.mkdir(parents=True, exist_ok=True)
+    flip.write_text(json.dumps(tumble_flip_oracle(), indent=1) + "\n", encoding="utf-8")
     print(f"wrote {out} ({out.stat().st_size} bytes, {len(doc['scenarios'])} scenarios)")
 
 
