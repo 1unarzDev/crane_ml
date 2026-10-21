@@ -1,0 +1,13 @@
+{
+    "name": "CraneUnderwaterEditorTests",
+    "references": [
+        "CraneUnderwater",
+        "UtilsAssembly"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ]
+}

@@ -1,0 +1,16 @@
+{
+    "name": "CraneUnderwater",
+    "rootNamespace": "Sim.Underwater",
+    "references": [
+        "UtilsAssembly"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

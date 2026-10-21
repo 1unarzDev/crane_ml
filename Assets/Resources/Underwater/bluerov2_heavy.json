@@ -1,0 +1,127 @@
+{
+  "schema": "crane.underwater.vehicle_profile/v1",
+  "vehicle": "bluerov2_heavy",
+  "evidenceLabel": "UNKNOWN",
+  "evidenceNote": "Literature prior only. Nothing here was identified on CRANE data or a CRANE vehicle. Each coefficient carries its own origin from the source table (Experimental / CAD / Eidsvik empirical / Defined).",
+  "frames": {
+    "world": "NED",
+    "body": "FRD, origin at CO = CG (von Benzon 2022 Table A1: (xg,yg,zg) = (0,0,0) 'Defined')",
+    "signConvention": "Added mass and damping are stored as POSITIVE magnitudes, M_A = -diag(X_udot, ...), D = -diag(X_u, ...). von Benzon 2022 prints positive magnitudes; Wu 2018 prints negative SNAME derivatives."
+  },
+  "sources": {
+    "vonbenzon2022": {
+      "citation": "M. von Benzon, F. F. Sorensen, E. Uth, J. Jouffroy, J. Liniger, S. Pedersen, 'An Open-Source Benchmark Simulator: Control of a BlueROV2 Underwater Robot', J. Mar. Sci. Eng. 10(12):1898, 2022",
+      "doi": "10.3390/jmse10121898",
+      "url": "https://vbn.aau.dk/ws/portalfiles/portal/505520780/jmse_10_01898.pdf",
+      "license": "CC-BY-4.0 (paper). Numeric facts are cited, not copied text.",
+      "vehicle": "BlueROV2 Heavy (8 x T200)",
+      "codeLicenseNote": "Companion code github.com/ROV-Simulator/ROV-Simulator @ 928bcbf has NO license (all rights reserved) and is .mlappinstall binaries: do not port."
+    },
+    "wu2018": {
+      "citation": "C. Wu, '6-DoF Modelling and Control of a Remotely Operated Vehicle', Master of Engineering thesis, Flinders University, 2018",
+      "url": "https://flex.flinders.edu.au/file/27aa0064-9de2-441c-8a17-655405d5fc2e/1/ThesisWu2018.pdf",
+      "license": "UNVERIFIED (no licence statement found). Cite facts only.",
+      "vehicle": "BlueROV2 Heavy geometry (Table 4.2). Mass/inertia/hydrodynamics are a priori values transferred from Sandoy (standard BlueROV2), not measured on a Heavy."
+    },
+    "bluerobotics_t200": {
+      "citation": "Blue Robotics, T200 Public Performance Data 10-20V, September 2019",
+      "url": "https://cad.bluerobotics.com/T200-Public-Performance-Data-10-20V-September-2019.xlsx",
+      "license": "UNVERIFIED (no terms stated on the product page). Cite facts only; do not redistribute the spreadsheet."
+    },
+    "crane_derived": {
+      "citation": "Derived in this profile from the cited primary values; derivation in 'location'.",
+      "license": "GPL-3.0 (this repository)"
+    }
+  },
+  "rigidBody": {
+    "massKg": {"value": 13.5, "source": "vonbenzon2022", "location": "Table A1, m (Experimental)"},
+    "gravityMps2": {"value": 9.82, "source": "vonbenzon2022", "location": "Table A1, g"},
+    "weightN": {"value": 132.57, "source": "crane_derived", "location": "W = m g = 13.5 * 9.82 (von Benzon eq. 8 definition W = mg)"},
+    "displacedVolumeM3": {"value": 0.0134, "source": "vonbenzon2022", "location": "Table A1, nabla (Experimental)"},
+    "waterDensityKgM3": {"value": 1000.0, "source": "vonbenzon2022", "location": "Table A1, rho"},
+    "buoyancyN": {"value": 131.588, "source": "crane_derived", "location": "B = rho g nabla = 1000 * 9.82 * 0.0134 (von Benzon eq. 8 definition). Net W - B = +0.98 N (slightly heavy)."},
+    "inertiaCgKgM2": {
+      "Ixx": {"value": 0.26, "source": "vonbenzon2022", "location": "Table A1, Ix (CAD)"},
+      "Iyy": {"value": 0.23, "source": "vonbenzon2022", "location": "Table A1, Iy (CAD)"},
+      "Izz": {"value": 0.37, "source": "vonbenzon2022", "location": "Table A1, Iz (CAD)"}
+    },
+    "rGMeters": {"value": [0.0, 0.0, 0.0], "source": "vonbenzon2022", "location": "Table A1, (xg,yg,zg) (Defined)"},
+    "rBMeters": {"value": [0.0, 0.0, -0.01], "source": "vonbenzon2022", "location": "Table A1, (xb,yb,zb) (CAD). BG = 0.01 m."}
+  },
+  "hydrodynamics": {
+    "addedMass": {
+      "u": {"value": 6.36, "source": "vonbenzon2022", "location": "Table A1, X_udot (Eidsvik empirical, ref [33]; paper sec. 2 notes relative error vs physical robot)"},
+      "v": {"value": 7.12, "source": "vonbenzon2022", "location": "Table A1, Y_vdot (Eidsvik empirical)"},
+      "w": {"value": 18.68, "source": "vonbenzon2022", "location": "Table A1, Z_wdot (Eidsvik empirical)"},
+      "p": {"value": 0.189, "source": "vonbenzon2022", "location": "Table A1, K_pdot (Eidsvik empirical)"},
+      "q": {"value": 0.135, "source": "vonbenzon2022", "location": "Table A1, M_qdot (Eidsvik empirical)"},
+      "r": {"value": 0.222, "source": "vonbenzon2022", "location": "Table A1, N_rdot (Eidsvik empirical)"}
+    },
+    "linearDamping": {
+      "u": {"value": 13.7, "source": "vonbenzon2022", "location": "Table A1, X_u (Experimental)"},
+      "v": {"value": 0.0, "source": "vonbenzon2022", "location": "Table A1, Y_v (Experimental)"},
+      "w": {"value": 33.0, "source": "vonbenzon2022", "location": "Table A1, Z_w (Experimental)"},
+      "p": {"value": 0.0, "source": "vonbenzon2022", "location": "Table A1, K_p (Experimental)"},
+      "q": {"value": 0.8, "source": "vonbenzon2022", "location": "Table A1, M_q (Experimental)"},
+      "r": {"value": 0.0, "source": "vonbenzon2022", "location": "Table A1, N_r (Experimental)"}
+    },
+    "quadraticDamping": {
+      "u": {"value": 141.0, "source": "vonbenzon2022", "location": "Table A1, X_u|u| (Experimental)"},
+      "v": {"value": 217.0, "source": "vonbenzon2022", "location": "Table A1, Y_v|v| (Experimental)"},
+      "w": {"value": 190.0, "source": "vonbenzon2022", "location": "Table A1, Z_w|w| (Experimental)"},
+      "p": {"value": 1.19, "source": "vonbenzon2022", "location": "Table A1, K_p|p| (Experimental)"},
+      "q": {"value": 0.47, "source": "vonbenzon2022", "location": "Table A1, M_q|q| (Experimental)"},
+      "r": {"value": 1.5, "source": "vonbenzon2022", "location": "Table A1, N_r|r| (Experimental)"}
+    }
+  },
+  "thrusters": {
+    "model": "T200",
+    "maxForwardN": {"value": 30.4, "source": "crane_derived", "location": "von Benzon eq. 18 F(V) at V=+1: -140.3+389.9-404.1+176.0+8.9 = 30.4 N. Consistent with Table 4: 4*30.4*cos(45deg) = 86 N surge (paper 85 N), 4*30.4 = 122 N heave (paper 120 N)."},
+    "maxReverseN": {"value": 30.4, "source": "crane_derived", "location": "von Benzon eq. 18 is odd in V: F(-1) = -30.4 N. The T200 data sheet (bluerobotics_t200) is asymmetric; fit it separately before use."},
+    "thrustCurve": {"value": {"form": "odd polynomial in normalised command V in [-1,1]", "coefficients_V9_V7_V5_V3_V1": [-140.3, 389.9, -404.1, 176.0, 8.9]}, "source": "vonbenzon2022", "location": "eq. 18"},
+    "dynamicsTransferFunction": {"value": {"num": [6136, 108700], "den": [1, 89, 9258, 108700]}, "source": "vonbenzon2022", "location": "eq. 19, K(s)"},
+    "timeConstantS": {"value": 0.020, "source": "crane_derived", "location": "63 % rise time of the unit-step response of von Benzon eq. 19 (poles -13.16, -37.9 +- 82.6j; zero -17.7; no overshoot), computed with python -I. First-order surrogate only."},
+    "layout": {
+      "value": [
+        {"name": "T1", "positionM": [0.156, 0.111, 0.085], "direction": [0.70710678, -0.70710678, 0.0]},
+        {"name": "T2", "positionM": [0.156, -0.111, 0.085], "direction": [0.70710678, 0.70710678, 0.0]},
+        {"name": "T3", "positionM": [-0.156, 0.111, 0.085], "direction": [-0.70710678, 0.70710678, 0.0]},
+        {"name": "T4", "positionM": [-0.156, -0.111, 0.085], "direction": [-0.70710678, -0.70710678, 0.0]},
+        {"name": "T5", "positionM": [0.120, 0.218, 0.0], "direction": [0.0, 0.0, -1.0]},
+        {"name": "T6", "positionM": [0.120, -0.218, 0.0], "direction": [0.0, 0.0, -1.0]},
+        {"name": "T7", "positionM": [-0.120, 0.218, 0.0], "direction": [0.0, 0.0, -1.0]},
+        {"name": "T8", "positionM": [-0.120, -0.218, 0.0], "direction": [0.0, 0.0, -1.0]}
+      ],
+      "source": "wu2018",
+      "location": "Table 4.2 (arms, mm) and p.41 rotation angles pi/4, -pi/4, -3pi/4, 3pi/4 with Fx = F cos(a), Fy = -F sin(a). Positions match von Benzon Table A1 r_i = J3(alpha_i)[0.156 0.111 0.085], alpha = {0, 5.05, 1.91, pi}, and r_5..8 = J3(gamma_i)[0.120 0.218 0]. Vertical direction [0,0,-1] is from von Benzon Table A1. CONFLICT: von Benzon's printed beta_i = {0, pi/2, 3pi/4, pi} makes T3 point along pure +y (not 45 deg) and T4 opposite to Wu's T4, so it is treated as a typesetting error. The per-thruster positive-command sign (propeller handedness) is UNVERIFIED and must be measured on hardware."
+    }
+  },
+  "tether": {
+    "massPerLengthKgM": {"value": 0.043, "source": "vonbenzon2022", "location": "Table A1, m_tet"},
+    "diameterM": {"value": 0.0075, "source": "vonbenzon2022", "location": "Table A1, d_tet"},
+    "normalDragCoefficient": {"value": 1.2, "source": "vonbenzon2022", "location": "Table A1, Cn"},
+    "tangentialDragCoefficient": {"value": 0.01, "source": "vonbenzon2022", "location": "Table A1, Ct"},
+    "internalDampingNsM": {"value": 100.0, "source": "vonbenzon2022", "location": "Table A1, C_tet"},
+    "youngsModulusNM2": {"value": 6.437e10, "source": "vonbenzon2022", "location": "Table A1, E"}
+  },
+  "publishedPerformance": {
+    "maxSurgeSpeedMps": {"value": 0.72, "source": "vonbenzon2022", "location": "Table 4"},
+    "maxSwaySpeedMps": {"value": 0.63, "source": "vonbenzon2022", "location": "Table 4"},
+    "maxHeaveSpeedMps": {"value": 0.71, "source": "vonbenzon2022", "location": "Table 4"},
+    "maxSurgeForceN": {"value": 85.0, "source": "vonbenzon2022", "location": "Table 4"},
+    "maxHeaveForceN": {"value": 120.0, "source": "vonbenzon2022", "location": "Table 4"},
+    "dimensionsLxHxWM": {"value": [0.46, 0.38, 0.58], "source": "vonbenzon2022", "location": "Table 5"}
+  },
+  "alternatePrior": {
+    "note": "Wu 2018 a-priori values (standard BlueROV2 numbers transferred from Sandoy) kept as an independent prior to bound uncertainty. Not loaded by to_params().",
+    "massKg": {"value": 11.5, "source": "wu2018", "location": "Table 5.1"},
+    "weightN": {"value": 112.8, "source": "wu2018", "location": "Table 5.1"},
+    "buoyancyN": {"value": 114.8, "source": "wu2018", "location": "Table 5.1"},
+    "rGMeters": {"value": [0.0, 0.0, 0.02], "source": "wu2018", "location": "Table 5.1 (BG = 0.02 m 'representative value chosen', p.47)"},
+    "rBMeters": {"value": [0.0, 0.0, 0.0], "source": "wu2018", "location": "Table 5.1"},
+    "inertiaKgM2": {"value": [0.16, 0.16, 0.16], "source": "wu2018", "location": "Table 5.1 (assumed equal to yaw value)"},
+    "addedMass": {"value": [5.5, 12.7, 14.57, 0.12, 0.12, 0.12], "source": "wu2018", "location": "Table 5.2 (signs flipped to magnitudes)"},
+    "linearDamping": {"value": [4.03, 6.22, 5.18, 0.07, 0.07, 0.07], "source": "wu2018", "location": "Table 5.3 (signs flipped)"},
+    "quadraticDamping": {"value": [18.18, 21.66, 36.99, 1.55, 1.55, 1.55], "source": "wu2018", "location": "Table 5.3 (signs flipped)"}
+  }
+}
