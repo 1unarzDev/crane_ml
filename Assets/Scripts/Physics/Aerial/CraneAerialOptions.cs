@@ -25,12 +25,14 @@ namespace Sim.Physics.Aerial {
         public static bool HasFlag(string[] args, string flag) =>
             args != null && Array.IndexOf(args, flag) >= 0;
 
-        public enum BridgeMode { LegacyRefused, LegacyAllowed, ArduPilotJsonV2 }
+        public enum BridgeMode { LegacyRefused, LegacyAllowed, LegacyNonAerial, ArduPilotJsonV2 }
 
         /// <summary>Decides which bridge path may run. Throws on an unknown bridge name.</summary>
-        public static BridgeMode ResolveBridge(string[] args) {
+        public static BridgeMode ResolveBridge(string[] args, bool aerial = true) {
             string bridge = ReadValue(args, BridgeKey);
             if (bridge == null) {
+                // D16: the refusal protects only the multirotor path; boats keep legacy behaviour.
+                if (!aerial) return BridgeMode.LegacyNonAerial;
                 return HasFlag(args, AllowLegacyBridgeFlag) ?
                     BridgeMode.LegacyAllowed : BridgeMode.LegacyRefused;
             }
@@ -44,6 +46,11 @@ namespace Sim.Physics.Aerial {
             "The legacy ArduPilot-JSON SITL bridge is NOT_SUPPORTED (sign/frame errors and servo " +
             "order/spin mismatch, decision D14). Use " + BridgeKey + "=" + BridgeArduPilotJsonV2 +
             ", or pass " + AllowLegacyBridgeFlag + " to run the unvalidated legacy path knowingly.";
+
+        public static string LegacyNonAerialWarning =>
+            "Legacy ArduPilot-JSON SITL bridge on a non-aerial vehicle: telemetry has known frame " +
+            "defects (A1: NED down sign, reversed roll/pitch, world-frame gyro, constant accel_body, " +
+            "float32 timestamp). Behaviour unchanged; use " + BridgeKey + "=" + BridgeArduPilotJsonV2 + ".";
 
         public static string ReadAerialProfile(string[] args) => ReadValue(args, AerialProfileKey);
     }

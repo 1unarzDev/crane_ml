@@ -117,7 +117,7 @@ namespace Sim.Sensors.Nav
         void Start()
         {
             string[] args = Environment.GetCommandLineArgs();
-            bridgeMode = CraneAerialOptions.ResolveBridge(args);
+            bridgeMode = CraneAerialOptions.ResolveBridge(args, multirotor != null);
             if (bridgeMode == CraneAerialOptions.BridgeMode.LegacyRefused)
             {
                 Debug.LogError($"{name}: {CraneAerialOptions.LegacyRefusalMessage}");
@@ -125,6 +125,8 @@ namespace Sim.Sensors.Nav
                 return;
             }
             v2 = bridgeMode == CraneAerialOptions.BridgeMode.ArduPilotJsonV2;
+            if (bridgeMode == CraneAerialOptions.BridgeMode.LegacyNonAerial)
+                Debug.LogWarning($"{name}: {CraneAerialOptions.LegacyNonAerialWarning}");
             if (bridgeMode == CraneAerialOptions.BridgeMode.LegacyAllowed)
                 Debug.LogWarning($"{name}: running the NOT_SUPPORTED legacy SITL bridge ({CraneAerialOptions.AllowLegacyBridgeFlag}).");
             telemetryBody = imu != null ? imu.body : multirotor != null ?

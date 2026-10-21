@@ -212,13 +212,29 @@ namespace Sim.Tests.Aerial {
         }
 
         // ---- flags -------------------------------------------------------------------------
-        [Test] public void LegacyBridgeRefusesWithoutOverride() {
+        [Test] public void AerialLegacyNoOverrideIsRefused() {
             string[] none = { "CRANE.x86_64", "--crane-profile", "train-cpu" };
-            Assert.AreEqual(CraneAerialOptions.BridgeMode.LegacyRefused, CraneAerialOptions.ResolveBridge(none));
+            Assert.AreEqual(CraneAerialOptions.BridgeMode.LegacyRefused, CraneAerialOptions.ResolveBridge(none, true));
             StringAssert.Contains("--crane-allow-legacy-sitl-bridge", CraneAerialOptions.LegacyRefusalMessage);
             StringAssert.Contains("ardupilot-json-v2", CraneAerialOptions.LegacyRefusalMessage);
+        }
+
+        [Test] public void AerialLegacyWithOverrideIsAllowed() {
             Assert.AreEqual(CraneAerialOptions.BridgeMode.LegacyAllowed,
-                CraneAerialOptions.ResolveBridge(new[] { "--crane-allow-legacy-sitl-bridge" }));
+                CraneAerialOptions.ResolveBridge(new[] { "--crane-allow-legacy-sitl-bridge" }, true));
+        }
+
+        [Test] public void NonAerialLegacyIsAllowedWithWarning() {
+            Assert.AreEqual(CraneAerialOptions.BridgeMode.LegacyNonAerial,
+                CraneAerialOptions.ResolveBridge(new[] { "--crane-profile", "train-gpu" }, false));
+            StringAssert.Contains("A1", CraneAerialOptions.LegacyNonAerialWarning);
+            StringAssert.Contains("float32", CraneAerialOptions.LegacyNonAerialWarning);
+        }
+
+        [Test] public void V2SelectsV2PathForAerialAndNonAerial() {
+            var a = new[] { "--crane-sitl-bridge=ardupilot-json-v2" };
+            Assert.AreEqual(CraneAerialOptions.BridgeMode.ArduPilotJsonV2, CraneAerialOptions.ResolveBridge(a, true));
+            Assert.AreEqual(CraneAerialOptions.BridgeMode.ArduPilotJsonV2, CraneAerialOptions.ResolveBridge(a, false));
         }
 
         [Test] public void V2BridgeFlagParsesBothSpellings() {
