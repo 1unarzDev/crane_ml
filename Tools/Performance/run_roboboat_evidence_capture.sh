@@ -33,10 +33,11 @@ export CRANE_NAV2_ACTION_DURATION="${CRANE_NAV2_ACTION_DURATION:-155}"
 export CRANE_NAV2_POST_RESULT_DURATION=15
 export CRANE_REQUIRE_OCCUPIED_COSTMAP=1
 export CRANE_NOGRAPHICS=0
-export CRANE_SCREEN_WIDTH=1600
-export CRANE_SCREEN_HEIGHT=900
+# Presentation captures may raise the window size; Nav2/plant settings are unchanged.
+export CRANE_SCREEN_WIDTH="${CRANE_SCREEN_WIDTH:-1600}"
+export CRANE_SCREEN_HEIGHT="${CRANE_SCREEN_HEIGHT:-900}"
 if [[ "$mode" == interactive ]]; then
-    visual_args="--crane-evidence-overlay --crane-evidence-first-dock --crane-disable-rgb --crane-disable-lidar-debug-rays --crane-evidence-capture ${CRANE_RESULT_ROOT}/first-dock.png --crane-evidence-capture-delay 25 --crane-evidence-capture-2 ${CRANE_RESULT_ROOT}/mid.png --crane-evidence-capture-delay-2 30 --crane-evidence-capture-3 ${CRANE_RESULT_ROOT}/final.png --crane-evidence-capture-delay-3 145 --crane-interactive-width 1600 --crane-interactive-height 900"
+    visual_args="--crane-evidence-overlay --crane-evidence-first-dock --crane-disable-rgb --crane-disable-lidar-debug-rays --crane-evidence-capture ${CRANE_RESULT_ROOT}/first-dock.png --crane-evidence-capture-delay 25 --crane-evidence-capture-2 ${CRANE_RESULT_ROOT}/mid.png --crane-evidence-capture-delay-2 30 --crane-evidence-capture-3 ${CRANE_RESULT_ROOT}/final.png --crane-evidence-capture-delay-3 145 --crane-interactive-width ${CRANE_SCREEN_WIDTH} --crane-interactive-height ${CRANE_SCREEN_HEIGHT}"
 fi
 # Nav2 uses LiDAR /points. Avoid unrelated asynchronous RGB/depth readback backlog;
 # the full-sensor diagnostic failures remain retained under the reproduction artifacts.
