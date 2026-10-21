@@ -72,19 +72,29 @@ namespace Sim.Tests.PhysicsInvariants {
         const float Inertia = 2.0f;          // isotropic stand-in, kg m^2
         const float MaSurge = 6f, MaSway = 8f, MaHeave = 2f, MaRoll = 0.15f, MaPitch = 0.25f, MaYaw = 0.35f;
 
-        // FossenDynamics reads Time.deltaTime. Its value under EditMode is not under test control, so the
-        // effective step is inferred from the added-mass force produced by a known velocity jump.
-        static float EffectiveDt() {
+        // FossenDynamics.FixedUpdate divides by Time.deltaTime. The test reads the very same static
+        // immediately before each Step(), so the dt used for integration is the component's own dt.
+        static float StepDt() {
+            float dt = Time.deltaTime;
+            Assert.Greater(dt, 1e-5f, "Time.deltaTime is not usable in this EditMode run: " + dt);
+            return dt;
+        }
+
+        // Added mass the component implies from one velocity jump: |F| * dt / dv. Compared against the
+        // coefficient the test set explicitly, so a wrong magnitude, a wrong DOF or a dt-unit error shows up.
+        static void AssertImpliedAddedMass(string axis, float setMa, float expectedMa) {
             using var rig = new FossenRig(false, true, false);
+            rig.Set(axis == "surge" ? "XdotU" : "YdotV", setMa);
             rig.Start();
             rig.Step();
-            rig.Body.linearVelocity = new Vector3(0, 0, 1f);
+            const float dv = 0.5f;
+            float dt = StepDt();
+            Vector3 dir = axis == "surge" ? new Vector3(0, 0, 1) : new Vector3(1, 0, 0);
+            rig.Body.linearVelocity = dir * dv;
             rig.Step();
-            float f = Mathf.Abs(rig.Body.RelForce.z);
-            Assert.Greater(f, 0f, "added-mass force was zero; cannot infer dt (Time.deltaTime may be 0 in EditMode)");
-            float dt = MaSurge * 1f / f;
-            Assert.IsTrue(dt > 1e-5f && dt < 1f, "inferred dt unusable: " + dt);
-            return dt;
+            float implied = Vector3.Dot(rig.Body.RelForce, dir) * dt / dv;   // sign-blind below on purpose
+            Assert.AreEqual(expectedMa, Mathf.Abs(implied), 0.01f * expectedMa,
+                $"{axis}: implied added mass {Mathf.Abs(implied):F4} vs expected {expectedMa:F4}");
         }
 
         // Unity-frame velocities to Fossen state (surge=local z, sway=-local x, heave=local y; angular negated FLU).
@@ -100,27 +110,43 @@ namespace Sim.Tests.PhysicsInvariants {
 
         // ---------------- V1 ----------------
 
-        [Test, Category("KnownDefectV1")]
-        public void AddedMass_StepResponse_IsForceOverMassPlusAddedMass() {
-            float dt = EffectiveDt();
+        [TestCase("surge", 6f, Category = "KnownDefectV1")]
+        [TestCase("surge", 12f, Category = "KnownDefectV1")]
+        [TestCase("sway", 9f, Category = "KnownDefectV1")]
+        public void AddedMass_StepResponse_IsForceOverMassPlusAddedMass(string axis, float ma) {
             using var rig = new FossenRig(false, true, false);
+            rig.Set(axis == "surge" ? "XdotU" : "YdotV", ma);   // set explicitly, never rely on prefab defaults
             rig.Start();
+            Vector3 dir = axis == "surge" ? new Vector3(0, 0, 1) : new Vector3(1, 0, 0);
             const float Fext = 10f;
-            Vector3 v = Vector3.zero;
-            float vAt20 = 0, vAt60 = 0;
+            float vel = 0, vAt20 = 0, vAt60 = 0, dtSum = 0;
             for (int k = 0; k < 60; k++) {
-                rig.Body.linearVelocity = v;
+                rig.Body.linearVelocity = dir * vel;
+                float dt = StepDt();
                 rig.Step();
-                Vector3 hydro = rig.Body.WorldForce;
-                float a = (Fext + hydro.z) / Mass;
-                v += new Vector3(0, 0, a * dt);
-                if (k == 19) vAt20 = v.z;
-                if (k == 59) vAt60 = v.z;
+                float a = (Fext + Vector3.Dot(rig.Body.WorldForce, dir)) / Mass;
+                vel += a * dt;
+                if (k == 19) { vAt20 = vel; dtSum = 0; }
+                if (k > 19) dtSum += dt;
+                if (k == 59) vAt60 = vel;
             }
-            float measured = (vAt60 - vAt20) / (40 * dt);
-            float expected = Fext / (Mass + MaSurge);
+            float measured = (vAt60 - vAt20) / dtSum;
+            float expected = Fext / (Mass + ma);
             Assert.AreEqual(expected, measured, 0.03f * expected,
-                $"a={measured:F4} m/s^2, correct F/(M+MA)={expected:F4}. Legacy applies +MA*nuDot (V1).");
+                $"{axis} MA={ma}: a={measured:F4} m/s^2, correct F/(M+MA)={expected:F4} (Fossen 2011, MA>0). Legacy applies +MA*nuDot (V1).");
+        }
+
+        [TestCase("surge", 6f), TestCase("surge", 12f), TestCase("sway", 9f)]
+        [Category("PhysicsInvariantControl")]
+        public void Control_AddedMass_ImpliedMagnitudeMatchesCoefficient(string axis, float ma) {
+            AssertImpliedAddedMass(axis, ma, ma);
+        }
+
+        [Test, Category("PhysicsInvariantControl")]
+        public void Mutant_DoubledAddedMass_IsDetected() {
+            // Component built with 2x the coefficient the test expects must fail the magnitude check.
+            Assert.Throws<AssertionException>(() => AssertImpliedAddedMass("surge", 12f, 6f));
+            Assert.Throws<AssertionException>(() => AssertImpliedAddedMass("sway", 16f, 8f));
         }
 
         [Test, Category("KnownDefectV1")]
@@ -168,38 +194,79 @@ namespace Sim.Tests.PhysicsInvariants {
 
         // ---------------- V2 ----------------
 
-        // Planar velocity u=1 (surge), v=0.2 (sway), r=0.5 (yaw) in the legacy Fossen axis convention.
-        static (Vector3 v, Vector3 w) PlanarState() =>
-            (new Vector3(-0.2f, 0f, 1.0f), new Vector3(0f, -0.5f, 0f));
+        // Expected hydrodynamic wrench -C_A(nu)nu for diagonal M_A (Fossen 2011), body FLU:
+        //   force  = -(w x (A1 v)),  moment = -(v x (A1 v) + w x (A2 w)).
+        static void ExpectedCoriolis(float[] eta, float[] ma, out Vector3 force, out Vector3 moment) {
+            var v = new Vector3(eta[0], eta[1], eta[2]);
+            var w = new Vector3(eta[3], eta[4], eta[5]);
+            var a1v = new Vector3(ma[0] * v.x, ma[1] * v.y, ma[2] * v.z);
+            var a2w = new Vector3(ma[3] * w.x, ma[4] * w.y, ma[5] * w.z);
+            force = -Vector3.Cross(w, a1v);
+            moment = -(Vector3.Cross(v, a1v) + Vector3.Cross(w, a2w));
+        }
 
-        [Test, Category("KnownDefectV2")]
-        public void Coriolis_PlanarMotion_StaysInSurgeSwayYaw() {
-            using var rig = new FossenRig(false, false, true);
-            var (v, w) = PlanarState();
+        // Inverse of FossenDynamics.GetState and its output axis swaps (F -> (-y,z,x), T -> (y,-z,-x)).
+        static void EtaToUnity(float[] e, out Vector3 v, out Vector3 w) {
+            v = new Vector3(-e[1], e[2], e[0]);
+            w = new Vector3(e[4], -e[5], -e[3]);
+        }
+        static Vector3 FossenForceToUnity(Vector3 f) => new Vector3(-f.y, f.z, f.x);
+        static Vector3 FossenMomentToUnity(Vector3 t) => new Vector3(t.y, -t.z, -t.x);
+
+        static readonly float[][] MaSets = {
+            new[] { 6f, 8f, 2f, 0.15f, 0.25f, 0.35f },
+            new[] { 9f, 4f, 3f, 0.5f, 0.1f, 0.7f },     // a11 != a22 in the opposite order
+        };
+        static readonly string[] MaNames = { "XdotU", "YdotV", "ZdotW", "KdotP", "MdotQ", "NdotR" };
+
+        static FossenRig CoriolisRig(float[] ma) {
+            var rig = new FossenRig(false, false, true);
+            for (int i = 0; i < 6; i++) rig.Set(MaNames[i], ma[i]);
+            return rig;
+        }
+
+        // Returns (unity force, unity torque) produced for a Fossen-frame state.
+        static (Vector3 f, Vector3 t) RunCoriolis(float[] ma, float[] eta) {
+            using var rig = CoriolisRig(ma);
+            EtaToUnity(eta, out var v, out var w);
             rig.Body.linearVelocity = v; rig.Body.angularVelocity = w;
             rig.Start(); rig.Step();
-            Vector3 F = rig.Body.RelForce, T = rig.Body.Torque;
-            // Unity y is heave; torque about Unity x/z is pitch/roll (see FossenDynamics axis swap).
-            Assert.AreEqual(0f, F.y, 1e-4f, "heave force must be 0");
-            Assert.AreEqual(0f, T.x, 1e-4f, "pitch torque must be 0 for planar motion");
-            Assert.AreEqual(0f, T.z, 1e-4f, "roll torque must be 0 for planar motion");
-            // Munk moment magnitude |(a11-a22) u v| = 0.4 N m must land on yaw.
-            Assert.AreEqual(Mathf.Abs((MaSurge - MaSway) * 1.0f * 0.2f), Mathf.Abs(T.y), 0.02f, "Munk yaw moment missing");
-            // sway force a11*u*r magnitude 3.0 N, surge force a22*v*r magnitude 0.8 N
-            Assert.AreEqual(MaSurge * 1.0f * 0.5f, Mathf.Abs(F.x), 0.05f, "sway force a11*u*r missing");
-            Assert.AreEqual(MaSway * 0.2f * 0.5f, Mathf.Abs(F.z), 0.05f, "surge force a22*v*r missing");
+            return (rig.Body.RelForce, rig.Body.Torque);
+        }
+
+        static void AssertSignedCoriolis(float[] ma, float[] eta, string label) {
+            ExpectedCoriolis(eta, ma, out var f, out var m);
+            var (fu, tu) = RunCoriolis(ma, eta);
+            Vector3 fe = FossenForceToUnity(f), te = FossenMomentToUnity(m);
+            Assert.AreEqual(0f, (fu - fe).magnitude, 1e-3f, $"{label}: force {fu} vs expected -C_A nu {fe}");
+            Assert.AreEqual(0f, (tu - te).magnitude, 1e-3f, $"{label}: torque {tu} vs expected -C_A nu {te}");
+        }
+
+        [TestCase(1f, 0.2f, 0.5f), TestCase(-0.7f, 0.3f, -0.4f), TestCase(0.5f, -0.6f, 0.8f)]
+        [Category("KnownDefectV2")]
+        public void Coriolis_Planar_SignedWrenchMatchesFossen(float u, float v, float r) {
+            foreach (var ma in MaSets)
+                AssertSignedCoriolis(ma, new[] { u, v, 0f, 0f, 0f, r }, $"planar u={u} v={v} r={r} a11={ma[0]} a22={ma[1]}");
         }
 
         [Test, Category("KnownDefectV2")]
-        public void Coriolis_PowerIsZero_Planar() {
-            using var rig = new FossenRig(false, false, true);
-            var (v, w) = PlanarState();
-            rig.Body.linearVelocity = v; rig.Body.angularVelocity = w;
-            rig.Start(); rig.Step();
-            float p = Vector3.Dot(rig.Body.RelForce, v) + Vector3.Dot(rig.Body.Torque, w);
-            Assert.AreEqual(0f, p, 1e-3f, "nu^T C(nu) nu must be 0 (Coriolis does no work)");
-            // Guard against a vacuous pass (zero wrench): a correct Coriolis wrench is non-zero here.
-            Assert.Greater(rig.Body.RelForce.magnitude + rig.Body.Torque.magnitude, 0.5f, "Coriolis wrench is vacuously zero");
+        public void Coriolis_Random6Dof_SignedWrenchMatchesFossen_AndIsPowerFreeAndQuadratic() {
+            var rng = new System.Random(20261021);
+            float R() => (float)(rng.NextDouble() * 2.0 - 1.0);
+            foreach (var ma in MaSets) {
+                for (int n = 0; n < 50; n++) {
+                    var eta = new[] { R(), 0.7f * R(), 0.5f * R(), 0.6f * R(), 0.6f * R(), 0.8f * R() };
+                    AssertSignedCoriolis(ma, eta, $"seed state {n} ma={ma[0]}/{ma[1]}");
+                    // Power-free: nu . tau = 0 (Unity-frame form, frame independent).
+                    EtaToUnity(eta, out var v, out var w);
+                    var (fu, tu) = RunCoriolis(ma, eta);
+                    Assert.AreEqual(0f, Vector3.Dot(fu, v) + Vector3.Dot(tu, w), 2e-3f, $"power nonzero at state {n}");
+                    // Quadratic homogeneity: tau(2 nu) = 4 tau(nu).
+                    var eta2 = Array.ConvertAll(eta, x => 2f * x);
+                    var (f2, t2) = RunCoriolis(ma, eta2);
+                    Assert.AreEqual(0f, (f2 - 4f * fu).magnitude + (t2 - 4f * tu).magnitude, 5e-3f, $"tau(2nu) != 4 tau(nu) at {n}");
+                }
+            }
         }
 
         [Test, Category("KnownDefectV2")]
@@ -252,7 +319,6 @@ namespace Sim.Tests.PhysicsInvariants {
 
         [Test, Category("KnownDefectV2")]
         public void ZeroCommand_EnergyDoesNotIncrease_FullFossenStack() {
-            float dt = EffectiveDt();
             using var rig = new FossenRig(true, true, true);
             Vector3 v = new Vector3(-0.3f, 0.05f, 1.0f), w = new Vector3(0.05f, -0.4f, 0.03f);
             rig.Body.linearVelocity = v; rig.Body.angularVelocity = w;
@@ -260,6 +326,7 @@ namespace Sim.Tests.PhysicsInvariants {
             float e0 = Energy(v, w), prev = e0, worst = 0f;
             for (int k = 0; k < 400; k++) {
                 rig.Body.linearVelocity = v; rig.Body.angularVelocity = w;
+                float dt = StepDt();
                 rig.Step();
                 v += rig.Body.WorldForce / Mass * dt;
                 w += rig.Body.Torque / Inertia * dt;
