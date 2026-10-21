@@ -25,6 +25,12 @@ namespace Sim.Underwater {
         /// <summary>CG-below-CB distance (FRD z of CG minus z of CB).</summary>
         public double BG => RG[2] - RB[2];
 
+        public CraneVehicleParams Clone() => new CraneVehicleParams {
+            Mass = Mass, InertiaCg = (double[,])InertiaCg.Clone(), RG = (double[])RG.Clone(), RB = (double[])RB.Clone(), Buoyancy = Buoyancy,
+            AddedMass = (double[,])AddedMass.Clone(), LinearDamping = (double[,])LinearDamping.Clone(),
+            QuadraticDamping = (double[])QuadraticDamping.Clone(), Gravity = Gravity, Name = Name
+        };
+
         public void Validate() {
             if (!(Mass > 0.0)) throw new ArgumentException("mass must be positive");
             if (MaxAsym(InertiaCg) > 1e-9) throw new ArgumentException("inertia_cg must be symmetric");

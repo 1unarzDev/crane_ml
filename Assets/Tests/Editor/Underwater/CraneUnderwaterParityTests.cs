@@ -58,7 +58,12 @@ namespace Sim.Tests.Editor.Underwater {
         void RunTrajectory(string name) {
             var c = Case(name);
             bool useThr = (bool)c["useThrusters"];
-            var sim = new CraneFossenSimulator(profile.Params, Arr(c["current"]), useThr ? profile.Thrusters : null);
+            var prm = profile.Params;
+            if (c.ContainsKey("variant") && c["variant"] != null) {
+                var v = D(c["variant"]);
+                prm = prm.Clone(); prm.RG = Arr(v["rG"]); prm.RB = Arr(v["rB"]); prm.Buoyancy = (double)v["buoyancyN"];
+            }
+            var sim = new CraneFossenSimulator(prm, Arr(c["current"]), useThr ? profile.Thrusters : null);
             var s = new CraneState { Pos = Arr(c["pos0"]), Q = Arr(c["q0"]), Nu = Arr(c["nu0"]), Thrust = Arr(c["thrust0"]) };
             var tau = Arr(c["tauExt"]);
             var fCmd = c["fCmd"] == null ? null : Arr(c["fCmd"]);
@@ -94,6 +99,12 @@ namespace Sim.Tests.Editor.Underwater {
         [Test] public void Parity_YawSpinDown() => RunTrajectory("yaw_spin_down");
         [Test] public void Parity_CurrentDrift() => RunTrajectory("current_drift");
         [Test] public void Parity_CoupledFree_Coriolis() => RunTrajectory("coupled_free");
+
+        [Test] public void Parity_Tank_Cases_Including_Cg_Cb_Variants() {
+            var names = ((List<object>)golden["cases"]).Select(D).Select(c => (string)c["name"]).Where(n => n.StartsWith("tank_")).ToList();
+            Assert.AreEqual(16, names.Count);
+            foreach (var n in names) RunTrajectory(n);
+        }
 
         [Test] public void Parity_ThrustAllocation_Cases() {
             double worst = 0; int n = 0, saturated = 0;

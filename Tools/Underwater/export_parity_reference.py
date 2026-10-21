@@ -9,6 +9,7 @@ All numbers are float64 and printed with repr() round-trip precision.
 """
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import json
 import shutil
@@ -35,7 +36,9 @@ def sample(s: State, t: float) -> dict:
 
 
 def run_case(name, params, thrusters, *, seconds, dt=DT, euler=(0, 0, 0), pos=(0, 0, 2.0), nu0=None,
-             current=(0, 0, 0), tau_ext=None, f_cmd=None, use_thrusters=False):
+             current=(0, 0, 0), tau_ext=None, f_cmd=None, use_thrusters=False, variant=None):
+    if variant:
+        params = dataclasses.replace(params, **{k: (v(params) if callable(v) else v) for k, v in variant.items()})
     tau_ext = np.zeros(6) if tau_ext is None else np.asarray(tau_ext, float)
     sim = Simulator(params, current_n=np.asarray(current, float), thrusters=thrusters if use_thrusters else ())
     s0 = State.at_rest(pos=pos, euler=euler, n_thrusters=len(thrusters) if use_thrusters else 0)
@@ -51,7 +54,9 @@ def run_case(name, params, thrusters, *, seconds, dt=DT, euler=(0, 0, 0), pos=(0
         if (k + 1) % every == 0:
             traj.append(sample(s, (k + 1) * dt))
     return {
-        "name": name, "dt": dt, "steps": steps, "sampleEvery": every,
+        "name": name, "variant": None if not variant else {
+            "rG": params.r_g.tolist(), "rB": params.r_b.tolist(), "buoyancyN": params.buoyancy},
+        "dt": dt, "steps": steps, "sampleEvery": every,
         "useThrusters": use_thrusters, "current": list(current), "tauExt": tau_ext.tolist(),
         "fCmd": None if fcmd is None else fcmd.tolist(),
         "q0": s0.q.tolist(), "pos0": s0.pos.tolist(), "nu0": s0.nu.tolist(),
@@ -83,6 +88,16 @@ def main() -> None:
         "roll_release": dict(seconds=10, euler=(np.radians(20), 0, 0)),
         "yaw_spin_down": dict(seconds=10, nu0=[0, 0, 0, 0, 0, 1.5], tau_ext=hover_tau),
     }
+    # Variants that exercise a REAL CG/CB offset through PhysX (the Heavy profile has r_g = 0).
+    cg = dict(r_g=[0.01, -0.005, 0.02])                                   # BG = 0.03, CG 1 cm forward of CB (trim moment)
+    bg3 = dict(r_g=[0, 0, 0], r_b=[0, 0, -0.03], buoyancy=lambda p: p.weight)   # pure pitch/roll, neutral, BG = 0.03
+    surplus = dict(buoyancy=lambda p: p.weight + 10.0)                    # +10 N net buoyancy
+    tank.update({
+        "roll_release_cg": dict(seconds=10, euler=(np.radians(20), 0, 0), variant=cg),
+        "pitch_release_cg": dict(seconds=10, euler=(0, np.radians(10), 0), variant=cg),
+        "pitch_release_bg3": dict(seconds=12, euler=(0, np.radians(1), 0), variant=bg3),
+        "ascent_surplus": dict(seconds=10, pos=(0, 0, 5.0), variant=surplus),
+    })
     for base, kw in tank.items():
         for h in (0.02, 0.01):
             cases.append(run_case(f"tank_{base}_dt{h}", params, thr, dt=h, **kw))
@@ -123,5 +138,40 @@ def main() -> None:
     print(f"wrote {target} ({len(cases)} trajectories, {len(alloc)} allocation cases)")
 
 
+def export_sensors() -> None:
+    from fossen6dof import G, quat_to_rot
+    from sensor_models import DVL, PressureSensor, janus_beams
+    rng = np.random.default_rng(20260421)
+    def q_rand():
+        return euler_to_quat(*(rng.uniform(-0.6, 0.6, 2).tolist() + [rng.uniform(-3, 3)]))
+    press = []
+    for i in range(30):
+        ps = PressureSensor(port_b=rng.uniform(-0.2, 0.2, 3), rho=float(rng.choice([997.0, 1025.0])),
+                            resolution_pa=float(rng.choice([0.0, 10.0, 100.0])), surface_z=float(rng.choice([0.0, 0.3])))
+        pos = np.array([rng.uniform(-5, 5), rng.uniform(-5, 5), rng.uniform(-0.2, 20)]); q = q_rand()
+        p = ps.measure(pos, q)
+        press.append({"port": ps.port_b.tolist(), "rho": ps.rho, "resolution": ps.resolution_pa, "surfaceZ": ps.surface_z,
+                      "pos": pos.tolist(), "q": q.tolist(), "pressure": p, "depth": ps.depth_from_pressure(p)})
+    dvl = []
+    for i in range(60):
+        d = DVL(mount_b=rng.uniform(-0.2, 0.2, 3), min_range=0.05, max_range=float(rng.choice([10.0, 30.0, 50.0])))
+        pos = np.array([rng.uniform(-5, 5), rng.uniform(-5, 5), rng.uniform(0, 5)]); q = q_rand()
+        nu = rng.uniform(-0.5, 0.5, 6); cur = rng.uniform(-0.3, 0.3, 3)
+        seabed = float(pos[2] + rng.uniform(0.02, 45.0)); mode = str(rng.choice(["bottom", "water"]))
+        v, radial, valid = d.measure(pos, q, nu, seabed, current_n=cur, mode=mode)
+        ranges = d.beam_ranges(pos, q, seabed)
+        dvl.append({"mount": d.mount_b.tolist(), "minRange": d.min_range, "maxRange": d.max_range, "pos": pos.tolist(), "q": q.tolist(),
+                    "nu": nu.tolist(), "current": cur.tolist(), "seabedZ": seabed, "mode": mode,
+                    "v": None if v is None else v.tolist(), "radial": radial.tolist(), "valid": [bool(x) for x in valid],
+                    "ranges": [None if not np.isfinite(r) else float(r) for r in ranges]})
+    out = {"schema": "crane.underwater.sensor_reference/v1", "generator": "Tools/Underwater/export_parity_reference.py",
+           "oracle": "Tools/Underwater/sensor_models.py", "g": G, "janusBeams": janus_beams().tolist(),
+           "pressure": press, "dvl": dvl}
+    target = HERE / "golden" / "sensor_reference.json"
+    target.write_text(json.dumps(out, indent=1))
+    print(f"wrote {target} ({len(press)} pressure, {len(dvl)} dvl)")
+
+
 if __name__ == "__main__":
+    export_sensors()
     main()

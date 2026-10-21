@@ -100,6 +100,9 @@ namespace Sim.Underwater {
         /// <summary>Constant extra wrench about CO in FRD (fixtures: hover compensation, load cell). Cleared on reset.</summary>
         public void SetExternalWrench(double[] wrenchFrd) => externalWrenchFrd = (double[])wrenchFrd.Clone();
 
+        /// <summary>World position of CO (the body-frame origin) derived from the physics centre of mass, independent of what rb.position means.</summary>
+        Vector3 CoWorld() => rb.worldCenterOfMass - rb.rotation * rb.centerOfMass;
+
         /// <summary>Measured NED/FRD state of CO from the Rigidbody (thrust field empty).</summary>
         public CraneState MeasureState() {
             var rot = rb.rotation;
@@ -109,7 +112,7 @@ namespace Sim.Underwater {
             var vGf = CraneUnderwaterFrames.UnityToNed(vG.x, vG.y, vG.z);
             var wf = CraneUnderwaterFrames.UnityAxialToNed(w.x, w.y, w.z);
             var vCo = Add(vGf, Cross(Scale(wf, -1.0), profile.Params.RG));   // v_CO = v_G + w x (r_CO - r_G) = v_G - w x r_g
-            var pos = rb.position;
+            var pos = CoWorld();
             return new CraneState {
                 Pos = new double[] { pos.z, pos.x, -(pos.y - seaLevelUnityY) }, Q = qNed,
                 Nu = new[] { vCo[0], vCo[1], vCo[2], wf[0], wf[1], wf[2] }, Thrust = new double[0]
@@ -124,9 +127,16 @@ namespace Sim.Underwater {
             PreStep?.Invoke(stepCount, state);
 
             var applied = bank.Step(dt, commandN);
-            // nudot including thruster wrench, without PhysX-owned C_RB: use full model then add C_RB nu back.
+            // Desired nudot from the full model, then the wrench PhysX needs to realise it.
+            // Translation: F = m * a_G (world acceleration of the CG, body comps) = upper rows of (M_RB nudot + C_RB nu).
+            // Rotation: Unity's PhysX does NOT apply gyroscopic torque (verified: an emulation without it reproduces the measured
+            // trajectory to 3 digits; with it, 10 % yaw-rate errors appear at 1 s), so the torque about the CG is exactly I_cg * omega_dot,
+            // delivered as a couple about CO: tau_c = I_cg omega_dot + r_g x F  (force F is applied at CO, i.e. -r_g from the CG).
             var nudot = sim.Acceleration(state, Add(applied, externalWrenchFrd));
-            var wrench = Add(Mul(sim.MRb, nudot), Mul(CraneFossen.CoriolisFromMass(sim.MRb, nu), nu));
+            var full = Add(Mul(sim.MRb, nudot), Mul(CraneFossen.CoriolisFromMass(sim.MRb, nu), nu));
+            var force = Slice(full, 0, 3);
+            var couple = Add(Mul(profile.Params.InertiaCg, Slice(nudot, 3, 3)), Cross(profile.Params.RG, force));
+            var wrench = new[] { force[0], force[1], force[2], couple[0], couple[1], couple[2] };
 
             var fU = CraneUnderwaterFrames.NedToUnity(Slice(wrench, 0, 3));
             var tU = CraneUnderwaterFrames.NedAxialToUnity(Slice(wrench, 3, 3));
@@ -136,7 +146,7 @@ namespace Sim.Underwater {
                 Debug.LogError("[CraneUnderwaterBody] non-finite wrench; skipping step");
                 return;
             }
-            rb.AddForceAtPosition(fW, rb.position, ForceMode.Force);
+            rb.AddForceAtPosition(fW, CoWorld(), ForceMode.Force);
             rb.AddTorque(tW, ForceMode.Force);
             lastWrenchFrd = wrench; lastNu = nu;
             stepCount++;
