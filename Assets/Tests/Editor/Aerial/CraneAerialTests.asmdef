@@ -1,0 +1,13 @@
+{
+    "name": "CraneAerialTests",
+    "references": [
+        "MAVROSAssembly",
+        "PhysicsAssembly"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ]
+}

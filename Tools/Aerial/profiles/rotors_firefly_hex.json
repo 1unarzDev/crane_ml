@@ -1,0 +1,45 @@
+{
+  "schema": "crane-aerial-vehicle-profile-v1",
+  "id": "rotors-firefly-cd813b7",
+  "description": "AscTec Firefly hexarotor as parameterized in RotorS. Used here for hexarotor allocation/feasibility fixtures; coefficients are simulator defaults, not a published sysid.",
+  "evidenceLabel": "IMPLEMENTED",
+  "frames": {"body": "FLU", "world": "ENU z-up", "spin": "+1 = CCW seen from above"},
+  "sources": {
+    "ROTORS": {
+      "url": "https://github.com/ethz-asl/rotors_simulator",
+      "commit": "cd813b7a8c375d677352aa20ad20047feb661126",
+      "files": {
+        "rotors_description/urdf/firefly.xacro": "90951ba87ee70dc094061f6f9bfb45c3d6da7037f4729d76df3bac142c15d8b3",
+        "rotors_description/package.xml": "98e93ed13644fa2b72b62ed4c7bfc81a9883fb5f99a87bb254ce7a01a9901826"
+      },
+      "license": "Apache-2.0 (per-file headers 'Licensed under the Apache License, Version 2.0'; package.xml <license>ASL 2.0</license>; no top-level LICENSE file)",
+      "gplCompatible": true,
+      "meshLicense": "firefly.dae has no separate notice; package-level ASL 2.0 only. UNKNOWN for redistribution; do not import or bundle any RotorS mesh.",
+      "licenseProvenance": "License is inferred from per-file headers and package.xml metadata only; the repository has no top-level LICENSE file.",
+      "citation": "Furrer, Burri, Achtelik, Siegwart, 'RotorS - A Modular Gazebo MAV Simulator Framework', Robot Operating System (ROS): The Complete Reference (Vol. 1), Springer 2016"
+    }
+  },
+  "parameters": {
+    "mass": {"value": 1.53, "unit": "kg", "source": "ROTORS", "locator": "firefly.xacro mass 1.5 + 6 x mass_rotor 0.005", "status": "SIMULATOR_DEFAULT"},
+    "inertia": {"value": [[0.0347563, 0, 0], [0, 0.0458929, 0], [0, 0, 0.0977]], "unit": "kg m^2", "source": "ROTORS", "locator": "body_inertia", "status": "SIMULATOR_DEFAULT"},
+    "kf": {"value": 8.54858e-06, "unit": "N/(rad/s)^2", "source": "ROTORS", "locator": "motor_constant", "status": "SIMULATOR_DEFAULT"},
+    "km": {"value": 0.016, "unit": "m", "source": "ROTORS", "locator": "moment_constant", "status": "SIMULATOR_DEFAULT"},
+    "tau_up": {"value": 0.0125, "unit": "s", "source": "ROTORS", "locator": "time_constant_up", "status": "SIMULATOR_DEFAULT"},
+    "tau_down": {"value": 0.025, "unit": "s", "source": "ROTORS", "locator": "time_constant_down", "status": "SIMULATOR_DEFAULT"},
+    "omega_max": {"value": 838.0, "unit": "rad/s", "source": "ROTORS", "locator": "max_rot_velocity", "status": "SIMULATOR_DEFAULT"},
+    "rotor_drag": {"value": 8.06428e-05, "unit": "N s/(m rad)", "source": "ROTORS", "locator": "rotor_drag_coefficient", "status": "SIMULATOR_DEFAULT"},
+    "rolling_moment": {"value": 1e-06, "unit": "N s/rad", "source": "ROTORS", "locator": "rolling_moment_coefficient", "status": "SIMULATOR_DEFAULT"},
+    "rotor_radius": {"value": 0.1, "unit": "m", "source": "ROTORS", "locator": "radius_rotor", "status": "SIMULATOR_DEFAULT"},
+    "drag_linear": {"value": [0.0, 0.0, 0.0], "unit": "N s/m", "source": null, "locator": "none", "status": "UNKNOWN"},
+    "drag_quadratic": {"value": 0.0, "unit": "N s^2/m^2", "source": null, "locator": "none", "status": "UNKNOWN"}
+  },
+  "rotors": [
+    {"name": "m0", "position": [0.18619546181365432, 0.1075, 0.037], "spin": 1, "source": "ROTORS", "locator": "motor_number 0 ccw (cos30 a, sin30 a)"},
+    {"name": "m1", "position": [0.0, 0.215, 0.037], "spin": -1, "source": "ROTORS", "locator": "motor_number 1 cw (0, a)"},
+    {"name": "m2", "position": [-0.18619546181365432, 0.1075, 0.037], "spin": 1, "source": "ROTORS", "locator": "motor_number 2 ccw"},
+    {"name": "m3", "position": [-0.18619546181365432, -0.1075, 0.037], "spin": -1, "source": "ROTORS", "locator": "motor_number 3 cw"},
+    {"name": "m4", "position": [0.0, -0.215, 0.037], "spin": 1, "source": "ROTORS", "locator": "motor_number 4 ccw"},
+    {"name": "m5", "position": [0.18619546181365432, -0.1075, 0.037], "spin": -1, "source": "ROTORS", "locator": "motor_number 5 cw"}
+  ],
+  "notes": ["Thrust-to-weight at omega_max: 6 kf w^2 / (m g) = 2.40."]
+}

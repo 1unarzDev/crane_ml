@@ -30,6 +30,24 @@ namespace Sim.Sensors.Nav
         public float[] velocity = new float[] { 0.0f, 0.0f, 0.0f };
     }
 
+    /// <summary>ardupilot-json-v2 packet: double precision, FRD/NED per the ArduPilot JSON readme.</summary>
+    [Serializable]
+    public class SITLCommsJsonIMUDataV2
+    {
+        public double[] gyro = new double[3];
+        public double[] accel_body = new double[3];
+    }
+
+    [Serializable]
+    public class SITLCommsJsonOutputPacketV2
+    {
+        public double timestamp;
+        public SITLCommsJsonIMUDataV2 imu = new();
+        public double[] position = new double[3];
+        public double[] attitude = new double[3];
+        public double[] velocity = new double[3];
+    }
+
     public class MAVROSConnection : MonoBehaviour
     {
         private const UInt16 ServoPacketMagic = 18458;
@@ -71,6 +89,16 @@ namespace Sim.Sensors.Nav
             new(CraneActionPayloadEncoding.UInt16Array);
         private IPhysicsBody telemetryBody;
 
+        // ardupilot-json-v2 (decision D14): telemetry is sampled once per physics tick.
+        private CraneAerialOptions.BridgeMode bridgeMode;
+        private bool v2;
+        private long physicsTick;
+        private Vec3d previousVelocityUnity;
+        private bool hasPreviousVelocity;
+        private string latestJsonV2;
+        private CraneAerialRotorV2Plant rotorPlant;
+        private int[] channelToRotor;
+
         public void ConfigureAerial(MultirotorDynamics dynamics, int port,
             float minimumPwm = 1000f, float maximumPwm = 2000f,
             float telemetryRateHz = 200f) {
@@ -88,6 +116,17 @@ namespace Sim.Sensors.Nav
 
         void Start()
         {
+            string[] args = Environment.GetCommandLineArgs();
+            bridgeMode = CraneAerialOptions.ResolveBridge(args);
+            if (bridgeMode == CraneAerialOptions.BridgeMode.LegacyRefused)
+            {
+                Debug.LogError($"{name}: {CraneAerialOptions.LegacyRefusalMessage}");
+                enabled = false;
+                return;
+            }
+            v2 = bridgeMode == CraneAerialOptions.BridgeMode.ArduPilotJsonV2;
+            if (bridgeMode == CraneAerialOptions.BridgeMode.LegacyAllowed)
+                Debug.LogWarning($"{name}: running the NOT_SUPPORTED legacy SITL bridge ({CraneAerialOptions.AllowLegacyBridgeFlag}).");
             telemetryBody = imu != null ? imu.body : multirotor != null ?
                 new RigidbodyAdapter(multirotor.GetComponent<Rigidbody>()) : null;
             if (telemetryBody == null || (controller == null && multirotor == null))
@@ -98,6 +137,11 @@ namespace Sim.Sensors.Nav
                     $"{name} SITL PWM range must satisfy max > min.");
             if (hz <= 0f)
                 throw new InvalidOperationException($"{name} SITL telemetry rate must be positive.");
+            if (v2 && multirotor != null && !ConfigureV2Aerial(args))
+            {
+                enabled = false;
+                return;
+            }
             runThreads = true;
             Debug.Log($"Starting ArduPilot JSON/SITL UDP threads on port {localPort}");
 
@@ -143,6 +187,59 @@ namespace Sim.Sensors.Nav
             Debug.Log("Stopping ArduPilot JSON/SITL UDP threads");
         }
 
+        private bool ConfigureV2Aerial(string[] args)
+        {
+            rotorPlant = CraneAerialRotorV2Plant.TryInstall(multirotor.gameObject, args);
+            if (rotorPlant == null)
+            {
+                Debug.LogError($"{name}: ardupilot-json-v2 aerial bridge requires " +
+                    $"{CraneAerialOptions.AerialProfileKey}=<ArduCopter QUAD/X profile>; the legacy plant " +
+                    "has the mirror-image spin pattern and would flip the vehicle on arming.");
+                return false;
+            }
+            var rotors = rotorPlant.Profile.Vehicle.Rotors;
+            if (rotors.Length != ArduPilotJsonFrames.ServoChannels)
+            {
+                Debug.LogError($"{name}: profile {rotorPlant.Profile.Id} is not a quad; QUAD/X mapping unavailable.");
+                return false;
+            }
+            var positions = new double[rotors.Length][];
+            var spins = new int[rotors.Length];
+            for (int i = 0; i < rotors.Length; i++) { positions[i] = rotors[i].Position; spins[i] = rotors[i].Spin; }
+            channelToRotor = ArduPilotJsonFrames.ChannelToRotorByGeometry(positions, spins, out bool spinMatches);
+            if (!spinMatches)
+            {
+                Debug.LogError($"{name}: profile {rotorPlant.Profile.Id} spin pattern differs from ArduCopter QUAD/X " +
+                    "(FR/RL CCW, FL/RR CW); refusing to connect.");
+                return false;
+            }
+            return true;
+        }
+
+        private void SampleTelemetryV2()
+        {
+            physicsTick++;
+            Quaternion q = telemetryBody.transform.rotation;
+            var rot = new QuatU(q.x, q.y, q.z, q.w);
+            Vector3 p = telemetryBody.position, v = telemetryBody.linearVelocity, w = telemetryBody.angularVelocity;
+            var vel = new Vec3d(v.x, v.y, v.z);
+            double dt = Time.fixedDeltaTime;
+            Vec3d acceleration = hasPreviousVelocity ?
+                ArduPilotJsonFrames.AccelerationFromVelocities(previousVelocityUnity, vel, dt) : new Vec3d(0, 0, 0);
+            previousVelocityUnity = vel;
+            hasPreviousVelocity = true;
+            Vector3 g = UnityEngine.Physics.gravity;
+            var packet = new SITLCommsJsonOutputPacketV2 { timestamp = ArduPilotJsonFrames.Timestamp(physicsTick, dt) };
+            packet.imu.gyro = ArduPilotJsonFrames.GyroFrd(rot, new Vec3d(w.x, w.y, w.z)).ToArray();
+            packet.imu.accel_body = ArduPilotJsonFrames.AccelBodyFrd(rot, acceleration, new Vec3d(g.x, g.y, g.z)).ToArray();
+            packet.position = ArduPilotJsonFrames.UnityToNed(new Vec3d(p.x, p.y, p.z)).ToArray();
+            packet.velocity = ArduPilotJsonFrames.UnityToNed(vel).ToArray();
+            packet.attitude = ArduPilotJsonFrames.AttitudeEuler(rot).ToArray();
+            string json = JsonUtility.ToJson(packet) + "\n";
+            lock (dataLock) { latestJsonV2 = json; latestTimestampV2 = packet.timestamp; }
+        }
+        private double latestTimestampV2;
+
         void Update()
         {
             if (sendError)
@@ -162,6 +259,8 @@ namespace Sim.Sensors.Nav
                 Debug.LogWarning($"Receive loop error: {receiveErrorMessage}");
                 receiveError = false;
             }
+
+            if (v2) return; // v2 telemetry is sampled in FixedUpdate at the physics tick.
 
             // Update telemetry from Unity simulation
             lock (dataLock)
@@ -202,6 +301,7 @@ namespace Sim.Sensors.Nav
 
         void FixedUpdate()
         {
+            if (v2) SampleTelemetryV2();
             if (controller != null && controller.movementOverride) {
                 pendingAction.Clear();
                 return;
@@ -210,6 +310,13 @@ namespace Sim.Sensors.Nav
         }
 
         private void ApplyPwm(UInt16[] pwm) {
+            if (v2 && rotorPlant != null) {
+                var u = new double[ArduPilotJsonFrames.ServoChannels];
+                for (int ch = 0; ch < u.Length; ch++)
+                    u[channelToRotor[ch]] = ArduPilotJsonFrames.NormalizePwm(pwm[ch], pwmMin, pwmMax);
+                rotorPlant.SetNormalizedCommands(u);
+                return;
+            }
             if (multirotor != null) {
                 multirotor.SetMotorCommands(MapNormalizedPWM(pwm[0]),
                     MapNormalizedPWM(pwm[1]), MapNormalizedPWM(pwm[2]),
@@ -304,6 +411,20 @@ namespace Sim.Sensors.Nav
                 {
                     try
                     {
+                        if (v2)
+                        {
+                            string line;
+                            double stamp;
+                            lock (dataLock) { line = latestJsonV2; stamp = latestTimestampV2; }
+                            if (line != null)
+                            {
+                                byte[] v2Bytes = Encoding.UTF8.GetBytes(line);
+                                socketSend.Send(v2Bytes, v2Bytes.Length, remoteEndpoint);
+                                CraneRuntimeMetrics.ReportSitlTelemetry(stamp);
+                            }
+                            Thread.Sleep((int)intervalMs);
+                            continue;
+                        }
                         SITLCommsJsonOutputPacket snapshot;
                         lock (dataLock)
                         {
