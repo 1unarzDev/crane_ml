@@ -1,0 +1,14 @@
+{
+    "name": "PhysicsInvariantTests",
+    "references": [
+        "PhysicsAssembly",
+        "UtilsAssembly",
+        "Unity.Robotics.ROSTCPConnector"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ]
+}
