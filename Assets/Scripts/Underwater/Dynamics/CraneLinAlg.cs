@@ -214,6 +214,13 @@ namespace Sim.Underwater {
             return r[0] >= 0.0 ? r : Scale(r, -1.0);
         }
 
+        /// <summary>Normalise without touching the sign (safe inside RK4 stages).</summary>
+        public static double[] QuatUnit(double[] q) {
+            double n = Norm(q);
+            if (n == 0.0) throw new ArgumentException("zero quaternion");
+            return Scale(q, 1.0 / n);
+        }
+
         public static double[] QuatMul(double[] a, double[] b) => new[] {
             a[0] * b[0] - a[1] * b[1] - a[2] * b[2] - a[3] * b[3],
             a[0] * b[1] + a[1] * b[0] + a[2] * b[3] - a[3] * b[2],

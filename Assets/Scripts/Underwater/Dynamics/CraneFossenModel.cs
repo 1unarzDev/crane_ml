@@ -179,9 +179,11 @@ namespace Sim.Underwater {
             nudot = Acceleration(s, tau);
         }
 
-        static CraneState Axpy(CraneState b, double[][] k, double h) => new CraneState {
+        // Stages keep the sign of the step's initial quaternion (a per-stage w>=0 flip flips that stage's qdot and
+        // corrupts RK4 near w=0); the hemisphere is canonicalised only after the complete step.
+        static CraneState Axpy(CraneState b, double[][] k, double h, bool canonical = false) => new CraneState {
             Pos = Add(b.Pos, Scale(k[0], h)),
-            Q = QuatNormalize(Add(b.Q, Scale(k[1], h))),
+            Q = canonical ? QuatNormalize(Add(b.Q, Scale(k[1], h))) : QuatUnit(Add(b.Q, Scale(k[1], h))),
             Nu = Add(b.Nu, Scale(k[2], h)),
             Thrust = Add(b.Thrust, Scale(k[3], h))
         };
@@ -203,7 +205,7 @@ namespace Sim.Underwater {
                 comb[j] = new double[k1[j].Length];
                 for (int i = 0; i < comb[j].Length; i++) comb[j][i] = (k1[j][i] + 2 * k2[j][i] + 2 * k3[j][i] + k4[j][i]) / 6.0;
             }
-            return Axpy(s, comb, dt);
+            return Axpy(s, comb, dt, true);
         }
 
         double[][] Eval(CraneState s, double[] tauExt, double[] fCmd) {

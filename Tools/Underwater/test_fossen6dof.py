@@ -22,6 +22,7 @@ from fossen6dof import (
     coriolis_from_mass,
     damping_force,
     euler_to_quat,
+    quat_normalize,
     potential_energy,
     quat_rate_matrix,
     quat_to_euler,
@@ -374,3 +375,76 @@ def test_static_hover_only_identifies_net_buoyancy_and_net_moment():
     assert ident.analyse(ident.hover_regressor(100)).rank == 1  # only W - B
     phi = np.deg2rad(np.linspace(-20, 20, 41))
     assert ident.analyse(ident.roll_static_regressor(phi)).rank == 1  # only z_g W - z_b B
+
+
+# --------------------------------------------------------------------------- #
+# Regression: quaternion hemisphere handling across > 360 deg of rotation
+# --------------------------------------------------------------------------- #
+def _qmul(a, b):
+    return np.array([
+        a[0] * b[0] - a[1] * b[1] - a[2] * b[2] - a[3] * b[3],
+        a[0] * b[1] + a[1] * b[0] + a[2] * b[3] - a[3] * b[2],
+        a[0] * b[2] - a[1] * b[3] + a[2] * b[0] + a[3] * b[1],
+        a[0] * b[3] + a[1] * b[2] - a[2] * b[1] + a[3] * b[0]])
+
+
+def _axis_angle(axis, angle):
+    axis = np.asarray(axis, float)
+    n = np.linalg.norm(axis)
+    return np.concatenate([[np.cos(angle / 2)], np.sin(angle / 2) * axis / n])
+
+
+def _kinematic_sim():
+    """All dynamics off: with no torque and no C_RB the body rate stays constant."""
+    p = VehicleParams(mass=10.0, inertia_cg=np.diag([0.3, 0.4, 0.5]), r_g=[0, 0, 0], r_b=[0, 0, 0], buoyancy=0.0)
+    return Simulator(p, enable_added_mass=False, enable_coriolis=False, enable_damping=False, enable_restoring=False)
+
+
+def _same_attitude(a, b):
+    return min(np.abs(a - b).max(), np.abs(a + b).max())
+
+
+@pytest.mark.parametrize("omega,seconds", [
+    ([2 * np.pi * 3 / 10, 0, 0], 10.0),      # 3 turns about x
+    ([0, 2 * np.pi * 4 / 10, 0], 10.0),      # 4 turns about y
+    ([0, 0, -2 * np.pi * 2.5 / 10], 10.0),   # 2.5 turns about z (negative)
+    ([1.1, -0.7, 0.9], 20.0),                # tumbling about a skew axis, ~30 rad of rotation
+])
+def test_attitude_matches_analytic_constant_rate_solution_over_many_turns(omega, seconds):
+    sim = _kinematic_sim()
+    omega = np.asarray(omega, float)
+    q0 = quat_normalize(np.array([0.9, 0.2, -0.1, 0.3]))
+    s = State(np.zeros(3), q0.copy(), np.concatenate([[0, 0, 0], omega]))
+    dt, worst, min_w = 0.01, 0.0, 1.0
+    for k in range(int(round(seconds / dt))):
+        s = sim.step(s, dt)
+        exact = _qmul(q0, _axis_angle(omega, np.linalg.norm(omega) * (k + 1) * dt))  # q0 (x) exp(omega t), body rates
+        worst = max(worst, _same_attitude(s.q, exact))
+        min_w = min(min_w, abs(s.q[0]))
+        assert s.q[0] >= 0.0  # canonical hemisphere after each complete step
+    assert min_w < 0.05, "scenario must pass through w = 0 to exercise the hemisphere boundary"
+    assert worst < 1e-6
+
+
+def test_world_yaw_rotation_equivariance_holds_through_multiple_turns():
+    P = VehicleParams(mass=13.5, inertia_cg=np.diag([0.26, 0.23, 0.37]), r_g=[0, 0, 0], r_b=[0, 0, -0.01],
+                      buoyancy=13.5 * G, added_mass=np.diag([6.36, 7.12, 18.68, 0.189, 0.135, 0.222]))
+    al = 0.9
+    rz = _axis_angle([0, 0, 1], al)
+    R = quat_to_rot(rz)
+    cur = np.array([0.3, -0.2, 0.05])
+    q0 = quat_normalize(np.array([0.9, 0.2, -0.1, 0.3]))
+    nu0 = np.array([0.3, 0.1, -0.1, 3.0, -2.0, 2.5])      # fast tumble, no damping: many turns
+    a, b = Simulator(P, current_n=cur), Simulator(P, current_n=R @ cur)
+    sa = State(np.array([1.0, 2, 3]), q0, nu0.copy())
+    sb = State(R @ sa.pos, quat_normalize(_qmul(rz, q0)), nu0.copy())
+    worst, min_w, turned = 0.0, 1.0, 0.0
+    for _ in range(1500):
+        sa, sb = a.step(sa, 0.005), b.step(sb, 0.005)
+        worst = max(worst, np.abs(sa.nu - sb.nu).max(), np.abs(R @ sa.pos - sb.pos).max(),
+                    _same_attitude(quat_normalize(_qmul(rz, sa.q)), sb.q))
+        min_w = min(min_w, abs(sa.q[0]), abs(sb.q[0]))
+        turned += np.linalg.norm(sa.nu[3:]) * 0.005
+    assert turned > 2 * np.pi * 2, turned
+    assert min_w < 0.05
+    assert worst < 1e-9

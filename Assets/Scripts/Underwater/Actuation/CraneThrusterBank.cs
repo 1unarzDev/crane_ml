@@ -91,16 +91,26 @@ namespace Sim.Underwater {
             return res;
         }
 
-        /// <summary>Advance the lag by dt (exact exponential for a held command) and return the applied wrench T*thrust.</summary>
+        /// <summary>
+        /// Advance the lag by dt (exact exponential for a held command). Returns the wrench T*mean(thrust) over the step
+        /// (exact interval mean of the first-order response), so a force-held-per-step integrator conserves impulse.
+        /// Thrust holds the end-of-step value.
+        /// </summary>
         public double[] Step(double dt, double[] commandNewtons) {
+            var mean = new double[Thrusters.Count];
             for (int i = 0; i < Thrusters.Count; i++) {
                 Command[i] = commandNewtons[i];
                 double target = Thrusters[i].Target(commandNewtons[i]);
                 double tc = Thrusters[i].TimeConstant;
-                Thrust[i] = tc > 0.0 ? target + (Thrust[i] - target) * Math.Exp(-dt / tc) : target;
+                double f0 = Thrust[i];
+                if (tc > 0.0 && dt > 0.0) {
+                    double e = Math.Exp(-dt / tc);
+                    Thrust[i] = target + (f0 - target) * e;
+                    mean[i] = target + (f0 - target) * (tc / dt) * (1.0 - e);
+                } else { Thrust[i] = target; mean[i] = target; }
             }
-            var applied = Mul(T, Thrust);
-            if (Last != null) Last.AppliedWrench = applied;
+            var applied = Mul(T, mean);
+            if (Last != null) Last.AppliedWrench = Mul(T, Thrust);
             return applied;
         }
 

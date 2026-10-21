@@ -186,34 +186,66 @@ namespace Sim.Tests.Editor.Underwater {
             Assert.AreEqual(e0, sim.TotalEnergy(s), 1e-6 * Math.Abs(e0) + 1e-6);
         }
 
-        [Test] public void Rotation_Equivariance_About_Down_Axis() {
+        static double SameAttitude(double[] a, double[] b) {
+            double plus = 0, minus = 0;
+            for (int i = 0; i < 4; i++) { plus = Math.Max(plus, Math.Abs(a[i] - b[i])); minus = Math.Max(minus, Math.Abs(a[i] + b[i])); }
+            return Math.Min(plus, minus);
+        }
+
+        [Test] public void Rotation_Equivariance_About_Down_Axis_Through_Multiple_Turns() {
+            var P = new CraneVehicleParams {
+                Mass = 13.5, InertiaCg = Diag(0.26, 0.23, 0.37), RG = new double[3], RB = new[] { 0, 0, -0.01 }, Buoyancy = 13.5 * CraneVehicleParams.StandardGravity,
+                AddedMass = Diag(6.36, 7.12, 18.68, 0.189, 0.135, 0.222)
+            };
             double alpha = 0.9;
             var rz = QuatFromAxisAngle(new[] { 0.0, 0.0, 1.0 }, alpha);
             var rot = QuatToRot(rz);
             var cur = new[] { 0.3, -0.2, 0.05 };
             var q0 = QuatNormalize(new[] { 0.9, 0.2, -0.1, 0.3 });
-            var nu0 = new[] { 0.3, 0.1, -0.1, 0.2, -0.15, 0.3 };
-            // Limited to 3 s: the oracle's RK4 re-normalises q to w >= 0 inside each stage, which injects an error
-            // (1e-4..1e-2) once |w| approaches 0 (rotation near 180 deg). Documented, replicated for parity, avoided here.
-            var tau = new[] { 5.0, -3.0, -1.0, 0.2, 0.1, -0.3 };
-            var a = new CraneFossenSimulator(profile.Params, cur);
-            var b = new CraneFossenSimulator(profile.Params, Mul(rot, cur));
-            var sa = new CraneState { Pos = new double[] { 1, 2, 3 }, Q = q0, Nu = nu0 };
-            var sb = new CraneState { Pos = Mul(rot, new double[] { 1, 2, 3 }), Q = QuatNormalize(QuatMul(rz, q0)), Nu = nu0 };
-            double worst = 0;
-            double minW = 1;
-            for (int k = 0; k < 300; k++) {
-                sa = a.Step(sa, 0.01, tau); sb = b.Step(sb, 0.01, tau);
-                minW = Math.Min(minW, Math.Min(sa.Q[0], sb.Q[0]));
-                worst = Math.Max(worst, MaxAbsDiff(sa.Nu, sb.Nu));
-                worst = Math.Max(worst, MaxAbsDiff(Mul(rot, sa.Pos), sb.Pos));
-                // quaternions agree up to the hemisphere sign
-                var expected = QuatNormalize(QuatMul(rz, sa.Q));
-                worst = Math.Max(worst, MaxAbsDiff(expected, sb.Q));
+            var nu0 = new[] { 0.3, 0.1, -0.1, 3.0, -2.0, 2.5 };          // undamped fast tumble
+            var a = new CraneFossenSimulator(P, cur, damping: false);
+            var b = new CraneFossenSimulator(P, Mul(rot, cur), damping: false);
+            var sa = new CraneState { Pos = new double[] { 1, 2, 3 }, Q = q0, Nu = (double[])nu0.Clone() };
+            var sb = new CraneState { Pos = Mul(rot, new double[] { 1, 2, 3 }), Q = QuatNormalize(QuatMul(rz, q0)), Nu = (double[])nu0.Clone() };
+            double worst = 0, minW = 1, turned = 0;
+            for (int k = 0; k < 1500; k++) {
+                sa = a.Step(sa, 0.005); sb = b.Step(sb, 0.005);
+                worst = Math.Max(worst, Math.Max(MaxAbsDiff(sa.Nu, sb.Nu), MaxAbsDiff(Mul(rot, sa.Pos), sb.Pos)));
+                worst = Math.Max(worst, SameAttitude(QuatNormalize(QuatMul(rz, sa.Q)), sb.Q));
+                minW = Math.Min(minW, Math.Min(Math.Abs(sa.Q[0]), Math.Abs(sb.Q[0])));
+                turned += Norm(Slice(sa.Nu, 3, 3)) * 0.005;
             }
-            Assert.Greater(minW, 0.3, "scenario must stay away from the w=0 hemisphere boundary");
+            Assert.Greater(turned, 4 * Math.PI, "must rotate through more than two turns");
+            Assert.Less(minW, 0.05, "must cross the w=0 hemisphere boundary");
             Assert.That(worst, Is.LessThan(1e-9));
             Track("equivariance", worst);
+        }
+
+        static IEnumerable<TestCaseData> ConstantRateCases() {
+            yield return new TestCaseData(new[] { 2 * Math.PI * 3 / 10, 0, 0 }, 10.0).SetName("x_3_turns");
+            yield return new TestCaseData(new[] { 0, 2 * Math.PI * 4 / 10, 0 }, 10.0).SetName("y_4_turns");
+            yield return new TestCaseData(new[] { 0, 0, -2 * Math.PI * 2.5 / 10 }, 10.0).SetName("z_2p5_turns_negative");
+            yield return new TestCaseData(new[] { 1.1, -0.7, 0.9 }, 20.0).SetName("tumble_skew_axis");
+        }
+
+        [TestCaseSource(nameof(ConstantRateCases))]
+        public void Attitude_Matches_Analytic_Constant_Rate_Solution_Over_Many_Turns(double[] omega, double seconds) {
+            var p = new CraneVehicleParams { Mass = 10, InertiaCg = Diag(0.3, 0.4, 0.5), RG = new double[3], RB = new double[3], Buoyancy = 0 };
+            var sim = new CraneFossenSimulator(p, null, null, addedMass: false, coriolis: false, damping: false, restoring: false);
+            var q0 = QuatNormalize(new[] { 0.9, 0.2, -0.1, 0.3 });
+            var s = new CraneState { Q = (double[])q0.Clone(), Nu = new[] { 0, 0, 0, omega[0], omega[1], omega[2] } };
+            double dt = 0.01, worst = 0, minW = 1, wn = Norm(omega);
+            int n = (int)Math.Round(seconds / dt);
+            for (int k = 0; k < n; k++) {
+                s = sim.Step(s, dt);
+                var exact = QuatMul(q0, QuatFromAxisAngle(omega, wn * (k + 1) * dt));   // q0 (x) exp(omega t), body rates
+                worst = Math.Max(worst, SameAttitude(s.Q, exact));
+                minW = Math.Min(minW, Math.Abs(s.Q[0]));
+                Assert.GreaterOrEqual(s.Q[0], 0.0, "canonical hemisphere after each complete step");
+            }
+            Assert.Less(minW, 0.05, "must cross the w=0 hemisphere boundary");
+            Assert.That(worst, Is.LessThan(1e-6));
+            Track("constant_rate:" + (wn * seconds / (2 * Math.PI)).ToString("F1") + "turns", worst);
         }
 
         [Test] public void Current_Relative_Velocity_And_Galilean_Drift() {

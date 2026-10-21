@@ -58,6 +58,14 @@ def quat_normalize(q: np.ndarray) -> np.ndarray:
     return q if q[0] >= 0.0 else -q
 
 
+def quat_unit(q: np.ndarray) -> np.ndarray:
+    """Normalise WITHOUT touching the sign.  Safe inside RK4 stages (no hemisphere flip)."""
+    n = np.linalg.norm(q)
+    if n == 0.0:
+        raise ValueError("zero quaternion")
+    return q / n
+
+
 def quat_to_rot(q: np.ndarray) -> np.ndarray:
     """R_b^n for q = [w, x, y, z] (Fossen eq. 2.69)."""
     w, x, y, z = q
@@ -367,10 +375,14 @@ class Simulator:
                 if t.time_constant <= 0.0:
                     s.thrust[i] = float(np.clip(f_cmd[i], -t.max_reverse, t.max_forward))
 
-        def add(base: State, k, h: float) -> State:
+        def add(base: State, k, h: float, canonical: bool = False) -> State:
+            # Stage states must keep the sign of the step's initial quaternion: flipping q -> -q inside a
+            # stage flips that stage's qdot and corrupts the RK4 combination near w = 0 (>180 deg rotations).
+            # The hemisphere (w >= 0) is canonicalised only after the complete step.
+            q_new = base.q + h * k[1]
             return State(
                 base.pos + h * k[0],
-                quat_normalize(base.q + h * k[1]),
+                quat_normalize(q_new) if canonical else quat_unit(q_new),
                 base.nu + h * k[2],
                 base.thrust + h * k[3],
             )
@@ -380,7 +392,7 @@ class Simulator:
         k3 = self._deriv(add(s, k2, dt / 2), tau_ext, f_cmd)
         k4 = self._deriv(add(s, k3, dt), tau_ext, f_cmd)
         comb = [(a + 2 * b + 2 * c + d) / 6.0 for a, b, c, d in zip(k1, k2, k3, k4)]
-        return add(s, comb, dt)
+        return add(s, comb, dt, canonical=True)
 
     def simulate(
         self,

@@ -1,0 +1,12 @@
+{
+    "name": "CraneUnderwaterPlayModeTests",
+    "references": [
+        "CraneUnderwater",
+        "UtilsAssembly"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ]
+}

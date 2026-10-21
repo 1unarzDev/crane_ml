@@ -69,7 +69,7 @@ namespace Sim.Underwater {
             commandN = new double[p.Thrusters.Count];
             var par = p.Params;
             rb.useGravity = false;
-            rb.linearDamping = 0f; rb.angularDamping = 0f;
+            rb.linearDamping = 0f; rb.angularDamping = 0f; rb.sleepThreshold = 0f;
             rb.mass = (float)par.Mass;
             // FRD (x fwd, y stbd, z down) -> Unity local (x right, y up, z fwd)
             var cg = CraneUnderwaterFrames.NedToUnity(par.RG);
@@ -93,24 +93,39 @@ namespace Sim.Underwater {
 
         void FixedUpdate() => StepFixed(Time.fixedDeltaTime);
 
-        public void StepFixed(float dt) {
-            if (sim == null) return;
+        /// <summary>Fires at the start of each adapter step with (step index k, measured state s_k before this step's force).</summary>
+        public event Action<long, CraneState> PreStep;
+        double[] externalWrenchFrd = new double[6];
+
+        /// <summary>Constant extra wrench about CO in FRD (fixtures: hover compensation, load cell). Cleared on reset.</summary>
+        public void SetExternalWrench(double[] wrenchFrd) => externalWrenchFrd = (double[])wrenchFrd.Clone();
+
+        /// <summary>Measured NED/FRD state of CO from the Rigidbody (thrust field empty).</summary>
+        public CraneState MeasureState() {
             var rot = rb.rotation;
             var qNed = CraneUnderwaterFrames.UnityQuatToNedFrd(rot.x, rot.y, rot.z, rot.w);
-            // measured body-frame velocity at CO
             var inv = Quaternion.Inverse(rot);
             Vector3 vG = inv * rb.linearVelocity, w = inv * rb.angularVelocity;
             var vGf = CraneUnderwaterFrames.UnityToNed(vG.x, vG.y, vG.z);
             var wf = CraneUnderwaterFrames.UnityAxialToNed(w.x, w.y, w.z);
             var vCo = Add(vGf, Cross(Scale(wf, -1.0), profile.Params.RG));   // v_CO = v_G + w x (r_CO - r_G) = v_G - w x r_g
-            // (FRD body: CG offset is r_g from CO, so CO - CG = -r_g)
-            var nu = new[] { vCo[0], vCo[1], vCo[2], wf[0], wf[1], wf[2] };
             var pos = rb.position;
-            var state = new CraneState { Pos = new double[] { pos.z, pos.x, -(pos.y - seaLevelUnityY) }, Q = qNed, Nu = nu, Thrust = new double[0] };
+            return new CraneState {
+                Pos = new double[] { pos.z, pos.x, -(pos.y - seaLevelUnityY) }, Q = qNed,
+                Nu = new[] { vCo[0], vCo[1], vCo[2], wf[0], wf[1], wf[2] }, Thrust = new double[0]
+            };
+        }
+
+        public void StepFixed(float dt) {
+            if (sim == null) return;
+            var rot = rb.rotation;
+            var state = MeasureState();
+            var nu = state.Nu;
+            PreStep?.Invoke(stepCount, state);
 
             var applied = bank.Step(dt, commandN);
             // nudot including thruster wrench, without PhysX-owned C_RB: use full model then add C_RB nu back.
-            var nudot = sim.Acceleration(state, applied);
+            var nudot = sim.Acceleration(state, Add(applied, externalWrenchFrd));
             var wrench = Add(Mul(sim.MRb, nudot), Mul(CraneFossen.CoriolisFromMass(sim.MRb, nu), nu));
 
             var fU = CraneUnderwaterFrames.NedToUnity(Slice(wrench, 0, 3));
@@ -137,7 +152,7 @@ namespace Sim.Underwater {
             if (rb == null) rb = GetComponent<Rigidbody>();
             bank?.Reset();
             if (commandN != null) Array.Clear(commandN, 0, commandN.Length);
-            lastWrenchFrd = new double[6]; lastNu = new double[6];
+            lastWrenchFrd = new double[6]; lastNu = new double[6]; externalWrenchFrd = new double[6];
             stepCount = 0;
             if (captured) {
                 transform.SetPositionAndRotation(initialPosition, initialRotation);
