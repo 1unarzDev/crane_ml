@@ -1,0 +1,33 @@
+# Plant variants against the current Nav2 limits. 'characterized': the controller holds an ideal
+# steady characterization of that plant (what the procedure produces before tuning Nav2);
+# absent: the controller keeps the sim's curves (hardware_crane.yaml), i.e. an uncharacterized boat.
+seeds: [0]
+tests: [step, turn, route]
+base: {hw: characterized}
+cases:
+  - {name: nominal}
+  - {name: nominal_uncal, hw: null}
+  - {name: mass19, variant: {mass: 19.0, izz: 2.6}}
+  - {name: mass40, variant: {mass: 40.0, izz: 5.5}}
+  - {name: added_mass, variant: {added: [5.5, 21.3, 2.4]}}
+  - {name: heavy_added, variant: {mass: 40.0, izz: 5.5, added: [7.0, 28.0, 3.2]}}
+  - {name: izz_low, variant: {izz: 2.0}}
+  - {name: izz_high, variant: {izz: 8.0}}
+  - {name: thrust070, variant: {fwd: [36.0, 36.0, 36.0, 36.0], rev: [28.1, 28.1, 28.1, 28.1]}}
+  - {name: thrust070_uncal, hw: null, variant: {fwd: [36.0, 36.0, 36.0, 36.0], rev: [28.1, 28.1, 28.1, 28.1]}}
+  - {name: sag080_uncal, hw: null, variant: {sag: 0.8}}
+  - {name: rev060, variant: {rev: [30.9, 30.9, 30.9, 30.9]}}
+  - {name: rev078_ctrl100, hw: {characterized: true, reverse_thrust_ratio: 1.0}}
+  - {name: one_weak_FL, variant: {fwd: [41.2, 51.5, 51.5, 51.5], rev: [32.2, 40.2, 40.2, 40.2]}}
+  - {name: mount_FL_+8deg, variant: {mount_err_deg: [8.0, 0, 0, 0]}}
+  - {name: mount_rand3, variant: {mount_err_deg: [3.0, -2.0, 2.5, -3.0]}}
+  - {name: drag_x0.6, variant: {drag_u: [6.0, 11.6], drag_v: [9.0, 25.0], drag_r: [6.0, 11.6]}}
+  - {name: drag_x1.6, variant: {drag_u: [16.0, 31.0], drag_v: [24.0, 66.7], drag_r: [16.0, 30.9]}}
+  - {name: com_aft10, variant: {com: [-0.10, 0.0]}}
+  - {name: com_port5, variant: {com: [0.0, 0.05]}}
+  - {name: deadband_esc, variant: {deadband: 0.0625}}
+  - {name: deadband_esc_uncal, hw: null, variant: {deadband: 0.0625}}
+  - {name: spinup0.3, variant: {spinup: 0.3}}
+  - {name: deadtime0.15, variant: {dead_time: 0.15}}
+  - {name: deadtime0.3, variant: {dead_time: 0.3}}
+  - {name: latency0.2, variant: {odom_latency: 0.2}}

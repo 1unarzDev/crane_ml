@@ -1,0 +1,28 @@
+# Disturbances and faults on the nominal (characterized) plant, current Nav2 limits.
+seeds: [0, 1, 2]
+tests: [route, hold]
+base: {hw: characterized}
+cases:
+  - {name: calm}
+  - {name: current0.2_e, variant: {current: [0.2, 0.0]}}
+  - {name: current0.2_n, variant: {current: [0.0, 0.2]}}
+  - {name: current0.35_n, variant: {current: [0.0, 0.35]}}
+  - {name: current0.5_w, variant: {current: [-0.5, 0.0]}}
+  - {name: wind5_n, variant: {wind: [0.0, 5.0]}}
+  - {name: wind9_ne, variant: {wind: [6.4, 6.4]}}
+  - {name: waves0.05, variant: {wave_sd: 0.05}}
+  - {name: waves0.12, variant: {wave_sd: 0.12, wave_period: 2.5}}
+  - {name: velnoise0.05, variant: {vel_sd: 0.05, yaw_rate_sd: 0.03}}
+  - {name: velnoise0.12, variant: {vel_sd: 0.12, yaw_rate_sd: 0.06}}
+  - {name: latency0.1, variant: {odom_latency: 0.1}}
+  - {name: latency0.25, variant: {odom_latency: 0.25}}
+  - {name: hdg_bias5, variant: {heading_bias: 0.0873}}
+  - {name: hdg_bias15, variant: {heading_bias: 0.2618}}
+  - {name: gps0.1, variant: {pos_sd: 0.1}}
+  - {name: gps0.5, variant: {pos_sd: 0.5}}
+  - {name: gps1.5_float, variant: {pos_sd: 1.5, pos_tau: 10.0}}
+  - {name: sag0.75, hw: null, variant: {sag: 0.75}}
+  - {name: deadband_esc, variant: {deadband: 0.0625}}
+  - {name: FL_dead, hw: null, variant: {fwd: [0.0, 51.5, 51.5, 51.5], rev: [0.0, 40.2, 40.2, 40.2]}}
+  - {name: RR_dead, hw: null, variant: {fwd: [51.5, 51.5, 0.0, 51.5], rev: [40.2, 40.2, 0.0, 40.2]}}
+  - {name: field_mix, variant: {current: [0.1, 0.15], wind: [3.0, 3.0], wave_sd: 0.06, vel_sd: 0.04, yaw_rate_sd: 0.02, odom_latency: 0.1, deadband: 0.0625, pos_sd: 0.1, mass: 34.0, added: [5.5, 21.3, 2.4], dead_time: 0.05}}
