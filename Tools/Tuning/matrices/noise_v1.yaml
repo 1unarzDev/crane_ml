@@ -1,0 +1,17 @@
+# Noise/wave robustness: velocity-PI gains and the nav heading gain under a realistic field mix.
+seeds: [0, 1, 2]
+tests: [route]
+base:
+  hw: {characterized: true}
+  variant: {current: [0.1, 0.15], wind: [3.0, 3.0], wave_sd: 0.06, vel_sd: 0.04, yaw_rate_sd: 0.02,
+            odom_latency: 0.1, deadband: 0.0625, pos_sd: 0.05, mass: 34.0, added: [5.5, 21.3, 2.4], dead_time: 0.05}
+cases:
+  - {name: kp1.0_ki1.0}
+  - {name: kp0.5, hw: {characterized: true, controller: {kp: [0.4, 0.4, 0.3]}}}
+  - {name: kp0.25, hw: {characterized: true, controller: {kp: [0.2, 0.2, 0.15]}}}
+  - {name: kp0.5_ki0.5, hw: {characterized: true, controller: {kp: [0.4, 0.4, 0.3], ki: [0.3, 0.3, 0.2]}}}
+  - {name: kp0.5_ki1.5, hw: {characterized: true, controller: {kp: [0.4, 0.4, 0.3], ki: [0.9, 0.9, 0.6]}}}
+  - {name: kp0_ff_only, hw: {characterized: true, controller: {kp: [0.0, 0.0, 0.0], ki: [0.3, 0.3, 0.2]}}}
+  - {name: kyaw0.5, nav: {k_yaw: 0.5}}
+  - {name: kyaw0.5_kp0.5, nav: {k_yaw: 0.5}, hw: {characterized: true, controller: {kp: [0.4, 0.4, 0.3]}}}
+  - {name: kpos0.3_kyaw0.5_kp0.5, nav: {k_yaw: 0.5, k_pos: 0.3}, hw: {characterized: true, controller: {kp: [0.4, 0.4, 0.3]}}}

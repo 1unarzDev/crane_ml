@@ -190,6 +190,12 @@ def run(variant: Variant, nav: Nav, script=None, goals=None, duration=30.0, hw=N
                             'drift_estimate': law.drift.tolist()}
 
 
+def shim_rate(err, nav: Nav):
+    """RotationShim's computeRotateToHeadingCommand: full rate, braking at max_angular_accel so
+    it would stop at the target (sqrt(2 a |err|)), in open loop on the remaining angle."""
+    return math.copysign(min(nav.wz_max, math.sqrt(2 * nav.az_max * abs(err))), err)
+
+
 def pursue(odom, goal, nav: Nav, shim):
     """Omni goal pursuit with a sqrt stopping profile and a rotate-to-heading shim.
 
@@ -206,7 +212,7 @@ def pursue(odom, goal, nav: Nav, shim):
     if d < nav.xy_tol:
         if not nav.rotate_to_goal:
             return np.zeros(3), False, shim
-        return np.array([0, 0, np.clip(nav.k_yaw * yaw_err_goal, -nav.wz_max, nav.wz_max)]), False, shim
+        return np.array([0, 0, shim_rate(yaw_err_goal, nav)]), False, shim
     heading_err = wrap(bearing - yaw)
     if shim is None:
         shim = abs(heading_err) > nav.shim_threshold
@@ -214,7 +220,7 @@ def pursue(odom, goal, nav: Nav, shim):
         if abs(heading_err) < 0.2:
             shim = False
         else:
-            return np.array([0, 0, math.copysign(nav.wz_max, heading_err)]), False, shim
+            return np.array([0, 0, shim_rate(heading_err, nav)]), False, shim
     speed = min(nav.vx_max, nav.k_pos * d, math.sqrt(2 * abs(nav.ax_min) * d))
     c, s = math.cos(-yaw), math.sin(-yaw)
     world = d_vec / max(d, 1e-9) * speed

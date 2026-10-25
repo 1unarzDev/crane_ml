@@ -1,0 +1,11 @@
+# Current limits vs the rule caps (delay 0.15, tau 0.35/0.45/0.15, D 1.0, k 3, yaw tol 0.25), calm and field mix.
+seeds: [0, 1, 2]
+tests: [route, step]
+base: {hw: characterized}
+cases:
+  - {name: cur_calm}
+  - {name: rule_calm, nav: {vx_max: 0.8, ax_max: 0.53, ax_min: -0.53, vy_max: 0.67, ay_max: 0.37, wz_max: 0.42, az_max: 0.46}}
+  - {name: cur_field, variant: &f {current: [0.1, 0.15], wind: [3.0, 3.0], wave_sd: 0.06, vel_sd: 0.04, yaw_rate_sd: 0.02, odom_latency: 0.1, deadband: 0.0625, pos_sd: 0.05, mass: 34.0, added: [5.5, 21.3, 2.4], dead_time: 0.05}}
+  - {name: rule_field, variant: *f, nav: {vx_max: 0.8, ax_max: 0.53, ax_min: -0.53, vy_max: 0.67, ay_max: 0.37, wz_max: 0.42, az_max: 0.46}}
+  - {name: rule_field_kp05_k05, variant: *f, nav: {vx_max: 0.8, ax_max: 0.53, ax_min: -0.53, vy_max: 0.67, ay_max: 0.37, wz_max: 0.42, az_max: 0.46, k_yaw: 0.5}, hw: {characterized: true, controller: {kp: [0.4, 0.4, 0.3]}}}
+  - {name: rule_heavy_dead0.15, variant: {mass: 40.0, izz: 5.5, added: [7.0, 28.0, 3.2], dead_time: 0.15, odom_latency: 0.1}, nav: {vx_max: 0.8, ax_max: 0.53, ax_min: -0.53, vy_max: 0.67, ay_max: 0.37, wz_max: 0.42, az_max: 0.46}}
