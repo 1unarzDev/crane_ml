@@ -21,9 +21,21 @@ Series layout (all arrays 1-D float unless noted):
   goals        t, x, y   one row per /plan update: the plan's last pose (goal proxy)
   inputs       {topic: message count}
 """
+import json
 import math
+import os
+import subprocess
+import sys
+from pathlib import Path
 
 import numpy as np
+import yaml
+
+DEFAULTS = Path(__file__).with_name('motion_quality.yaml')
+CONTAINER = 'roboboat_dev'
+TRUTH, LOCAL = '/crane/odom', '/odom/local'
+TWISTS = ('/cmd_vel_nav', '/cmd_vel')
+PWM, PLAN = '/thrusters/pwm', '/plan'
 
 
 # --------------------------------------------------------------------------- core helpers
@@ -299,3 +311,176 @@ def score(series, thresholds):
     return {'metrics': metrics, 'pass': verdict, 'segments': segments,
             'inputs': dict(series.get('inputs', {}))}
 
+
+# --------------------------------------------------------------------------- bag reader
+
+def _segments(path):
+    """Bag directories in recording order: `path` itself, or its bag_NN / NN children
+    (the layout mhseals_testing's recorder writes; same rule as its harness/bagread.py)."""
+    path = Path(path)
+    is_bag = (lambda d: (d / 'metadata.yaml').exists() or any(d.glob('*.mcap')) or any(d.glob('*.db3')))
+    if is_bag(path):
+        return [path]
+    if is_bag(path / 'bag'):
+        return [path / 'bag']
+    return sorted(d for d in path.iterdir() if d.is_dir() and is_bag(d)) if path.is_dir() else []
+
+
+def _extract(path):
+    """Decode the topics the score needs into plain JSON-able rows (needs rosbag2_py).
+
+    Times are receive stamps in seconds since the epoch; odometry also keeps its header stamp.
+    """
+    import rosbag2_py
+    from rclpy.serialization import deserialize_message
+    from rosidl_runtime_py.utilities import get_message
+
+    def yaw(q):
+        return math.atan2(2 * (q.w * q.z + q.x * q.y), 1 - 2 * (q.y * q.y + q.z * q.z))
+
+    rows = {'counts': {}, 'odom': {TRUTH: [], LOCAL: []}, 'twist': {k: [] for k in TWISTS},
+            'pwm': [], 'plan': [], 't0': None}
+    wanted = {TRUTH, LOCAL, PWM, PLAN, *TWISTS}
+    for segment in _segments(path):
+        mcap = any(segment.glob('*.mcap')) or 'storage_identifier: mcap' in (
+            (segment / 'metadata.yaml').read_text() if (segment / 'metadata.yaml').exists() else '')
+        reader = rosbag2_py.SequentialReader()
+        reader.open(rosbag2_py.StorageOptions(uri=str(segment), storage_id='mcap' if mcap else 'sqlite3'),
+                    rosbag2_py.ConverterOptions('cdr', 'cdr'))
+        types = {topic.name: topic.type for topic in reader.get_all_topics_and_types()}
+        while reader.has_next():
+            topic, data, t_ns = reader.read_next()
+            t = t_ns * 1e-9
+            rows['t0'] = t if rows['t0'] is None else min(rows['t0'], t)
+            rows['counts'][topic] = rows['counts'].get(topic, 0) + 1
+            if topic not in wanted:
+                continue
+            msg = deserialize_message(data, get_message(types[topic]))
+            if topic in rows['odom']:
+                pose, twist = msg.pose.pose, msg.twist.twist
+                stamp = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+                rows['odom'][topic].append([t, stamp, pose.position.x, pose.position.y, yaw(pose.orientation),
+                                            twist.linear.x, twist.linear.y, twist.angular.z])
+            elif topic in rows['twist']:
+                rows['twist'][topic].append([t, msg.linear.x, msg.linear.y, msg.angular.z])
+            elif topic == PWM:
+                rows['pwm'].append([t, *list(msg.data)[:4]])
+            elif topic == PLAN and msg.poses:
+                end = msg.poses[-1].pose.position
+                rows['plan'].append([t, end.x, end.y])
+    return rows
+
+
+def _extract_in_container(path):
+    """Run _extract inside the ROS container on a temporary copy of the bag.
+
+    The container does not mount every host path, so the bag and this file are copied in
+    with `docker cp` and the copy is removed afterwards.
+    """
+    tmp = f'/tmp/motion_quality.{os.getpid()}'
+    run = (lambda *cmd: subprocess.run(cmd, check=True, capture_output=True, text=True).stdout)
+    run('docker', 'exec', CONTAINER, 'mkdir', '-p', tmp)
+    try:
+        run('docker', 'cp', str(Path(path).resolve()), f'{CONTAINER}:{tmp}/bag')
+        run('docker', 'cp', str(Path(__file__).resolve()), f'{CONTAINER}:{tmp}/motion_quality.py')
+        code = (f"import sys, json; sys.path.insert(0, '{tmp}'); import motion_quality as m; "
+                f"print(json.dumps(m._extract('{tmp}/bag')))")
+        out = run('docker', 'exec', CONTAINER, 'bash', '-c',
+                  f'source /opt/ros/jazzy/setup.bash && python3 -c "{code}"')
+    finally:
+        subprocess.run(['docker', 'exec', CONTAINER, 'rm', '-rf', tmp], capture_output=True)
+    return json.loads(out.strip().splitlines()[-1])
+
+
+def _align(truth, local):
+    """Rigid 2-D transform taking truth poses into the local odometry (= map, goal) frame.
+
+    The sim's truth odometry has its own origin; /odom/local shares the frame of /plan
+    (map->odom is near identity in the sim). Fit yaw by circular mean, then translation by
+    median, over local samples matched to truth by header stamp.
+    """
+    stamp = truth[:, 1]
+    keep = (local[:, 1] >= stamp[0]) & (local[:, 1] <= stamp[-1])
+    if keep.sum() < 10:
+        return truth, None
+    local = local[keep]
+    tx, ty = np.interp(local[:, 1], stamp, truth[:, 2]), np.interp(local[:, 1], stamp, truth[:, 3])
+    tyaw = np.interp(local[:, 1], stamp, np.unwrap(truth[:, 4]))
+    dyaw = math.atan2(np.mean(np.sin(local[:, 4] - tyaw)), np.mean(np.cos(local[:, 4] - tyaw)))
+    c, s = math.cos(dyaw), math.sin(dyaw)
+    dx = float(np.median(local[:, 2] - (c * tx - s * ty)))
+    dy = float(np.median(local[:, 3] - (s * tx + c * ty)))
+    out = truth.copy()
+    out[:, 2] = c * truth[:, 2] - s * truth[:, 3] + dx
+    out[:, 3] = s * truth[:, 2] + c * truth[:, 3] + dy
+    out[:, 4] = np.angle(np.exp(1j * (truth[:, 4] + dyaw)))
+    return out, {'dx': dx, 'dy': dy, 'dyaw': dyaw}
+
+
+def _bag_time(received, stamp, window=25):
+    """Receive times de-jittered: header stamp plus a rolling median of (receive - stamp).
+
+    Odometry arrives in bursts (±30 ms) while its stamps are even; the rolling offset also
+    follows the sim when it runs slower than real time.
+    """
+    offset = received - stamp
+    if len(offset) >= window:
+        padded = np.pad(offset, window // 2, mode='edge')
+        offset = np.median(np.lib.stride_tricks.sliding_window_view(padded, window), axis=1)
+    return np.maximum.accumulate(stamp + offset)
+
+
+def read_bag(path):
+    """Read a rosbag2 directory (sqlite3 or mcap, one bag or a segmented session) into the
+    series score() takes. Truth is /crane/odom aligned to /odom/local's frame, else /odom/local."""
+    try:
+        import rosbag2_py  # noqa: F401  (present inside the ROS container)
+        rows = _extract(path)
+    except ImportError:
+        rows = _extract_in_container(path)
+    t0 = rows['t0']
+    truth = np.array(rows['odom'][TRUTH], float).reshape(-1, 8)
+    local = np.array(rows['odom'][LOCAL], float).reshape(-1, 8)
+    source, alignment = (TRUTH, None) if len(truth) else (LOCAL, None)
+    odom = truth if len(truth) else local
+    odom = odom[np.argsort(odom[:, 1], kind='stable')]
+    if source == TRUTH and len(local):
+        odom, alignment = _align(odom, local[np.argsort(local[:, 1], kind='stable')])
+    series = {'odom': dict(zip(('t', 'stamp', 'x', 'y', 'yaw', 'vx', 'vy', 'r'), odom.T)),
+              'odom_source': source, 'alignment': alignment, 'inputs': rows['counts']}
+    series['odom']['t'] = _bag_time(odom[:, 0], odom[:, 1]) - t0
+    cmd = np.array(rows['twist']['/cmd_vel_nav'], float).reshape(-1, 4)
+    series['cmd_vel_nav'] = dict(zip(('t', 'vx', 'vy', 'wz'), cmd.T))
+    series['cmd_vel_nav']['t'] = series['cmd_vel_nav']['t'] - t0
+    pwm = np.array(rows['pwm'], float).reshape(-1, 5)
+    series['pwm'] = {'t': pwm[:, 0] - t0, 'us': pwm[:, 1:]}
+    plan = np.array(rows['plan'], float).reshape(-1, 3)
+    series['goals'] = {'t': plan[:, 0] - t0, 'x': plan[:, 1], 'y': plan[:, 2]}
+    return series
+
+
+def _jsonable(value):
+    if isinstance(value, dict):
+        return {k: _jsonable(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple, np.ndarray)):
+        return [_jsonable(v) for v in value]
+    if isinstance(value, (float, np.floating)):
+        return round(float(value), 4)
+    if isinstance(value, np.integer):
+        return int(value)
+    return value
+
+
+def main(argv):
+    if len(argv) not in (2, 3):
+        sys.exit('usage: motion_quality.py <bag_dir> [thresholds.yaml]')
+    thresholds = yaml.safe_load(Path(argv[2] if len(argv) == 3 else DEFAULTS).read_text())
+    series = read_bag(argv[1])
+    result = score(series, thresholds)
+    result['segments']['frame'] = {'odom': series['odom_source'], 'truth_to_map': series['alignment']}
+    result['bag'] = str(Path(argv[1]).resolve())
+    print(json.dumps(_jsonable(result), indent=1))
+
+
+if __name__ == '__main__':
+    main(sys.argv)
