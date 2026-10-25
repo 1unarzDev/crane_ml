@@ -1,0 +1,39 @@
+# Motion-quality scoring of a recorded Nav2 run (motion_quality.py).
+# params: the definitions the metrics use. metrics: pass when value <= max; null = report only.
+params:
+  yaw_band_rad_s: 0.05        # hysteresis h: yaw-rate sign is set only when |r| > h
+  underway_speed_m_s: 0.05    # under way when |v| > this or |r| > h; reversals reset when not
+  shake_peak_rad_s: 0.10      # a reversal shakes when the lobe it ends peaks above this...
+  shake_half_period_s: 4.0    # ...and lasted less than this
+  cmd_band: 0.02              # hysteresis band on each /cmd_vel_nav axis (m/s, rad/s)
+  esc_deadband_us: 25         # |pwm - neutral| at or below this is no thrust command
+  pwm_neutral_us: 1500        # ESC neutral pulse
+  pwm_span_us: 400            # pulse offset for full thrust
+  thrust_fwd_n: 51.5          # T200 full forward thrust, F = k e|e|
+  thrust_rev_n: 40.2          # T200 full reverse thrust
+  smooth_s: 0.2               # centred moving average on truth velocity before differentiating
+  spin_speed_m_s: 0.05        # spin in place: truth |v| below this...
+  spin_radius_m: 0.4          # ...or turn radius |v|/|r| below this (base_link is off the pivot)
+  spin_rate_rad_s: 0.15       # ...while |r| is above this
+  spin_min_s: 1.0             # spin segments longer than this are listed
+  goal_radius_m: 0.4          # "at the goal" distance (xy)
+  settle_hold_s: 3.0          # settled once inside goal_radius for this long
+  goal_jump_m: 0.5            # a /plan endpoint moving this far starts a new goal leg
+  stall_gap_s: 0.5            # /cmd_vel_nav silence longer than this during a goal is a stall
+  hold_cap_s: 0.5             # longest sample interval integrated as held (bridges dropouts)
+metrics:
+  yaw_reversals_per_min: 6    # truth yaw-rate reversals (hysteresis h) per under-way minute
+  shake_index: 1              # reversals with lobe peak > 0.10 rad/s and half-period < 4 s, per under-way minute
+  cmd_chatter_hz: 0.3         # worst /cmd_vel_nav axis (vx, vy, wz) sign changes per second, band 0.02
+  thruster_chatter_hz: 0.5    # worst thruster sign changes of (pwm - 1500) outside ±25 µs, per second
+  jerk_rms: 0.5               # RMS planar jerk of the truth, m/s^3
+  yaw_jerk_rms: null          # RMS yaw angular jerk of the truth, rad/s^3
+  spin_in_place_s: null       # time with truth |r| > 0.15 rad/s and |v| < 0.05 m/s or turn radius < 0.4 m
+  spin_fraction: 0.05         # spin_in_place_s over the run's duration
+  goal_overshoot_m: 0.3       # worst distance past a goal along its approach, after first within 0.4 m
+  path_ratio: 1.3             # worst leg's truth path length over the straight line from leg start to goal
+  energy_proxy_Ns: null       # ∫ Σ|F_i| dt over the four thrusters, N·s
+  energy_per_m_Ns: null       # energy_proxy_Ns per metre the truth travelled
+  time_s: null                # run duration (truth odometry span); per leg in segments.goals
+  goal_time_s: null           # sum of goal-leg durations
+  stall_count: 0              # /cmd_vel_nav gaps over 0.5 s while a goal is active
