@@ -27,6 +27,10 @@ namespace Sim.Controllers {
         private long lastApplicationTick = -1;
         private long timeoutTicks;
         private bool stoppedForTimeout;
+        // Plant variant: pulses reach the thrusters this many physics ticks late (0 = at once).
+        internal static int DelayTicks;
+        private readonly System.Collections.Generic.Queue<ushort[]> delayed = new();
+        private ushort[] held;
 
         public int ResetPriority => -40;
 
@@ -101,10 +105,20 @@ namespace Sim.Controllers {
                 Debug.LogWarning($"CRANE_ROS_PWM_TIMEOUT topic={topic} " +
                                  $"lastApplicationTick={lastApplicationTick}");
             }
+            if (DelayTicks > 0 && held != null) {
+                delayed.Enqueue(held);
+                while (delayed.Count > DelayTicks)
+                    ApplyPulses(byOutput, delayed.Dequeue(), controller.config.GetMaxCommand(), deadbandPulse);
+            }
         }
 
-        private void Apply(ushort[] pulses) =>
+        private void Apply(ushort[] pulses) {
+            if (DelayTicks > 0) {
+                held = pulses;
+                return;
+            }
             ApplyPulses(byOutput, pulses, controller.config.GetMaxCommand(), deadbandPulse);
+        }
 
         internal static void ApplyPulses(Thruster[] byOutput, ushort[] pulses, float maximum,
             float deadband = 0f) {
@@ -114,6 +128,8 @@ namespace Sim.Controllers {
         }
 
         private void Stop() {
+            held = null;
+            delayed.Clear();
             if (byOutput == null) return;
             foreach (Thruster thruster in byOutput) thruster.SetCommand(0f);
         }

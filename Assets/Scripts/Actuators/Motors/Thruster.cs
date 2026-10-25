@@ -64,7 +64,7 @@ namespace Sim.Actuators.Motors {
             float yawDegrees = 0) {
             float speed = config.GetMaxCommand();
             thrustK = Mathf.Sign(thrustK == 0 ? config.thrustK : thrustK) * forwardNewtons / (speed * speed);
-            backK = reverseNewtons / forwardNewtons;
+            backK = forwardNewtons > 0 ? reverseNewtons / forwardNewtons : 1;  // a dead thruster: no thrust either way
             spinUpTime = Mathf.Max(spinUp, Time.fixedDeltaTime);
             thrustYawDegrees = yawDegrees;
             thrustFromCommand = true;

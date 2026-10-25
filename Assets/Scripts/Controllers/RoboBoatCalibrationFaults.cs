@@ -13,7 +13,20 @@ namespace Sim.Controllers {
             public float[] angles = { 0, 0, 0, 0 };    // mount yaw error, degrees
             public float[] drag = { 1, 1, 1 };          // surge, sway, yaw multipliers
             public float[] dragOffset = { 0, 0 };      // bow, port metres, extra drag only
+            // Plant variants (absent fields keep the contract physics):
+            public float mass = RoboBoatPhysics.Mass;                 // kg, total
+            public float izz = RoboBoatPhysics.BoatInertia.z;         // kg m^2 about the CoM
+            public float[] reverse = {                                 // reverse / forward thrust
+                RoboBoatPhysics.T200Reverse / RoboBoatPhysics.T200Forward,
+                RoboBoatPhysics.T200Reverse / RoboBoatPhysics.T200Forward,
+                RoboBoatPhysics.T200Reverse / RoboBoatPhysics.T200Forward,
+                RoboBoatPhysics.T200Reverse / RoboBoatPhysics.T200Forward };
+            public float[] com = { 0, 0 };                             // bow, port metres CoM shift
+            public float spinup = RoboBoatPhysics.T200SpinUp;          // s, thruster first-order lag
+            public int deadtime_ticks;                                 // physics ticks of PWM delay
         }
+
+        private string sha256;
 
         private Faults faults;
         private ArticulationBody body;
@@ -25,16 +38,29 @@ namespace Sim.Controllers {
             int i = Array.IndexOf(args, "--crane-calibration-faults");
             if (i < 0) return;
             if (i + 1 >= args.Length) throw new ArgumentException("fault JSON path required");
-            Faults data = JsonUtility.FromJson<Faults>(File.ReadAllText(args[i + 1]));
-            Validate(data.strengths, 4, 0.01f, 4, "strengths");
+            string text = File.ReadAllText(args[i + 1]);
+            Faults data = JsonUtility.FromJson<Faults>(text);
+            Validate(data.strengths, 4, 0, 4, "strengths");   // 0: a dead thruster
             Validate(data.angles, 4, -45, 45, "angles");
             Validate(data.drag, 3, 1, 20, "drag");
             Validate(data.dragOffset, 2, -1, 1, "dragOffset");
+            Validate(new[] { data.mass }, 1, 10, 80, "mass");
+            Validate(new[] { data.izz }, 1, 0.5f, 20, "izz");
+            Validate(data.reverse, 4, 0.2f, 1.5f, "reverse");
+            Validate(data.com, 2, -0.3f, 0.3f, "com");
+            Validate(new[] { data.spinup }, 1, 0.001f, 2, "spinup");
+            Validate(new[] { (float)data.deadtime_ticks }, 1, 0, 100, "deadtime_ticks");
+            string digest;
+            using (var hash = System.Security.Cryptography.SHA256.Create())
+                digest = BitConverter.ToString(hash.ComputeHash(System.Text.Encoding.UTF8.GetBytes(text)))
+                    .Replace("-", "").ToLowerInvariant();
+            ROSThrusterPwmCommand.DelayTicks = data.deadtime_ticks;
             SceneManager.sceneLoaded += (_, _) => {
                 var boat = FindAnyObjectByType<OmniXController>();
                 if (boat == null) return;
                 var instance = boat.gameObject.AddComponent<RoboBoatCalibrationFaults>();
                 instance.faults = data;
+                instance.sha256 = digest;
                 instance.body = RoboBoatPhysics.Root(boat);
             };
         }
@@ -52,12 +78,16 @@ namespace Sim.Controllers {
             var boat = GetComponent<OmniXController>();
             Thruster[] thrusters = { boat.frontLeft, boat.frontRight, boat.rearRight, boat.rearLeft };
             for (int i = 0; i < 4; i++) {
-                thrusters[i].SetThrustCurve(RoboBoatPhysics.T200Forward * faults.strengths[i],
-                    RoboBoatPhysics.T200Reverse * faults.strengths[i], RoboBoatPhysics.T200SpinUp,
+                float forward = RoboBoatPhysics.T200Forward * faults.strengths[i];
+                thrusters[i].SetThrustCurve(forward, forward * faults.reverse[i], faults.spinup,
                     faults.angles[i]);
             }
+            Vector3 inertia = RoboBoatPhysics.BoatInertia;
+            RoboBoatPhysics.SetMassLayout(boat, faults.mass, new Vector3(inertia.x, inertia.y, faults.izz),
+                faults.com[0], faults.com[1]);
             water = FindAnyObjectByType<UnityEngine.Rendering.HighDefinition.WaterSurface>();
             Debug.Log($"CRANE_CALIBRATION_FAULTS {JsonUtility.ToJson(faults)}");
+            Debug.Log($"CRANE_PLANT_APPLIED sha256={sha256} {JsonUtility.ToJson(faults)}");
         }
 
         private void FixedUpdate() {

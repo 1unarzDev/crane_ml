@@ -123,6 +123,31 @@ namespace Sim.Controllers {
                       $"{inertia.z:R})");
         }
 
+        /// <summary>A plant variant: total ``mass`` (kg), whole-boat ``inertia`` (roll, pitch,
+        /// yaw, kg m^2) about the centre of mass, and the centre of mass moved ``comBow`` and
+        /// ``comPort`` metres in the hull frame. Runs after Apply.</summary>
+        internal static void SetMassLayout(OmniXController boat, float mass, Vector3 inertia,
+            float comBow, float comPort) {
+            ArticulationBody root = Root(boat);
+            ArticulationBody[] all = root.GetComponentsInChildren<ArticulationBody>();
+            ArticulationBody[] links = all.Where(link => link.isRoot ||
+                link.jointType == ArticulationJointType.FixedJoint).ToArray();
+            float rotors = all.Except(links).Sum(link => link.mass);
+            float[] masses = ScaledMasses(links.Select(link => link.mass).ToArray(), mass - rotors);
+            for (int i = 0; i < links.Length; i++) links[i].mass = masses[i];
+            if (comBow != 0 || comPort != 0) {
+                // Only the root moves its own centre, by enough to move the whole boat's.
+                var (bow, port, _) = Axes(root);
+                Vector3 shift = (bow * comBow + port * comPort) * links.Sum(l => l.mass) / root.mass;
+                root.automaticCenterOfMass = false;
+                root.centerOfMass += Quaternion.Inverse(root.transform.rotation) * shift;
+            }
+            SetInertia(root, all, inertia);
+            Vector3 result = Composite(root, all);
+            Debug.Log($"CRANE_ROBOBOAT_MASS_LAYOUT mass={all.Sum(link => link.mass):R} " +
+                      $"com_shift=({comBow:R},{comPort:R}) inertia_rpy=({result.x:R},{result.y:R},{result.z:R})");
+        }
+
         /// <summary>Body axes (bow, port, up) of the hull in world space.</summary>
         private static (Vector3, Vector3, Vector3) Axes(ArticulationBody root) {
             Quaternion frame = RoboBoatRosFrame.Rotation(root.transform.rotation);
