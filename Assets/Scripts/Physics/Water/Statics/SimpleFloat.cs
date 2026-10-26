@@ -107,17 +107,28 @@ namespace Sim.Physics.Misc {
             transform.rotation = smoothedRotation;
         }
     
+        private static bool searchFailureLogged;
+
+        // Search from the surface's rest level, never from the object's own height: a failed
+        // search used to return the object's height, so the target (height + verticalOffset)
+        // chased itself and every floater drifted by verticalOffset * positionLerpSpeed per second.
         private float GetWaterHeight(Vector3 worldPos) {
+            worldPos.y = targetSurface.transform.position.y;
             searchParams.startPositionWS = (float3)worldPos;
             searchParams.targetPositionWS = (float3)worldPos;
             searchParams.includeDeformation = includeDeformers;
             searchParams.maxIterations = 8;
             searchParams.error = 0.01f;
             searchParams.excludeSimulation = false;
-    
+
             if (targetSurface.ProjectPointOnWaterSurface(searchParams, out searchResult))
                 return searchResult.projectedPositionWS.y;
-    
+
+            if (!searchFailureLogged && Application.isPlaying) {
+                searchFailureLogged = true;
+                Debug.LogWarning($"CRANE_SIMPLE_FLOAT_SEARCH_FAILED object={name}; " +
+                                 "floaters hold the surface's rest level");
+            }
             return worldPos.y;
         }
     

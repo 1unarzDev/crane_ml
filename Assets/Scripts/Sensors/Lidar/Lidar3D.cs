@@ -67,9 +67,10 @@ namespace Sim.Sensors.Lidar {
             [ReadOnly] public NativeArray<Vector3> Points;
             [WriteOnly, NativeDisableParallelForRestriction] public NativeArray<byte> Bytes;
             public Vector3 Scale;
+            public Quaternion Frame;
 
             public void Execute(int index) {
-                Vector3 point = Points[index];
+                Vector3 point = Frame * Points[index];
                 int offset = index * 12;
                 WriteSingle(offset, point.z * Scale.z);
                 WriteSingle(offset + 4, -point.x * Scale.x);
@@ -178,6 +179,22 @@ namespace Sim.Sensors.Lidar {
                 !Mathf.Approximately(verticalFOV, previousVerticalFov))
                 RebuildScanPattern();
             // ROSPublisher handles publishing internally, so no extra UpdatePublish() needed
+        }
+
+        // Turns the sensor's local axes into its frame's: a model imported with its forward
+        // along another axis would otherwise publish a rotated cloud.
+        private Quaternion frameCorrection = Quaternion.identity;
+
+        public void SetFrameCorrection(Quaternion correction) => frameCorrection = correction;
+
+        /// <summary>Set the scan pattern, e.g. to match a real sensor; takes effect at once.</summary>
+        public void Configure(int horizontalBeams, int verticalBeams, float verticalFieldOfView,
+            float range) {
+            numHorizontalBeams = horizontalBeams;
+            numVerticalBeams = verticalBeams;
+            verticalFOV = verticalFieldOfView;
+            maxRange = range;
+            RebuildScanPattern();
         }
 
         public PointCloud2Msg CreateMessage() {
@@ -436,7 +453,8 @@ namespace Sim.Sensors.Lidar {
             JobHandle packHandle = new PackPointCloudJob {
                 Points = points,
                 Bytes = packedPointBytes,
-                Scale = transformScale
+                Scale = transformScale,
+                Frame = frameCorrection
             }.Schedule(points.Length, batchSize);
             packHandle.Complete();
 
@@ -448,7 +466,7 @@ namespace Sim.Sensors.Lidar {
                 int mismatches = 0;
                 byte[] reference = new byte[data.Length];
                 for (int i = 0; i < points.Length; i++) {
-                    Vector3 point = points[i];
+                    Vector3 point = frameCorrection * points[i];
                     int offset = i * 12;
                     BitConverter.TryWriteBytes(reference.AsSpan(offset, 4), point.z * transformScale.z);
                     BitConverter.TryWriteBytes(reference.AsSpan(offset + 4, 4), -point.x * transformScale.x);
@@ -463,8 +481,57 @@ namespace Sim.Sensors.Lidar {
                     Debug.LogError($"CRANE LiDAR packing validation found {mismatches} mismatches " +
                                    $"across {data.Length} bytes.");
             }
+            if (ReturnsOnly) {
+                // As a real driver publishes: only the rays that hit something. Over open
+                // water most rays miss, so this is most of the cloud's size.
+                if (!float.IsNegativeInfinity(WaterLevel)) Submerge(data, points);
+                data = Returns(data);
+                msg.width = (uint)(data.Length / 12);
+                msg.row_step = msg.point_step * msg.width;
+            }
+            else {
+                msg.is_dense = false;  // misses are NaN points
+            }
             msg.data = data;
             return msg;
+        }
+
+        private static readonly bool ReturnsOnly =
+            Array.IndexOf(Environment.GetCommandLineArgs(), "--crane-lidar-returns-only") >= 0;
+
+        // World height of the water surface: a real LiDAR does not see through water, so
+        // hits below it (the seabed under shallow water) are dropped with the misses.
+        private static readonly float WaterLevel = ReadLevel(Environment.GetCommandLineArgs());
+
+        private static float ReadLevel(string[] args) {
+            int index = Array.IndexOf(args, "--crane-lidar-water-level");
+            return index >= 0 && index + 1 < args.Length &&
+                   float.TryParse(args[index + 1], System.Globalization.NumberStyles.Float,
+                       System.Globalization.CultureInfo.InvariantCulture, out float level)
+                ? level : float.NegativeInfinity;
+        }
+
+        /// <summary>Mark packed points below the water surface as misses (NaN).</summary>
+        private void Submerge(byte[] packed, NativeArray<Vector3> points) {
+            byte[] nan = BitConverter.GetBytes(float.NaN);
+            for (int i = 0; i < points.Length; i++) {
+                Vector3 local = points[i];
+                if (float.IsNaN(local.x) || transform.TransformPoint(local).y >= WaterLevel) continue;
+                Buffer.BlockCopy(nan, 0, packed, i * 12, 4);
+            }
+        }
+
+        /// <summary>Keep the 12-byte points whose x is a number.</summary>
+        public static byte[] Returns(byte[] packed) {
+            int kept = 0;
+            byte[] compact = new byte[packed.Length];
+            for (int offset = 0; offset + 12 <= packed.Length; offset += 12) {
+                if (float.IsNaN(BitConverter.ToSingle(packed, offset))) continue;
+                Buffer.BlockCopy(packed, offset, compact, kept, 12);
+                kept += 12;
+            }
+            Array.Resize(ref compact, kept);
+            return compact;
         }
     }
 }

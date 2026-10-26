@@ -6,6 +6,7 @@ using System.Threading;
 using System.IO;
 using UnityEngine;
 using Sim.Utils;
+using Sim.Actuators.Motors;
 using Sim.Controllers;
 using Sim.Utils.Performance;
 using Sim.Utils.ROS;
@@ -222,18 +223,12 @@ namespace Sim.Sensors.Nav
             controller.rearLeft.SetCommand(MapPWM(pwm[0]));
         }
 
-        private float MapNormalizedPWM(float pwm) {
-            pwm = Math.Clamp(pwm, pwmMin, pwmMax);
-            return (pwm - pwmMin) / (pwmMax - pwmMin);
-        }
+        private float MapNormalizedPWM(float pwm) =>
+            EscPwm.Linear(pwm, pwmMin, pwmMax, 0f, 1f);
 
-        private float MapPWM(float pwm)
-        {
-            pwm = Math.Clamp(pwm, pwmMin, pwmMax);
-            return controller.config.GetMinCommand() +
-                   (pwm - pwmMin) * (controller.config.GetMaxCommand() - controller.config.GetMinCommand()) /
-                   (pwmMax - pwmMin);
-        }
+        private float MapPWM(float pwm) =>
+            EscPwm.Linear(pwm, pwmMin, pwmMax, controller.config.GetMinCommand(),
+                controller.config.GetMaxCommand());
 
         private void ReceiveDataLoop()
         {

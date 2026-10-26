@@ -3445,7 +3445,7 @@ PrefabInstance:
     - target: {fileID: 3133999688409307359, guid: 7e4588ccb09a0db18a4b0596fb9bca42,
         type: 3}
       propertyPath: objects.Array.data[36].id
-      value: yellow_deliery_boat
+      value: yellow_delivery_boat
       objectReference: {fileID: 0}
     - target: {fileID: 3133999688409307359, guid: 7e4588ccb09a0db18a4b0596fb9bca42,
         type: 3}

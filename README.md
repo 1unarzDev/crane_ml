@@ -181,6 +181,8 @@ workers at 0.75×, totaling 4.509× measured RTF; eight-worker runs were likewis
 stale depth observations. These are reference-machine results, not default settings for other
 hardware.
 
+With `--crane-roboboat-contract`, add `--crane-calibration-faults /absolute/faults.json` to test characterization against deliberately incorrect hardware. The JSON fields are `strengths` (four force multipliers, FL/FR/RR/RL), `angles` (four mounting yaw errors in degrees about water vertical, Unity yaw sign), `drag` (surge/sway/yaw drag multipliers) and `dragOffset` (bow/port metres for the extra drag). For example, `{"strengths":[1,1,0.6,1],"angles":[0,15,0,0],"drag":[3,3,2],"dragOffset":[0.1,0.25]}` combines a weak rear-right thruster, mounting error and off-centre hull drag. Extra drag uses velocity at its offset point, including rotation. Values are logged as `CRANE_CALIBRATION_FAULTS`; controllers receive no fault information. Without the flag, physics is unchanged. The end-to-end runner and separate manual/velocity acceptance gates live in `mhseals_testing/test/run_crane_characterization.py` (see that package's README).
+
 ## Current maturity
 
 CRANE has automated standalone benchmarks, subsystem profiler markers, sensor delivery checks,

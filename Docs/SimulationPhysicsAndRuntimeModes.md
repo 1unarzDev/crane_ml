@@ -291,6 +291,47 @@ timestamp. Override topics, frames, or rate with `--crane-ros-odom-topic`,
 `--crane-ros-nav-state-hz`; override the comma-separated child set with
 `--crane-ros-nav-child-frames` or pass `none`.
 
+### Boat thruster PWM input and sensor contract
+
+`--crane-ros-thruster-pwm [/thrusters/pwm]` drives the four thrusters from
+`std_msgs/UInt16MultiArray` ESC pulse widths (physical outputs 1-4, microseconds): the signal the
+boat's ODROID puts on its PWM pins. mhseals_hardware's `thruster_pwm_node` publishes it with
+`output_backend: topic`, after the boat's own mixer, channel map and calibration, so the simulator
+exercises the tuned allocation rather than `OmniXController`'s mixer. Each pulse maps through the
+shared `EscPwm` model (1100-1900 us, 1500 neutral) onto `+/-ThrusterConfig.GetMaxCommand()`;
+`--crane-pwm-deadband` adds an ESC deadband in microseconds. `--crane-pwm-outputs FL,FR,RR,RL`
+names the physical output wired to each thruster (default `1,2,3,4`), the simulator's equivalent
+of the boat wiring that `thruster_identify` discovers. Like the velocity input it enqueues in the
+callback, applies in `FixedUpdate`, and goes neutral after `--crane-command-timeout-ticks`; the
+publisher repeats at 20 Hz so silence means a lost link. The input refuses to start beside
+`--crane-ros-cmd-vel` or without `--crane-disable-sitl`, so two thruster sources never fight.
+
+`--crane-roboboat-contract` publishes what the boat's flight controller provides through MAVROS,
+letting mhseals_nav's localization run unchanged with `odom.launch.py fcu:=false` and no ArduPilot:
+
+| Topic | Type | Content |
+| --- | --- | --- |
+| `/odom/mavros` | `nav_msgs/Odometry`, 20 Hz | `odom` pose, body-frame (`base_link`) velocity; `--crane-fcu-velocity-sigma` adds noise |
+| `/imu/raw` | `sensor_msgs/Imu`, 20 Hz | attitude, body rates and specific force (+g up at rest), `base_link` |
+| `/gps/fix` | `sensor_msgs/NavSatFix`, 5 Hz | ENU position about `--crane-gps-origin lat,lon`; `--crane-gps-sigma` adds noise |
+
+Frames follow REP 103 and the RoboBoat bow correction used by `CraneROSNavigationState`. The scene's
+own `Imu` and `GPS` components are disabled under the contract: they publish the same topics
+without the bow correction and with an empty fix. Ground truth stays on `/crane/odom` for scoring
+but without `odom -> base_link` TF, which the EKF owns. `--crane-contract-seed` fixes the noise.
+
+The boat's full stack therefore runs as:
+
+```bash
+<player> --crane-disable-sitl --crane-ros-thruster-pwm --crane-roboboat-contract
+ros2 launch mhseals_nav robot.launch.py sim:=true fcu:=false
+ros2 run mhseals_hardware thruster_pwm_node --ros-args -p output_backend:=topic
+```
+
+`CRANE_RESPONSE_INPUT=pwm Tools/Performance/run_roboboat_command_response.sh` runs the axis
+response fixture through this input with boat-mixed pulses, checked by
+`check_roboboat_axis_response.py` like the velocity input.
+
 The included acceptance fixture runs the real Jazzy Nav2 lifecycle manager, BT navigator, NavFn
 planner, behavior server, LiDAR-fed voxel/inflation global and local costmaps, Regulated Pure
 Pursuit controller, and `NavigateToPose` action. It uses authoritative Unity `odom` as its global
@@ -565,3 +606,37 @@ bounded connection-task teardown from `OnDestroy`. The paired
 endpoint removes executor-owned ROS nodes and clears its registration tables on disconnect. Do not
 replace either side with an unpinned upstream version without rerunning the live transport,
 scene-reload, and reconnect fixtures.
+
+
+## RoboBoat realism profile, courses and weather
+
+With `--crane-roboboat-contract` the boat carries the real platform's numbers
+(`RoboBoatPhysics.cs`; `--crane-roboboat-legacy-physics` keeps the scene as authored):
+
+- 30 kg loaded, mass spread over the hull and frame links; rotor links untouched.
+- Four Blue Robotics T200 at 16 V: 51.5 N forward, 40.2 N reverse, thrust with the square of
+  the ESC command through a 0.1 s spin-up (the rotor joints top out near 150 rad/s, so their
+  speed is not used as a thrust measure).
+- One hull model replaces GeneralDynamics, the per-face current drag and Fossen damping: linear
+  plus quadratic drag in REP-103 body axes on the velocity relative to the water (surge
+  10 + 19.4|u|, top speed 2.5 m/s at full surge; sway 15 + 41.7|v|; yaw 10 + 19.3|r|; heave, roll and
+  pitch damped). A current therefore carries the boat.
+- The LiDAR is a VLP-16 (16 rings, 2 degrees apart over +-15 degrees, 0.2 degree steps, 10 Hz) in
+  lidar_link REP-103 axes.
+
+| Flag | Effect |
+| --- | --- |
+| `--crane-roboboat-course <json>` | Builds a course from a spec (course frame = boat start, x ahead, y to port) by cloning the scene's buoys, docks and vessels; hides the legacy task groups; registers every element with the detection sensor; adds banners to dock bays |
+| `--crane-roboboat-course-truth <json>` | Writes what was placed (world frame of `/crane/odom`, each element tagged with its task, dock bays with banners and occupancy) for the referee |
+| `--crane-water-current speed,toward_deg` | Sets the water current (toward, counter-clockwise from world +x) |
+| `--crane-wind speed,toward_deg` | World-fixed wind: drag on the hull's above-water area (0.30 m^2 ahead, 0.40 m^2 abeam, Cd 1) with Ornstein-Uhlenbeck gusts (25 %, 8 s) and veer (10 deg, 30 s), seeded by `--crane-seed` |
+| `--crane-disturbance-after s` | Wind and current start after `s` seconds and ramp in over 10 s, so runs begin where the boat was placed |
+| `--crane-lidar-returns-only` | Publishes only LiDAR returns, as the Velodyne driver does |
+| `--crane-lidar-water-level y` | Drops returns below the water surface (a LiDAR does not see the seabed) |
+
+`Tools/RoboBoat/courses/roboboat_2025.json` lays out the 2025 tasks (handbook 3.2): navigation
+channel, follow the path with yellow buoys, a three-bay dock (one bay occupied), the speed
+challenge with its blue mark and black buoys, and the black return gate. Detections are published
+in front_camera_link REP-103 axes. Run headless with `-batchmode` and an X display for the
+Vulkan device (`CRANE_BATCHMODE=1 DISPLAY=:1`); without any display the NVIDIA Vulkan device
+fails to start.
