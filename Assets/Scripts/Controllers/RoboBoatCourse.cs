@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using Sim.Sensors.Vision;
 using Sim.Utils.ROS;
+using Sim.Utils.Viewer;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.Rendering.HighDefinition;
@@ -193,6 +194,7 @@ namespace Sim.Controllers {
             var targets = new List<KeyValuePair<GameObject, string>>();
             var root = new GameObject($"RoboBoat Course {spec.name}").transform;
             int docks = 0;
+            var taskAreas = new Dictionary<string, Bounds>();  // framed by the viewer's Task view
 
             foreach (var element in spec.elements) {
                 GameObject template = templates[element.template];
@@ -217,7 +219,13 @@ namespace Sim.Controllers {
                     x = world.x, y = world.y, radius = HorizontalRadius(clone)
                 });
                 if (dock) BuildBays(clone, element, docks++, templates, targets, truth, root);
+                if (!string.IsNullOrEmpty(element.task)) {
+                    Bounds bounds = WorldBounds(clone);
+                    if (taskAreas.TryGetValue(element.task, out Bounds area)) bounds.Encapsulate(area);
+                    taskAreas[element.task] = bounds;
+                }
             }
+            foreach (var area in taskAreas) ViewerAreas.Set(area.Key, area.Value);
 
             foreach (string name in spec.hide ?? Array.Empty<string>()) {
                 GameObject group = GameObject.Find(name);

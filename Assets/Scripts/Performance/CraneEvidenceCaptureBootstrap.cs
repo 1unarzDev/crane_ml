@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using Sim.Utils.Viewer;
 using Sim.Visualization;
 
 namespace Sim.Performance {
@@ -21,6 +22,7 @@ namespace Sim.Performance {
         private Bounds firstDockBounds, secondDockBounds;
         private bool haveDockBounds;
         private Vector3 spectatorOffset = new Vector3(5.5f, 12.8f, -13f);
+        private static readonly Vector3 SpectatorLookAhead = new Vector3(0f, 0.1f, 2f);
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Install() {
@@ -68,10 +70,13 @@ namespace Sim.Performance {
             spectator.clearFlags = CameraClearFlags.Skybox;
             spectator.fieldOfView = 50f;
             if (boat != null) {
-                Vector3 target = boat.position + Vector3.up * 0.2f;
-                // Detached, elevated three-quarter view follows the local evidence field.
-                spectator.transform.position = target + spectatorOffset;
-                spectator.transform.LookAt(target + new Vector3(0f, 0.1f, 2.0f));
+                // Detached, elevated three-quarter view follows the local evidence field: a rigid,
+                // world-aligned viewer shot (no damping, no roll) so captures stay reproducible.
+                var rigid = ScriptableObject.CreateInstance<ViewerCameraConfig>();
+                rigid.PositionTime = rigid.YawTime = rigid.TiltTime = rigid.RollFraction = 0f;
+                Vector3 focus = Vector3.up * 0.2f + SpectatorLookAhead;
+                ViewerCameraRig.Drive(spectator, boat, rigid,
+                    FollowShot.Looking(focus, spectatorOffset - SpectatorLookAhead, worldYaw: true));
             }
             var overlayHost = new GameObject("CRANE Nav2 Evidence Overlay");
             overlay = overlayHost.AddComponent<Nav2EvidenceOverlay>();
@@ -102,13 +107,6 @@ namespace Sim.Performance {
                 while (!overlay.DockingQualified && Time.time - waitStarted < timeout) yield return null;
                 Capture(capturePath3);
             }
-        }
-
-        private void LateUpdate() {
-            if (spectator == null || boat == null) return;
-            var target = boat.position + Vector3.up * .2f;
-            spectator.transform.position = target + spectatorOffset;
-            spectator.transform.LookAt(target + new Vector3(0f, .1f, 2f));
         }
 
         private void Capture(string path) {
