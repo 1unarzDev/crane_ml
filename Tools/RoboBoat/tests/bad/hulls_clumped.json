@@ -24,7 +24,7 @@
   "seed": 1,
   "mode": "iid",
   "overrides": {},
-  "family_sha256": "18df202d78054c889b791c113f720001bb1f3fcf2850a69e11930e8ef95eb872",
+  "family_sha256": "9bca1271c33d290d9c55ef74979b3dd0bb7bdb1d750b43598367d16fa09f2d0a",
   "attempts": {
    "layout": 1,
    "entry_gates": 1,
@@ -38,7 +38,7 @@
    "supply_drop:P5.anchors": 1
   },
   "crane_commit": "unknown",
-  "truth_sha256": "2df67206280c2e0c052ca43546d7995e2c8ad42a7caa9ab3091c66701a7151a0"
+  "truth_sha256": "85f4fa1b61bccdcb3bba1e1eda715a54a05ea79b91dc08ad29043eea0c3db38a"
  },
  "boundary": [
   [
@@ -2487,6 +2487,15 @@
    }
   },
   {
+   "id": "T4.lane",
+   "tag": "D",
+   "pass": true,
+   "value": 28.0326,
+   "limit": {
+    "min": 3
+   }
+  },
+  {
    "id": "T5.slips",
    "tag": "H",
    "pass": true,
@@ -2642,15 +2651,6 @@
    "limit": {
     "min": 7,
     "max": 12
-   }
-  },
-  {
-   "id": "T6.zone2_start",
-   "tag": "D",
-   "pass": true,
-   "value": 27.1727,
-   "limit": {
-    "min": 15
    }
   },
   {

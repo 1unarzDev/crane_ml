@@ -178,6 +178,23 @@ def marina_group(t, dx=0.0, dy=0.0):
               footprints={'marina'}, dx=dx, dy=dy)
 
 
+def marina_turn(t, deg):
+    """The whole marina with its docked hulls, anchors and footprint, rotated about the middle of its spines."""
+    bays = [b for b in t['bays'] if b['task'] == 'marina']
+    ids = {e['id'] for e in t['elements'] if e['task'] == 'marina'} | hulls_in(t, bays)
+    spines = [el(t, f'marina.{p}.spine') for p in 'NS']
+    transform(t, ids=ids, bays={b['id'] for b in bays}, anchors=[f'marina.{k}' for k in task(t, 'marina')['anchors']],
+              footprints={'marina'}, centre=(sum(s['x'] for s in spines) / 2, sum(s['y'] for s in spines) / 2), deg=deg)
+
+
+def hull_by_lane(t, off):
+    """The free hull ``off`` metres off the middle of the lead-in leg from entry gate 2 to channel gate 1."""
+    a, b = xy(gate(t, 'entry_gates.gate2')), xy(gate(t, 'debris_clearance.gate1'))
+    d = math.dist(a, b)
+    u = ((b[0] - a[0]) / d, (b[1] - a[1]) / d)
+    el(t, 'supply_drop.water1').update(x=round((a[0] + b[0]) / 2 + u[1] * off, 6), y=round((a[1] + b[1]) / 2 - u[0] * off, 6))
+
+
 def zone2_group(t, x, y):
     """Harbor zone 2 (buoy, zone anchor, its approach) moved so the buoy sits at (x, y)."""
     b = el(t, 'harbor_alert.zone2_buoy')
@@ -364,6 +381,16 @@ def zone2_by_lane(t):
     zone2_group(t, 9.0, 13.5)
 
 
+def hull_in_lane(t):
+    # the free hull 0.65 m off the leg from entry gate 2 to channel gate 1
+    hull_by_lane(t, 0.65)
+
+
+def marina_into_shore(t):
+    # the marina turns 40 deg about its middle: its piers now point 94 deg off the shore normal, toward the shore
+    marina_turn(t, 40.0)
+
+
 def no_light_sign(t):
     t['elements'].remove(el(t, 'speed_challenge.sign'))
 
@@ -400,6 +427,8 @@ CASES = {
     'speed_gate_turned': (speed_gate_turned, 'T3.approach_gate2'),
     'zone2_by_lane': (zone2_by_lane, 'T6.zone2_lane'),
     'no_light_sign': (no_light_sign, 'T3.sign'),
+    'hull_in_lane': (hull_in_lane, 'T4.lane'),
+    'marina_into_shore': (marina_into_shore, 'T5.yaw'),
 }
 
 if __name__ == '__main__':

@@ -14,7 +14,7 @@ namespace Sim.Course.RoboBoat {
         [CourseParam("D", "sim seconds after the course is ready")] public ParamRange trigger_s = ParamRange.Uniform(60, 240, "s");
         [CourseParam("D", "zone 2 buoy bearing off the marina axis at the mouth")] public ParamRange zone2_bearing_deg = ParamRange.Uniform(-120, 120, "deg");
         [CourseParam("D", "zone 2 buoy off the marina mouth (H p.40 map; T6.zone2)")] public ParamRange zone2_offset = ParamRange.Uniform(7, 12);
-        [CourseParam("D", "zone 2 buoy from the start and the entry lane (T6.zone2_start, T6.zone2_lane)")] public ParamRange zone2_clear = ParamRange.Fixed(15);
+        [CourseParam("D", "zone 2 buoy from the start and the entry lane (T6.zone2_lane)")] public ParamRange zone2_clear = ParamRange.Fixed(15);
         [CourseParam("D")] public ParamRange zone_radius = ParamRange.Fixed(3);
     }
 

@@ -144,13 +144,21 @@ namespace Sim.Course {
                     }
                     return One(Math.Max(0, Math.Min((int)a.Num("min_tasks"), items.Count) - owners.Count));
                 }
-                // Least distance from a point to a polyline through the given references.
+                // Least distance from a point (or from each selected element) to a polyline through the
+                // given references, then through every gate of "through_gates" (a task) in order.
                 case "polyline_distance": {
-                    P2 q = Ref(t, a.Str("point")).At;
                     var pts = a.Arr("through").Select(r => Ref(t, (string)r).At).ToList();
-                    double best = pts.Count == 1 ? P2.Dist(q, pts[0]) : double.MaxValue;
-                    for (int i = 0; i + 1 < pts.Count; i++) best = Math.Min(best, SegmentDistance(q, pts[i], pts[i + 1]));
-                    return One(best);
+                    if (a.Has("through_gates")) {
+                        var ids = TaskIds(t, a.Str("through_gates"));
+                        pts.AddRange(t.Arr("gates").Cast<JObj>().Where(g => ids.Contains(g.Str("task"))).OrderBy(g => g.Num("order")).Select(Xy));
+                    }
+                    double Least(P2 q) {
+                        double best = pts.Count == 1 ? P2.Dist(q, pts[0]) : double.MaxValue;
+                        for (int i = 0; i + 1 < pts.Count; i++) best = Math.Min(best, SegmentDistance(q, pts[i], pts[i + 1]));
+                        return best;
+                    }
+                    if (a.Has("select")) return Select(t, a).Select(e => (object)Least(Xy(e))).ToList();
+                    return One(Least(Ref(t, a.Str("point")).At));
                 }
                 case "clearance":
                     if (a.Has("gates")) return One(GateClearance(t, Select(t, a), Select(t, new JObj().Set("select", a.Obj("gates")))));

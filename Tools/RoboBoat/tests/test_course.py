@@ -51,8 +51,8 @@ def _black_gap(t, x):  # two field blacks closer together: surface gap x
     b['x'], b['y'] = a['x'] + (b['x'] - a['x']) * k, a['y'] + (b['y'] - a['y']) * k
 
 
-def _hull_off_start(t, x):  # the free hull x clear of the start
-    h = mb.el(t, 'supply_drop.water1')
+def _hull_off_start(t, x):  # the first channel buoy x clear of the start (a free hull may not be within 3 m of it, T4.lane)
+    h = mb.el(t, 'debris_clearance.channel_black1')
     s = mb.anchor(t, 'entry_gates.start')
     h.update(x=s['x'] - x - h['radius'], y=s['y'])
 
@@ -106,11 +106,12 @@ def _sign_behind_gate(t, x):  # the light sign on the gate axis, x clear of the 
     mb.move_el(t, 'speed_challenge.sign', *mb.place_in_gate_frame(t, 'speed_challenge.gate', 'speed_challenge.sign', -x - r, 0.0))
 
 
-def _hull_by_gate1(t, x):  # the free hull in front of entry gate 1, x clear of its gate line
+def _hull_by_gate1(t, x):  # the free hull beside entry gate 1, x clear of its gate line (and off the lead-in)
     g = mb.gate(t, 'entry_gates.gate1')
     h = mb.el(t, 'supply_drop.water1')
     f = mb.unit(g['normal_yaw'])
-    h.update(x=g['x'] + f[0] * (x + h['radius']), y=g['y'] + f[1] * (x + h['radius']))
+    d = g['cc'] / 2 + x + h['radius']
+    h.update(x=g['x'] - f[1] * d, y=g['y'] + f[0] * d)
 
 
 def _hull_away(t, x):  # the free hull x from its nearest object of another task, straight away from it
@@ -185,7 +186,9 @@ LIMITS = {
     'T4.gates': (_hull_by_gate1, [(3.01, IN), (2.99, OUT)]),
     'T4.near_task': (_hull_away, [(24.99, IN), (25.01, OUT)]),
     'T4.spacing': (_hull_pair, [(8.01, IN), (7.99, OUT)]),
+    'T4.lane': (mb.hull_by_lane, [(3.01, IN), (2.99, OUT)]),
     'T5.antiparallel': (lambda t, x: mb.pier_group(t, 'N', deg=BASE_VALUE['T5.antiparallel'] - x), [(9.99, IN), (10.01, OUT)]),
+    'T5.yaw': (lambda t, x: mb.marina_turn(t, x - BASE_VALUE['T5.yaw']), [(89.99, IN), (90.03, OUT)]),
     'T5.tip_gap': (_tip_gap, [(3.01, IN), (2.99, OUT)]),
     'T5.slip_clear': (lambda t, x: mb.bay(t, 'marina.S3').update(width=x), [(1.67, IN), (1.68, OUT), (1.37, IN), (1.36, OUT)]),
     'T5.slip_vessel': (_slip_vessel, [(1.075, IN), (1.085, OUT)]),
@@ -208,12 +211,7 @@ COUPLED = {
 }
 
 # Metric rows no mutation can fail.
-EXEMPT = {
-    # axial angle_between folds to [0, 90] deg, so 'max 90' always holds
-    'T5.yaw': 'axial angle never exceeds 90 deg',
-    # the start is the first vertex of the entry lane polyline, so zone2_lane >= 15 implies this
-    'T6.zone2_start': 'implied by T6.zone2_lane',
-}
+EXEMPT = {}
 
 METRIC_PREDICATES = {'distance', 'gate_cc', 'gate_clear', 'along', 'lateral', 'angle_between', 'inside', 'clearance',
                      'facing', 'curvature', 'nearest', 'polyline_distance', 'value'}

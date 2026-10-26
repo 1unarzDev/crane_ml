@@ -43,10 +43,10 @@ Relative orientation and placement (all D; rationale: the handbook p.40 course m
 - supply: `min_docked` (1-2) hulls sit in free red slips, never green (so never the target, H p.54), never in or beside a
   moored boat's slip on the same pier (`marina.free_red_min` keeps one such slip): T4.docked, T4.dock_green_free,
   T4.dock_moored_free, T4.dock_beside_moored, T5.free_red. The rest scatter one by one among the tasks: each within 25 m of
-  another task's object (T4.near_task), >= 8 m apart (T4.spacing), by at least two different tasks (T4.scatter); free hulls
+  another task's object (T4.near_task), >= 8 m apart (T4.spacing), by at least two different tasks (T4.scatter), and >= 3 m from the boat's lead-in: start, entry gates 1 and 2, every channel gate (T4.lane); free hulls
   have no common footprint.
 - harbor zone 2: the buoy 7-12 m off the marina mouth (T6.zone2) and >= 15 m from the start and the entry lane
-  (T6.zone2_start, T6.zone2_lane).
+  (T6.zone2_lane).
 - Yaw params made with `ParamRange.Angle` stay iid in corner modes.
 
 Slips: `bays[].slip` and `semantics.target.slip` are the slip's position on its pier, 1 at the shore root; the banner numeral is

@@ -474,12 +474,19 @@ def values(row, t):
                 owners.add(others[0].get('task'))
         return [max(0, min(int(a['min_tasks']), len(items)) - len(owners))], limit
     if p == 'polyline_distance':
-        q = ref(t, a['point'])[0]
         pts = [ref(t, r)[0] for r in a['through']]
-        best = math.dist(q, pts[0]) if len(pts) == 1 else math.inf
-        for i in range(len(pts) - 1):
-            best = min(best, segment_distance(q, pts[i], pts[i + 1]))
-        return [best], limit
+        if 'through_gates' in a:
+            ids = task_ids(t, a['through_gates'])
+            pts += [xy(g) for g in sorted((g for g in t.get('gates', []) if g.get('task') in ids), key=lambda g: g['order'])]
+
+        def least(q):
+            best = math.dist(q, pts[0]) if len(pts) == 1 else math.inf
+            for i in range(len(pts) - 1):
+                best = min(best, segment_distance(q, pts[i], pts[i + 1]))
+            return best
+        if 'select' in a:
+            return [least(xy(e)) for e in select(t, a)], limit
+        return [least(ref(t, a['point'])[0])], limit
     if p == 'clearance':
         if 'gates' in a:
             return [gate_clearance(t, select(t, a), select(t, {'select': a['gates']}))], limit

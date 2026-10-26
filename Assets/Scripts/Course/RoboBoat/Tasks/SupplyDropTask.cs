@@ -18,13 +18,15 @@ namespace Sim.Course.RoboBoat {
     /// <summary>Task 4, supply drop (H p.51): up to three water-target and three ball-target
     /// hulls, min_docked of them in free red slips and the rest scattered one by one among the
     /// other tasks: each free hull near a different task where it can be (T4.scatter), within
-    /// near_max of another task's object and spacing from the other free hulls. The free hulls
+    /// near_max of another task's object, spacing from the other free hulls and LaneClear
+    /// from the boat's lead-in (T4.lane). The free hulls
     /// have no common footprint; each keeps its own clearance from objects and footprints.</summary>
     [CreateAssetMenu(menuName = "Course/RoboBoat/Supply Drop")]
     public sealed class SupplyDropTask : CourseTaskDefinition<SupplyDropParams> {
         public override string TaskType => "supply_drop";
         public override string Cite => "H p.51";
         const double Margin = 1.5;  // a free hull's own footprint margin (D)
+        const double LaneClear = 3;  // a free hull's least distance to the boat's lead-in (D, T4.lane)
 
         /// <summary>No region: the hulls scatter in Generate.</summary>
         public override Pose2 Place(PlacementContext c) => new Pose2(0, 0, 0);
@@ -64,6 +66,11 @@ namespace Sim.Course.RoboBoat {
             for (int i = tasks.Count - 1; i > 0; i--) { int j = rng.Int(0, i); (tasks[i], tasks[j]) = (tasks[j], tasks[i]); }
             var others = c.Placement.Placed.Values.SelectMany(t => t.Objects).ToList();
             P2 start = c.Placement.ByType("entry_gates")?.Anchors["start"] is JObj st ? new P2(st.Num("x"), st.Num("y")) : new P2(0, 0);
+            // The boat's lead-in: start, entry gates 1 and 2, then every channel gate.
+            var lane = new List<P2> { start };
+            foreach (string type in new[] { "entry_gates", "debris_clearance" })
+                if (c.Placement.ByType(type) is TaskLayout run)
+                    lane.AddRange(run.Gates.OrderBy(g => g.Order).Select(g => Layouts.Mid(run, g)));
             var freeHulls = new List<P2>();
             var reachRange = new SupplyDropParams().reach;
             int next = 0;
@@ -78,7 +85,8 @@ namespace Sim.Course.RoboBoat {
                         var by = near[rng.Int(0, near.Count - 1)];
                         double d = k == 0 ? p.Num(nameof(SupplyDropParams.reach)) : rng.Range(reachRange.min, reachRange.max);
                         P2 q = by.At + P2.Dir(rng.Range(-Math.PI, Math.PI)) * d;
-                        if (freeHulls.Any(h => P2.Dist(h, q) < spacing + 0.01) || P2.Dist(q, start) < 4) continue;
+                        if (freeHulls.Any(h => P2.Dist(h, q) < spacing + 0.01) || P2.Dist(q, start) < 4 ||
+                            Layouts.LaneDistance(lane, q) < LaneClear + 0.01) continue;
                         if (!others.Any(o => P2.Dist(o.At, q) <= nearMax - 0.01)) continue;
                         if (!c.Occupancy.Free(q, radius + 0.5, 1.5) || !c.Occupancy.FootprintFree(Square(q, radius + Margin))) continue;
                         at = q;

@@ -55,8 +55,8 @@ namespace Sim.Course.Tests {
         public void SameSeedGivesTheGoldenSha() {
             // Goldens from the CoreCLR harness, which matched the Unity (Mono) editor bit for bit.
             // Update deliberately when the family, spec or generator changes.
-            Assert.That(CourseTruth.Sha(Generate(1)), Is.EqualTo("2df67206280c2e0c052ca43546d7995e2c8ad42a7caa9ab3091c66701a7151a0"));
-            Assert.That(CourseTruth.Sha(Generate(7, SampleMode.CornerHi)), Is.EqualTo("8d8753da74f06a9b8143e5221fff17acac047701d5c126c289b697e352872550"));
+            Assert.That(CourseTruth.Sha(Generate(1)), Is.EqualTo("85f4fa1b61bccdcb3bba1e1eda715a54a05ea79b91dc08ad29043eea0c3db38a"));
+            Assert.That(CourseTruth.Sha(Generate(7, SampleMode.CornerHi)), Is.EqualTo("ea13d0343448a5dddc97e6cc3bf551972ba42ca896ffbe93142acba0e9b3fb09"));
             Assert.That(Json.Write(Generate(11)), Is.EqualTo(Json.Write(Generate(11))));
         }
 
@@ -168,7 +168,7 @@ namespace Sim.Course.Tests {
         [Test]
         public void BadLayoutsAreRejectedByTheirRows() {
             var files = Directory.GetFiles(Path.Combine(Root, "Tools/RoboBoat/tests/bad"), "*.json");
-            Assert.That(files.Length, Is.EqualTo(30));
+            Assert.That(files.Length, Is.EqualTo(32));
             foreach (string file in files) {
                 var t = (JObj)Json.Parse(File.ReadAllText(file));
                 var expect = t.Obj("expect");
