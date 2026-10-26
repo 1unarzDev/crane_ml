@@ -75,7 +75,7 @@ namespace Sim.Course {
                         TaskId = task.TaskId, Rng = rng, Anchor = anchor, Side = side, Params = values,
                         Occupancy = occupancy, Catalog = family.Catalog, Vessel = request.Vessel, Placement = pc
                     });
-                    if (layout.Footprint.Count == 0 && layout.Objects.Count > 0)
+                    if (layout.Footprint.Count == 0 && layout.Objects.Count > 0 && !layout.Scattered)
                         layout.Footprint = Geometry.Hull(layout.Objects.Select(o => o.At), FootprintMargin);
                     var candidate = new GeneratedTask { Definition = task, Params = values, Layout = layout, Attempts = k + 1 };
                     var trial = new List<GeneratedTask>(done) { candidate };

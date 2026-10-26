@@ -169,9 +169,33 @@ class Missing(KeyError):
     pass
 
 
+def shore(t):
+    """The shore line's two points and the sign that makes the course side positive."""
+    s0, s1 = points(t['shore'])[:2]
+    poly = points(t.get('boundary', []))
+    c = (sum(q[0] for q in poly) / len(poly), sum(q[1] for q in poly) / len(poly))
+    return s0, s1, 1.0 if cross(s0, s1, c) >= 0 else -1.0
+
+
+def gate_pose(t, gate_ref):
+    """Gate centre and normal recomputed from its posts (port on the left of travel)."""
+    ident = gate_ref.partition(':')[2]
+    g = next((x for x in t.get('gates', []) if x.get('id') == ident), None)
+    if g is None:
+        raise Missing(gate_ref)
+    port, starboard = xy(element(t, g['port'])), xy(element(t, g['starboard']))
+    v = sub(port, starboard)
+    return ((port[0] + starboard[0]) / 2, (port[1] + starboard[1]) / 2), math.atan2(-v[0], v[1])
+
+
 def ref(t, r):
-    """(point, yaw) of "elem:ID", "gate:ID", "gate:TASK@first|@last", "bay:ID", "anchor:TASK.NAME"."""
+    """(point, yaw) of "elem:ID", "gate:ID", "gate:TASK@first|@last", "bay:ID", "anchor:TASK.NAME",
+    "shore:normal" (the shore line's midpoint, yaw pointing into the course)."""
     kind, _, ident = r.partition(':')
+    if kind == 'shore':
+        s0, s1, sign = shore(t)
+        n = left(sub(s1, s0))
+        return ((s0[0] + s1[0]) / 2, (s0[1] + s1[1]) / 2), math.atan2(sign * n[1], sign * n[0])
     if kind == 'gate' and '@' in ident:
         ids = task_ids(t, ident.split('@')[0])
         gates = sorted((g for g in t.get('gates', []) if g.get('task') in ids), key=lambda g: g['order'])
@@ -205,16 +229,16 @@ def along(t, gate, point):
     return dot(sub(ref(t, point)[0], g), direction(yaw))
 
 
-def shape_inside(poly, e):
+def shape_inside(margin_of, e):
     if not is_box(e):
-        return inside_margin(poly, xy(e)) - e['radius']
+        return margin_of(xy(e)) - e['radius']
     c, f = xy(e), direction(e['yaw'])
     l = left(f)
     best = math.inf
     for u, v in ((1, 1), (1, -1), (-1, 1), (-1, -1)):
         p = (c[0] + f[0] * u * e['length'] / 2 + l[0] * v * e['width'] / 2,
              c[1] + f[1] * u * e['length'] / 2 + l[1] * v * e['width'] / 2)
-        best = min(best, inside_margin(poly, p))
+        best = min(best, margin_of(p))
     return best
 
 
@@ -403,11 +427,59 @@ def values(row, t):
     if p == 'count':
         return [len(select(t, a))], limit
     if p == 'angle_between':
-        d = ref(t, a['a'])[1] - ref(t, a['b'])[1] - (math.pi if a.get('antiparallel') is True else 0)
-        return [abs(wrap(d)) * 180 / math.pi], limit
+        d = abs(wrap(ref(t, a['a'])[1] - ref(t, a['b'])[1] - (math.pi if a.get('antiparallel') is True else 0)))
+        if a.get('axial') is True:  # a box's yaw is an axis
+            d = min(d, math.pi - d)
+        return [d * 180 / math.pi], limit
     if p == 'inside':
-        poly = points(t.get('boundary', []))
-        return [shape_inside(poly, e) for e in select(t, a)], limit
+        if a.get('edge') == 'shore':  # signed distance to the shore line only
+            s0, s1, sign = shore(t)
+            n = math.dist(s0, s1)
+            margin_of = lambda q: sign * cross(s0, s1, q) / n  # noqa: E731
+        else:
+            poly = points(t.get('boundary', []))
+            margin_of = lambda q: inside_margin(poly, q)  # noqa: E731
+        return [shape_inside(margin_of, e) for e in select(t, a)], limit
+    if p == 'facing':
+        at, yaw = gate_pose(t, a['gate'])
+        src = ref(t, a['from'])[0]
+        return [abs(wrap(yaw - math.atan2(at[1] - src[1], at[0] - src[0]))) * 180 / math.pi], limit
+    if p == 'curvature':
+        gates = [gate_pose(t, 'gate:' + g['id']) for g in sorted(select(t, a), key=lambda g: g['order'])]
+        return [2 * math.sin(abs(wrap(gates[i + 1][1] - gates[i][1])) / 2) / max(1e-9, math.dist(gates[i][0], gates[i + 1][0]))
+                for i in range(len(gates) - 1)], limit
+    if p == 'state_map':
+        state = element(t, a['elem']).get('state')
+        st = next((x for x in t.get('states', []) if state is not None and x.get('id') == state), None)
+        if st is None:
+            raise Missing(f"{a['elem']} state")
+        want = a['map'].get(st.get('initial') or '')
+        return [0.0 if want is not None and same(want, path_get(x, a['path'])) else 1.0 for x in select(t, a)], limit
+    if p == 'nearest':
+        items, everything = select(t, a), t.get('elements', [])
+        among = a.get('to') == 'selected'
+        out = []
+        for e in items:
+            ds = [math.dist(xy(o), xy(e)) for o in (items if among else everything)
+                  if (o is not e if among else o.get('task') != e.get('task'))]
+            if ds:
+                out.append(min(ds))
+        return out, limit
+    if p == 'spread_tasks':
+        items, everything = select(t, a), t.get('elements', [])
+        owners = set()
+        for e in items:
+            others = sorted((o for o in everything if o.get('task') != e.get('task')), key=lambda o: math.dist(xy(o), xy(e)))
+            if others:
+                owners.add(others[0].get('task'))
+        return [max(0, min(int(a['min_tasks']), len(items)) - len(owners))], limit
+    if p == 'polyline_distance':
+        q = ref(t, a['point'])[0]
+        pts = [ref(t, r)[0] for r in a['through']]
+        best = math.dist(q, pts[0]) if len(pts) == 1 else math.inf
+        for i in range(len(pts) - 1):
+            best = min(best, segment_distance(q, pts[i], pts[i + 1]))
+        return [best], limit
     if p == 'clearance':
         if 'gates' in a:
             return [gate_clearance(t, select(t, a), select(t, {'select': a['gates']}))], limit
@@ -442,6 +514,10 @@ def values(row, t):
         return [1 if run_path(t, a) else 0], limit
     if p == 'in_bay':  # selected elements whose centre lies inside any selected bay
         bays = select(t, {'select': a['bays']})
+        if a.get('beside') is True:  # the bays next to a selected bay on the same pier instead
+            chosen = bays
+            every = select(t, {'select': {k: v for k, v in a['bays'].items() if k != 'where'}})
+            bays = [b for b in every if any(m.get('pier') == b.get('pier') and abs(m['slip'] - b['slip']) == 1 for m in chosen)]
         return [sum(1 for e in select(t, a)
                     if any(box_distance(xy(e), xy(b), b['yaw'], b['depth'], b['width']) <= 0 for b in bays))], limit
     raise ValueError(f"unknown predicate {p} in row {row['id']}")

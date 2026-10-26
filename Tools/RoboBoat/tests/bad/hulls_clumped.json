@@ -24,19 +24,21 @@
   "seed": 1,
   "mode": "iid",
   "overrides": {},
-  "family_sha256": "3b73012bd60f2255cd8738c11103ad45c1164ceae0963664817c0931beb9a67d",
+  "family_sha256": "18df202d78054c889b791c113f720001bb1f3fcf2850a69e11930e8ef95eb872",
   "attempts": {
    "layout": 1,
    "entry_gates": 1,
    "debris_clearance": 1,
    "marina": 1,
    "speed_challenge": 1,
-   "supply_drop": 1,
+   "supply_drop": 2,
    "harbor_alert": 1
   },
-  "rejected": {},
+  "rejected": {
+   "supply_drop:P5.anchors": 1
+  },
   "crane_commit": "unknown",
-  "truth_sha256": "01a14a249520a6879b76298ab30951706ae0193498153673a552c971a5376929"
+  "truth_sha256": "2df67206280c2e0c052ca43546d7995e2c8ad42a7caa9ab3091c66701a7151a0"
  },
  "boundary": [
   [
@@ -773,14 +775,14 @@
    "task": "speed_challenge",
    "label": "red_buoy",
    "template": "RedBuoy0",
-   "x": 38.813,
-   "y": 20.754,
+   "x": 46.95,
+   "y": 40.251,
    "radius": 0.184,
    "id": "speed_challenge.gate.port",
    "role": "gate",
    "kind": "roboboat/a2_red",
    "z": 0,
-   "yaw": 1.9362,
+   "yaw": 1.3185,
    "height": 0.305,
    "state": null
   },
@@ -788,14 +790,14 @@
    "task": "speed_challenge",
    "label": "green_buoy",
    "template": "GreenBuoy0",
-   "x": 40.837,
-   "y": 21.528,
+   "x": 49.063,
+   "y": 39.706,
    "radius": 0.184,
    "id": "speed_challenge.gate.starboard",
    "role": "gate",
    "kind": "roboboat/a2_green",
    "z": 0,
-   "yaw": 1.9362,
+   "yaw": 1.3185,
    "height": 0.305,
    "state": null
   },
@@ -803,8 +805,8 @@
    "task": "speed_challenge",
    "label": "yellow_buoy",
    "template": "RedBuoy0",
-   "x": 31.814,
-   "y": 41.863,
+   "x": 50.33,
+   "y": 55.61,
    "radius": 0.184,
    "id": "speed_challenge.mark",
    "role": "mark",
@@ -816,10 +818,10 @@
   },
   {
    "task": "speed_challenge",
-   "label": "green_light_buoy",
+   "label": "red_light_buoy",
    "template": "",
-   "x": 37.276,
-   "y": 32.903,
+   "x": 47.81,
+   "y": 48.229,
    "radius": 0.3,
    "id": "speed_challenge.marker",
    "role": "marker",
@@ -833,46 +835,16 @@
    "task": "speed_challenge",
    "label": "red_light_sign",
    "template": "",
-   "x": 37.838,
-   "y": 17.704,
+   "x": 50.376,
+   "y": 36.786,
    "radius": 0.3,
    "id": "speed_challenge.sign",
    "role": "light_sign",
    "kind": "roboboat/light_sign",
    "z": 0,
-   "yaw": -1.2054,
+   "yaw": -1.8231,
    "height": 1.5,
    "state": "speed_challenge.sign"
-  },
-  {
-   "task": "speed_challenge",
-   "label": "black_buoy",
-   "template": "BlackBuoy0",
-   "x": 35.71,
-   "y": 38.159,
-   "radius": 0.102,
-   "id": "speed_challenge.obstacle1",
-   "role": "obstacle",
-   "kind": "roboboat/a0_black",
-   "z": 0,
-   "yaw": 0,
-   "height": 0.152,
-   "state": null
-  },
-  {
-   "task": "speed_challenge",
-   "label": "black_buoy",
-   "template": "BlackBuoy0",
-   "x": 32.101,
-   "y": 34.661,
-   "radius": 0.102,
-   "id": "speed_challenge.obstacle2",
-   "role": "obstacle",
-   "kind": "roboboat/a0_black",
-   "z": 0,
-   "yaw": 0,
-   "height": 0.152,
-   "state": null
   },
   {
    "task": "supply_drop",
@@ -891,46 +863,16 @@
   },
   {
    "task": "supply_drop",
-   "label": "black_target_boat",
-   "template": "BlackDeliveryBoat0",
-   "x": -4.834,
-   "y": 18.808,
-   "radius": 0.55,
-   "id": "supply_drop.ball2",
-   "role": "slip_hull",
-   "kind": "roboboat/hull_ball_black",
-   "z": 0,
-   "yaw": 2.5139,
-   "height": 0.3,
-   "state": null
-  },
-  {
-   "task": "supply_drop",
-   "label": "yellow_target_boat",
+   "label": "orange_target_boat",
    "template": "YellowDeliveryBoat0",
-   "x": 28.695,
-   "y": -43.307,
+   "x": 66.378,
+   "y": -13.581,
    "radius": 0.55,
    "id": "supply_drop.water1",
    "role": "hull",
-   "kind": "roboboat/hull_water_yellow",
+   "kind": "roboboat/hull_water_orange",
    "z": 0,
-   "yaw": -1.5293,
-   "height": 0.3,
-   "state": null
-  },
-  {
-   "task": "supply_drop",
-   "label": "black_target_boat",
-   "template": "BlackDeliveryBoat0",
-   "x": 26.508,
-   "y": -38.352,
-   "radius": 0.55,
-   "id": "supply_drop.ball3",
-   "role": "hull",
-   "kind": "roboboat/hull_ball_black",
-   "z": 0,
-   "yaw": -1.0277,
+   "yaw": -1.261,
    "height": 0.3,
    "state": null
   },
@@ -938,8 +880,8 @@
    "task": "harbor_alert",
    "label": "yellow_buoy",
    "template": "RedBuoy0",
-   "x": 3.864,
-   "y": 20.11,
+   "x": 4.752,
+   "y": 26.754,
    "radius": 0.184,
    "id": "harbor_alert.zone2_buoy",
    "role": "zone_buoy",
@@ -947,6 +889,36 @@
    "z": 0,
    "yaw": 0,
    "height": 0.305,
+   "state": null
+  },
+  {
+   "task": "supply_drop",
+   "label": "orange_target_boat",
+   "template": "YellowDeliveryBoat0",
+   "x": 4.75,
+   "y": 23.5,
+   "radius": 0.55,
+   "id": "supply_drop.ball2",
+   "role": "hull",
+   "kind": "roboboat/hull_ball_black",
+   "z": 0,
+   "yaw": -1.261,
+   "height": 0.3,
+   "state": null
+  },
+  {
+   "task": "supply_drop",
+   "label": "orange_target_boat",
+   "template": "YellowDeliveryBoat0",
+   "x": 6.1994310179066945,
+   "y": 19.771843656131097,
+   "radius": 0.55,
+   "id": "supply_drop.water2",
+   "role": "hull",
+   "kind": "roboboat/hull_water_orange",
+   "z": 0,
+   "yaw": -1.261,
+   "height": 0.3,
    "state": null
   }
  ],
@@ -1017,11 +989,11 @@
    "port": "speed_challenge.gate.port",
    "starboard": "speed_challenge.gate.starboard",
    "order": 1,
-   "x": 39.825,
-   "y": 21.141,
-   "cc": 2.168,
-   "clear": 1.8,
-   "normal_yaw": 1.9362
+   "x": 48.007,
+   "y": 39.979,
+   "cc": 2.182,
+   "clear": 1.814,
+   "normal_yaw": 1.3185
   }
  ],
  "bays": [
@@ -1106,7 +1078,7 @@
    "width": 1.52,
    "depth": 2.392,
    "banner": "banner_3",
-   "occupied": true,
+   "occupied": false,
    "id": "marina.S1",
    "task": "marina",
    "pier": "S",
@@ -1448,6 +1420,7 @@
     "free_red_min": 1,
     "green_chance": 0.5,
     "lateral_offset": 7.5545,
+    "mouth_clear": 11,
     "numbering": "toward_shore",
     "occupied": 1,
     "pier_length": 8.64,
@@ -1562,7 +1535,8 @@
    "semantics": {
     "target": {
      "pier": "N",
-     "slip": 1,
+     "slip": 3,
+     "number": 1,
      "bay": "marina.N3"
     },
     "tiers": {
@@ -1589,116 +1563,112 @@
    "type": "speed_challenge",
    "cite": "H pp.49-51; L Jan 14",
    "params": {
-    "along_offset": 14.3069,
+    "beyond_gate2": 3,
     "direction_source": "marker",
-    "gate_cc": 2.1676,
-    "gate_offset": 8.8778,
-    "mark_lateral": 0.0782,
-    "marker_at": 0.5355,
-    "marker_color": "green",
-    "marker_lateral": 1.8216,
+    "gate_cc": 2.1818,
+    "gate_distance": 19.6862,
+    "mark_lateral": 1.6534,
+    "marker_at": 0.5052,
+    "marker_color": "red",
+    "marker_lateral": 2.2501,
     "marker_variant": "separate",
-    "obstacles": 2,
+    "obstacles": 0,
     "sign_color": "red",
     "sign_program": "fixed",
-    "toggle_period_s": 7.8923,
-    "turn_distance": 22.2163,
-    "yaw_deg": 20.935
+    "toggle_period_s": 15.6329,
+    "turn_distance": 15.7167,
+    "yaw_deg": 5.7823
    },
    "anchors": {
     "approach": {
-     "x": 41.254,
-     "y": 17.405
+     "x": 47.008,
+     "y": 36.105
     },
     "mark": {
-     "x": 31.814,
-     "y": 41.863
+     "x": 50.33,
+     "y": 55.61
     }
    },
    "footprint": [
     [
-     30.314,
-     41.863
+     45.45,
+     40.251
     ],
     [
-     30.601,
-     34.661
+     45.565,
+     39.677
     ],
     [
-     30.715,
-     34.087
+     45.89,
+     39.19
     ],
     [
-     36.452,
-     17.13
+     49.315,
+     35.725
     ],
     [
-     36.777,
-     16.644
+     49.802,
+     35.4
     ],
     [
-     37.264,
-     16.318
+     50.376,
+     35.286
     ],
     [
-     37.838,
-     16.204
+     50.95,
+     35.4
     ],
     [
-     38.412,
-     16.318
+     51.436,
+     35.725
     ],
     [
-     38.899,
-     16.644
+     51.761,
+     36.212
     ],
     [
-     41.898,
-     20.468
+     51.876,
+     36.786
     ],
     [
-     42.223,
-     20.954
+     51.83,
+     55.61
     ],
     [
-     42.337,
-     21.528
+     51.716,
+     56.185
     ],
     [
-     42.223,
-     22.102
+     51.39,
+     56.671
     ],
     [
-     37.096,
-     38.733
+     50.904,
+     56.996
     ],
     [
-     36.771,
-     39.22
+     50.33,
+     57.11
     ],
     [
-     32.875,
-     42.924
+     49.756,
+     56.996
     ],
     [
-     32.388,
-     43.249
+     49.269,
+     56.671
     ],
     [
-     31.814,
-     43.363
+     48.944,
+     56.185
     ],
     [
-     31.24,
-     43.249
+     46.424,
+     48.803
     ],
     [
-     30.753,
-     42.924
-    ],
-    [
-     30.428,
-     42.437
+     46.31,
+     48.229
     ]
    ],
    "semantics": {
@@ -1711,11 +1681,11 @@
     },
     "marker": {
      "id": "speed_challenge.marker",
-     "color": "green"
+     "color": "red"
     },
     "direction_source": "marker",
-    "source_color": "green",
-    "direction": "cw",
+    "source_color": "red",
+    "direction": "ccw",
     "turn_mark": "speed_challenge.mark",
     "gate": "speed_challenge.gate",
     "variant": "separate"
@@ -1727,110 +1697,35 @@
    "type": "supply_drop",
    "cite": "H p.51",
    "params": {
-    "ball_hulls": 3,
-    "clearance": 3,
-    "min_docked": 2,
-    "spread": 4.4459,
-    "water_hull_color": "yellow",
+    "ball_hulls": 1,
+    "min_docked": 1,
+    "near_max": 25,
+    "reach": 15.7914,
+    "spacing": 8,
+    "water_hull_color": "orange",
     "water_hulls": 1
    },
    "anchors": {
     "approach": {
-     "x": 22.17,
-     "y": -40.623
+     "x": 68.701,
+     "y": -14.506
     }
    },
-   "footprint": [
-    [
-     25.008,
-     -38.352
-    ],
-    [
-     25.123,
-     -38.926
-    ],
-    [
-     27.309,
-     -43.881
-    ],
-    [
-     27.634,
-     -44.367
-    ],
-    [
-     28.121,
-     -44.693
-    ],
-    [
-     28.695,
-     -44.807
-    ],
-    [
-     29.269,
-     -44.693
-    ],
-    [
-     29.756,
-     -44.367
-    ],
-    [
-     30.081,
-     -43.881
-    ],
-    [
-     30.195,
-     -43.307
-    ],
-    [
-     30.081,
-     -42.733
-    ],
-    [
-     27.894,
-     -37.778
-    ],
-    [
-     27.569,
-     -37.291
-    ],
-    [
-     27.082,
-     -36.966
-    ],
-    [
-     26.508,
-     -36.852
-    ],
-    [
-     25.934,
-     -36.966
-    ],
-    [
-     25.448,
-     -37.291
-    ],
-    [
-     25.123,
-     -37.778
-    ]
-   ],
+   "footprint": [],
    "semantics": {
     "water": [
      "supply_drop.water1"
     ],
     "ball": [
-     "supply_drop.ball1",
-     "supply_drop.ball2",
-     "supply_drop.ball3"
+     "supply_drop.ball1"
     ],
-    "water_color": "yellow",
+    "water_color": "orange",
     "slip": "marina.N1",
     "slips": [
-     "marina.N1",
-     "marina.S3"
+     "marina.N1"
     ]
    },
-   "attempts": 1
+   "attempts": 2
   },
   {
    "id": "harbor_alert",
@@ -1842,97 +1737,98 @@
     "pattern": "two",
     "repeats": 3,
     "trigger_s": 146.6243,
-    "zone2_bearing_deg": -26.3903,
-    "zone2_offset": 4.3203,
+    "zone2_bearing_deg": -105.5613,
+    "zone2_clear": 15,
+    "zone2_offset": 8.3203,
     "zone_radius": 3
    },
    "anchors": {
     "zone1": {
-     "x": 31.814,
-     "y": 41.863,
+     "x": 50.33,
+     "y": 55.61,
      "r": 3
     },
     "zone2": {
-     "x": 3.864,
-     "y": 20.11,
+     "x": 4.752,
+     "y": 26.754,
      "r": 3
     },
     "approach": {
-     "x": 6.079,
-     "y": 21.271
+     "x": 5.949,
+     "y": 28.949
     }
    },
    "footprint": [
     [
-     2.364,
-     20.11
+     3.252,
+     26.754
     ],
     [
-     2.478,
-     19.536
+     3.367,
+     26.18
     ],
     [
-     2.803,
-     19.05
+     3.692,
+     25.694
     ],
     [
-     3.29,
-     18.725
+     4.178,
+     25.369
     ],
     [
-     3.864,
-     18.61
+     4.752,
+     25.254
     ],
     [
-     4.438,
-     18.725
+     5.326,
+     25.369
     ],
     [
-     4.925,
-     19.05
+     5.813,
+     25.694
     ],
     [
-     5.25,
-     19.536
+     6.138,
+     26.18
     ],
     [
-     5.364,
-     20.11
+     6.252,
+     26.754
     ],
     [
-     5.25,
-     20.685
+     6.138,
+     27.328
     ],
     [
-     4.925,
-     21.171
+     5.813,
+     27.815
     ],
     [
-     4.438,
-     21.496
+     5.326,
+     28.14
     ],
     [
-     3.864,
-     21.61
+     4.752,
+     28.254
     ],
     [
-     3.29,
-     21.496
+     4.178,
+     28.14
     ],
     [
-     2.803,
-     21.171
+     3.692,
+     27.815
     ],
     [
-     2.478,
-     20.685
+     3.367,
+     27.328
     ]
    ],
    "semantics": {
     "zone1": "zone1",
     "zone2": "zone2",
-    "zone2_bearing_deg": -26.39,
-    "zone2_offset": 4.32,
+    "zone2_bearing_deg": 7.36,
+    "zone2_offset": 9.851,
     "horn": {
      "id": "harbor_alert.horn",
      "freq_hz": 1033.1,
@@ -2090,10 +1986,10 @@
   {
    "id": "speed_challenge.marker",
    "kind": "indicator",
-   "initial": "green",
+   "initial": "red",
    "program": {
     "type": "fixed",
-    "value": "green"
+    "value": "red"
    }
   },
   {
@@ -2133,7 +2029,7 @@
    "id": "G2.clearance",
    "tag": "D",
    "pass": true,
-   "value": 1.7989,
+   "value": 1.8125,
    "limit": {
     "min": 1
    }
@@ -2293,7 +2189,6 @@
    "pass": true,
    "value": 0.0187,
    "limit": {
-    "min": 0,
     "max": 0.04
    }
   },
@@ -2365,7 +2260,7 @@
    "id": "T3.side",
    "tag": "H",
    "pass": true,
-   "value": 1.0835,
+   "value": 1.0914,
    "limit": {
     "min": 0.001
    }
@@ -2374,7 +2269,7 @@
    "id": "T3.cc",
    "tag": "H",
    "pass": true,
-   "value": 2.1669,
+   "value": 2.1822,
    "limit": {
     "min": 1.83,
     "max": 3.05
@@ -2384,7 +2279,7 @@
    "id": "T3.clear",
    "tag": "D",
    "pass": true,
-   "value": 1.7989,
+   "value": 1.8142,
    "limit": {
     "min": 1.195
    }
@@ -2393,7 +2288,7 @@
    "id": "T3.leg",
    "tag": "H",
    "pass": true,
-   "value": 22.2165,
+   "value": 15.716,
    "limit": {
     "min": 12.19,
     "max": 30.48
@@ -2403,7 +2298,7 @@
    "id": "T3.lateral",
    "tag": "D",
    "pass": true,
-   "value": 0.0776,
+   "value": 1.6525,
    "limit": {
     "max": 3
    }
@@ -2412,14 +2307,34 @@
    "id": "T3.marker_between",
    "tag": "L",
    "pass": true,
-   "value": 0.5355,
+   "value": 0.5052,
    "limit": {
     "min": 0,
     "max": 1
    }
   },
   {
-   "id": "T3.direction_red",
+   "id": "T3.sign",
+   "tag": "H",
+   "pass": true,
+   "value": 1,
+   "limit": {
+    "min": 1,
+    "max": 1
+   }
+  },
+  {
+   "id": "T3.marker",
+   "tag": "L",
+   "pass": true,
+   "value": 1,
+   "limit": {
+    "min": 1,
+    "max": 1
+   }
+  },
+  {
+   "id": "T3.direction_marker",
    "tag": "H",
    "pass": true,
    "value": 0,
@@ -2428,19 +2343,46 @@
    }
   },
   {
-   "id": "T3.direction_green",
+   "id": "T3.direction_sign",
    "tag": "H",
    "pass": true,
-   "value": 0,
+   "value": null,
    "limit": {
     "max": 0
+   }
+  },
+  {
+   "id": "T3.beyond_gate2",
+   "tag": "D",
+   "pass": true,
+   "value": 29.4163,
+   "limit": {
+    "min": 3
+   }
+  },
+  {
+   "id": "T3.approach_exit",
+   "tag": "D",
+   "pass": true,
+   "value": 8.316,
+   "limit": {
+    "max": 60
+   }
+  },
+  {
+   "id": "T3.approach_gate2",
+   "tag": "D",
+   "pass": true,
+   "value": 17.2166,
+   "limit": {
+    "max": 60
    }
   },
   {
    "id": "T3.gate_free",
    "tag": "D",
    "pass": true,
-   "value": 2.9021,
+   "value": 2.9016,
    "limit": {
     "min": 1
    }
@@ -2467,7 +2409,7 @@
    "id": "T4.ball",
    "tag": "H",
    "pass": true,
-   "value": 3,
+   "value": 1,
    "limit": {
     "max": 3
    }
@@ -2485,7 +2427,7 @@
    "id": "T4.docked",
    "tag": "D",
    "pass": true,
-   "value": 2,
+   "value": 1,
    "limit": {
     "min": 1
    }
@@ -2501,6 +2443,42 @@
   },
   {
    "id": "T4.dock_moored_free",
+   "tag": "D",
+   "pass": true,
+   "value": 0,
+   "limit": {
+    "max": 0
+   }
+  },
+  {
+   "id": "T4.dock_beside_moored",
+   "tag": "D",
+   "pass": true,
+   "value": 0,
+   "limit": {
+    "max": 0
+   }
+  },
+  {
+   "id": "T4.near_task",
+   "tag": "D",
+   "pass": true,
+   "value": 7.1905,
+   "limit": {
+    "max": 25
+   }
+  },
+  {
+   "id": "T4.spacing",
+   "tag": "D",
+   "pass": true,
+   "value": null,
+   "limit": {
+    "min": 8
+   }
+  },
+  {
+   "id": "T4.scatter",
    "tag": "D",
    "pass": true,
    "value": 0,
@@ -2578,10 +2556,18 @@
    "id": "T5.yaw",
    "tag": "D",
    "pass": true,
-   "value": 54.0387,
+   "value": 54.0414,
    "limit": {
-    "min": -90,
     "max": 90
+   }
+  },
+  {
+   "id": "T5.mouth_clear",
+   "tag": "D",
+   "pass": true,
+   "value": 18.106,
+   "limit": {
+    "min": 11
    }
   },
   {
@@ -2652,9 +2638,28 @@
    "id": "T6.zone2",
    "tag": "D",
    "pass": true,
-   "value": 4.3199,
+   "value": 9.8498,
    "limit": {
-    "max": 10
+    "min": 7,
+    "max": 12
+   }
+  },
+  {
+   "id": "T6.zone2_start",
+   "tag": "D",
+   "pass": true,
+   "value": 27.1727,
+   "limit": {
+    "min": 15
+   }
+  },
+  {
+   "id": "T6.zone2_lane",
+   "tag": "D",
+   "pass": true,
+   "value": 26.754,
+   "limit": {
+    "min": 15
    }
   },
   {
@@ -2692,10 +2697,8 @@
  ],
  "expect": {
   "fail": [
-   "T5.green_free",
-   "T5.occupied_red"
+   "T4.spacing"
   ],
-  "exact": true,
-  "any_of": false
+  "exact": true
  }
 }

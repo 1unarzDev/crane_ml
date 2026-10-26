@@ -8,7 +8,8 @@ namespace Sim.Course.RoboBoat {
     public sealed class MarinaParams : ITaskParams {
         [CourseParam("D", "red slips kept free of moored boats (room for a docked supply hull)")] public ParamRange free_red_min = ParamRange.Int(1, 1);
         [CourseParam("D", "chance a slip shows green")] public ParamRange green_chance = ParamRange.Fixed(0.5, "p");
-        [CourseParam("D", "near pier to the entry line")] public ParamRange lateral_offset = ParamRange.Uniform(4, 10);
+        [CourseParam("D", "near pier to the entry line (at least; see mouth_clear)")] public ParamRange lateral_offset = ParamRange.Uniform(4, 10);
+        [CourseParam("D", "mouth from the start and the entry lane, so zone 2 fits 7-12 m off it and 15 m clear (T5.mouth_clear)")] public ParamRange mouth_clear = ParamRange.Fixed(11);
         [CourseParam("D", "slip numbers ascend from or toward the shore")] public ParamRange numbering = ParamRange.Choice("from_shore", "toward_shore");
         [CourseParam("H", "p.54 0-2 stationary boats in red slips")] public ParamRange occupied = ParamRange.Int(0, 2);
         [CourseParam("H", "p.55 fig 340 in")] public ParamRange pier_length = ParamRange.Fixed(8.64);
@@ -50,7 +51,15 @@ namespace Sim.Course.RoboBoat {
             double anchorY = c.Side > 0 ? lateral - minY : -lateral - maxY;
             // At least 5 mm off, so 1 mm truth rounding never puts a turned spine corner past the edge.
             double gap = yaw == 0 ? p.Num(nameof(MarinaParams.shore_gap)) : Math.Max(p.Num(nameof(MarinaParams.shore_gap)), 0.005);
-            return new Pose2(c.Boundary.ShoreX + gap - minX, anchorY, yaw);
+            double anchorX = c.Boundary.ShoreX + gap - minX;
+            // Slide toward side S until the mouth keeps mouth_clear from the start and the entry lane.
+            var entry = c.ByType("entry_gates");
+            var lane = new List<P2> { entry?.Anchors["start"] is JObj st ? new P2(st.Num("x"), st.Num("y")) : new P2(0, 0) };
+            if (entry != null) lane.AddRange(entry.Gates.OrderBy(g => g.Order).Select(g => Layouts.Mid(entry, g)));
+            double clear = p.Num(nameof(MarinaParams.mouth_clear));
+            for (int k = 0; k < 200 && Layouts.LaneDistance(lane, new P2(anchorX + length * cos, anchorY + length * sin)) < clear + 0.01; k++)
+                anchorY += c.Side * 0.25;
+            return new Pose2(anchorX, anchorY, yaw);
         }
 
         public override TaskLayout Generate(TaskContext c) {
@@ -73,11 +82,16 @@ namespace Sim.Course.RoboBoat {
                 if (greens.Count > 0 && greens.Count(n => n == greens.Min()) == 1 && 6 - greens.Count >= freeRed) break;
             }
             var reds = Enumerable.Range(0, 6).Where(i => colors[i] == "red").ToList();
+            // Moored boats: never leaving fewer than free_red_min red slips that are free and not
+            // beside a moored boat on the same pier (room for a docked supply hull, T4.docked).
             var occupied = new HashSet<int>();
-            for (int k = 0; k < p.Int(nameof(MarinaParams.occupied)) && reds.Count > freeRed; k++) {
+            for (int k = 0; k < p.Int(nameof(MarinaParams.occupied)) && reds.Count > 0; k++) {
                 int pick = reds[rng.Int(0, reds.Count - 1)];
                 reds.Remove(pick);
                 occupied.Add(pick);
+                int roomy = Enumerable.Range(0, 6).Count(i => colors[i] == "red" && !occupied.Contains(i) &&
+                    !occupied.Any(o => o / 3 == i / 3 && Math.Abs(o - i) == 1));
+                if (roomy < freeRed) { occupied.Remove(pick); break; }
             }
 
             var corners = new List<P2>();
@@ -117,7 +131,7 @@ namespace Sim.Course.RoboBoat {
             l.Bays.AddRange(bays);
             var green = bays.Where(b => b.IndicatorColor == "green").OrderBy(b => b.Number).ToList();
             var target = green.FirstOrDefault();
-            l.Semantics.Set("target", target == null ? null : new JObj().Set("pier", target.Pier).Set("slip", (double)target.Number).Set("bay", target.Id))
+            l.Semantics.Set("target", target == null ? null : new JObj().Set("pier", target.Pier).Set("slip", (double)target.Slip).Set("number", (double)target.Number).Set("bay", target.Id))
                 .Set("tiers", new JObj()
                     .Set("unoccupied", bays.Where(b => !b.Occupied).Select(b => (object)b.Id).ToList())
                     .Set("green", green.Select(b => (object)b.Id).ToList())

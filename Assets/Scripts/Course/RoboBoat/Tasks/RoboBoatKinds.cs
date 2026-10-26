@@ -77,6 +77,17 @@ namespace Sim.Course.RoboBoat {
             return null;
         }
 
+        /// <summary>Least distance from q to a polyline (a single point: to that point).</summary>
+        public static double LaneDistance(IReadOnlyList<P2> lane, P2 q) {
+            double best = lane.Count == 1 ? P2.Dist(q, lane[0]) : double.MaxValue;
+            for (int i = 0; i + 1 < lane.Count; i++) {
+                P2 a = lane[i], ab = lane[i + 1] - a;
+                double u = Math.Max(0, Math.Min(1, P2.Dot(q - a, ab) / Math.Max(1e-12, P2.Dot(ab, ab))));
+                best = Math.Min(best, P2.Dist(q, a + ab * u));
+            }
+            return best;
+        }
+
         public static double MaxX(TaskLayout l) => l.Footprint.Count > 0 ? l.Footprint.Max(p => p.X) : l.Objects.Max(o => o.At.X);
 
         public static List<object> IdList(IEnumerable<PlacedObject> objects) => objects.Select(o => (object)o.Id).ToList();

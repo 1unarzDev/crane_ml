@@ -83,6 +83,7 @@ namespace Sim.Course {
         public readonly JObj Anchors = new JObj();       // named points {x, y[, r]}
         public readonly JObj Semantics = new JObj();
         public List<P2> Footprint = new List<P2>();      // convex, course frame
+        public bool Scattered;                           // objects stand apart: no common footprint
 
         public PlacedObject Add(string id, string role, string kind, P2 at, double yaw = 0) {
             var o = new PlacedObject { Id = id, Role = role, Kind = kind, At = at, Yaw = yaw };

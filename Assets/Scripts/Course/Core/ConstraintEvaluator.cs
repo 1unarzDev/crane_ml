@@ -82,12 +82,75 @@ namespace Sim.Course {
                 }
                 case "count": return One(Select(t, a).Count);
                 case "angle_between": {
-                    double d = Ref(t, a.Str("a")).Yaw - Ref(t, a.Str("b")).Yaw - (a["antiparallel"] is bool ap && ap ? Math.PI : 0);
-                    return One(Math.Abs(CourseFrame.Wrap(d)) * 180 / Math.PI);
+                    double d = Math.Abs(CourseFrame.Wrap(Ref(t, a.Str("a")).Yaw - Ref(t, a.Str("b")).Yaw - (a["antiparallel"] is bool ap && ap ? Math.PI : 0)));
+                    // axial: a box's yaw is an axis (yaw and yaw + pi are the same box)
+                    if (a["axial"] is bool ax && ax) d = Math.Min(d, Math.PI - d);
+                    return One(d * 180 / Math.PI);
                 }
                 case "inside": {
-                    var poly = Points(t.Arr("boundary"));
-                    return Select(t, a).Select(e => (object)ShapeInside(poly, e)).ToList();
+                    // edge "shore": signed distance to the shore line only (water side positive)
+                    Func<P2, double> margin;
+                    if (a.Str("edge") == "shore") {
+                        var (s0, s1, sign) = Shore(t);
+                        margin = q => sign * Geometry.Cross(s0, s1, q) / (s1 - s0).Length;
+                    }
+                    else {
+                        var poly = Points(t.Arr("boundary"));
+                        margin = q => Geometry.InsideMargin(poly, q);
+                    }
+                    return Select(t, a).Select(e => (object)ShapeInside(margin, e)).ToList();
+                }
+                // Angle between a gate's normal (from its posts) and the bearing from a point to the gate centre.
+                case "facing": {
+                    var (at, yaw) = GatePose(t, a.Str("gate"));
+                    P2 from = Ref(t, a.Str("from")).At;
+                    return One(Math.Abs(CourseFrame.Wrap(yaw - Math.Atan2(at.Y - from.Y, at.X - from.X))) * 180 / Math.PI);
+                }
+                // Curvature of the circle through consecutive gates tangent to their normals (poses from their
+                // posts): 2 sin(turn / 2) / chord, in order.
+                case "curvature": {
+                    var gates = Select(t, a).OrderBy(g => g.Num("order")).Select(g => GatePose(t, "gate:" + g.Str("id"))).ToList();
+                    var list = new List<object>();
+                    for (int i = 0; i + 1 < gates.Count; i++)
+                        list.Add(2 * Math.Sin(Math.Abs(CourseFrame.Wrap(gates[i + 1].yaw - gates[i].yaw)) / 2) / Math.Max(1e-9, P2.Dist(gates[i].at, gates[i + 1].at)));
+                    return list;
+                }
+                // 0 when map[state of elem at t=0] equals path in every selected item, else 1.
+                case "state_map": {
+                    string state = Element(t, a.Str("elem")).Str("state") ?? throw new KeyNotFoundException(a.Str("elem") + " state");
+                    JObj st = t.Arr("states").Cast<JObj>().FirstOrDefault(x => x.Str("id") == state) ?? throw new KeyNotFoundException(state);
+                    object want = a.Obj("map")[st.Str("initial") ?? ""];
+                    return Select(t, a).Select(x => (object)(want != null && Same(want, Json.Path(x, a.Str("path"))) ? 0.0 : 1.0)).ToList();
+                }
+                // Each selected element's centre distance to the nearest element of another task
+                // (to "other_tasks", the default) or to the nearest other selected element ("selected").
+                case "nearest": {
+                    var items = Select(t, a);
+                    var all = t.Arr("elements").Cast<JObj>().ToList();
+                    bool among = a.Str("to") == "selected";
+                    return items.Select(e => (object)(among ? items : all)
+                        .Where(o => among ? !ReferenceEquals(o, e) : o.Str("task") != e.Str("task"))
+                        .Select(o => P2.Dist(Xy(o), Xy(e))).DefaultIfEmpty(double.NaN).Min()).Where(v => !double.IsNaN((double)v)).ToList();
+                }
+                // Shortfall of distinct tasks owning the selected elements' nearest other-task objects
+                // below min(min_tasks, number selected).
+                case "spread_tasks": {
+                    var items = Select(t, a);
+                    var all = t.Arr("elements").Cast<JObj>().ToList();
+                    var owners = new HashSet<string>();
+                    foreach (var e in items) {
+                        var near = all.Where(o => o.Str("task") != e.Str("task")).OrderBy(o => P2.Dist(Xy(o), Xy(e))).FirstOrDefault();
+                        if (near != null) owners.Add(near.Str("task"));
+                    }
+                    return One(Math.Max(0, Math.Min((int)a.Num("min_tasks"), items.Count) - owners.Count));
+                }
+                // Least distance from a point to a polyline through the given references.
+                case "polyline_distance": {
+                    P2 q = Ref(t, a.Str("point")).At;
+                    var pts = a.Arr("through").Select(r => Ref(t, (string)r).At).ToList();
+                    double best = pts.Count == 1 ? P2.Dist(q, pts[0]) : double.MaxValue;
+                    for (int i = 0; i + 1 < pts.Count; i++) best = Math.Min(best, SegmentDistance(q, pts[i], pts[i + 1]));
+                    return One(best);
                 }
                 case "clearance":
                     if (a.Has("gates")) return One(GateClearance(t, Select(t, a), Select(t, new JObj().Set("select", a.Obj("gates")))));
@@ -119,8 +182,16 @@ namespace Sim.Course {
                 case "value": return Select(t, a).Select(x => Json.Path(x, a.Str("path"))).ToList();
                 case "path": return One(PathCheck.Run(t, a) ? 1 : 0);
                 // Selected elements whose centre lies inside any selected bay's rectangle (depth along its yaw).
+                // beside: the bays next to a selected bay on the same pier (slip number +-1) instead.
                 case "in_bay": {
                     var bays = Select(t, new JObj().Set("select", a.Obj("bays")));
+                    if (a["beside"] is bool bs && bs) {
+                        var all = new JObj();
+                        foreach (var kv in a.Obj("bays")) if (kv.Key != "where") all[kv.Key] = kv.Value;
+                        var chosen = bays;
+                        bays = Select(t, new JObj().Set("select", all)).Where(b => chosen.Any(m =>
+                            m.Str("pier") == b.Str("pier") && Math.Abs(m.Num("slip") - b.Num("slip")) == 1)).ToList();
+                    }
                     return One(Select(t, a).Count(e => bays.Any(b =>
                         Geometry.BoxDistance(Xy(e), Xy(b), b.Num("yaw"), b.Num("depth"), b.Num("width")) <= 0)));
                 }
@@ -183,10 +254,16 @@ namespace Sim.Course {
             public RefPoint(P2 at, double yaw) { At = at; Yaw = yaw; }
         }
 
-        /// <summary>"elem:ID", "gate:ID", "bay:ID" or "anchor:TASK.NAME".</summary>
+        /// <summary>"elem:ID", "gate:ID", "bay:ID", "anchor:TASK.NAME" or "shore:normal" (the shore
+        /// line's midpoint, yaw pointing into the course).</summary>
         public static RefPoint Ref(JObj t, string r) {
             int colon = r.IndexOf(':');
             string kind = r.Substring(0, colon), id = r.Substring(colon + 1);
+            if (kind == "shore") {
+                var (s0, s1, sign) = Shore(t);
+                P2 n = (s1 - s0).Left * sign;
+                return new RefPoint((s0 + s1) * 0.5, Math.Atan2(n.Y, n.X));
+            }
             if (kind == "gate" && id.Contains("@")) {
                 var ids = TaskIds(t, id.Substring(0, id.IndexOf('@')));
                 var gates = t.Arr("gates").Cast<JObj>().Where(g => ids.Contains(g.Str("task"))).OrderBy(g => g.Num("order")).ToList();
@@ -230,12 +307,28 @@ namespace Sim.Course {
             ? Geometry.BoxDistance(p, Xy(e), e.Num("yaw"), e.Num("length"), e.Num("width"))
             : P2.Dist(p, Xy(e)) - e.Num("radius");
 
-        static double ShapeInside(List<P2> poly, JObj e) {
-            if (!IsBox(e)) return Geometry.InsideMargin(poly, Xy(e)) - e.Num("radius");
+        /// <summary>The shore line and the sign that makes the course side positive.</summary>
+        static (P2, P2, double) Shore(JObj t) {
+            var shore = Points(t.Arr("shore"));
+            var poly = Points(t.Arr("boundary"));
+            P2 c = new P2(poly.Average(q => q.X), poly.Average(q => q.Y));
+            return (shore[0], shore[1], Geometry.Cross(shore[0], shore[1], c) >= 0 ? 1.0 : -1.0);
+        }
+
+        /// <summary>Gate centre and normal recomputed from its posts (port on the left of travel).</summary>
+        static (P2 at, double yaw) GatePose(JObj t, string gateRef) {
+            string id = gateRef.Substring(gateRef.IndexOf(':') + 1);
+            JObj g = t.Arr("gates").Cast<JObj>().FirstOrDefault(x => x.Str("id") == id) ?? throw new KeyNotFoundException(gateRef);
+            P2 port = Xy(Element(t, g.Str("port"))), starboard = Xy(Element(t, g.Str("starboard"))), v = port - starboard;
+            return ((port + starboard) * 0.5, Math.Atan2(-v.X, v.Y));
+        }
+
+        static double ShapeInside(Func<P2, double> margin, JObj e) {
+            if (!IsBox(e)) return margin(Xy(e)) - e.Num("radius");
             double best = double.MaxValue;
             P2 c = Xy(e), f = P2.Dir(e.Num("yaw")), l = f.Left;
             foreach (var (u, v) in new[] { (1, 1), (1, -1), (-1, 1), (-1, -1) })
-                best = Math.Min(best, Geometry.InsideMargin(poly, c + f * (u * e.Num("length") / 2) + l * (v * e.Num("width") / 2)));
+                best = Math.Min(best, margin(c + f * (u * e.Num("length") / 2) + l * (v * e.Num("width") / 2)));
             return best;
         }
 

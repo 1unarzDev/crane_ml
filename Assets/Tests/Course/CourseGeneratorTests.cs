@@ -55,8 +55,8 @@ namespace Sim.Course.Tests {
         public void SameSeedGivesTheGoldenSha() {
             // Goldens from the CoreCLR harness, which matched the Unity (Mono) editor bit for bit.
             // Update deliberately when the family, spec or generator changes.
-            Assert.That(CourseTruth.Sha(Generate(1)), Is.EqualTo("01a14a249520a6879b76298ab30951706ae0193498153673a552c971a5376929"));
-            Assert.That(CourseTruth.Sha(Generate(7, SampleMode.CornerHi)), Is.EqualTo("31b3defd806ec48f73c646f0bab57ad153cd8f9961b8e2d1257577c438fd354f"));
+            Assert.That(CourseTruth.Sha(Generate(1)), Is.EqualTo("2df67206280c2e0c052ca43546d7995e2c8ad42a7caa9ab3091c66701a7151a0"));
+            Assert.That(CourseTruth.Sha(Generate(7, SampleMode.CornerHi)), Is.EqualTo("8d8753da74f06a9b8143e5221fff17acac047701d5c126c289b697e352872550"));
             Assert.That(Json.Write(Generate(11)), Is.EqualTo(Json.Write(Generate(11))));
         }
 
@@ -196,20 +196,53 @@ namespace Sim.Course.Tests {
                 foreach (string key in new[] { "task", "label", "template", "x", "y", "radius" }) Assert.That(e.Has(key), key);
         }
 
+        /// <summary>The same layout with the debris beacon colours swapped green<->red: each
+        /// beacon's light changes colour and its id is renamed to match, positions unchanged.</summary>
+        static JObj FlipBeacons(JObj truth) {
+            string Swap(string v) => v == "green" ? "red" : v == "red" ? "green" : v;
+            foreach (JObj st in truth.Arr("states")) {
+                if (!st.Str("id").StartsWith("debris_clearance.") || !st.Str("id").Contains("_beacon")) continue;
+                st.Set("initial", Swap(st.Str("initial")));
+                var program = st.Obj("program");
+                if (program.Has("value")) program.Set("value", Swap(program.Str("value")));
+            }
+            string text = Json.Write(truth).Replace("green_beacon", "beacon_swap_tmp").Replace("red_beacon", "green_beacon")
+                .Replace("beacon_swap_tmp", "red_beacon");
+            return (JObj)Json.Parse(text);
+        }
+
         [Test]
         public void CameraModeLeaksNoColourOrNumeral() {
             JObj red = Generate(9, SampleMode.Iid, "speed_challenge.marker_color=red", "speed_challenge.sign_color=red");
-            JObj green = Generate(9, SampleMode.Iid, "speed_challenge.marker_color=green", "speed_challenge.sign_color=green");
+            JObj green = FlipBeacons(Generate(9, SampleMode.Iid, "speed_challenge.marker_color=green", "speed_challenge.sign_color=green"));
+            Assert.That(Json.Write(green), Does.Contain("debris_clearance.red_beacon"), "the flip has beacons to swap");
+            Assert.That(Json.Write(red), Is.Not.EqualTo(Json.Write(green)));
             var catalog = Family.Catalog;
-            string a = Json.Write(CourseTruth.Perception(red, catalog, LabelMode.Camera, 9));
-            string b = Json.Write(CourseTruth.Perception(green, catalog, LabelMode.Camera, 9));
-            Assert.That(a, Is.EqualTo(b), "camera-mode perception truth must not vary with colour");
+            string a = Json.Write(CourseTruth.Perception(red, catalog, LabelMode.Camera, 9, salt: 77));
+            string b = Json.Write(CourseTruth.Perception(green, catalog, LabelMode.Camera, 9, salt: 77));
+            Assert.That(a, Is.EqualTo(b), "camera-mode perception truth must not vary with sign, marker or beacon colour");
             foreach (JObj e in ((JObj)Json.Parse(a)).Arr("elements")) {
                 string label = e.Str("label");
                 Assert.That(label.Contains("light") || label == "banner" ? !label.Contains("red") && !label.Contains("green") && !label.Any(char.IsDigit) : true, label);
             }
+            // Camera ids hash colour-free keys, depend on the salt and not on the logged seed.
+            string[] colours = { "red", "green", "yellow", "black", "blue", "white", "orange" };
+            foreach (string key in CourseTruth.CameraKeys(red).Values)
+                Assert.That(colours.Any(key.Contains), Is.False, key);
+            var ids77 = CourseTruth.DetectionIds(red, LabelMode.Camera, 9, 77).Values.ToList();
+            var ids78 = CourseTruth.DetectionIds(red, LabelMode.Camera, 9, 78).Values.ToList();
+            var otherSeed = CourseTruth.DetectionIds(red, LabelMode.Camera, 10, 77).Values.ToList();
+            Assert.That(ids77, Is.Unique);
+            Assert.That(ids77.Intersect(ids78), Is.Empty, "a new salt gives new ids");
+            Assert.That(otherSeed, Is.EqualTo(ids77), "the seed does not enter camera ids");
+            Assert.That(CourseTruth.DetectionIds(red, LabelMode.Camera, 9).Values, Is.EquivalentTo(CourseTruth.DetectionIds(red, LabelMode.Camera, 9).Values),
+                "the run salt is fixed for the process");
+            string sha = CourseTruth.Sha(red);
+            CourseTruth.Perception(red, catalog, LabelMode.Camera, 9);
+            Assert.That(CourseTruth.Sha(red), Is.EqualTo(sha), "ids never feed truth_sha256");
             string oracle = Json.Write(CourseTruth.Perception(red, catalog, LabelMode.Oracle, 9));
             Assert.That(oracle, Does.Contain("red_light_buoy").And.Contains("banner_1"));
+            Assert.That(Json.Write(CourseTruth.Perception(red, catalog, LabelMode.Oracle, 9, salt: 1)), Is.EqualTo(oracle), "oracle ids are seed-stable");
         }
 
         [Test]
@@ -218,6 +251,9 @@ namespace Sim.Course.Tests {
             Assert.That(Programs.ValueAt(toggle, 0), Is.EqualTo("red"));
             Assert.That(Programs.ValueAt(toggle, 10.5), Is.EqualTo("green"));
             Assert.That(Programs.ValueAt(toggle, 21), Is.EqualTo("red"));
+            Assert.That(Programs.Initial(toggle), Is.EqualTo("red"));
+            Assert.That(Programs.Initial(Programs.Toggle("red", "green", 10, 15)), Is.EqualTo("green"), "initial respects the phase");
+            Assert.That(Programs.Initial(Programs.Toggle("red", "green", 10, 25)), Is.EqualTo("red"));
             var horn = Programs.Horn(840, "two", 2, 100);
             Assert.That(Programs.ValueAt(horn, 100.2), Is.EqualTo("on:840"));
             Assert.That(Programs.ValueAt(horn, 100.7), Is.EqualTo("off"));
@@ -231,8 +267,8 @@ namespace Sim.Course.Tests {
             var spec = JsonCourseSource.Parse(File.ReadAllText(Path.Combine(Root, "Tools/RoboBoat/courses/roboboat_2025.json")));
             Assert.That(spec.name, Is.EqualTo("roboboat_2025"));
             Assert.That(spec.elements.Length, Is.GreaterThan(10));
-            Assert.That(JsonCourseSource.InShape("circle", 0.5f, 0.5f));
-            Assert.That(JsonCourseSource.InShape("circle", 0.95f, 0.95f), Is.False);
+            Assert.That(CourseVisuals.InShape("circle", 0.5f, 0.5f));
+            Assert.That(CourseVisuals.InShape("circle", 0.95f, 0.95f), Is.False);
             Assert.That(SignFace.Inked(SignFace.Style.Number, "1", 0.5f, 0.5f));
             Assert.That(SignFace.Inked(SignFace.Style.Number, "1", 0.05f, 0.5f), Is.False);
         }
@@ -257,11 +293,11 @@ namespace Sim.Course.Tests {
 
         [Test]
         public void BannerShapesAreDrawnWhereExpected() {
-            Assert.That(JsonCourseSource.InShape("plus", 0.5f, 0.8f));
-            Assert.That(JsonCourseSource.InShape("plus", 0.8f, 0.8f), Is.False);
-            Assert.That(JsonCourseSource.InShape("triangle", 0.5f, 0.75f));
-            Assert.That(JsonCourseSource.InShape("triangle", 0.2f, 0.75f), Is.False);
-            Assert.That(JsonCourseSource.BannerColor("blue_square"), Is.EqualTo(new Color(0.1f, 0.3f, 0.9f)));
+            Assert.That(CourseVisuals.InShape("plus", 0.5f, 0.8f));
+            Assert.That(CourseVisuals.InShape("plus", 0.8f, 0.8f), Is.False);
+            Assert.That(CourseVisuals.InShape("triangle", 0.5f, 0.75f));
+            Assert.That(CourseVisuals.InShape("triangle", 0.2f, 0.75f), Is.False);
+            Assert.That(CourseVisuals.BannerColor("blue_square"), Is.EqualTo(new Color(0.1f, 0.3f, 0.9f)));
         }
     }
 }

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Writes tests/referee/<case>/: referee fixtures per scoring tier for the testing stream, in
 session-directory shape (course_truth.json, track.jsonl, events.jsonl) plus expected.json,
-the part of ``course_truth.py explain`` the case pins. Tracks are scripted waypoint paths at
-1 m/s on the base course (fixtures/roboboat_2026-s1.json); a case that needs a different
-course (another direction source, a toggling sign, an occupied slip) carries its own truth."""
+the verdict the case is built to produce (tier, direction, sweep, zone, contacts), written from
+the case's intent rather than copied from ``course_truth.py explain``. Tracks are scripted
+waypoint paths at 1 m/s on the base course (fixtures/roboboat_2026-s1.json); a case that needs a
+different course (another direction source, a toggling sign) carries its own truth."""
 
 import copy
 import json
@@ -90,7 +91,20 @@ def debris_circle(t, ident, degrees):
     return path([entry, (c[0] - r, c[1])] + ring(c, r, math.pi, degrees))
 
 
+def approx(value, tol):
+    """An expected number explain must reproduce within ``tol``."""
+    return {'approx': round(value, 3), 'tol': tol}
+
+
+def short_of(target, origin, metres):
+    """The point ``metres`` before ``target`` on the way from ``origin``."""
+    d = math.dist(origin, target)
+    return (target[0] + (origin[0] - target[0]) * metres / d, target[1] + (origin[1] - target[1]) * metres / d)
+
+
 def write(name, truth, track, expected, events=()):
+    """``expected`` is what the case is built to produce, stated independently of explain: dict
+    leaves must equal explain's, lists match item by item, and {'approx', 'tol'} bounds a number."""
     d = HERE / 'referee' / name
     d.mkdir(parents=True, exist_ok=True)
     target = d / 'course_truth.json'
@@ -107,71 +121,101 @@ def write(name, truth, track, expected, events=()):
 
 def main():
     t = BASE
+    beam = t['vessel']['beam']
+    circle_r = 8.0  # course_truth.CIRCLE_RADIUS: sweeps count within 8 m of the centre
     sem = task(t, 'speed_challenge')['semantics']
-    right = 'ccw' if sem['source_color'] == 'red' else 'cw'
-    wrong = 'cw' if right == 'ccw' else 'ccw'
+    assert sem['direction_source'] == 'marker' and sem['source_color'] == 'red'
+    marker = sem['marker']['id']
 
+    # entry gates out and back at 1 m/s: each gate crossed out, then in on the way back (t = metres)
     out = entry_out(t)
+    legs = [math.dist(a, b) for a, b in zip(out, out[1:])]
+    total = 2 * sum(legs)
+    g1_out, g2_out = legs[0], legs[0] + legs[1]
     write('entry_out_and_back', t, path(out + out[::-1]),
-          {'tasks': {'entry_gates': {'all_out': True, 'all_in': True}}, 'contacts': []})
+          {'tasks': {'entry_gates': {'all_out': True, 'all_in': True, 'gates': [
+              {'id': 'entry_gates.gate1', 'crossings': [[approx(g1_out, 0.25), 'out'], [approx(total - g1_out, 0.25), 'in']]},
+              {'id': 'entry_gates.gate2', 'crossings': [[approx(g2_out, 0.25), 'out'], [approx(total - g2_out, 0.25), 'in']]}]}},
+           'contacts': []})
+    # straight through gate 1's port post: one contact, the hull centre on the post centre
     g1 = gate(t, 'entry_gates.gate1')
-    write('contact_strike', t, path([(0.0, 0.0), xy(el(t, g1['port'])), along(xy(g1), 0, 5)]),
-          {'contacts': [g1['port']]})
+    post = el(t, g1['port'])
+    write('contact_strike', t, path([(0.0, 0.0), xy(post), along(xy(g1), 0, 5)]),
+          {'contacts': [g1['port']], 'min_clearance': {g1['port']: approx(-(post['radius'] + beam / 2), 0.01)}})
 
-    write('speed_marker_correct', t, path(speed_loop(t, right)), {'tasks': {'speed_challenge': {'direction': right, 'correct': True}}})
-    write('speed_marker_wrong', t, path(speed_loop(t, wrong)), {'tasks': {'speed_challenge': {'direction': wrong, 'correct': False}}})
+    # speed challenge: red marker -> ccw is right
+    speed = {'source': marker, 'source_color_at_entry': 'red', 'expected': 'ccw'}
+    write('speed_marker_correct', t, path(speed_loop(t, 'ccw')),
+          {'tasks': {'speed_challenge': dict(speed, direction='ccw', correct=True)}, 'contacts': []})
+    write('speed_marker_wrong', t, path(speed_loop(t, 'cw')),
+          {'tasks': {'speed_challenge': dict(speed, direction='cw', correct=False)}, 'contacts': []})
+    # the light sign is the source and shows green -> cw is right
     sign_truth = copy.deepcopy(t)
     s = task(sign_truth, 'speed_challenge')['semantics']
-    sign_color = 'green' if sem['source_color'] == 'red' else 'red'
-    s.update(direction_source='sign', source_color=sign_color, direction='ccw' if sign_color == 'red' else 'cw')
-    s['sign']['program'] = {'type': 'fixed', 'value': sign_color}
-    next(x for x in sign_truth['states'] if x['id'] == s['sign']['id']).update(initial=sign_color, program=s['sign']['program'])
-    sign_right = s['direction']
-    write('speed_sign_correct', sign_truth, path(speed_loop(sign_truth, sign_right)),
-          {'tasks': {'speed_challenge': {'source_color_at_entry': sign_color, 'correct': True}}})
-    write('speed_sign_wrong', sign_truth, path(speed_loop(sign_truth, 'cw' if sign_right == 'ccw' else 'ccw')),
-          {'tasks': {'speed_challenge': {'correct': False}}})
+    s.update(direction_source='sign', source_color='green', direction='cw')
+    s['sign']['program'] = {'type': 'fixed', 'value': 'green'}
+    next(x for x in sign_truth['states'] if x['id'] == s['sign']['id']).update(initial='green', program=s['sign']['program'])
+    sign = {'source': s['sign']['id'], 'source_color_at_entry': 'green', 'expected': 'cw'}
+    write('speed_sign_correct', sign_truth, path(speed_loop(sign_truth, 'cw')),
+          {'tasks': {'speed_challenge': dict(sign, direction='cw', correct=True)}, 'contacts': []})
+    write('speed_sign_wrong', sign_truth, path(speed_loop(sign_truth, 'ccw')),
+          {'tasks': {'speed_challenge': dict(sign, direction='ccw', correct=False)}, 'contacts': []})
+    # the sign starts red but toggles to green before the boat crosses the gate (t = 6 s):
+    # the colour at entry rules, so cw is right
     toggle_truth = copy.deepcopy(sign_truth)
     s = task(toggle_truth, 'speed_challenge')['semantics']
-    loop = path(speed_loop(toggle_truth, 'cw'))
     entry_t = 6.0  # the approach point is 6 m before the gate at 1 m/s
     program = {'type': 'toggle', 'values': ['red', 'green'], 'period_s': entry_t * 0.75, 'phase_s': 0.0}
     s['sign']['program'] = program
     next(x for x in toggle_truth['states'] if x['id'] == s['sign']['id']).update(initial='red', program=program)
-    write('speed_sign_toggled_mid_approach', toggle_truth, loop,
-          {'tasks': {'speed_challenge': {'source_color_at_entry': 'green', 'expected': 'cw', 'correct': True}}})
+    write('speed_sign_toggled_mid_approach', toggle_truth, path(speed_loop(toggle_truth, 'cw')),
+          {'tasks': {'speed_challenge': dict(sign, direction='cw', correct=True)}, 'contacts': []})
 
+    # debris: rescue = full circle round a green beacon, avoid = a red beacon not circled
     deb = task(t, 'debris_clearance')['semantics']
     green, red = deb['rescue'][0], deb['avoid'][0]
-    write('debris_green_full_circle', t, debris_circle(t, green, 380), {'tasks': {'debris_clearance': {'rescue': {green: '>=360'}}}})
-    write('debris_green_partial', t, debris_circle(t, green, 250), {'tasks': {'debris_clearance': {'rescue': {green: '<360'}}}})
+    write('debris_green_full_circle', t, debris_circle(t, green, 380),
+          {'tasks': {'debris_clearance': {'rescue': {green: approx(380, 1)}}}, 'contacts': []})
+    write('debris_green_partial', t, debris_circle(t, green, 250),
+          {'tasks': {'debris_clearance': {'rescue': {green: approx(250, 1)}}}, 'contacts': []})
     rc = xy(el(t, red))
+    # a straight pass 3 m north of it: the part inside 8 m sweeps 2 atan(sqrt(8^2 - 3^2) / 3) cw
     write('debris_red_avoided', t, path([(rc[0] - 8, rc[1] + 3), (rc[0] + 8, rc[1] + 3)]),
-          {'tasks': {'debris_clearance': {'avoid': {red: {'sweep_deg': '<180'}}}}})
-    write('debris_red_circled', t, debris_circle(t, red, 380), {'tasks': {'debris_clearance': {'avoid': {red: {'sweep_deg': '>=360'}}}}})
+          {'tasks': {'debris_clearance': {'avoid': {red: {
+              'sweep_deg': approx(-math.degrees(2 * math.atan(math.sqrt(circle_r ** 2 - 9) / 3)), 1),
+              'min_clearance': approx(3 - el(t, red)['radius'] - beam / 2, 0.01)}}}}})
+    write('debris_red_circled', t, debris_circle(t, red, 380),
+          {'tasks': {'debris_clearance': {'avoid': {red: {
+              'sweep_deg': approx(380, 1), 'min_clearance': approx(2.2 - el(t, red)['radius'] - beam / 2, 0.01)}}}}})
 
+    # marina: N3 is the lowest green (1), N2 another green, S3 red and free (N1 holds the docked
+    # supply hull), S2 holds a moored boat
     tiers = task(t, 'marina')['semantics']['tiers']
-    lowest = tiers['lowest_green']
-    other_green = next((b for b in tiers['green'] if b != lowest), None)
-    red_free = next(b['id'] for b in t['bays'] if b['indicator']['color'] == 'red' and not b['occupied'])
-    write('dock_lowest_green', t, dock(t, lowest), {'tasks': {'marina': {'entered': lowest, 'tier': 'lowest_green'}}})
-    if other_green:
-        write('dock_green_not_lowest', t, dock(t, other_green), {'tasks': {'marina': {'entered': other_green, 'tier': 'green'}}})
-    write('dock_any_unoccupied', t, dock(t, red_free), {'tasks': {'marina': {'entered': red_free, 'tier': 'unoccupied'}}})
-    occupied = copy.deepcopy(t)
-    bay(occupied, red_free)['occupied'] = True
-    write('dock_wrong_slip_occupied', occupied, dock(occupied, red_free), {'tasks': {'marina': {'tier': 'occupied'}}})
+    assert tiers['lowest_green'] == 'marina.N3' and 'marina.N2' in tiers['green']
+    assert bay(t, 'marina.S3')['indicator']['color'] == 'red' and not bay(t, 'marina.S3')['occupied']
+    assert bay(t, 'marina.S2')['occupied']
+    for name, slip, tier, contacts in (('dock_lowest_green', 'marina.N3', 'lowest_green', []),
+                                       ('dock_green_not_lowest', 'marina.N2', 'green', []),
+                                       ('dock_any_unoccupied', 'marina.S3', 'unoccupied', []),
+                                       # into the moored boat: the occupied tier, and a contact with it
+                                       ('dock_wrong_slip_occupied', 'marina.S2', 'occupied', ['marina.S2.vessel'])):
+        write(name, t, dock(t, slip), {'tasks': {'marina': {'entered': slip, 'tier': tier}}, 'contacts': contacts})
 
+    # harbor alert: the horn calls zone 2; the boat waits at the entry exit, then runs to a zone
+    # after the trigger and stops 2 m short of its centre (inside the 3 m zone, clear of buoys)
     harbor = task(t, 'harbor_alert')
     horn = harbor['semantics']['horn']
+    assert horn['target_zone'] == 'zone2'
     trig = horn['program']['trigger_s']
-    target, other = horn['target_zone'], ('zone2' if horn['target_zone'] == 'zone1' else 'zone1')
     start = xy(task(t, 'entry_gates')['anchors']['exit'])
-    for name, zone, ok in (('horn_zone_correct', target, True), ('horn_zone_wrong', other, False)):
-        z = harbor['anchors'][zone]
-        idle = [(round(k * STEP, 3), *start) for k in range(int(trig / STEP))]
-        write(name, t, idle + path([start, (z['x'], z['y'])], t0=trig),
-              {'tasks': {'harbor_alert': {'reached': zone, 'correct': ok}}},
+    idle = [(round(k * STEP, 3), *start) for k in range(int(trig / STEP))]
+    z2 = xy(harbor['anchors']['zone2'])
+    z1 = xy(harbor['anchors']['zone1'])
+    east = (z1[0] + 10, 20.0)  # round the speed challenge's east side, clear of its gate and marker
+    for name, route, zone, ok in (('horn_zone_correct', [start, short_of(z2, start, 2.0)], 'zone2', True),
+                                  ('horn_zone_wrong', [start, east, short_of(z1, east, 2.0)], 'zone1', False)):
+        write(name, t, idle + path(route, t0=trig),
+              {'tasks': {'harbor_alert': {'target_zone': 'zone2', 'reached': zone, 'correct': ok}}, 'contacts': []},
               events=[{'event': 'horn_heard', 'time': trig + 1.0, 'pattern': horn['pattern']}])
     print(f"referee fixtures in {HERE / 'referee'}")
 

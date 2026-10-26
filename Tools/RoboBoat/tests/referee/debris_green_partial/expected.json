@@ -2,8 +2,12 @@
  "tasks": {
   "debris_clearance": {
    "rescue": {
-    "debris_clearance.green_beacon1": "<360"
+    "debris_clearance.green_beacon1": {
+     "approx": 250,
+     "tol": 1
+    }
    }
   }
- }
+ },
+ "contacts": []
 }

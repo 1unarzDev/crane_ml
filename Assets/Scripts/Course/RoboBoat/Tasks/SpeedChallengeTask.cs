@@ -6,9 +6,9 @@ using UnityEngine;
 namespace Sim.Course.RoboBoat {
     [Serializable]
     public sealed class SpeedChallengeParams : ITaskParams {
-        [CourseParam("D", "beyond the marina's far end")] public ParamRange along_offset = ParamRange.Uniform(12, 20);
+        [CourseParam("D", "gate at least this far beyond entry gate 2 along its normal (course progression)")] public ParamRange beyond_gate2 = ParamRange.Fixed(3);
         [CourseParam("H", "p.49 marker sets the direction (L Jan 14); sign opt-in")] public ParamRange direction_source = ParamRange.Default("marker", "sign");
-        [CourseParam("D", "gate clear of the tasks toward side S")] public ParamRange gate_offset = ParamRange.Uniform(5, 10);
+        [CourseParam("D", "gate from the preceding task's exit (channel exit, else entry gate 2)")] public ParamRange gate_distance = ParamRange.Uniform(10, 45);
         [CourseParam("H", "p.50 6-10 ft, read as c-c (D)")] public ParamRange gate_cc = ParamRange.Uniform(1.83, 3.05);
         [CourseParam("D", "lateral <= 3 m")] public ParamRange mark_lateral = ParamRange.Uniform(-3, 3);
         [CourseParam("D", "fraction of the leg")] public ParamRange marker_at = ParamRange.Uniform(0.3, 0.7, "frac");
@@ -20,11 +20,11 @@ namespace Sim.Course.RoboBoat {
         [CourseParam("D", "fixed (H: set before the run); toggle opt-in")] public ParamRange sign_program = ParamRange.Default("fixed", "toggle");
         [CourseParam("D")] public ParamRange toggle_period_s = ParamRange.Uniform(5, 20, "s");
         [CourseParam("H", "p.50 40-100 ft")] public ParamRange turn_distance = ParamRange.Uniform(12.19, 30.48);
-        [CourseParam("D", "gate normal off facing the interior")] public ParamRange yaw_deg = ParamRange.Angle(-180, 180);
+        [CourseParam("D", "gate normal off the approach bearing, scaled so it stays within 60 deg of the bearing from both the channel exit and entry gate 2 (H p.40 map: the boat runs straight in)")] public ParamRange yaw_deg = ParamRange.Angle(-60, 60);
     }
 
     /// <summary>Task 3, emergency response sprint (H pp.49–51, L Jan 14): one A-2 gate on
-    /// side S facing the interior, a yellow turn mark 12–30 m out, a separate red/green light
+    /// side S beyond entry gate 2, facing the boat's approach (within 60 deg), a yellow turn mark 12–30 m out, a separate red/green light
     /// buoy between them (or the indicator on the mark), a light sign before the gate. The
     /// direction source's colour sets the circling direction: red ccw, green cw.</summary>
     [CreateAssetMenu(menuName = "Course/RoboBoat/Speed Challenge")]
@@ -32,24 +32,43 @@ namespace Sim.Course.RoboBoat {
         public override string TaskType => "speed_challenge";
         public override string Cite => "H pp.49-51; L Jan 14";
 
-        /// <summary>The leg (gate to mark) turns by yaw_deg about its centre. The centre goes beyond
-        /// the marina's far end on side S, gate_offset plus the leg's reach clear of whatever already
-        /// reaches toward side S; if a disc of that reach is not free there, at a random free spot on
-        /// side S. yaw_deg 0 faces the interior.</summary>
+        public const double ApproachMaxDeg = 60;  // D, rows T3.approach_exit / T3.approach_gate2
+
+        /// <summary>The gate goes gate_distance from the preceding task's exit (the channel exit,
+        /// else entry gate 2) at a random bearing, on side S, at least beyond_gate2 past entry
+        /// gate 2 along its normal. Its normal faces the approach: the mean of the bearings from the
+        /// channel exit and from gate 2, turned by yaw_deg scaled so it stays within 60 deg of
+        /// both. The leg (gate to mark) and its reach must lie on side S, inside the course and
+        /// clear of every footprint; else the distance and bearing are redrawn within range.</summary>
         public override Pose2 Place(PlacementContext c) {
             var p = c.Params;
-            var marina = c.ByType("marina");
+            var entry = c.ByType("entry_gates") ?? throw new InvalidOperationException("speed_challenge follows entry_gates");
+            var g2 = entry.Gates.OrderBy(g => g.Order).Last();
+            P2 hub = Layouts.Mid(entry, g2);
+            P2 exit = c.ByType("debris_clearance")?.Anchors["exit"] is JObj e ? new P2(e.Num("x"), e.Num("y")) : hub;
             double leg = p.Num(nameof(SpeedChallengeParams.turn_distance)), reach = leg / 2 + 4.5;
-            double x = (marina != null ? Layouts.MaxX(marina) : 0) + p.Num(nameof(SpeedChallengeParams.along_offset)) + reach;
-            double edge = Layouts.EdgeInSlab(c.Placed.Values.Where(l => l != marina), x - reach, x + reach, c.Side);
-            double y = Math.Min(edge + p.Num(nameof(SpeedChallengeParams.gate_offset)) + reach, c.Boundary.HalfWidth - reach - 1);
-            var centre = new P2(x, c.Side * y);
-            for (int k = 0; k < 200 && !(c.Boundary.Contains(centre, reach) && c.Occupancy.FootprintFree(Disc(centre, reach + 1.5))); k++)
-                centre = new P2(c.Rng.Range(reach, c.Boundary.Length - c.Boundary.Back - reach), c.Side * c.Rng.Range(reach, c.Boundary.HalfWidth - reach));
-            double yaw = c.Side * Math.PI / 2 + Layouts.Deg(p.Num(nameof(SpeedChallengeParams.yaw_deg)));
-            P2 gate = centre - P2.Dir(yaw) * (leg / 2);
-            return new Pose2(gate.X, gate.Y, yaw);
+            double beyond = p.Num(nameof(SpeedChallengeParams.beyond_gate2)), turn = p.Num(nameof(SpeedChallengeParams.yaw_deg));
+            var range = new SpeedChallengeParams().gate_distance;
+            double dist = p.Num(nameof(SpeedChallengeParams.gate_distance));
+            Pose2 best = new Pose2(hub.X + beyond, hub.Y, g2.NormalYaw);
+            for (int k = 0; k < 400; k++) {
+                if (k > 0) dist = c.Rng.Range(range.min, range.max);
+                P2 gate = exit + P2.Dir(c.Rng.Range(-Math.PI, Math.PI)) * dist;
+                if (P2.Dot(gate - hub, P2.Dir(g2.NormalYaw)) < beyond + 0.05) continue;
+                double b1 = Bearing(exit, gate), b2 = Bearing(hub, gate), half = Math.Abs(CourseFrame.Wrap(b1 - b2)) / 2;
+                double room = Layouts.Deg(ApproachMaxDeg - 1) - half;
+                if (room < Layouts.Deg(5)) continue;
+                double yaw = b2 + CourseFrame.Wrap(b1 - b2) / 2 + Layouts.Deg(turn) * room / Layouts.Deg(ApproachMaxDeg);
+                P2 centre = gate + P2.Dir(yaw) * (leg / 2);
+                if (c.Side * centre.Y < reach || c.Side * gate.Y < 4) continue;
+                if (!c.Boundary.Contains(centre, reach) || !c.Boundary.Contains(gate - P2.Dir(yaw) * 4, 1)) continue;
+                if (!c.Occupancy.FootprintFree(Disc(centre, reach + 1.5)) || !c.Occupancy.FootprintFree(Disc(gate - P2.Dir(yaw) * 2.5, 3))) continue;
+                return new Pose2(gate.X, gate.Y, CourseFrame.Wrap(yaw));
+            }
+            return best;  // rejected by the rows, then re-forked
         }
+
+        static double Bearing(P2 from, P2 to) => Math.Atan2(to.Y - from.Y, to.X - from.X);
 
         static List<P2> Disc(P2 centre, double r) =>
             Enumerable.Range(0, 12).Select(i => centre + P2.Dir(i * Math.PI / 6) * (r / Math.Cos(Math.PI / 12))).ToList();
