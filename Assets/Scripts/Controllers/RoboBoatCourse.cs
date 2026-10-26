@@ -65,10 +65,8 @@ namespace Sim.Controllers {
             start = Vector2.zero;
             yaw = 0f;
             Vector3 startAt, bow;
-            var boat = UnityEngine.Object.FindAnyObjectByType<OmniXController>(FindObjectsInactive.Exclude);
-            if (boat != null) {
-                Transform body = boat.GetComponentInParent<ArticulationBody>()?.transform ??
-                                 boat.GetComponentInParent<Rigidbody>()?.transform ?? boat.transform;
+            Transform body = RoboBoatStartReset.FindBoatBody();
+            if (body != null) {
                 startAt = body.position;
                 bow = RoboBoatRosFrame.Rotation(body.rotation) * Vector3.forward;
             }

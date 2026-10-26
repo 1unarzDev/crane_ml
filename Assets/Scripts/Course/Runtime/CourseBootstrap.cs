@@ -43,8 +43,9 @@ namespace Sim.Course {
             string legacy = Arg(args, JsonCourseSource.Flag);
             JObj spec = legacy != null ? (JObj)Json.Parse(File.ReadAllText(legacy)) : null;
             if (spec != null && !spec.Has("family") && Arg(args, "--crane-course-family") == null) {
-                if (!RoboBoatCourse.BoatStart(out _, out _)) return false;
-                JsonCourseSource.Build(legacy, args);
+                if (!RoboBoatCourse.BoatStart(out Vector2 legacyStart, out float legacyYaw)) return false;
+                JsonCourseSource.Build(legacy, args);  // laid out from this same start
+                AddStartReset(null, legacyStart, legacyYaw);
                 return true;
             }
             if (!RoboBoatCourse.BoatStart(out Vector2 start, out float startYaw)) return false;
@@ -85,12 +86,21 @@ namespace Sim.Course {
             if (Array.IndexOf(args, "--crane-ros-course-truth") >= 0)
                 host.AddComponent<CourseTruthPublisher>().Init(truth, registry);
 
+            AddStartReset(built.Root, start, startYaw);
+
             string name = truth.Str("name"), sha = CourseTruth.Sha(truth);
             Debug.Log($"CRANE_COURSE_READY name={name} seed={seed} sha256={sha} placeholders={built.Placeholders} " +
                       $"labels={mode.ToString().ToLowerInvariant()} truth={truthPath ?? "none"}");
             Debug.Log($"CRANE_ROBOBOAT_COURSE_READY name={name} elements={truth.Arr("elements").Count} " +
                       $"bays={truth.Arr("bays").Count} start=({start.x:R},{start.y:R},{startYaw:R}) truth={truthPath ?? "none"}");
             return true;
+        }
+
+        /// <summary>The sim-only /crane/reset_to_start, on the course truth start pose.</summary>
+        static void AddStartReset(Transform root, Vector2 start, float startYaw) {
+            var host = new GameObject("Course Start Reset");
+            if (root != null) host.transform.SetParent(root, false);
+            host.AddComponent<RoboBoatStartReset>().Capture(RoboBoatStartReset.FindBoatBody(), start, startYaw);
         }
 
         public static CourseRequest Request(string[] args, JObj spec) {
