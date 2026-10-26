@@ -236,7 +236,7 @@ def test_added_mass_coupling_only(dt):
 
 def test_pinned_implicit_form():
     """One tick against a general numpy evaluation of the pinned form
-    F_U = tau_h - (M_A + dt diag J) solve(M_RB + M_A + dt diag J, tau_h - C_RB nu)."""
+    F_U = tau_h - (M_A + diag cJ) solve(M_RB + M_A + diag cJ, tau_h - C_RB nu), cJ = step_term."""
     prof = copy.deepcopy(IDEAL)
     prof["addedMass"].update(a26=0.7)
     prof["yaw"]["d1Neg"] = 13.0
@@ -256,7 +256,8 @@ def test_pinned_implicit_form():
     th = (np.array(tau) + MA @ np.array([r * nuc[1], -r * nuc[0], 0.0])
           - np.array(P.c_a_times(am, *nur)) - np.array(D))
     x = th - np.array(P.c_rb_times(m, *nu))
-    K = MA + dt * np.diag(J)
+    meff = (m + am["a11"], m + am["a22"], iz + am["a66"])
+    K = MA + np.diag([P.step_term(meff[i], J[i], dt) for i in range(3)])
     fu_expected = th - K @ np.linalg.solve(MRB + K, x)
     fu = np.array(pl.step_wrench(tau))
     assert np.allclose(fu, fu_expected, rtol=1e-12, atol=1e-12), (fu, fu_expected)
@@ -480,3 +481,25 @@ def test_sweep_mirror_symmetry(dt):
             scale = 1.0 + max(abs(v) for v in x[1:])
             for idx, sgn in ((1, 1), (2, -1), (3, -1), (4, 1), (5, -1), (6, -1)):
                 assert abs(x[idx] - sgn * y[idx]) <= 1e-9 * scale, (params, dt, idx, x, y)
+
+
+@pytest.mark.parametrize("dt", [0.005, 0.01, 0.02, 0.04])
+@pytest.mark.parametrize("axis", [0, 1, 2])
+def test_step_factor_exact_linear_decay(axis, dt):
+    """Review follow-up: per axis, c*J = (dt/h)(M_eff + h J) - M_eff with the review's
+    h = (M_eff/J)(e^{dt J/M_eff} - 1), so a linear-damping decay is exactly e^{-dt J/M_eff}/tick."""
+    prof = copy.deepcopy(IDEAL)
+    for a in P.AXES:
+        prof[a].update(d2Pos=0.0, d2Neg=0.0)
+    meff = P.effective_mass(prof)[axis]
+    J = prof[P.AXES[axis]]["d1Pos"]
+    x = dt * J / meff
+    h = meff / J * math.expm1(x)
+    assert math.isclose(meff + P.step_term(meff, J, dt), dt / h * (meff + h * J), rel_tol=1e-12)
+    pl = P.ProfilePlant(prof, dt)
+    st = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    st[3 + axis] = 0.8
+    pl.reset(tuple(st))
+    for k in range(1, 51):
+        pl.step_wrench((0.0, 0.0, 0.0))
+        assert math.isclose(pl.state[3 + axis], 0.8 * math.exp(-k * x), rel_tol=1e-9), (axis, dt, k)

@@ -11,33 +11,46 @@ namespace Sim.Tests.Physics {
             UnityEngine.Debug.Log($"PHYS_ANALYTIC {what} dt={dt} rel_error={error:E3}");
 
         /// <summary>
-        /// Transient tolerance. The approved step is first order (backward-Euler damping inside
-        /// Unity's semi-implicit Euler), so a transient lags RK4 by about dt·J/(2·M_eff) relative:
-        /// design §7's 2 % holds where that bias is under 1 %, and the first-order bound dt·J/M_eff
-        /// is asserted elsewhere (both logged as PHYS_ANALYTIC; see the handoff's deviations).
+        /// Transient tolerance. With the exponential step factor (MarinePlanarModel.StepTerm) the
+        /// linearized decay is exact, so design §7's 2 % holds up to the 0.5 accuracy limit of
+        /// dt·J/M_eff. Past it only the first-order bound dt·J/M_eff is asserted (both logged).
         /// </summary>
         private static double TransientTolerance(MarinePlanarModel m, int axis, double speed, double dt) {
             double bound = dt * m.Axis(axis).Jacobian(Math.Abs(speed)) / m.EffectiveMass(axis);
             UnityEngine.Debug.Log($"PHYS_BOUND axis={axis} dt={dt} dtJ_over_Meff={bound:F4}");
-            return bound / 2 < 0.01 ? 0.02 : bound;
+            return bound <= 0.5 ? 0.02 : Math.Max(0.02, bound);
         }
 
         [Test]
         public void ImplicitDampingFormIsPinned() {
             // Stiff surge: dt·J/M_eff = 0.04·1000/15 = 2.7, where explicit damping overshoots
-            // zero every tick and grows. Backward Euler gives u1 = u0·M_eff/(M_eff + dt·D1).
+            // zero every tick and grows. The step factor gives the exact linear decay
+            // u1 = u0·e^{−dt·D1/M_eff} at any dt.
             var m = new MarinePlanarModel { Mass = 10, Izz = 1, A11 = 5, Surge = AxisDamping.Symmetric(1000, 0),
                 Sway = AxisDamping.Symmetric(1, 0), Yaw = AxisDamping.Symmetric(1, 0) };
             const double dt = 0.04;
             var s = new MarinePlanarModel.State { Vx = 1 };
             m.Step(ref s, default, 0, 0, dt);
-            Assert.That(s.Vx, Is.EqualTo(15.0 / (15.0 + dt * 1000)).Within(1e-12));
-            // F_U = τ_h − (M_A + dt·J)·M̃⁻¹(τ_h − C_RB ν): the dt·J term must sit next to M_A.
+            Assert.That(s.Vx, Is.EqualTo(Math.Exp(-dt * 1000 / 15.0)).Within(1e-12));
+            // F_U = τ_h − (M_A + c·J)·M̃⁻¹(τ_h − C_RB ν): the c·J term must sit next to M_A.
             var nu = new Planar(1, 0, 0);
             Planar tauH = m.Hydrodynamic(nu, default);
             Planar f = m.UnityForce(nu, tauH, m.Jacobian(nu), dt);
-            double meff = 15, j = 1000;
-            Assert.That(f.X, Is.EqualTo(tauH.X - (5 + dt * j) * tauH.X / (meff + dt * j)).Within(1e-9));
+            double meff = 15, cj = MarinePlanarModel.StepTerm(meff, 1000, dt);
+            Assert.That(f.X, Is.EqualTo(tauH.X - (5 + cj) * tauH.X / (meff + cj)).Within(1e-9));
+            // c·J is the review's h = (M_eff/J)(e^x − 1) rescaled from step h to Unity's dt.
+            double x = dt * 1000 / meff, h = meff / 1000 * (Math.Exp(x) - 1);
+            Assert.That(meff + cj, Is.EqualTo(dt / h * (meff + h * 1000)).Within(1e-9));
+            Assert.That(MarinePlanarModel.StepTerm(meff, 1e-3, dt) / (dt * 1e-3), Is.EqualTo(0.5).Within(1e-6),
+                "small dt·J/M_eff: half the plain dt·J");
+            // Yaw at the Ideal profile: one tick of linear decay is exact at every dt.
+            var ideal = Kit.Model();
+            foreach (double step in Kit.Dts) {
+                var y = new MarinePlanarModel.State { R = 1e-9 };
+                ideal.Step(ref y, default, 0, 0, step);
+                double yawMeff = ideal.EffectiveMass(2);
+                Assert.That(y.R / 1e-9, Is.EqualTo(Math.Exp(-step * ideal.Yaw.D1Pos / yawMeff)).Within(1e-6), $"dt={step}");
+            }
             for (int k = 0; k < 200; k++) {
                 double before = s.Vx;
                 m.Step(ref s, default, 0, 0, dt);

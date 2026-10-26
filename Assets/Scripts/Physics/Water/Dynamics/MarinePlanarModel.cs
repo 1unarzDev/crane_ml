@@ -79,16 +79,31 @@ namespace Sim.Physics.Water.Dynamics {
         }
 
         /// <summary>
-        /// The force Unity must apply (it solves M_RB ν̇ + C_RB ν = F_U) for the backward-Euler
-        /// step of the linearized damping:
-        ///   M̃ = M + dt·diag(J),  F_U = τ_h − (M_A + dt·diag(J)) · M̃⁻¹ (τ_h − C_RB ν).
-        /// PINNED FORM: dt·J sits next to M_A in the correction. Dropping it from either place
+        /// The term that stands where dt·J_j stood in M̃: c_j·J_j = M_eff·(x/(1 − e^{−x}) − 1),
+        /// x = dt·J_j/M_eff. It is the review's step h = (M_eff/J)(e^{x} − 1) of the implicit update
+        /// with the acceleration scaled by h/dt, because Unity integrates over dt, not h:
+        /// M_eff + c·J = (dt/h)(M_eff + h·J). Linearized decay is then exactly e^{−x} per tick at any
+        /// dt (plain dt·J gave 1/(1 + x), lagging by about x/2), and the steady state stays unbiased.
+        /// </summary>
+        public static double StepTerm(double meff, double jacobian, double dt) {
+            double x = dt * jacobian / meff;
+            if (!(x > 0)) return 0;
+            return meff * (x < 1e-4 ? x / 2 + x * x / 12 : x / (1 - Math.Exp(-x)) - 1);
+        }
+
+        /// <summary>
+        /// The force Unity must apply (it solves M_RB ν̇ + C_RB ν = F_U) for the exponential step
+        /// of the linearized damping:
+        ///   M̃ = M + diag(c·J),  F_U = τ_h − (M_A + diag(c·J)) · M̃⁻¹ (τ_h − C_RB ν),
+        /// with c·J from <see cref="StepTerm"/> (≈ dt·J/2 for small dt·J/M_eff).
+        /// PINNED FORM: c·J sits next to M_A in the correction. Dropping it from either place
         /// silently reverts to explicit damping, which diverges at dt·J/M_eff ≳ 2
-        /// (MarineAnalyticTests.ImplicitDampingFormIsPinned). With dt·J = 0 this is exactly Fossen.
+        /// (MarineAnalyticTests.ImplicitDampingFormIsPinned). With J = 0 this is exactly Fossen.
         /// </summary>
         public Planar UnityForce(Planar nu, Planar tauH, Planar jacobian, double dt) {
             Planar x = tauH - RigidCoriolis(nu);
-            double j0 = dt * jacobian.X, j1 = dt * jacobian.Y, j2 = dt * jacobian.N;
+            double j0 = StepTerm(Mass + A11, jacobian.X, dt), j1 = StepTerm(Mass + A22, jacobian.Y, dt),
+                j2 = StepTerm(Izz + A66, jacobian.N, dt);
             // M̃ is block diagonal: surge alone, sway-yaw coupled through a26.
             double m00 = Mass + A11 + j0, m11 = Mass + A22 + j1, m22 = Izz + A66 + j2, m12 = A26;
             double det = m11 * m22 - m12 * m12;

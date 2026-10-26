@@ -86,6 +86,16 @@ def damping_axis(c: dict, s: float):
     return (d1 + d2 * a) * s, d1 + 2.0 * d2 * a
 
 
+def step_term(meff: float, J: float, dt: float) -> float:
+    """c*J, which stands where dt*J stood in Mtil: M_eff (x/(1 - e^-x) - 1), x = dt J/M_eff.
+    That is the review's h = (M_eff/J)(e^x - 1) with the acceleration scaled by h/dt (Unity
+    steps dt), so linearized decay is exactly e^-x per tick. Twin of MarinePlanarModel.StepTerm."""
+    x = dt * J / meff
+    if not x > 0.0:
+        return 0.0
+    return meff * (x / 2.0 + x * x / 12.0 if x < 1e-4 else x / -math.expm1(-x) - 1.0)
+
+
 def accuracy_ratio(profile: dict, dt: float):
     """dt*J(1.5 v_max)/M_eff per axis, worst sign. Above 0.5 is the design's accuracy limit
     (implicit damping stays stable there, it just stops being accurate)."""
@@ -249,22 +259,25 @@ class ProfilePlant:
         th0 = tau[0] + a11 * ndc0 - ca0 - D0
         th1 = tau[1] + a22 * ndc1 - ca1 - D1
         th2 = tau[2] + a26 * ndc1 - ca2 - D2
-        # 2. Mtil = M_RB + M_A + dt diag(J);  x = tau_h - C_RB(nu) nu
+        # 2. Mtil = M_RB + M_A + diag(c J);  x = tau_h - C_RB(nu) nu  (c J: step_term)
         x0, x1, x2 = th0 + m * v * r, th1 - m * u * r, th2
-        m11 = m + a11 + dt * J0
-        m22 = m + a22 + dt * J1
-        m66 = iz + a66 + dt * J2
+        J0 = step_term(m + a11, J0, dt)
+        J1 = step_term(m + a22, J1, dt)
+        J2 = step_term(iz + a66, J2, dt)
+        m11 = m + a11 + J0
+        m22 = m + a22 + J1
+        m66 = iz + a66 + J2
         # solve(Mtil, x): Mtil is block diagonal (surge | sway-yaw) because diag(J) keeps M_A's pattern
         acc0 = x0 / m11
         det = m22 * m66 - a26 * a26
         acc1 = (m66 * x1 - a26 * x2) / det
         acc2 = (m22 * x2 - a26 * x1) / det
-        # 3. F_U = tau_h - (M_A + dt diag(J)) solve(Mtil, x).
-        # PINNED IMPLICIT FORM: dt*J sits next to M_A in this correction (math review sign-off).
+        # 3. F_U = tau_h - (M_A + diag(c J)) solve(Mtil, x).
+        # PINNED IMPLICIT FORM: c*J sits next to M_A in this correction (math review sign-off).
         # Moving it out of the correction silently reverts the step to explicit damping.
-        fu0 = th0 - (a11 + dt * J0) * acc0
-        fu1 = th1 - ((a22 + dt * J1) * acc1 + a26 * acc2)
-        fu2 = th2 - (a26 * acc1 + (a66 + dt * J2) * acc2)
+        fu0 = th0 - (a11 + J0) * acc0
+        fu1 = th1 - ((a22 + J1) * acc1 + a26 * acc2)
+        fu2 = th2 - (a26 * acc1 + (a66 + J2) * acc2)
         # 4. Symplectic Euler in the world frame (what PhysX does with the applied force).
         fx, fy = c * fu0 - s * fu1, s * fu0 + c * fu1
         vx += dt * fx / m
