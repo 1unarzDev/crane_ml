@@ -14,6 +14,7 @@ namespace Sim.Course.RoboBoat {
         [CourseParam("D", "last gate to field edge")] public ParamRange field_gap = ParamRange.Uniform(3, 6);
         [CourseParam("D", "square side")] public ParamRange field_size = ParamRange.Uniform(15, 30);
         [CourseParam("D", "entry gate 2 to first channel gate")] public ParamRange gap_after_entry = ParamRange.Uniform(3, 8);
+        [CourseParam("D", "channel heading off entry gate 2's normal (heading continuity)")] public ParamRange heading_deg = ParamRange.Uniform(-15, 15, "deg");
         [CourseParam("H", "p.48 6-10 ft, read as c-c (D)")] public ParamRange gate_cc = ParamRange.Uniform(1.83, 3.05);
         [CourseParam("D")] public ParamRange gate_spacing = ParamRange.Uniform(3, 8);
         [CourseParam("H", "p.47 >= 1 each; count D")] public ParamRange green_beacons = ParamRange.Int(1, 2);
@@ -31,8 +32,12 @@ namespace Sim.Course.RoboBoat {
         public override Pose2 Place(PlacementContext c) {
             var entry = c.ByType("entry_gates") ?? throw new InvalidOperationException("debris_clearance follows entry_gates");
             var g2 = entry.Gates.First(g => g.Order == 2);
-            P2 at = Layouts.Mid(entry, g2) + P2.Dir(g2.NormalYaw) * c.Params.Num(nameof(DebrisClearanceParams.gap_after_entry));
-            return new Pose2(at.X, at.Y, g2.NormalYaw);
+            // A turned first gate swings a post back by cc/2·|sin h| and its 3 m lead-in (P1) sideways
+            // by 3·|sin h|; stand off that much more so both stay clear of entry gate 2.
+            double h = Layouts.Deg(c.Params.Num(nameof(DebrisClearanceParams.heading_deg)));
+            double gap = c.Params.Num(nameof(DebrisClearanceParams.gap_after_entry)) + (c.Params.Num(nameof(DebrisClearanceParams.gate_cc)) / 2 + 3) * Math.Abs(Math.Sin(h));
+            P2 at = Layouts.Mid(entry, g2) + P2.Dir(g2.NormalYaw) * gap;
+            return new Pose2(at.X, at.Y, g2.NormalYaw + h);
         }
 
         public override TaskLayout Generate(TaskContext c) {

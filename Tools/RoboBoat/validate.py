@@ -440,6 +440,10 @@ def values(row, t):
         return [path_get(x, a['path']) for x in select(t, a)], limit
     if p == 'path':
         return [1 if run_path(t, a) else 0], limit
+    if p == 'in_bay':  # selected elements whose centre lies inside any selected bay
+        bays = select(t, {'select': a['bays']})
+        return [sum(1 for e in select(t, a)
+                    if any(box_distance(xy(e), xy(b), b['yaw'], b['depth'], b['width']) <= 0 for b in bays))], limit
     raise ValueError(f"unknown predicate {p} in row {row['id']}")
 
 
@@ -472,6 +476,10 @@ def evaluate_row(row, t):
         out['value'] = f'missing: {missing.args[0]}'
         return out
     out['limit'] = limit
+    reduce = (row.get('args') or {}).get('reduce')
+    if reduce and vals:
+        nums = [v for v in vals if isinstance(v, (int, float)) and not isinstance(v, bool)]
+        vals = [max(nums) if reduce == 'max' else min(nums)]
     if not vals:
         out['pass'] = True
         return out

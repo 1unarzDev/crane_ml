@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using UnityEngine;
@@ -25,8 +26,9 @@ namespace Sim.Course.RoboBoat {
 
         public override Pose2 Place(PlacementContext c) {
             var marina = c.ByType("marina") ?? throw new InvalidOperationException("harbor_alert follows marina");
-            var end = (JObj)marina.Anchors["outer_end"];
-            return new Pose2(end.Num("x"), end.Num("y"), 0);
+            JObj end = (JObj)marina.Anchors["outer_end"], approach = (JObj)marina.Anchors["approach"];
+            double axis = Math.Atan2(approach.Num("y") - end.Num("y"), approach.Num("x") - end.Num("x"));
+            return new Pose2(end.Num("x"), end.Num("y"), axis);
         }
 
         public override TaskLayout Generate(TaskContext c) {
@@ -36,9 +38,25 @@ namespace Sim.Course.RoboBoat {
             double r = p.Num(nameof(HarborAlertParams.zone_radius));
             var speed = c.Placement.ByType("speed_challenge") ?? throw new InvalidOperationException("harbor_alert follows speed_challenge");
             P2 zone1 = speed.Objects.First(o => o.Role == "mark").At;
-            double bearing = c.Anchor.YawOf(Layouts.Deg(p.Num(nameof(HarborAlertParams.zone2_bearing_deg))));
-            var buoy = l.Add($"{id}.zone2_buoy", "zone_buoy", Kinds.A2Yellow,
-                c.Anchor.Position + P2.Dir(bearing) * p.Num(nameof(HarborAlertParams.zone2_offset)));
+            // Off the outer pier end at the sampled bearing and offset; if that spot or its approach is
+            // taken (a turned marina can point its end at another task), redraw both within their
+            // ranges (D). None free: keep the sampled spot and let the rows reject it.
+            var range = new HarborAlertParams();
+            double m = CourseGenerator.FootprintMargin;
+            double sampledDeg = p.Num(nameof(HarborAlertParams.zone2_bearing_deg)), sampledOff = p.Num(nameof(HarborAlertParams.zone2_offset));
+            double bearingDeg = sampledDeg, offset = sampledOff;
+            for (int k = 0; ; k++) {
+                double yaw = c.Anchor.YawOf(Layouts.Deg(bearingDeg));
+                P2 q = c.Anchor.Position + P2.Dir(yaw) * offset;
+                var square = new List<P2> { q + new P2(-m, -m), q + new P2(m, -m), q + new P2(m, m), q + new P2(-m, m) };
+                if (c.Occupancy.Free(q, 0.25, 1.0) && c.Occupancy.Free(q + P2.Dir(yaw) * 2.5, 0.5, 1.0) && c.Occupancy.FootprintFree(square)) break;
+                if (k == 24) { bearingDeg = sampledDeg; offset = sampledOff; break; }
+                bearingDeg = c.Rng.Range(range.zone2_bearing_deg.min, range.zone2_bearing_deg.max);
+                offset = c.Rng.Range(range.zone2_offset.min, range.zone2_offset.max);
+            }
+            double bearing = c.Anchor.YawOf(Layouts.Deg(bearingDeg));
+            P2 at = c.Anchor.Position + P2.Dir(bearing) * offset;
+            var buoy = l.Add($"{id}.zone2_buoy", "zone_buoy", Kinds.A2Yellow, at);
             double hz = double.Parse(p.Str(nameof(HarborAlertParams.base_hz)), CultureInfo.InvariantCulture) *
                         (1 + p.Num(nameof(HarborAlertParams.freq_offset)));
             hz = Math.Round(hz, 1);
@@ -49,7 +67,7 @@ namespace Sim.Course.RoboBoat {
             l.Anchor("zone1", zone1, r);
             l.Anchor("zone2", buoy.At, r);
             l.Anchor("approach", buoy.At + P2.Dir(bearing) * 2.5);
-            l.Semantics.Set("zone1", "zone1").Set("zone2", "zone2")
+            l.Semantics.Set("zone1", "zone1").Set("zone2", "zone2").Set("zone2_bearing_deg", Math.Round(bearingDeg, 2)).Set("zone2_offset", Math.Round(offset, 3))
                 .Set("horn", new JObj().Set("id", hornId).Set("freq_hz", hz).Set("pattern", pattern)
                     .Set("program", program).Set("target_zone", pattern == "one" ? "zone1" : "zone2"));
             return l;

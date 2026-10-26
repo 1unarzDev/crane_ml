@@ -64,7 +64,10 @@ def red_to_starboard(t):
 
 
 def two_lowest_greens(t):
-    bay(t, 'marina.N1')['indicator']['color'] = 'green'
+    # the other pier's slip with the lowest green number turns green too (it may hold a docked hull)
+    low = min((b for b in t['bays'] if b['indicator']['color'] == 'green'), key=lambda b: b['sign']['number'])
+    twin = next(b for b in t['bays'] if b['pier'] != low['pier'] and b['sign']['number'] == low['sign']['number'])
+    twin['indicator']['color'] = 'green'
 
 
 def green_occupied(t):
@@ -72,7 +75,11 @@ def green_occupied(t):
 
 
 def numbers_duplicate(t):
-    bay(t, 'marina.N3')['sign']['number'] = 2
+    # a red slip repeats another slip's number on its pier (the lowest green stays unique)
+    red = next(b for b in t['bays'] if b['indicator']['color'] == 'red')
+    other = next(b for b in t['bays'] if b['pier'] == red['pier'] and b is not red and b['indicator']['color'] == 'red' or
+                 b['pier'] == red['pier'] and b is not red and b['sign']['number'] != 1)
+    red['sign']['number'] = other['sign']['number']
 
 
 def marker_beyond_mark(t):
@@ -138,13 +145,56 @@ def outside_boundary(t):
     el(t, 'supply_drop.ball1')['y'] = 80.0
 
 
+def debris_heading_25(t):
+    g = gate(t, 'debris_clearance.gate1')
+    cc = math.dist(*[(el(t, g[k])['x'], el(t, g[k])['y']) for k in ('port', 'starboard')])
+    g['normal_yaw'] += math.radians(25)
+    set_cc(t, 'debris_clearance.gate1', cc)
+
+
+def marina_yaw_100(t):
+    task(t, 'marina')['params']['yaw_deg'] = 100.0
+
+
+def marina_unrooted(t):
+    for e in t['elements']:
+        if e['task'] == 'marina':
+            e['x'] += 6.0
+
+
+def slip_hull(t, n=0):
+    return [e for e in t['elements'] if e['task'] == 'supply_drop' and e['role'] == 'slip_hull'][n]
+
+
+def hull_in_green_slip(t):
+    b = next(b for b in t['bays'] if b['indicator']['color'] == 'green')
+    slip_hull(t).update(x=b['x'], y=b['y'])
+
+
+def hull_beside_moored(t):
+    b = next(b for b in t['bays'] if b['occupied'])
+    slip_hull(t).update(x=b['x'], y=b['y'])
+
+
+def none_docked(t):
+    free = next(e for e in t['elements'] if e['task'] == 'supply_drop' and e['role'] == 'hull')
+    for i, e in enumerate([e for e in t['elements'] if e['role'] == 'slip_hull']):
+        e.update(x=free['x'] + 4.0 * (i + 1), y=free['y'], role='hull')
+
+
+def no_free_red(t):
+    for b in t['bays']:
+        if b['indicator']['color'] == 'red':
+            b['occupied'] = True
+
+
 CASES = {
     # name: (mutation, rows that must fail, exact)
     'gate_cc_3_3': (gate_cc_3_3, ['T1.cc'], True),
     'gate_cc_narrow': (gate_cc_narrow, ['T2.cc'], False),
     'clear_below_beam': (clear_below_beam, ['T1.clear', 'T5.slip_vessel'], False),
     'red_to_starboard': (red_to_starboard, ['T1.side'], True),
-    'two_lowest_greens': (two_lowest_greens, ['T5.lowest_green'], True),
+    'two_lowest_greens': (two_lowest_greens, ['T5.lowest_green'], False),
     'green_occupied': (green_occupied, ['T5.green_free', 'T5.occupied_red'], True),
     'numbers_duplicate': (numbers_duplicate, ['T5.numbers'], True),
     'marker_beyond_mark': (marker_beyond_mark, ['T3.marker_between'], False),
@@ -158,6 +208,13 @@ CASES = {
     'horn_1200': (horn_1200, ['T6.freq'], True),
     'zone1_far': (zone1_far, ['T6.zone1'], True),
     'outside_boundary': (outside_boundary, ['G1.inside'], False),
+    'debris_heading_25': (debris_heading_25, ['T2.heading'], False),
+    'marina_yaw_100': (marina_yaw_100, ['T5.yaw'], True),
+    'marina_unrooted': (marina_unrooted, ['T5.shore'], False),
+    'hull_in_green_slip': (hull_in_green_slip, ['T4.dock_green_free'], False),
+    'hull_beside_moored': (hull_beside_moored, ['T4.dock_moored_free'], False),
+    'none_docked': (none_docked, ['T4.docked'], False),
+    'no_free_red': (no_free_red, ['T5.free_red'], False),
 }
 
 if __name__ == '__main__':

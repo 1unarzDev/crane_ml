@@ -18,11 +18,15 @@ namespace Sim.Course {
         public double min;
         public double max;
         public bool integer;
+        /// <summary>A free orientation: drawn iid even in corner modes (its range ends are not stress corners).</summary>
+        public bool angle;
         public string[] options = Array.Empty<string>();
         public string unit = "";
 
         public static ParamRange Uniform(double lo, double hi, string unit = "m") =>
             new ParamRange { mode = ParamMode.Uniform, min = lo, max = hi, unit = unit };
+        public static ParamRange Angle(double loDeg, double hiDeg) =>
+            new ParamRange { mode = ParamMode.Uniform, min = loDeg, max = hiDeg, angle = true, unit = "deg" };
         public static ParamRange Int(int lo, int hi) =>
             new ParamRange { mode = ParamMode.Uniform, min = lo, max = hi, integer = true, unit = "count" };
         public static ParamRange Fixed(double value, string unit = "m") =>
@@ -39,6 +43,7 @@ namespace Sim.Course {
 
         public object Sample(CourseRng rng, SampleMode sampling) {
             if (mode == ParamMode.Fixed) return IsChoice ? options[0] : Box(min);
+            if (angle) return rng.Range(min, max);
             switch (sampling) {
                 case SampleMode.CornerLo: return Corner(false);
                 case SampleMode.CornerHi: return Corner(true);
@@ -71,6 +76,7 @@ namespace Sim.Course {
             var o = new JObj().Set("mode", mode.ToString().ToLowerInvariant());
             if (IsChoice) o.Set("options", options.Cast<object>().ToList());
             else o.Set("min", min).Set("max", max).Set("integer", integer);
+            if (angle) o.Set("angle", true);
             return o.Set("unit", unit);
         }
     }

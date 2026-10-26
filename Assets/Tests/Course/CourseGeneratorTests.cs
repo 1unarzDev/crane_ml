@@ -55,8 +55,8 @@ namespace Sim.Course.Tests {
         public void SameSeedGivesTheGoldenSha() {
             // Goldens from the CoreCLR harness, which matched the Unity (Mono) editor bit for bit.
             // Update deliberately when the family, spec or generator changes.
-            Assert.That(CourseTruth.Sha(Generate(1)), Is.EqualTo("caa8791a8bee1ef2b2f2228ef559568c20edf1096fa523d0ef66936147497db7"));
-            Assert.That(CourseTruth.Sha(Generate(7, SampleMode.CornerHi)), Is.EqualTo("4c2b224a3825632da0b83fa8e432fa8a6c634dd2a4f2f3d64b61ae12d34787e2"));
+            Assert.That(CourseTruth.Sha(Generate(1)), Is.EqualTo("01a14a249520a6879b76298ab30951706ae0193498153673a552c971a5376929"));
+            Assert.That(CourseTruth.Sha(Generate(7, SampleMode.CornerHi)), Is.EqualTo("31b3defd806ec48f73c646f0bab57ad153cd8f9961b8e2d1257577c438fd354f"));
             Assert.That(Json.Write(Generate(11)), Is.EqualTo(Json.Write(Generate(11))));
         }
 
@@ -132,9 +132,38 @@ namespace Sim.Course.Tests {
         }
 
         [Test]
+        public void TasksTurnWithinTheirLimitsAndHullsDock() {
+            var marina = new List<double>();
+            var speed = new List<double>();
+            for (long seed = 0; seed < 60; seed++) {
+                var t = Generate(seed + 200000);
+                JObj Task(string id) => t.Arr("tasks").Cast<JObj>().First(x => x.Str("id") == id);
+                double heading = (double)Json.Path(Task("debris_clearance"), "params.heading_deg");
+                Assert.That(Math.Abs(heading), Is.LessThanOrEqualTo(15), $"seed {seed}");
+                marina.Add((double)Json.Path(Task("marina"), "params.yaw_deg"));
+                speed.Add((double)Json.Path(Task("speed_challenge"), "params.yaw_deg"));
+                var slips = (List<object>)Json.Path(Task("supply_drop"), "semantics.slips");
+                Assert.That(slips.Count, Is.GreaterThanOrEqualTo(1), $"seed {seed}");
+                var target = (string)Json.Path(Task("marina"), "semantics.target.bay");
+                foreach (string slip in slips.Cast<string>()) {
+                    var bay = t.Arr("bays").Cast<JObj>().First(b => b.Str("id") == slip);
+                    Assert.That(slip, Is.Not.EqualTo(target), $"seed {seed}");
+                    Assert.That(Json.Path(bay, "indicator.color"), Is.EqualTo("red"), $"seed {seed}");
+                    Assert.That(bay["occupied"], Is.False, $"seed {seed}");
+                }
+            }
+            Assert.That(marina.Min(), Is.LessThan(-45)); Assert.That(marina.Max(), Is.GreaterThan(45));
+            Assert.That(marina.All(y => Math.Abs(y) <= 90));
+            Assert.That(speed.Min(), Is.LessThan(-90)); Assert.That(speed.Max(), Is.GreaterThan(90));
+            // Free orientations stay free in corner modes; bounded limits (debris heading) go to their corners.
+            var lo = Generate(5, SampleMode.CornerLo);
+            Assert.That((double)Json.Path(lo.Arr("tasks").Cast<JObj>().First(x => x.Str("id") == "debris_clearance"), "params.heading_deg"), Is.EqualTo(-15));
+        }
+
+        [Test]
         public void BadLayoutsAreRejectedByTheirRows() {
             var files = Directory.GetFiles(Path.Combine(Root, "Tools/RoboBoat/tests/bad"), "*.json");
-            Assert.That(files.Length, Is.GreaterThanOrEqualTo(15));
+            Assert.That(files.Length, Is.GreaterThanOrEqualTo(25));
             foreach (string file in files) {
                 var t = (JObj)Json.Parse(File.ReadAllText(file));
                 var expect = t.Obj("expect");

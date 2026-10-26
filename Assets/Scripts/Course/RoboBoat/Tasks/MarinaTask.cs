@@ -6,6 +6,7 @@ using UnityEngine;
 namespace Sim.Course.RoboBoat {
     [Serializable]
     public sealed class MarinaParams : ITaskParams {
+        [CourseParam("D", "red slips kept free of moored boats (room for a docked supply hull)")] public ParamRange free_red_min = ParamRange.Int(1, 1);
         [CourseParam("D", "chance a slip shows green")] public ParamRange green_chance = ParamRange.Fixed(0.5, "p");
         [CourseParam("D", "near pier to the entry line")] public ParamRange lateral_offset = ParamRange.Uniform(4, 10);
         [CourseParam("D", "slip numbers ascend from or toward the shore")] public ParamRange numbering = ParamRange.Choice("from_shore", "toward_shore");
@@ -17,6 +18,7 @@ namespace Sim.Course.RoboBoat {
         [CourseParam("D", "tine-tip gap; fig p.55 about 3.9 m")] public ParamRange tine_gap = ParamRange.Uniform(3.0, 8.0);
         [CourseParam("H", "p.56 table 4-7 ft vs fig 120 in")] public ParamRange tine_length = ParamRange.Uniform(1.22, 3.05);
         [CourseParam("D", "20 in cube")] public ParamRange tine_width = ParamRange.Fixed(0.508);
+        [CourseParam("D", "pier axis off the shore normal; the marina turns rigidly")] public ParamRange yaw_deg = ParamRange.Angle(-90, 90);
     }
 
     /// <summary>Task 5, navigate the marina (H pp.54–56): two piers (N, S) of three slips
@@ -31,10 +33,24 @@ namespace Sim.Course.RoboBoat {
         static double HalfSpan(ParamValues p) => p.Num(nameof(MarinaParams.tine_gap)) / 2 +
             p.Num(nameof(MarinaParams.tine_length)) + p.Num(nameof(MarinaParams.spine_width));
 
+        /// <summary>The marina turns rigidly by yaw_deg about its shore end; it then slides so its
+        /// shore-most spine corner sits shore_gap off the shore and its near side lateral_offset
+        /// off the entry line. At yaw 0 both spine roots lie on the shore.</summary>
         public override Pose2 Place(PlacementContext c) {
             var p = c.Params;
-            double y = c.Side * (p.Num(nameof(MarinaParams.lateral_offset)) + HalfSpan(p));
-            return new Pose2(c.Boundary.ShoreX + p.Num(nameof(MarinaParams.shore_gap)), y, 0);
+            double yaw = Layouts.Deg(p.Num(nameof(MarinaParams.yaw_deg))), half = HalfSpan(p), length = p.Num(nameof(MarinaParams.pier_length));
+            double cos = Math.Cos(yaw), sin = Math.Sin(yaw);
+            double minX = double.MaxValue, minY = double.MaxValue, maxY = double.MinValue;
+            foreach (var (u, v) in new[] { (0.0, half), (0.0, -half), (length, half), (length, -half) }) {
+                minX = Math.Min(minX, u * cos - v * sin);
+                double y = u * sin + v * cos;
+                minY = Math.Min(minY, y); maxY = Math.Max(maxY, y);
+            }
+            double lateral = p.Num(nameof(MarinaParams.lateral_offset));
+            double anchorY = c.Side > 0 ? lateral - minY : -lateral - maxY;
+            // At least 5 mm off, so 1 mm truth rounding never puts a turned spine corner past the edge.
+            double gap = yaw == 0 ? p.Num(nameof(MarinaParams.shore_gap)) : Math.Max(p.Num(nameof(MarinaParams.shore_gap)), 0.005);
+            return new Pose2(c.Boundary.ShoreX + gap - minX, anchorY, yaw);
         }
 
         public override TaskLayout Generate(TaskContext c) {
@@ -50,14 +66,15 @@ namespace Sim.Course.RoboBoat {
 
             // Colours: resample until ≥1 green and the lowest green number is unique (H p.54, D).
             var colors = new string[6];
+            int freeRed = p.Int(nameof(MarinaParams.free_red_min));
             for (int attempt = 0; attempt < 100; attempt++) {
                 for (int i = 0; i < 6; i++) colors[i] = rng.Chance(p.Num(nameof(MarinaParams.green_chance))) ? "green" : "red";
                 var greens = Enumerable.Range(0, 6).Where(i => colors[i] == "green").Select(i => Number(i % 3, fromShore)).ToList();
-                if (greens.Count > 0 && greens.Count(n => n == greens.Min()) == 1) break;
+                if (greens.Count > 0 && greens.Count(n => n == greens.Min()) == 1 && 6 - greens.Count >= freeRed) break;
             }
             var reds = Enumerable.Range(0, 6).Where(i => colors[i] == "red").ToList();
             var occupied = new HashSet<int>();
-            for (int k = 0; k < p.Int(nameof(MarinaParams.occupied)) && reds.Count > 0; k++) {
+            for (int k = 0; k < p.Int(nameof(MarinaParams.occupied)) && reds.Count > freeRed; k++) {
                 int pick = reds[rng.Int(0, reds.Count - 1)];
                 reds.Remove(pick);
                 occupied.Add(pick);

@@ -17,6 +17,12 @@ namespace Sim.Course {
             try { values = Values(row, truth, ref limit); }
             catch (KeyNotFoundException missing) { result.Value = "missing: " + missing.Message; return result; }
             result.Limit = limit;
+            // reduce "min"|"max": judge only the smallest/largest value (e.g. at least one spine rooted).
+            string reduce = row.Args.Str("reduce");
+            if (reduce != null && values.Count > 0) {
+                var nums = values.OfType<double>().ToList();
+                values = new List<object> { reduce == "max" ? nums.Max() : nums.Min() };
+            }
             if (values.Count == 0) { result.Pass = true; return result; }
             object worst = null;
             double worstMargin = double.MaxValue;
@@ -112,6 +118,12 @@ namespace Sim.Course {
                 }
                 case "value": return Select(t, a).Select(x => Json.Path(x, a.Str("path"))).ToList();
                 case "path": return One(PathCheck.Run(t, a) ? 1 : 0);
+                // Selected elements whose centre lies inside any selected bay's rectangle (depth along its yaw).
+                case "in_bay": {
+                    var bays = Select(t, new JObj().Set("select", a.Obj("bays")));
+                    return One(Select(t, a).Count(e => bays.Any(b =>
+                        Geometry.BoxDistance(Xy(e), Xy(b), b.Num("yaw"), b.Num("depth"), b.Num("width")) <= 0)));
+                }
                 default: throw new ArgumentException($"unknown predicate {row.Predicate} in row {row.Id}");
             }
         }

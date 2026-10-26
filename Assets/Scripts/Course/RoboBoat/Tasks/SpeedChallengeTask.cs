@@ -20,6 +20,7 @@ namespace Sim.Course.RoboBoat {
         [CourseParam("D", "fixed (H: set before the run); toggle opt-in")] public ParamRange sign_program = ParamRange.Default("fixed", "toggle");
         [CourseParam("D")] public ParamRange toggle_period_s = ParamRange.Uniform(5, 20, "s");
         [CourseParam("H", "p.50 40-100 ft")] public ParamRange turn_distance = ParamRange.Uniform(12.19, 30.48);
+        [CourseParam("D", "gate normal off facing the interior")] public ParamRange yaw_deg = ParamRange.Angle(-180, 180);
     }
 
     /// <summary>Task 3, emergency response sprint (H pp.49–51, L Jan 14): one A-2 gate on
@@ -31,14 +32,27 @@ namespace Sim.Course.RoboBoat {
         public override string TaskType => "speed_challenge";
         public override string Cite => "H pp.49-51; L Jan 14";
 
-        /// <summary>Beyond the marina's far end on side S, and gate_offset clear of whatever
-        /// already reaches toward side S across the task's x-extent.</summary>
+        /// <summary>The leg (gate to mark) turns by yaw_deg about its centre. The centre goes beyond
+        /// the marina's far end on side S, gate_offset plus the leg's reach clear of whatever already
+        /// reaches toward side S; if a disc of that reach is not free there, at a random free spot on
+        /// side S. yaw_deg 0 faces the interior.</summary>
         public override Pose2 Place(PlacementContext c) {
+            var p = c.Params;
             var marina = c.ByType("marina");
-            double x = (marina != null ? Layouts.MaxX(marina) : 0) + c.Params.Num(nameof(SpeedChallengeParams.along_offset));
-            double edge = Layouts.EdgeInSlab(c.Placed.Values.Where(l => l != marina), x - 8, x + 8, c.Side);
-            return new Pose2(x, c.Side * (edge + c.Params.Num(nameof(SpeedChallengeParams.gate_offset))), c.Side * Math.PI / 2);
+            double leg = p.Num(nameof(SpeedChallengeParams.turn_distance)), reach = leg / 2 + 4.5;
+            double x = (marina != null ? Layouts.MaxX(marina) : 0) + p.Num(nameof(SpeedChallengeParams.along_offset)) + reach;
+            double edge = Layouts.EdgeInSlab(c.Placed.Values.Where(l => l != marina), x - reach, x + reach, c.Side);
+            double y = Math.Min(edge + p.Num(nameof(SpeedChallengeParams.gate_offset)) + reach, c.Boundary.HalfWidth - reach - 1);
+            var centre = new P2(x, c.Side * y);
+            for (int k = 0; k < 200 && !(c.Boundary.Contains(centre, reach) && c.Occupancy.FootprintFree(Disc(centre, reach + 1.5))); k++)
+                centre = new P2(c.Rng.Range(reach, c.Boundary.Length - c.Boundary.Back - reach), c.Side * c.Rng.Range(reach, c.Boundary.HalfWidth - reach));
+            double yaw = c.Side * Math.PI / 2 + Layouts.Deg(p.Num(nameof(SpeedChallengeParams.yaw_deg)));
+            P2 gate = centre - P2.Dir(yaw) * (leg / 2);
+            return new Pose2(gate.X, gate.Y, yaw);
         }
+
+        static List<P2> Disc(P2 centre, double r) =>
+            Enumerable.Range(0, 12).Select(i => centre + P2.Dir(i * Math.PI / 6) * (r / Math.Cos(Math.PI / 12))).ToList();
 
         public override TaskLayout Generate(TaskContext c) {
             var l = new TaskLayout();

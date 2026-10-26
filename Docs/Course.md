@@ -27,6 +27,14 @@ single spec: G (course), T1-T6 (tasks), P1-P5 (paths), tagged H (handbook page),
 The generator checks every placed task's rows after each task and re-forks the one that breaks a row; `validate.py` re-judges a
 truth independently. Paths treat the boat as a disc of beam/2 + 0.15 m, so a gate with clear >= beam + 0.3 passes.
 
+Relative orientation (all D): entry gate 2 turns <= 15 deg off gate 1 (T1.gate2_yaw); the debris channel starts past gate 2 and
+heads within `debris_clearance.heading_deg` +-15 deg of gate 2's normal (T2.heading); the marina turns rigidly by
+`marina.yaw_deg` +-90 deg off the shore normal with its shore-most spine corner `shore_gap` off the shore (T5.yaw, T5.shore);
+the speed leg turns by `speed_challenge.yaw_deg` +-180 deg about its centre (G4 and the path rows keep it clear). Yaw params made
+with `ParamRange.Angle` stay iid in corner modes. `supply_drop.min_docked` (1-2) hulls sit in free red slips (never green, so
+never the target; never beside a moored boat; `marina.free_red_min` keeps one free): T4.docked, T4.dock_green_free (H p.54),
+T4.dock_moored_free, T5.free_red, judged geometrically with the `in_bay` predicate.
+
 ## Agents
 `course_truth.py summary|query|render|diff|validate|explain`. `explain SESSION` joins truth, track.jsonl and events into a
 per-task verdict (gates and direction, clearances, direction-source colour at the gate vs the circling sweep, slip tier, horn
