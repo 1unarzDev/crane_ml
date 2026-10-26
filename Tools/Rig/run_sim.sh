@@ -448,12 +448,17 @@ if ((remaining > 0)); then
     # A --run that exits ends the recording early (its status file appears).
     hold_until=$(( $(now_ms) + remaining ))
     ( while (( $(now_ms) < hold_until )); do
+          kill -0 "${player_pid}" 2>/dev/null || exit 3
           [[ -n "${run_cmd}" ]] && docker exec "${container}" test -e "${cdir}/run.status" && exit 0
           sleep 1
       done ) &
     hold_pid=$!
-    wait "${hold_pid}" || true
+    hold_rc=0; wait "${hold_pid}" || hold_rc=$?
     hold_pid=""
+    # The player must outlive the scenario: a crash after ready is a failed run, whatever its status.
+    if ((hold_rc == 3)) || ! kill -0 "${player_pid}" 2>/dev/null; then
+        log "player exited before the scenario finished"; exit 1
+    fi
 fi
 
 cstop INT run drive

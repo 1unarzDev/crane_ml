@@ -355,6 +355,27 @@ def duration_of(args, rig):
     return float(rig.get('duration', 30))
 
 
+CRASH_MARKERS = ('Crash!!!', 'Segmentation fault', 'Caught fatal signal', 'native crash',
+                 '=== Crash', 'Fatal error in')
+
+
+def sim_verdict(runner_log, player_log, snapshot):
+    """A sim run whose runner exited 0 still fails when the player died or never drove.
+
+    A crash marker in the player log, no 'recorded' line in the runner log (the player left before
+    the scenario finished), or no sim time or messages seen after the course was ready.
+    """
+    for line in player_log.splitlines():
+        if any(m in line for m in CRASH_MARKERS):
+            return f'player_crashed: {line.strip()[:160]}'
+    if '] recorded' not in runner_log:
+        return 'player_exited_early'
+    if '] course ready' in runner_log and not (snapshot and (snapshot.get('msgs')
+                                                             or snapshot.get('sim_time') is not None)):
+        return 'no_progress_after_ready'
+    return None
+
+
 class Active:
     """One launched job: its process, watchdog, and the stop state machine."""
 
@@ -490,6 +511,9 @@ class Active:
         if code is not None:
             cleanup = self.cleanup()
             if code == 0:
+                problem = self.sim_problem() if self.kind == 'sim' else None
+                if problem:
+                    return 'failed', dict(exit=0, reason=problem, cleanup=cleanup)
                 return 'done', dict(exit=0, reason=None, cleanup=cleanup)
             return 'failed', dict(exit=code, reason=self._fail_reason(code), cleanup=cleanup)
         snap = self.read_progress()
@@ -504,6 +528,15 @@ class Active:
         if reason:
             self.request_stop(reason, 'tripped')
         return None
+
+    def sim_problem(self):
+        """Why a sim run that exited 0 is not a success (see sim_verdict), or None."""
+        def text(path):
+            try:
+                return Path(path).read_text(errors='replace')
+            except OSError:
+                return ''
+        return sim_verdict(text(self.log), text(Path(self.session) / 'player.log'), self.snapshot)
 
     def _fail_reason(self, code):
         try:

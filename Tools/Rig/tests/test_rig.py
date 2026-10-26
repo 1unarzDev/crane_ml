@@ -436,3 +436,48 @@ def test_plant_applied_line_is_parsed_for_attribution(tmp_path):
     # run_sim.sh's run-log writer carries the same parser.
     text = (Path(rigq.__file__).parent / 'run_sim.sh').read_text()
     assert "line['plant'] = plant_applied(session / 'player.log')" in text
+
+
+RUNNER_OK = '[simrig 1.0s] course ready\n[simrig 31.0s] recorded 30s\n'
+RUNNER_EARLY = '[simrig 1.0s] course ready\n'
+PROGRESS = {'sim_time': 12.0, 'msgs': 400}
+
+
+def fake_sim_job(tmp_path, runner_log, player_log, snapshot, exit_code=0):
+    """An Active for a finished fake sim run: the runner's log, the player's log and the last probe snapshot."""
+    session = tmp_path / 'session'
+    session.mkdir()
+    (session / 'player.log').write_text(player_log)
+    log = tmp_path / 'runner.log'
+    log.write_text(runner_log)
+    a = object.__new__(rigq.Active)
+    a.kind, a.log, a.session, a.snapshot = 'sim', log, str(session), snapshot
+    a.stopping, a.job = None, {'id': 'x'}
+    a.proc = type('P', (), {'poll': lambda self: exit_code, 'pid': 0})()
+    a.cleanup = lambda: {}
+    return a
+
+
+def test_sim_player_exiting_early_with_status_0_fails(tmp_path):
+    a = fake_sim_job(tmp_path, RUNNER_EARLY, 'CRANE_ROBOBOAT_COURSE_READY\n', PROGRESS)
+    assert a.poll(time.monotonic()) == ('failed', {'exit': 0, 'reason': 'player_exited_early', 'cleanup': {}})
+
+
+def test_sim_player_crash_marker_fails_and_is_recorded(tmp_path):
+    a = fake_sim_job(tmp_path, RUNNER_OK, 'CRANE_ROBOBOAT_COURSE_READY\nCrash!!!\nSDL input fault\n', PROGRESS)
+    state, fields = a.poll(time.monotonic())
+    assert state == 'failed' and fields['reason'].startswith('player_crashed: Crash!!!')
+    q = rigq.Queue(tmp_path / 'q')
+    job = q.add({'kind': 'cmd', 'name': 'crash', 'argv': ['true']})
+    q.finish(job['id'], state, **fields)
+    assert 'player_crashed' in q.results()[-1]['reason']
+
+
+def test_sim_without_progress_after_ready_fails(tmp_path):
+    a = fake_sim_job(tmp_path, RUNNER_OK, 'CRANE_ROBOBOAT_COURSE_READY\n', None)
+    assert a.poll(time.monotonic())[1]['reason'] == 'no_progress_after_ready'
+
+
+def test_sim_normal_success_is_done(tmp_path):
+    a = fake_sim_job(tmp_path, RUNNER_OK, 'CRANE_ROBOBOAT_COURSE_READY\n', PROGRESS)
+    assert a.poll(time.monotonic()) == ('done', {'exit': 0, 'reason': None, 'cleanup': {}})
