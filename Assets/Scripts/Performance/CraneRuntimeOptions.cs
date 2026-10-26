@@ -302,7 +302,7 @@ namespace Sim.Performance {
             return new CameraStatus(enabled, sensors, enabled - sensors - waterDrivers, waterDrivers);
         }
 
-        private static void DisableSpectatorRendering() {
+        internal static void DisableSpectatorRendering() {
             HashSet<Camera> sensorCameras = CollectEnabledSensorCameras();
             Camera[] allCameras = UnityEngine.Object.FindObjectsByType<Camera>(
                 FindObjectsInactive.Include);

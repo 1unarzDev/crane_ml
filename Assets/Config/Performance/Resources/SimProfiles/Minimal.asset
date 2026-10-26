@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 371f7e7ef5c042e6a8cbda480220e45d, type: 3}
+  m_Name: Minimal
+  m_EditorClassIdentifier: PerformanceAssembly::Sim.Performance.CraneSimProfile
+  <Pipeline>k__BackingField: {fileID: 11400000, guid: 168a2336534e4e043b2a210b6f8d379a, type: 2}
+  <FrameRateCap>k__BackingField: 20
+  <CameraResolutionScale>k__BackingField: 0.25
+  <CameraHz>k__BackingField: 10
+  <DetectionHz>k__BackingField: 10
+  <LidarHz>k__BackingField: 10
+  <ReducedEffects>k__BackingField: 1
+  <WaterDetail>k__BackingField: 0
+  <Spectator>k__BackingField: 1

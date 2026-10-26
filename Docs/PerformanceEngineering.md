@@ -57,11 +57,57 @@ they first move behind an explicit single-step interface.
 - The High Fidelity HDRP asset uses 128-resolution water and GPU readback. Full-resolution CPU
   water increased process CPU use from about 6% to about 19% on the reference machine, so GPU
   readback remains the default.
-- `HDRP Performant.asset` has water disabled and is not a valid aquatic profile without changes.
+- All three HDRP assets (High Fidelity, Balanced, Performant) run the same 128-resolution GPU
+  water with scripted interaction; `SimProfileTests` fails if a sim profile's asset drifts.
 - A graphics device and a real windowed Vulkan loop are required. `-nographics` and Unity
   `-batchmode` do not drive the current HDRP water query path correctly.
 - Do not change `QualitySettings.vSyncCount` at runtime in this Vulkan player; Unity 6000.5
-  crashes in `GfxDeviceVK::SetVSyncCount` on the reference machine.
+  crashes in `GfxDeviceVK::SetVSyncCount` on the reference machine. Every quality level ships
+  with vsync off, and the sim profile's `FrameRateCap` (`Application.targetFrameRate`) paces
+  frames instead.
+
+## Simulation profiles (device tiers)
+
+`--crane-profile` (below) picks which subsystems run. The simulation profile picks how much
+rendering and sensor work they cost, so the same scene holds real time on weaker devices. A
+profile never changes physics (0.02 s step, water simulation, colliders) or points per LiDAR scan.
+
+Each tier is a `CraneSimProfile` asset in `Assets/Config/Performance/Resources/SimProfiles/`;
+edit it in the Inspector (every field has a tooltip):
+
+| Field | Full | Balanced | Minimal |
+|---|---|---|---|
+| `Pipeline` (HDRP asset) | High Fidelity | Balanced | Performant |
+| `FrameRateCap` (fps; all cameras render once per frame) | 60 | 30 | 20 |
+| `CameraResolutionScale` (robot RGB/depth textures) | 1 (1280×720) | 0.5 (640×360) | 0.25 (320×180) |
+| `CameraHz` (RGB and depth; 0 = scene) | scene (15) | 15 | 10 |
+| `DetectionHz` | scene (10) | 10 | 10 |
+| `LidarHz` (72,000 points per scan always) | scene (10) | 10 | 10 |
+| `ReducedEffects` (bloom, DoF, motion blur, SSAO, SSR, SSGI, contact shadows, volumetrics off) | off | on | on |
+| `WaterDetail` (tessellation, caustics; render-only) | on | on | off |
+| `Spectator` (window camera) | on | on | on |
+
+Selection, highest precedence first:
+
+1. `--crane-sim-profile full|balanced|minimal|auto` on the command line.
+2. A saved manual choice: add `--crane-sim-profile-save` to store the named tier in
+   `<persistentDataPath>/crane-sim-profile.json`; `--crane-sim-profile auto --crane-sim-profile-save`
+   forgets it (and the cached measurement).
+3. Auto: the cached result for this device (CPU model, core count, GPU, graphics API), or else a
+   measurement in the real scene: warm 2 s, measure 3 s, pass when the frame rate reaches 90% of
+   the tier's cap and the real-time factor is at least 0.95; otherwise step down a tier and measure
+   again. The first launch on a new device therefore settles within about 15 s.
+
+The editor without the flag uses the saved choice or Full and never measures. Adjust single fields
+of the selected tier with `--crane-sim-set "CameraHz=10,Spectator=false"` (field names as in the
+table; `FrameRateCap=0` uncaps); the assets stay untouched. Every launch logs
+`CRANE_SIM_PROFILE_RESOLVED {json}` with the effective values and their source
+(`cli`, `saved`, `auto-cache`, `auto-benchmark`, `editor-default`), plus one
+`CRANE_SIM_PROFILE_BENCHMARK` line per measured tier.
+
+`--crane-sim-profile headless` is rejected (exit 3): buoyancy, hydrodynamics and LiDAR water
+culling query HDRP water, which needs a graphics device. A graphics-free tier needs a CPU water
+height source in the physics core first.
 
 ## Runtime profiles
 
