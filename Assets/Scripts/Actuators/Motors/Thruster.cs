@@ -60,6 +60,14 @@ namespace Sim.Actuators.Motors {
             if (debug) Debug.DrawLine(body.position, body.position - force * 0.01f, Color.red, Time.fixedDeltaTime);
         }
 
+        /// <summary>World direction of the push for a positive command: sign(thrustK) along the
+        /// rotor axis, as the legacy force path applies it. Valid before Start.</summary>
+        public Vector3 PushDirection => Mathf.Sign(config.thrustK) * (transform.rotation * (config.rotationAxis switch {
+            Axis.X => Vector3.right,
+            Axis.Z => Vector3.forward,
+            _ => Vector3.up
+        }));
+
         public float GetMaxThrust() => config.GetMaxThrust();
         public float GetMaxBackThrust() => config.GetMaxBackThrust();
     }
