@@ -1,0 +1,36 @@
+{
+  "ablation": false,
+  "cellMeters": 0.125,
+  "courseId": "ramp-10deg",
+  "evidenceLabel": "NOT_RUN",
+  "generatorVersion": "terrain-generator-1",
+  "groundTruth": {
+    "analyticSlopeDeg": 10,
+    "measuredMaxSlopeDeg": 10.000000000000055,
+    "measuredMeanSlopeDeg": 8.779829675380297
+  },
+  "heightRangeMeters": [
+    0.0,
+    2.4685777299185094
+  ],
+  "heightmapEncoding": "raw16-le, row-major z then x, value=(h-min)/(max-min)*65535",
+  "heightmapResolution": 129,
+  "heightmapSha256": "b12872e8b98b6bf04ced60908f2b45ce649a7908a00bd743c9595c612e4d3f2d",
+  "kind": "ramp",
+  "parameters": {
+    "angleDeg": 10,
+    "surface": "normal-concrete"
+  },
+  "schema": "crane-land-terrain-course-v1",
+  "seed": 1010,
+  "sizeMeters": 16.0,
+  "surfaces": [
+    {
+      "surface": "normal-concrete",
+      "zRangeM": [
+        0,
+        16.0
+      ]
+    }
+  ]
+}
