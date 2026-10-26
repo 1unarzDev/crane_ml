@@ -13,7 +13,7 @@ import os
 import sys
 import time
 
-CMD_EPS = 0.05     # |surge|, |sway| or |yaw| above this is a motion command
+CMD_EPS = 0.05     # |surge| or |sway| above this is a motion command (yaw alone is not)
 CMD_GAP_S = 0.5    # consecutive non-zero commands closer than this add to cmd_active_s
 
 
@@ -41,7 +41,9 @@ class Tracker:
             self.travel_since_cmd = max(self.travel_since_cmd or 0.0, math.dist(self.cmd_origin, self.odom))
 
     def on_command(self, now, surge, sway, yaw):
-        if max(abs(surge), abs(sway), abs(yaw)) <= CMD_EPS:
+        # Only surge/sway count: a yaw-only command (spin, turn-in-place recovery) moves the
+        # boat little, so it must not run the no-motion clock.
+        if max(abs(surge), abs(sway)) <= CMD_EPS:
             self.last_cmd = None
             return
         if self.cmd_origin is None and self.odom is not None:

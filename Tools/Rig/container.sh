@@ -16,7 +16,7 @@ import shlex, sys
 sys.path.insert(0, sys.argv[1])
 import rigconf
 rig = rigconf.load(sys.argv[2])
-print(f"name={shlex.quote(rig['container'])} image={shlex.quote(rig.get('container_image') or '')}")
+print(f"name={shlex.quote(rig['container'])} image={shlex.quote(rig.get('container_image') or '')} user={shlex.quote(rig.get('container_user') or '')}")
 print('mounts=(' + ' '.join(shlex.quote(m) for m in rig.get('container_mounts') or []) + ')')
 EOF
 )"
@@ -32,9 +32,10 @@ case "${cmd}" in
         else
             [[ -n "${image}" ]] || { echo "set container_image in rig.local.yaml" >&2; exit 2; }
             args=()
+            [[ -n "${user}" ]] && args+=(--user "${user}")
             for m in "${mounts[@]}"; do args+=(-v "${m}"); done
             docker run -d --name "${name}" --label crane.rig=1 --init --ipc private --network host \
-                --user roboboat -e BASH_ENV= "${args[@]}" --entrypoint sleep "${image}" infinity >/dev/null
+                -e BASH_ENV= "${args[@]}" --entrypoint sleep "${image}" infinity >/dev/null
         fi
         echo "${name} up" ;;
     down)

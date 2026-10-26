@@ -464,21 +464,6 @@ timestamp follows accelerated simulated time monotonically. The accepted 2× ref
 198 of 200 packets (two intentional latest-value replacements), returned 653 peer-visible telemetry
 packets at a 1.999× clock rate, and sustained 2.003× worker RTF.
 
-Run the null-graphics aerial protocol-to-plant variant with:
-
-```bash
-CRANE_RESULT_ROOT="$PWD/PerformanceResults/aerial-sitl" \
-CRANE_MAVROS_PORT=10312 \
-Tools/Performance/run_aerial_sitl_fixture.sh
-```
-
-Its accepted reference run applied all 200 valid packets, rejected one malformed packet, bounded
-receive-to-apply age to one fixed tick, returned 782 peer-visible packets at a 1.997× simulated
-clock rate, moved the reference quadrotor upward 2.768 m, and sustained 2.000× worker RTF. Channels
-0–3 are FL/FR/RR/RL. Servo packets do not carry the source-observation timestamp. Both fixtures
-validate the UDP contract and fixed-step action seam; neither runs or qualifies ArduPilot/PX4 or
-another real flight controller.
-
 Launch the project-specific Nav2 graph separately with `use_sim_time:=true`. A single worker must
 own one isolated ROS graph/domain and one `/clock`. If ROS nodes are split across Docker
 containers while using Fast DDS, pass `--ipc host` to every participating container (or configure

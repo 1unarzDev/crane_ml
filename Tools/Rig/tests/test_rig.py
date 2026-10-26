@@ -327,3 +327,98 @@ def test_worker_unit_install_uninstall(rig, tmp_path, monkeypatch, capsys):
     assert f'--config {cfg} worker --slots 2' in text and 'WantedBy=default.target' in text
     assert rigq.main(['--config', cfg, '--json', 'worker', 'uninstall']) == 0
     assert json.loads(capsys.readouterr().out)['removed'] and not (tmp_path / 'xdg/systemd/user/rigq-worker.service').exists()
+
+
+# --- review fixes ----------------------------------------------------------------------------
+
+def test_yaw_only_commands_never_start_the_no_motion_clock():
+    t = probe.Tracker()
+    t.on_odom(0, 0)
+    for i in range(300):                       # 30 s of spinning in place at 10 Hz
+        t.on_command(i * 0.1, 0, 0, 0.8)
+    s = t.snapshot(0)
+    assert s['cmd_active_s'] == 0 and s['travel_since_cmd'] is None
+    wd = Watchdog(0, startup_s=None)
+    assert wd.check(40, dict(s, sim_time=3.0, msgs=5), 'running') is None
+
+
+def _sleeper(**kw):
+    import subprocess
+    return subprocess.Popen(['sleep', '60'], **kw)
+
+
+def _reap(*procs):
+    for p in procs:
+        p.terminate()
+        p.wait()
+
+
+def _orphan_job(q, proc, **spec):
+    job = submit(q, 'succeed', argv=['sleep', '60'])
+    spec.setdefault('pid_start', rigq.start_ticks(proc.pid))
+    q.update(job['id'], state='running', pid=proc.pid, **spec)
+    return job
+
+
+def test_adoption_spares_a_reused_pid(rig):
+    q = rigq.Queue(rig['queue']['dir'])
+    shared = _sleeper()                        # same process group as this test: not a job leader
+    mismatch = _sleeper(start_new_session=True)
+    try:
+        a = _orphan_job(q, shared)             # argv[0] "sleep" matches the cmdline, pgid != pid
+        b = _orphan_job(q, mismatch, pid_start=1)   # leader, but another process started at that PID
+        rigq.Worker(rig, out=open(os.devnull, 'w')).adopt_orphans()
+        assert shared.poll() is None and mismatch.poll() is None
+        assert q.get(a['id'])['reason'] == q.get(b['id'])['reason'] == 'worker_lost'
+    finally:
+        _reap(shared, mismatch)
+
+
+def test_adoption_stops_the_jobs_own_group(rig):
+    q = rigq.Queue(rig['queue']['dir'])
+    proc = _sleeper(start_new_session=True)
+    try:
+        _orphan_job(q, proc)
+        rigq.Worker(rig, out=open(os.devnull, 'w')).adopt_orphans()
+        assert proc.wait(timeout=5) != 0
+    finally:
+        _reap(proc)
+
+
+@pytest.mark.parametrize('left', [None, 2])
+def test_launch_fails_when_the_domain_is_not_clean(rig, monkeypatch, left):
+    monkeypatch.setattr(rigq, 'container_is_ours', lambda name: True)
+    monkeypatch.setattr(rigq, 'clear_domain', lambda c, d: {'domain': d, 'stray_left': left})
+    q = rigq.Queue(rig['queue']['dir'])
+    job = q.add({'kind': 'sim', 'name': 'x', 'args': []})
+    w = rigq.Worker(rig, out=open(os.devnull, 'w'))
+    w.step()
+    got = q.get(job['id'])
+    assert got['state'] == 'failed' and 'not clean' in got['reason'] and not w.active
+
+
+def test_cancel_decides_under_the_queue_lock(rig, monkeypatch):
+    q = rigq.Queue(rig['queue']['dir'])
+    job = submit(q, 'succeed')
+    real = q.update
+
+    def worker_wins(job_id, _decide=None, **fields):     # the worker starts the job as cancel begins
+        real(job_id, state='running')
+        return real(job_id, _decide, **fields)
+    monkeypatch.setattr(q, 'update', worker_wins)
+    got = q.cancel(job['id'])
+    assert got['state'] == 'running' and got['cancel_requested'] and q.results() == []
+
+
+def test_a_job_submitted_during_the_exit_gets_served(rig):
+    q = rigq.Queue(rig['queue']['dir'])
+    late = []
+
+    class Racy(rigq.Worker):
+        def release_lock(self, fd):
+            super().release_lock(fd)
+            if not late:                       # the submit lands just after the lock is dropped
+                late.append(submit(q, 'succeed'))
+    w = Racy(rig, until_empty=True, linger_s=0, out=open(os.devnull, 'w'))
+    assert w.run() == 0
+    assert q.get(late[0]['id'])['state'] == 'done'

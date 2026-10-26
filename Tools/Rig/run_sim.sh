@@ -106,6 +106,10 @@ course = Path(course) if course.endswith('.json') else Path(rig['courses_dir']) 
 profile = profile or rig['profile']
 profile = Path(profile) if profile.endswith('.yaml') else Path(rig['profiles_dir']) / f'{profile}.yaml'
 plant = yaml.safe_load(profile.read_text())
+if not rig.get('install'):
+    print('rig.yaml install is empty: set install (the stack install path inside the container) in rig.local.yaml', file=sys.stderr)
+    print('exit 2')
+    sys.exit()
 values = {
     'container': rig['container'], 'player': rig['player'], 'display': rig['display'],
     'scene': rig['scene'], 'runtime_profile': rig['runtime_profile'],

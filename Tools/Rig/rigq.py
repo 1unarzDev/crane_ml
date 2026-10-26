@@ -133,19 +133,24 @@ class Queue:
             self._unlock(fd)
         return job
 
-    def update(self, job_id, **fields):
-        """Read-modify-write one job under the queue lock; returns the new job."""
+    def update(self, job_id, _decide=None, **fields):
+        """Read-modify-write one job under the queue lock; returns the new job.
+        ``_decide(job)`` may return more fields, chosen from the job as read under the lock."""
         fd = self._lock()
         try:
             job = json.loads(self.path(job_id).read_text())
             job.update(fields)
+            if _decide:
+                job.update(_decide(job))
             self._write(job)
             return job
         finally:
             self._unlock(fd)
 
     def finish(self, job_id, state, **fields):
-        job = self.update(job_id, state=state, finished=time.time(), **fields)
+        return self._log_result(self.update(job_id, state=state, finished=time.time(), **fields))
+
+    def _log_result(self, job):
         line = {k: job.get(k) for k in ('id', 'name', 'kind', 'state', 'reason', 'exit', 'domain',
                                         'session', 'submitted', 'started', 'finished', 'progress',
                                         'cleanup', 'log')}
@@ -156,12 +161,15 @@ class Queue:
         return job
 
     def cancel(self, job_id):
-        job = self.get(job_id)
-        if job['state'] == 'queued':
-            return self.finish(job['id'], 'cancelled', reason='cancelled')
-        if job['state'] == 'running':
-            return self.update(job['id'], cancel_requested=True)
-        return job
+        cancelled = []
+
+        def decide(job):    # runs under the queue lock, so a worker's start cannot slip in between
+            if job['state'] == 'queued':
+                cancelled.append(1)
+                return {'state': 'cancelled', 'reason': 'cancelled', 'finished': time.time()}
+            return {'cancel_requested': True} if job['state'] == 'running' else {}
+        job = self.update(self.get(job_id)['id'], decide)
+        return self._log_result(job) if cancelled else job
 
     def results(self, n=None):
         try:
@@ -205,6 +213,14 @@ def pgid_of(pid):
     try:
         return os.getpgid(pid)
     except (ProcessLookupError, TypeError, ValueError):
+        return None
+
+
+def start_ticks(pid):
+    """The process start time (clock ticks since boot, /proc/PID/stat field 22), or None."""
+    try:
+        return int(Path(f'/proc/{pid}/stat').read_text().rsplit(')', 1)[1].split()[19])
+    except (OSError, IndexError, ValueError):
         return None
 
 
@@ -362,6 +378,7 @@ class Active:
         limits = self._limits()
         self.watchdog = Watchdog(self.started, **limits)
         self.job = self.queue.update(job['id'], state='running', started=time.time(), pid=self.proc.pid,
+                                     pid_start=start_ticks(self.proc.pid),
                                      domain=self.domain, session=self.session, log=str(self.log),
                                      limits=limits, attempts=job.get('attempts', 0) + 1)
 
@@ -543,8 +560,11 @@ class Worker:
         """Jobs left 'running' by a dead worker: stop their groups, mark them failed."""
         for job in self.q.jobs('running'):
             pid = job.get('pid')
-            if pid and pgid_of(pid) == pid and 'run_sim.sh' in cmdline(pid) or \
-                    pid and job.get('argv') and job['argv'][0] in cmdline(pid):
+            # the job's own process: a group leader that started when the job did (a reused PID
+            # differs in start time) and still runs the job's command
+            want = 'run_sim.sh' if job['kind'] == 'sim' else (job.get('argv') or [None])[0]
+            if pid and pgid_of(pid) == pid and job.get('pid_start') is not None \
+                    and start_ticks(pid) == job['pid_start'] and want and want in cmdline(pid):
                 signal_group(pid, signal.SIGTERM)
                 time.sleep(2)
                 signal_group(pid, signal.SIGKILL)
@@ -553,6 +573,8 @@ class Worker:
             self.say(f"{job['id']} {job['name']}: worker_lost")
 
     def launch(self, job):
+        if self.q.get(job['id'])['state'] != 'queued':
+            return False
         kind = job['kind']
         builder = None
         if kind == 'build':
@@ -579,6 +601,10 @@ class Worker:
             if kind == 'sim':
                 cleared = clear_domain(self.rig['container'], domain)
                 self.q.update(job['id'], domain_cleared=cleared)
+                if cleared.get('stray_left') != 0:      # strays left, or docker did not answer (None)
+                    self.q.finish(job['id'], 'failed', reason=f'domain {domain} not clean: '
+                                  f"stray_left={cleared.get('stray_left')}")
+                    return True
         active = Active(self.q, self.rig, job, domain)
         active.start(builder)
         self.active[job['id']] = active
@@ -612,6 +638,26 @@ class Worker:
                 # FIFO per resource: a sim waiting for a slot does not block a build, nor the reverse
                 continue
 
+    def release_lock(self, fd):
+        os.close(fd)
+
+    def serve(self, stop):
+        idle_since = None
+        while True:
+            if stop:
+                for active in self.active.values():
+                    active.request_stop('worker_stopped', 'cancelled')
+                if not self.active:
+                    return
+            self.step()
+            if self.until_empty and not self.active and not self.q.jobs('queued'):
+                idle_since = idle_since or time.monotonic()
+                if time.monotonic() - idle_since > self.linger_s:
+                    return
+            else:
+                idle_since = None
+            time.sleep(float(self.rig['queue']['poll_s']))
+
     def run(self):
         fd = take_lock(self.q.dir / 'worker.lock')
         if fd is None:
@@ -621,23 +667,18 @@ class Worker:
         signal.signal(signal.SIGTERM, lambda *_: stop.append(1))
         signal.signal(signal.SIGINT, lambda *_: stop.append(1))
         self.adopt_orphans()
-        idle_since = None
         self.say(f"worker up: {self.q.dir}, slots {self.slots}, domains {self.rig['queue']['domains'][0]}-"
                  f"{self.rig['queue']['domains'][-1]}")
         while True:
-            if stop:
-                for active in self.active.values():
-                    active.request_stop('worker_stopped', 'cancelled')
-                if not self.active:
-                    break
-            self.step()
-            if self.until_empty and not self.active and not self.q.jobs('queued'):
-                idle_since = idle_since or time.monotonic()
-                if time.monotonic() - idle_since > self.linger_s:
-                    break
-            else:
-                idle_since = None
-            time.sleep(float(self.rig['queue']['poll_s']))
+            self.serve(stop)
+            self.release_lock(fd)
+            # A job submitted while we were exiting saw the lock held and started no worker, so
+            # look again after releasing it; a submit after this look finds the lock free.
+            if stop or not self.q.jobs('queued'):
+                break
+            fd = take_lock(self.q.dir / 'worker.lock')
+            if fd is None:          # another worker took over
+                break
         self.say('worker exits')
         return 0
 

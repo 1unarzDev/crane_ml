@@ -9,6 +9,7 @@
 container: ${CRANE_RIG_CONTAINER:-crane_rig}
 container_image: ${CRANE_RIG_IMAGE:-}         # the roboboat dev image with ROS jazzy
 container_mounts: []                          # host:container[:ro], e.g. the ctest installs
+container_user: ${CRANE_RIG_USER:-}           # docker --user for the container; empty keeps the image default
 player: ${CRANE_RIG_PLAYER:-}                 # Builds/<name>/CRANE.x86_64 (CranePerformanceBuild)
 player_commit: ''   # recorded when the build manifest has no sourceCommit
 courses_dir: ${CRANE_RIG_COURSES:-}           # crane Tools/RoboBoat/courses of the player's branch
@@ -46,7 +47,7 @@ player_args:
 
 # Stack inside the container. The base install is sourced, then --overlay.
 # ctest overlay 'simrig': base (origin/main) + mhseals_hardware origin/main + mhseals_testing sim-stack.
-install: ${CRANE_RIG_INSTALL:-/home/roboboat/.cache/ctest/simrig/install}
+install: ${CRANE_RIG_INSTALL:-}   # container path of the stack install, set in rig.local.yaml (e.g. <container home>/.cache/ctest/simrig/install)
 driver: true                 # thruster_pwm_node, output_backend topic
 
 record:
