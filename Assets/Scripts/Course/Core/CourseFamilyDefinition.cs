@@ -17,8 +17,12 @@ namespace Sim.Course {
         [SerializeField] string handbookSha256 = "";
         [SerializeField, Tooltip("Tools/RoboBoat/constraints/<family>.json (a link to this asset).")]
         TextAsset constraintSpec;
+        [SerializeField, Tooltip("Hand-placed scene groups a generated course replaces.")]
+        List<string> hideSceneGroups = new List<string> { "SpeedChallenge", "NavigationChannel", "GateTraversal", "Marina", "DeliveryBoats" };
 
         string specText;
+
+        public IReadOnlyList<string> HideSceneGroups => hideSceneGroups ?? new List<string>();
 
         public string Name => familyName;
         public IReadOnlyList<CourseTaskDefinition> Tasks => tasks;
