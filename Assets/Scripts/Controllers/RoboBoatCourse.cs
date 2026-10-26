@@ -209,7 +209,7 @@ namespace Sim.Controllers {
                 clone.name = $"{template.name} {element.label}".Trim();
                 clone.transform.localScale = template.transform.lossyScale * element.scale;
                 if (!string.IsNullOrEmpty(element.color)) Recolor(clone, element.color);
-                MakeSolid(clone);
+                MakeSolid(clone, element.template.Contains("Buoy"));
                 if (!string.IsNullOrEmpty(element.label))
                     targets.Add(new KeyValuePair<GameObject, string>(clone, element.label));
                 truth.elements.Add(new RoboBoatCourseTruthElement {
@@ -362,15 +362,32 @@ namespace Sim.Controllers {
         }
 
         /// <summary>Real buoys are solid: a LiDAR sees them and a hull bumps them. Give an
-        /// element without colliders a convex one per mesh, on the obstacle layer.</summary>
-        private static void MakeSolid(GameObject value) {
-            if (value.GetComponentsInChildren<Collider>().Length > 0) return;
+        /// element without colliders one per mesh, on the obstacle layer. A buoy's own
+        /// colliders are replaced by its meshes (pole buoys had none, the black buoy's sphere
+        /// was half its mesh), and kept non-convex where the body is kinematic, so a pole
+        /// stays a pole rather than a cone.</summary>
+        private static void MakeSolid(GameObject value, bool buoy) {
+            Collider[] existing = value.GetComponentsInChildren<Collider>()
+                .Where(collider => !collider.isTrigger).ToArray();
+            if (existing.Length > 0 && !buoy) return;
+            foreach (Collider collider in existing) UnityEngine.Object.DestroyImmediate(collider);
+            int added = 0;
             foreach (var filter in value.GetComponentsInChildren<MeshFilter>()) {
                 if (filter.sharedMesh == null) continue;
                 var collider = filter.gameObject.AddComponent<MeshCollider>();
                 collider.sharedMesh = filter.sharedMesh;
-                collider.convex = true;
+                Rigidbody body = filter.GetComponentInParent<Rigidbody>();
+                collider.convex = body != null && !body.isKinematic;
                 filter.gameObject.layer = Sim.Physics.Contacts.CraneCollisionLayers.DynamicObstacle;
+                added++;
+            }
+            if (buoy) {
+                Bounds bounds = new(value.transform.position, Vector3.zero);
+                foreach (Collider collider in value.GetComponentsInChildren<Collider>())
+                    bounds.Encapsulate(collider.bounds);
+                Debug.Log($"CRANE_ROBOBOAT_SOLID {value.name} replaced={existing.Length} " +
+                          $"mesh_colliders={added} size=({bounds.size.x:F2},{bounds.size.y:F2}," +
+                          $"{bounds.size.z:F2})");
             }
         }
 
