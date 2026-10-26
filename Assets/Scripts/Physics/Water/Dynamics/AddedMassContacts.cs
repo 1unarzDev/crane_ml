@@ -6,7 +6,7 @@ namespace Sim.Physics.Water.Dynamics {
     /// <summary>
     /// Contact forces act outside τ_h, so on their own they see only M_RB. This scales a
     /// registered body's per-contact inverse mass by m/(m + nᵀM_A,xy n) along the horizontal
-    /// normal n and its inverse inertia by I_z/(I_z + a66), through Physics.ContactModifyEvent.
+    /// normal n and its inverse inertia by I_z/(I_z + a66), for horizontal normals only, through Physics.ContactModifyEvent.
     /// The callback may run off the main thread: it reads only values set by
     /// <see cref="SetHeading"/>, never a Transform. DockBumpTests measures whether PhysX honours
     /// the scale for ArticulationBody links.
@@ -39,11 +39,23 @@ namespace Sim.Physics.Water.Dynamics {
             e.Port = port;
         }
 
-        /// <summary>m/(m + nᵀM_A n) for a world normal n.</summary>
+        /// <summary>A contact is horizontal when its unit normal is within 30° of the water plane
+        /// (|n·up| ≤ 0.5). Only those get the added-mass scales: M_A is planar here, and a grounding
+        /// or deck contact keeps the full rigid-body response.</summary>
+        public const float HorizontalMaxUp = 0.5f;
+
+        public static bool IsHorizontal(Vector3 normal) => Mathf.Abs(normal.y) <= HorizontalMaxUp;
+
+        /// <summary>m/(m + nᵀM_A n) for a world normal n; 1 when n is not horizontal.</summary>
         public static float MassScale(float mass, float a11, float a22, Vector3 bow, Vector3 port, Vector3 normal) {
+            if (!IsHorizontal(normal)) return 1f;
             float nb = Vector3.Dot(normal, bow), np = Vector3.Dot(normal, port);
             return mass / (mass + a11 * nb * nb + a22 * np * np);
         }
+
+        /// <summary>I_z/(I_z + a66) for a horizontal normal, else 1.</summary>
+        public static float InertiaScale(float izz, float a66, Vector3 normal) =>
+            IsHorizontal(normal) ? izz / (izz + a66) : 1f;
 
         private static void Modify(PhysicsScene scene, NativeArray<ModifiableContactPair> pairs) {
             for (int i = 0; i < pairs.Length; i++) {
@@ -56,11 +68,11 @@ namespace Sim.Physics.Water.Dynamics {
                 ModifiableMassProperties props = pair.massProperties;
                 if (self) {
                     props.inverseMassScale = MassScale(a.Mass, a.A11, a.A22, a.Bow, a.Port, normal);
-                    props.inverseInertiaScale = a.Izz / (a.Izz + a.A66);
+                    props.inverseInertiaScale = InertiaScale(a.Izz, a.A66, normal);
                 }
                 if (other) {
                     props.otherInverseMassScale = MassScale(b.Mass, b.A11, b.A22, b.Bow, b.Port, normal);
-                    props.otherInverseInertiaScale = b.Izz / (b.Izz + b.A66);
+                    props.otherInverseInertiaScale = InertiaScale(b.Izz, b.A66, normal);
                 }
                 pair.massProperties = props;
                 pairs[i] = pair;

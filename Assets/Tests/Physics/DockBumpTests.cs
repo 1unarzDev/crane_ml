@@ -92,6 +92,19 @@ namespace Sim.Tests.Physics {
                 Is.EqualTo(Mass / (Mass + 1.5f)).Within(1e-6f));
             Assert.That(AddedMassContacts.MassScale(Mass, 1.5f, A22, Vector3.forward, Vector3.left, Vector3.up),
                 Is.EqualTo(1f), "no added mass on vertical contacts");
+            Vector3 steep = new Vector3(0.5f, 0.866f, 0f);
+            Assert.That(AddedMassContacts.MassScale(Mass, 1.5f, A22, Vector3.forward, Vector3.left, steep), Is.EqualTo(1f),
+                "a normal 60° from horizontal is not a hull-side contact");
+        }
+
+        [Test]
+        public void InertiaScaleOnlyForHorizontalNormals() {
+            const float izz = 4.1f, a66 = 1.23f;
+            Assert.That(AddedMassContacts.InertiaScale(izz, a66, Vector3.left), Is.EqualTo(izz / (izz + a66)).Within(1e-6f));
+            Assert.That(AddedMassContacts.InertiaScale(izz, a66, new Vector3(0.9f, 0.436f, 0f).normalized),
+                Is.EqualTo(izz / (izz + a66)).Within(1e-6f), "26° from horizontal still counts");
+            Assert.That(AddedMassContacts.InertiaScale(izz, a66, Vector3.up), Is.EqualTo(1f), "grounding keeps full inertia");
+            Assert.That(AddedMassContacts.InertiaScale(izz, a66, Vector3.down), Is.EqualTo(1f));
         }
     }
 }
