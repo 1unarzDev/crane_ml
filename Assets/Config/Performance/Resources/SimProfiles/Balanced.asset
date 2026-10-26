@@ -15,8 +15,8 @@ MonoBehaviour:
   <Pipeline>k__BackingField: {fileID: 11400000, guid: 3e2e6bfc59709614ab90c0cd7d755e48, type: 2}
   <FrameRateCap>k__BackingField: 30
   <CameraResolutionScale>k__BackingField: 0.5
-  <CameraHz>k__BackingField: 15
-  <DetectionHz>k__BackingField: 10
+  <CameraHz>k__BackingField: 10
+  <DetectionHz>k__BackingField: 5
   <LidarHz>k__BackingField: 10
   <ReducedEffects>k__BackingField: 1
   <WaterDetail>k__BackingField: 1

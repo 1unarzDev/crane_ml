@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using Sim.Utils.Performance;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.HighDefinition;
@@ -12,16 +13,21 @@ namespace Sim.Performance {
     /// <summary>
     /// Picks and applies the simulation profile for every player launch.
     /// Precedence: --crane-sim-profile NAME, then a saved manual choice, then auto. Auto runs the
-    /// real scene once per device: warm 2 s, measure 3 s, and step down a tier until the frame
-    /// cap and real time both hold; the result is cached beside the saved choice.
+    /// real scene once per device: per tier warm 3 s, measure 6 s capped (must deliver 97% of the
+    /// cap), then 4 s uncapped (must sustain 1.05x the cap), with real time held and zero stale
+    /// observations in both; steps down a tier on any failure; the result is cached beside the saved choice.
     /// --crane-sim-profile NAME --crane-sim-profile-save stores NAME as the manual choice;
     /// saving auto forgets both the manual choice and the cached measurement.
     /// </summary>
     internal sealed class CraneSimProfileSelector : MonoBehaviour {
         internal static readonly string[] Tiers = { "full", "balanced", "minimal" };
-        private const float WarmSeconds = 2f;
-        private const float MeasureSeconds = 3f;
-        private const double MinFrameRateFraction = 0.9;
+        private const float WarmSeconds = 3f;
+        private const float MeasureSeconds = 6f;
+        // Measured with the frame cap lifted: the tier must sustain 5% above its own cap, so a
+        // pass leaves headroom and a capped run never queues work behind the sensors.
+        private const double MinFrameRateMargin = 1.05;
+        private const float UncappedSeconds = 4f;
+        private const double MinDeliveredFraction = 0.97;
         private const double MinRealTimeFactor = 0.95;
         private const string SavedFileName = "crane-sim-profile.json";
 
@@ -173,17 +179,25 @@ namespace Sim.Performance {
 
         private IEnumerator Benchmark() {
             for (int i = Array.IndexOf(Tiers, tier); ; i++) {
+                // Phase 1, as shipped (capped): the cap must actually be delivered, since sensor
+                // spikes overrun frames that an uncapped average hides.
                 yield return new WaitForSecondsRealtime(WarmSeconds);
-                int frames = Time.frameCount;
-                double wall = Time.realtimeSinceStartupAsDouble;
-                double simulated = Time.timeAsDouble;
-                yield return new WaitForSecondsRealtime(MeasureSeconds);
-                wall = Time.realtimeSinceStartupAsDouble - wall;
-                double fps = (Time.frameCount - frames) / wall;
-                double rtf = (Time.timeAsDouble - simulated) / wall / Math.Max(Time.timeScale, 1e-6f);
-                bool pass = fps >= MinFrameRateFraction * profile.FrameRateCap &&
-                    rtf >= MinRealTimeFactor;
-                string line = $"{Tiers[i]} fps={fps:F1} cap={profile.FrameRateCap} rtf={rtf:F3} " +
+                Measurement capped = default;
+                yield return Measure(MeasureSeconds, m => capped = m);
+                bool pass = capped.Fps >= MinDeliveredFraction * profile.FrameRateCap &&
+                    capped.Rtf >= MinRealTimeFactor && capped.Stale == 0;
+                // Phase 2, cap lifted: headroom of 5% above the cap.
+                Measurement open = default;
+                if (pass) {
+                    Application.targetFrameRate = -1;
+                    yield return new WaitForSecondsRealtime(1f);
+                    yield return Measure(UncappedSeconds, m => open = m);
+                    pass = open.Fps >= MinFrameRateMargin * profile.FrameRateCap &&
+                        open.Rtf >= MinRealTimeFactor && open.Stale == 0;
+                }
+                string line = $"{Tiers[i]} capped fps={capped.Fps:F1} cap={profile.FrameRateCap} " +
+                    $"rtf={capped.Rtf:F3} stale={capped.Stale} uncapped fps={open.Fps:F1} " +
+                    $"need={MinFrameRateMargin * profile.FrameRateCap:F1} stale={open.Stale} " +
                     (pass ? "pass" : "fail");
                 Debug.Log($"CRANE_SIM_PROFILE_BENCHMARK {line}");
                 benchmarkLines.Add(line);
@@ -195,9 +209,29 @@ namespace Sim.Performance {
                 Select(Tiers[i + 1], "auto-benchmark");
                 ApplyScene();
             }
+            Application.targetFrameRate = profile.FrameRateCap > 0 ? profile.FrameRateCap : -1;
             WriteSaved(Path.Combine(Application.persistentDataPath, SavedFileName), tier, "auto");
             benchmarking = false;
             EmitReport();
+        }
+
+        private struct Measurement {
+            public double Fps, Rtf;
+            public long Stale;
+        }
+
+        private static IEnumerator Measure(float seconds, Action<Measurement> done) {
+            long stale = CraneRuntimeMetrics.StaleObservations;
+            int frames = Time.frameCount;
+            double wall = Time.realtimeSinceStartupAsDouble;
+            double simulated = Time.timeAsDouble;
+            yield return new WaitForSecondsRealtime(seconds);
+            wall = Time.realtimeSinceStartupAsDouble - wall;
+            done(new Measurement {
+                Fps = (Time.frameCount - frames) / wall,
+                Rtf = (Time.timeAsDouble - simulated) / wall / Math.Max(Time.timeScale, 1e-6f),
+                Stale = CraneRuntimeMetrics.StaleObservations - stale
+            });
         }
 
         private void ApplyScene() {
