@@ -20,7 +20,7 @@ namespace Sim.Course.Tests {
             return request;
         }
 
-        [Test]
+        [Test, Timeout(1800000)]  // 210 truths take about 3 min in the editor
         public void CliTruthsEqualTheEditorsByteForByte() {
             string dir = Environment.GetEnvironmentVariable("CRANE_COURSE_CLI_DIR");
             if (string.IsNullOrEmpty(dir)) Assert.Ignore("CRANE_COURSE_CLI_DIR not set (written by Tools/RoboBoat/tests/test_cli.py)");

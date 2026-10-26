@@ -14,7 +14,8 @@ taken from the Unity install named in `ProjectSettings/ProjectVersion.txt`; over
     dotnet Tools/RoboBoat/cli/bin/Release/net10.0/coursegen.dll --seed 1 --out s1.json
     dotnet Tools/RoboBoat/cli/bin/Release/net10.0/coursegen.dll --seeds 1:201 --mode corner=hi --out DIR
     #   [--family roboboat_2026] [--mode iid|corner=lo|corner=hi|corner=mixed] [--set task.param=value]...
-    #   --seed without --out writes the truth to stdout; --seeds writes DIR/<family>-s<N>.json + failures.txt
+    #   --seed without --out writes the truth to stdout; --seeds writes DIR/<family>-s<N>.json (the editor's
+#   CourseCli names) + failures.txt and prints one JSON summary line {family, seeds, failed, retried, ms, identity, out}
     #   --version   the generator version of this checkout (JSON)
     #   --sources   the compiled generator files and their sha256
 

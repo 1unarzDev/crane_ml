@@ -68,13 +68,19 @@ namespace Sim.Course.Cli {
             long from = long.Parse(ab[0], CultureInfo.InvariantCulture), to = long.Parse(ab[1], CultureInfo.InvariantCulture);
             Directory.CreateDirectory(output);
             var failures = new List<string>();
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            int retried = 0;
             for (long s = from; s < to; s++) {
                 request.Seed = s;
                 var truth = Generate(family, request, failures);
+                if (truth != null && ((JObj)Json.Path(truth, "generator.attempts")).Any(kv => (double)kv.Value > 1)) retried++;
                 if (truth != null) File.WriteAllText(Path.Combine(output, $"{family.Name}-s{s}.json"), Json.Write(truth, true) + "\n");
             }
             File.WriteAllLines(Path.Combine(output, "failures.txt"), failures);
             Console.Error.WriteLine($"CRANE_COURSE_BATCH family={family.Name} seeds={from}:{to} failed={failures.Count} out={output}");
+            Console.WriteLine(Json.Write(new JObj().Set("family", family.Name).Set("seeds", (double)(to - from))
+                .Set("failed", (double)failures.Count).Set("retried", (double)retried).Set("ms", (double)clock.ElapsedMilliseconds)
+                .Set("identity", Json.Path(CourseIdentity.Current.ToJson(), "")).Set("out", output)));
             return failures.Count == 0 ? 0 : 3;
         }
 
