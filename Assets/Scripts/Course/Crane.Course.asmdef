@@ -1,0 +1,22 @@
+{
+    "name": "Crane.Course",
+    "rootNamespace": "Sim.Course",
+    "references": [
+        "GUID:625bfc588fb96c74696858f2c467e978",
+        "GUID:ba58c43074cf72549aa2ac5937dae44b",
+        "GUID:5db6cbfd5d0e86a46862a70f4b4067f2",
+        "GUID:291a39d822ef16edbbb93f54edc577c9",
+        "GUID:bc72eb1f861de4cb68600abf571dbd71",
+        "GUID:b83c00e4f6d38436787447cbcdaf815d",
+        "GUID:ae9cd76b059114cabba88b50afdb72b2"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
