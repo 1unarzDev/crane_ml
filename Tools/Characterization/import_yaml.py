@@ -12,6 +12,13 @@ Everything else (mass, inertia, geometry, thrusters) stays at the base value. Pr
 per-parameter status and reason, input sha256 values, the summary, kind "characterized" and the
 gate report path. --provenance, --run and --config-snapshot may be omitted; the gate then abstains
 on what they would have provided (PROVENANCE_MISSING, no holds), so nothing is overwritten.
+
+An mhseals.physics/1 survey record (characterization-v2) is the whole input:
+
+    python3 -I Tools/Characterization/import_yaml.py --yaml <root>/characterization/<fit>-survey.yaml \
+        [--history <root>/config-history] --out-profile OUT.json --out-report REPORT.json
+
+mhseals_physics.adapt turns it, its samples file and the config-history snapshot into the gate inputs.
 """
 from __future__ import annotations
 
@@ -23,6 +30,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # python3 -I drops the script dir
 import gate as G  # noqa: E402
+import mhseals_physics as MP  # noqa: E402
 import plant as P  # noqa: E402
 
 TAKEN = (G.IDENTIFIED, G.PROVISIONAL)
@@ -85,6 +93,8 @@ def main(argv=None):
     ap.add_argument("--provenance")
     ap.add_argument("--run")
     ap.add_argument("--config-snapshot")
+    ap.add_argument("--history", help="config-history dir for an mhseals.physics/1 record "
+                                      "[<record>/../../config-history]")
     ap.add_argument("--out-profile", required=True)
     ap.add_argument("--out-report", required=True)
     ap.add_argument("--base", default=P.IDEAL_PATH)
@@ -94,8 +104,14 @@ def main(argv=None):
     paths = [("yaml", a.yaml), ("provenance", a.provenance), ("run", a.run), ("config-snapshot", a.config_snapshot),
              ("base", a.base)]
     inputs = [{"path": p, "sha256": G.sha256_file(p)} for _, p in paths if p]
-    report = G.run_gate(a.yaml, a.provenance, a.run, a.config_snapshot, yaml_path=a.yaml, base_profile=base,
-                        tau_est=a.tau_est)
+    gate_in = (a.yaml, a.provenance, a.run, a.config_snapshot)
+    if MP.is_record(G.load_doc(a.yaml)):  # characterization-v2 survey: samples file, config-history
+        gate_in = MP.adapt(a.yaml, a.history)
+        sf = G.load_doc(a.yaml).get("samples_file")
+        if sf:
+            sp = os.path.join(os.path.dirname(a.yaml), sf["path"])
+            inputs.append({"path": sp, "sha256": G.sha256_file(sp)})
+    report = G.run_gate(*gate_in, yaml_path=a.yaml, base_profile=base, tau_est=a.tau_est)
     report["inputs"] = inputs
     prof = build_profile(base, report, inputs, a.out_report)
     for path, doc in ((a.out_report, report), (a.out_profile, prof)):

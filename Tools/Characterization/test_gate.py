@@ -80,6 +80,17 @@ def test_provenance_missing():
     assert "PROVENANCE_MISSING" in gate(inp)["parameters"]["yaw+"]["reasons"]
 
 
+def test_dirty_software_tree_is_provenance_missing():
+    inp = base_inputs()
+    inp["provenance"]["software"]["dirty"] = True
+    rep = gate(inp)
+    assert all(rep["parameters"][n]["reasons"] == ["PROVENANCE_MISSING"] for n in G.DIRECTIONS)
+    ev = next(c for c in rep["checks"] if c.get("reason") == "PROVENANCE_MISSING")["evidence"]
+    assert any("dirty" in m for m in ev["missing"])
+    inp["provenance"]["software"]["dirty"] = False
+    assert status(gate(inp), "surge+") == G.IDENTIFIED
+
+
 def test_calibration_invalid_against_the_fit_time_snapshot():
     inp = base_inputs()
     hw = copy.deepcopy(inp["snapshot"]["value"]["effective"])

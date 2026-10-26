@@ -326,7 +326,18 @@ def check_hold(h: Hold, est, rejected, median_rate):
         if abs(sk["offset_at_end_s"]) > MAX_SKEW_S:
             return abstain("HOLD_INVALID:clock_skew", index=h.index, offset_at_end_s=sk["offset_at_end_s"])
         skew_ev["offset_at_end_s"] = sk["offset_at_end_s"]
+    # A baseline still decaying from the previous hold (a coast shorter than the hull's settling
+    # time) biases the main-channel delta the curve uses; that is the procedure's fault, never the
+    # curve's (no MISFIT). Cross channels only feed signatures, so they are not checked here.
     j = parse_direction(h.direction)[0]
+    early = t[mb] < 0.5 * (b0 + b1)
+    xa, xz = data[CHANNELS[j]][mb][early], data[CHANNELS[j]][mb][~early]
+    if len(xa) > 2 and len(xz) > 2:
+        step = float(xz.mean() - xa.mean())
+        se_step = math.sqrt(float(np.var(xa, ddof=1)) / n_eff(xa) + float(np.var(xz, ddof=1)) / n_eff(xz))
+        if abs(step) > MISFIT_Z * se_step:
+            return abstain("HOLD_INVALID:baseline_unsettled", index=h.index, channel=CHANNELS[j], step=step,
+                           se=se_step, baseline_s=float(b1 - b0), note="lengthen the coast (settle_s) before each hold")
     delta, se, ne = [], [], []
     for c in CHANNELS:
         xh, xb = data[c][mh], data[c][mb]
@@ -411,8 +422,9 @@ def run_gate(yaml_doc, provenance=None, run=None, snapshot=None, *, yaml_path=No
         scope = f"provenance:{name}"
         entry = prov_dirs.get(name)
         hw_rec = (entry or {}).get("hardware") or {}
-        if sim_path or not hw_rec.get("hash") or "epoch" not in hw_rec:
+        if sim_path or hw_rec.get("sim_derived") or not hw_rec.get("hash") or "epoch" not in hw_rec:
             rep.add("sim_derived", scope, abstain("SIM_DERIVED", path=yaml_path, sim_path=sim_path,
+                                                  flagged=bool(hw_rec.get("sim_derived")),
                                                   hardware_hash=hw_rec.get("hash"), epoch=hw_rec.get("epoch")))
         fit = (entry or {}).get("fit") or {}
         missing = [k for k in ("id", "session", "run") if not fit.get(k)]
@@ -421,6 +433,8 @@ def run_gate(yaml_doc, provenance=None, run=None, snapshot=None, *, yaml_path=No
             missing.append("characterization.version==2")
         if not sha:
             missing.append("mhseals_testing sha")
+        if ((provenance or {}).get("software") or {}).get("dirty") is True or fit.get("dirty") is True:
+            missing.append("clean mhseals_testing tree (software.dirty)")
         if provenance is not None and provenance.get("schema", "mhseals.calibration/1") != "mhseals.calibration/1":
             missing.append("schema mhseals.calibration/1")
         if entry is None or missing:
