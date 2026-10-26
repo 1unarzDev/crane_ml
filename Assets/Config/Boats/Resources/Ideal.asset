@@ -1,0 +1,146 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3d05ee0f6b74adf209e818791328365b, type: 3}
+  m_Name: Ideal
+  m_EditorClassIdentifier: BoatPhysicsAssembly::Sim.Physics.Water.Boat.MarineSurfaceProfile
+  parameters:
+    name: Ideal
+    fixedDeltaTime: 0.02
+    mass: 30
+    ixx: 2.2
+    iyy: 2
+    izz: 4.1
+    comBow: 0
+    comPort: 0
+    addedMass:
+      a11: 1.5
+      a22: 15
+      a26: 0
+      a66: 1.23
+    surge:
+      d1Pos: 10
+      d1Neg: 10
+      d2Pos: 19.4
+      d2Neg: 19.4
+    sway:
+      d1Pos: 15
+      d1Neg: 15
+      d2Pos: 41.7
+      d2Neg: 41.7
+    yaw:
+      d1Pos: 10
+      d1Neg: 10
+      d2Pos: 19.3
+      d2Neg: 19.3
+    heave:
+      d1: 150
+      d2: 40
+    roll:
+      d1: 30
+      d2: 10
+    pitch:
+      d1: 30
+      d2: 10
+    thrusters:
+    - name: front_left
+      x: 0.27
+      y: 0.34
+      z: 0
+      alphaDeg: 135
+      kForward: 51.5
+      kReverse: 51.5
+      vRef: 16
+      nV: 0
+      deadbandUs: 0
+      offsetUs: 0
+      tauT: 0
+      deadTime: 0
+      submersionDepth: 0.08
+      kappa: 0
+    - name: front_right
+      x: 0.27
+      y: -0.34
+      z: 0
+      alphaDeg: -135
+      kForward: 51.5
+      kReverse: 51.5
+      vRef: 16
+      nV: 0
+      deadbandUs: 0
+      offsetUs: 0
+      tauT: 0
+      deadTime: 0
+      submersionDepth: 0.08
+      kappa: 0
+    - name: rear_right
+      x: -0.27
+      y: -0.34
+      z: 0
+      alphaDeg: -45
+      kForward: 51.5
+      kReverse: 51.5
+      vRef: 16
+      nV: 0
+      deadbandUs: 0
+      offsetUs: 0
+      tauT: 0
+      deadTime: 0
+      submersionDepth: 0.08
+      kappa: 0
+    - name: rear_left
+      x: -0.27
+      y: 0.34
+      z: 0
+      alphaDeg: 45
+      kForward: 51.5
+      kReverse: 51.5
+      vRef: 16
+      nV: 0
+      deadbandUs: 0
+      offsetUs: 0
+      tauT: 0
+      deadTime: 0
+      submersionDepth: 0.08
+      kappa: 0
+    envelope:
+      surge: 2.5
+      sway: 1.7
+      yaw: 1.9
+    provenance:
+      kind: ideal
+      source: 'priors: fusion Hull drag, Otter-scaled added mass, T200 16 V bollard,
+        mixer.tex geometry'
+      summary: prior
+      inputs: []
+      gateReport: 
+      parameters:
+      - name: mass
+        status: prior
+        reason: no weigh-in
+      - name: izz
+        status: prior
+        reason: layout estimate
+      - name: addedMass
+        status: prior
+        reason: Otter-scaled
+      - name: surge
+        status: prior
+        reason: no field data
+      - name: sway
+        status: prior
+        reason: no field data
+      - name: yaw
+        status: prior
+        reason: no field data
+      - name: thrusters
+        status: prior
+        reason: no bollard pull
