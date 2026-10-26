@@ -1,0 +1,13 @@
+# Nodes allowed to subscribe to /crane/truth/* (design §4 isolation). The rig lists the
+# subscribers at readiness and every 30 s and fails the run on any other node:
+#   check_truth_subscribers.py [--allowlist truth_allowlist.yaml]   (exit 1 on a violation)
+# Names are ROS node names without the leading slash; a trailing * matches a prefix.
+allow:
+  - referee*
+  - rosbag2_recorder*
+  - course_truth_agent*
+  - rviz*
+  - ros_tcp_endpoint*
+topics:
+  - /crane/truth/course
+  - /crane/truth/states

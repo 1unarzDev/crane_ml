@@ -1,0 +1,5 @@
+{
+  "schema": "crane.course_regressions/1",
+  "notes": "Failing {family, seed, mode, overrides} tuples, replayed by the fuzz and rig tests.",
+  "cases": []
+}
