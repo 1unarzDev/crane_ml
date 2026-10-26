@@ -315,3 +315,15 @@ def test_cli_json_submit_list_show(rig, tmp_path, capsys):
     assert [j['id'] for j in json.loads(capsys.readouterr().out)] == [job['id']]
     assert rigq.main(['--config', cfg, '--json', 'submit', '--no-start', '--', '--domain', '7']) == 2
     assert 'belongs to the queue' in json.loads(capsys.readouterr().out)['error']
+
+
+def test_worker_unit_install_uninstall(rig, tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv('XDG_CONFIG_HOME', str(tmp_path / 'xdg'))
+    cfg = str(tmp_path / 'rig.yaml')
+    assert rigq.main(['--config', cfg, '--json', 'worker', 'install', '--slots', '2']) == 0
+    out = json.loads(capsys.readouterr().out)
+    text = (tmp_path / 'xdg/systemd/user/rigq-worker.service').read_text()
+    assert out['written'] and '@' not in text
+    assert f'--config {cfg} worker --slots 2' in text and 'WantedBy=default.target' in text
+    assert rigq.main(['--config', cfg, '--json', 'worker', 'uninstall']) == 0
+    assert json.loads(capsys.readouterr().out)['removed'] and not (tmp_path / 'xdg/systemd/user/rigq-worker.service').exists()

@@ -7,6 +7,8 @@
   rigq cancel ID                               dequeue, or stop it if running
   rigq results [-n N]                          finished jobs (results.jsonl)
   rigq worker [--slots N] [--until-empty]      run jobs: one worker per queue dir
+  rigq worker install|uninstall [--slots N]    write/remove ~/.config/systemd/user/rigq-worker.service
+                                               (a persistent worker; never enabled or started here)
 Every command takes --json (one JSON document on stdout) and --config PATH.
 
 Jobs are kind sim (run_sim.sh with the queue's domain and session dir), cmd (any argv; gets
@@ -661,6 +663,43 @@ def emit(args, data, human):
         human(data)
 
 
+UNIT_NAME = 'rigq-worker.service'
+
+
+def unit_path():
+    base = os.environ.get('XDG_CONFIG_HOME') or str(Path.home() / '.config')
+    return Path(base) / 'systemd' / 'user' / UNIT_NAME
+
+
+def unit_text(config, slots=None):
+    """The user unit from rigq-worker.service.in; systemd needs absolute, space-free paths."""
+    values = {'@RIG_DIR@': str(HERE), '@RIGQ@': str(HERE / 'rigq'), '@CONFIG@': str(Path(config).resolve()),
+              '@SLOTS@': f' --slots {int(slots)}' if slots else ''}
+    for key, value in values.items():
+        if key != '@SLOTS@' and (' ' in value or '%' in value):
+            raise ValueError(f'unit path has a space or %: {value}')
+    text = (HERE / 'rigq-worker.service.in').read_text()
+    for key, value in values.items():
+        text = text.replace(key, value)
+    return text
+
+
+def worker_unit(action, config, slots=None):
+    """Write or remove the unit file. Never runs systemctl: enabling is the owner's call."""
+    path = unit_path()
+    if action == 'install':
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(unit_text(config, slots))
+        return {'unit': str(path), 'written': True,
+                'next': f'systemctl --user daemon-reload && systemctl --user enable --now {UNIT_NAME}'}
+    existed = path.exists()
+    if existed:
+        path.unlink()
+    return {'unit': str(path), 'removed': existed,
+            'next': f'systemctl --user disable --now {UNIT_NAME}; systemctl --user daemon-reload'
+                    if existed else 'nothing to remove'}
+
+
 def row(job):
     p = job.get('progress') or {}
     extra = f"sim {p.get('sim_time') or 0:.0f}s travel {p.get('travel') or 0:.1f}m" if p else ''
@@ -697,11 +736,21 @@ def main(argv=None):
     r = sub.add_parser('results')
     r.add_argument('-n', type=int)
     w = sub.add_parser('worker')
+    w.add_argument('action', nargs='?', choices=('install', 'uninstall'),
+                   help='write or remove the systemd user unit (never enables it)')
     w.add_argument('--slots', type=int)
     w.add_argument('--until-empty', action='store_true', help='exit once nothing is queued or running')
     w.add_argument('--linger', type=float, default=20)
     args = ap.parse_args(argv)
 
+    if args.cmd == 'worker' and args.action:
+        try:
+            emit(args, worker_unit(args.action, args.config, args.slots),
+                 lambda d: [print(f'{k}: {v}') for k, v in d.items()])
+        except (OSError, ValueError) as error:
+            print(f'rigq: {error}', file=sys.stderr)
+            return 2
+        return 0
     rig = load_config(args.config)
     q = Queue(rig['queue']['dir'])
     try:

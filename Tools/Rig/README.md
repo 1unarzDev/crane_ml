@@ -19,6 +19,7 @@ Every host-specific value (player, courses, profiles, image, mounts, display) co
     Tools/Rig/rigq results -n 10
     Tools/Rig/rigq cancel ID
     Tools/Rig/rigq worker --slots 1                                     # foreground worker instead
+    Tools/Rig/rigq worker install [--slots N]                           # write (not enable) a systemd --user unit; see below
 
 Everything after `--` is `run_sim.sh` options (`run_sim.sh -h`); the queue owns `--domain`,
 `--port` and the session dir (`sessions_dir/rigq/<id>`). `--kind cmd|build -- ARGV...` queues any
@@ -44,3 +45,11 @@ command (builds are capped at `queue.builders` per host). Every command takes `-
 ## Tests
 
     python3 -I -m pytest Tools/Rig/tests -q     # no ROS, Docker or player needed
+
+## Persistent worker (optional)
+
+Tools that kill background processes (Codex after 30 s) cannot keep a worker alive.
+`rigq worker install` writes `~/.config/systemd/user/rigq-worker.service` from
+`rigq-worker.service.in`; it does not run systemctl. To use it:
+`systemctl --user daemon-reload && systemctl --user enable --now rigq-worker`.
+`rigq worker uninstall` removes the file (disable first).

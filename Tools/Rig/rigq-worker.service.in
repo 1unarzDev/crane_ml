@@ -1,0 +1,16 @@
+# rigq queue worker, as a systemd user unit. `rigq worker install` fills in the paths and writes
+# this to ~/.config/systemd/user/rigq-worker.service; enabling it is a separate, owner-made step.
+[Unit]
+Description=rigq sim queue worker (@RIG_DIR@)
+
+[Service]
+Type=simple
+ExecStart=@RIGQ@ --config @CONFIG@ worker@SLOTS@
+Restart=on-failure
+RestartSec=10
+# On stop the worker gets SIGTERM and has TimeoutStopSec to stop its runs; the watchdog's exact
+# process-group stop covers anything left.
+TimeoutStopSec=60
+
+[Install]
+WantedBy=default.target
