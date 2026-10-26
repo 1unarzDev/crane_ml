@@ -43,6 +43,10 @@ namespace Sim.Sensors.Lidar {
         private long packJobValidatedEpisode = -1;
         private long processPathValidatedEpisode = -1;
 
+        // Space rings verticalFOV / (rings - 1) apart, from +FOV/2 down to -FOV/2 inclusive (as a
+        // real multi-ring sensor), instead of FOV / rings from +FOV/2.
+        private bool ringsSpanVerticalFov;
+
         private int previousHorizontalBeams;
         private int previousVerticalBeams;
         private float previousHorizontalFov;
@@ -187,15 +191,32 @@ namespace Sim.Sensors.Lidar {
 
         public void SetFrameCorrection(Quaternion correction) => frameCorrection = correction;
 
-        /// <summary>Set the scan pattern, e.g. to match a real sensor; takes effect at once.</summary>
+        /// <summary>Set the scan pattern, e.g. to match a real sensor; takes effect at once.
+        /// ``spanVerticalFov`` puts the outer rings at +-FOV/2; a positive
+        /// ``horizontalFieldOfView`` replaces the azimuth span.</summary>
         public void Configure(int horizontalBeams, int verticalBeams, float verticalFieldOfView,
-            float range) {
+            float range, bool spanVerticalFov = false, float horizontalFieldOfView = 0f) {
             numHorizontalBeams = horizontalBeams;
             numVerticalBeams = verticalBeams;
             verticalFOV = verticalFieldOfView;
             maxRange = range;
+            ringsSpanVerticalFov = spanVerticalFov;
+            if (horizontalFieldOfView > 0f) horizontalFOV = horizontalFieldOfView;
             RebuildScanPattern();
         }
+
+        /// <summary>Ring elevations in degrees, top first.</summary>
+        public float[] RingElevationsDegrees() {
+            float step = VerticalStep();
+            var rings = new float[numVerticalBeams];
+            for (int j = 0; j < numVerticalBeams; j++)
+                rings[j] = (0.5f * verticalFOV - step * j) * Mathf.Rad2Deg;
+            return rings;
+        }
+
+        private float VerticalStep() => ringsSpanVerticalFov && numVerticalBeams > 1
+            ? verticalFOV / (numVerticalBeams - 1)
+            : verticalFOV / numVerticalBeams;
 
         public PointCloud2Msg CreateMessage() {
             using var marker = CraneProfiler.Lidar.Auto();
@@ -237,7 +258,7 @@ namespace Sim.Sensors.Lidar {
 
         private Vector3[] GenerateScanVectors() {
             float fidelityHorizontal = horizontalFOV / numHorizontalBeams;
-            float fidelityVertical = verticalFOV / numVerticalBeams;
+            float fidelityVertical = VerticalStep();
 
             Vector3[] scanVectors = new Vector3[numHorizontalBeams * numVerticalBeams];
 

@@ -105,12 +105,16 @@ namespace Sim.Controllers {
             var hull = root.gameObject.AddComponent<RoboBoatHull>();
             hull.body = root;
             hull.links = all;
-            // The LiDAR as a Velodyne VLP-16: 16 rings 2 degrees apart over +-15 degrees and
-            // 0.2 degree steps at 10 Hz. (The pattern spaces rings FOV / count apart.)
+            // The LiDAR as a Velodyne VLP-16: 16 rings 2 degrees apart from +15 to -15 degrees
+            // and 0.2 degree steps over 360 degrees, at the prefab's rate (10 Hz).
             // Its mount follows the imported hull's axes, so the cloud gets the same turn
             // into REP-103 as the body (x forward in lidar_link, as the real driver gives).
             foreach (var lidar in root.GetComponentsInChildren<Sim.Sensors.Lidar.Lidar3D>()) {
-                lidar.Configure(1800, 16, 32f * Mathf.Deg2Rad, 100f);
+                lidar.Configure(1800, 16, 30f * Mathf.Deg2Rad, 100f, spanVerticalFov: true,
+                    horizontalFieldOfView: 2f * Mathf.PI);
+                float[] rings = lidar.RingElevationsDegrees();
+                Debug.Log($"CRANE_ROBOBOAT_LIDAR rings={rings.Length} " +
+                          $"elevation_deg={rings[0]:F2}..{rings[^1]:F2} azimuth_steps=1800");
                 lidar.SetFrameCorrection(Quaternion.Inverse(
                     Quaternion.Inverse(lidar.transform.rotation) *
                     RoboBoatRosFrame.Rotation(root.transform.rotation)));
