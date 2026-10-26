@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Sim.Controllers;
 using Sim.Course.RoboBoat;
 using Sim.Sensors.Vision;
+using Sim.Utils.Viewer;
 using UnityEngine;
 
 namespace Sim.Course {
@@ -31,10 +32,17 @@ namespace Sim.Course {
             float waterline = 0f;
             foreach (var t in templates.Values) if (t != null) { waterline = t.transform.position.y; break; }
 
+            var taskAreas = new Dictionary<string, Bounds>();  // framed by the viewer's Task and Course views
             foreach (JObj e in truth.Arr("elements")) {
                 var entry = catalog.Get(e.Str("kind"));
                 GameObject go = Instantiate(entry, e, templates, waterline, built.Root, out bool placeholder);
                 go.name = e.Str("id");
+                string task = e.Str("task");
+                if (!string.IsNullOrEmpty(task)) {
+                    Bounds bounds = JsonCourseSource.WorldBounds(go);
+                    if (taskAreas.TryGetValue(task, out Bounds area)) bounds.Encapsulate(area);
+                    taskAreas[task] = bounds;
+                }
                 if (placeholder) built.Placeholders++;
                 IStatefulCourseObject stateful = null;
                 string stateId = e.Str("state");
@@ -50,6 +58,7 @@ namespace Sim.Course {
                 built.Targets.Add(new DetectionTarget(go, () => catalog.Label(elementKind, source?.State, mode),
                     CourseTruth.OpaqueId(seed, e.Str("id"))));
             }
+            foreach (var area in taskAreas) ViewerAreas.Set(area.Key, area.Value);
             foreach (JObj s in truth.Arr("states"))
                 if (s.Str("kind") == "horn") {
                     var horn = new GameObject(s.Str("id")).AddComponent<HornProgram>();
