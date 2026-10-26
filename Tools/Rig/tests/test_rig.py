@@ -422,3 +422,17 @@ def test_a_job_submitted_during_the_exit_gets_served(rig):
     w = Racy(rig, until_empty=True, linger_s=0, out=open(os.devnull, 'w'))
     assert w.run() == 0
     assert q.get(late[0]['id'])['state'] == 'done'
+
+
+def test_plant_applied_line_is_parsed_for_attribution(tmp_path):
+    log = tmp_path / 'player.log'
+    log.write_text('noise\nCRANE_PLANT_APPLIED profile=Characterized sha256=ab12 status=prior: SIM_DERIVED, X '
+                   'dt=0.02\nCRANE_PLANT_APPLIED profile=Other sha256=x status=y\n')
+    assert rigq.plant_applied(log) == {'profile': 'Characterized', 'sha256': 'ab12',
+                                       'status': 'prior: SIM_DERIVED, X', 'dt': '0.02'}
+    log.write_text('CRANE_PLANT_LEGACY scene physics kept as authored\n')
+    assert rigq.plant_applied(log) is None
+    assert rigq.plant_applied(tmp_path / 'missing.log') is None
+    # run_sim.sh's run-log writer carries the same parser.
+    text = (Path(rigq.__file__).parent / 'run_sim.sh').read_text()
+    assert "line['plant'] = plant_applied(session / 'player.log')" in text

@@ -64,6 +64,18 @@ def parse_domains(spec):
     return sorted(out)
 
 
+def plant_applied(path):
+    """{profile, sha256, status} of the player's CRANE_PLANT_APPLIED line, or None (as run_sim.sh's
+    run log): a result is only attributable with the plant that produced it."""
+    try:
+        for text in path.read_text(errors='replace').splitlines():
+            if text.startswith('CRANE_PLANT_APPLIED '):
+                return dict(re.findall(r'(\w+)=(.*?)(?= \w+=|$)', text[len('CRANE_PLANT_APPLIED '):]))
+    except OSError:
+        pass
+    return None
+
+
 def load_config(path):
     rig = rigconf.load(path)
     q = dict(rig.get('queue') or {})
@@ -156,6 +168,8 @@ class Queue:
                                         'cleanup', 'log')}
         if job.get('started'):
             line['elapsed_s'] = round(job['finished'] - job['started'], 1)
+        if job.get('kind') == 'sim' and job.get('session'):
+            line['plant'] = plant_applied(Path(job['session']) / 'player.log')
         with open(self.dir / 'results.jsonl', 'a') as out:
             out.write(json.dumps(line, default=str) + '\n')
         return job

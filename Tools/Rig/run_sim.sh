@@ -10,6 +10,9 @@
 # Usage: run_sim.sh [options] [-- extra player args]
 #   -c, --course NAME|PATH   course spec: a name in courses_dir or a .json path [roboboat_2025]
 #   -f, --faults PATH        calibration faults JSON (--crane-calibration-faults) [none]
+#   -b, --boat-profile NAME|PATH.json  boat plant: ideal, characterized or an asset name
+#                            (--crane-boat-profile), or a profile JSON (--crane-boat-profile-json)
+#                            [ideal]; the player's CRANE_PLANT_APPLIED line goes to the run log
 #   -d, --duration S         seconds recorded after the course is ready [30]
 #   -p, --profile NAME|PATH  mhseals_testing profile [crane_full_stack]
 #   -o, --out DIR            session dir [sessions_dir/<profile>_<YYYYmmdd_HHMMSS>]
@@ -47,7 +50,7 @@ set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 config="${here}/rig.yaml"
-course="" faults="" duration="" profile="" out="" current="" run_cmd=""
+course="" faults="" boat_profile="" duration="" profile="" out="" current="" run_cmd=""
 overlay="" domain="" port="" drive=1 drive_preset="" smoke=0 seed="" wind="" gps_sigma="" mode="" hardware="" task=""
 extra=()
 
@@ -57,6 +60,7 @@ while (($#)); do
     case "$1" in
         -c|--course) course="$2"; shift 2 ;;
         -f|--faults) faults="$2"; shift 2 ;;
+        -b|--boat-profile) boat_profile="$2"; shift 2 ;;
         -d|--duration) duration="$2"; shift 2 ;;
         -p|--profile) profile="$2"; shift 2 ;;
         -o|--out) out="$2"; shift 2 ;;
@@ -286,9 +290,22 @@ cleanup() {
     rm -f "${session}"/*.pid "${session}"/run.env.tmp
     # One line per run in the run log, failed runs included.
     python3 -I - "${session}" "${status}" "${run_log}" <<'PY' || true
-import json, sys, time, yaml
+import json, re, sys, time, yaml
 from pathlib import Path
 session, status, log = Path(sys.argv[1]), int(sys.argv[2]), sys.argv[3]
+
+
+def plant_applied(path):
+    """{profile, sha256, status} of the player's CRANE_PLANT_APPLIED line, or None (rigq too)."""
+    try:
+        for text in path.read_text(errors='replace').splitlines():
+            if text.startswith('CRANE_PLANT_APPLIED '):
+                return dict(re.findall(r'(\w+)=(.*?)(?= \w+=|$)', text[len('CRANE_PLANT_APPLIED '):]))
+    except OSError:
+        pass
+    return None
+
+
 meta = {}
 try:
     meta = yaml.safe_load((session / 'session.yaml').read_text()) or {}
@@ -299,6 +316,7 @@ keys = ('seed', 'mode', 'course', 'faults', 'faults_sha256', 'hardware', 'hardwa
         'task_outcome', 'ros')
 line = dict(time=time.strftime('%Y-%m-%dT%H:%M:%S%z'), session=str(session), exit=status,
             bag=str(session / 'bag'), **{k: meta.get(k) for k in keys})
+line['plant'] = plant_applied(session / 'player.log')
 referee = session / 'referee.json'
 if referee.exists():
     line['referee'] = json.loads(referee.read_text()).get('verdict')
@@ -372,6 +390,11 @@ player_cmd=(nice -n "${nice}" "${player}" -batchmode -screen-fullscreen 0 -scree
     --crane-roboboat-course "${course_path}"
     --crane-roboboat-course-truth "${session}/course_truth.json")
 [[ -n "${faults}" ]] && player_cmd+=(--crane-calibration-faults "$(cd "$(dirname "${faults}")" && pwd)/$(basename "${faults}")")
+if [[ "${boat_profile}" == *.json ]]; then
+    player_cmd+=(--crane-boat-profile-json "$(cd "$(dirname "${boat_profile}")" && pwd)/$(basename "${boat_profile}")")
+elif [[ -n "${boat_profile}" ]]; then
+    player_cmd+=(--crane-boat-profile "${boat_profile}")
+fi
 [[ -n "${current}" ]] && player_cmd+=(--crane-water-current "${current}")
 [[ -n "${wind}" ]] && player_cmd+=(--crane-wind "${wind}")
 [[ -n "${gps_sigma}" ]] && player_cmd+=(--crane-gps-sigma "${gps_sigma}")
@@ -397,6 +420,9 @@ for name in "${stack_check[@]}"; do
         { log "${name} is not running; see ${name}.log"; exit 1; }
 done
 log "course ready"
+# Results are only attributable with the plant that produced them (profile, sha256, status).
+plant_line="$(grep -m1 -o 'CRANE_PLANT_APPLIED .*' "${session}/player.log" || true)"
+log "plant: ${plant_line:-none (no CRANE_PLANT_APPLIED: legacy physics?)}"
 docker cp -q "${session}/course_truth.json" "${container}:${cdir}/course_truth.json"
 
 # --- drive or run, then hold until the duration ends ----------------------------------------
