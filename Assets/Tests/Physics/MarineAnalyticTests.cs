@@ -93,6 +93,10 @@ namespace Sim.Tests.Physics {
                 double refQ = Kit.Run(quadratic, start, _ => default, Kit.ReferenceDt, tq, rk4: true).Body[j];
                 Assert.That(refL, Is.EqualTo(v0 * Math.Exp(-1)).Within(1e-3 * v0), "RK4 vs v0·e^(−D1 t/M)");
                 Assert.That(refQ, Is.EqualTo(v0 / 2).Within(1e-3 * v0), "RK4 vs v0/(1 + D2 v0 t/M)");
+                // Kit.Run steps round(t/dt) ticks; judge the stepper against RK4 at that same time,
+                // not at t (yaw tq is 4.6 ticks at dt 0.04, a 2-4 % sampling offset on its own).
+                refL = Kit.Run(linear, start, _ => default, Kit.ReferenceDt, Math.Round(tl / dt) * dt, rk4: true).Body[j];
+                refQ = Kit.Run(quadratic, start, _ => default, Kit.ReferenceDt, Math.Round(tq / dt) * dt, rk4: true).Body[j];
                 double errL = Math.Abs(gotL / refL - 1), errQ = Math.Abs(gotQ / refQ - 1);
                 Report($"decay_linear axis={j}", dt, errL);
                 Report($"decay_quadratic axis={j}", dt, errQ);
