@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using Sim.Course.RoboBoat;
 using UnityEngine;
 
 namespace Sim.Course {
@@ -24,7 +23,7 @@ namespace Sim.Course {
         public static bool Inked(Style style, string value, float u, float v) {
             if (style == Style.Shape) {
                 string shape = value.Contains("_") ? value.Substring(value.IndexOf('_') + 1) : value;
-                return JsonCourseSource.InShape(shape, u, v);
+                return CourseVisuals.InShape(shape, u, v);
             }
             if (string.IsNullOrEmpty(value) || !Glyphs.TryGetValue(value[0], out var rows)) return false;
             float gx = (u - 0.2f) / 0.6f * 5f, gy = (0.85f - v) / 0.7f * 7f;
@@ -38,7 +37,7 @@ namespace Sim.Course {
             string key = $"{style}:{value}";
             if (!Cache.TryGetValue(key, out var texture)) {
                 const int size = 64;
-                Color ink = style == Style.Shape ? JsonCourseSource.BannerColor(value) : Color.black;
+                Color ink = style == Style.Shape ? CourseVisuals.BannerColor(value) : Color.black;
                 texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
                 for (int y = 0; y < size; y++)
                     for (int x = 0; x < size; x++)

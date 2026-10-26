@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using Sim.Controllers;
-using Sim.Course.RoboBoat;
 using Sim.Sensors.Vision;
 using Sim.Utils.Viewer;
 using UnityEngine;
@@ -23,6 +22,7 @@ namespace Sim.Course {
             var built = new Built { Root = new GameObject($"Course {truth.Str("name")}").transform };
             var stateKinds = new Dictionary<string, string>();
             foreach (JObj s in truth.Arr("states")) stateKinds[s.Str("id")] = s.Str("kind");
+            var detectionIds = CourseTruth.DetectionIds(truth, mode, seed);  // the ids perception truth writes
 
             // Resolve scene templates before their groups are hidden (Find skips inactive objects).
             var templates = new Dictionary<string, GameObject>();
@@ -39,7 +39,7 @@ namespace Sim.Course {
                 go.name = e.Str("id");
                 string task = e.Str("task");
                 if (!string.IsNullOrEmpty(task)) {
-                    Bounds bounds = JsonCourseSource.WorldBounds(go);
+                    Bounds bounds = CourseVisuals.WorldBounds(go);
                     if (taskAreas.TryGetValue(task, out Bounds area)) bounds.Encapsulate(area);
                     taskAreas[task] = bounds;
                 }
@@ -56,7 +56,7 @@ namespace Sim.Course {
                 if (catalog.Label(elementKind, "x", mode).Length == 0) continue;
                 var source = stateful;
                 built.Targets.Add(new DetectionTarget(go, () => catalog.Label(elementKind, source?.State, mode),
-                    CourseTruth.OpaqueId(seed, e.Str("id"))));
+                    detectionIds[e.Str("id")]));
             }
             foreach (var area in taskAreas) ViewerAreas.Set(area.Key, area.Value);
             foreach (JObj s in truth.Arr("states"))
@@ -92,10 +92,10 @@ namespace Sim.Course {
                 var clone = UnityEngine.Object.Instantiate(template, RoboBoatCourse.RosToUnity(ros, template.transform.position.y + z),
                     heading * template.transform.rotation, root);
                 clone.transform.localScale = template.transform.lossyScale;
-                float r = JsonCourseSource.HorizontalRadius(clone);
+                float r = CourseVisuals.HorizontalRadius(clone);
                 if (r > 1e-3f) clone.transform.localScale *= entry.radius / r;
-                if (entry.color.Length > 0) JsonCourseSource.Recolor(clone, entry.color);
-                JsonCourseSource.MakeSolid(clone, entry.template.Contains("Buoy"));
+                if (entry.color.Length > 0) CourseVisuals.Recolor(clone, entry.color);
+                CourseVisuals.MakeSolid(clone, entry.template.Contains("Buoy"));
                 return clone;
             }
             placeholder = true;
@@ -141,7 +141,7 @@ namespace Sim.Course {
             part.transform.localScale = scale;
             part.layer = Sim.Physics.Contacts.CraneCollisionLayers.DynamicObstacle;
             var renderer = part.GetComponent<Renderer>();
-            try { renderer.sharedMaterial = new Material(JsonCourseSource.TemplateMaterial()); }
+            try { renderer.sharedMaterial = new Material(CourseVisuals.TemplateMaterial()); }
             catch (InvalidOperationException) { }
             renderer.material.SetColor("_BaseColor", color);
             return renderer;

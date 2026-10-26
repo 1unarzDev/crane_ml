@@ -3,7 +3,8 @@
 
 Runs ``ros2 topic info -v`` per truth topic, so it needs a sourced ROS 2 environment and the
 run's ROS_DOMAIN_ID. Exit 0 clean, 1 on a violation (the offending nodes are printed), 2 when
-ROS 2 is unavailable. ``--info FILE`` judges saved ``ros2 topic info -v`` output instead (tests).
+ROS 2 is unavailable or ``ros2`` exits non-zero. Subscribers are matched on namespace
+plus node name. ``--info FILE`` judges saved ``ros2 topic info -v`` output instead (tests).
 """
 
 import argparse
@@ -28,14 +29,18 @@ def read_allowlist(path):
 
 
 def subscribers(info_text):
-    """Node names of the subscription endpoints in ``ros2 topic info -v`` output."""
-    nodes, current = [], None
+    """Fully qualified node names (namespace/name, no leading slash) of the subscription
+    endpoints in ``ros2 topic info -v`` output, so ``/other/referee`` is not ``referee``."""
+    nodes, name, namespace = [], None, '/'
     for line in info_text.splitlines():
         m = re.match(r'\s*Node name:\s*(\S+)', line)
         if m:
-            current = m.group(1)
-        if re.match(r'\s*Endpoint type:\s*SUBSCRIPTION', line) and current:
-            nodes.append(current.lstrip('/'))
+            name, namespace = m.group(1), '/'
+        m = re.match(r'\s*Node namespace:\s*(\S+)', line)
+        if m:
+            namespace = m.group(1)
+        if re.match(r'\s*Endpoint type:\s*SUBSCRIPTION', line) and name:
+            nodes.append((namespace.rstrip('/') + '/' + name.lstrip('/')).lstrip('/'))
     return nodes
 
 
@@ -55,10 +60,16 @@ def main(argv=None):
             text = Path(args.info).read_text()
         else:
             try:
-                text = subprocess.run(['ros2', 'topic', 'info', '-v', topic], capture_output=True, text=True, timeout=20).stdout
+                run = subprocess.run(['ros2', 'topic', 'info', '-v', topic], capture_output=True, text=True, timeout=20)
             except (OSError, subprocess.TimeoutExpired) as error:
                 print(f'TRUTH_SUBSCRIBERS_UNAVAILABLE {error}')
                 return 2
+            if run.returncode != 0:
+                detail = (run.stderr or run.stdout).strip().splitlines()
+                print(f'TRUTH_SUBSCRIBERS_UNAVAILABLE topic={topic} ros2 exit {run.returncode}'
+                      + (f': {detail[-1]}' if detail else ''))
+                return 2
+            text = run.stdout
         bad += [(topic, n) for n in violations(subscribers(text), allow)]
     for topic, node in bad:
         print(f'TRUTH_SUBSCRIBER_VIOLATION topic={topic} node={node}')

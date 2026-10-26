@@ -154,15 +154,67 @@ namespace Sim.Course {
             return (object)new List<object> { CourseFrame.Mm(w.X), CourseFrame.Mm(w.Y) };
         }).ToList();
 
-        /// <summary>An opaque detection id: stable per course and element, independent of any
-        /// colour or numeral (the camera-mode leak test checks this).</summary>
+        /// <summary>The oracle-mode detection id: stable per seed and element. Oracle labels
+        /// carry colour and numerals anyway, so this id may be recomputable.</summary>
         public static int OpaqueId(ulong seed, string elementId) =>
             (int)(CourseRng.Fnv1a64(seed, "opaque:" + elementId) & 0x7FFFFFFF);
 
+        /// <summary>The camera-mode id salt: drawn from a cryptographic RNG at process start,
+        /// never from the logged seed, so camera ids cannot be recomputed from the run's log.
+        /// Tests pass an explicit salt instead.</summary>
+        public static readonly ulong RunSalt = FreshSalt();
+
+        static ulong FreshSalt() {
+            var bytes = new byte[8];
+            using (var rng = System.Security.Cryptography.RandomNumberGenerator.Create()) rng.GetBytes(bytes);
+            return BitConverter.ToUInt64(bytes, 0);
+        }
+
+        /// <summary>A camera-mode id: FNV-1a of a colour-free key (task, role, ordinal), xored
+        /// with the salt and run through the SplitMix64 finaliser.</summary>
+        public static int CameraId(ulong salt, string key) {
+            ulong z = CourseRng.Fnv1a64(0, "camera:" + key) ^ salt;
+            z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9UL;
+            z = (z ^ (z >> 27)) * 0x94D049BB133111EBUL;
+            z ^= z >> 31;
+            return (int)(z & 0x7FFFFFFF);
+        }
+
+        /// <summary>The colour-free key of every element: task, role and the element's ordinal
+        /// among that task's elements of the same role, in truth order. Never an element id
+        /// (ids name colours, e.g. green_beacon1).</summary>
+        public static Dictionary<string, string> CameraKeys(JObj truth) {
+            var keys = new Dictionary<string, string>();
+            var count = new Dictionary<string, int>();
+            foreach (JObj e in truth.Arr("elements")) {
+                string group = e.Str("task") + "/" + e.Str("role");
+                count.TryGetValue(group, out int n);
+                count[group] = n + 1;
+                keys[e.Str("id")] = group + "/" + n;
+            }
+            return keys;
+        }
+
+        /// <summary>Detection id per element id, as perception truth and Detection3D both use:
+        /// oracle mode the seed-stable <see cref="OpaqueId"/>, camera mode the salted
+        /// <see cref="CameraId"/> (salt defaults to <see cref="RunSalt"/>). Not hashed into
+        /// truth_sha256.</summary>
+        public static Dictionary<string, int> DetectionIds(JObj truth, LabelMode mode, ulong seed, ulong? salt = null) {
+            var ids = new Dictionary<string, int>();
+            if (mode == LabelMode.Camera) {
+                ulong s = salt ?? RunSalt;
+                foreach (var kv in CameraKeys(truth)) ids[kv.Key] = CameraId(s, kv.Value);
+            } else {
+                foreach (JObj e in truth.Arr("elements")) ids[e.Str("id")] = OpaqueId(seed, e.Str("id"));
+            }
+            return ids;
+        }
+
         /// <summary>The stripped perception truth for sim_backend (§4): x, y, z, label in the
-        /// run's label mode, and an opaque id; nothing else.</summary>
+        /// run's label mode, and an opaque id (<see cref="DetectionIds"/>); nothing else.</summary>
         public static JObj Perception(JObj truth, CourseObjectCatalog catalog, LabelMode mode, ulong seed,
-            Func<string, string> stateNow = null) {
+            Func<string, string> stateNow = null, ulong? salt = null) {
+            var ids = DetectionIds(truth, mode, seed, salt);
             var list = new List<(string id, JObj e)>();
             foreach (JObj e in truth.Arr("elements")) {
                 string stateId = e.Str("state");
@@ -170,7 +222,7 @@ namespace Sim.Course {
                 string label = catalog.Label(e.Str("kind"), state, mode);
                 if (string.IsNullOrEmpty(label)) continue;
                 list.Add((e.Str("id"), new JObj().Set("x", e.Num("x")).Set("y", e.Num("y")).Set("z", e.Num("z"))
-                    .Set("label", label).Set("id", (double)OpaqueId(seed, e.Str("id")))));
+                    .Set("label", label).Set("id", (double)ids[e.Str("id")])));
             }
             return new JObj().Set("schema", "crane.perception_truth/1").Set("frame", "world")
                 .Set("label_mode", mode == LabelMode.Camera ? "camera" : "oracle")

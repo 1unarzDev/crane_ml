@@ -141,17 +141,17 @@ namespace Sim.Course.RoboBoat {
                     RosToUnity(world, template.transform.position.y), rotation, root);
                 clone.name = $"{template.name} {element.label}".Trim();
                 clone.transform.localScale = template.transform.lossyScale * element.scale;
-                if (!string.IsNullOrEmpty(element.color)) Recolor(clone, element.color);
-                MakeSolid(clone, element.template.Contains("Buoy"));
+                if (!string.IsNullOrEmpty(element.color)) CourseVisuals.Recolor(clone, element.color);
+                CourseVisuals.MakeSolid(clone, element.template.Contains("Buoy"));
                 if (!string.IsNullOrEmpty(element.label))
                     targets.Add(new KeyValuePair<GameObject, string>(clone, element.label));
                 truth.elements.Add(new RoboBoatCourseTruthElement {
                     task = element.task, label = element.label, template = element.template,
-                    x = world.x, y = world.y, radius = HorizontalRadius(clone)
+                    x = world.x, y = world.y, radius = CourseVisuals.HorizontalRadius(clone)
                 });
                 if (dock) BuildBays(clone, element, docks++, templates, targets, truth, root);
                 if (!string.IsNullOrEmpty(element.task)) {
-                    Bounds bounds = WorldBounds(clone);
+                    Bounds bounds = CourseVisuals.WorldBounds(clone);
                     if (taskAreas.TryGetValue(element.task, out Bounds area)) bounds.Encapsulate(area);
                     taskAreas[element.task] = bounds;
                 }
@@ -177,15 +177,7 @@ namespace Sim.Course.RoboBoat {
             dock.GetComponentsInChildren<Transform>()
                 .Where(child => child.name.StartsWith("DockDivider", StringComparison.Ordinal));
 
-        internal static Bounds WorldBounds(GameObject value) {
-            var renderers = value.GetComponentsInChildren<Renderer>();
-            if (renderers.Length == 0) return new Bounds(value.transform.position, Vector3.zero);
-            Bounds bounds = renderers[0].bounds;
-            foreach (var renderer in renderers.Skip(1)) bounds.Encapsulate(renderer.bounds);
-            return bounds;
-        }
-
-        private static Vector3 Center(Transform value) => WorldBounds(value.gameObject).center;
+        private static Vector3 Center(Transform value) => CourseVisuals.WorldBounds(value.gameObject).center;
 
         /// <summary>World-ROS yaw the bays open toward: from the spine to the tines.</summary>
         private static float OpeningYaw(GameObject dock) {
@@ -211,7 +203,7 @@ namespace Sim.Course.RoboBoat {
                 .OrderBy(item => Vector3.Dot(item.center, across)).ToList();
             for (int bay = 0; bay + 1 < tines.Count && bay < element.bays.Length; bay++) {
                 Vector3 middle = (tines[bay].center + tines[bay + 1].center) * 0.5f;
-                Bounds tine = WorldBounds(tines[bay].divider.gameObject);
+                Bounds tine = CourseVisuals.WorldBounds(tines[bay].divider.gameObject);
                 float depth = Mathf.Abs(Vector3.Dot(tine.size, opening));
                 float width = Mathf.Abs(Vector3.Dot(tines[bay + 1].center - tines[bay].center,
                     across));
@@ -248,7 +240,7 @@ namespace Sim.Course.RoboBoat {
             banner.transform.rotation = Quaternion.LookRotation(-facing, Vector3.up);
             banner.transform.localScale = Vector3.one * BannerSize;
             var renderer = banner.GetComponent<Renderer>();
-            var material = new Material(TemplateMaterial());
+            var material = new Material(CourseVisuals.TemplateMaterial());
             Texture2D texture = BannerTexture(label);
             material.SetTexture("_BaseColorMap", texture);
             material.SetTexture("_MainTex", texture);
@@ -257,95 +249,17 @@ namespace Sim.Course.RoboBoat {
             return banner;
         }
 
-        internal static Material TemplateMaterial() {
-            foreach (var renderer in UnityEngine.Object.FindObjectsByType<MeshRenderer>(
-                         FindObjectsSortMode.None))
-                if (renderer.sharedMaterial != null &&
-                    renderer.sharedMaterial.HasProperty("_BaseColorMap"))
-                    return renderer.sharedMaterial;
-            throw new InvalidOperationException("no HDRP Lit material to copy for banners");
-        }
-
-        internal static Color BannerColor(string label) =>
-            label.StartsWith("red", StringComparison.Ordinal) ? new Color(0.85f, 0.1f, 0.1f) :
-            label.StartsWith("green", StringComparison.Ordinal) ? new Color(0.1f, 0.65f, 0.2f) :
-            label.StartsWith("blue", StringComparison.Ordinal) ? new Color(0.1f, 0.3f, 0.9f) :
-            Color.black;
-
-        /// <summary>Is texel (u, v) in [0, 1] inside the banner's shape?</summary>
-        internal static bool InShape(string shape, float u, float v) {
-            float x = u - 0.5f, y = v - 0.5f;
-            switch (shape) {
-                case "circle": return x * x + y * y <= 0.35f * 0.35f;
-                case "square": return Mathf.Abs(x) <= 0.3f && Mathf.Abs(y) <= 0.3f;
-                case "triangle": return y >= -0.3f && Mathf.Abs(x) <= (0.35f - y) * 0.55f;
-                case "plus":
-                case "cross":
-                    return (Mathf.Abs(x) <= 0.1f && Mathf.Abs(y) <= 0.35f) ||
-                           (Mathf.Abs(y) <= 0.1f && Mathf.Abs(x) <= 0.35f);
-                default: return false;
-            }
-        }
-
         internal static Texture2D BannerTexture(string label) {
             const int size = 64;
             string shape = label.Contains('_') ? label[(label.IndexOf('_') + 1)..] : label;
-            Color color = BannerColor(label);
+            Color color = CourseVisuals.BannerColor(label);
             var texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
             for (int row = 0; row < size; row++)
                 for (int column = 0; column < size; column++)
-                    texture.SetPixel(column, row, InShape(shape, (column + 0.5f) / size,
+                    texture.SetPixel(column, row, CourseVisuals.InShape(shape, (column + 0.5f) / size,
                         (row + 0.5f) / size) ? color : Color.white);
             texture.Apply();
             return texture;
-        }
-
-        /// <summary>Real buoys are solid: a LiDAR sees them and a hull bumps them. Give an
-        /// element without colliders one per mesh, on the obstacle layer. A buoy's own
-        /// colliders are replaced by its meshes (pole buoys had none, the black buoy's sphere
-        /// was half its mesh), and kept non-convex where the body is kinematic, so a pole
-        /// stays a pole rather than a cone.</summary>
-        internal static void MakeSolid(GameObject value, bool buoy) {
-            Collider[] existing = value.GetComponentsInChildren<Collider>()
-                .Where(collider => !collider.isTrigger).ToArray();
-            if (existing.Length > 0 && !buoy) return;
-            foreach (Collider collider in existing) UnityEngine.Object.DestroyImmediate(collider);
-            int added = 0;
-            foreach (var filter in value.GetComponentsInChildren<MeshFilter>()) {
-                if (filter.sharedMesh == null) continue;
-                var collider = filter.gameObject.AddComponent<MeshCollider>();
-                collider.sharedMesh = filter.sharedMesh;
-                Rigidbody body = filter.GetComponentInParent<Rigidbody>();
-                collider.convex = body != null && !body.isKinematic;
-                filter.gameObject.layer = Sim.Physics.Contacts.CraneCollisionLayers.DynamicObstacle;
-                added++;
-            }
-            if (buoy) {
-                Bounds bounds = new(value.transform.position, Vector3.zero);
-                foreach (Collider collider in value.GetComponentsInChildren<Collider>())
-                    bounds.Encapsulate(collider.bounds);
-                Debug.Log($"CRANE_ROBOBOAT_SOLID {value.name} replaced={existing.Length} " +
-                          $"mesh_colliders={added} size=({bounds.size.x:F2},{bounds.size.y:F2}," +
-                          $"{bounds.size.z:F2})");
-            }
-        }
-
-        internal static void Recolor(GameObject value, string hex) {
-            if (!ColorUtility.TryParseHtmlString(hex, out Color color))
-                throw new ArgumentException($"bad color {hex}");
-            foreach (var renderer in value.GetComponentsInChildren<Renderer>()) {
-                var materials = renderer.materials;  // instanced copies
-                foreach (var material in materials) {
-                    if (material.HasProperty("_BaseColor")) material.SetColor("_BaseColor", color);
-                    if (material.HasProperty("_Color")) material.SetColor("_Color", color);
-                }
-                renderer.materials = materials;
-            }
-        }
-
-        internal static float HorizontalRadius(GameObject value) {
-            Vector3 size = WorldBounds(value).size;
-            return 0.5f * Mathf.Max(size.x, size.z);
         }
 
         internal static string ReadString(string[] args, string key, string fallback) {

@@ -25,7 +25,9 @@ namespace Sim.Course {
             new JObj().Set("type", "horn").Set("freq_hz", freqHz).Set("pattern", pattern)
                 .Set("repeats", (double)repeats).Set("gap_s", 2.0).Set("trigger_s", triggerS);
 
-        public static string Initial(JObj p) => ValueAt(p, double.NegativeInfinity);
+        /// <summary>The value before the run starts: a toggle's value at t = 0 given its phase
+        /// (course_truth.py program_value agrees), otherwise the value before any change.</summary>
+        public static string Initial(JObj p) => ValueAt(p, p.Str("type") == "toggle" ? 0 : double.NegativeInfinity);
 
         /// <summary>The program's value at sim time t (seconds since the course was ready).</summary>
         public static string ValueAt(JObj p, double t) {
@@ -33,7 +35,7 @@ namespace Sim.Course {
                 case "fixed": return p.Str("value");
                 case "toggle": {
                     var values = p.Arr("values");
-                    if (double.IsNegativeInfinity(t)) return (string)values[0];
+                    if (double.IsNegativeInfinity(t)) t = 0;
                     long k = (long)Math.Floor((t + p.Num("phase_s")) / p.Num("period_s"));
                     return (string)values[(int)(((k % 2) + 2) % 2)];
                 }
