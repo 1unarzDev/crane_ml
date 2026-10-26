@@ -18,7 +18,7 @@ jobs=3
 if [[ "${1:-}" == -j ]]; then jobs=$2; shift 2; fi
 ((jobs >= 1 && jobs <= 3)) || { echo "-j must be 1-3" >&2; exit 2; }
 [[ "${seeds}" =~ ^([0-9]+)-([0-9]+)$ ]] && seeds=$(seq "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}")
-sessions=$(python3 -I -c 'import sys,yaml;print(yaml.safe_load(open(sys.argv[1]))["sessions_dir"])' "${here}/rig.yaml")
+sessions=$(python3 -I "${here}/rigconf.py" "${here}/rig.yaml" sessions_dir | python3 -I -c 'import json,sys;print(json.load(sys.stdin))')
 batch="${sessions}/${name}"
 mkdir -p "${batch}"
 printf '%s\n' "$*" >"${batch}/args.txt"

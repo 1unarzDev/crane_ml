@@ -1,22 +1,30 @@
-# Defaults for run_sim.sh. Flags override the first block; the rest is
+# Defaults for run_sim.sh and rigq. Flags override the first block; the rest is
 # behaviour the rig reads but no flag needs to change.
+#
+# Host-specific values are not in this file: set them in rig.local.yaml next to it (gitignored;
+# see rig.local.example.yaml) or $CRANE_RIG_LOCAL, or through the ${VAR} defaults below.
 
-container: roboboat_dev
-# The faults player (crane test/characterization-faults) once rebuilt; until then the preview's bf82744 player.
-player: /home/lunarz/crane_ml-roboboat-pwm/Builds/CRANE-Worker/CRANE.x86_64
-player_commit: bf82744   # recorded when the build manifest has no sourceCommit
-courses_dir: /home/lunarz/crane_ml-roboboat-pwm/Tools/RoboBoat/courses
+# Private-IPC, --init container the rig creates (container.sh up); never the dev container,
+# whose host /dev/shm Fast DDS state wedges.
+container: ${CRANE_RIG_CONTAINER:-crane_rig}
+container_image: ${CRANE_RIG_IMAGE:-}         # the roboboat dev image with ROS jazzy
+container_mounts: []                          # host:container[:ro], e.g. the ctest installs
+player: ${CRANE_RIG_PLAYER:-}                 # Builds/<name>/CRANE.x86_64 (CranePerformanceBuild)
+player_commit: ''   # recorded when the build manifest has no sourceCommit
+courses_dir: ${CRANE_RIG_COURSES:-}           # crane Tools/RoboBoat/courses of the player's branch
 # Host copy of the profiles in the install below (read for the stack's start components).
-profiles_dir: /home/lunarz/.cache/wt/sim-mhseals_testing/config/profiles
-sessions_dir: /home/lunarz/.cache/sim-preview/rig/sessions
+profiles_dir: ${CRANE_RIG_PROFILES:-}         # mhseals_testing config/profiles
+sessions_dir: ${XDG_STATE_HOME:-~/.local/state}/crane-rig/sessions
 course: roboboat_2025
 profile: crane_full_stack
 duration: 30            # seconds of recording after the course is ready
 # Without --domain a run takes the first free domain in this range (host lock files) and port
 # 10000 + domain. At most max_instances rig runs (any caller) share the machine; the rest wait.
-domains: [200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 230, 231, 232]   # not ctest's 210-229
+# The lock files in lock_dir are shared with every other rig copy on the host.
+domains: [200, 231, 232]   # never 201-230 (210-230 are the tests'); rigq passes its own queue.domains
 max_instances: 3
-run_log: /home/lunarz/.cache/sim-preview/rig/runs.jsonl   # one JSON line per run
+lock_dir: /tmp
+run_log: ${XDG_STATE_HOME:-~/.local/state}/crane-rig/runs.jsonl   # one JSON line per run
 seed: 0                 # --crane-seed and --crane-contract-seed: course jitter, wind gusts, sensor noise
 # effort: the command topic drives thruster_pwm_node (open-loop drive); velocity: the harness chain
 # (calibrated_velocity_controller, plus command_mux on a muxed profile) as boat_test arms it.
@@ -26,7 +34,7 @@ hardware: sim
 nice: 10
 
 # Player. The NVIDIA Vulkan device needs an X display even with -batchmode.
-display: ':1'
+display: ${CRANE_RIG_DISPLAY:-:1}
 scene: Roboboat Course
 runtime_profile: train-gpu   # interactive-low adds RGB camera images
 ready_timeout: 120           # seconds to wait for CRANE_ROBOBOAT_COURSE_READY
@@ -38,7 +46,7 @@ player_args:
 
 # Stack inside the container. The base install is sourced, then --overlay.
 # ctest overlay 'simrig': base (origin/main) + mhseals_hardware origin/main + mhseals_testing sim-stack.
-install: /home/roboboat/.cache/ctest/simrig/install
+install: ${CRANE_RIG_INSTALL:-/home/roboboat/.cache/ctest/simrig/install}
 driver: true                 # thruster_pwm_node, output_backend topic
 
 record:
@@ -64,7 +72,10 @@ record:
   - /tf_static
   - /objects/map
 
-# Default open-loop drive: [seconds, surge, sway, yaw] effort segments.
+# Default open-loop drive: [seconds, surge, sway, yaw] effort segments, on drive_topic (null: the
+# profile's command topic). On a muxed profile command_mux holds /cmd_vel, so that drive stays
+# static (the watchdog's no_motion); /cmd_vel/manual outranks the hold.
+drive_topic: null
 drive:
   - [3, 0.0, 0.0, 0.0]
   - [6, 0.6, 0.0, 0.0]
@@ -84,3 +95,40 @@ smoke:
 
 # Sim lidar smear (mhseals_nav lidar_smear): true remaps the endpoint cloud to /points/instant and smears it onto /points. Off by default.
 lidar_smear: false
+
+# Named drives for run_sim --drive NAME / rigq submit --drive NAME: topic and schedule.
+drives:
+  manual_surge:          # straight ahead through the mux's manual input
+    topic: /cmd_vel/manual
+    schedule: [[3, 0.0, 0.0, 0.0], [12, 0.6, 0.0, 0.0], [3, 0.0, 0.0, 0.0]]
+  manual_turn:
+    topic: /cmd_vel/manual
+    schedule: [[3, 0.0, 0.0, 0.0], [6, 0.6, 0.0, 0.0], [4, 0.0, 0.0, 0.3], [3, 0.0, 0.0, 0.0]]
+  auto_surge:            # the command topic itself: static on a muxed profile (held)
+    topic: /cmd_vel
+    schedule: [[3, 0.0, 0.0, 0.0], [12, 0.6, 0.0, 0.0], [3, 0.0, 0.0, 0.0]]
+
+# In-run progress probe (probe.py in the container): writes progress.json for the watchdog.
+probe: true
+
+# rigq watchdog defaults; a job overrides any of them (rigq submit --help).
+watchdog:
+  hard_margin_s: 420     # hard timeout = duration + this
+  startup_s: 240         # no probe data this long after launch: no_start
+  stall_s: 30            # no new sim time and no new topic data this long: stalled
+  post_s: 300            # post-processing (referee, smoke, copy) longer than this: post_timeout
+  motion_grace_s: 10     # seconds of non-zero command before the boat must have moved
+  min_travel_m: 0.5
+  expect_motion: false   # true: must move within motion_grace_s of ready even with no command seen
+  clock_topic: /clock
+  odom_topic: /crane/odom
+  command_topics: [/cmd_vel, /cmd_vel/manual, /cmd_vel_nav]
+
+# rigq: file-based queue and worker.
+queue:
+  dir: ${XDG_STATE_HOME:-~/.local/state}/crane-rig/queue
+  slots: 3               # concurrent sim jobs from this queue (the host cap max_instances still applies)
+  builders: 2            # concurrent build jobs (Unity player builds) on the host
+  domains: 180-199       # ROS_DOMAIN_ID pool: <= 232, never 201-230
+  poll_s: 1
+  grace_s: 20            # TERM to KILL

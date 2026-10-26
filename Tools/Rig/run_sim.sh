@@ -26,24 +26,29 @@
 #                            sees SIMRIG_DIR (its session dir in the container) and
 #                            ROS_DOMAIN_ID, and is cut off at the duration (the recording
 #                            ends early when it exits); the session exits 1 when it fails
+#       --drive NAME         a drive preset from rig.yaml drives: (topic and schedule) instead
+#                            of the default drive
 #       --no-drive           record only
 #       --overlay PATH       container install whose local_setup.bash is sourced after the base install
 #       --domain N           ROS_DOMAIN_ID; one run per domain and per port (host lock files)
 #       --port N             ROS-TCP endpoint port
 #       --smoke              gate the bag with check.py; exit 1 when a gate fails
-#       --config PATH        rig YAML [rig.yaml next to this script]
+#       --config PATH        rig YAML [rig.yaml next to this script], merged with rig.local.yaml
+#                            (or $CRANE_RIG_LOCAL) for this host's paths; see rigconf.py
 #   -h, --help
 #
 # The session dir gets player.log, the stack logs, bag/, course_truth.json,
 # session.yaml (provenance: seed, player build and argv, sha256 of faults, hardware and
-# nav2_params, source commit of each package, outcome) and (with --smoke) smoke.json.
+# nav2_params, source commit of each package, outcome), rig.json (the merged config),
+# run.env (runner and player PIDs, container dir: what rigq's watchdog stops), progress.json
+# (probe.py: sim time, topic counts, travel) and (with --smoke) smoke.json.
 
 set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 config="${here}/rig.yaml"
 course="" faults="" duration="" profile="" out="" current="" run_cmd=""
-overlay="" domain="" port="" drive=1 smoke=0 seed="" wind="" gps_sigma="" mode="" hardware="" task=""
+overlay="" domain="" port="" drive=1 drive_preset="" smoke=0 seed="" wind="" gps_sigma="" mode="" hardware="" task=""
 extra=()
 
 usage() { sed -n '2,/^$/s/^# \{0,1\}//p' "$0"; exit "${1:-0}"; }
@@ -64,6 +69,7 @@ while (($#)); do
         --task) task="$2"; shift 2 ;;
         --run) run_cmd="$2"; shift 2 ;;
         --no-drive) drive=0; shift ;;
+        --drive) drive_preset="$2"; shift 2 ;;
         --overlay) overlay="$2"; shift 2 ;;
         --domain) domain="$2"; shift 2 ;;
         --port) port="$2"; shift 2 ;;
@@ -77,12 +83,24 @@ done
 
 # --- configuration: rig.yaml, the profile and the flags, resolved in one place --------
 
-eval "$(python3 -I - "$config" "$course" "$profile" "$domain" "$port" "$duration" "$seed" "$mode" <<'EOF'
+eval "$(python3 -I - "$here" "$config" "$course" "$profile" "$domain" "$port" "$duration" "$seed" "$mode" "$drive_preset" <<'EOF'
 import json, re, shlex, sys, yaml
 from pathlib import Path
 
-config, course, profile, domain, port, duration, seed, mode = sys.argv[1:]
-rig = yaml.safe_load(Path(config).read_text())
+here, config, course, profile, domain, port, duration, seed, mode, preset = sys.argv[1:]
+sys.path.insert(0, here)
+import rigconf
+rig = rigconf.load(config)
+for key in ('player', 'courses_dir', 'profiles_dir', 'container'):
+    if not rig.get(key):
+        print(f'rig config has no {key}: set it in {rigconf.local_path(config)} (see rig.local.example.yaml)',
+              file=sys.stderr)
+        print('exit 2')
+        sys.exit()
+if preset and preset not in (rig.get('drives') or {}):
+    print(f'no drive preset {preset!r} in rig.yaml drives: {sorted(rig.get("drives") or {})}', file=sys.stderr)
+    print('exit 2')
+    sys.exit()
 course = course or rig['course']
 course = Path(course) if course.endswith('.json') else Path(rig['courses_dir']) / f'{course}.json'
 profile = profile or rig['profile']
@@ -99,10 +117,15 @@ values = {
     'domain': domain, 'port': port, 'domain_range': ' '.join(map(str, rig['domains'])),
     'max_instances': rig.get('max_instances', 3), 'run_log': rig['run_log'],
     'duration': duration or rig['duration'],
-    'drive_schedule': json.dumps(rig['drive']),
+    'drive_schedule': json.dumps(rig['drives'][preset]['schedule'] if preset else rig['drive']),
     'seed': seed or rig.get('seed', 0), 'mode': mode or rig.get('mode', 'effort'),
     'nice': rig.get('nice', 0), 'hardware_default': rig.get('hardware', 'sim'),
     'lidar_smear': int(bool(rig.get('lidar_smear', False))),
+    'lock_dir': rig.get('lock_dir', '/tmp'), 'player_commit': rig.get('player_commit') or '',
+    'probe': int(bool(rig.get('probe', True))),
+    'probe_config': json.dumps(rig.get('watchdog') or {}),
+    'drive_topic': (rig['drives'][preset].get('topic') if preset else None)
+                   or rig.get('drive_topic') or plant['command']['topic'],
 }
 
 def launch(package, file, args):
@@ -139,7 +162,7 @@ EOF
 slot_wait=0
 while :; do
     for ((i = 0; i < max_instances; i++)); do
-        exec 7>"/tmp/simrig-slot-${i}.lock"
+        exec 7>"${lock_dir}/simrig-slot-${i}.lock"
         flock -n 7 && break 2
         exec 7>&-
     done
@@ -149,7 +172,7 @@ done
 # A free domain (and its port) unless given; the locks below hold both for the whole run.
 if [[ -z "${domain}" ]]; then
     for d in ${domain_range}; do
-        exec 8>"/tmp/simrig-domain-${d}.lock"
+        exec 8>"${lock_dir}/simrig-domain-${d}.lock"
         if flock -n 8; then domain=${d}; domain_held=1; break; fi
         exec 8>&-
     done
@@ -168,17 +191,18 @@ hardware="${hardware:-${hardware_default}}"
 [[ "${hardware}" == sim || -f "${hardware}" ]] || { echo "no hardware file ${hardware}" >&2; exit 2; }
 # One run per domain and per port: concurrent runs on either would cross-talk.
 if [[ -z "${domain_held:-}" ]]; then
-    exec 8>"/tmp/simrig-domain-${domain}.lock"
+    exec 8>"${lock_dir}/simrig-domain-${domain}.lock"
     flock -n 8 || { echo "domain ${domain} is in use by another rig run" >&2; exit 2; }
 fi
-exec 9>"/tmp/simrig-port-${port}.lock"
+exec 9>"${lock_dir}/simrig-port-${port}.lock"
 flock -n 9 || { echo "port ${port} is in use by another rig run" >&2; exit 2; }
 docker inspect -f '{{.State.Running}}' "${container}" 2>/dev/null | grep -q true ||
-    { echo "container ${container} is not running" >&2; exit 2; }
+    { echo "container ${container} is not running (${here}/container.sh up)" >&2; exit 2; }
 
 session="${out:-${sessions_dir}/${profile_name}_$(date +%Y%m%d_%H%M%S)}"
 mkdir -p "${session}"
 session="$(cd "${session}" && pwd)"
+python3 -I "${here}/rigconf.py" "${config}" >"${session}/rig.json"
 # Unique per run: batches reuse basenames (seed0), and the reaper kills by SIMRIG_DIR.
 cdir="/tmp/simrig/d${domain}_$(basename "${session}")_$$"
 player_pid="" hold_pid=""
@@ -186,6 +210,12 @@ now_ms() { echo $((${EPOCHREALTIME/./} / 1000)); }
 started=$(now_ms)
 
 log() { local t=$(($(now_ms) - started)); printf '[simrig %4d.%01ds] %s\n' $((t / 1000)) $((t % 1000 / 100)) "$*"; }
+# What a watchdog needs to stop this run by exact PID and group; rewritten when the player starts.
+write_run_env() {
+    printf 'runner_pid=%s\nplayer_pid=%s\nplayer=%s\ncontainer=%s\ncdir=%s\ndomain=%s\nport=%s\n' \
+        "$$" "${player_pid}" "${player}" "${container}" "${cdir}" "${domain}" "${port}" >"${session}/run.env.tmp"
+    mv -f "${session}/run.env.tmp" "${session}/run.env"
+}
 
 # --- container processes: each in its own process group, pid file in ${cdir} ----------
 
@@ -244,12 +274,12 @@ cleanup() {
         for _ in $(seq 50); do kill -0 "${player_pid}" 2>/dev/null || break; sleep 0.1; done
         kill -KILL -- "-${player_pid}" 2>/dev/null || true
     fi
-    cstop INT run drive recorder "${driver_names[@]}" "${stack_names[@]}" endpoint "${smear_names[@]}" || true
+    cstop INT run drive recorder probe "${driver_names[@]}" "${stack_names[@]}" endpoint "${smear_names[@]}" || true
     creap || true
     cexec "${ros_env} ros2 daemon stop >/dev/null 2>&1" || true
     docker cp -q "${container}:${cdir}/." "${session}/" 2>/dev/null || true
     cexec "rm -rf ${cdir}" || true
-    rm -f "${session}"/*.pid
+    rm -f "${session}"/*.pid "${session}"/run.env.tmp
     # One line per run in the run log, failed runs included.
     python3 -I - "${session}" "${status}" "${run_log}" <<'PY' || true
 import json, sys, time, yaml
@@ -276,11 +306,13 @@ PY
 }
 trap cleanup EXIT
 trap 'exit 130' INT TERM
+write_run_env
 
 cexec "rm -rf ${cdir}; mkdir -p ${cdir}"
 docker cp -q "${here}/drive.py" "${container}:${cdir}/drive.py"
 docker cp -q "${here}/check.py" "${container}:${cdir}/check.py"
-docker cp -q "${config}" "${container}:${cdir}/rig.yaml"
+docker cp -q "${session}/rig.json" "${container}:${cdir}/rig.yaml"
+docker cp -q "${here}/probe.py" "${container}:${cdir}/probe.py"
 docker cp -q "${here}/post.py" "${container}:${cdir}/post.py"
 if [[ "${hardware}" == sim ]]; then
     cexec "${ros_env} cp \$(ros2 pkg prefix mhseals_testing)/share/mhseals_testing/config/sim/hardware_crane.yaml ${cdir}/hardware.yaml"
@@ -322,6 +354,8 @@ for name, argv in driver_commands(profile, \"${cdir}/hardware.yaml\"):
 fi
 # A warm ros2 daemon lets --run commands resolve topic types at once.
 cexec "${ros_env} ros2 daemon start >/dev/null 2>&1" || true
+# progress.json for rigq's watchdog: sim time, message counts, commanded motion and travel.
+((probe)) && cstart probe "python3 probe.py ${cdir}/progress.json $(printf '%q' "${probe_config}")"
 cstart recorder "ros2 bag record -o ${cdir}/bag --include-unpublished-topics --include-hidden-topics --topics ${record[*]}"
 
 # --- player -------------------------------------------------------------------------------
@@ -343,6 +377,7 @@ player_cmd+=("${extra[@]}")
 log "player: ${course_path##*/}, seed ${seed}${faults:+, faults ${faults##*/}}${current:+, current ${current}}${wind:+, wind ${wind}}"
 DISPLAY="${display}" SDL_VIDEODRIVER=x11 setsid "${player_cmd[@]}" >/dev/null 2>&1 &
 player_pid=$!
+write_run_env
 
 deadline=$(($(date +%s) + ready_timeout))
 until grep -q CRANE_ROBOBOAT_COURSE_READY "${session}/player.log" 2>/dev/null; do
@@ -368,7 +403,7 @@ if [[ -n "${run_cmd}" ]]; then
     run_inner="timeout -s INT ${duration} bash -c $(printf '%q' "${run_cmd}"); echo \$? >${cdir}/run.status"
     cstart run "bash -c $(printf '%q' "${run_inner}")"
 elif ((drive)); then
-    cstart drive "python3 drive.py ${command_topic} '${drive_schedule}'"
+    cstart drive "python3 drive.py ${drive_topic} '${drive_schedule}'"
 fi
 remaining=$((duration * 1000 - ($(now_ms) - ready)))
 # Hold in the background so that INT/TERM run the cleanup trap at once.
@@ -385,7 +420,7 @@ if ((remaining > 0)); then
 fi
 
 cstop INT run drive
-cstop INT recorder
+cstop INT recorder probe
 recorded_s=$(( ($(now_ms) - ready) / 1000 ))
 log "recorded ${recorded_s}s"
 outcome=null
@@ -434,7 +469,7 @@ task_outcome: ${outcome:-null}
 duration_s: ${duration}
 recorded_s: ${recorded_s}
 ros: {domain: ${domain}, endpoint_port: ${port}}
-player: {path: ${player}, runtime_profile: ${runtime_profile}, build: $(python3 -I -c "import json,sys,yaml;m=json.load(open(sys.argv[1]));print(json.dumps({'commit':m['sourceCommit'] or str(yaml.safe_load(open(sys.argv[2])).get('player_commit') or ''),'guid':m['buildGuid']}))" "$(dirname "${player}")/crane-build-manifest.json" "${config}")}
+player: {path: ${player}, runtime_profile: ${runtime_profile}, build: $(python3 -I -c "import json,sys,yaml;m=json.load(open(sys.argv[1]));print(json.dumps({'commit':m['sourceCommit'] or sys.argv[2],'guid':m['buildGuid']}))" "$(dirname "${player}")/crane-build-manifest.json" "${player_commit}")}
 ready_after_s: $(((ready - started) / 1000))
 EOF
 

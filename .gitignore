@@ -111,3 +111,7 @@ ProjectSettings/DynamicsManager.asset
 # Optional locally licensed campus visual packs; never redistribute implicitly.
 /Assets/LocalCampusVisuals/
 /Assets/LocalCampusVisuals.meta
+
+# Tools/Rig host overlay
+Tools/Rig/rig.local.yaml
+__pycache__/

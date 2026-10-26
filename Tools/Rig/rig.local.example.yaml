@@ -1,0 +1,10 @@
+# Copy to rig.local.yaml (gitignored) and fill in this host's paths; merged over rig.yaml.
+container_image: vsc-astro_dock-<hash>-uid:latest      # docker images | grep vsc-astro_dock
+container_mounts:
+  - /home/USER/.cache/crane-fusion/ctest:/home/roboboat/.cache/ctest:ro   # holds simrig/install
+  - /home/USER/astro_dock:/home/roboboat/roboboat_ws:ro            # the installs chain to its install/
+player: /home/USER/crane_ml-roboboat-pwm/Builds/CRANE-Worker/CRANE.x86_64
+player_commit: bf82744
+courses_dir: /home/USER/crane_ml-roboboat-pwm/Tools/RoboBoat/courses
+profiles_dir: /home/USER/.cache/wt/sim-mhseals_testing/config/profiles
+display: ':1'
