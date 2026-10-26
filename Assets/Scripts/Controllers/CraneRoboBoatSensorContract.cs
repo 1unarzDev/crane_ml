@@ -7,6 +7,7 @@ using Sim.Utils;
 using Sim.Utils.Performance;
 using Sim.Utils.ROS;
 using Unity.Robotics.ROSTCPConnector;
+using Unity.Robotics.ROSTCPConnector.MessageGeneration;
 using Unity.Robotics.ROSTCPConnector.ROSGeometry;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -53,6 +54,19 @@ namespace Sim.Controllers {
 
         public int ResetPriority => -80;
 
+        private bool topicsRegistered;
+        private void RegisterTopics() {
+            if (topicsRegistered) return;
+            ros.RegisterPublisher<OdometryMsg>(settings.OdometryTopic);
+            ros.RegisterPublisher<ImuMsg>(settings.ImuTopic);
+            ros.RegisterPublisher<NavSatFixMsg>(settings.GpsTopic);
+            topicsRegistered = true;
+        }
+
+        private void Start() {
+            if (ros != null) RegisterTopics();
+        }
+
         public void Initialize(Component target, Settings contractSettings) {
             body = target switch {
                 Rigidbody rigidbody => new RigidbodyAdapter(rigidbody),
@@ -63,9 +77,10 @@ namespace Sim.Controllers {
             settings = contractSettings ?? new Settings();
             random = new System.Random(settings.Seed);
             ros = ROSConnection.GetOrCreateInstance();
-            ros.RegisterPublisher<OdometryMsg>(settings.OdometryTopic);
-            ros.RegisterPublisher<ImuMsg>(settings.ImuTopic);
-            ros.RegisterPublisher<NavSatFixMsg>(settings.GpsTopic);
+            // sceneLoaded for the initial build scene precedes generated message registry
+            // initialization, so a registration there reaches the endpoint without a type and
+            // is refused. Start runs after all runtime init methods (as in ROSPublisher).
+            if (MessageRegistry.GetRosMessageName<OdometryMsg>() != null) RegisterTopics();
             Debug.Log($"CRANE_ROBOBOAT_CONTRACT_READY body={target.name} " +
                       $"odom={settings.OdometryTopic}@{settings.OdometryHz:R} " +
                       $"imu={settings.ImuTopic}@{settings.ImuHz:R} " +
