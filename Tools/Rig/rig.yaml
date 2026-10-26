@@ -55,6 +55,8 @@ driver: true                 # thruster_pwm_node, output_backend topic
 record:
   - /clock
   - /crane/odom
+  - /crane/truth/course   # course truth JSON every 2 s (--crane-ros-course-truth)
+  - /crane/truth/states   # dynamic element states, on change and every 1 s
   - /odom/mavros
   - /odom/local
   - /imu/raw
