@@ -1,6 +1,13 @@
 using System;
 
 namespace Sim.Utils.Performance {
+    /// <summary>Acquisition identity of the payload returned by a delayed sensor.</summary>
+    public readonly struct CraneObservationAcquisition {
+        public readonly long Tick;
+        public readonly double Time;
+        public CraneObservationAcquisition(long tick, double time) { Tick = tick; Time = time; }
+    }
+
     /// <summary>
     /// Compact provenance for an acquired observation. Payload bytes are intentionally not held
     /// here: the replay recorder can subscribe without extending the lifetime of camera/cloud data.

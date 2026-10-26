@@ -22,6 +22,7 @@ namespace Sim.Utils.ROS {
         private float time;
 
         private Func<object> createMessage;
+        private Func<CraneObservationAcquisition> acquisitionProvider;
         private Action<string, object> publishTyped;
         private Action registerAfterRuntimeInitialization;
         private long observationSequence;
@@ -45,7 +46,8 @@ namespace Sim.Utils.ROS {
 
         private void OnEnable() { hideFlags = HideFlags.HideInInspector; }
 
-        public void Initialize<T>(string topicName, string frameId, Func<T> createMessage, float Hz=10f, bool manualPublish=false)
+        public void Initialize<T>(string topicName, string frameId, Func<T> createMessage, float Hz=10f, bool manualPublish=false,
+            Func<CraneObservationAcquisition> acquisitionProvider=null)
         where T : Unity.Robotics.ROSTCPConnector.MessageGeneration.Message {
             this.topicName = topicName;
             this.frameId = frameId;
@@ -53,6 +55,7 @@ namespace Sim.Utils.ROS {
             this.manualPublish = manualPublish;
 
             this.createMessage = () => createMessage();
+            this.acquisitionProvider = acquisitionProvider;
 
             if (TransportSuppressed) return;
 
@@ -105,6 +108,14 @@ namespace Sim.Utils.ROS {
             object message;
             using (CraneProfiler.RosCreateMessage.Auto()) {
                 message = createMessage();
+            }
+            // Delayed synchronous sensors acquire a new sample while returning an older one.
+            // Read the provenance of the returned payload after construction, never infer it
+            // from a rounded ROS header or from the current publication tick.
+            if (acquisitionProvider != null) {
+                CraneObservationAcquisition acquisition = acquisitionProvider();
+                acquisitionTick = acquisition.Tick;
+                acquisitionTime = acquisition.Time;
             }
             ReportObservation(message, acquisitionTick, acquisitionTime);
             using (CraneProfiler.RosPublish.Auto()) {
@@ -177,11 +188,15 @@ namespace Sim.Utils.ROS {
             return $"{gameObject.scene.path}|{path}|{GetType().FullName}";
         }
 
-        public HeaderMsg CreateHeader() {
+        public HeaderMsg CreateHeader() => CreateHeader(Clock.Now);
+
+        /// <summary>ROS acquisition stamp; asynchronous completion is recorded separately.</summary>
+        public HeaderMsg CreateHeader(double acquisitionTime) {
+            if (!double.IsFinite(acquisitionTime) || acquisitionTime < 0)
+                throw new ArgumentOutOfRangeException(nameof(acquisitionTime));
             var header = new HeaderMsg { frame_id=frameId };
-            var publishTime = Clock.Now;
-            var sec = publishTime;
-            var nanosec = (publishTime - Math.Floor(publishTime)) * Clock.k_NanoSecondsInSeconds;
+            var sec = Math.Floor(acquisitionTime);
+            var nanosec = (acquisitionTime - sec) * Clock.k_NanoSecondsInSeconds;
             header.stamp.sec = (int)sec;
             header.stamp.nanosec = (uint)nanosec;
             return header;

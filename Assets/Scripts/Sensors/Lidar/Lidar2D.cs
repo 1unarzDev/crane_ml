@@ -7,7 +7,7 @@ using Sim.Utils.ROS;
 using Sim.Utils.Performance;
 
 namespace Sim.Sensors.Lidar {
-    public class Lidar2D : MonoBehaviour, IROSSensor<LaserScanMsg> {
+    public class Lidar2D : MonoBehaviour, IROSSensor<LaserScanMsg>, ICraneEpisodeResettable {
         [SerializeField] private float minAngleDegrees = -45.0f;
         [SerializeField] private float maxAngleDegrees = 45.0f;
         [SerializeField] private float angleIncrementDegrees = 1.0f;
@@ -22,10 +22,28 @@ namespace Sim.Sensors.Lidar {
         public ROSPublisher publisher { get; set; }
 
         private System.Random errorRandom;
+        private int errorSeed;
         private float rangeSigma, dropoutProbability;
         private string responseClass = "off";
         private int delayScans;
-        private readonly System.Collections.Generic.Queue<LaserScanMsg> delayedScans = new();
+        private readonly struct AcquiredScan {
+            public readonly LaserScanMsg Message;
+            public readonly CraneObservationAcquisition Acquisition;
+            public AcquiredScan(LaserScanMsg message, long tick, double time) {
+                Message = message;
+                Acquisition = new CraneObservationAcquisition(tick, time);
+            }
+        }
+        private readonly System.Collections.Generic.Queue<AcquiredScan> delayedScans = new();
+        private CraneObservationAcquisition publishedAcquisition;
+        public int ResetPriority => -80;
+        public void CaptureEpisodeInitialState() { }
+        public void ResetEpisode(in CraneEpisodeResetContext context, CraneEpisodeResetPhase phase) {
+            if (phase != CraneEpisodeResetPhase.BeforePhysics) return;
+            delayedScans.Clear();
+            if (errorRandom != null)
+                ConfigureErrors(errorSeed, rangeSigma, dropoutProbability, delayScans, responseClass);
+        }
         public long ErrorDropouts { get; private set; }
         long errorScans,geometricReturns,materialReturns,materialDropouts,noiseSamples;
         double noiseSum,noiseSquaredSum;
@@ -44,6 +62,7 @@ namespace Sim.Sensors.Lidar {
         public void ConfigureErrors(int seed, float sigma, float dropout, int latencyScans, string materialClass) {
             if (!float.IsFinite(sigma) || !float.IsFinite(dropout) || sigma > .1f || sigma < 0 || dropout < 0 || dropout > .5f || latencyScans < 0 || latencyScans > 3)
                 throw new ArgumentOutOfRangeException("LiDAR error profile");
+            errorSeed = seed;
             errorRandom = new System.Random(seed); rangeSigma = sigma; dropoutProbability = dropout;
             delayScans = latencyScans; responseClass = materialClass ?? "off";
             delayedScans.Clear(); ErrorDropouts = 0;
@@ -78,7 +97,8 @@ namespace Sim.Sensors.Lidar {
         }
 
         private void Start() {
-            publisher.Initialize(topicName, frameId, CreateMessage, Hz);
+            publisher.Initialize(topicName, frameId, CreateMessage, Hz,
+                acquisitionProvider: () => publishedAcquisition);
 
             scanDirVectors = GenerateScanVectors();
             distances = new float[scanDirVectors.Length + 1];
@@ -93,14 +113,22 @@ namespace Sim.Sensors.Lidar {
 
         public LaserScanMsg CreateMessage() {
             using var marker = CraneProfiler.Lidar.Auto();
+            long acquisitionTick = CraneRuntimeMetrics.SimulationTick;
+            double acquisitionTime = Clock.time;
             float[] dists = PerformScan(scanDirVectors);
-            var current = DistancesToLaserscan(dists);
-            if (errorRandom == null || delayScans == 0) return current;
+            var current = new AcquiredScan(DistancesToLaserscan(dists, acquisitionTime),
+                acquisitionTick, acquisitionTime);
+            AcquiredScan published = current;
+            if (errorRandom == null || delayScans == 0) {
+                publishedAcquisition = current.Acquisition;
+                return current.Message;
+            }
             delayedScans.Enqueue(current);
             // Acquisition stamps are preserved. During queue warmup hold the earliest acquisition
             // rather than publishing newer stamps and subsequently jumping backwards.
-            if (delayedScans.Count <= delayScans) return delayedScans.Peek();
-            return delayedScans.Dequeue();
+            published = delayedScans.Count <= delayScans ? delayedScans.Peek() : delayedScans.Dequeue();
+            publishedAcquisition = published.Acquisition;
+            return published.Message;
         }
 
         private Vector3[] GenerateScanVectors() {
@@ -182,9 +210,9 @@ namespace Sim.Sensors.Lidar {
             return distances;
         }
 
-        private LaserScanMsg DistancesToLaserscan(float[] dists) {
+        private LaserScanMsg DistancesToLaserscan(float[] dists, double acquisitionTime) {
             LaserScanMsg msg = new() {
-                header = publisher.CreateHeader(),
+                header = publisher.CreateHeader(acquisitionTime),
 
                 angle_min = minAngleDegrees * Mathf.Deg2Rad,
                 angle_max = maxAngleDegrees * Mathf.Deg2Rad,

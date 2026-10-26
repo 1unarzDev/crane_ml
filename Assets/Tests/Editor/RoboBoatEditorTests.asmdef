@@ -3,6 +3,10 @@
     "references": [
         "ControllerAssembly",
         "MotorsAssembly",
+        "PhysicsAssembly",
+        "PerformanceAssembly",
+        "UtilsAssembly",
+        "SensorsAssembly",
         "Unity.Robotics.ROSTCPConnector.Messages"
     ],
     "includePlatforms": [

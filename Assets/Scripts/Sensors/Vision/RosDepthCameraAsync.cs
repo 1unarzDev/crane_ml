@@ -9,7 +9,7 @@ using Sim.Utils.Performance;
 
 namespace Sim.Sensors.Vision {
     public class ROSDepthCameraAsync : MonoBehaviour, IROSSensor<ImageMsg>, ICraneEpisodeResettable {
-        private readonly struct ReadbackMetadata {
+        private sealed class ReadbackMetadata {
             public readonly long EpisodeId;
             public readonly long Tick;
             public readonly int Width;
@@ -54,7 +54,7 @@ namespace Sim.Sensors.Vision {
         private double requestSimulationTime;
         private bool validateBufferReuse;
         private long validatedEpisode = -1;
-        private readonly Queue<ReadbackMetadata> pendingReadbacks = new(MaxPendingReadbacks);
+        private readonly List<ReadbackMetadata> pendingReadbacks = new(MaxPendingReadbacks);
         public int ResetPriority => -80;
 
         public void CaptureEpisodeInitialState() { }
@@ -92,7 +92,7 @@ namespace Sim.Sensors.Vision {
         }
 
         public ImageMsg CreateMessage() {
-            var message = new ImageMsg(publisher.CreateHeader(), (uint)requestHeight,
+            var message = new ImageMsg(publisher.CreateHeader(requestSimulationTime), (uint)requestHeight,
                 (uint)requestWidth, "32FC1", 0, (uint)(requestWidth * 4), depthData);
             CraneRuntimeMetrics.ReportImage(true, requestWidth, requestHeight,
                 message.data, requestTick);
@@ -110,17 +110,20 @@ namespace Sim.Sensors.Vision {
         }
 
         private void RequestReadback(RenderTexture targetTexture) {
-            pendingReadbacks.Enqueue(new ReadbackMetadata(CraneRuntimeMetrics.EpisodeId,
+            var metadata = new ReadbackMetadata(CraneRuntimeMetrics.EpisodeId,
                 CraneRuntimeMetrics.SimulationTick, targetTexture.width, targetTexture.height,
-                Clock.time));
-            AsyncGPUReadback.Request(targetTexture, 0, TextureFormat.RFloat, OnReadbackComplete);
+                Clock.time);
+            pendingReadbacks.Add(metadata);
+            AsyncGPUReadback.Request(targetTexture, 0, TextureFormat.RFloat,
+                request => OnReadbackComplete(request, metadata));
         }
 
-        private void OnReadbackComplete(AsyncGPUReadbackRequest request) {
+        private void OnReadbackComplete(AsyncGPUReadbackRequest request, ReadbackMetadata metadata) {
             using var marker = CraneProfiler.OtherSensor.Auto();
             using var sensorMarker = CraneProfiler.DepthReadback.Auto();
-            if (pendingReadbacks.Count == 0) return;
-            ReadbackMetadata metadata = pendingReadbacks.Dequeue();
+            // A callback owns its acquisition identity even if reset cleared the pending list.
+            // Removing by identity also tolerates out-of-order GPU completions.
+            if (!pendingReadbacks.Remove(metadata)) return;
             if (!alive || metadata.EpisodeId != CraneRuntimeMetrics.EpisodeId) {
                 return;
             }

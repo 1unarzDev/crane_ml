@@ -156,8 +156,13 @@ the articulation's total mass. Gravity is enabled. Physics runs at 0.02 s.
 Submersion clips a simplified hull mesh against the HDRP WaterSurface (3 m patch, resolution 20).
 Buoyancy applies displaced-water force at the computed center of buoyancy. Enabled
 `GeneralDynamics` applies triangle-based viscous resistance and pressure/suction drag (linear 100,
-quadratic 30, reference speed 1 m/s). The Fossen component and its added-mass model are present but
-disabled. `Current` is enabled, and the scene water surface supplies waves/current. These values are
+quadratic 30, reference speed 1 m/s). Correction (2026-10-20): the Fossen component is disabled
+on the prefab, but a `Roboboat Course.unity` override (lines 3685-3688) enables it. The profiler
+also records it running. Verified defects in Fossen and `GeneralDynamics` (added-mass sign,
+Coriolis DOF routing, bow axis, double normal transform, constant "quadratic" drag) are listed in
+`Docs/ResearchOrchestration/AGENT_HANDOFFS/I1-defect-verification.md`. Calibration runs launched
+with `--crane-roboboat-contract` disable Fossen/GeneralDynamics/Current; this flag exists on
+branches only, not on main. `Current` is enabled, and the scene water surface supplies waves/current. These values are
 scene/model inputs with no calibration provenance in code; they are therefore treated as estimates,
 not measured real-platform constants, and were not changed.
 
