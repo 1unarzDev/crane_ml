@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4cfdbe1d53ae6a1158e8954aec030bbf, type: 3}
+  m_Name: RobotCatalog
+  m_EditorClassIdentifier: PhysicsCoreAssembly::Sim.Physics.Core.RobotCatalog
+  robots:
+  - name: minimal_boat
+    prefab: {fileID: 4200973047308456766, guid: 19a646550e35662a598bf74ae433124b,
+      type: 3}
+  - name: blastoise
+    prefab: {fileID: 2192760388070078231, guid: 7e4588ccb09a0db18a4b0596fb9bca42,
+      type: 3}

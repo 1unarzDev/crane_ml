@@ -1,0 +1,17 @@
+{
+    "name": "UrdfTests",
+    "references": [
+        "Crane.Urdf.Editor",
+        "Unity.Robotics.UrdfImporter",
+        "MotorsAssembly",
+        "SensorsAssembly",
+        "PhysicsCoreAssembly",
+        "BoatPhysicsAssembly"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ]
+}

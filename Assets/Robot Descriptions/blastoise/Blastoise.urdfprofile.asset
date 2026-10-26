@@ -1,0 +1,67 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d59181a745ff4248a5ed0d25a19765d0, type: 3}
+  m_Name: Blastoise.urdfprofile
+  m_EditorClassIdentifier: 
+  <prefabPath>k__BackingField: Assets/Robot Descriptions/blastoise/Blastoise.prefab
+  <rootYawDeg>k__BackingField: 90
+  <removeMissingLinks>k__BackingField: 1
+  <rules>k__BackingField:
+  - name: thruster
+    link: thruster
+    tag: thruster
+    on: propeller
+    components:
+    - Thruster
+    template: Assets/Robot Descriptions/blastoise/Blastoise.prefab#front_left_propeller_link
+  - name: lidar
+    link: (lidar|laser|velodyne|ouster)
+    tag: lidar
+    on: 
+    components:
+    - Lidar2D
+    - Lidar3D
+    template: Assets/Robot Descriptions/blastoise/Blastoise.prefab#lidar_link
+  - name: camera
+    link: 'camera(_link)?$'
+    tag: camera
+    on: 
+    components:
+    - CameraInfo
+    - ROSCameraAsync
+    - ROSDepthCameraAsync
+    - BoundingBox3D
+    template: Assets/Robot Descriptions/blastoise/Blastoise.prefab#front_camera_link
+  - name: imu
+    link: '(^|_)imu(_|$)'
+    tag: imu
+    on: 
+    components:
+    - Imu
+    template: Assets/Robot Descriptions/blastoise/Blastoise.prefab#imu_link
+  - name: gps
+    link: (gps|gnss|navsat)
+    tag: gps
+    on: 
+    components:
+    - GPS
+    template: Assets/Robot Descriptions/blastoise/Blastoise.prefab#gps_link
+  - name: boat hull
+    link: '<root>'
+    tag: 
+    on: 
+    components:
+    - Submersion
+    - Buoyancy
+    - GeneralDynamics
+    - Current
+    template: Assets/Robot Descriptions/blastoise/Blastoise.prefab#base_link
