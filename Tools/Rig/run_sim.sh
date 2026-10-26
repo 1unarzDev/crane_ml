@@ -13,6 +13,8 @@
 #   -b, --boat-profile NAME|PATH.json  boat plant: ideal, characterized or an asset name
 #                            (--crane-boat-profile), or a profile JSON (--crane-boat-profile-json)
 #                            [ideal]; the player's CRANE_PLANT_APPLIED line goes to the run log
+#   -r, --robot NAME         robot in place of the scene's boat: a URDF robot name from the
+#                            player's RobotCatalog (--crane-robot) [the scene's]
 #   -d, --duration S         seconds recorded after the course is ready [30]
 #   -p, --profile NAME|PATH  mhseals_testing profile [crane_full_stack]
 #   -o, --out DIR            session dir [sessions_dir/<profile>_<YYYYmmdd_HHMMSS>]
@@ -52,7 +54,7 @@ set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 config="${here}/rig.yaml"
-course="" faults="" boat_profile="" duration="" profile="" out="" current="" run_cmd=""
+course="" faults="" boat_profile="" robot="" duration="" profile="" out="" current="" run_cmd=""
 overlay="" domain="" port="" drive=1 drive_preset="" smoke=0 seed="" wind="" gps_sigma="" sim_profile=full mode="" hardware="" task=""
 extra=()
 
@@ -63,6 +65,7 @@ while (($#)); do
         -c|--course) course="$2"; shift 2 ;;
         -f|--faults) faults="$2"; shift 2 ;;
         -b|--boat-profile) boat_profile="$2"; shift 2 ;;
+        -r|--robot) robot="$2"; shift 2 ;;
         -d|--duration) duration="$2"; shift 2 ;;
         -p|--profile) profile="$2"; shift 2 ;;
         -o|--out) out="$2"; shift 2 ;;
@@ -398,6 +401,7 @@ if [[ "${boat_profile}" == *.json ]]; then
 elif [[ -n "${boat_profile}" ]]; then
     player_cmd+=(--crane-boat-profile "${boat_profile}")
 fi
+[[ -n "${robot}" ]] && player_cmd+=(--crane-robot "${robot}")
 [[ -n "${current}" ]] && player_cmd+=(--crane-water-current "${current}")
 [[ -n "${wind}" ]] && player_cmd+=(--crane-wind "${wind}")
 [[ -n "${gps_sigma}" ]] && player_cmd+=(--crane-gps-sigma "${gps_sigma}")
