@@ -17,7 +17,7 @@ MonoBehaviour:
   <CameraResolutionScale>k__BackingField: 0.25
   <CameraHz>k__BackingField: 5
   <DetectionHz>k__BackingField: 5
-  <LidarHz>k__BackingField: 5
+  <LidarHz>k__BackingField: 10
   <ReducedEffects>k__BackingField: 1
   <WaterDetail>k__BackingField: 0
   <Spectator>k__BackingField: 1

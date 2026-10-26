@@ -42,6 +42,11 @@ if [[ "${CRANE_DISABLE_CAMERA_INFO:-0}" == "1" ]]; then sensor_args+=(--crane-di
 if [[ "${CRANE_DISABLE_DETECTIONS:-0}" == "1" ]]; then sensor_args+=(--crane-disable-detections); fi
 extra_args=()
 if [[ -n "${CRANE_EXTRA_ARGS:-}" ]]; then read -r -a extra_args <<<"${CRANE_EXTRA_ARGS}"; fi
+# Pin the simulation profile (default full) unless the caller names one, so runs are reproducible.
+sim_profile_args=(--crane-sim-profile "${CRANE_SIM_PROFILE:-full}")
+for arg in "${extra_args[@]}" "$@"; do
+    if [[ "${arg}" == --crane-sim-profile ]]; then sim_profile_args=(); fi
+done
 player_args=()
 # GPU batch runs keep a rendering device for sensors without mapping a window.
 # Graphics-free runs additionally detach from the compositor below.
@@ -69,4 +74,4 @@ export ROS_DOMAIN_ID="${ROS_DOMAIN_ID:-$((worker_id + 1))}"
     --crane-scene "${scene}" --crane-scenario "${CRANE_SCENARIO:-worker-sweep}" \
     --crane-time-scale "${time_scale}" --crane-warmup "${warmup}" --crane-duration "${duration}" \
     --crane-output "${worker_dir}/result.json" \
-    "${ros_args[@]}" "${sensor_args[@]}" "${extra_args[@]}" "$@"
+    "${sim_profile_args[@]}" "${ros_args[@]}" "${sensor_args[@]}" "${extra_args[@]}" "$@"

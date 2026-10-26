@@ -195,8 +195,9 @@ presentation-only changes, but each profile must prove that it leaves physical q
 
 The current High Fidelity HDRP asset uses 128-resolution GPU water with readback. Enabling
 full-resolution CPU water increased process CPU use from roughly 6% to 19% on the reference
-machine and was rejected. The available `HDRP Performant.asset` disables water and is not a valid
-aquatic training profile as configured.
+machine and was rejected. `HDRP Performant.asset` now keeps water enabled (the Minimal simulation
+profile uses it, see PerformanceEngineering.md "Simulation profiles"); the physical water query is
+unchanged across tiers.
 
 The current aquatic worker needs a graphics device and a real windowed Vulkan loop.
 `-nographics` and Unity `-batchmode` fail to update the water query path correctly. A CPU-only

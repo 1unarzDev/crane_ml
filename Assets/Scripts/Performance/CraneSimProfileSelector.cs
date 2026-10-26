@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using Sim.Utils.Performance;
+using Sim.Utils.ROS;
 using UnityEngine;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.HighDefinition;
@@ -29,6 +30,7 @@ namespace Sim.Performance {
         private const float UncappedSeconds = 4f;
         private const double MinDeliveredFraction = 0.97;
         private const double MinRealTimeFactor = 0.95;
+        private const string ProfileTopic = "/crane/sim/profile";
         private const string SavedFileName = "crane-sim-profile.json";
 
         private static readonly FrameSettingsField[] s_ReducedEffects = {
@@ -106,17 +108,35 @@ namespace Sim.Performance {
                 if (requested == "auto") File.Delete(path);
                 else WriteSaved(path, requested, "manual");
             }
+            if (requested == null && Array.IndexOf(args, "--crane-sim-profile-save") >= 0)
+                Debug.LogWarning("CRANE_SIM_PROFILE --crane-sim-profile-save needs " +
+                    "--crane-sim-profile NAME; nothing was saved.");
             Saved saved = ReadSaved(path);
+            bool cachedAuto = saved?.source == "auto" && saved.device == DeviceSignature() &&
+                Array.IndexOf(Tiers, saved.profile) >= 0;
+            bool unattended = Application.isBatchMode || Array.IndexOf(args, "--crane-worker") >= 0 ||
+                Array.IndexOf(args, "--crane-benchmark") >= 0;
+            bool measure = Array.IndexOf(args, "--crane-sim-profile-measure") >= 0;
             if (requested != null && requested != "auto") Select(requested, "cli");
             else if (requested == null && saved?.source == "manual" &&
                      Array.IndexOf(Tiers, saved.profile) >= 0) Select(saved.profile, "saved");
             else if (requested == null && Application.isEditor) Select("full", "editor-default");
-            else if (saved?.source == "auto" && saved.device == DeviceSignature() &&
-                     Array.IndexOf(Tiers, saved.profile) >= 0) Select(saved.profile, "auto-cache");
+            else if (cachedAuto) Select(saved.profile, "auto-cache");
+            else if (unattended && !measure) {
+                // Unattended runs must be reproducible and never spend seconds benchmarking.
+                Select(Tiers[0], "unattended-default");
+                Debug.Log("CRANE_SIM_PROFILE_UNATTENDED no cached tier; using full. Pin one with " +
+                    "--crane-sim-profile NAME, or measure with --crane-sim-profile auto " +
+                    "--crane-sim-profile-measure.");
+            }
             else {
                 Select(Tiers[0], "auto-benchmark");
                 needsBenchmark = true;
             }
+            if (cachedAuto && source != "auto-cache" && !needsBenchmark &&
+                Array.IndexOf(Tiers, tier) < Array.IndexOf(Tiers, saved.profile))
+                Debug.LogWarning($"CRANE_SIM_PROFILE {tier} is above the {saved.profile} tier " +
+                    "measured for this device; it may not hold its frame cap or real time.");
             SceneManager.sceneLoaded += OnSceneLoaded;
         }
 
@@ -266,6 +286,9 @@ namespace Sim.Performance {
                 }
             }
             ResizeTextures(textures);
+            WarnUnmatched("CameraHz", profile.CameraHz, report.cameraHz);
+            WarnUnmatched("DetectionHz", profile.DetectionHz, report.detectionHz);
+            WarnUnmatched("LidarHz", profile.LidarHz, report.lidarHz);
             if (profile.ReducedEffects)
                 foreach (Camera camera in FindObjectsByType<Camera>(FindObjectsInactive.Include))
                     if (camera.TryGetComponent(out HDAdditionalCameraData data)) {
@@ -285,9 +308,26 @@ namespace Sim.Performance {
             if (!benchmarking) EmitReport();
         }
 
+        /// <summary>A requested rate with no sensor (or no private Hz field) behind it did nothing.</summary>
+        private void WarnUnmatched(string field, float requested, float effective) {
+            if (requested > 0f && effective <= 0f)
+                Debug.LogWarning($"CRANE_SIM_PROFILE {field}={requested} matched no sensor with a " +
+                    "Hz field; the scene value is unchanged (renamed type, or the sensor is disabled).");
+        }
+
+        private IEnumerator PublishReport(string json) {
+            for (int attempt = 0; attempt < 600; attempt++) {
+                yield return null;
+                if (ROSLatchedString.TryPublish(ProfileTopic, json)) yield break;
+            }
+            Debug.LogWarning($"CRANE_SIM_PROFILE could not publish {ProfileTopic}: ROS messages never registered.");
+        }
+
         private void EmitReport() {
             report.benchmark = benchmarkLines;
-            Debug.Log($"CRANE_SIM_PROFILE_RESOLVED {JsonUtility.ToJson(report)}");
+            string json = JsonUtility.ToJson(report);
+            Debug.Log($"CRANE_SIM_PROFILE_RESOLVED {json}");
+            StartCoroutine(PublishReport(json));
         }
 
         /// <summary>Sets a sensor's private Hz (and its publisher's, for live changes); returns
@@ -372,9 +412,19 @@ namespace Sim.Performance {
         private static void WriteSaved(string path, string name, string why) {
             try {
                 Directory.CreateDirectory(Path.GetDirectoryName(path));
-                File.WriteAllText(path, JsonUtility.ToJson(new Saved {
+                // Concurrent players write whole files: temp name per process, then rename.
+                string temp = $"{path}.{System.Diagnostics.Process.GetCurrentProcess().Id}.tmp";
+                File.WriteAllText(temp, JsonUtility.ToJson(new Saved {
                     profile = name, source = why, device = DeviceSignature()
                 }, true));
+                try {
+                    if (File.Exists(path)) File.Replace(temp, path, null);
+                    else File.Move(temp, path);
+                }
+                catch (IOException) {
+                    // Another player created or replaced it between the check and the rename.
+                    File.Replace(temp, path, null);
+                }
             }
             catch (Exception exception) {
                 Debug.LogWarning($"CRANE_SIM_PROFILE could not save {path}: {exception.Message}");

@@ -38,6 +38,8 @@
 #       --smoke              gate the bag with check.py; exit 1 when a gate fails
 #       --config PATH        rig YAML [rig.yaml next to this script], merged with rig.local.yaml
 #                            (or $CRANE_RIG_LOCAL) for this host's paths; see rigconf.py
+#       --sim-profile NAME   crane --crane-sim-profile: full|balanced|minimal [full]; the rig never
+#                            auto-benchmarks, so runs stay reproducible
 #   -h, --help
 #
 # The session dir gets player.log, the stack logs, bag/, course_truth.json,
@@ -51,7 +53,7 @@ set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 config="${here}/rig.yaml"
 course="" faults="" boat_profile="" duration="" profile="" out="" current="" run_cmd=""
-overlay="" domain="" port="" drive=1 drive_preset="" smoke=0 seed="" wind="" gps_sigma="" mode="" hardware="" task=""
+overlay="" domain="" port="" drive=1 drive_preset="" smoke=0 seed="" wind="" gps_sigma="" sim_profile=full mode="" hardware="" task=""
 extra=()
 
 usage() { sed -n '2,/^$/s/^# \{0,1\}//p' "$0"; exit "${1:-0}"; }
@@ -67,6 +69,7 @@ while (($#)); do
         --current) current="$2"; shift 2 ;;
         --wind) wind="$2"; shift 2 ;;
         --gps-sigma) gps_sigma="$2"; shift 2 ;;
+        --sim-profile) sim_profile="$2"; shift 2 ;;
         --seed) seed="$2"; shift 2 ;;
         --mode) mode="$2"; shift 2 ;;
         --hardware) hardware="$2"; shift 2 ;;
@@ -398,7 +401,7 @@ fi
 [[ -n "${current}" ]] && player_cmd+=(--crane-water-current "${current}")
 [[ -n "${wind}" ]] && player_cmd+=(--crane-wind "${wind}")
 [[ -n "${gps_sigma}" ]] && player_cmd+=(--crane-gps-sigma "${gps_sigma}")
-player_cmd+=(--crane-seed "${seed}" --crane-contract-seed "${seed}")
+player_cmd+=(--crane-seed "${seed}" --crane-contract-seed "${seed}" --crane-sim-profile "${sim_profile}")
 player_cmd+=("${extra[@]}")
 
 log "player: ${course_path##*/}, seed ${seed}${faults:+, faults ${faults##*/}}${current:+, current ${current}}${wind:+, wind ${wind}}"

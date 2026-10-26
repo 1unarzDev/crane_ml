@@ -82,7 +82,7 @@ edit it in the Inspector (every field has a tooltip):
 | `CameraResolutionScale` (robot RGB/depth textures) | 1 (1280×720) | 0.5 (640×360) | 0.25 (320×180) |
 | `CameraHz` (RGB and depth; 0 = scene) | scene (15) | 10 | 5 |
 | `DetectionHz` | scene (8) | 5 | 5 |
-| `LidarHz` (72,000 points per scan always) | scene (10) | 10 | 5 |
+| `LidarHz` (72,000 points per scan always; the fusion node needs 10 Hz) | scene (10) | 10 | 10 |
 | `ReducedEffects` (bloom, DoF, motion blur, SSAO, SSR, SSGI, contact shadows, volumetrics off) | off | on | on |
 | `WaterDetail` (tessellation, caustics; render-only) | on | on | off |
 | `Spectator` (window camera) | on | on | on |
@@ -96,8 +96,17 @@ Selection, highest precedence first:
 3. Auto: the cached result for this device (CPU model, core count, GPU, graphics API), or else a
    measurement in the real scene. Per tier: warm 3 s, measure 6 s capped (must deliver 97% of the
    cap), then 4 s with the cap lifted (must sustain 1.05x the cap). Both need a real-time factor of
-   at least 0.95 and zero stale observations; any failure steps down a tier. The first launch on a
-   new device settles in 14 s per tier tried (about 14 s on a fast machine, 42 s worst case).
+   at least 0.95 and zero stale observations; any failure steps down a tier. Measuring takes about
+   14 s per tier tried (14 s on a fast machine, 42 s worst case). Unattended launches
+   (`-batchmode`, `--crane-worker`, `--crane-benchmark`) never measure: they use the cached tier or
+   Full and log `CRANE_SIM_PROFILE_UNATTENDED`; add `--crane-sim-profile-measure` to measure anyway.
+   `Tools/Performance/run_worker.sh` (`CRANE_SIM_PROFILE`) and `Tools/Rig/run_sim.sh`
+   (`--sim-profile`) pin `full` by default. Concurrent players write the cache atomically.
+
+Warnings: forcing a tier above the cached auto tier, `--crane-sim-profile-save` without a profile,
+and a requested rate that matched no sensor all log a `CRANE_SIM_PROFILE` warning. The resolved
+profile is also published once, latched, as JSON in a `std_msgs/String` on `/crane/sim/profile`
+(not when ROS transport is disabled).
 
 The editor without the flag uses the saved choice or Full and never measures. Adjust single fields
 of the selected tier with `--crane-sim-set "CameraHz=10,Spectator=false"` (field names as in the
@@ -120,7 +129,7 @@ runs with ROS transport off, on an existing X display (not a virtual one). Physi
 |---|---|---|---|---|---|---|---|
 | Full | 60 | 5.6 | 1.44 GB | 15 Hz 1280×720 | 10 Hz | yes | yes, 43 fps (cap not held) |
 | Balanced | 30 | 8.1 | 1.19 GB | 10 Hz 640×360 | 10 Hz | yes | yes with the lowered rates, 27 fps (cap not held) |
-| Minimal | 20 | 16.1 | 1.11 GB | 5 Hz 320×180 | 5 Hz | yes | yes, 20 fps |
+| Minimal | 20 | 16.1 | 1.11 GB | 5 Hz 320×180 | 10 Hz | yes | yes, 20 fps |
 
 Uncapped capacity (GPU ms per frame, full CPU): Full 3.12, Balanced 1.63, Minimal 1.35. Single
 knobs from Full: reduced effects 2.04, half resolution 2.54, water detail off 2.89, spectator off
