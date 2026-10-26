@@ -1,0 +1,292 @@
+{
+  "$defs": {
+    "quantity": {
+      "properties": {
+        "alternatives": {
+          "items": {
+            "required": [
+              "value"
+            ],
+            "type": "object"
+          },
+          "type": "array"
+        },
+        "datasets": {
+          "description": "dataset ids; required for fitted (R4)",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "frame": {
+          "description": "required when value is a list (R2); must name a key of frames",
+          "type": "string"
+        },
+        "identifiability": {
+          "properties": {
+            "reason": {
+              "type": "string"
+            },
+            "status": {
+              "enum": [
+                "IDENTIFIED",
+                "RANK_DEFICIENT",
+                "ILL_CONDITIONED",
+                "CONFOUNDED_WITH",
+                "COMBINATION_ONLY",
+                "INSUFFICIENT_EXCITATION",
+                "SINGLE_SITE",
+                "NO_PHYSICAL_DATA",
+                "ABSTAIN"
+              ]
+            },
+            "with": {
+              "description": "quantity paths that must resolve (R9)",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "status"
+          ],
+          "type": "object"
+        },
+        "legacy": {
+          "type": "object"
+        },
+        "locator": {
+          "type": "string"
+        },
+        "provenance": {
+          "enum": [
+            "cited",
+            "fitted",
+            "prior",
+            "derived",
+            "fixtureOnly"
+          ]
+        },
+        "simTruth": {
+          "type": "boolean"
+        },
+        "source": {
+          "description": "id in sources (R3)",
+          "type": "string"
+        },
+        "uncertainty": {
+          "description": "required for fitted (R4)",
+          "properties": {
+            "hi": {},
+            "kind": {
+              "const": "ci"
+            },
+            "level": {
+              "exclusiveMaximum": 1,
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            "lo": {}
+          },
+          "required": [
+            "kind",
+            "level",
+            "lo",
+            "hi"
+          ],
+          "type": "object"
+        },
+        "unit": {
+          "description": "parsed by crane_profiles.units; dimension must match the key suffix (R1)",
+          "minLength": 1,
+          "type": "string"
+        },
+        "value": {
+          "description": "finite number, nested list of numbers, or null only with identifiability.status ABSTAIN"
+        }
+      },
+      "required": [
+        "value",
+        "unit",
+        "provenance"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "crane.profile/v2",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": {
+    "description": "any other key is a quantity section; leaves are $defs/quantity"
+  },
+  "description": "Structural schema only. Semantic rules R1-R12 are enforced by crane_profiles.validator (python -I -m crane_profiles validate).",
+  "properties": {
+    "attributes": {
+      "type": "object"
+    },
+    "calibrationState": {
+      "enum": [
+        "UNCALIBRATED_PRIOR",
+        "SIM_TRUTH_RECOVERY",
+        "PHYSICALLY_CALIBRATED",
+        "FIXTURE_ONLY"
+      ]
+    },
+    "claimScope": {
+      "properties": {
+        "excluded": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "components": {
+      "items": {
+        "pattern": "^[A-Za-z0-9_.\\-]+@[0-9a-f]{64}$",
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "contentHash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "datasets": {
+      "items": {
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "origin": {
+            "enum": [
+              "physical",
+              "sim_truth",
+              "synthetic-fixture"
+            ]
+          },
+          "runIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "sessions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "type": "string"
+          },
+          "sites": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "split": {
+            "enum": [
+              "fit",
+              "heldout",
+              "none"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "origin"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "domain": {
+      "type": "string"
+    },
+    "evidenceLabel": {
+      "enum": [
+        "NOT_RUN",
+        "UNKNOWN",
+        "IMPLEMENTED",
+        "FIXTURE_VALIDATED",
+        "LIVE_SIM_VALIDATED",
+        "PHYSICALLY_CALIBRATED"
+      ]
+    },
+    "frames": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "minProperties": 1,
+      "type": "object"
+    },
+    "id": {
+      "minLength": 1,
+      "type": "string"
+    },
+    "kind": {
+      "type": "string"
+    },
+    "migratedFrom": {
+      "type": "object"
+    },
+    "mixLabel": {
+      "type": "string"
+    },
+    "schema": {
+      "const": "crane.profile/v2"
+    },
+    "sources": {
+      "additionalProperties": {
+        "properties": {
+          "license": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "uncommitted": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "license"
+        ],
+        "type": "object"
+      },
+      "type": "object"
+    },
+    "structures": {
+      "additionalProperties": {
+        "required": [
+          "frame",
+          "data"
+        ],
+        "type": "object"
+      },
+      "type": "object"
+    },
+    "version": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "kind",
+    "domain",
+    "id",
+    "version",
+    "frames",
+    "calibrationState",
+    "evidenceLabel",
+    "sources",
+    "datasets",
+    "claimScope",
+    "contentHash"
+  ],
+  "title": "CRANE profile v2",
+  "type": "object"
+}

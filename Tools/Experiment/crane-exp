@@ -1,0 +1,4 @@
+#!/bin/sh
+# crane-exp launcher: python -I ignores PYTHONPATH and cwd, so add this directory explicitly.
+HERE="$(cd "$(dirname "$0")" && pwd)"
+exec python -I -c "import sys; sys.path.insert(0, '$HERE'); from crane_experiment.cli import main; sys.exit(main(sys.argv[1:]))" "$@"

@@ -27,6 +27,9 @@ namespace Sim.Performance {
             public string graphicsDeviceType;
             public string graphicsDeviceVersion;
             public string physicsBackend = "Unity PhysX via Rigidbody/ArticulationBody";
+            public string seed;
+            public string calibrationProfilePath;
+            public string calibrationProfileSha256;
         }
 
         public static string ReadArgument(string[] args, string key) {
@@ -68,14 +71,28 @@ namespace Sim.Performance {
                 .Replace("-", string.Empty);
         }
 
-        public static string RuntimeMetadataJson() => JsonUtility.ToJson(new RuntimeMetadata {
-            platform = Application.platform.ToString(),
-            operatingSystem = SystemInfo.operatingSystem,
-            processor = SystemInfo.processorType,
-            graphicsDevice = SystemInfo.graphicsDeviceName,
-            graphicsDeviceType = SystemInfo.graphicsDeviceType.ToString(),
-            graphicsDeviceVersion = SystemInfo.graphicsDeviceVersion
-        });
+        public static string HashFile(string path) {
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return string.Empty;
+            using SHA256 sha = SHA256.Create();
+            using FileStream stream = File.OpenRead(Path.GetFullPath(path));
+            return BitConverter.ToString(sha.ComputeHash(stream)).Replace("-", string.Empty);
+        }
+
+        public static string RuntimeMetadataJson() {
+            string[] args = Environment.GetCommandLineArgs();
+            string profilePath = ReadArgument(args, "--crane-campus-calibration-profile");
+            return JsonUtility.ToJson(new RuntimeMetadata {
+                platform = Application.platform.ToString(),
+                operatingSystem = SystemInfo.operatingSystem,
+                processor = SystemInfo.processorType,
+                graphicsDevice = SystemInfo.graphicsDeviceName,
+                graphicsDeviceType = SystemInfo.graphicsDeviceType.ToString(),
+                graphicsDeviceVersion = SystemInfo.graphicsDeviceVersion,
+                seed = ReadArgument(args, "--crane-seed"),
+                calibrationProfilePath = profilePath,
+                calibrationProfileSha256 = HashFile(profilePath)
+            });
+        }
 
         public static void WriteVector(BinaryWriter writer, Vector3 value) {
             writer.Write(value.x); writer.Write(value.y); writer.Write(value.z);

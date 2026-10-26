@@ -1,0 +1,82 @@
+{
+  "$id": "crane.dataset_manifest/v2",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "contentHash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "heldOutFactors": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "kind": {
+      "const": "dataset_manifest"
+    },
+    "origin": {
+      "enum": [
+        "physical",
+        "sim_truth",
+        "synthetic-fixture"
+      ]
+    },
+    "schema": {
+      "const": "crane.dataset_manifest/v2"
+    },
+    "trials": {
+      "items": {
+        "properties": {
+          "hashes": {
+            "type": "object"
+          },
+          "id": {
+            "type": "string"
+          },
+          "runId": {
+            "type": "string"
+          },
+          "session": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "site": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "split": {
+            "enum": [
+              "fit",
+              "heldout"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "split",
+          "site",
+          "session",
+          "runId",
+          "hashes"
+        ],
+        "type": "object"
+      },
+      "minItems": 2,
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema",
+    "kind",
+    "origin",
+    "trials",
+    "contentHash"
+  ],
+  "title": "CRANE dataset manifest v2",
+  "type": "object"
+}

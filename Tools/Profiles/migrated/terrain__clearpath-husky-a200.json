@@ -1,0 +1,171 @@
+{
+  "attributes": {
+    "drivenAxles": "all",
+    "drivenWheelCount": 4,
+    "steering": "skid"
+  },
+  "calibrationState": "UNCALIBRATED_PRIOR",
+  "claimScope": {
+    "excluded": []
+  },
+  "components": [],
+  "contentHash": "fa4ca16e7493edeeb3514e3cdc6972424688f0003a71ef8cceb595034e8b86e6",
+  "datasets": [],
+  "domain": "ground",
+  "evidenceLabel": "IMPLEMENTED",
+  "frames": {
+    "body": "robot base, x forward, y left, z up (URDF convention)"
+  },
+  "id": "clearpath-husky-a200",
+  "kind": "robot_geometry",
+  "migratedFrom": {
+    "labelNote": "legacy label PUBLISHED_DESCRIPTION_PRIOR mapped to IMPLEMENTED",
+    "legacyEvidenceLabel": "PUBLISHED_DESCRIPTION_PRIOR (URDF values, not measured by CRANE)",
+    "schema": "crane-ground-robot-profile-v1"
+  },
+  "parameters": {
+    "cgFromRearAxleM": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "locator": "derived: wheelbase/2 + mass-weighted COM x (-0.00065*46.034/56.582)",
+      "provenance": "derived",
+      "source": "upstream",
+      "unit": "m",
+      "value": 0.25547
+    },
+    "cgHeightAboveGroundM": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "locator": "derived: chassis COM z 0.062 (xacro:198) above base_link; base_link is wheel_radius - wheel_vertical_offset (0.1651-0.03282) above ground; wheels at r; mass-weighted",
+      "provenance": "derived",
+      "source": "upstream",
+      "unit": "m",
+      "value": 0.18884
+    },
+    "cgLateralOffsetM": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "locator": "derived from xacro:198 COM y=-0.085 (mass-weighted). UNVERIFIED physically: an 8.5 cm lateral chassis COM offset is suspicious; treat as a description artifact until measured",
+      "provenance": "derived",
+      "source": "upstream",
+      "unit": "m",
+      "value": -0.06915
+    },
+    "chassisMassKg": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "locator": "husky.urdf.xacro:197 inertial_link mass",
+      "provenance": "cited",
+      "source": "upstream",
+      "unit": "kg",
+      "value": 46.034
+    },
+    "gazeboMu": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "locator": "wheel.urdf.xacro:50-51 mu1/mu2 (simulator tuning, not a measured tire-soil coefficient)",
+      "provenance": "cited",
+      "source": "upstream",
+      "unit": "1",
+      "value": 1.0
+    },
+    "totalMassKg": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "locator": "derived: 46.034 + 4*2.637",
+      "provenance": "derived",
+      "source": "upstream",
+      "unit": "kg",
+      "value": 56.582
+    },
+    "trackM": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "locator": "husky.urdf.xacro:156 track",
+      "provenance": "cited",
+      "source": "upstream",
+      "unit": "m",
+      "value": 0.555
+    },
+    "wheelMassKg": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "locator": "husky_description/urdf/wheel.urdf.xacro:31",
+      "provenance": "cited",
+      "source": "upstream",
+      "unit": "kg",
+      "value": 2.637
+    },
+    "wheelRadiusM": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "locator": "husky.urdf.xacro:161 wheel_radius",
+      "provenance": "cited",
+      "source": "upstream",
+      "unit": "m",
+      "value": 0.1651
+    },
+    "wheelSeparationMultiplier": {
+      "identifiability": {
+        "reason": "Empirical skid-steer track/wheel scale inflation that is valid only for the surface and site it was tuned on; slip and scale are confounded on one slope.",
+        "status": "SINGLE_SITE"
+      },
+      "locator": "husky_control/config/control.yaml:26 (diff_drive_controller empirical skid-steer track inflation)",
+      "provenance": "cited",
+      "source": "upstream",
+      "unit": "1",
+      "value": 1.875
+    },
+    "wheelWidthM": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "locator": "husky.urdf.xacro:160 wheel_length",
+      "provenance": "cited",
+      "source": "upstream",
+      "unit": "m",
+      "value": 0.1143
+    },
+    "wheelbaseM": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "locator": "husky_description/urdf/husky.urdf.xacro:155 wheelbase",
+      "provenance": "cited",
+      "source": "upstream",
+      "unit": "m",
+      "value": 0.512
+    }
+  },
+  "schema": "crane.profile/v2",
+  "sources": {
+    "upstream": {
+      "gplCompatible": true,
+      "license": "BSD-3-Clause",
+      "meshes": "husky_description/meshes in the same BSD-3-Clause repository",
+      "revision": "husky/husky@41e15d283a8d955938204e79554a875264417bb9 (noetic-devel, 2025-10-01)",
+      "verifiedAt": "https://github.com/husky/husky/blob/41e15d283a8d955938204e79554a875264417bb9/LICENSE"
+    }
+  },
+  "version": "v1-migrated"
+}

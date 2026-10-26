@@ -1,0 +1,5 @@
+{"schema": "crane-nav2-scene-reload-v1", "valid": true,
+ "scope": "authoritative-odometry-nav2-velocity-after-scene-reload",
+ "transport": {"rosTcpPort": 10000, "rosDomainId": 207, "connections": 1, "disconnects": 0},
+ "actions": {"accepted": 412, "rejected": 0, "stale": 0, "crossEpisode": 0},
+ "realTimeFactor": 1.8, "FIXTURE": "hand-constructed sample, not a real run"}

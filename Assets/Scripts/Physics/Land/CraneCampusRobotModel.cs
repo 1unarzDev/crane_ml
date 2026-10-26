@@ -26,12 +26,22 @@ namespace Sim.Physics.Land {
         public float WheelLinearSpeed,WheelAngularSpeed;
         public float LeftIntegral=>leftIntegral;public float RightIntegral=>rightIntegral;
         public void Configure(CraneIndustrialCampus owner,DifferentialDriveDynamics controller,string[] args) {
+            Configure(owner, controller, args, owner.CalibrationProfile);
+        }
+        public void Configure(CraneIndustrialCampus owner,DifferentialDriveDynamics controller,string[] args,
+            CraneCampusCalibrationProfile calibrationProfile) {
             campus=owner;drive=controller;body=GetComponent<Rigidbody>();random=new System.Random(owner.Seed+211);
             MaximumMotorTorque=Read(args,"--crane-campus-motor-torque",.35f);
             if(!float.IsFinite(MaximumMotorTorque)||MaximumMotorTorque<=0||MaximumMotorTorque>2)throw new ArgumentOutOfRangeException("motor torque");
             ResponseSeconds=Read(args,"--crane-campus-motor-lag",.15f);
             Acceleration=Read(args,"--crane-campus-acceleration",.6f);
             leftScale=Read(args,"--crane-campus-left-wheel-scale",1f);rightScale=Read(args,"--crane-campus-right-wheel-scale",1f);
+            if (calibrationProfile != null) {
+                var p=calibrationProfile.parameters;
+                MaximumMotorTorque=p.maxMotorTorqueNm; ResponseSeconds=p.motorLagSeconds;
+                Acceleration=p.accelerationMps2; AngularAcceleration=p.angularAccelerationRadPerSec2;
+                leftScale=p.leftWheelScale; rightScale=p.rightWheelScale;
+            }
             if(!float.IsFinite(ResponseSeconds)||ResponseSeconds<.001f||ResponseSeconds>2||
                 !float.IsFinite(Acceleration)||Acceleration<=0||Acceleration>3||
                 !float.IsFinite(leftScale)||!float.IsFinite(rightScale)||leftScale<.9f||leftScale>1.1f||rightScale<.9f||rightScale>1.1f)
@@ -96,11 +106,14 @@ namespace Sim.Physics.Land {
             }
             // Sum of published URDF inertial masses (base, 2 wheels, 2 casters, scanner).
             // Camera/payload not specified in URDF; physical measurements must replace this prior.
-            body.mass=Read(args,"--crane-campus-mass",1.5539075f)-(contactWheels?2*.02849894f:0);
+            float configuredMass=calibrationProfile!=null?calibrationProfile.parameters.massKg:Read(args,"--crane-campus-mass",1.5539075f);
+            body.mass=configuredMass-(contactWheels?2*.02849894f:0);
             if(!float.IsFinite(body.mass)||body.mass<.5f||body.mass>5)throw new ArgumentOutOfRangeException("Campus mass");
             body.centerOfMass=new Vector3(0,.009766f,-.005834f);
             drive.SetCampusModel(this);WheelPosition=body.position;WheelYaw=body.rotation.eulerAngles.y*Mathf.Deg2Rad;
             campus.RecordEvent("robot-model","turtlebot3-waffle-reference",$"mass={body.mass:R}; radius={drive.WheelRadius:R}; separation={drive.WheelSeparation:R}; tau={ResponseSeconds:R}; acceleration={Acceleration:R}; torqueLimit={MaximumMotorTorque:R}; contactWheels={contactWheels}; tireProxy={(convexTires?"experimental-rounded-convex":"spherical-contact-reference")}; planarPitch=false; inertia=collider-derived");
+            if (calibrationProfile != null)
+                campus.RecordEvent("calibration-profile","robot",calibrationProfile.EventDescription());
         }
         static Mesh WheelCylinder(float radius,float width) {
             // Rounded tire crown: nominal 18 mm width and 33 mm rolling radius.

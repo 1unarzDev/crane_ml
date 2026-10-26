@@ -1,0 +1,34 @@
+{
+  "schema": "crane-public-pilot-sources-v1",
+  "sources": [
+    {
+      "id": "lilocbench-dynamics-0",
+      "publisher": "University of Bonn, Photogrammetry and Robotics Lab",
+      "sourcePage": "https://www.ipb.uni-bonn.de/html/projects/localization_benchmark/",
+      "platform": "Clearpath Dingo omnidirectional",
+      "license": "CC-BY-NC-SA-4.0",
+      "role": "external physical ingestion pilot; not CRANE robot calibration",
+      "artifacts": [
+        {
+          "name": "dynamics_0.bag",
+          "url": "https://www.ipb.uni-bonn.de/html/projects/localization_benchmark/data/bagfiles_no_cams/dynamics_0.bag",
+          "bytes": 38063988,
+          "sha256": "df4abb923df1bb1ff46326abab8667188f4bc17e7ae12ea16905e9d632470c58"
+        },
+        {
+          "name": "dynamics_0_gt.txt",
+          "url": "https://www.ipb.uni-bonn.de/html/projects/localization_benchmark/data/gt_poses_public/dynamics_0/gt_poses.txt",
+          "sha256": "606f9392c1a992c9acdb5e680a9108ef7647ba8943d747435c90dfa56feaa38f"
+        }
+      ],
+      "citation": "N. Trekel et al., Benchmark for Evaluating Long-Term Localization in Indoor Environments Under Substantial Static and Dynamic Scene Changes, IROS 2025.",
+      "limitations": [
+        "Velocity commands are unstamped Twist messages; bag record times are not actuator application times.",
+        "Publisher header timestamps do not establish hardware acquisition clock synchronization.",
+        "Wheel odometry and reference poses require a declared frame relation before absolute residual comparison.",
+        "SICK TIM781S and RealSense D455 differ from VLP-16 and ZED 2i.",
+        "No repeated identical physical command trials or CRANE closed-loop runs are established."
+      ]
+    }
+  ]
+}

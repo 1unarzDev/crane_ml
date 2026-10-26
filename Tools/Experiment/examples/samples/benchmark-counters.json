@@ -1,0 +1,4 @@
+{"schema": "crane-benchmark-v1", "scenario": "sample", "staleObservations": 0, "staleActions": 0,
+ "acceptedActions": 412, "rejectedActions": 0, "unknownSourceActions": 0, "crossEpisodeActions": 0,
+ "duplicateActions": 0, "failedObservations": 0, "loggedErrors": 0, "loggedExceptions": 0,
+ "FIXTURE": "hand-constructed sample, not a real run"}

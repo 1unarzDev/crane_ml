@@ -1,0 +1,9 @@
+[project]
+name = "crane-profiles"
+version = "2.0.0"
+description = "crane.profile/v2 schema, validator and migrations"
+requires-python = ">=3.11"
+dependencies = ["numpy", "PyYAML"]
+
+[tool.setuptools]
+packages = ["crane_profiles", "crane_profiles.migrations"]

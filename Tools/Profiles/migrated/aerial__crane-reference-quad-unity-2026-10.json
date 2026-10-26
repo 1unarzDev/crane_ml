@@ -1,0 +1,341 @@
+{
+  "aero": {
+    "dragLinear": {
+      "frame": "body",
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "ASSUMED",
+        "unit": "N s/m",
+        "v1Key": "drag_linear"
+      },
+      "locator": "linearDrag Unity (x,y,z)=(0.18,0.25,0.18) -> FLU",
+      "provenance": "prior",
+      "source": "CRANE",
+      "unit": "N s/m",
+      "value": [
+        0.18,
+        0.18,
+        0.25
+      ]
+    },
+    "dragQuadratic": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "NOT_REPRESENTABLE",
+        "unit": "N s^2/m^2",
+        "v1Key": "drag_quadratic"
+      },
+      "locator": "Unity per-axis v_i|v_i| form is not rotation-consistent and is modeled only in aerial_unity_mirror.py",
+      "provenance": "prior",
+      "source": "CRANE",
+      "unit": "N s^2/m^2",
+      "value": 0.0
+    }
+  },
+  "attributes": {
+    "description": "Mirror of the CRANE Unity 'Reference Quadrotor' / 'PX4 x500-class Reference' as serialized in Assets/Scenes/{Aerial Vehicle,PX4 Walls,PX4 Windy,PX4 ArUco} Validation.unity. Rotor speed is the normalized command (omega_max = 1, kf = maximumThrustPerRotor). Inertia is PhysX's implicit tensor for the single 0.5 x 0.16 x 0.5 m BoxCollider. Converted Unity RUF -> FLU."
+  },
+  "calibrationState": "UNCALIBRATED_PRIOR",
+  "claimScope": {
+    "excluded": []
+  },
+  "components": [],
+  "contentHash": "29b9fa2ce89808c9898c63781f6b584ceed3d36bafd171496c2db64467b5a036",
+  "datasets": [],
+  "domain": "aerial",
+  "dynamics": {
+    "inertiaKgM2": {
+      "frame": "body",
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "DERIVED",
+        "unit": "kg m^2",
+        "v1Key": "inertia"
+      },
+      "locator": "implicit box tensor m/12 (b^2+c^2); m_ImplicitTensor 1",
+      "provenance": "derived",
+      "source": "CRANE",
+      "unit": "kg m^2",
+      "value": [
+        [
+          0.03445,
+          0,
+          0
+        ],
+        [
+          0,
+          0.03445,
+          0
+        ],
+        [
+          0,
+          0,
+          0.0625
+        ]
+      ]
+    },
+    "massKg": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "ASSUMED",
+        "unit": "kg",
+        "v1Key": "mass"
+      },
+      "locator": "Rigidbody m_Mass",
+      "provenance": "prior",
+      "source": "CRANE",
+      "unit": "kg",
+      "value": 1.5
+    }
+  },
+  "evidenceLabel": "IMPLEMENTED",
+  "frames": {
+    "body": "FLU",
+    "spin": "+1 = CCW seen from above",
+    "world": "ENU z-up"
+  },
+  "id": "crane-reference-quad-unity-2026-10",
+  "kind": "vehicle_dynamics",
+  "migratedFrom": {
+    "labelNote": "LIVE_SIM_VALIDATED capped to IMPLEMENTED (R11: sources uncommitted user work)",
+    "legacyEvidenceLabel": "LIVE_SIM_VALIDATED (roll-rate mirror matches a headless player run to 1e-6 rad/s; stale Sep-19 build)",
+    "schema": "crane-aerial-vehicle-profile-v1"
+  },
+  "notes": [
+    "Spin pattern (FL/RR CCW) is the mirror image of PX4/ArduPilot Quad-X (FR/RL CCW)."
+  ],
+  "propulsion": {
+    "kf": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "ASSUMED",
+        "unit": "N per normalized speed^2",
+        "v1Key": "kf"
+      },
+      "locator": "maximumThrustPerRotor",
+      "provenance": "prior",
+      "source": "CRANE",
+      "unit": "N/norm^2",
+      "value": 8.0
+    },
+    "kmM": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "ASSUMED",
+        "unit": "m",
+        "v1Key": "km"
+      },
+      "locator": "reactionTorquePerThrust",
+      "provenance": "prior",
+      "source": "CRANE",
+      "unit": "m",
+      "value": 0.015
+    },
+    "omegaMax": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "ASSUMED",
+        "unit": "normalized",
+        "v1Key": "omega_max"
+      },
+      "locator": "Mathf.Clamp01",
+      "provenance": "prior",
+      "source": "CRANE",
+      "unit": "norm",
+      "value": 1.0
+    },
+    "rollingMoment": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "ASSUMED",
+        "unit": "-",
+        "v1Key": "rolling_moment"
+      },
+      "locator": "absent",
+      "provenance": "prior",
+      "source": "CRANE",
+      "unit": "1",
+      "value": 0.0
+    },
+    "rotorDrag": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "ASSUMED",
+        "unit": "-",
+        "v1Key": "rotor_drag"
+      },
+      "locator": "absent",
+      "provenance": "prior",
+      "source": "CRANE",
+      "unit": "1",
+      "value": 0.0
+    },
+    "rotorRadiusM": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "ASSUMED",
+        "unit": "m",
+        "v1Key": "rotor_radius"
+      },
+      "locator": "absent (no ground effect)",
+      "provenance": "prior",
+      "source": "CRANE",
+      "unit": "m",
+      "value": 0.0
+    },
+    "tauDownS": {
+      "identifiability": {
+        "reason": "Motor time constant is not separable from IMU/gyro latency in rate-response data (see Tools/Aerial/aerial_identifiability.py).",
+        "status": "CONFOUNDED_WITH",
+        "with": [
+          "timing.gyroLatencyS"
+        ]
+      },
+      "legacy": {
+        "extra": {},
+        "status": "ASSUMED",
+        "unit": "s",
+        "v1Key": "tau_down"
+      },
+      "locator": "motorTimeConstant",
+      "provenance": "prior",
+      "source": "CRANE",
+      "unit": "s",
+      "value": 0.06
+    },
+    "tauUpS": {
+      "identifiability": {
+        "reason": "Motor time constant is not separable from IMU/gyro latency in rate-response data (see Tools/Aerial/aerial_identifiability.py).",
+        "status": "CONFOUNDED_WITH",
+        "with": [
+          "timing.gyroLatencyS"
+        ]
+      },
+      "legacy": {
+        "extra": {},
+        "status": "ASSUMED",
+        "unit": "s",
+        "v1Key": "tau_up"
+      },
+      "locator": "motorTimeConstant",
+      "provenance": "prior",
+      "source": "CRANE",
+      "unit": "s",
+      "value": 0.06
+    }
+  },
+  "schema": "crane.profile/v2",
+  "sources": {
+    "CRANE": {
+      "commit": "976ff1e (working tree)",
+      "gplCompatible": true,
+      "license": "repo LICENSE",
+      "uncommitted": true,
+      "url": "file://Assets/Scripts/Physics/Aerial/MultirotorDynamics.cs"
+    }
+  },
+  "structures": {
+    "rotors": {
+      "data": [
+        {
+          "locator": "Unity (-0.23,0,0.23); yawSign +1 -> body torque +Unity y (clockwise from above) -> rotor CCW",
+          "name": "front_left",
+          "position": [
+            0.23,
+            0.23,
+            0.0
+          ],
+          "source": "CRANE",
+          "spin": 1
+        },
+        {
+          "locator": "Unity (0.23,0,0.23); yawSign -1",
+          "name": "front_right",
+          "position": [
+            0.23,
+            -0.23,
+            0.0
+          ],
+          "source": "CRANE",
+          "spin": -1
+        },
+        {
+          "locator": "Unity (0.23,0,-0.23); yawSign +1",
+          "name": "rear_right",
+          "position": [
+            -0.23,
+            -0.23,
+            0.0
+          ],
+          "source": "CRANE",
+          "spin": 1
+        },
+        {
+          "locator": "Unity (-0.23,0,-0.23); yawSign -1",
+          "name": "rear_left",
+          "position": [
+            -0.23,
+            0.23,
+            0.0
+          ],
+          "source": "CRANE",
+          "spin": -1
+        }
+      ],
+      "frame": "body",
+      "provenance": "cited"
+    }
+  },
+  "timing": {
+    "gyroLatencyS": {
+      "identifiability": {
+        "reason": "No gyro/IMU latency is recorded in the v1 profile; this quantity is the anchor for CONFOUNDED_WITH on the motor time constants, not a value.",
+        "status": "ABSTAIN"
+      },
+      "provenance": "prior",
+      "unit": "s",
+      "value": null
+    }
+  },
+  "version": "v1-migrated"
+}

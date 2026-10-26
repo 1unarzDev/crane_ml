@@ -1,0 +1,138 @@
+{
+  "attributes": {
+    "drivenAxles": "front",
+    "drivenWheelCount": 2,
+    "notes": "'wheelbase' here is drive axle to caster line; casters are frictionless (TurtleBot3 Chassis Slip material, friction 0, combine Minimum).",
+    "steering": "differential-with-casters"
+  },
+  "calibrationState": "UNCALIBRATED_PRIOR",
+  "claimScope": {
+    "excluded": []
+  },
+  "components": [],
+  "contentHash": "f3abc112a3b6f05aa62bc1a8673467948405f0291f288bf6c775b6965c01ad81",
+  "datasets": [],
+  "domain": "ground",
+  "evidenceLabel": "IMPLEMENTED",
+  "frames": {
+    "body": "robot base, x forward, y left, z up (URDF convention)"
+  },
+  "id": "crane-campus-turtlebot3-waffle-prior",
+  "kind": "robot_geometry",
+  "migratedFrom": {
+    "labelNote": null,
+    "legacyEvidenceLabel": "IMPLEMENTED engineering prior; not PHYSICALLY_CALIBRATED",
+    "schema": "crane-ground-robot-profile-v1"
+  },
+  "parameters": {
+    "cgFromRearAxleM": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "locator": "derived: caster distance 0.177 - COM z offset 0.005834 (CraneCampusRobotModel.cs:112)",
+      "provenance": "derived",
+      "source": "upstream",
+      "unit": "m",
+      "value": 0.171166
+    },
+    "cgHeightAboveGroundM": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "locator": "derived: COM y .009766 (CraneCampusRobotModel.cs:112) - (wheel centre y .023 - r .033)",
+      "provenance": "derived",
+      "source": "upstream",
+      "unit": "m",
+      "value": 0.019766
+    },
+    "cgLateralOffsetM": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "locator": "CraneCampusRobotModel.cs:112",
+      "provenance": "cited",
+      "source": "upstream",
+      "unit": "m",
+      "value": 0.0
+    },
+    "peakWheelTorqueNm": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "locator": "CraneCampusRobotModel.cs:34 --crane-campus-motor-torque default (prior)",
+      "provenance": "cited",
+      "source": "upstream",
+      "unit": "N m",
+      "value": 0.35
+    },
+    "tireRubberStaticMu": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "locator": "CraneCampusRobotModel.cs:61 (combined Minimum with surface)",
+      "provenance": "cited",
+      "source": "upstream",
+      "unit": "1",
+      "value": 0.9
+    },
+    "totalMassKg": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "locator": "CraneCampusRobotModel.cs:109 default mass",
+      "provenance": "cited",
+      "source": "upstream",
+      "unit": "kg",
+      "value": 1.5539075
+    },
+    "trackM": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "locator": "DifferentialDriveDynamics.cs:11 wheelSeparation",
+      "provenance": "cited",
+      "source": "upstream",
+      "unit": "m",
+      "value": 0.287
+    },
+    "wheelRadiusM": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "locator": "DifferentialDriveDynamics.cs:12",
+      "provenance": "cited",
+      "source": "upstream",
+      "unit": "m",
+      "value": 0.033
+    },
+    "wheelbaseM": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "locator": "CraneCampusRobotModel.cs:95 caster z=-0.177 (drive axle z=0)",
+      "provenance": "cited",
+      "source": "upstream",
+      "unit": "m",
+      "value": 0.177
+    }
+  },
+  "schema": "crane.profile/v2",
+  "sources": {
+    "upstream": {
+      "gplCompatible": true,
+      "license": "Apache-2.0 (upstream ROBOTIS turtlebot3, verified via GitHub API); values below are CRANE's own runtime constants",
+      "revision": "crane_ml@976ff1e + uncommitted CraneCampusRobotModel.cs (user WIP, read only)",
+      "uncommitted": true
+    }
+  },
+  "version": "v1-migrated"
+}

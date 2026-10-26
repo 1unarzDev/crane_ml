@@ -1,0 +1,367 @@
+{
+  "aero": {
+    "dragLinear": {
+      "frame": "body",
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "UNKNOWN",
+        "unit": "N s/m",
+        "v1Key": "drag_linear"
+      },
+      "locator": "none",
+      "provenance": "prior",
+      "unit": "N s/m",
+      "value": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "dragQuadratic": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "UNKNOWN",
+        "unit": "N s^2/m^2",
+        "v1Key": "drag_quadratic"
+      },
+      "locator": "none",
+      "provenance": "prior",
+      "unit": "N s^2/m^2",
+      "value": 0.0
+    }
+  },
+  "attributes": {
+    "description": "AscTec Firefly hexarotor as parameterized in RotorS. Used here for hexarotor allocation/feasibility fixtures; coefficients are simulator defaults, not a published sysid."
+  },
+  "calibrationState": "UNCALIBRATED_PRIOR",
+  "claimScope": {
+    "excluded": []
+  },
+  "components": [],
+  "contentHash": "842e52f016c4dba2bc7f7ac186835daa6864c081c3e0bf5bb10c2fa15ce96bab",
+  "datasets": [],
+  "domain": "aerial",
+  "dynamics": {
+    "inertiaKgM2": {
+      "frame": "body",
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "SIMULATOR_DEFAULT",
+        "unit": "kg m^2",
+        "v1Key": "inertia"
+      },
+      "locator": "body_inertia",
+      "provenance": "prior",
+      "source": "ROTORS",
+      "unit": "kg m^2",
+      "value": [
+        [
+          0.0347563,
+          0,
+          0
+        ],
+        [
+          0,
+          0.0458929,
+          0
+        ],
+        [
+          0,
+          0,
+          0.0977
+        ]
+      ]
+    },
+    "massKg": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "SIMULATOR_DEFAULT",
+        "unit": "kg",
+        "v1Key": "mass"
+      },
+      "locator": "firefly.xacro mass 1.5 + 6 x mass_rotor 0.005",
+      "provenance": "prior",
+      "source": "ROTORS",
+      "unit": "kg",
+      "value": 1.53
+    }
+  },
+  "evidenceLabel": "IMPLEMENTED",
+  "frames": {
+    "body": "FLU",
+    "spin": "+1 = CCW seen from above",
+    "world": "ENU z-up"
+  },
+  "id": "rotors-firefly-cd813b7",
+  "kind": "vehicle_dynamics",
+  "migratedFrom": {
+    "labelNote": null,
+    "legacyEvidenceLabel": "IMPLEMENTED",
+    "schema": "crane-aerial-vehicle-profile-v1"
+  },
+  "notes": [
+    "Thrust-to-weight at omega_max: 6 kf w^2 / (m g) = 2.40."
+  ],
+  "propulsion": {
+    "kf": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "SIMULATOR_DEFAULT",
+        "unit": "N/(rad/s)^2",
+        "v1Key": "kf"
+      },
+      "locator": "motor_constant",
+      "provenance": "prior",
+      "source": "ROTORS",
+      "unit": "N/(rad/s)^2",
+      "value": 8.54858e-06
+    },
+    "kmM": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "SIMULATOR_DEFAULT",
+        "unit": "m",
+        "v1Key": "km"
+      },
+      "locator": "moment_constant",
+      "provenance": "prior",
+      "source": "ROTORS",
+      "unit": "m",
+      "value": 0.016
+    },
+    "omegaMax": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "SIMULATOR_DEFAULT",
+        "unit": "rad/s",
+        "v1Key": "omega_max"
+      },
+      "locator": "max_rot_velocity",
+      "provenance": "prior",
+      "source": "ROTORS",
+      "unit": "rad/s",
+      "value": 838.0
+    },
+    "rollingMoment": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "SIMULATOR_DEFAULT",
+        "unit": "N s/rad",
+        "v1Key": "rolling_moment"
+      },
+      "locator": "rolling_moment_coefficient",
+      "provenance": "prior",
+      "source": "ROTORS",
+      "unit": "N s/rad",
+      "value": 1e-06
+    },
+    "rotorDrag": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "SIMULATOR_DEFAULT",
+        "unit": "N s/(m rad)",
+        "v1Key": "rotor_drag"
+      },
+      "locator": "rotor_drag_coefficient",
+      "provenance": "prior",
+      "source": "ROTORS",
+      "unit": "N s/(m rad)",
+      "value": 8.06428e-05
+    },
+    "rotorRadiusM": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "SIMULATOR_DEFAULT",
+        "unit": "m",
+        "v1Key": "rotor_radius"
+      },
+      "locator": "radius_rotor",
+      "provenance": "prior",
+      "source": "ROTORS",
+      "unit": "m",
+      "value": 0.1
+    },
+    "tauDownS": {
+      "identifiability": {
+        "reason": "Motor time constant is not separable from IMU/gyro latency in rate-response data (see Tools/Aerial/aerial_identifiability.py).",
+        "status": "CONFOUNDED_WITH",
+        "with": [
+          "timing.gyroLatencyS"
+        ]
+      },
+      "legacy": {
+        "extra": {},
+        "status": "SIMULATOR_DEFAULT",
+        "unit": "s",
+        "v1Key": "tau_down"
+      },
+      "locator": "time_constant_down",
+      "provenance": "prior",
+      "source": "ROTORS",
+      "unit": "s",
+      "value": 0.025
+    },
+    "tauUpS": {
+      "identifiability": {
+        "reason": "Motor time constant is not separable from IMU/gyro latency in rate-response data (see Tools/Aerial/aerial_identifiability.py).",
+        "status": "CONFOUNDED_WITH",
+        "with": [
+          "timing.gyroLatencyS"
+        ]
+      },
+      "legacy": {
+        "extra": {},
+        "status": "SIMULATOR_DEFAULT",
+        "unit": "s",
+        "v1Key": "tau_up"
+      },
+      "locator": "time_constant_up",
+      "provenance": "prior",
+      "source": "ROTORS",
+      "unit": "s",
+      "value": 0.0125
+    }
+  },
+  "schema": "crane.profile/v2",
+  "sources": {
+    "ROTORS": {
+      "citation": "Furrer, Burri, Achtelik, Siegwart, 'RotorS - A Modular Gazebo MAV Simulator Framework', Robot Operating System (ROS): The Complete Reference (Vol. 1), Springer 2016",
+      "commit": "cd813b7a8c375d677352aa20ad20047feb661126",
+      "files": {
+        "rotors_description/package.xml": "98e93ed13644fa2b72b62ed4c7bfc81a9883fb5f99a87bb254ce7a01a9901826",
+        "rotors_description/urdf/firefly.xacro": "90951ba87ee70dc094061f6f9bfb45c3d6da7037f4729d76df3bac142c15d8b3"
+      },
+      "gplCompatible": true,
+      "license": "Apache-2.0 (per-file headers 'Licensed under the Apache License, Version 2.0'; package.xml <license>ASL 2.0</license>; no top-level LICENSE file)",
+      "licenseProvenance": "License is inferred from per-file headers and package.xml metadata only; the repository has no top-level LICENSE file.",
+      "meshLicense": "firefly.dae has no separate notice; package-level ASL 2.0 only. UNKNOWN for redistribution; do not import or bundle any RotorS mesh.",
+      "url": "https://github.com/ethz-asl/rotors_simulator"
+    }
+  },
+  "structures": {
+    "rotors": {
+      "data": [
+        {
+          "locator": "motor_number 0 ccw (cos30 a, sin30 a)",
+          "name": "m0",
+          "position": [
+            0.18619546181365432,
+            0.1075,
+            0.037
+          ],
+          "source": "ROTORS",
+          "spin": 1
+        },
+        {
+          "locator": "motor_number 1 cw (0, a)",
+          "name": "m1",
+          "position": [
+            0.0,
+            0.215,
+            0.037
+          ],
+          "source": "ROTORS",
+          "spin": -1
+        },
+        {
+          "locator": "motor_number 2 ccw",
+          "name": "m2",
+          "position": [
+            -0.18619546181365432,
+            0.1075,
+            0.037
+          ],
+          "source": "ROTORS",
+          "spin": 1
+        },
+        {
+          "locator": "motor_number 3 cw",
+          "name": "m3",
+          "position": [
+            -0.18619546181365432,
+            -0.1075,
+            0.037
+          ],
+          "source": "ROTORS",
+          "spin": -1
+        },
+        {
+          "locator": "motor_number 4 ccw",
+          "name": "m4",
+          "position": [
+            0.0,
+            -0.215,
+            0.037
+          ],
+          "source": "ROTORS",
+          "spin": 1
+        },
+        {
+          "locator": "motor_number 5 cw",
+          "name": "m5",
+          "position": [
+            0.18619546181365432,
+            -0.1075,
+            0.037
+          ],
+          "source": "ROTORS",
+          "spin": -1
+        }
+      ],
+      "frame": "body",
+      "provenance": "cited"
+    }
+  },
+  "timing": {
+    "gyroLatencyS": {
+      "identifiability": {
+        "reason": "No gyro/IMU latency is recorded in the v1 profile; this quantity is the anchor for CONFOUNDED_WITH on the motor time constants, not a value.",
+        "status": "ABSTAIN"
+      },
+      "provenance": "prior",
+      "unit": "s",
+      "value": null
+    }
+  },
+  "version": "v1-migrated"
+}

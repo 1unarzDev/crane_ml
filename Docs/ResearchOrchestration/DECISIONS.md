@@ -1,0 +1,93 @@
+# DECISIONS
+
+- 2026-10-20 D1: The orchestrator runs on Opus 5.5. Specialists are spawned per milestone through the Agent tool (Claude Code 2.1.306), and their outputs are written to `AGENT_HANDOFFS/<milestone>-<role>.md`. Definitions live in `.claude/agents/`.
+- 2026-10-20 D2: Iteration 1 is read-only toward code. It covers the truth inventory, the literature/novelty matrix, and the adversarial test design, and no production code changes until those are reviewed.
+- 2026-10-20 D3 (user): GPL-3.0 is approved for crane_ml, astro_dock and all crane_* ROS packages.
+  - Added crane_ml/LICENSE as the verbatim GPLv3 text (md5 edef4113…, identical to astro_dock/LICENSE). astro_dock already had it.
+  - Ports from MHSeals GPL-3.0 packages are allowed, as long as they keep upstream copyright/attribution and state the upstream repo and commit for each ported file.
+  - Third-party assets and data keep their own licenses. For example, LILocBench data is CC BY-NC-SA 4.0, is never bundled, and the GPL does not cover it.
+- 2026-10-20 D4 (user): major decisions are made by subagent council deliberation without user input; safety boundaries in CONTRACTS.md remain absolute.
+- 2026-10-20 D5 (orchestrator, following the migration-plan critic): the crane_* packages go in a new CRANE-owned repo `/home/lunarz/crane_ros` (GPL-3.0), not in astro_dock/src.
+  - Reasons: astro_dock gitignores src/mhseals_*, has uncommitted devcontainer edits, defaults to domain 42 (the boat), and its submodule tracks MHSeals.
+  - astro_dock stays the launch surface. Integration will be a documented mount/overlay of crane_ros, added later once the user's devcontainer edits have landed.
+  - Builds run in ephemeral `docker run --rm --network none` containers from `astro:clock-local`. The host has no ROS, and the running `astro_clock` container is left alone.
+- 2026-10-20 D6: crane_hardware is ported first (mixer/law/config/topic outputs @26c59f7, committed blobs only), then crane_nav, then crane_testing.
+- 2026-10-20 D7 (user priority): domain maturity is surface boat (mature) > flat ground (well tested) > hilly/complex terrain (untested) > underwater and aerial (weakest).
+  - Dedicated Opus specialists were spawned for underwater, aerial and complex terrain. Each one audits, sources GPL-compatible URDF/vehicle models with published coefficients, and designs test environments.
+  - Each specialist may write only to its own new dir: Tools/Underwater, Tools/Aerial or Tools/Terrain. Unity assets are proposed first and not created.
+  - The underwater work must not alter surface-boat water/HDRP.
+- 2026-10-20 D8 (council; FINAL after verification V1–V5 confirmed): keep the legacy Fossen stack frozen as the main default. Use RoboBoatHull as the hydro candidate. Add added-mass and Munk coupling only behind `--crane-hydro-profile=hull-am-v1`.
+  - The `reference` failure gets its own investigation (F1: compare fitted vs identity decoupling over 5 runs each; F2: regress sway on surge×yaw rate). Fossen is ruled out as its cause, because characterization runs disable it via `--crane-roboboat-contract` (RoboBoatPhysics.cs:100-104, branch).
+  - Known legacy defects the candidate must avoid: V1–V3 and the E30 viscosity units.
+  - Promotion gates: G1 analytic invariants, G2 published priors, G3 multi-seed nominal pass plus faults still detected, G4 a held-out physical session. G4 is required before any default change.
+  - The IMU gyro sign fix needs no flag, because nothing in astro_dock/src reads /campus/imu. It waits until the user commits their campus WIP.
+- 2026-10-20 D9: Unity EditMode tests for the C# math will run only in a dedicated clean worktree of HEAD with its own Library (Unity 6000.5.10f1 batchmode), never in the main checkout with its user WIP. Until then, C# test results are NOT_RUN.
+- 2026-10-21 D10 (from the reference diagnosis): hydrodynamics stay untouched for `reference`. The fixed 0.05 m/s cross-axis criterion is retired as unprincipled.
+  - Its replacement is Q95(nominal cross-axis over ≥10 repeats) + |c|·u·r_gate, using the empirical c ≈ 0.85 s, not the physics prior 1.82.
+  - The provisional value is 0.087 m/s (n=4, CI of Q95 0.051–0.084). It is NOT frozen.
+  - Freeze it in PREREGISTRATION only after ≥10 live repeats, and only if every MUST_FAIL case stays detectable.
+  - F1 (fitted vs identity decoupling) is dropped. The `before` stage is already the identity arm.
+- 2026-10-21 D11: OOF-01 is kept as a recorded NEGATIVE result, not a hidden xfail.
+  - In this plant (thrust ∝ cmd², quadratic hull drag), steady speed is almost linear in cmd, so an affine fit extrapolates within 5.5%.
+  - OOF-01b (through-origin gain, 24.7% error) is the MUST_FAIL case.
+  - Implication for P4: steady-state models may be adequate for steady speeds. Any transient-model advantage must be shown on transient or aggressive maneuvers.
+- 2026-10-21 D12 (terrain): slope-aware traction is added only as a NEW flagged component (`CraneSlopeAwareTraction.cs`), never by editing the user's WIP CraneCampusRobotModel.cs.
+  - The force branch and the legacy diff-drive are not made to refuse slopes in code.
+  - The terrain course validator labels any run that uses them on courses with slopes above 2° as INVALID_FOR_SLOPE, which keeps those runs out of evidence.
+  - Wheel scale is fitted only on flat runs, because it is unidentifiable against slip on a single slope.
+  - Terrain verifier done (E22). Validator implemented (E26).
+- 2026-10-21 D13 (underwater, after the specialist and the hydro council pattern D8): approve a NEW `Assets/Scripts/Underwater/` assembly (6-DOF Fossen on a single Rigidbody, water medium, thruster bank, tether, pressure/DVL/USBL/sonar), opt-in via `--crane-underwater-profile`.
+  - Sub and Robosub Pool stay frozen as the legacy baseline.
+  - The assembly has no HDRP reference. Its results are labelled `numeric-medium` and are never presented as HDRP-water validated (CONTRACTS).
+  - The work happens in a dedicated worktree. Order: the C# port with EditMode parity against the Python oracle comes first, and scenes come only after parity passes.
+  - The new Sub defect claims (3000× inertia, CG above CB, viscosity units, 5.4 m hull length) go to independent verification in parallel.
+- 2026-10-21 D14 (aerial): the ArduPilot-JSON SITL bridge (MAVROSConnection.cs) is NOT_SUPPORTED.
+  - It has sign and frame errors and a servo order/spin mismatch (A1/A2), which would flip the vehicle on arming. It was never run against a real autopilot.
+  - Remedy:
+    - (1) A new pure-static `ArduPilotJsonFrames.cs` with tests against the ArduPilot JSON spec @9c412ba.
+    - (2) A new bridge path `--crane-sitl-bridge=ardupilot-json-v2` that uses it.
+    - (3) The legacy bridge refuses to start unless `--crane-allow-legacy-sitl-bridge` is given. This is a safety behavior change to an unvalidated path, so it does not violate the validated-defaults contract.
+  - Rotor-model upgrades (rotor drag, ground effect, battery sag, motor gyroscopic effect) go in new opt-in C# with EditMode parity against Tools/Aerial, following the D13 pattern.
+  - The spin-direction fix applies only under the new aerial profile. The legacy plant stays frozen.
+  - Limit concurrent Unity batch instances to 2 (31 GB RAM).
+- 2026-10-21 D15 (aerial verifier): the Crazyflie thrust coefficient uses the measured Bitcraze thrust-stand value as primary (≈58 g @ 23,882 RPM, T/W≈2).
+  - Förster's 1.282e-8 stays as an UNVERIFIED alternative prior, because the primary PDF was unreadable and it implies T/W≈1.3.
+  - The 1.73× discrepancy is not a units error and remains open.
+- 2026-10-21 D16 (amends D14): the legacy SITL bridge refusal applies ONLY to multirotor targets.
+  - The boat's documented `run_sitl_udp_fixture.sh` loopback (Roboboat Course, action-lag measurement) keeps legacy behavior byte-for-byte. It gets a single warning naming the A1 frame defects.
+  - Reason: the boat is the protected mature domain, and the A1 defects are not yet assessed for the aquatic path.
+- 2026-10-21 D17 (patch-friction council, option B′): the project default `improvedPatchFriction` stays OFF.
+  - New flagged profiles (terrain slope-v1, underwater, aerial) set `Physics.improvedPatchFriction=true` once at run startup.
+  - Every run header records the value.
+  - A CI check fails if ProjectSettings changes the setting.
+  - The project default flips (option A) only after the CAL gates and slalom are re-run ≥5 times with the setting on, recorded as a new decision.
+  - The inflation (~2×) affects only flat contact patches ≳2 cm. Sphere, capsule, cylinder and the campus convex tire are unaffected (1.000×), so no existing calibration or validation evidence is affected.
+  - Independently verified (E42). The trigger is the longest patch extent ≳25 mm, so thin skids and strips are exposed too.
+- 2026-10-21 D18: adopt the crane.profile/v2 + crane_experiment design (AGENT_HANDOFFS/I1-profile-experiment-design.md). Pure numpy. Worker ROS domain 200–228. Profiles and experiment get parallel implementers in disjoint dirs.
+- 2026-10-21 D19 (R17 council): crane_testing will use the sign-split operating-point-Jacobian decoupling fitter (Tools/Adversarial/decoupling/dec_opfit.py), not the upstream secant inversion.
+  - It requires cross-axis probes at both signs and ≥2 amplitudes.
+  - It abstains rather than falling back silently.
+  - Faults are detected from the identified plant (per-thruster strength/mount), NEVER from the post-decoupling residual.
+  - Amends D10: the 0.087 m/s cross-axis tolerance applies only to the PRE-decoupling stage as a nominal-health gate. Post-decoupling residuals are not a fault detector, because weak_rr and angled_fr fall below tolerance after decoupling.
+  - Verification found breaks (E49), which are being fixed. crane_testing re-vendors the fitter once they are closed.
+- 2026-10-21 D20 (VERIFIED E48): Unity Rigidbody applies no gyroscopic torque ω×Iω, but ArticulationBody does (explicitly).
+  - Any CRANE dynamics adapter that applies body wrenches must add it explicitly, or command I·ω̇ as the underwater adapter now does.
+  - The legacy boat/aerial/ground plants are frozen. The omission is recorded as a known limitation, not changed.
+- 2026-10-21 D21: baselines must be shown competent on standard benchmarks before any CRANE comparison counts as evidence.
+  - GP-BO and TPE must beat random on Branin/Hartmann-6, and CMA-ES on a 10D Rosenbrock/ellipsoid, by a one-sided Mann–Whitney test at p<0.05 over ≥10 replicates.
+  - Invalid trials reach optimizers only as feasibility/constraint signals. The −3.0 invalid_reward (study.py:293) violated D18 and is being removed.
+  - Rationale: weak baselines would inflate any CRANE "improvement" (literature risk R7).
+  - D20 consequences:
+    - The boat (Blastoise, articulation) is unaffected.
+    - Rigidbody-based adapters (underwater: already compensated; aerial v2; the terrain traction adapter if on a Rigidbody) must add −ω×(Iω) explicitly or use an ArticulationBody root.
+    - No Unity setting exists for it.
+- 2026-10-21 D22 (memo review): the novelty gap is re-scoped. Kadian RA-L'20 shows simulator tuning raises sim-real correlation (0.18 → 0.844), so "calibration improves sim-real ranking" is NOT open.
+  - The CRANE question is restricted to whether TRANSIENT actuator/delivery-timing structure beats steady-state calibration, randomized delay and MF-BO at ≤5 real trials, with calibrated abstention, across land and water.
+  - Power analysis moves to pilot plus simulation. The closed-form figures were optimistic (P1 K≈59–92, P5 ≈200 accepted).
+  - MF-BO and contextual GP need competence tests (as D21 already requires for the other baselines).
+- 2026-10-21 D23: the fitter reports a thruster fault as AMBIGUOUS whenever steady probes cannot exclude a hull explanation. Honest ambiguity is preferred over false confidence.
+  - Confident fault detection must be restored through an identifiability-justified extra probe (coast-down, single-thruster pulses, or transients). It must not be restored by relaxing the ambiguity test.
+- 2026-10-21 D24: decoupling artifacts must carry their certified envelope, mixed-command flag, fitter sha and evidence id.
+  - The crane_hardware runtime applies decoupling only inside the envelope. Outside it, and for mixed commands, it passes identity through with a counter and a diagnostic, never clamping or extrapolating.
+  - Uncertified (legacy) artifacts are refused at load.
+- 2026-10-21 D25: characterization adds a 2 s thrust-off coast-down per axis/sign row (+12 s), which makes thruster faults separable from hull coupling (joint rank 12 → 18, E54). drag_offset vs Nuu stays confounded and is reported as hull.

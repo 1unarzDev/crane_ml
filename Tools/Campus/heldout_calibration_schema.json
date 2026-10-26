@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CRANE physical calibration dataset manifest",
+  "type": "object",
+  "required": ["schema", "timeBasis", "coordinateFrame", "sourceKind", "timing", "frameTransform", "calibrationProfile", "acceptance", "heldOutFactors", "trials"],
+  "properties": {
+    "schema": {"const": "crane-physical-calibration-dataset-v1"},
+    "timeBasis": {"const": "acquisition", "description": "All physical timestamps are acquisition times from the declared synchronized clock."},
+    "coordinateFrame": {"const": "unity-right-up-forward", "description": "Physical samples are transformed once into CRANE's comparison frame."},
+    "sourceKind": {"enum": ["physical", "synthetic-fixture"]},
+    "timing": {"type": "object", "required": ["clockSource", "synchronizationMethod", "maxClockUncertaintySeconds"], "properties": {"clockSource": {"type": "string"}, "synchronizationMethod": {"type": "string"}, "maxClockUncertaintySeconds": {"type": "number", "minimum": 0}}},
+    "frameTransform": {"type": "object", "required": ["sourceFrame", "targetFrame", "method", "evidence"], "properties": {"sourceFrame": {"type": "string"}, "targetFrame": {"const": "unity-right-up-forward"}, "method": {"type": "string"}, "evidence": {"type": "string"}}},
+    "calibrationProfile": {"type": "object", "required": ["id", "version", "parameterArtifactSha256"], "properties": {"id": {"type": "string"}, "version": {"type": "string"}, "parameterArtifactSha256": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"}, "artifactPath": {"type": "string", "minLength": 1}, "fitManifestSha256": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"}, "fitTrialIds": {"type": "array", "items": {"type": "string"}}}},
+    "acceptance": {"type": "object", "required": ["minimumOverlapFraction", "maxInterpolationGapSeconds"], "properties": {"minimumOverlapFraction": {"type": "number", "exclusiveMinimum": 0, "maximum": 1}, "maxInterpolationGapSeconds": {"type": "number", "exclusiveMinimum": 0}, "maxPositionRmseMeters": {"type": "number", "minimum": 0}, "maxYawRmseDegrees": {"type": "number", "minimum": 0}}},
+    "simTimestampField": {"type": "string", "default": "simulationTime"},
+    "realTimestampField": {"type": "string", "default": "acquisitionTime"},
+    "heldOutFactors": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "trials": {
+      "type": "array", "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["id", "split", "sim", "real", "hashes", "factors", "simTimeOffsetSeconds", "physicalTimeOffsetSeconds", "timeOriginEvidence"],
+        "properties": {
+          "id": {"type": "string"},
+          "split": {"enum": ["fit", "heldout"]},
+          "sim": {"type": "string"},
+          "real": {"type": "string"},
+          "baseline": {"type": "string"},
+          "hashes": {"type": "object", "required": ["sim", "real"], "properties": {"sim": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"}, "real": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"}, "baseline": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"}}},
+          "simTimeOffsetSeconds": {"type": "number"},
+          "physicalTimeOffsetSeconds": {"type": "number"},
+          "timeOriginEvidence": {"type": "string", "minLength": 1},
+          "factors": {"type": "object", "additionalProperties": {"type": ["string", "number", "boolean"]}}
+        }
+      }
+    }
+  }
+}

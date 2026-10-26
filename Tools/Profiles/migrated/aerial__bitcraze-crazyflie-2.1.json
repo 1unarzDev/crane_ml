@@ -1,0 +1,617 @@
+{
+  "aero": {
+    "dragLinear": {
+      "frame": "body",
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "UNKNOWN",
+        "unit": "N s/m",
+        "v1Key": "drag_linear"
+      },
+      "locator": "thesis reports a wind-tunnel drag matrix; values not retrieved",
+      "provenance": "prior",
+      "source": "FOERSTER2015",
+      "unit": "N s/m",
+      "value": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "dragQuadratic": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "UNKNOWN",
+        "unit": "N s^2/m^2",
+        "v1Key": "drag_quadratic"
+      },
+      "locator": "none",
+      "provenance": "prior",
+      "unit": "N s^2/m^2",
+      "value": 0.0
+    }
+  },
+  "attributes": {
+    "description": "Bitcraze Crazyflie 2.1 nano quad X (stock brushed 7 mm motors, 250 mAh LiPo). Thrust and battery coefficients are DERIVED from Bitcraze's published 2015 thrust-stand table; inertia and moment constant come from Bitcraze's MIT-licensed gz model, which reproduces Foerster 2015 values (primary PDF could not be retrieved in this session: ETH Research Collection HTTP 429/500).",
+    "measurements": {
+      "BCPWM_table_2015": {
+        "columns": [
+          "current_A",
+          "thrust_g_total",
+          "voltage_V",
+          "pwm_percent",
+          "rpm_mean"
+        ],
+        "notes": "PWM 43.25 on the page is taken as a typo for 43.75. Thrust assumed to be whole-vehicle (four rotors); consistency check: hover of 29 g lands at 50-56 % PWM.",
+        "rows": [
+          [
+            0.24,
+            0.0,
+            4.01,
+            0,
+            0
+          ],
+          [
+            0.37,
+            1.6,
+            3.98,
+            6.25,
+            4485
+          ],
+          [
+            0.56,
+            4.8,
+            3.95,
+            12.5,
+            7570
+          ],
+          [
+            0.75,
+            7.9,
+            3.92,
+            18.75,
+            9374
+          ],
+          [
+            0.94,
+            10.9,
+            3.88,
+            25,
+            10885
+          ],
+          [
+            1.15,
+            13.9,
+            3.84,
+            31.25,
+            12277
+          ],
+          [
+            1.37,
+            17.3,
+            3.8,
+            37.5,
+            13522
+          ],
+          [
+            1.59,
+            21.0,
+            3.76,
+            43.75,
+            14691
+          ],
+          [
+            1.83,
+            24.4,
+            3.71,
+            50,
+            15924
+          ],
+          [
+            2.11,
+            28.6,
+            3.67,
+            56.25,
+            17174
+          ],
+          [
+            2.39,
+            32.8,
+            3.65,
+            62.5,
+            18179
+          ],
+          [
+            2.71,
+            37.3,
+            3.62,
+            68.75,
+            19397
+          ],
+          [
+            3.06,
+            41.7,
+            3.56,
+            75,
+            20539
+          ],
+          [
+            3.46,
+            46.0,
+            3.48,
+            81.25,
+            21692
+          ],
+          [
+            3.88,
+            51.9,
+            3.4,
+            87.5,
+            22598
+          ],
+          [
+            4.44,
+            57.9,
+            3.3,
+            93.75,
+            23882
+          ]
+        ],
+        "source": "BCPWM"
+      }
+    },
+    "sensors": {
+      "barometer": {
+        "part": "BMP388",
+        "source": "BCDS"
+      },
+      "imu": {
+        "part": "BMI088",
+        "source": "BCDS"
+      }
+    }
+  },
+  "battery": {
+    "capacityAh": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "VENDOR_SPEC",
+        "unit": "Ah",
+        "v1Key": "battery_capacity_ah"
+      },
+      "locator": "'1 x 250mAh LiPo battery'",
+      "provenance": "cited",
+      "source": "BCDS",
+      "unit": "Ah",
+      "value": 0.25
+    },
+    "efficiency": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "DERIVED",
+        "unit": "1",
+        "v1Key": "battery_efficiency"
+      },
+      "locator": "shaft power 4 km kf w^3 / (V I) at the 93.75 % row",
+      "provenance": "derived",
+      "source": "BCPWM",
+      "unit": "1",
+      "value": 0.565
+    },
+    "resistanceOhm": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "DERIVED",
+        "unit": "ohm",
+        "v1Key": "battery_resistance"
+      },
+      "locator": "slope of V vs I fit; includes connector/wiring; RMS 0.015 V",
+      "provenance": "derived",
+      "source": "BCPWM",
+      "unit": "ohm",
+      "value": 0.16302353
+    },
+    "vEmptyV": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "ASSUMED",
+        "unit": "V",
+        "v1Key": "battery_v_empty"
+      },
+      "locator": "generic 1S LiPo cutoff",
+      "provenance": "prior",
+      "unit": "V",
+      "value": 3.0
+    },
+    "vFullV": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "DERIVED",
+        "unit": "V",
+        "v1Key": "battery_v_full"
+      },
+      "locator": "intercept of V = Voc - I R fit on table (near-full pack)",
+      "provenance": "derived",
+      "source": "BCPWM",
+      "unit": "V",
+      "value": 4.03495474
+    },
+    "vNominalV": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "ASSUMED",
+        "unit": "V",
+        "v1Key": "battery_v_nominal"
+      },
+      "locator": "voltage at which omega_max is quoted (assumed)",
+      "provenance": "prior",
+      "unit": "V",
+      "value": 4.0
+    }
+  },
+  "calibrationState": "UNCALIBRATED_PRIOR",
+  "claimScope": {
+    "excluded": []
+  },
+  "components": [],
+  "contentHash": "9f88c392839d623d5b99a36d967403d34b5522d59624c54ff821a8c2afb99eca",
+  "datasets": [],
+  "domain": "aerial",
+  "dynamics": {
+    "inertiaKgM2": {
+      "frame": "body",
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "VENDOR_SIM_MODEL_CITING_SYSID",
+        "unit": "kg m^2",
+        "v1Key": "inertia"
+      },
+      "locator": "model.sdf base link inertia; values attributed to FOERSTER2015",
+      "provenance": "cited",
+      "source": "BCSIM",
+      "unit": "kg m^2",
+      "value": [
+        [
+          1.657171e-05,
+          0,
+          0
+        ],
+        [
+          0,
+          1.6655602e-05,
+          0
+        ],
+        [
+          0,
+          0,
+          2.9261652e-05
+        ]
+      ]
+    },
+    "massKg": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "VENDOR_SPEC",
+        "unit": "kg",
+        "v1Key": "mass"
+      },
+      "locator": "'Takeoff weight: 29g' (gz model sums to 0.0282)",
+      "provenance": "cited",
+      "source": "BCDS",
+      "unit": "kg",
+      "value": 0.029
+    }
+  },
+  "evidenceLabel": "IMPLEMENTED",
+  "frames": {
+    "body": "FLU",
+    "spin": "+1 = CCW seen from above",
+    "world": "ENU z-up"
+  },
+  "id": "bitcraze-crazyflie-2.1",
+  "kind": "vehicle_dynamics",
+  "migratedFrom": {
+    "labelNote": null,
+    "legacyEvidenceLabel": "IMPLEMENTED",
+    "schema": "crane-aerial-vehicle-profile-v1"
+  },
+  "notes": [],
+  "propulsion": {
+    "kf": {
+      "alternatives": [
+        {
+          "locator": "model.sdf motorConstant, attributed to FOERSTER2015",
+          "source": "BCSIM",
+          "unit": "N/(rad/s)^2",
+          "value": 1.28192e-08
+        }
+      ],
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "alternatives": [
+          {
+            "locator": "model.sdf motorConstant, attributed to FOERSTER2015",
+            "note": "Primary PDF unreadable (HTTP 429/500). At omega_max 2618 rad/s this gives T/W about 1.24 (1.27 with the model's 28.2 g), which conflicts with the measured table.",
+            "source": "BCSIM",
+            "status": "UNVERIFIED",
+            "unit": "N/(rad/s)^2",
+            "value": 1.28192e-08
+          }
+        ],
+        "extra": {
+          "decision": "D15: the measured Bitcraze thrust-stand fit is the primary kf",
+          "openQuestion": "The two kf values differ by 1.73x (measured 2.218e-8 vs 1.282e-8); unresolved until the Foerster 2015 thesis is read at the primary source."
+        },
+        "status": "DERIVED",
+        "unit": "N/(rad/s)^2",
+        "v1Key": "kf"
+      },
+      "locator": "least-squares T_rotor = kf w^2 through origin on table rows 2-16, thrust/4 per rotor; relative RMS 2.9 %",
+      "provenance": "derived",
+      "source": "BCPWM",
+      "unit": "N/(rad/s)^2",
+      "value": 2.2183102415114744e-08
+    },
+    "kmM": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "VENDOR_SIM_MODEL_CITING_SYSID",
+        "unit": "m",
+        "v1Key": "km"
+      },
+      "locator": "momentConstant; attributed to FOERSTER2015",
+      "provenance": "cited",
+      "source": "BCSIM",
+      "unit": "m",
+      "value": 0.005964552
+    },
+    "omegaMax": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "SIMULATOR_DEFAULT",
+        "unit": "rad/s",
+        "v1Key": "omega_max"
+      },
+      "locator": "maxRotVelocity (table max 23882 rpm = 2501 rad/s at 93.75 % PWM, 3.30 V)",
+      "provenance": "prior",
+      "source": "BCSIM",
+      "unit": "rad/s",
+      "value": 2618.0
+    },
+    "rollingMoment": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "UNKNOWN",
+        "unit": "N s/rad",
+        "v1Key": "rolling_moment"
+      },
+      "locator": "BCSIM 1e-7 not adopted",
+      "provenance": "prior",
+      "unit": "N s/rad",
+      "value": 0.0
+    },
+    "rotorDrag": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "UNKNOWN",
+        "unit": "N s/(m rad)",
+        "v1Key": "rotor_drag"
+      },
+      "locator": "BCSIM uses the RotorS 8.06428e-05 (scaled for a 1.5 kg vehicle); not adopted",
+      "provenance": "prior",
+      "unit": "N s/(m rad)",
+      "value": 0.0
+    },
+    "rotorRadiusM": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "ASSUMED",
+        "unit": "m",
+        "v1Key": "rotor_radius"
+      },
+      "locator": "approx. 47 mm stock propeller; not retrieved from a primary source",
+      "provenance": "prior",
+      "unit": "m",
+      "value": 0.0235
+    },
+    "tauDownS": {
+      "identifiability": {
+        "reason": "Motor time constant is not separable from IMU/gyro latency in rate-response data (see Tools/Aerial/aerial_identifiability.py).",
+        "status": "CONFOUNDED_WITH",
+        "with": [
+          "timing.gyroLatencyS"
+        ]
+      },
+      "legacy": {
+        "extra": {},
+        "status": "ASSUMED",
+        "unit": "s",
+        "v1Key": "tau_down"
+      },
+      "locator": "as tau_up",
+      "provenance": "prior",
+      "unit": "s",
+      "value": 0.03
+    },
+    "tauUpS": {
+      "identifiability": {
+        "reason": "Motor time constant is not separable from IMU/gyro latency in rate-response data (see Tools/Aerial/aerial_identifiability.py).",
+        "status": "CONFOUNDED_WITH",
+        "with": [
+          "timing.gyroLatencyS"
+        ]
+      },
+      "legacy": {
+        "extra": {},
+        "status": "ASSUMED",
+        "unit": "s",
+        "v1Key": "tau_up"
+      },
+      "locator": "no primary value retrieved; prior only. Identify from RPM-instrumented steps (see test_aerial_identifiability.py)",
+      "provenance": "prior",
+      "unit": "s",
+      "value": 0.03
+    }
+  },
+  "schema": "crane.profile/v2",
+  "sources": {
+    "BCDS": {
+      "gplCompatible": "facts-only citation",
+      "license": "Vendor datasheet (Rev 3); facts only.",
+      "sha256": "dea768dcec7582e31d5dcffc5c82411f65ffcf5726c4f8cee9fadc54b47b45db",
+      "url": "https://www.bitcraze.io/documentation/hardware/crazyflie_2_1/crazyflie_2_1-datasheet.pdf"
+    },
+    "BCPWM": {
+      "gplCompatible": "facts-only citation",
+      "license": "Web documentation; numeric measurements cited as facts with attribution (16-row table).",
+      "note": "2015 table: whole-vehicle thrust (g), battery voltage, current, PWM %, mean RPM. RPM fit published on page: thrust_g = 1.0942e-07 rpm^2 - 2.1059e-04 rpm + 1.5417e-01.",
+      "retrieved": "2026-10-20",
+      "url": "https://www.bitcraze.io/documentation/repository/crazyflie-firmware/master/functional-areas/pwm-to-thrust/"
+    },
+    "BCSIM": {
+      "commit": "7e93752dbc803af2488c1db46bb79b3da55f5d8c",
+      "files": {
+        "LICENSE": "47b665f1a998a2fb77eb69f81dd9490d63ddc76471b786672229fc71b2a09fe0",
+        "docs/functional_areas/meshes.md": "265342264fd98f04e88cee33083de1a215fcbb28a6bc478f966fb7325425f779",
+        "simulator_files/gazebo/crazyflie/model.sdf": "89877fbd862b8d201405f2cc1213703fb54b3b4c5ecf863bb541d19174f79338"
+      },
+      "gplCompatible": true,
+      "license": "MIT (Copyright (c) 2022 Bitcraze)",
+      "meshLicense": "meshes/ (Blender-made by Bitcraze) are inside the MIT-licensed repo; no separate mesh notice found. Candidate for import with MIT attribution after maintainer-notice check.",
+      "url": "https://github.com/bitcraze/crazyflie-simulation"
+    },
+    "FOERSTER2015": {
+      "citation": "J. Foerster, System Identification of the Crazyflie 2.0 Nano Quadrocopter, BSc thesis, ETH Zurich, 2015",
+      "license": "Thesis; values cited as facts.",
+      "url": "https://doi.org/10.3929/ethz-b-000214143",
+      "verification": "UNVERIFIED_AT_PRIMARY (PDF download refused: HTTP 429 then 500)"
+    }
+  },
+  "structures": {
+    "rotors": {
+      "data": [
+        {
+          "locator": "prop link pose (0.031,-0.031,0.021) ccw_prop.dae",
+          "name": "m1_front_right",
+          "position": [
+            0.031,
+            -0.031,
+            0.021
+          ],
+          "source": "BCSIM",
+          "spin": 1
+        },
+        {
+          "locator": "(-0.031,-0.031) cw_prop.dae",
+          "name": "m2_rear_right",
+          "position": [
+            -0.031,
+            -0.031,
+            0.021
+          ],
+          "source": "BCSIM",
+          "spin": -1
+        },
+        {
+          "locator": "(-0.031,0.031) ccw_prop.dae",
+          "name": "m3_rear_left",
+          "position": [
+            -0.031,
+            0.031,
+            0.021
+          ],
+          "source": "BCSIM",
+          "spin": 1
+        },
+        {
+          "locator": "(0.031,0.031) cw_prop.dae",
+          "name": "m4_front_left",
+          "position": [
+            0.031,
+            0.031,
+            0.021
+          ],
+          "source": "BCSIM",
+          "spin": -1
+        }
+      ],
+      "frame": "body",
+      "provenance": "cited"
+    }
+  },
+  "timing": {
+    "gyroLatencyS": {
+      "identifiability": {
+        "reason": "No gyro/IMU latency is recorded in the v1 profile; this quantity is the anchor for CONFOUNDED_WITH on the motor time constants, not a value.",
+        "status": "ABSTAIN"
+      },
+      "provenance": "prior",
+      "unit": "s",
+      "value": null
+    }
+  },
+  "version": "v1-migrated"
+}

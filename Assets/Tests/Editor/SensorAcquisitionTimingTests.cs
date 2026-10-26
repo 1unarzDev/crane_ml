@@ -4,6 +4,7 @@ using System.IO;
 using System.Reflection;
 using NUnit.Framework;
 using RosMessageTypes.Sensor;
+using Sim.Physics.Land;
 using Sim.Sensors.Lidar;
 using Sim.Sensors.Vision;
 using Sim.Utils.Performance;
@@ -114,6 +115,49 @@ namespace Sim.Tests.Editor {
                 CraneObservationJournal.Unsubscribe(observer);
                 UnityEngine.Object.DestroyImmediate(host);
             }
+        }
+
+        [Test]
+        public void CalibrationProfileLoadsWithArtifactProvenance() {
+            string path = Path.Combine(Application.temporaryCachePath, "crane-profile-" + Guid.NewGuid().ToString("N") + ".json");
+            const string json = "{" +
+                "\"schema\":\"crane-calibration-profile-v1\",\"id\":\"synthetic-fit\",\"version\":\"1\",\"sourceKind\":\"synthetic-fixture\"," +
+                "\"parameters\":{" +
+                "\"massKg\":1.55,\"motorLagSeconds\":0.15,\"accelerationMps2\":0.6,\"angularAccelerationRadPerSec2\":2.0," +
+                "\"maxMotorTorqueNm\":0.35,\"leftWheelScale\":1.0,\"rightWheelScale\":1.0," +
+                "\"lidar\":{\"sigmaMeters\":0.005,\"dropoutProbability\":0.01,\"latencyScans\":1,\"materialClass\":\"synthetic\"}}," +
+                "\"fitProvenance\":{\"trialIds\":[\"fit-1\"],\"manifestSha256\":\"0000000000000000000000000000000000000000000000000000000000000000\",\"fitNote\":\"synthetic fixture only\"}}";
+            try {
+                File.WriteAllText(path, json);
+                var profile = CraneCampusCalibrationProfile.Load(new[] { "--crane-campus-calibration-profile", path });
+                Assert.That(profile.sourceKind, Is.EqualTo("synthetic-fixture"));
+                Assert.That(profile.parameters.lidar.latencyScans, Is.EqualTo(1));
+                Assert.That(profile.ArtifactSha256, Has.Length.EqualTo(64));
+                Assert.That(profile.EventDescription(), Does.Contain("synthetic-fixture"));
+            }
+            finally { if (File.Exists(path)) File.Delete(path); }
+        }
+
+        [Test]
+        public void CalibrationProfileRejectsUnknownSourceKind() {
+            string path = Path.Combine(Application.temporaryCachePath, "crane-profile-" + Guid.NewGuid().ToString("N") + ".json");
+            const string json = "{\"schema\":\"crane-calibration-profile-v1\",\"id\":\"bad\",\"version\":\"1\",\"sourceKind\":\"guess\"}";
+            try {
+                File.WriteAllText(path, json);
+                Assert.Throws<InvalidDataException>(() => CraneCampusCalibrationProfile.Load(new[] { "--crane-campus-calibration-profile", path }));
+            }
+            finally { if (File.Exists(path)) File.Delete(path); }
+        }
+
+        [Test]
+        public void ReplayRuntimeMetadataDeclaresCalibrationProvenanceFields() {
+            var formatType = Type.GetType("Sim.Performance.CraneReplayFormat, PerformanceAssembly");
+            Assert.That(formatType, Is.Not.Null);
+            string metadata = (string)formatType.GetMethod("RuntimeMetadataJson", BindingFlags.Public | BindingFlags.Static)
+                .Invoke(null, null);
+            Assert.That(metadata, Does.Contain("calibrationProfilePath"));
+            Assert.That(metadata, Does.Contain("calibrationProfileSha256"));
+            Assert.That(metadata, Does.Contain("seed"));
         }
     }
 }

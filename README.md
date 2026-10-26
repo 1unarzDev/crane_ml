@@ -14,6 +14,13 @@ CRANE is being developed as a research and training tool. Its performance target
 simulated experience per wall-clock second**, including correct physics, sensor timing, and
 controller synchronization. Frame rate alone is not a useful throughput metric.
 
+The [CRANE-Fidelity evidence record](Docs/CRANE-Fidelity-PilotEvidence.md) tracks the measurement-
+calibration research path, public physical-data pilot, simulation repeatability, and remaining
+hardware gates. Public data from another platform does not establish calibration or sim-to-real
+validity for CRANE's robots. The maintained [current state](Docs/CRANE_FIDELITY_CURRENT_STATE.md),
+[claims register](Docs/CRANE_FIDELITY_CLAIMS.md), and [blocker/action register](Docs/CRANE_FIDELITY_BLOCKERS.md)
+make those evidence boundaries explicit.
+
 Runtime intent is selected with a named profile rather than by changing scenes or physics code:
 
 - `--crane-profile train-gpu`: accelerated RGB-free training with depth/detections and

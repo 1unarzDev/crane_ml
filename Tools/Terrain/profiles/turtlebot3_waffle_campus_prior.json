@@ -1,0 +1,22 @@
+{
+  "schema": "crane-ground-robot-profile-v1",
+  "id": "crane-campus-turtlebot3-waffle-prior",
+  "steering": "differential-with-casters",
+  "drivenAxles": "front",
+  "drivenWheelCount": 2,
+  "license": {"spdx": "Apache-2.0 (upstream ROBOTIS turtlebot3, verified via GitHub API); values below are CRANE's own runtime constants", "gplCompatible": true},
+  "sourceRevision": "crane_ml@976ff1e + uncommitted CraneCampusRobotModel.cs (user WIP, read only)",
+  "evidenceLabel": "IMPLEMENTED engineering prior; not PHYSICALLY_CALIBRATED",
+  "notes": "'wheelbase' here is drive axle to caster line; casters are frictionless (TurtleBot3 Chassis Slip material, friction 0, combine Minimum).",
+  "parameters": {
+    "wheelbaseM": {"value": 0.177, "source": "CraneCampusRobotModel.cs:95 caster z=-0.177 (drive axle z=0)"},
+    "trackM": {"value": 0.287, "source": "DifferentialDriveDynamics.cs:11 wheelSeparation"},
+    "wheelRadiusM": {"value": 0.033, "source": "DifferentialDriveDynamics.cs:12"},
+    "totalMassKg": {"value": 1.5539075, "source": "CraneCampusRobotModel.cs:109 default mass"},
+    "cgHeightAboveGroundM": {"value": 0.019766, "source": "derived: COM y .009766 (CraneCampusRobotModel.cs:112) - (wheel centre y .023 - r .033)"},
+    "cgFromRearAxleM": {"value": 0.171166, "source": "derived: caster distance 0.177 - COM z offset 0.005834 (CraneCampusRobotModel.cs:112)"},
+    "cgLateralOffsetM": {"value": 0.0, "source": "CraneCampusRobotModel.cs:112"},
+    "peakWheelTorqueNm": {"value": 0.35, "source": "CraneCampusRobotModel.cs:34 --crane-campus-motor-torque default (prior)"},
+    "tireRubberStaticMu": {"value": 0.9, "source": "CraneCampusRobotModel.cs:61 (combined Minimum with surface)"}
+  }
+}

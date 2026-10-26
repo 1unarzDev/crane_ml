@@ -1,0 +1,1093 @@
+{
+  "attributes": {
+    "signConvention": "Added mass and damping are stored as POSITIVE magnitudes, M_A = -diag(X_udot, ...), D = -diag(X_u, ...). von Benzon 2022 prints positive magnitudes; Wu 2018 prints negative SNAME derivatives.",
+    "thrusterModel": "T200",
+    "vehicle": "bluerov2_heavy"
+  },
+  "calibrationState": "UNCALIBRATED_PRIOR",
+  "claimScope": {
+    "excluded": []
+  },
+  "components": [],
+  "contentHash": "cd15b911b0426e2536b20b72d1dc4f802b24e73a97977027bdcd7c633cd1c58b",
+  "datasets": [],
+  "domain": "underwater",
+  "evidenceLabel": "UNKNOWN",
+  "frames": {
+    "body": "FRD, origin at CO = CG (von Benzon 2022 Table A1: (xg,yg,zg) = (0,0,0) 'Defined')",
+    "world": "NED"
+  },
+  "hydrodynamics": {
+    "addedMass": {
+      "KpdotKgM2": {
+        "alternatives": [
+          {
+            "locator": "Table 5.2 (signs flipped to magnitudes)",
+            "source": "wu2018",
+            "unit": "kg m^2",
+            "value": 0.12
+          }
+        ],
+        "identifiability": {
+          "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+          "status": "NO_PHYSICAL_DATA"
+        },
+        "legacy": {
+          "v1Path": "hydrodynamics.addedMass.p"
+        },
+        "locator": "Table A1, K_pdot (Eidsvik empirical)",
+        "provenance": "cited",
+        "source": "vonbenzon2022",
+        "unit": "kg m^2",
+        "value": 0.189
+      },
+      "MqdotKgM2": {
+        "alternatives": [
+          {
+            "locator": "Table 5.2 (signs flipped to magnitudes)",
+            "source": "wu2018",
+            "unit": "kg m^2",
+            "value": 0.12
+          }
+        ],
+        "identifiability": {
+          "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+          "status": "NO_PHYSICAL_DATA"
+        },
+        "legacy": {
+          "v1Path": "hydrodynamics.addedMass.q"
+        },
+        "locator": "Table A1, M_qdot (Eidsvik empirical)",
+        "provenance": "cited",
+        "source": "vonbenzon2022",
+        "unit": "kg m^2",
+        "value": 0.135
+      },
+      "NrdotKgM2": {
+        "alternatives": [
+          {
+            "locator": "Table 5.2 (signs flipped to magnitudes)",
+            "source": "wu2018",
+            "unit": "kg m^2",
+            "value": 0.12
+          }
+        ],
+        "identifiability": {
+          "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+          "status": "NO_PHYSICAL_DATA"
+        },
+        "legacy": {
+          "v1Path": "hydrodynamics.addedMass.r"
+        },
+        "locator": "Table A1, N_rdot (Eidsvik empirical)",
+        "provenance": "cited",
+        "source": "vonbenzon2022",
+        "unit": "kg m^2",
+        "value": 0.222
+      },
+      "XudotKg": {
+        "alternatives": [
+          {
+            "locator": "Table 5.2 (signs flipped to magnitudes)",
+            "source": "wu2018",
+            "unit": "kg",
+            "value": 5.5
+          }
+        ],
+        "identifiability": {
+          "reason": "Only m + A_ii (effective inertia) is observable; added mass is not separable from rigid-body mass.",
+          "status": "COMBINATION_ONLY",
+          "with": [
+            "rigidBody.massKg"
+          ]
+        },
+        "legacy": {
+          "v1Path": "hydrodynamics.addedMass.u"
+        },
+        "locator": "Table A1, X_udot (Eidsvik empirical, ref [33]; paper sec. 2 notes relative error vs physical robot)",
+        "provenance": "cited",
+        "source": "vonbenzon2022",
+        "unit": "kg",
+        "value": 6.36
+      },
+      "YvdotKg": {
+        "alternatives": [
+          {
+            "locator": "Table 5.2 (signs flipped to magnitudes)",
+            "source": "wu2018",
+            "unit": "kg",
+            "value": 12.7
+          }
+        ],
+        "identifiability": {
+          "reason": "Only m + A_ii (effective inertia) is observable; added mass is not separable from rigid-body mass.",
+          "status": "COMBINATION_ONLY",
+          "with": [
+            "rigidBody.massKg"
+          ]
+        },
+        "legacy": {
+          "v1Path": "hydrodynamics.addedMass.v"
+        },
+        "locator": "Table A1, Y_vdot (Eidsvik empirical)",
+        "provenance": "cited",
+        "source": "vonbenzon2022",
+        "unit": "kg",
+        "value": 7.12
+      },
+      "ZwdotKg": {
+        "alternatives": [
+          {
+            "locator": "Table 5.2 (signs flipped to magnitudes)",
+            "source": "wu2018",
+            "unit": "kg",
+            "value": 14.57
+          }
+        ],
+        "identifiability": {
+          "reason": "Only m + A_ii (effective inertia) is observable; added mass is not separable from rigid-body mass.",
+          "status": "COMBINATION_ONLY",
+          "with": [
+            "rigidBody.massKg"
+          ]
+        },
+        "legacy": {
+          "v1Path": "hydrodynamics.addedMass.w"
+        },
+        "locator": "Table A1, Z_wdot (Eidsvik empirical)",
+        "provenance": "cited",
+        "source": "vonbenzon2022",
+        "unit": "kg",
+        "value": 18.68
+      }
+    },
+    "linearDamping": {
+      "Kp": {
+        "alternatives": [
+          {
+            "locator": "Table 5.3 (signs flipped)",
+            "source": "wu2018",
+            "unit": "N m s/rad",
+            "value": 0.07
+          }
+        ],
+        "identifiability": {
+          "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+          "status": "NO_PHYSICAL_DATA"
+        },
+        "legacy": {
+          "v1Path": "hydrodynamics.linearDamping.p"
+        },
+        "locator": "Table A1, K_p (Experimental)",
+        "provenance": "cited",
+        "source": "vonbenzon2022",
+        "unit": "N m s/rad",
+        "value": 0.0
+      },
+      "Mq": {
+        "alternatives": [
+          {
+            "locator": "Table 5.3 (signs flipped)",
+            "source": "wu2018",
+            "unit": "N m s/rad",
+            "value": 0.07
+          }
+        ],
+        "identifiability": {
+          "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+          "status": "NO_PHYSICAL_DATA"
+        },
+        "legacy": {
+          "v1Path": "hydrodynamics.linearDamping.q"
+        },
+        "locator": "Table A1, M_q (Experimental)",
+        "provenance": "cited",
+        "source": "vonbenzon2022",
+        "unit": "N m s/rad",
+        "value": 0.8
+      },
+      "Nr": {
+        "alternatives": [
+          {
+            "locator": "Table 5.3 (signs flipped)",
+            "source": "wu2018",
+            "unit": "N m s/rad",
+            "value": 0.07
+          }
+        ],
+        "identifiability": {
+          "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+          "status": "NO_PHYSICAL_DATA"
+        },
+        "legacy": {
+          "v1Path": "hydrodynamics.linearDamping.r"
+        },
+        "locator": "Table A1, N_r (Experimental)",
+        "provenance": "cited",
+        "source": "vonbenzon2022",
+        "unit": "N m s/rad",
+        "value": 0.0
+      },
+      "Xu": {
+        "alternatives": [
+          {
+            "locator": "Table 5.3 (signs flipped)",
+            "source": "wu2018",
+            "unit": "N s/m",
+            "value": 4.03
+          }
+        ],
+        "identifiability": {
+          "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+          "status": "NO_PHYSICAL_DATA"
+        },
+        "legacy": {
+          "v1Path": "hydrodynamics.linearDamping.u"
+        },
+        "locator": "Table A1, X_u (Experimental)",
+        "provenance": "cited",
+        "source": "vonbenzon2022",
+        "unit": "N s/m",
+        "value": 13.7
+      },
+      "Yv": {
+        "alternatives": [
+          {
+            "locator": "Table 5.3 (signs flipped)",
+            "source": "wu2018",
+            "unit": "N s/m",
+            "value": 6.22
+          }
+        ],
+        "identifiability": {
+          "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+          "status": "NO_PHYSICAL_DATA"
+        },
+        "legacy": {
+          "v1Path": "hydrodynamics.linearDamping.v"
+        },
+        "locator": "Table A1, Y_v (Experimental)",
+        "provenance": "cited",
+        "source": "vonbenzon2022",
+        "unit": "N s/m",
+        "value": 0.0
+      },
+      "Zw": {
+        "alternatives": [
+          {
+            "locator": "Table 5.3 (signs flipped)",
+            "source": "wu2018",
+            "unit": "N s/m",
+            "value": 5.18
+          }
+        ],
+        "identifiability": {
+          "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+          "status": "NO_PHYSICAL_DATA"
+        },
+        "legacy": {
+          "v1Path": "hydrodynamics.linearDamping.w"
+        },
+        "locator": "Table A1, Z_w (Experimental)",
+        "provenance": "cited",
+        "source": "vonbenzon2022",
+        "unit": "N s/m",
+        "value": 33.0
+      }
+    },
+    "quadraticDamping": {
+      "Kpp": {
+        "alternatives": [
+          {
+            "locator": "Table 5.3 (signs flipped)",
+            "source": "wu2018",
+            "unit": "N m s^2/rad^2",
+            "value": 1.55
+          }
+        ],
+        "identifiability": {
+          "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+          "status": "NO_PHYSICAL_DATA"
+        },
+        "legacy": {
+          "v1Path": "hydrodynamics.quadraticDamping.p"
+        },
+        "locator": "Table A1, K_p|p| (Experimental)",
+        "provenance": "cited",
+        "source": "vonbenzon2022",
+        "unit": "N m s^2/rad^2",
+        "value": 1.19
+      },
+      "Mqq": {
+        "alternatives": [
+          {
+            "locator": "Table 5.3 (signs flipped)",
+            "source": "wu2018",
+            "unit": "N m s^2/rad^2",
+            "value": 1.55
+          }
+        ],
+        "identifiability": {
+          "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+          "status": "NO_PHYSICAL_DATA"
+        },
+        "legacy": {
+          "v1Path": "hydrodynamics.quadraticDamping.q"
+        },
+        "locator": "Table A1, M_q|q| (Experimental)",
+        "provenance": "cited",
+        "source": "vonbenzon2022",
+        "unit": "N m s^2/rad^2",
+        "value": 0.47
+      },
+      "Nrr": {
+        "alternatives": [
+          {
+            "locator": "Table 5.3 (signs flipped)",
+            "source": "wu2018",
+            "unit": "N m s^2/rad^2",
+            "value": 1.55
+          }
+        ],
+        "identifiability": {
+          "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+          "status": "NO_PHYSICAL_DATA"
+        },
+        "legacy": {
+          "v1Path": "hydrodynamics.quadraticDamping.r"
+        },
+        "locator": "Table A1, N_r|r| (Experimental)",
+        "provenance": "cited",
+        "source": "vonbenzon2022",
+        "unit": "N m s^2/rad^2",
+        "value": 1.5
+      },
+      "Xuu": {
+        "alternatives": [
+          {
+            "locator": "Table 5.3 (signs flipped)",
+            "source": "wu2018",
+            "unit": "N s^2/m^2",
+            "value": 18.18
+          }
+        ],
+        "identifiability": {
+          "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+          "status": "NO_PHYSICAL_DATA"
+        },
+        "legacy": {
+          "v1Path": "hydrodynamics.quadraticDamping.u"
+        },
+        "locator": "Table A1, X_u|u| (Experimental)",
+        "provenance": "cited",
+        "source": "vonbenzon2022",
+        "unit": "N s^2/m^2",
+        "value": 141.0
+      },
+      "Yvv": {
+        "alternatives": [
+          {
+            "locator": "Table 5.3 (signs flipped)",
+            "source": "wu2018",
+            "unit": "N s^2/m^2",
+            "value": 21.66
+          }
+        ],
+        "identifiability": {
+          "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+          "status": "NO_PHYSICAL_DATA"
+        },
+        "legacy": {
+          "v1Path": "hydrodynamics.quadraticDamping.v"
+        },
+        "locator": "Table A1, Y_v|v| (Experimental)",
+        "provenance": "cited",
+        "source": "vonbenzon2022",
+        "unit": "N s^2/m^2",
+        "value": 217.0
+      },
+      "Zww": {
+        "alternatives": [
+          {
+            "locator": "Table 5.3 (signs flipped)",
+            "source": "wu2018",
+            "unit": "N s^2/m^2",
+            "value": 36.99
+          }
+        ],
+        "identifiability": {
+          "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+          "status": "NO_PHYSICAL_DATA"
+        },
+        "legacy": {
+          "v1Path": "hydrodynamics.quadraticDamping.w"
+        },
+        "locator": "Table A1, Z_w|w| (Experimental)",
+        "provenance": "cited",
+        "source": "vonbenzon2022",
+        "unit": "N s^2/m^2",
+        "value": 190.0
+      }
+    }
+  },
+  "id": "bluerov2_heavy",
+  "kind": "vehicle_dynamics",
+  "migratedFrom": {
+    "labelNote": null,
+    "legacyEvidenceLabel": "UNKNOWN",
+    "schema": "crane.underwater.vehicle_profile/v1"
+  },
+  "notes": [
+    "Literature prior only. Nothing here was identified on CRANE data or a CRANE vehicle. Each coefficient carries its own origin from the source table (Experimental / CAD / Eidsvik empirical / Defined)."
+  ],
+  "publishedPerformance": {
+    "dimensionsLxHxWM": {
+      "frame": "body",
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "v1Path": "publishedPerformance.dimensionsLxHxWM"
+      },
+      "locator": "Table 5",
+      "provenance": "cited",
+      "source": "vonbenzon2022",
+      "unit": "m",
+      "value": [
+        0.46,
+        0.38,
+        0.58
+      ]
+    },
+    "maxHeaveForceN": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "v1Path": "publishedPerformance.maxHeaveForceN"
+      },
+      "locator": "Table 4",
+      "provenance": "cited",
+      "source": "vonbenzon2022",
+      "unit": "N",
+      "value": 120.0
+    },
+    "maxHeaveSpeedMps": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "v1Path": "publishedPerformance.maxHeaveSpeedMps"
+      },
+      "locator": "Table 4",
+      "provenance": "cited",
+      "source": "vonbenzon2022",
+      "unit": "m/s",
+      "value": 0.71
+    },
+    "maxSurgeForceN": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "v1Path": "publishedPerformance.maxSurgeForceN"
+      },
+      "locator": "Table 4",
+      "provenance": "cited",
+      "source": "vonbenzon2022",
+      "unit": "N",
+      "value": 85.0
+    },
+    "maxSurgeSpeedMps": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "v1Path": "publishedPerformance.maxSurgeSpeedMps"
+      },
+      "locator": "Table 4",
+      "provenance": "cited",
+      "source": "vonbenzon2022",
+      "unit": "m/s",
+      "value": 0.72
+    },
+    "maxSwaySpeedMps": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "v1Path": "publishedPerformance.maxSwaySpeedMps"
+      },
+      "locator": "Table 4",
+      "provenance": "cited",
+      "source": "vonbenzon2022",
+      "unit": "m/s",
+      "value": 0.63
+    }
+  },
+  "rigidBody": {
+    "buoyancyN": {
+      "alternatives": [
+        {
+          "locator": "Table 5.1",
+          "source": "wu2018",
+          "unit": "N",
+          "value": 114.8
+        }
+      ],
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "v1Path": "rigidBody.buoyancyN"
+      },
+      "locator": "B = rho g nabla = 1000 * 9.82 * 0.0134 (von Benzon eq. 8 definition). Net W - B = +0.98 N (slightly heavy).",
+      "provenance": "derived",
+      "source": "crane_derived",
+      "unit": "N",
+      "value": 131.588
+    },
+    "displacedVolumeM3": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "v1Path": "rigidBody.displacedVolumeM3"
+      },
+      "locator": "Table A1, nabla (Experimental)",
+      "provenance": "cited",
+      "source": "vonbenzon2022",
+      "unit": "m^3",
+      "value": 0.0134
+    },
+    "gravityMps2": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "v1Path": "rigidBody.gravityMps2"
+      },
+      "locator": "Table A1, g",
+      "provenance": "cited",
+      "source": "vonbenzon2022",
+      "unit": "m/s^2",
+      "value": 9.82
+    },
+    "inertiaCg": {
+      "IxxKgM2": {
+        "alternatives": [
+          {
+            "locator": "Table 5.1 (assumed equal to yaw value)",
+            "source": "wu2018",
+            "unit": "kg m^2",
+            "value": 0.16
+          }
+        ],
+        "identifiability": {
+          "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+          "status": "NO_PHYSICAL_DATA"
+        },
+        "legacy": {
+          "v1Path": "rigidBody.inertiaCgKgM2.Ixx"
+        },
+        "locator": "Table A1, Ix (CAD)",
+        "provenance": "cited",
+        "source": "vonbenzon2022",
+        "unit": "kg m^2",
+        "value": 0.26
+      },
+      "IyyKgM2": {
+        "alternatives": [
+          {
+            "locator": "Table 5.1 (assumed equal to yaw value)",
+            "source": "wu2018",
+            "unit": "kg m^2",
+            "value": 0.16
+          }
+        ],
+        "identifiability": {
+          "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+          "status": "NO_PHYSICAL_DATA"
+        },
+        "legacy": {
+          "v1Path": "rigidBody.inertiaCgKgM2.Iyy"
+        },
+        "locator": "Table A1, Iy (CAD)",
+        "provenance": "cited",
+        "source": "vonbenzon2022",
+        "unit": "kg m^2",
+        "value": 0.23
+      },
+      "IzzKgM2": {
+        "alternatives": [
+          {
+            "locator": "Table 5.1 (assumed equal to yaw value)",
+            "source": "wu2018",
+            "unit": "kg m^2",
+            "value": 0.16
+          }
+        ],
+        "identifiability": {
+          "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+          "status": "NO_PHYSICAL_DATA"
+        },
+        "legacy": {
+          "v1Path": "rigidBody.inertiaCgKgM2.Izz"
+        },
+        "locator": "Table A1, Iz (CAD)",
+        "provenance": "cited",
+        "source": "vonbenzon2022",
+        "unit": "kg m^2",
+        "value": 0.37
+      }
+    },
+    "massKg": {
+      "alternatives": [
+        {
+          "locator": "Table 5.1",
+          "source": "wu2018",
+          "unit": "kg",
+          "value": 11.5
+        }
+      ],
+      "identifiability": {
+        "reason": "Only m + A_ii (effective inertia) is observable from force-to-acceleration data; mass and added mass are not separately identifiable.",
+        "status": "COMBINATION_ONLY",
+        "with": [
+          "hydrodynamics.addedMass.XudotKg",
+          "hydrodynamics.addedMass.YvdotKg",
+          "hydrodynamics.addedMass.ZwdotKg"
+        ]
+      },
+      "legacy": {
+        "v1Path": "rigidBody.massKg"
+      },
+      "locator": "Table A1, m (Experimental)",
+      "provenance": "cited",
+      "source": "vonbenzon2022",
+      "unit": "kg",
+      "value": 13.5
+    },
+    "rBMeters": {
+      "alternatives": [
+        {
+          "locator": "Table 5.1",
+          "source": "wu2018",
+          "unit": "m",
+          "value": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        }
+      ],
+      "frame": "body",
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "v1Path": "rigidBody.rBMeters"
+      },
+      "locator": "Table A1, (xb,yb,zb) (CAD). BG = 0.01 m.",
+      "provenance": "cited",
+      "source": "vonbenzon2022",
+      "unit": "m",
+      "value": [
+        0.0,
+        0.0,
+        -0.01
+      ]
+    },
+    "rGMeters": {
+      "alternatives": [
+        {
+          "locator": "Table 5.1 (BG = 0.02 m 'representative value chosen', p.47)",
+          "source": "wu2018",
+          "unit": "m",
+          "value": [
+            0.0,
+            0.0,
+            0.02
+          ]
+        }
+      ],
+      "frame": "body",
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "v1Path": "rigidBody.rGMeters"
+      },
+      "locator": "Table A1, (xg,yg,zg) (Defined)",
+      "provenance": "cited",
+      "source": "vonbenzon2022",
+      "unit": "m",
+      "value": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "waterDensityKgM3": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "v1Path": "rigidBody.waterDensityKgM3"
+      },
+      "locator": "Table A1, rho",
+      "provenance": "cited",
+      "source": "vonbenzon2022",
+      "unit": "kg/m^3",
+      "value": 1000.0
+    },
+    "weightN": {
+      "alternatives": [
+        {
+          "locator": "Table 5.1",
+          "source": "wu2018",
+          "unit": "N",
+          "value": 112.8
+        }
+      ],
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "v1Path": "rigidBody.weightN"
+      },
+      "locator": "W = m g = 13.5 * 9.82 (von Benzon eq. 8 definition W = mg)",
+      "provenance": "derived",
+      "source": "crane_derived",
+      "unit": "N",
+      "value": 132.57
+    }
+  },
+  "schema": "crane.profile/v2",
+  "sources": {
+    "bluerobotics_t200": {
+      "citation": "Blue Robotics, T200 Public Performance Data 10-20V, September 2019",
+      "license": "UNVERIFIED (no terms stated on the product page). Cite facts only; do not redistribute the spreadsheet.",
+      "url": "https://cad.bluerobotics.com/T200-Public-Performance-Data-10-20V-September-2019.xlsx"
+    },
+    "crane_derived": {
+      "citation": "Derived in this profile from the cited primary values; derivation in 'location'.",
+      "license": "GPL-3.0 (this repository)"
+    },
+    "vonbenzon2022": {
+      "citation": "M. von Benzon, F. F. Sorensen, E. Uth, J. Jouffroy, J. Liniger, S. Pedersen, 'An Open-Source Benchmark Simulator: Control of a BlueROV2 Underwater Robot', J. Mar. Sci. Eng. 10(12):1898, 2022",
+      "codeLicenseNote": "Companion code github.com/ROV-Simulator/ROV-Simulator @ 928bcbf has NO license (all rights reserved) and is .mlappinstall binaries: do not port.",
+      "doi": "10.3390/jmse10121898",
+      "license": "CC-BY-4.0 (paper). Numeric facts are cited, not copied text.",
+      "url": "https://vbn.aau.dk/ws/portalfiles/portal/505520780/jmse_10_01898.pdf",
+      "vehicle": "BlueROV2 Heavy (8 x T200)"
+    },
+    "wu2018": {
+      "citation": "C. Wu, '6-DoF Modelling and Control of a Remotely Operated Vehicle', Master of Engineering thesis, Flinders University, 2018",
+      "license": "UNVERIFIED (no licence statement found). Cite facts only.",
+      "url": "https://flex.flinders.edu.au/file/27aa0064-9de2-441c-8a17-655405d5fc2e/1/ThesisWu2018.pdf",
+      "vehicle": "BlueROV2 Heavy geometry (Table 4.2). Mass/inertia/hydrodynamics are a priori values transferred from Sandoy (standard BlueROV2), not measured on a Heavy."
+    }
+  },
+  "structures": {
+    "thrustCurve": {
+      "data": {
+        "coefficients_V9_V7_V5_V3_V1": [
+          -140.3,
+          389.9,
+          -404.1,
+          176.0,
+          8.9
+        ],
+        "form": "odd polynomial in normalised command V in [-1,1]"
+      },
+      "frame": "body",
+      "legacy": {
+        "v1Path": "thrusters.thrustCurve"
+      },
+      "locator": "eq. 18",
+      "provenance": "cited",
+      "source": "vonbenzon2022"
+    },
+    "thrusterLayout": {
+      "data": [
+        {
+          "direction": [
+            0.70710678,
+            -0.70710678,
+            0.0
+          ],
+          "name": "T1",
+          "positionM": [
+            0.156,
+            0.111,
+            0.085
+          ]
+        },
+        {
+          "direction": [
+            0.70710678,
+            0.70710678,
+            0.0
+          ],
+          "name": "T2",
+          "positionM": [
+            0.156,
+            -0.111,
+            0.085
+          ]
+        },
+        {
+          "direction": [
+            -0.70710678,
+            0.70710678,
+            0.0
+          ],
+          "name": "T3",
+          "positionM": [
+            -0.156,
+            0.111,
+            0.085
+          ]
+        },
+        {
+          "direction": [
+            -0.70710678,
+            -0.70710678,
+            0.0
+          ],
+          "name": "T4",
+          "positionM": [
+            -0.156,
+            -0.111,
+            0.085
+          ]
+        },
+        {
+          "direction": [
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "name": "T5",
+          "positionM": [
+            0.12,
+            0.218,
+            0.0
+          ]
+        },
+        {
+          "direction": [
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "name": "T6",
+          "positionM": [
+            0.12,
+            -0.218,
+            0.0
+          ]
+        },
+        {
+          "direction": [
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "name": "T7",
+          "positionM": [
+            -0.12,
+            0.218,
+            0.0
+          ]
+        },
+        {
+          "direction": [
+            0.0,
+            0.0,
+            -1.0
+          ],
+          "name": "T8",
+          "positionM": [
+            -0.12,
+            -0.218,
+            0.0
+          ]
+        }
+      ],
+      "frame": "body",
+      "legacy": {
+        "v1Path": "thrusters.layout"
+      },
+      "locator": "Table 4.2 (arms, mm) and p.41 rotation angles pi/4, -pi/4, -3pi/4, 3pi/4 with Fx = F cos(a), Fy = -F sin(a). Positions match von Benzon Table A1 r_i = J3(alpha_i)[0.156 0.111 0.085], alpha = {0, 5.05, 1.91, pi}, and r_5..8 = J3(gamma_i)[0.120 0.218 0]. Vertical direction [0,0,-1] is from von Benzon Table A1. CONFLICT: von Benzon's printed beta_i = {0, pi/2, 3pi/4, pi} makes T3 point along pure +y (not 45 deg) and T4 opposite to Wu's T4, so it is treated as a typesetting error. The per-thruster positive-command sign (propeller handedness) is UNVERIFIED and must be measured on hardware.",
+      "provenance": "cited",
+      "source": "wu2018"
+    },
+    "thrusterTransferFunction": {
+      "data": {
+        "den": [
+          1,
+          89,
+          9258,
+          108700
+        ],
+        "num": [
+          6136,
+          108700
+        ]
+      },
+      "frame": "body",
+      "legacy": {
+        "v1Path": "thrusters.dynamicsTransferFunction"
+      },
+      "locator": "eq. 19, K(s)",
+      "provenance": "cited",
+      "source": "vonbenzon2022"
+    }
+  },
+  "tether": {
+    "diameterM": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "v1Path": "tether.diameterM"
+      },
+      "locator": "Table A1, d_tet",
+      "provenance": "cited",
+      "source": "vonbenzon2022",
+      "unit": "m",
+      "value": 0.0075
+    },
+    "internalDampingNsPerM": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "v1Path": "tether.internalDampingNsM"
+      },
+      "locator": "Table A1, C_tet",
+      "provenance": "cited",
+      "source": "vonbenzon2022",
+      "unit": "N s/m",
+      "value": 100.0
+    },
+    "massPerLengthKgPerM": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "v1Path": "tether.massPerLengthKgM"
+      },
+      "locator": "Table A1, m_tet",
+      "provenance": "cited",
+      "source": "vonbenzon2022",
+      "unit": "kg/m",
+      "value": 0.043
+    },
+    "normalDragCoefficient": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "v1Path": "tether.normalDragCoefficient"
+      },
+      "locator": "Table A1, Cn",
+      "provenance": "cited",
+      "source": "vonbenzon2022",
+      "unit": "1",
+      "value": 1.2
+    },
+    "tangentialDragCoefficient": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "v1Path": "tether.tangentialDragCoefficient"
+      },
+      "locator": "Table A1, Ct",
+      "provenance": "cited",
+      "source": "vonbenzon2022",
+      "unit": "1",
+      "value": 0.01
+    },
+    "youngsModulusPa": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "v1Path": "tether.youngsModulusNM2"
+      },
+      "locator": "Table A1, E",
+      "provenance": "cited",
+      "source": "vonbenzon2022",
+      "unit": "Pa",
+      "value": 64370000000.0
+    }
+  },
+  "thrusters": {
+    "maxForwardN": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "v1Path": "thrusters.maxForwardN"
+      },
+      "locator": "von Benzon eq. 18 F(V) at V=+1: -140.3+389.9-404.1+176.0+8.9 = 30.4 N. Consistent with Table 4: 4*30.4*cos(45deg) = 86 N surge (paper 85 N), 4*30.4 = 122 N heave (paper 120 N).",
+      "provenance": "derived",
+      "source": "crane_derived",
+      "unit": "N",
+      "value": 30.4
+    },
+    "maxReverseN": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "v1Path": "thrusters.maxReverseN"
+      },
+      "locator": "von Benzon eq. 18 is odd in V: F(-1) = -30.4 N. The T200 data sheet (bluerobotics_t200) is asymmetric; fit it separately before use.",
+      "provenance": "derived",
+      "source": "crane_derived",
+      "unit": "N",
+      "value": 30.4
+    },
+    "timeConstantS": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "v1Path": "thrusters.timeConstantS"
+      },
+      "locator": "63 % rise time of the unit-step response of von Benzon eq. 19 (poles -13.16, -37.9 +- 82.6j; zero -17.7; no overshoot), computed with python -I. First-order surrogate only.",
+      "provenance": "derived",
+      "source": "crane_derived",
+      "unit": "s",
+      "value": 0.02
+    }
+  },
+  "version": "v1-migrated"
+}

@@ -1,0 +1,24 @@
+{
+  "schema": "crane-ground-robot-profile-v1",
+  "id": "clearpath-husky-a200",
+  "steering": "skid",
+  "drivenAxles": "all",
+  "drivenWheelCount": 4,
+  "license": {"spdx": "BSD-3-Clause", "verifiedAt": "https://github.com/husky/husky/blob/41e15d283a8d955938204e79554a875264417bb9/LICENSE", "meshes": "husky_description/meshes in the same BSD-3-Clause repository", "gplCompatible": true},
+  "sourceRevision": "husky/husky@41e15d283a8d955938204e79554a875264417bb9 (noetic-devel, 2025-10-01)",
+  "evidenceLabel": "PUBLISHED_DESCRIPTION_PRIOR (URDF values, not measured by CRANE)",
+  "parameters": {
+    "wheelbaseM": {"value": 0.512, "source": "husky_description/urdf/husky.urdf.xacro:155 wheelbase"},
+    "trackM": {"value": 0.555, "source": "husky.urdf.xacro:156 track"},
+    "wheelRadiusM": {"value": 0.1651, "source": "husky.urdf.xacro:161 wheel_radius"},
+    "wheelWidthM": {"value": 0.1143, "source": "husky.urdf.xacro:160 wheel_length"},
+    "chassisMassKg": {"value": 46.034, "source": "husky.urdf.xacro:197 inertial_link mass"},
+    "wheelMassKg": {"value": 2.637, "source": "husky_description/urdf/wheel.urdf.xacro:31"},
+    "totalMassKg": {"value": 56.582, "source": "derived: 46.034 + 4*2.637"},
+    "cgHeightAboveGroundM": {"value": 0.18884, "source": "derived: chassis COM z 0.062 (xacro:198) above base_link; base_link is wheel_radius - wheel_vertical_offset (0.1651-0.03282) above ground; wheels at r; mass-weighted"},
+    "cgFromRearAxleM": {"value": 0.25547, "source": "derived: wheelbase/2 + mass-weighted COM x (-0.00065*46.034/56.582)"},
+    "cgLateralOffsetM": {"value": -0.06915, "source": "derived from xacro:198 COM y=-0.085 (mass-weighted). UNVERIFIED physically: an 8.5 cm lateral chassis COM offset is suspicious; treat as a description artifact until measured"},
+    "wheelSeparationMultiplier": {"value": 1.875, "source": "husky_control/config/control.yaml:26 (diff_drive_controller empirical skid-steer track inflation)"},
+    "gazeboMu": {"value": 1.0, "source": "wheel.urdf.xacro:50-51 mu1/mu2 (simulator tuning, not a measured tire-soil coefficient)"}
+  }
+}

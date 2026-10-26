@@ -1,0 +1,171 @@
+{
+  "attributes": {
+    "drivenAxles": "all",
+    "drivenWheelCount": 4,
+    "steering": "skid"
+  },
+  "calibrationState": "UNCALIBRATED_PRIOR",
+  "claimScope": {
+    "excluded": []
+  },
+  "components": [],
+  "contentHash": "08f02bc0898622ca09795a7da0b725139e0d819b8f6f2436aa5a8af906457c52",
+  "datasets": [],
+  "domain": "ground",
+  "evidenceLabel": "IMPLEMENTED",
+  "frames": {
+    "body": "robot base, x forward, y left, z up (URDF convention)"
+  },
+  "id": "clearpath-jackal",
+  "kind": "robot_geometry",
+  "migratedFrom": {
+    "labelNote": "legacy label PUBLISHED_DESCRIPTION_PRIOR mapped to IMPLEMENTED",
+    "legacyEvidenceLabel": "PUBLISHED_DESCRIPTION_PRIOR (URDF values, not measured by CRANE)",
+    "schema": "crane-ground-robot-profile-v1"
+  },
+  "parameters": {
+    "cgFromRearAxleM": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "locator": "derived: wheelbase/2 + 0.012*16.523/18.431",
+      "provenance": "derived",
+      "source": "upstream",
+      "unit": "m",
+      "value": 0.14176
+    },
+    "cgHeightAboveGroundM": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "locator": "derived: chassis COM z 0.067 (xacro:119) + (0.098-0.0345) base_link height; wheels at r; mass-weighted",
+      "provenance": "derived",
+      "source": "upstream",
+      "unit": "m",
+      "value": 0.12714
+    },
+    "cgLateralOffsetM": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "locator": "derived: 0.002*16.523/18.431",
+      "provenance": "derived",
+      "source": "upstream",
+      "unit": "m",
+      "value": 0.00179
+    },
+    "chassisMassKg": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "locator": "jackal.urdf.xacro:120",
+      "provenance": "cited",
+      "source": "upstream",
+      "unit": "kg",
+      "value": 16.523
+    },
+    "gazeboMu": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "locator": "jackal.urdf.xacro:55-56 mu1/mu2 (simulator tuning)",
+      "provenance": "cited",
+      "source": "upstream",
+      "unit": "1",
+      "value": 0.5
+    },
+    "totalMassKg": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "locator": "derived: 16.523 + 4*0.477",
+      "provenance": "derived",
+      "source": "upstream",
+      "unit": "kg",
+      "value": 18.431
+    },
+    "trackM": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "locator": "jackal.urdf.xacro:6",
+      "provenance": "cited",
+      "source": "upstream",
+      "unit": "m",
+      "value": 0.37559
+    },
+    "wheelMassKg": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "locator": "jackal.urdf.xacro:44",
+      "provenance": "cited",
+      "source": "upstream",
+      "unit": "kg",
+      "value": 0.477
+    },
+    "wheelRadiusM": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "locator": "jackal.urdf.xacro:10",
+      "provenance": "cited",
+      "source": "upstream",
+      "unit": "m",
+      "value": 0.098
+    },
+    "wheelSeparationMultiplier": {
+      "identifiability": {
+        "reason": "Empirical skid-steer track/wheel scale inflation that is valid only for the surface and site it was tuned on; slip and scale are confounded on one slope.",
+        "status": "SINGLE_SITE"
+      },
+      "locator": "jackal_control/config/control.yaml:25",
+      "provenance": "cited",
+      "source": "upstream",
+      "unit": "1",
+      "value": 1.5
+    },
+    "wheelWidthM": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "locator": "jackal.urdf.xacro:11",
+      "provenance": "cited",
+      "source": "upstream",
+      "unit": "m",
+      "value": 0.04
+    },
+    "wheelbaseM": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "locator": "jackal_description/urdf/jackal.urdf.xacro:5",
+      "provenance": "cited",
+      "source": "upstream",
+      "unit": "m",
+      "value": 0.262
+    }
+  },
+  "schema": "crane.profile/v2",
+  "sources": {
+    "upstream": {
+      "gplCompatible": true,
+      "license": "BSD-3-Clause",
+      "meshes": "jackal_description/meshes in the same BSD-3-Clause repository",
+      "revision": "jackal/jackal@4ddf9b578bb7abce1115c8dc59d8b7f86aa9268c (noetic-devel)",
+      "verifiedAt": "https://api.github.com/repos/jackal/jackal (license field) @4ddf9b578bb7abce1115c8dc59d8b7f86aa9268c"
+    }
+  },
+  "version": "v1-migrated"
+}

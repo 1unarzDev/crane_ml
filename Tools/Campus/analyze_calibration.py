@@ -3,6 +3,8 @@
 import argparse,json,math,pathlib,statistics
 from calibration_evidence import command_origin as read_command_origin, initial_response
 p=argparse.ArgumentParser();p.add_argument('run',type=pathlib.Path);p.add_argument('--trial',default='CAL-02');p.add_argument('--real',type=pathlib.Path);args=p.parse_args()
+if args.real:
+ p.error('--real no longer accepts an unvalidated stream. Use validate_heldout_calibration.py with a physical acquisition manifest, explicit time origins, file hashes and fit/heldout split provenance.')
 rows=[json.loads(x) for x in (args.run/'telemetry.jsonl').read_text().splitlines()];moving=[r for r in rows if r['commandLinear']!=0 or r['commandAngular']!=0];assert rows and moving
 command_origin,origin_precision=read_command_origin(args.run,rows)
 yaw_steps=[(b['yaw']-a['yaw']+180)%360-180 for a,b in zip(rows,rows[1:])]
@@ -21,13 +23,4 @@ result.update(finalWheelOdometryPositionErrorMeters=odometry_errors[-1],
               finalOdometryErrorPerTraveledMeter=odometry_errors[-1]/path if path>0 else None)
 result.update(initial_response(rows,command_origin))
 result['commandTimeOriginPrecision']=origin_precision
-if args.real:
- real=[json.loads(x) for x in args.real.read_text().splitlines()];assert len(real)>1
- # Require timestamp-aligned samples; no silent rescaling/registration to improve apparent fit.
- pairs=[]
- for sim in rows:
-  trial_time=sim['simulationTime']-command_origin
-  measured=min(real,key=lambda x:abs(x['simulationTime']-trial_time))
-  if abs(measured['simulationTime']-trial_time)<=.05:pairs.append((sim,measured))
- assert pairs,'No acquisition-aligned real samples';result['physicalFitAvailable']=True;result['realComparison']={'samples':len(pairs),'trajectoryRmseMeters':math.sqrt(statistics.mean(dist(a,b)**2 for a,b in pairs)),'finalPositionErrorMeters':dist(rows[-1],real[-1]),'finalYawErrorDegrees':(rows[-1]['yaw']-real[-1]['yaw']+180)%360-180}
 (args.run/'calibration-result.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result,indent=2))

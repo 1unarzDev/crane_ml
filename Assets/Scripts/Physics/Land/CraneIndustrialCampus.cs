@@ -38,6 +38,7 @@ namespace Sim.Physics.Land {
         public const string Resource = "ReferenceEnvironments/industrial_logistics_campus_v1";
         public CampusManifest Manifest { get; private set; }
         public CampusScenario Scenario { get; private set; }
+        public CraneCampusCalibrationProfile CalibrationProfile { get; private set; }
         public Rigidbody Robot { get; private set; }
         public int Seed { get; private set; }
         public string OutputDirectory { get; private set; }
@@ -74,6 +75,7 @@ namespace Sim.Physics.Land {
             if (asset == null) throw new FileNotFoundException(Resource);
             Manifest = JsonUtility.FromJson<CampusManifest>(Array.IndexOf(args,"--crane-campus-manifest")>=0?File.ReadAllText(Arg(args,"--crane-campus-manifest","")):asset.text);
             if (Manifest.schema != "crane-industrial-campus-v1") throw new InvalidDataException("Campus schema");
+            CalibrationProfile = CraneCampusCalibrationProfile.Load(args);
             string id = Arg(args,"--crane-campus-scenario","warehouse_nominal");
             Scenario = Array.Find(Manifest.scenarios,s=>s.id == id) ?? throw new ArgumentException(id);
             Seed = int.Parse(Arg(args,"--crane-campus-seed",Scenario.seed.ToString()),CultureInfo.InvariantCulture);
@@ -139,13 +141,15 @@ namespace Sim.Physics.Land {
                 scanner.localPosition=new Vector3(0,.122f,-.064f);
                 var lidarType=Type.GetType("Sim.Sensors.Lidar.Lidar2D, SensorsAssembly",true);
                 var lidar=scanner.GetComponent(lidarType);
-                if(Scenario.sensorProfile!="off"||Array.Exists(args,x=>x.StartsWith("--crane-campus-lidar-"))) {
-                    float sigma=float.Parse(Arg(args,"--crane-campus-lidar-sigma",Scenario.sensorProfile=="off"?"0":"0.005"),CultureInfo.InvariantCulture);
-                    float dropout=float.Parse(Arg(args,"--crane-campus-lidar-dropout",Scenario.sensorProfile=="off"?"0":"0.01"),CultureInfo.InvariantCulture);
-                    int latency=int.Parse(Arg(args,"--crane-campus-lidar-latency-scans","0"),CultureInfo.InvariantCulture);
-                    lidarType.GetMethod("ConfigureErrors").Invoke(lidar,new object[]{Seed+313,sigma,dropout,latency,Scenario.sensorProfile});
+                if(CalibrationProfile!=null||Scenario.sensorProfile!="off"||Array.Exists(args,x=>x.StartsWith("--crane-campus-lidar-"))) {
+                    var profileLidar=CalibrationProfile?.parameters?.lidar;
+                    float sigma=profileLidar!=null?profileLidar.sigmaMeters:float.Parse(Arg(args,"--crane-campus-lidar-sigma",Scenario.sensorProfile=="off"?"0":"0.005"),CultureInfo.InvariantCulture);
+                    float dropout=profileLidar!=null?profileLidar.dropoutProbability:float.Parse(Arg(args,"--crane-campus-lidar-dropout",Scenario.sensorProfile=="off"?"0":"0.01"),CultureInfo.InvariantCulture);
+                    int latency=profileLidar!=null?profileLidar.latencyScans:int.Parse(Arg(args,"--crane-campus-lidar-latency-scans","0"),CultureInfo.InvariantCulture);
+                    string materialClass=profileLidar!=null?profileLidar.materialClass:Scenario.sensorProfile;
+                    lidarType.GetMethod("ConfigureErrors").Invoke(lidar,new object[]{Seed+313,sigma,dropout,latency,materialClass});
                     diagnosticLidar=lidar;lidarDiagnostics=lidarType.GetMethod("ErrorDiagnosticsJson");
-                    RecordEvent("lidar-profile","base_scan",$"sigmaMeters={sigma:R}; dropout={dropout:R}; latencyScans={latency}; materialClass={Scenario.sensorProfile}");
+                    RecordEvent("lidar-profile","base_scan",$"sigmaMeters={sigma:R}; dropout={dropout:R}; latencyScans={latency}; materialClass={materialClass}");
                 }
             }
             var inspection=UnityEngine.Object.FindAnyObjectByType<CraneReferenceInspectionController>();

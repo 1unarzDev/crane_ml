@@ -1,0 +1,357 @@
+{
+  "aero": {
+    "dragLinear": {
+      "frame": "body",
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "SIMULATOR_DEFAULT",
+        "unit": "N s/m",
+        "v1Key": "drag_linear"
+      },
+      "locator": "x500 SDF has no body drag; rotor drag only",
+      "provenance": "prior",
+      "unit": "N s/m",
+      "value": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "dragQuadratic": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "UNKNOWN",
+        "unit": "N s^2/m^2",
+        "v1Key": "drag_quadratic"
+      },
+      "locator": "none",
+      "provenance": "prior",
+      "unit": "N s^2/m^2",
+      "value": 0.0
+    }
+  },
+  "attributes": {
+    "description": "PX4 x500 (NXP HoverGames-class 500 mm quad X) as parameterized in PX4-gazebo-models. Coefficients are simulator defaults identical to RotorS defaults (RotorS license is from file headers/package metadata only, no top-level LICENSE; no RotorS meshes are bundled); no published system identification of physical x500 hardware was found."
+  },
+  "calibrationState": "UNCALIBRATED_PRIOR",
+  "claimScope": {
+    "excluded": []
+  },
+  "components": [],
+  "contentHash": "16aa3ed8bd81beb9c98f3bab646e868f42078589950831ca72a3b362179de31b",
+  "datasets": [],
+  "domain": "aerial",
+  "dynamics": {
+    "inertiaKgM2": {
+      "frame": "body",
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "SIMULATOR_DEFAULT",
+        "unit": "kg m^2",
+        "v1Key": "inertia"
+      },
+      "locator": "x500_base/model.sdf base_link <inertia>; rotor link inertia neglected (<3e-5 each)",
+      "provenance": "prior",
+      "source": "PX4GZ",
+      "unit": "kg m^2",
+      "value": [
+        [
+          0.02166666666666667,
+          0,
+          0
+        ],
+        [
+          0,
+          0.02166666666666667,
+          0
+        ],
+        [
+          0,
+          0,
+          0.04000000000000001
+        ]
+      ]
+    },
+    "massKg": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "SIMULATOR_DEFAULT",
+        "unit": "kg",
+        "v1Key": "mass"
+      },
+      "locator": "x500_base/model.sdf: base_link 2.0 + 4 rotor links 0.016076923",
+      "provenance": "prior",
+      "source": "PX4GZ",
+      "unit": "kg",
+      "value": 2.0643076923076924
+    }
+  },
+  "evidenceLabel": "IMPLEMENTED",
+  "frames": {
+    "body": "FLU",
+    "spin": "+1 = CCW seen from above",
+    "world": "ENU z-up"
+  },
+  "id": "px4-x500-gz-e5997f4",
+  "kind": "vehicle_dynamics",
+  "migratedFrom": {
+    "labelNote": null,
+    "legacyEvidenceLabel": "IMPLEMENTED",
+    "schema": "crane-aerial-vehicle-profile-v1"
+  },
+  "notes": [
+    "Rotor z offset 0.06 m is relative to the base_link origin; the base_link CoM is at the origin in the SDF.",
+    "rotorVelocitySlowdownSim=10 is a Gazebo visualization/aliasing device; the force law uses the real rotor speed.",
+    "Hover rotor speed ~ sqrt(m g / 4 kf) = 769 rad/s, thrust-to-weight ~1.69 at omega_max."
+  ],
+  "propulsion": {
+    "kf": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "SIMULATOR_DEFAULT",
+        "unit": "N/(rad/s)^2",
+        "v1Key": "kf"
+      },
+      "locator": "x500/model.sdf motorConstant (identical to RotorS firefly/hummingbird)",
+      "provenance": "prior",
+      "source": "PX4GZ",
+      "unit": "N/(rad/s)^2",
+      "value": 8.54858e-06
+    },
+    "kmM": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "SIMULATOR_DEFAULT",
+        "unit": "m",
+        "v1Key": "km"
+      },
+      "locator": "momentConstant",
+      "provenance": "prior",
+      "source": "PX4GZ",
+      "unit": "m",
+      "value": 0.016
+    },
+    "omegaMax": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "SIMULATOR_DEFAULT",
+        "unit": "rad/s",
+        "v1Key": "omega_max"
+      },
+      "locator": "maxRotVelocity",
+      "provenance": "prior",
+      "source": "PX4GZ",
+      "unit": "rad/s",
+      "value": 1000.0
+    },
+    "rollingMoment": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "SIMULATOR_DEFAULT",
+        "unit": "N s/rad",
+        "v1Key": "rolling_moment"
+      },
+      "locator": "rollingMomentCoefficient",
+      "provenance": "prior",
+      "source": "PX4GZ",
+      "unit": "N s/rad",
+      "value": 1e-06
+    },
+    "rotorDrag": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "SIMULATOR_DEFAULT",
+        "unit": "N s/(m rad)",
+        "v1Key": "rotor_drag"
+      },
+      "locator": "rotorDragCoefficient",
+      "provenance": "prior",
+      "source": "PX4GZ",
+      "unit": "N s/(m rad)",
+      "value": 8.06428e-05
+    },
+    "rotorRadiusM": {
+      "identifiability": {
+        "reason": "Literature/engineering prior; nothing identified on CRANE data or a CRANE system.",
+        "status": "NO_PHYSICAL_DATA"
+      },
+      "legacy": {
+        "extra": {},
+        "status": "ASSUMED",
+        "unit": "m",
+        "v1Key": "rotor_radius"
+      },
+      "locator": "inferred from mesh name 1345_prop (13 in diameter); not a stated parameter",
+      "provenance": "prior",
+      "source": "PX4GZ",
+      "unit": "m",
+      "value": 0.1651
+    },
+    "tauDownS": {
+      "identifiability": {
+        "reason": "Motor time constant is not separable from IMU/gyro latency in rate-response data (see Tools/Aerial/aerial_identifiability.py).",
+        "status": "CONFOUNDED_WITH",
+        "with": [
+          "timing.gyroLatencyS"
+        ]
+      },
+      "legacy": {
+        "extra": {},
+        "status": "SIMULATOR_DEFAULT",
+        "unit": "s",
+        "v1Key": "tau_down"
+      },
+      "locator": "timeConstantDown",
+      "provenance": "prior",
+      "source": "PX4GZ",
+      "unit": "s",
+      "value": 0.025
+    },
+    "tauUpS": {
+      "identifiability": {
+        "reason": "Motor time constant is not separable from IMU/gyro latency in rate-response data (see Tools/Aerial/aerial_identifiability.py).",
+        "status": "CONFOUNDED_WITH",
+        "with": [
+          "timing.gyroLatencyS"
+        ]
+      },
+      "legacy": {
+        "extra": {},
+        "status": "SIMULATOR_DEFAULT",
+        "unit": "s",
+        "v1Key": "tau_up"
+      },
+      "locator": "timeConstantUp",
+      "provenance": "prior",
+      "source": "PX4GZ",
+      "unit": "s",
+      "value": 0.0125
+    }
+  },
+  "schema": "crane.profile/v2",
+  "sources": {
+    "GZSIM": {
+      "commit": "3984434a2e9de3e7e771dfa59616b802d017e404",
+      "files": {
+        "src/systems/multicopter_motor_model/MulticopterMotorModel.cc": "0faaf567d26a9c50657348444aae6d5d74bb2b3fa3d6b4c1c53eff431c8711d4"
+      },
+      "gplCompatible": true,
+      "license": "Apache-2.0",
+      "note": "Force law reference only (thrust = kf w^2, drag torque = -dir*kf w^2*km, rotor drag = -|w| lambda1 v_perp, rolling moment = -|w| mu1 v_perp). Read, not executed.",
+      "url": "https://github.com/gazebosim/gz-sim"
+    },
+    "PX4GZ": {
+      "commit": "e5997f455e33ec071c7c677fc59a65781de496a4",
+      "files": {
+        "LICENSE": "5fcb2a52fc0390cc8c7eccaa0cde9316c810f38811efb357e1ede7858e26e289",
+        "models/x500/LICENSE": "cee4ef94e73cd38fb2886f5d7e7a04d6488f54b1e70cd8b1b29d74f38bfdba5b",
+        "models/x500/model.sdf": "cb76a4afd439f253a8c516b1fcd3528f80347619cfa46bebb620557054fbf125",
+        "models/x500_base/model.sdf": "6eccbff824a0e1ceaaf3bc12fe18cd0eb3ece890bf995a2607b477c3d2ae5772"
+      },
+      "gplCompatible": true,
+      "license": "BSD-3-Clause (repo LICENSE: PX4 Autopilot for Drones 2022; models/x500/LICENSE: Rudis Laboratories 2022)",
+      "meshLicense": "x500_base meshes (NXP-HGD-CF.dae, 5010Base/Bell.dae, 1345_prop_*.stl) carry no separate notice; covered only by directory/repo BSD-3-Clause. Not imported; re-verify before any mesh port.",
+      "url": "https://github.com/PX4/PX4-gazebo-models"
+    }
+  },
+  "structures": {
+    "rotors": {
+      "data": [
+        {
+          "locator": "rotor_0 link pose; turningDirection ccw; motorNumber 0 (front-right)",
+          "name": "rotor_0",
+          "position": [
+            0.174,
+            -0.174,
+            0.06
+          ],
+          "source": "PX4GZ",
+          "spin": 1
+        },
+        {
+          "locator": "rotor_1 ccw; motorNumber 1 (rear-left)",
+          "name": "rotor_1",
+          "position": [
+            -0.174,
+            0.174,
+            0.06
+          ],
+          "source": "PX4GZ",
+          "spin": 1
+        },
+        {
+          "locator": "rotor_2 cw; motorNumber 2 (front-left)",
+          "name": "rotor_2",
+          "position": [
+            0.174,
+            0.174,
+            0.06
+          ],
+          "source": "PX4GZ",
+          "spin": -1
+        },
+        {
+          "locator": "rotor_3 cw; motorNumber 3 (rear-right)",
+          "name": "rotor_3",
+          "position": [
+            -0.174,
+            -0.174,
+            0.06
+          ],
+          "source": "PX4GZ",
+          "spin": -1
+        }
+      ],
+      "frame": "body",
+      "provenance": "cited"
+    }
+  },
+  "timing": {
+    "gyroLatencyS": {
+      "identifiability": {
+        "reason": "No gyro/IMU latency is recorded in the v1 profile; this quantity is the anchor for CONFOUNDED_WITH on the motor time constants, not a value.",
+        "status": "ABSTAIN"
+      },
+      "provenance": "prior",
+      "unit": "s",
+      "value": null
+    }
+  },
+  "version": "v1-migrated"
+}
