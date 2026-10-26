@@ -237,3 +237,27 @@ def test_short_coasts_are_blamed_on_the_procedure_not_the_curve(tmp_path):
     for n in ("surge+", "surge-"):
         assert rep["parameters"][n]["status"] == G.PRIOR
     assert rep["parameters"]["yaw+"]["status"] == G.IDENTIFIED
+
+
+E2E_PROFILE = os.path.join(P.HERE, "profiles", "fixture-survey.json")
+
+
+def test_e2e_fixture_profile_is_current(tmp_path):
+    """Fixture YAML -> adapter -> gate -> profile JSON, committed for the EditMode end-to-end test
+    (ProfileImportTests.SurveyFixtureImportsAndThePlantUsesIt). Rewrite with CRANE_WRITE_FIXTURES=1."""
+    path = write_survey(str(tmp_path / "data"))
+    prof, _ = _import(path, tmp_path)
+    prov = prof["provenance"]
+    prov["inputs"] = [{"path": os.path.basename(i["path"]), "sha256": i["sha256"]} for i in prov["inputs"]]
+    prov["gateReport"] = "fixture-survey.gate.json (not kept)"
+    prof["name"] = "FixtureSurvey"
+    if os.environ.get("CRANE_WRITE_FIXTURES"):
+        with open(E2E_PROFILE, "w") as f:
+            json.dump(prof, f, indent=4)
+            f.write("\n")
+    with open(E2E_PROFILE) as f:
+        kept = json.load(f)
+    for axis in G.AXES:
+        for key, value in prof[axis].items():
+            assert kept[axis][key] == pytest.approx(value, rel=1e-9), (axis, key)
+    assert kept["provenance"]["summary"] == prov["summary"] and kept[axis] != P.IDEAL[axis]

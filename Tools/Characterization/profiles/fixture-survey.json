@@ -1,0 +1,223 @@
+{
+    "name": "FixtureSurvey",
+    "fixedDeltaTime": 0.02,
+    "mass": 30.0,
+    "ixx": 2.2,
+    "iyy": 2.0,
+    "izz": 4.1,
+    "comBow": 0.0,
+    "comPort": 0.0,
+    "addedMass": {
+        "a11": 1.5,
+        "a22": 15.0,
+        "a26": 0.0,
+        "a66": 1.23
+    },
+    "surge": {
+        "d1Pos": 9.957982226500333,
+        "d1Neg": 9.931172065795352,
+        "d2Pos": 19.421736929055577,
+        "d2Neg": 19.420855408520957
+    },
+    "sway": {
+        "d1Pos": 15.02109925512977,
+        "d1Neg": 15.149458141100043,
+        "d2Pos": 41.71253544865786,
+        "d2Neg": 41.58829886551711
+    },
+    "yaw": {
+        "d1Pos": 10.001135079868156,
+        "d1Neg": 10.000249459672226,
+        "d2Pos": 19.302483233404974,
+        "d2Neg": 19.289898590343864
+    },
+    "heave": {
+        "d1": 150.0,
+        "d2": 40.0
+    },
+    "roll": {
+        "d1": 30.0,
+        "d2": 10.0
+    },
+    "pitch": {
+        "d1": 30.0,
+        "d2": 10.0
+    },
+    "thrusters": [
+        {
+            "name": "front_left",
+            "x": 0.27,
+            "y": 0.34,
+            "z": 0.0,
+            "alphaDeg": 135.0,
+            "kForward": 51.5,
+            "kReverse": 51.5,
+            "vRef": 16.0,
+            "nV": 0.0,
+            "deadbandUs": 0.0,
+            "offsetUs": 0.0,
+            "tauT": 0.0,
+            "deadTime": 0.0,
+            "submersionDepth": 0.08,
+            "kappa": 0.0
+        },
+        {
+            "name": "front_right",
+            "x": 0.27,
+            "y": -0.34,
+            "z": 0.0,
+            "alphaDeg": -135.0,
+            "kForward": 51.5,
+            "kReverse": 51.5,
+            "vRef": 16.0,
+            "nV": 0.0,
+            "deadbandUs": 0.0,
+            "offsetUs": 0.0,
+            "tauT": 0.0,
+            "deadTime": 0.0,
+            "submersionDepth": 0.08,
+            "kappa": 0.0
+        },
+        {
+            "name": "rear_right",
+            "x": -0.27,
+            "y": -0.34,
+            "z": 0.0,
+            "alphaDeg": -45.0,
+            "kForward": 51.5,
+            "kReverse": 51.5,
+            "vRef": 16.0,
+            "nV": 0.0,
+            "deadbandUs": 0.0,
+            "offsetUs": 0.0,
+            "tauT": 0.0,
+            "deadTime": 0.0,
+            "submersionDepth": 0.08,
+            "kappa": 0.0
+        },
+        {
+            "name": "rear_left",
+            "x": -0.27,
+            "y": 0.34,
+            "z": 0.0,
+            "alphaDeg": 45.0,
+            "kForward": 51.5,
+            "kReverse": 51.5,
+            "vRef": 16.0,
+            "nV": 0.0,
+            "deadbandUs": 0.0,
+            "offsetUs": 0.0,
+            "tauT": 0.0,
+            "deadTime": 0.0,
+            "submersionDepth": 0.08,
+            "kappa": 0.0
+        }
+    ],
+    "envelope": {
+        "surge": 2.5,
+        "sway": 1.7,
+        "yaw": 1.9
+    },
+    "provenance": {
+        "kind": "characterized",
+        "source": "mhseals_testing characterization through Tools/Characterization/gate.py, base Ideal",
+        "summary": "characterized: UNDERDETERMINED",
+        "inputs": [
+            {
+                "path": "f20261025T141200-survey.yaml",
+                "sha256": "5f2274405a3cc80be6bf6628e7cdbc256d365105465f210a7190365a23411d1f"
+            },
+            {
+                "path": "ideal.json",
+                "sha256": "38833988abad91cbf03bbb9eccc3442488d404eafa38b0b6ea9ef2d07eb2befc"
+            },
+            {
+                "path": "f20261025T141200-survey.samples.json",
+                "sha256": "db49c150673879c395bec1a3fe24b2b649bd9934ec23c088f593d9cdc0c383d2"
+            }
+        ],
+        "gateReport": "fixture-survey.gate.json (not kept)",
+        "parameters": [
+            {
+                "name": "mass",
+                "status": "prior",
+                "reason": "no weigh-in"
+            },
+            {
+                "name": "izz",
+                "status": "prior",
+                "reason": "layout estimate"
+            },
+            {
+                "name": "thrusters",
+                "status": "prior",
+                "reason": "no bollard pull"
+            },
+            {
+                "name": "surge+",
+                "status": "identified",
+                "reason": "all checks pass"
+            },
+            {
+                "name": "surge-",
+                "status": "identified",
+                "reason": "all checks pass"
+            },
+            {
+                "name": "sway+",
+                "status": "identified",
+                "reason": "all checks pass"
+            },
+            {
+                "name": "sway-",
+                "status": "identified",
+                "reason": "all checks pass"
+            },
+            {
+                "name": "yaw+",
+                "status": "identified",
+                "reason": "all checks pass"
+            },
+            {
+                "name": "yaw-",
+                "status": "identified",
+                "reason": "all checks pass"
+            },
+            {
+                "name": "addedMass.a11",
+                "status": "prior",
+                "reason": "UNDERDETERMINED"
+            },
+            {
+                "name": "addedMass.a22",
+                "status": "prior",
+                "reason": "UNDERDETERMINED"
+            },
+            {
+                "name": "addedMass.a66",
+                "status": "prior",
+                "reason": "UNDERDETERMINED"
+            },
+            {
+                "name": "surge",
+                "status": "identified",
+                "reason": "+: all checks pass; -: all checks pass"
+            },
+            {
+                "name": "sway",
+                "status": "identified",
+                "reason": "+: all checks pass; -: all checks pass"
+            },
+            {
+                "name": "yaw",
+                "status": "identified",
+                "reason": "+: all checks pass; -: all checks pass"
+            },
+            {
+                "name": "addedMass",
+                "status": "prior",
+                "reason": "UNDERDETERMINED"
+            }
+        ]
+    }
+}

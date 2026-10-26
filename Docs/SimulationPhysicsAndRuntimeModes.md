@@ -369,6 +369,45 @@ Every applied profile logs `CRANE_RUNTIME_PROFILE_RESOLVED`. Use
 sensor gates, LiDAR debug-ray state, camera ownership, water-surface count, and aquatic
 graphics-free status.
 
+### Boat plant profiles
+
+The RoboBoat plant (hull, added mass, damping, thrusters) comes from one profile asset in
+`Assets/Config/Boats/Resources/`. Pick it with one flag; the default is `ideal`.
+
+| `--crane-boat-profile` | Use it for | Numbers |
+|---|---|---|
+| `ideal` | Validating logic and ideas: nominal geometry, symmetric priors, no lag, dead band or noise | Priors (`Tools/Characterization/profiles/ideal.json`) |
+| `characterized` | Runs that should behave like the real boat | Ideal, overwritten only where real data passed the quality gate; every parameter records its status and reason |
+
+- `--crane-boat-profile-json PATH` overrides the selected asset with a profile JSON (same schema).
+  For the rig, use `Tools/Rig/run_sim.sh --boat-profile ideal|characterized|PATH.json`.
+- Every run logs `CRANE_PLANT_APPLIED profile=<name> sha256=<profile json> status=<summary>`.
+  The rig copies it into the run log and `rigq results`. A result is only comparable with another
+  result that has the same profile and sha256. `--crane-roboboat-legacy-physics` keeps the authored
+  scene physics instead and logs `CRANE_PLANT_LEGACY`.
+- Calibration faults (`--crane-calibration-faults`) are a separate error layer on top of either
+  profile. They never change the profile's numbers.
+- Today `characterized` equals `ideal`: the only saved characterization is crane's own
+  `config/sim/hardware_crane.yaml`, which the gate rejects as `SIM_DERIVED`
+  (`Tools/Characterization/profiles/characterized.gate.json` has the reasons).
+
+To refresh `characterized` from a field survey (mhseals_testing characterization-v2), run:
+
+    python3 -I Tools/Characterization/import_yaml.py --yaml <data>/characterization/<fit>-survey.yaml \
+        --out-profile Tools/Characterization/profiles/characterized.json \
+        --out-report Tools/Characterization/profiles/characterized.gate.json
+    <Unity> -batchmode -quit -projectPath . -executeMethod \
+        Sim.Physics.Water.Boat.Editor.CraneBoatProfileImport.ImportFromCommandLine \
+        --crane-profile-json Tools/Characterization/profiles/characterized.json \
+        --crane-profile-asset Assets/Config/Boats/Resources/Characterized.asset
+
+The gate attributes every rejection to its source and never to the hull:
+- provenance: `SIM_DERIVED`, `PROVENANCE_MISSING` (also a dirty mhseals_testing tree), `CALIBRATION_INVALID`;
+- conditions: `CONDITIONS_POOR`;
+- procedure: `HOLD_INVALID:baseline_unsettled` means the coast before a hold was too short.
+
+`M_eff` stays at its prior until a survey records t95.
+
 ## Build and launch examples
 
 Build the Linux player:

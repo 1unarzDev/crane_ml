@@ -3,6 +3,7 @@ using NUnit.Framework;
 using Sim.Physics.Core;
 using Sim.Physics.Water.Boat;
 using Sim.Physics.Water.Boat.Editor;
+using Sim.Physics.Water.Dynamics;
 using UnityEngine;
 
 namespace Sim.Tests.Physics {
@@ -31,6 +32,47 @@ namespace Sim.Tests.Physics {
             Assert.That(asset.Provenance.kind, Is.EqualTo("ideal"));
             Assert.That(ProfileBootstrap.AssetName("characterized"), Is.EqualTo("Characterized"));
             Assert.That(ProfileBootstrap.AssetName(null), Is.EqualTo("Ideal"));
+        }
+
+        [Test]
+        public void CharacterizedAssetEqualsIdealUntilDataPassesTheGate() {
+            var asset = Resources.Load<MarineSurfaceProfile>(ProfileBootstrap.AssetName("characterized"));
+            Assert.That(asset, Is.Not.Null, "Assets/Config/Boats/Resources/Characterized.asset");
+            Assert.That(Physical(asset.Parameters), Is.EqualTo(Physical(IdealJson())), "no field data has passed the gate");
+            Assert.That(asset.Provenance.kind, Is.EqualTo("characterized"));
+            Assert.That(asset.Provenance.summary, Does.StartWith("prior").And.Contain("SIM_DERIVED"));
+            Assert.That(asset.Provenance.parameters.Find(p => p.name == "surge+").reason, Is.Not.Empty,
+                "the rejection reasons are recorded per parameter");
+        }
+
+        /// <summary>End to end: a characterization-v2 survey fixture went through the adapter and the
+        /// gate into profiles/fixture-survey.json (test_mhseals_physics.py keeps it current); here it is
+        /// imported into an asset, selected the way a run selects it, validated, and the plant model it
+        /// builds reaches the steady speeds of the imported D.</summary>
+        [Test]
+        public void SurveyFixtureImportsAndThePlantUsesIt() {
+            const string json = "Tools/Characterization/profiles/fixture-survey.json";
+            const string assetPath = "Assets/Config/Boats/FixtureSurvey.test.asset";
+            try {
+                MarineSurfaceProfile asset = CraneBoatProfileImport.Import(json, assetPath);
+                Assert.That(asset.Provenance.summary, Does.StartWith("characterized"));
+                MarineSurfaceProfile run = ProfileBootstrap.Load<MarineSurfaceProfile>(
+                    new[] { ProfileBootstrap.ProfileFlag, "characterized", ProfileBootstrap.JsonFlag, json });
+                Assert.That(Physical(run.Parameters), Is.EqualTo(Physical(asset.Parameters)));
+                Assert.That(ProfileBootstrap.AppliedLine(run), Does.Contain("profile=FixtureSurvey").And.Contain("status=characterized"));
+                MarineSurfaceParameters p = run.Parameters;
+                Assert.That(p.Validate(p.fixedDeltaTime).Ok, Is.True);
+                Assert.That(p.surge.d1Pos, Is.Not.EqualTo(IdealJson().surge.d1Pos), "the imported D, not the prior");
+                MarinePlanarModel m = p.PlanarModel();
+                var thrust = new Planar(Kit.FullAxisThrust, 0, 0);
+                double got = Kit.Run(m, default, _ => thrust, p.fixedDeltaTime, 60).Body[0];
+                Assert.That(got, Is.EqualTo(MarinePlanarModel.SteadySpeed(p.surge.d1Pos, p.surge.d2Pos, Kit.FullAxisThrust))
+                    .Within(0.01).Percent);
+                UnityEngine.Object.DestroyImmediate(run);
+            }
+            finally {
+                UnityEditor.AssetDatabase.DeleteAsset(assetPath);
+            }
         }
 
         [Test]

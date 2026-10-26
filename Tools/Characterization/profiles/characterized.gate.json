@@ -1,0 +1,554 @@
+{
+    "schema": "crane.characterization_gate/1",
+    "yaml": "mhseals_testing/config/sim/hardware_crane.yaml",
+    "summary": "prior",
+    "characterized": false,
+    "reasons": [
+        "PROVENANCE_MISSING",
+        "SIM_DERIVED",
+        "UNDERDETERMINED"
+    ],
+    "parameters": {
+        "surge+": {
+            "status": "prior",
+            "reasons": [
+                "PROVENANCE_MISSING",
+                "SIM_DERIVED",
+                "UNDERDETERMINED"
+            ],
+            "reason": "PROVENANCE_MISSING, SIM_DERIVED, UNDERDETERMINED",
+            "k": 145.6639969244288,
+            "d1": 0.0857,
+            "d2": 0.1523,
+            "D1": 12.483404536423548,
+            "D2": 22.184626731590505
+        },
+        "surge-": {
+            "status": "prior",
+            "reasons": [
+                "PROVENANCE_MISSING",
+                "SIM_DERIVED",
+                "UNDERDETERMINED"
+            ],
+            "reason": "PROVENANCE_MISSING, SIM_DERIVED, UNDERDETERMINED",
+            "k": 145.6639969244288,
+            "d1": 0.0805,
+            "d2": 0.1556,
+            "D1": 11.725951752416519,
+            "D2": 22.66531792144112
+        },
+        "sway+": {
+            "status": "prior",
+            "reasons": [
+                "PROVENANCE_MISSING",
+                "SIM_DERIVED",
+                "UNDERDETERMINED"
+            ],
+            "reason": "PROVENANCE_MISSING, SIM_DERIVED, UNDERDETERMINED",
+            "k": 145.66399692442877,
+            "d1": 0.1284,
+            "d2": 0.3232,
+            "D1": 18.70325720509665,
+            "D2": 47.078603805975376
+        },
+        "sway-": {
+            "status": "prior",
+            "reasons": [
+                "PROVENANCE_MISSING",
+                "SIM_DERIVED",
+                "UNDERDETERMINED"
+            ],
+            "reason": "PROVENANCE_MISSING, SIM_DERIVED, UNDERDETERMINED",
+            "k": 145.66399692442877,
+            "d1": 0.1375,
+            "d2": 0.3118,
+            "D1": 20.02879957710896,
+            "D2": 45.41803424103689
+        },
+        "yaw+": {
+            "status": "prior",
+            "reasons": [
+                "PROVENANCE_MISSING",
+                "SIM_DERIVED",
+                "UNDERDETERMINED"
+            ],
+            "reason": "PROVENANCE_MISSING, SIM_DERIVED, UNDERDETERMINED",
+            "k": 88.85503812390156,
+            "d1": 0.1312,
+            "d2": 0.2431,
+            "D1": 11.657781001855886,
+            "D2": 21.600659767920472
+        },
+        "yaw-": {
+            "status": "prior",
+            "reasons": [
+                "PROVENANCE_MISSING",
+                "SIM_DERIVED",
+                "UNDERDETERMINED"
+            ],
+            "reason": "PROVENANCE_MISSING, SIM_DERIVED, UNDERDETERMINED",
+            "k": 88.85503812390156,
+            "d1": 0.1307,
+            "d2": 0.2436,
+            "D1": 11.613353482793935,
+            "D2": 21.645087286982424
+        },
+        "meff.surge": {
+            "status": "prior",
+            "reasons": [
+                "PROVENANCE_MISSING",
+                "SIM_DERIVED",
+                "UNDERDETERMINED"
+            ],
+            "reason": "PROVENANCE_MISSING, SIM_DERIVED, UNDERDETERMINED"
+        },
+        "meff.sway": {
+            "status": "prior",
+            "reasons": [
+                "PROVENANCE_MISSING",
+                "SIM_DERIVED",
+                "UNDERDETERMINED"
+            ],
+            "reason": "PROVENANCE_MISSING, SIM_DERIVED, UNDERDETERMINED"
+        },
+        "meff.yaw": {
+            "status": "prior",
+            "reasons": [
+                "PROVENANCE_MISSING",
+                "SIM_DERIVED",
+                "UNDERDETERMINED"
+            ],
+            "reason": "PROVENANCE_MISSING, SIM_DERIVED, UNDERDETERMINED"
+        }
+    },
+    "signatures": [
+        {
+            "signature": "SCALE_UNANCHORED",
+            "note": "a GNSS/odom velocity scale error scales every d alike; indistinguishable from k without a known-distance run"
+        }
+    ],
+    "notes": [],
+    "envelope": {
+        "surge": 2.04,
+        "sway": 1.41,
+        "yaw": 1.6
+    },
+    "checks": [
+        {
+            "check": "sim_derived",
+            "scope": "provenance:surge+",
+            "status": "ABSTAIN",
+            "reason": "SIM_DERIVED",
+            "severity": "reject",
+            "evidence": {
+                "path": "mhseals_testing/config/sim/hardware_crane.yaml",
+                "sim_path": true,
+                "flagged": false,
+                "hardware_hash": null,
+                "epoch": null
+            }
+        },
+        {
+            "check": "provenance_complete",
+            "scope": "provenance:surge+",
+            "status": "ABSTAIN",
+            "reason": "PROVENANCE_MISSING",
+            "severity": "reject",
+            "evidence": {
+                "missing": [
+                    "id",
+                    "session",
+                    "run",
+                    "characterization.version==2",
+                    "mhseals_testing sha"
+                ],
+                "direction_recorded": false
+            }
+        },
+        {
+            "check": "provenance",
+            "scope": "provenance:surge+",
+            "status": "OK",
+            "evidence": {
+                "battery_v": null,
+                "v_ref": 16.0
+            }
+        },
+        {
+            "check": "sim_derived",
+            "scope": "provenance:surge-",
+            "status": "ABSTAIN",
+            "reason": "SIM_DERIVED",
+            "severity": "reject",
+            "evidence": {
+                "path": "mhseals_testing/config/sim/hardware_crane.yaml",
+                "sim_path": true,
+                "flagged": false,
+                "hardware_hash": null,
+                "epoch": null
+            }
+        },
+        {
+            "check": "provenance_complete",
+            "scope": "provenance:surge-",
+            "status": "ABSTAIN",
+            "reason": "PROVENANCE_MISSING",
+            "severity": "reject",
+            "evidence": {
+                "missing": [
+                    "id",
+                    "session",
+                    "run",
+                    "characterization.version==2",
+                    "mhseals_testing sha"
+                ],
+                "direction_recorded": false
+            }
+        },
+        {
+            "check": "provenance",
+            "scope": "provenance:surge-",
+            "status": "OK",
+            "evidence": {
+                "battery_v": null,
+                "v_ref": 16.0
+            }
+        },
+        {
+            "check": "sim_derived",
+            "scope": "provenance:sway+",
+            "status": "ABSTAIN",
+            "reason": "SIM_DERIVED",
+            "severity": "reject",
+            "evidence": {
+                "path": "mhseals_testing/config/sim/hardware_crane.yaml",
+                "sim_path": true,
+                "flagged": false,
+                "hardware_hash": null,
+                "epoch": null
+            }
+        },
+        {
+            "check": "provenance_complete",
+            "scope": "provenance:sway+",
+            "status": "ABSTAIN",
+            "reason": "PROVENANCE_MISSING",
+            "severity": "reject",
+            "evidence": {
+                "missing": [
+                    "id",
+                    "session",
+                    "run",
+                    "characterization.version==2",
+                    "mhseals_testing sha"
+                ],
+                "direction_recorded": false
+            }
+        },
+        {
+            "check": "provenance",
+            "scope": "provenance:sway+",
+            "status": "OK",
+            "evidence": {
+                "battery_v": null,
+                "v_ref": 16.0
+            }
+        },
+        {
+            "check": "sim_derived",
+            "scope": "provenance:sway-",
+            "status": "ABSTAIN",
+            "reason": "SIM_DERIVED",
+            "severity": "reject",
+            "evidence": {
+                "path": "mhseals_testing/config/sim/hardware_crane.yaml",
+                "sim_path": true,
+                "flagged": false,
+                "hardware_hash": null,
+                "epoch": null
+            }
+        },
+        {
+            "check": "provenance_complete",
+            "scope": "provenance:sway-",
+            "status": "ABSTAIN",
+            "reason": "PROVENANCE_MISSING",
+            "severity": "reject",
+            "evidence": {
+                "missing": [
+                    "id",
+                    "session",
+                    "run",
+                    "characterization.version==2",
+                    "mhseals_testing sha"
+                ],
+                "direction_recorded": false
+            }
+        },
+        {
+            "check": "provenance",
+            "scope": "provenance:sway-",
+            "status": "OK",
+            "evidence": {
+                "battery_v": null,
+                "v_ref": 16.0
+            }
+        },
+        {
+            "check": "sim_derived",
+            "scope": "provenance:yaw+",
+            "status": "ABSTAIN",
+            "reason": "SIM_DERIVED",
+            "severity": "reject",
+            "evidence": {
+                "path": "mhseals_testing/config/sim/hardware_crane.yaml",
+                "sim_path": true,
+                "flagged": false,
+                "hardware_hash": null,
+                "epoch": null
+            }
+        },
+        {
+            "check": "provenance_complete",
+            "scope": "provenance:yaw+",
+            "status": "ABSTAIN",
+            "reason": "PROVENANCE_MISSING",
+            "severity": "reject",
+            "evidence": {
+                "missing": [
+                    "id",
+                    "session",
+                    "run",
+                    "characterization.version==2",
+                    "mhseals_testing sha"
+                ],
+                "direction_recorded": false
+            }
+        },
+        {
+            "check": "provenance",
+            "scope": "provenance:yaw+",
+            "status": "OK",
+            "evidence": {
+                "battery_v": null,
+                "v_ref": 16.0
+            }
+        },
+        {
+            "check": "sim_derived",
+            "scope": "provenance:yaw-",
+            "status": "ABSTAIN",
+            "reason": "SIM_DERIVED",
+            "severity": "reject",
+            "evidence": {
+                "path": "mhseals_testing/config/sim/hardware_crane.yaml",
+                "sim_path": true,
+                "flagged": false,
+                "hardware_hash": null,
+                "epoch": null
+            }
+        },
+        {
+            "check": "provenance_complete",
+            "scope": "provenance:yaw-",
+            "status": "ABSTAIN",
+            "reason": "PROVENANCE_MISSING",
+            "severity": "reject",
+            "evidence": {
+                "missing": [
+                    "id",
+                    "session",
+                    "run",
+                    "characterization.version==2",
+                    "mhseals_testing sha"
+                ],
+                "direction_recorded": false
+            }
+        },
+        {
+            "check": "provenance",
+            "scope": "provenance:yaw-",
+            "status": "OK",
+            "evidence": {
+                "battery_v": null,
+                "v_ref": 16.0
+            }
+        },
+        {
+            "check": "conditions",
+            "scope": "conditions",
+            "status": "ABSTAIN",
+            "reason": "CONDITIONS_UNKNOWN",
+            "severity": "warn",
+            "evidence": {
+                "summary": null
+            }
+        },
+        {
+            "check": "determined",
+            "scope": "surge+",
+            "status": "ABSTAIN",
+            "reason": "UNDERDETERMINED",
+            "severity": "reject",
+            "evidence": {
+                "distinct_speeds": 0,
+                "dof": -2
+            }
+        },
+        {
+            "check": "determined",
+            "scope": "surge-",
+            "status": "ABSTAIN",
+            "reason": "UNDERDETERMINED",
+            "severity": "reject",
+            "evidence": {
+                "distinct_speeds": 0,
+                "dof": -2
+            }
+        },
+        {
+            "check": "determined",
+            "scope": "sway+",
+            "status": "ABSTAIN",
+            "reason": "UNDERDETERMINED",
+            "severity": "reject",
+            "evidence": {
+                "distinct_speeds": 0,
+                "dof": -2
+            }
+        },
+        {
+            "check": "determined",
+            "scope": "sway-",
+            "status": "ABSTAIN",
+            "reason": "UNDERDETERMINED",
+            "severity": "reject",
+            "evidence": {
+                "distinct_speeds": 0,
+                "dof": -2
+            }
+        },
+        {
+            "check": "determined",
+            "scope": "yaw+",
+            "status": "ABSTAIN",
+            "reason": "UNDERDETERMINED",
+            "severity": "reject",
+            "evidence": {
+                "distinct_speeds": 0,
+                "dof": -2
+            }
+        },
+        {
+            "check": "determined",
+            "scope": "yaw-",
+            "status": "ABSTAIN",
+            "reason": "UNDERDETERMINED",
+            "severity": "reject",
+            "evidence": {
+                "distinct_speeds": 0,
+                "dof": -2
+            }
+        },
+        {
+            "check": "consistency",
+            "scope": "consistency:surge",
+            "status": "OK",
+            "evidence": {
+                "d_ratio": 1.0080474375264719,
+                "at_speed": 1.0,
+                "counts": {
+                    "+": [
+                        2,
+                        2
+                    ],
+                    "-": [
+                        2,
+                        2
+                    ]
+                }
+            }
+        },
+        {
+            "check": "consistency",
+            "scope": "consistency:sway",
+            "status": "OK",
+            "evidence": {
+                "d_ratio": 1.0051190741152904,
+                "at_speed": 1.0,
+                "counts": {
+                    "+": [
+                        2,
+                        2
+                    ],
+                    "-": [
+                        2,
+                        2
+                    ]
+                }
+            }
+        },
+        {
+            "check": "consistency",
+            "scope": "consistency:yaw",
+            "status": "OK",
+            "evidence": {
+                "d_ratio": 1.0,
+                "at_speed": 1.0,
+                "counts": {
+                    "+": [
+                        2,
+                        2
+                    ],
+                    "-": [
+                        2,
+                        2
+                    ]
+                }
+            }
+        },
+        {
+            "check": "t95",
+            "scope": "t95:surge",
+            "status": "ABSTAIN",
+            "reason": "UNDERDETERMINED",
+            "severity": "reject",
+            "evidence": {
+                "why": "no t95 or no + curve",
+                "t95": null
+            }
+        },
+        {
+            "check": "t95",
+            "scope": "t95:sway",
+            "status": "ABSTAIN",
+            "reason": "UNDERDETERMINED",
+            "severity": "reject",
+            "evidence": {
+                "why": "no t95 or no + curve",
+                "t95": null
+            }
+        },
+        {
+            "check": "t95",
+            "scope": "t95:yaw",
+            "status": "ABSTAIN",
+            "reason": "UNDERDETERMINED",
+            "severity": "reject",
+            "evidence": {
+                "why": "no t95 or no + curve",
+                "t95": null
+            }
+        }
+    ],
+    "inputs": [
+        {
+            "path": "mhseals_testing/config/sim/hardware_crane.yaml",
+            "sha256": "6c774be05073c45b5ebd5943f34878c52dbdb90006cbdbe9b59b06dbf7de3d01"
+        },
+        {
+            "path": "Tools/Characterization/profiles/ideal.json",
+            "sha256": "38833988abad91cbf03bbb9eccc3442488d404eafa38b0b6ea9ef2d07eb2befc"
+        }
+    ]
+}
