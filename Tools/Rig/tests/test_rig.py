@@ -18,6 +18,7 @@ sys.path.insert(0, str(RIG))
 
 import check  # noqa: E402
 import drive  # noqa: E402
+import stack  # noqa: E402
 import probe  # noqa: E402
 import rigconf  # noqa: E402
 import rigq  # noqa: E402
@@ -487,3 +488,44 @@ def test_sim_short_run_reads_progress_at_exit_not_the_stale_snapshot(tmp_path):
     a = fake_sim_job(tmp_path, RUNNER_OK, 'CRANE_ROBOBOAT_COURSE_READY\n', None)
     a.read_progress = lambda: PROGRESS      # the probe's first data landed after the last poll
     assert a.poll(time.monotonic()) == ('done', {'exit': 0, 'reason': None, 'cleanup': {}})
+
+
+# --- stack.py: the profile's stack launches, current and older profile formats ---------------------
+
+CURRENT = {'components': {'odometry': {'title': 'Odom stack', 'start': True}, 'sensors': {'start': True},
+                          'mapping': {'needs': ['odometry']}, 'watchdogs': {'start': True}}}
+OLDER = {'components': {
+    'odometry': {'launch': ['mhseals_nav', 'odom.launch.py'], 'args': {'sim': 'true'}, 'start': True},
+    'sensors': {'launch': ['mhseals_nav', 'sensors.launch.py'], 'start': True},
+    'mapping': {'launch': ['mhseals_nav', 'slam.launch.py']}}}
+
+
+def test_current_profile_is_resolved_in_the_container_not_refused():
+    assert stack.needs_install(CURRENT)
+    assert not stack.needs_install(OLDER)
+    assert not stack.needs_install({'bringup': {'sim': 'true'}})
+
+
+def test_older_profile_starts_its_launches_but_never_sensors():
+    assert stack.from_profile(OLDER) == {'stack_odometry': "ros2 launch mhseals_nav odom.launch.py sim:=true"}
+    assert list(stack.from_profile({'bringup': {}})) == ['stack_measurement']
+
+
+def _component(key, start=True, launch='x.launch.py', remote=None):
+    from types import SimpleNamespace
+    argv = ('ros2', 'launch', 'mhseals_nav', 'device.launch.py', 'device:=sim', f'only:={key}',
+            'overrides:={"parts":{}}')
+    return SimpleNamespace(key=key, start=start, launch=launch, remote=remote, argv=argv)
+
+
+def test_resolved_components_skip_sensors_and_unstarted_and_quote_argv():
+    items = [_component('odometry'), _component('sensors', launch='sensors.launch.py'),
+             _component('mapping', start=False), _component('watchdogs')]
+    out = stack.from_components(items)
+    assert list(out) == ['stack_odometry', 'stack_watchdogs']
+    assert out['stack_odometry'].endswith("only:=odometry 'overrides:={\"parts\":{}}'")
+
+
+def test_a_component_placed_on_another_computer_is_refused():
+    with pytest.raises(ValueError, match='jetson'):
+        stack.from_components([_component('objects', remote='jetson')])

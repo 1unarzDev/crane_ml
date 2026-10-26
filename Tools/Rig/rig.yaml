@@ -13,7 +13,9 @@ container_user: ${CRANE_RIG_USER:-}           # docker --user for the container;
 player: ${CRANE_RIG_PLAYER:-}                 # Builds/<name>/CRANE.x86_64 (CranePerformanceBuild)
 player_commit: ''   # recorded when the build manifest has no sourceCommit
 courses_dir: ${CRANE_RIG_COURSES:-}           # crane Tools/RoboBoat/courses of the player's branch
-# Host copy of the profiles in the install below (read for the stack's start components).
+# Host copy of the profiles in the install below (read for the stack's start components). A current
+# profile (components: device parts, no launch:) is resolved in the container by stack.py, so the
+# install (or --overlay) must carry mhseals_nav device.launch.py and a matching mhseals_testing.
 profiles_dir: ${CRANE_RIG_PROFILES:-}         # mhseals_testing config/profiles
 sessions_dir: ${XDG_STATE_HOME:-~/.local/state}/crane-rig/sessions
 course: roboboat_2025

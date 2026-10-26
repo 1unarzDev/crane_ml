@@ -142,25 +142,15 @@ values = {
                    or rig.get('drive_topic') or plant['command']['topic'],
 }
 
-def launch(package, file, args):
-    return ' '.join(['ros2', 'launch', package, file] + [shlex.quote(f'{k}:={v}') for k, v in args.items()])
-
-# The rig owns the endpoint (its port is per run), so it never starts the sensors launch.
-# Profiles list components: (start ones run, as --start-stack does); an older profile has
-# bringup: for mhseals_testing measurement.launch.py.
-components = plant.get('components')
-if components is not None:
-    launches = {name: launch(*c['launch'], c.get('args') or {}) for name, c in components.items()
-                if c.get('start') and c.get('launch') and c['launch'][1] != 'sensors.launch.py'}
-else:
-    bringup = dict(plant.get('bringup') or {}, start_sensors='false')
-    launches = {'measurement': launch('mhseals_testing', 'measurement.launch.py', bringup)}
-if not launches:
+import stack
+# The profile's stack (stack.py): an older profile names its launches; a current one is resolved in
+# the container once it is up (stack_resolve=1).
+names = {} if stack.needs_install(plant) else stack.from_profile(plant)
+if not names and not stack.needs_install(plant):
     print(f'profile {profile} starts no stack component', file=sys.stderr)
     print('exit 2')
     sys.exit()
-# One cstart name per launch: each gets its own process group and a default SIGINT handler.
-names = {f'stack_{re.sub(r"[^A-Za-z0-9_]", "_", n)}': cmd for n, cmd in launches.items()}
+values['stack_resolve'] = int(stack.needs_install(plant))
 for key, value in values.items():
     print(f'{key}={shlex.quote(str(value))}')
 print('stack_names=(' + ' '.join(names) + ')')
@@ -171,7 +161,7 @@ print('record=(' + ' '.join(map(shlex.quote, rig['record'])) + ')')
 EOF
 )"
 
-((${#stack_names[@]})) || { echo "could not resolve the profile's stack" >&2; exit 2; }
+((${#stack_names[@]} || stack_resolve)) || { echo "could not resolve the profile's stack" >&2; exit 2; }
 # At most max_instances runs at once on this machine, whoever starts them: wait for a slot.
 slot_wait=0
 while :; do
@@ -360,6 +350,13 @@ if ((lidar_smear)); then   # rig.yaml lidar_smear: true; crane's cloud goes to /
 fi
 cstart endpoint "ros2 run ros_tcp_endpoint default_server_endpoint --ros-args -p ROS_IP:=127.0.0.1 -p ROS_TCP_PORT:=${port}${endpoint_remap}"
 ((lidar_smear)) && { cstart lidar_smear "ros2 run mhseals_nav lidar_smear"; stack_check+=(lidar_smear); }
+if ((stack_resolve)); then   # a current profile: mhseals_testing resolves its device parts (stack.py)
+    docker cp -q "${here}/stack.py" "${container}:${cdir}/stack.py"
+    while IFS=$'\t' read -r name argv; do
+        stack_names+=("${name}"); stack_cmds+=("${argv}"); stack_check+=("${name}")
+    done < <(cexec "${ros_env} cd ${cdir}; python3 -P stack.py profile.yaml")
+    ((${#stack_names[@]})) || { log "profile ${profile_name} starts no stack component (resolved with ${install})"; exit 2; }
+fi
 for i in "${!stack_names[@]}"; do cstart "${stack_names[i]}" "${stack_cmds[i]}"; done
 # The driver chain boat_test arms (mhseals_testing.ros.arming.driver_commands), on the topic backend.
 driver_names=()
