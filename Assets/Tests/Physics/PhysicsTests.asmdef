@@ -1,0 +1,19 @@
+{
+    "name": "PhysicsTests",
+    "references": [
+        "PhysicsCoreAssembly",
+        "PhysicsAssembly",
+        "MotorsAssembly",
+        "BoatPhysicsAssembly",
+        "BoatPhysicsEditor",
+        "SensorsAssembly",
+        "UtilsAssembly",
+        "Unity.Robotics.ROSTCPConnector.Messages"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ]
+}
