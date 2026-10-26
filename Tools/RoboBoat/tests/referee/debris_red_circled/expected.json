@@ -1,0 +1,11 @@
+{
+ "tasks": {
+  "debris_clearance": {
+   "avoid": {
+    "debris_clearance.red_beacon1": {
+     "sweep_deg": ">=360"
+    }
+   }
+  }
+ }
+}

@@ -1,0 +1,9 @@
+{
+ "tasks": {
+  "debris_clearance": {
+   "rescue": {
+    "debris_clearance.green_beacon1": ">=360"
+   }
+  }
+ }
+}

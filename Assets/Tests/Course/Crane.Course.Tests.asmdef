@@ -1,0 +1,14 @@
+{
+    "name": "Crane.Course.Tests",
+    "references": [
+        "GUID:34a88d27ce734822bbfb40036d3c83d7",
+        "SensorsAssembly",
+        "ControllerAssembly"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ]
+}

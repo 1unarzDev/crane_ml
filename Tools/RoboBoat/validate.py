@@ -376,10 +376,13 @@ def values(row, t):
             src = ref(t, a['a'])[0]
             return [surface(e, src) for e in select(t, a)], limit
         return [math.dist(ref(t, a['a'])[0], ref(t, a['b'])[0])], limit
-    if p == 'gate_cc':
-        return [g['cc'] for g in select(t, a)], limit
-    if p == 'gate_clear':
-        return [g['clear'] for g in select(t, a)], limit
+    if p in ('gate_cc', 'gate_clear'):  # recomputed from the posts, never read from the gate record
+        out = []
+        for g in select(t, a):
+            port, starboard = element(t, g['port']), element(t, g['starboard'])
+            cc = math.dist(xy(port), xy(starboard))
+            out.append(cc if p == 'gate_cc' else cc - port['radius'] - starboard['radius'])
+        return out, limit
     if p == 'gate_side':
         out = []
         for g in select(t, a):

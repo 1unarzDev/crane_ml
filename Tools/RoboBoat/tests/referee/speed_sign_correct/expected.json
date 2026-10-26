@@ -1,0 +1,8 @@
+{
+ "tasks": {
+  "speed_challenge": {
+   "source_color_at_entry": "red",
+   "correct": true
+  }
+ }
+}

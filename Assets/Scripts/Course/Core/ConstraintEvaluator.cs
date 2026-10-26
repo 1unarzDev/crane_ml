@@ -50,9 +50,14 @@ namespace Sim.Course {
                         return Select(t, a).Select(e => (object)Surface(e, from)).ToList();
                     }
                     return One(P2.Dist(Ref(t, a.Str("a")).At, Ref(t, a.Str("b")).At));
-                case "gate_cc": return Select(t, a).Select(g => (object)g.Num("cc")).ToList();
+                // Recomputed from the posts, never read from the gate record.
+                case "gate_cc":
+                    return Select(t, a).Select(g => (object)P2.Dist(Xy(Element(t, g.Str("port"))), Xy(Element(t, g.Str("starboard"))))).ToList();
                 case "gate_clear":
-                    return Select(t, a).Select(g => (object)g.Num("clear")).ToList();
+                    return Select(t, a).Select(g => {
+                        JObj p = Element(t, g.Str("port")), s = Element(t, g.Str("starboard"));
+                        return (object)(P2.Dist(Xy(p), Xy(s)) - p.Num("radius") - s.Num("radius"));
+                    }).ToList();
                 case "gate_side":
                     return Select(t, a).Select(g => {
                         JObj port = Element(t, g.Str("port"));

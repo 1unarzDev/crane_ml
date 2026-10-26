@@ -1,0 +1,9 @@
+{
+ "tasks": {
+  "entry_gates": {
+   "all_out": true,
+   "all_in": true
+  }
+ },
+ "contacts": []
+}
