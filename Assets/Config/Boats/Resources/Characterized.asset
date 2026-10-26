@@ -1,0 +1,180 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3d05ee0f6b74adf209e818791328365b, type: 3}
+  m_Name: Characterized
+  m_EditorClassIdentifier: BoatPhysicsAssembly::Sim.Physics.Water.Boat.MarineSurfaceProfile
+  parameters:
+    name: Characterized
+    fixedDeltaTime: 0.02
+    mass: 30
+    ixx: 2.2
+    iyy: 2
+    izz: 4.1
+    comBow: 0
+    comPort: 0
+    addedMass:
+      a11: 1.5
+      a22: 15
+      a26: 0
+      a66: 1.23
+    surge:
+      d1Pos: 10
+      d1Neg: 10
+      d2Pos: 19.4
+      d2Neg: 19.4
+    sway:
+      d1Pos: 15
+      d1Neg: 15
+      d2Pos: 41.7
+      d2Neg: 41.7
+    yaw:
+      d1Pos: 10
+      d1Neg: 10
+      d2Pos: 19.3
+      d2Neg: 19.3
+    heave:
+      d1: 150
+      d2: 40
+    roll:
+      d1: 30
+      d2: 10
+    pitch:
+      d1: 30
+      d2: 10
+    thrusters:
+    - name: front_left
+      x: 0.27
+      y: 0.34
+      z: 0
+      alphaDeg: 135
+      kForward: 51.5
+      kReverse: 51.5
+      vRef: 16
+      nV: 0
+      deadbandUs: 0
+      offsetUs: 0
+      tauT: 0
+      deadTime: 0
+      submersionDepth: 0.08
+      kappa: 0
+    - name: front_right
+      x: 0.27
+      y: -0.34
+      z: 0
+      alphaDeg: -135
+      kForward: 51.5
+      kReverse: 51.5
+      vRef: 16
+      nV: 0
+      deadbandUs: 0
+      offsetUs: 0
+      tauT: 0
+      deadTime: 0
+      submersionDepth: 0.08
+      kappa: 0
+    - name: rear_right
+      x: -0.27
+      y: -0.34
+      z: 0
+      alphaDeg: -45
+      kForward: 51.5
+      kReverse: 51.5
+      vRef: 16
+      nV: 0
+      deadbandUs: 0
+      offsetUs: 0
+      tauT: 0
+      deadTime: 0
+      submersionDepth: 0.08
+      kappa: 0
+    - name: rear_left
+      x: -0.27
+      y: 0.34
+      z: 0
+      alphaDeg: 45
+      kForward: 51.5
+      kReverse: 51.5
+      vRef: 16
+      nV: 0
+      deadbandUs: 0
+      offsetUs: 0
+      tauT: 0
+      deadTime: 0
+      submersionDepth: 0.08
+      kappa: 0
+    envelope:
+      surge: 2.5
+      sway: 1.7
+      yaw: 1.9
+    provenance:
+      kind: characterized
+      source: mhseals_testing characterization through Tools/Characterization/gate.py,
+        base Ideal
+      summary: 'prior: PROVENANCE_MISSING, SIM_DERIVED, UNDERDETERMINED'
+      inputs:
+      - path: mhseals_testing/config/sim/hardware_crane.yaml
+        sha256: 6c774be05073c45b5ebd5943f34878c52dbdb90006cbdbe9b59b06dbf7de3d01
+      - path: Tools/Characterization/profiles/ideal.json
+        sha256: 38833988abad91cbf03bbb9eccc3442488d404eafa38b0b6ea9ef2d07eb2befc
+      gateReport: Tools/Characterization/profiles/characterized.gate.json
+      parameters:
+      - name: mass
+        status: prior
+        reason: no weigh-in
+      - name: izz
+        status: prior
+        reason: layout estimate
+      - name: thrusters
+        status: prior
+        reason: no bollard pull
+      - name: surge+
+        status: prior
+        reason: PROVENANCE_MISSING, SIM_DERIVED, UNDERDETERMINED
+      - name: surge-
+        status: prior
+        reason: PROVENANCE_MISSING, SIM_DERIVED, UNDERDETERMINED
+      - name: sway+
+        status: prior
+        reason: PROVENANCE_MISSING, SIM_DERIVED, UNDERDETERMINED
+      - name: sway-
+        status: prior
+        reason: PROVENANCE_MISSING, SIM_DERIVED, UNDERDETERMINED
+      - name: yaw+
+        status: prior
+        reason: PROVENANCE_MISSING, SIM_DERIVED, UNDERDETERMINED
+      - name: yaw-
+        status: prior
+        reason: PROVENANCE_MISSING, SIM_DERIVED, UNDERDETERMINED
+      - name: addedMass.a11
+        status: prior
+        reason: PROVENANCE_MISSING, SIM_DERIVED, UNDERDETERMINED
+      - name: addedMass.a22
+        status: prior
+        reason: PROVENANCE_MISSING, SIM_DERIVED, UNDERDETERMINED
+      - name: addedMass.a66
+        status: prior
+        reason: PROVENANCE_MISSING, SIM_DERIVED, UNDERDETERMINED
+      - name: surge
+        status: prior
+        reason: '+: PROVENANCE_MISSING, SIM_DERIVED, UNDERDETERMINED; -: PROVENANCE_MISSING,
+          SIM_DERIVED, UNDERDETERMINED'
+      - name: sway
+        status: prior
+        reason: '+: PROVENANCE_MISSING, SIM_DERIVED, UNDERDETERMINED; -: PROVENANCE_MISSING,
+          SIM_DERIVED, UNDERDETERMINED'
+      - name: yaw
+        status: prior
+        reason: '+: PROVENANCE_MISSING, SIM_DERIVED, UNDERDETERMINED; -: PROVENANCE_MISSING,
+          SIM_DERIVED, UNDERDETERMINED'
+      - name: addedMass
+        status: prior
+        reason: PROVENANCE_MISSING, SIM_DERIVED, UNDERDETERMINED
