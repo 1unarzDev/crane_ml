@@ -1,4 +1,5 @@
 using UnityEngine;
+using RosMessageTypes.Geometry;
 using RosMessageTypes.Sensor;
 using Unity.Robotics.ROSTCPConnector.ROSGeometry;
 using Sim.Utils;
@@ -32,9 +33,16 @@ namespace Sim.Sensors.Nav {
         public ImuMsg CreateMessage() {
             return new ImuMsg {
                 orientation = body.transform.rotation.To<FLU>(),
-                angular_velocity = body.angularVelocity.To<FLU>(),
+                angular_velocity = AngularVelocity(body.transform.InverseTransformDirection(body.angularVelocity)),
                 header = publisher.CreateHeader()
             };
+        }
+
+        /// <summary>Body-local rate in REP-103. Angular velocity is axial, so the Unity-to-FLU
+        /// reflection flips its sign: the shared axial map -FLU(w), not the polar To&lt;FLU&gt;().</summary>
+        public static Vector3Msg AngularVelocity(Vector3 bodyLocal) {
+            Vector3 flu = FLU.ConvertAngularVelocityFromRUF(bodyLocal);
+            return new Vector3Msg(flu.x, flu.y, flu.z);
         }
 
         private void Start() {

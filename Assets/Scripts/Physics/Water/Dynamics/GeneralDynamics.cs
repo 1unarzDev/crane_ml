@@ -97,7 +97,8 @@ namespace Sim.Physics.Water.Dynamics {
             Vector3 n, Ci, GCi, vi, viTan, ufi, vfi, Fvi;
             Transform t = submerged.data.transform;
             for (int i = 0; i < submerged.data.maxTriangleIndex / 3; i++) {
-                n = t.InverseTransformDirection(submerged.data.normals[i]).normalized;
+                // Submersion keeps mesh-local normals; velocities are world.
+                n = t.TransformDirection(submerged.data.normals[i]).normalized;
                 Ci = submerged.data.faceCentersWorld[i];
                 GCi = Ci - G;
                 vi = vG + Vector3.Cross(omegaG, GCi); // - vCurrent;
@@ -130,9 +131,11 @@ namespace Sim.Physics.Water.Dynamics {
             Transform t = submerged.data.transform;
             float Si, cosThetai, viMag;
             for (int i = 0; i < submerged.data.maxTriangleIndex - 2; i += 3) {
-                (v0, v1, v2) = (vertices[triangles[i]], vertices[triangles[i + 1]], vertices[triangles[i + 2]]);
-                ni = t.InverseTransformDirection(submerged.data.normals[i / 3]);
-                Ci = t.TransformPoint((v0 + v1 + v2) / 3);
+                // World-space vertices, so the area carries the transform's lossy scale.
+                (v0, v1, v2) = (t.TransformPoint(vertices[triangles[i]]), t.TransformPoint(vertices[triangles[i + 1]]),
+                                t.TransformPoint(vertices[triangles[i + 2]]));
+                ni = t.TransformDirection(submerged.data.normals[i / 3]).normalized;
+                Ci = (v0 + v1 + v2) / 3;
                 Si = (0.5f) * Vector3.Cross((v1 - v0), (v2 - v0)).magnitude;
 
                 GCi = Ci - G;
@@ -144,11 +147,14 @@ namespace Sim.Physics.Water.Dynamics {
                 if (viMag == 0.0f) {
                     continue;
                 }
-                if (cosThetai <= 0.0f) {
-                    Fpd = (Cpd1 * (viMag / vRef) + Cpd2 * ((viMag * viMag) / (viMag * viMag))) * Si * Mathf.Pow(Mathf.Abs(cosThetai), fp) * ni;
+                float speed = viMag / vRef;
+                if (cosThetai > 0.0f) {
+                    // Outward normal along the motion: the face pushes water, pressure drag.
+                    Fpd = -(Cpd1 * speed + Cpd2 * speed * speed) * Si * Mathf.Pow(cosThetai, fp) * ni;
                 }
                 else {
-                    Fpd = -(Csd1 * (viMag / vRef) + Csd2 * ((viMag * viMag) / (vRef * vRef))) * Si * Mathf.Pow(cosThetai, fp) * ni;
+                    // Trailing face: suction, with its own falloff.
+                    Fpd = (Csd1 * speed + Csd2 * speed * speed) * Si * Mathf.Pow(-cosThetai, fd) * ni;
                 }
                 body.AddForceAtPosition(Fpd, Ci);
                 if (debugPressureDrag) Debug.DrawRay(Ci, Fpd, Color.white);
