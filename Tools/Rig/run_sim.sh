@@ -442,6 +442,7 @@ if [[ -n "${run_cmd}" ]]; then
 elif ((drive)); then
     cstart drive "python3 drive.py ${drive_topic} '${drive_schedule}'"
 fi
+hold_rc=0
 remaining=$((duration * 1000 - ($(now_ms) - ready)))
 # Hold in the background so that INT/TERM run the cleanup trap at once.
 if ((remaining > 0)); then
@@ -453,17 +454,17 @@ if ((remaining > 0)); then
           sleep 1
       done ) &
     hold_pid=$!
-    hold_rc=0; wait "${hold_pid}" || hold_rc=$?
+    wait "${hold_pid}" || hold_rc=$?
     hold_pid=""
-    # The player must outlive the scenario: a crash after ready is a failed run, whatever its status.
-    if ((hold_rc == 3)) || ! kill -0 "${player_pid}" 2>/dev/null; then
-        log "player exited before the scenario finished"; exit 1
-    fi
 fi
 
 cstop INT run drive
 cstop INT recorder probe
 recorded_s=$(( ($(now_ms) - ready) / 1000 ))
+# The player must outlive the scenario and the stop steps: a crash after ready fails the run, whatever its status.
+if ((hold_rc == 3)) || ! kill -0 "${player_pid}" 2>/dev/null; then
+    log "player exited before the scenario finished"; exit 1
+fi
 log "recorded ${recorded_s}s"
 outcome=null
 if [[ -n "${task}" ]]; then

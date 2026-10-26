@@ -511,6 +511,9 @@ class Active:
         if code is not None:
             cleanup = self.cleanup()
             if code == 0:
+                if self.kind == 'sim':
+                    snap = self.read_progress()     # the last poll may predate a short run's first probe data
+                    self.snapshot = snap if snap is not None else self.snapshot
                 problem = self.sim_problem() if self.kind == 'sim' else None
                 if problem:
                     return 'failed', dict(exit=0, reason=problem, cleanup=cleanup)

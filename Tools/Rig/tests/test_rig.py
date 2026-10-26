@@ -481,3 +481,9 @@ def test_sim_without_progress_after_ready_fails(tmp_path):
 def test_sim_normal_success_is_done(tmp_path):
     a = fake_sim_job(tmp_path, RUNNER_OK, 'CRANE_ROBOBOAT_COURSE_READY\n', PROGRESS)
     assert a.poll(time.monotonic()) == ('done', {'exit': 0, 'reason': None, 'cleanup': {}})
+
+
+def test_sim_short_run_reads_progress_at_exit_not_the_stale_snapshot(tmp_path):
+    a = fake_sim_job(tmp_path, RUNNER_OK, 'CRANE_ROBOBOAT_COURSE_READY\n', None)
+    a.read_progress = lambda: PROGRESS      # the probe's first data landed after the last poll
+    assert a.poll(time.monotonic()) == ('done', {'exit': 0, 'reason': None, 'cleanup': {}})
