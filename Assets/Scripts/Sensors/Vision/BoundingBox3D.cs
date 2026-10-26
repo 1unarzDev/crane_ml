@@ -15,6 +15,19 @@ namespace Sim.Sensors.Vision {
         public string id;
     }
 
+    /// <summary>A detectable object whose label is read at publish time (so it follows the
+    /// object's state, e.g. a light's colour) and whose Detection3D id is opaque: it carries
+    /// no colour or numeral.</summary>
+    public readonly struct DetectionTarget {
+        public readonly GameObject Object;
+        public readonly Func<string> Label;
+        public readonly int OpaqueId;
+
+        public DetectionTarget(GameObject target, Func<string> label, int opaqueId) {
+            Object = target; Label = label; OpaqueId = opaqueId;
+        }
+    }
+
     public class BoundingBox3D : MonoBehaviour, ICraneEpisodeResettable {
         [Serializable]
         private sealed class VisibilityValidationResult {
@@ -115,7 +128,7 @@ namespace Sim.Sensors.Vision {
         private float timeSincePublish;
 
         [SerializeField] private List<ObjectEntry> objects = new();
-        private Dictionary<GameObject, string> objectDict = new();
+        private Dictionary<GameObject, DetectionTarget> objectDict = new();
         private readonly Dictionary<GameObject, Renderer[]> renderersByObject = new();
         public int ResetPriority => -70;
         public void CaptureEpisodeInitialState() { }
@@ -125,9 +138,11 @@ namespace Sim.Sensors.Vision {
         }
 
         private void Awake() {
-            foreach (var entry in objects) {
+            for (int i = 0; i < objects.Count; i++) {
+                var entry = objects[i];
                 if (entry.obj != null && !string.IsNullOrEmpty(entry.id)) {
-                    objectDict[entry.obj] = entry.id;
+                    string label = entry.id;
+                    objectDict[entry.obj] = new DetectionTarget(entry.obj, () => label, i);
                     renderersByObject[entry.obj] = entry.obj.GetComponentsInChildren<Renderer>();
                 }
             }
@@ -143,14 +158,22 @@ namespace Sim.Sensors.Vision {
 
         /// <summary>Replace every labelled target, e.g. with a course built at runtime.</summary>
         public void ReplaceTargets(IEnumerable<KeyValuePair<GameObject, string>> targets) {
+            int index = 0;
+            var list = new List<DetectionTarget>();
+            foreach (var (target, label) in targets) list.Add(new DetectionTarget(target, () => label, index++));
+            ReplaceTargets(list);
+        }
+
+        /// <summary>Replace every target with state-following labels and opaque ids.</summary>
+        public void ReplaceTargets(IEnumerable<DetectionTarget> targets) {
             objectDict.Clear();
             renderersByObject.Clear();
             objects.Clear();
-            foreach (var (target, label) in targets) {
-                if (target == null || string.IsNullOrEmpty(label)) continue;
-                objectDict[target] = label;
-                renderersByObject[target] = target.GetComponentsInChildren<Renderer>();
-                objects.Add(new ObjectEntry { obj = target, id = label });
+            foreach (var target in targets) {
+                if (target.Object == null || target.Label == null) continue;
+                objectDict[target.Object] = target;
+                renderersByObject[target.Object] = target.Object.GetComponentsInChildren<Renderer>();
+                objects.Add(new ObjectEntry { obj = target.Object, id = target.Label() });
             }
         }
 
@@ -225,7 +248,8 @@ namespace Sim.Sensors.Vision {
 
             foreach (var kvp in objectDict) {
                 GameObject obj = kvp.Key;
-                string id = kvp.Value;
+                string label = kvp.Value.Label();
+                if (string.IsNullOrEmpty(label)) continue;
 
                 ComputeLocalBounds(obj, out Vector3 localCenter, out Vector3 localSize);
 
@@ -255,7 +279,8 @@ namespace Sim.Sensors.Vision {
 
                 detections.Add(
                     GenerateDetection(rosPosition, rosRotation,
-                        new Vector3(localSize.z, localSize.x, localSize.y), id,
+                        new Vector3(localSize.z, localSize.x, localSize.y), label,
+                        kvp.Value.OpaqueId.ToString(System.Globalization.CultureInfo.InvariantCulture),
                         CalculateConfidence(dist, visibleFraction))
                 );
             }
@@ -273,7 +298,8 @@ namespace Sim.Sensors.Vision {
             Vector3 rosPosition,
             Quaternion rosRotation,
             Vector3 size,
-            string id,
+            string label,
+            string opaqueId,
             float confidence) {
             PoseMsg pose = new(
                 new PointMsg(rosPosition.x, rosPosition.y, rosPosition.z),
@@ -284,7 +310,7 @@ namespace Sim.Sensors.Vision {
 
             ObjectHypothesisWithPoseMsg hypothesis =
                 new(
-                    new ObjectHypothesisMsg(id, confidence),
+                    new ObjectHypothesisMsg(label, confidence),
                     new PoseWithCovarianceMsg(pose, covariance)
                 );
 
@@ -297,7 +323,7 @@ namespace Sim.Sensors.Vision {
                 publisher.CreateHeader(),
                 new[] { hypothesis },
                 bbox,
-                id
+                opaqueId
             );
         }
 
