@@ -5,6 +5,8 @@ root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 result_root="${CRANE_RESULT_ROOT:-${root_dir}/PerformanceResults/aerial-sitl-fixture}"
 port="${CRANE_MAVROS_PORT:-10312}"
 maximum_lag_ticks="${CRANE_MAX_ACTION_LAG_TICKS:-5}"
+# ArduPilot-JSON v2 bridge (decision D14) needs an ArduCopter QUAD/X-matching aerial profile.
+aerial_profile="${CRANE_AERIAL_PROFILE:-${root_dir}/Tools/Aerial/profiles/x500_px4_gz.json}"
 mkdir -p "${result_root}"
 result_root="$(cd "${result_root}" && pwd)"
 
@@ -18,7 +20,7 @@ CRANE_RESULT_ROOT="${result_root}" CRANE_DISABLE_ROS=0 CRANE_NOGRAPHICS=1 \
 CRANE_SCENE="Aerial Vehicle Validation" CRANE_SCENARIO=aerial-sitl-loopback \
 CRANE_DURATION="${CRANE_DURATION:-8}" CRANE_WARMUP="${CRANE_WARMUP:-3}" \
 CRANE_TIME_SCALE="${CRANE_TIME_SCALE:-2}" CRANE_MAVROS_PORT_BASE="${port}" \
-CRANE_EXTRA_ARGS="--crane-profile train-cpu --crane-disable-ros-tcp --crane-aerial-sitl-validation --crane-action-policy bounded --crane-max-action-lag-ticks ${maximum_lag_ticks}" \
+CRANE_EXTRA_ARGS="--crane-profile train-cpu --crane-disable-ros-tcp --crane-aerial-sitl-validation --crane-sitl-bridge=ardupilot-json-v2 --crane-aerial-profile ${aerial_profile} --crane-action-policy bounded --crane-max-action-lag-ticks ${maximum_lag_ticks}" \
     "${root_dir}/Tools/Performance/run_worker.sh" 0 &
 player_pid=$!
 
