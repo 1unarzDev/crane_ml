@@ -1,0 +1,16 @@
+{
+    "name": "PhysicsCoreAssembly",
+    "rootNamespace": "Sim.Physics.Core",
+    "references": [
+        "GUID:291a39d822ef16edbbb93f54edc577c9"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
