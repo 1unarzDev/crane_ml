@@ -1,0 +1,44 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The crane course generator outside Unity. It compiles the generator's own source files
+       from Assets/ by reference (never a copy; tests/test_cli.py fails otherwise) and embeds
+       each file's sha256, so a binary older than its sources refuses to run. See README.md. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <NoWarn>CS0649;CS0414</NoWarn>
+    <AssemblyName>coursegen</AssemblyName>
+    <RootNamespace>Sim.Course.Cli</RootNamespace>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <CraneRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)../../../'))</CraneRoot>
+    <UnityVersion>$([System.Text.RegularExpressions.Regex]::Match($([System.IO.File]::ReadAllText('$(CraneRoot)ProjectSettings/ProjectVersion.txt')), 'm_EditorVersion: (\S+)').Groups[1].Value)</UnityVersion>
+    <UnityManaged Condition="'$(UnityManaged)' == ''">$(HOME)/Unity/Hub/Editor/$(UnityVersion)/Editor/Data/Managed</UnityManaged>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- The generator: the same globs as CourseIdentity.SourceDirs (code part). -->
+    <Generator Include="$(CraneRoot)Assets/Scripts/Course/Core/**/*.cs" />
+    <Generator Include="$(CraneRoot)Assets/Scripts/Course/RoboBoat/Tasks/**/*.cs" />
+    <Compile Include="@(Generator)" />
+    <Compile Include="Program.cs" />
+    <!-- Value types only (Vector3, ScriptableObject shells); no engine code runs. -->
+    <Reference Include="UnityEngine.CoreModule"><HintPath>$(UnityManaged)/UnityEngine/UnityEngine.CoreModule.dll</HintPath></Reference>
+  </ItemGroup>
+  <Target Name="EmbedGeneratorSources" BeforeTargets="GetAssemblyAttributes">
+    <GetFileHash Files="@(Generator)" Algorithm="SHA256" HashEncoding="hex">
+      <Output TaskParameter="Items" ItemName="GeneratorHashed" />
+    </GetFileHash>
+    <ItemGroup>
+      <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+        <_Parameter1>coursegen.root</_Parameter1>
+        <_Parameter2>$(CraneRoot)</_Parameter2>
+      </AssemblyAttribute>
+      <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+        <_Parameter1>coursegen.src:$([MSBuild]::MakeRelative('$(CraneRoot)', '%(GeneratorHashed.FullPath)').Replace('\', '/'))</_Parameter1>
+        <_Parameter2>%(GeneratorHashed.FileHash)</_Parameter2>
+      </AssemblyAttribute>
+    </ItemGroup>
+  </Target>
+</Project>

@@ -336,6 +336,8 @@ def check_identity(t):
     if i.get('seed') != g.get('seed') or i['options'].get('mode') != g.get('mode') or i['options'].get('set') != g.get('overrides') \
             or i['options'].get('family') != t.get('family'):
         bad.append('identity seed/options differ from generator.seed/mode/overrides/family')
+    if 'vessel' in i['options'] and i['options']['vessel'] != t.get('vessel'):
+        bad.append('identity options.vessel differs from the truth vessel')
     if i.get('truth_sha256') != g.get('truth_sha256'):
         bad.append('identity truth_sha256 differs from generator.truth_sha256')
     if 'unknown' in (i['generator'].get('source_sha256'), i['generator'].get('crane_commit')):

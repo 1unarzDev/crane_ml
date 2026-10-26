@@ -35,15 +35,15 @@ MODES = ('iid', 'corner=lo', 'corner=hi', 'corner=mixed')
 PIN = ['--set', 'supply_drop.water_hulls=1', '--set', 'harbor_alert.zone2_offset=7.5']
 
 
-def dotnet(*args, **kw):
-    return subprocess.run(['dotnet', *args], cwd=ROOT, capture_output=True, text=True, **kw)
+def dotnet(*args, cwd=ROOT):
+    return subprocess.run(['dotnet', *args], cwd=cwd, capture_output=True, text=True)
 
 
 @unittest.skipUnless(shutil.which('dotnet'), 'dotnet SDK not installed')
 class CourseGenCli(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        b = dotnet('build', str(CLI), '-c', 'Release', '-nologo', '-v', 'q')
+        b = dotnet('build', '-c', 'Release', '-nologo', '-v', 'q', cwd=CLI)  # CLI/global.json pins the SDK
         assert b.returncode == 0, b.stdout + b.stderr
         out = os.environ.get('CRANE_COURSE_CLI_DIR')
         cls.tmp = tempfile.TemporaryDirectory()

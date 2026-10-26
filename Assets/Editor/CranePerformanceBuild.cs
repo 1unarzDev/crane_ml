@@ -61,7 +61,7 @@ public static class CranePerformanceBuild {
             options = BuildOptions.Development
         };
         BuildReport report;
-        string versionFile = WriteCourseGeneratorVersion();
+        WriteCourseGeneratorVersion();
         try { report = BuildPipeline.BuildPlayer(options); }
         finally {
             AssetDatabase.DeleteAsset("Assets/Generated");
@@ -75,7 +75,7 @@ public static class CranePerformanceBuild {
 
     /// <summary>The course generator version the player stamps into every truth (CourseIdentity),
     /// from this checkout; removed again after the build.</summary>
-    private static string WriteCourseGeneratorVersion() {
+    private static void WriteCourseGeneratorVersion() {
         string commit = ReadArgument("--crane-source-commit", string.Empty);
         var version = Sim.Course.CourseIdentity.FromCheckout(Directory.GetCurrentDirectory(), commit.Length > 0 ? commit : null);
         Directory.CreateDirectory(Sim.Course.CourseGeneratorVersionHost.ResourceDir);
@@ -83,7 +83,6 @@ public static class CranePerformanceBuild {
         File.WriteAllText(path, Sim.Course.Json.Write(version.ToJson(), true) + "\n");
         AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
         Debug.Log($"CRANE_COURSE_GENERATOR commit={version.CraneCommit} dirty={version.CraneDirty} source_sha256={version.SourceSha256}");
-        return path;
     }
 
     private static void WriteBuildManifest(string output, BuildReport report, string[] buildScenes) {

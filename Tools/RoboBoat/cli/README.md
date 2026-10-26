@@ -10,7 +10,7 @@ taken from the Unity install named in `ProjectSettings/ProjectVersion.txt`; over
 
 ## Build and run (from the crane root)
 
-    dotnet build Tools/RoboBoat/cli -c Release
+    (cd Tools/RoboBoat/cli && dotnet build -c Release)   # .NET SDK 10.0.401+ (global.json there)
     dotnet Tools/RoboBoat/cli/bin/Release/net10.0/coursegen.dll --seed 1 --out s1.json
     dotnet Tools/RoboBoat/cli/bin/Release/net10.0/coursegen.dll --seeds 1:201 --mode corner=hi --out DIR
     #   [--family roboboat_2026] [--mode iid|corner=lo|corner=hi|corner=mixed] [--set task.param=value]...

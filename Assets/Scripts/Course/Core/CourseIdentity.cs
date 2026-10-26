@@ -94,7 +94,11 @@ namespace Sim.Course {
         public static JObj Options(string family, CourseRequest request) {
             var set = new JObj();
             foreach (var kv in request.Overrides) set[kv.Key] = kv.Value;
-            return new JObj().Set("family", family).Set("mode", CourseRequest.ModeName(request.Mode)).Set("set", set);
+            var options = new JObj().Set("family", family).Set("mode", CourseRequest.ModeName(request.Mode)).Set("set", set);
+            // The vessel sizes the course; the default one stays implicit so its identities keep their pair keys.
+            var vessel = request.Vessel.ToJson();
+            if (Json.Write(vessel) != Json.Write(new VesselProfile().ToJson())) options.Set("vessel", vessel);
+            return options;
         }
 
         public static string PairKey(long seed, JObj options, string sourceSha256) =>
