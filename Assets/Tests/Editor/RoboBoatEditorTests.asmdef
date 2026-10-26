@@ -7,6 +7,7 @@
         "PhysicsAssembly",
         "PerformanceAssembly",
         "UtilsAssembly",
+        "Unity.InputSystem",
         "Unity.Robotics.ROSTCPConnector.Messages"
     ],
     "includePlatforms": [

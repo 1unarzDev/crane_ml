@@ -1,0 +1,93 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0a750fdfb7494be0a03426edf8651ca4, type: 3}
+  m_Name: ViewerCamera
+  m_EditorClassIdentifier: UtilsAssembly::Sim.Utils.Viewer.ViewerCameraConfig
+  <PositionTime>k__BackingField: 0.35
+  <YawTime>k__BackingField: 0.6
+  <TiltTime>k__BackingField: 0.4
+  <RollFraction>k__BackingField: 0.2
+  <TransitionTime>k__BackingField: 1.2
+  <OrbitSensitivity>k__BackingField: 0.15
+  <ZoomStep>k__BackingField: 0.12
+  <MinPitch>k__BackingField: 2
+  <MaxPitch>k__BackingField: 89
+  <MaxAreaSize>k__BackingField: 80
+  <NextKey>k__BackingField: <Keyboard>/v
+  <OrbitButton>k__BackingField: <Mouse>/rightButton
+  <OrbitDelta>k__BackingField: <Mouse>/delta
+  <ZoomAxis>k__BackingField: <Mouse>/scroll/y
+  <Presets>k__BackingField:
+  - name: Chase
+    kind: 0
+    key: <Keyboard>/1
+    yaw: 0
+    pitch: 14
+    distance: 9
+    height: 0.8
+    margin: 1.1
+  - name: Side
+    kind: 0
+    key: <Keyboard>/2
+    yaw: 90
+    pitch: 8
+    distance: 8
+    height: 0.5
+    margin: 1.1
+  - name: Front
+    kind: 0
+    key: <Keyboard>/3
+    yaw: 180
+    pitch: 10
+    distance: 8
+    height: 0.5
+    margin: 1.1
+  - name: Corner
+    kind: 0
+    key: <Keyboard>/4
+    yaw: 45
+    pitch: 40
+    distance: 14
+    height: 0.5
+    margin: 1.1
+  - name: Overhead
+    kind: 0
+    key: <Keyboard>/5
+    yaw: 0
+    pitch: 89
+    distance: 18
+    height: 0.5
+    margin: 1.1
+  - name: Map
+    kind: 1
+    key: <Keyboard>/6
+    yaw: 0
+    pitch: 89
+    distance: 35
+    height: 0.5
+    margin: 1.1
+  - name: Task
+    kind: 2
+    key: <Keyboard>/7
+    yaw: 0
+    pitch: 60
+    distance: 20
+    height: 0.5
+    margin: 1.15
+  - name: Course
+    kind: 3
+    key: <Keyboard>/8
+    yaw: 0
+    pitch: 65
+    distance: 40
+    height: 0.5
+    margin: 1.05

@@ -408,6 +408,12 @@ The gate attributes every rejection to its source and never to the hull:
 
 `M_eff` stays at its prior until a survey records t95.
 
+### Viewer camera
+
+`Sim.Utils.Viewer.ViewerCameraRig` drives the on-screen camera. It follows whatever robot is spawned, with damped position and heading plus a fraction of the robot's roll and pitch, and it eases between presets instead of cutting. A runtime bootstrap attaches it to the enabled screen camera (one with no target texture), taking the robot from the camera's mount or from the scene's first articulated root. Sensor cameras, the water update driver and profiles with spectators off are left alone, and the rig never creates a camera. It stays off without graphics, in batch mode unless `--crane-viewer-preset` is given, and with `--crane-disable-viewer-camera`. The evidence overlay holds its fixed shot through the same rig.
+
+Settings live in `Assets/Config/Viewer/Resources/ViewerCamera.asset`: damping time constants, roll fraction (0.2), transition time, orbit sensitivity, pitch limits, key bindings and presets. Keys use Input System paths. The default presets are 1 Chase, 2 Side, 3 Front, 4 Corner, 5 Overhead, 6 Map (north-up), 7 Task (frames the task area nearest the robot, from `--crane-roboboat-course` truth when present, otherwise the scene's root groups) and 8 Course. V cycles the presets. Right-drag orbits, the scroll wheel zooms, and reselecting a preset unwinds the orbit. Runtime flags: `--crane-viewer-preset NAME`, `--crane-viewer-roll F` and `--crane-viewer-target NAME`.
+
 ## Build and launch examples
 
 Build the Linux player:
