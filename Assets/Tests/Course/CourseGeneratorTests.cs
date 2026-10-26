@@ -142,6 +142,10 @@ namespace Sim.Course.Tests {
                 Assert.That(Math.Abs(heading), Is.LessThanOrEqualTo(15), $"seed {seed}");
                 marina.Add((double)Json.Path(Task("marina"), "params.yaw_deg"));
                 speed.Add((double)Json.Path(Task("speed_challenge"), "params.yaw_deg"));
+                // The speed gate lies beyond entry gate 2 and its opening faces the approach (from the
+                // channel exit and from gate 2) within 60 deg.
+                foreach (string row in new[] { "T3.beyond_gate2", "T3.approach_exit", "T3.approach_gate2" })
+                    Assert.That(t.Arr("constraints").Cast<JObj>().First(r => r.Str("id") == row)["pass"], Is.True, $"seed {seed} {row}");
                 var slips = (List<object>)Json.Path(Task("supply_drop"), "semantics.slips");
                 Assert.That(slips.Count, Is.GreaterThanOrEqualTo(1), $"seed {seed}");
                 var target = (string)Json.Path(Task("marina"), "semantics.target.bay");
@@ -154,7 +158,8 @@ namespace Sim.Course.Tests {
             }
             Assert.That(marina.Min(), Is.LessThan(-45)); Assert.That(marina.Max(), Is.GreaterThan(45));
             Assert.That(marina.All(y => Math.Abs(y) <= 90));
-            Assert.That(speed.Min(), Is.LessThan(-90)); Assert.That(speed.Max(), Is.GreaterThan(90));
+            Assert.That(speed.All(y => Math.Abs(y) <= 60));
+            Assert.That(speed.Min(), Is.LessThan(-30)); Assert.That(speed.Max(), Is.GreaterThan(30));
             // Free orientations stay free in corner modes; bounded limits (debris heading) go to their corners.
             var lo = Generate(5, SampleMode.CornerLo);
             Assert.That((double)Json.Path(lo.Arr("tasks").Cast<JObj>().First(x => x.Str("id") == "debris_clearance"), "params.heading_deg"), Is.EqualTo(-15));
@@ -163,16 +168,16 @@ namespace Sim.Course.Tests {
         [Test]
         public void BadLayoutsAreRejectedByTheirRows() {
             var files = Directory.GetFiles(Path.Combine(Root, "Tools/RoboBoat/tests/bad"), "*.json");
-            Assert.That(files.Length, Is.GreaterThanOrEqualTo(25));
+            Assert.That(files.Length, Is.EqualTo(30));
             foreach (string file in files) {
                 var t = (JObj)Json.Parse(File.ReadAllText(file));
                 var expect = t.Obj("expect");
                 var failed = new HashSet<string>(ConstraintEvaluator.Evaluate(Spec, t).Where(r => !r.Pass).Select(r => r.Id));
                 var want = expect.Arr("fail").Cast<string>().ToList();
-                bool anyOf = expect["any_of"] is bool a && a, exact = expect["exact"] is bool x && x;
-                if (anyOf) Assert.That(want.Any(failed.Contains), Path.GetFileName(file));
-                else Assert.That(failed, Is.SupersetOf(want), Path.GetFileName(file));
-                if (exact && !anyOf) Assert.That(failed, Is.EquivalentTo(want), Path.GetFileName(file));
+                string name = Path.GetFileName(file);
+                Assert.That(expect["exact"], Is.True, name);
+                Assert.That(want.Count, Is.EqualTo(1), name);
+                Assert.That(failed, Is.EquivalentTo(want), name);
             }
             var good = (JObj)Json.Parse(File.ReadAllText(Path.Combine(Root, "Tools/RoboBoat/tests/fixtures/roboboat_2026-s1.json")));
             Assert.That(ConstraintEvaluator.Evaluate(Spec, good).Where(r => !r.Pass).Select(r => r.Id), Is.Empty);
