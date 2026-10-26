@@ -5,22 +5,7 @@ using UnityEngine;
 
 namespace Sim.Tests.Editor {
     public sealed class RoboBoatCourseTests {
-        [Test]
-        public void CourseSpecParsesElementsAndDockBays() {
-            var spec = RoboBoatCourse.Parse(@"{
-                ""name"": ""t"", ""hide"": [""Marina""], ""elements"": [
-                  {""template"": ""RedBuoy0"", ""label"": ""red_buoy"", ""x"": 4, ""y"": 1},
-                  {""template"": ""Dock0"", ""yaw"": 3.14, ""bays"": [""red_circle"", ""blue_plus""],
-                   ""occupied"": [1]}]}");
-
-            Assert.That(spec.elements.Length, Is.EqualTo(2));
-            Assert.That(spec.elements[0].scale, Is.EqualTo(1f), "scale defaults to 1");
-            Assert.That(spec.elements[1].bays, Is.EqualTo(new[] { "red_circle", "blue_plus" }));
-            Assert.That(spec.elements[1].occupied, Is.EqualTo(new[] { 1 }));
-            Assert.Throws<System.ArgumentException>(() =>
-                RoboBoatCourse.Parse(@"{""elements"": [{""label"": ""x""}]}"));
-        }
-
+        // Course spec parsing and banner shapes moved with the builder to Assets/Tests/Course.
         [Test]
         public void CourseFrameIsTheStartPose() {
             // Facing +y in the world, 2 m ahead and 1 m to port is (-1, 2) from the start.
@@ -45,17 +30,6 @@ namespace Sim.Tests.Editor {
             // HDRP's direction is (cos, sin) over Unity (x, z): orientation 90 is Unity +z,
             // which is world-ROS +x, i.e. a current toward 0 degrees.
             Assert.That(RoboBoatCourse.HdrpOrientation(0f), Is.EqualTo(90f));
-        }
-
-        [Test]
-        public void BannerShapesAreDrawnWhereExpected() {
-            Assert.That(RoboBoatCourse.InShape("circle", 0.5f, 0.5f));
-            Assert.That(RoboBoatCourse.InShape("circle", 0.95f, 0.95f), Is.False);
-            Assert.That(RoboBoatCourse.InShape("plus", 0.5f, 0.8f));
-            Assert.That(RoboBoatCourse.InShape("plus", 0.8f, 0.8f), Is.False);
-            Assert.That(RoboBoatCourse.InShape("triangle", 0.5f, 0.75f));
-            Assert.That(RoboBoatCourse.InShape("triangle", 0.2f, 0.75f), Is.False);
-            Assert.That(RoboBoatCourse.BannerColor("blue_square"), Is.EqualTo(new Color(0.1f, 0.3f, 0.9f)));
         }
 
         [Test]
