@@ -1,0 +1,19 @@
+{
+    "name": "BoatPhysicsEditor",
+    "rootNamespace": "Sim.Physics.Water.Boat.Editor",
+    "references": [
+        "GUID:7c1e4a5b9d2f4e6a8b3c0d1e2f3a4b5c",
+        "GUID:3b8f2d6e1a4c4f7e9d0b5a6c7e8f9a0b"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

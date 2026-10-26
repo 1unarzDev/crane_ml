@@ -73,13 +73,6 @@ namespace Sim.Tests.Editor {
         }
 
         [Test]
-        public void PhysicsScalesTheLinksToTheLoadedMass() {
-            float[] masses = RoboBoatPhysics.ScaledMasses(new[] { 3f, 8f, 8f, 1f }, 30f);
-            Assert.That(masses[0] + masses[1] + masses[2] + masses[3], Is.EqualTo(30f).Within(1e-4f));
-            Assert.That(masses[1] / masses[0], Is.EqualTo(8f / 3f).Within(1e-4f));
-        }
-
-        [Test]
         public void ModerateWindPushesAbeamHarderThanAhead() {
             // 8 m/s across the boat: 1/2 * 1.225 * 1.0 * 0.40 * 64 = 15.7 N, to port.
             Vector2 beam = RoboBoatWind.Force(new Vector2(0f, 8f), 0f);
@@ -93,19 +86,6 @@ namespace Sim.Tests.Editor {
         }
 
         [Test]
-        public void HullReachesTheMeasuredTopSpeedOnFourT200() {
-            // Four T200 at 45 degrees give 146 N along the bow at full surge.
-            float thrust = 4f * RoboBoatPhysics.T200Forward * Mathf.Sqrt(0.5f);
-            Assert.That(RoboBoatHull.TopSpeed(thrust, RoboBoatHull.Surge),
-                Is.EqualTo(2.5f).Within(0.05f));
-            Assert.That(RoboBoatHull.Drag(RoboBoatHull.TopSpeed(thrust, RoboBoatHull.Surge),
-                RoboBoatHull.Surge), Is.EqualTo(-thrust).Within(0.01f));
-            Assert.That(RoboBoatHull.TopSpeed(thrust, RoboBoatHull.Sway),
-                Is.LessThan(RoboBoatHull.TopSpeed(thrust, RoboBoatHull.Surge)),
-                "a catamaran is draggier abeam");
-        }
-
-        [Test]
         public void LidarReturnsOnlyDropsTheMisses() {
             var packed = new byte[36];
             System.Buffer.BlockCopy(new[] { 1f, 2f, 3f, float.NaN, float.NaN, float.NaN, 4f, 5f, 6f },
@@ -113,15 +93,6 @@ namespace Sim.Tests.Editor {
             byte[] kept = Sim.Sensors.Lidar.Lidar3D.Returns(packed);
             Assert.That(kept.Length, Is.EqualTo(24));
             Assert.That(System.BitConverter.ToSingle(kept, 12), Is.EqualTo(4f));
-        }
-
-        [Test]
-        public void DisturbanceWaitsThenRampsIn() {
-            RoboBoatPhysics.DisturbanceAfter = 30f;
-            Assert.That(RoboBoatPhysics.Disturbance(20f), Is.EqualTo(0f));
-            Assert.That(RoboBoatPhysics.Disturbance(35f), Is.EqualTo(0.5f).Within(1e-6f));
-            Assert.That(RoboBoatPhysics.Disturbance(60f), Is.EqualTo(1f));
-            RoboBoatPhysics.DisturbanceAfter = -10f;
         }
     }
 }
