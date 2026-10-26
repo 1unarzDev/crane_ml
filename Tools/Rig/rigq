@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# rigq: the sim job queue (rigq.py --help).
+exec python3 -I "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/rigq.py" "$@"
