@@ -251,17 +251,6 @@ namespace Sim.Controllers {
                 body ??= controller.GetComponentInParent<Rigidbody>();
             }
             if (body == null) {
-                foreach (MonoBehaviour candidate in UnityEngine.Object.FindObjectsByType<MonoBehaviour>(
-                             FindObjectsInactive.Exclude)) {
-                    string typeName = candidate.GetType().FullName;
-                    if (typeName != "Sim.Physics.Land.AckermannRoverDynamics" &&
-                        typeName != "Sim.Physics.Land.DifferentialDriveDynamics") continue;
-                    body = candidate.GetComponent<Rigidbody>() ??
-                           candidate.GetComponentInParent<Rigidbody>();
-                    if (body != null) break;
-                }
-            }
-            if (body == null) {
                 Debug.LogWarning($"CRANE_ROS_NAV_STATE_UNAVAILABLE scene={scene.name} " +
                                  "reason=no-supported-enabled-physics-body");
                 return;

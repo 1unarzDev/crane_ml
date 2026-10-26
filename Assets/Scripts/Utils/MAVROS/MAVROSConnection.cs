@@ -10,7 +10,6 @@ using Sim.Actuators.Motors;
 using Sim.Controllers;
 using Sim.Utils.Performance;
 using Sim.Utils.ROS;
-using Sim.Physics.Aerial;
 
 namespace Sim.Sensors.Nav
 {
@@ -38,7 +37,6 @@ namespace Sim.Sensors.Nav
         [Header("Unity References")]
         [SerializeField] private Imu imu;
         [SerializeField] private OmniXController controller;
-        [SerializeField] private MultirotorDynamics multirotor;
 
         [Header("UDP Settings")]
         [SerializeField] private int localPort = 9002;
@@ -72,28 +70,12 @@ namespace Sim.Sensors.Nav
             new(CraneActionPayloadEncoding.UInt16Array);
         private IPhysicsBody telemetryBody;
 
-        public void ConfigureAerial(MultirotorDynamics dynamics, int port,
-            float minimumPwm = 1000f, float maximumPwm = 2000f,
-            float telemetryRateHz = 200f) {
-            if (dynamics == null || dynamics.GetComponent<Rigidbody>() == null)
-                throw new MissingReferenceException(
-                    "Aerial SITL bridge requires multirotor dynamics on a Rigidbody.");
-            multirotor = dynamics;
-            controller = null;
-            imu = null;
-            localPort = port;
-            pwmMin = minimumPwm;
-            pwmMax = maximumPwm;
-            hz = telemetryRateHz;
-        }
-
         void Start()
         {
-            telemetryBody = imu != null ? imu.body : multirotor != null ?
-                new RigidbodyAdapter(multirotor.GetComponent<Rigidbody>()) : null;
-            if (telemetryBody == null || (controller == null && multirotor == null))
+            telemetryBody = imu != null ? imu.body : null;
+            if (telemetryBody == null || controller == null)
                 throw new MissingReferenceException(
-                    $"{name} SITL bridge requires a telemetry body and an Omni-X or multirotor actuator.");
+                    $"{name} SITL bridge requires a telemetry body and an Omni-X actuator.");
             if (pwmMax <= pwmMin)
                 throw new InvalidOperationException(
                     $"{name} SITL PWM range must satisfy max > min.");
@@ -211,20 +193,11 @@ namespace Sim.Sensors.Nav
         }
 
         private void ApplyPwm(UInt16[] pwm) {
-            if (multirotor != null) {
-                multirotor.SetMotorCommands(MapNormalizedPWM(pwm[0]),
-                    MapNormalizedPWM(pwm[1]), MapNormalizedPWM(pwm[2]),
-                    MapNormalizedPWM(pwm[3]));
-                return;
-            }
             controller.frontLeft.SetCommand(MapPWM(pwm[1]));
             controller.frontRight.SetCommand(MapPWM(pwm[2]));
             controller.rearRight.SetCommand(MapPWM(pwm[3]));
             controller.rearLeft.SetCommand(MapPWM(pwm[0]));
         }
-
-        private float MapNormalizedPWM(float pwm) =>
-            EscPwm.Linear(pwm, pwmMin, pwmMax, 0f, 1f);
 
         private float MapPWM(float pwm) =>
             EscPwm.Linear(pwm, pwmMin, pwmMax, controller.config.GetMinCommand(),

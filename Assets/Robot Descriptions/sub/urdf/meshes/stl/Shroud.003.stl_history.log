@@ -1,3 +1,0 @@
-Instantiated with filepath=None->None, scale=[1.0, 1.0, 1.0], mesh=<bpy_struct, Mesh("Shroud.003") at 0x7f1d13903420>, meshname=Shroud.003, material=None, mesh_orientation=None
-->trying export of <bpy_struct, Mesh("Shroud.003") at 0x7f1d13903420> to /home/lunarz/phobos-models/sub/meshes/stl/Shroud.003.stl
-->wrote stl to /home/lunarz/phobos-models/sub/meshes/stl/Shroud.003.stl from bpy_types.Mesh

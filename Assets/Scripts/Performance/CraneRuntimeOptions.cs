@@ -122,17 +122,6 @@ namespace Sim.Performance {
                 throw new ArgumentException($"Unknown CRANE depth backend '{depthBackend}'. " +
                     "Expected gpu, geometric, or off.");
             string requestedScene = ReadString(args, "--crane-scene", null);
-            if (string.IsNullOrEmpty(requestedScene)) {
-                if (HasFlag(args, "--crane-land-validation") ||
-                    HasFlag(args, "--crane-land-nav2"))
-                    requestedScene = "Land Vehicle Validation";
-                else if (HasFlag(args, "--crane-aerial-validation"))
-                    requestedScene = "Aerial Vehicle Validation";
-                else if (HasFlag(args, "--crane-collision-validation"))
-                    requestedScene = "Collision Validation";
-                else if (HasFlag(args, "--crane-in-place-reset-validation"))
-                    requestedScene = "Aerial Vehicle Validation";
-            }
             bool disableAllTransport = HasFlag(args, "--crane-disable-ros");
             return new CraneRuntimeOptions {
                 ProfileName = profile,
