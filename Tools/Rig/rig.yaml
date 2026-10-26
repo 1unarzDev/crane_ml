@@ -1,0 +1,86 @@
+# Defaults for run_sim.sh. Flags override the first block; the rest is
+# behaviour the rig reads but no flag needs to change.
+
+container: roboboat_dev
+# The faults player (crane test/characterization-faults) once rebuilt; until then the preview's bf82744 player.
+player: /home/lunarz/crane_ml-roboboat-pwm/Builds/CRANE-Worker/CRANE.x86_64
+player_commit: bf82744   # recorded when the build manifest has no sourceCommit
+courses_dir: /home/lunarz/crane_ml-roboboat-pwm/Tools/RoboBoat/courses
+# Host copy of the profiles in the install below (read for the stack's start components).
+profiles_dir: /home/lunarz/.cache/wt/sim-mhseals_testing/config/profiles
+sessions_dir: /home/lunarz/.cache/sim-preview/rig/sessions
+course: roboboat_2025
+profile: crane_full_stack
+duration: 30            # seconds of recording after the course is ready
+# Without --domain a run takes the first free domain in this range (host lock files) and port
+# 10000 + domain. At most max_instances rig runs (any caller) share the machine; the rest wait.
+domains: [200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 230, 231, 232]   # not ctest's 210-229
+max_instances: 3
+run_log: /home/lunarz/.cache/sim-preview/rig/runs.jsonl   # one JSON line per run
+seed: 0                 # --crane-seed and --crane-contract-seed: course jitter, wind gusts, sensor noise
+# effort: the command topic drives thruster_pwm_node (open-loop drive); velocity: the harness chain
+# (calibrated_velocity_controller, plus command_mux on a muxed profile) as boat_test arms it.
+mode: effort
+# Hardware YAML for the driver chain; 'sim' is the install's config/sim/hardware_crane.yaml.
+hardware: sim
+nice: 10
+
+# Player. The NVIDIA Vulkan device needs an X display even with -batchmode.
+display: ':1'
+scene: Roboboat Course
+runtime_profile: train-gpu   # interactive-low adds RGB camera images
+ready_timeout: 120           # seconds to wait for CRANE_ROBOBOAT_COURSE_READY
+player_args:
+  - --crane-disable-sitl
+  - --crane-ros-thruster-pwm
+  - --crane-roboboat-contract
+  - --crane-ros-nav-state
+
+# Stack inside the container. The base install is sourced, then --overlay.
+# ctest overlay 'simrig': base (origin/main) + mhseals_hardware origin/main + mhseals_testing sim-stack.
+install: /home/roboboat/.cache/ctest/simrig/install
+driver: true                 # thruster_pwm_node, output_backend topic
+
+record:
+  - /clock
+  - /crane/odom
+  - /odom/mavros
+  - /odom/local
+  - /imu/raw
+  - /gps/fix
+  - /thrusters/pwm
+  - /cmd_vel
+  - /detections
+  - /cmd_vel_nav
+  - /rosout
+  - /parameter_events
+  - /navigate_to_pose/_action/status
+  - /plan
+  - /cmd_vel/applied
+  - /cmd_vel_effort
+  - /task/events
+  - /task/status
+  - /tf
+  - /tf_static
+  - /objects/map
+
+# Default open-loop drive: [seconds, surge, sway, yaw] effort segments.
+drive:
+  - [3, 0.0, 0.0, 0.0]
+  - [6, 0.6, 0.0, 0.0]
+  - [4, 0.0, 0.0, 0.3]
+  - [3, 0.0, 0.0, 0.0]
+
+# Smoke gates over the recorded bag (check.py).
+smoke:
+  min_hz: {/clock: 20, /crane/odom: 20, /odom/mavros: 10, /imu/raw: 10, /gps/fix: 2,
+           /odom/local: 5, /thrusters/pwm: 5}
+  span_topics: [/clock, /odom/mavros]   # must cover min_span_frac of the duration
+  min_span_frac: 0.9
+  min_travel_m: 1.0          # /crane/odom displacement while driving
+  min_active_pwm: 10         # /thrusters/pwm messages away from neutral
+  neutral_us: 1500
+  pwm_band_us: 25
+
+# Sim lidar smear (mhseals_nav lidar_smear): true remaps the endpoint cloud to /points/instant and smears it onto /points. Off by default.
+lidar_smear: false
