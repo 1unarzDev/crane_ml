@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Characterize the RoboBoat body response at the existing TwistStamped boundary."""
+"""Characterize the RoboBoat body response at the TwistStamped or thruster PWM boundary.
+
+With --input pwm each phase is normalized effort, mixed exactly as mhseals_hardware's
+thruster_pwm_node does, and published as ESC pulse widths for --crane-ros-thruster-pwm.
+"""
 
 import argparse
 import csv
@@ -11,6 +15,7 @@ import rclpy
 from geometry_msgs.msg import TwistStamped
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
+from std_msgs.msg import UInt16MultiArray
 
 
 FULL_PHASES = (
@@ -62,6 +67,20 @@ FULL_FORWARD_PHASES = (
 )
 
 
+# mhseals_hardware thruster_mixer.THRUSTER_MIXER: rows FL, FR, RR, RL; columns surge, sway, yaw.
+BOAT_MIXER = ((-1.0, 1.0, 1.0), (-1.0, -1.0, -1.0), (1.0, -1.0, 1.0), (1.0, 1.0, -1.0))
+
+
+def boat_pulses(surge, sway, yaw, outputs=(1, 2, 3, 4)):
+    """Pulse widths per physical output: mix, desaturate proportionally, 1500 +/- 400 us."""
+    efforts = [row[0] * surge + row[1] * sway + row[2] * yaw for row in BOAT_MIXER]
+    peak = max(1.0, *(abs(effort) for effort in efforts))
+    pulses = [1500] * 4
+    for position, effort in enumerate(efforts):
+        pulses[outputs[position] - 1] = int(round(1500 + 400 * effort / peak))
+    return pulses
+
+
 def yaw_from_quaternion(q):
     return math.atan2(2.0 * (q.w * q.z + q.x * q.y),
                       1.0 - 2.0 * (q.y * q.y + q.z * q.z))
@@ -81,7 +100,10 @@ class CommandResponseFixture(Node):
             'yaw-sweep': YAW_SWEEP_PHASES,
             'full-forward': FULL_FORWARD_PHASES,
         }[args.suite]
-        self.publisher = self.create_publisher(TwistStamped, args.command_topic, 10)
+        if args.input == 'pwm':
+            self.publisher = self.create_publisher(UInt16MultiArray, args.pwm_topic, 10)
+        else:
+            self.publisher = self.create_publisher(TwistStamped, args.command_topic, 10)
         self.create_subscription(Odometry, args.odom_topic, self.on_odom, 20)
         self.latest_odom = None
         self.latest_sim_seconds = None
@@ -117,6 +139,10 @@ class CommandResponseFixture(Node):
 
     def publish(self, surge, sway, yaw):
         if self.latest_odom is None:
+            return
+        if self.args.input == 'pwm':
+            self.publisher.publish(UInt16MultiArray(data=boat_pulses(
+                surge, sway, yaw, self.args.pwm_outputs)))
             return
         message = TwistStamped()
         message.header.stamp = self.latest_odom.header.stamp
@@ -192,7 +218,9 @@ class CommandResponseFixture(Node):
             'schema': 'crane-roboboat-command-response-v1',
             'status': status,
             'suite': self.args.suite,
-            'commandTopic': self.args.command_topic,
+            'input': self.args.input,
+            'commandTopic': (self.args.pwm_topic if self.args.input == 'pwm'
+                             else self.args.command_topic),
             'odometryTopic': self.args.odom_topic,
             'sampleCount': len(self.samples),
             'phases': phase_summaries,
@@ -207,6 +235,12 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--command-topic', default='/crane/cmd_vel_stamped')
     parser.add_argument('--odom-topic', default='/crane/odom')
+    parser.add_argument('--input', choices=('twist', 'pwm'), default='twist',
+                        help='pwm: phases are boat effort, sent as mixed ESC pulses')
+    parser.add_argument('--pwm-topic', default='/thrusters/pwm')
+    parser.add_argument('--pwm-outputs', default=(1, 2, 3, 4),
+                        type=lambda text: tuple(int(value) for value in text.split(',')),
+                        help='physical output wired to FL,FR,RR,RL (match --crane-pwm-outputs)')
     parser.add_argument('--timeout', type=float, default=65.0)
     parser.add_argument('--suite',
                         choices=('full', 'regression', 'yaw-sweep', 'full-forward'),

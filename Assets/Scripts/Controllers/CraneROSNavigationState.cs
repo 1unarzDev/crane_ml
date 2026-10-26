@@ -30,6 +30,7 @@ namespace Sim.Controllers {
         private double publishPeriod;
         private double nextPublishTime;
         private bool useRoboBoatFrame;
+        private bool publishTransforms = true;
         private readonly List<Transform> childFrames = new();
         private string[] requestedChildFrameNames = Array.Empty<string>();
 
@@ -37,7 +38,8 @@ namespace Sim.Controllers {
 
         public void Initialize(Component target, string odomTopic, string tfTopic,
             string parentFrame, string childFrame, float publishRateHz,
-            IReadOnlyList<string> requestedChildFrames, bool correctRoboBoatBow = false) {
+            IReadOnlyList<string> requestedChildFrames, bool correctRoboBoatBow = false,
+            bool publishTf = true) {
             bodyComponent = target != null ? target : throw new ArgumentNullException(nameof(target));
             body = target switch {
                 Rigidbody rigidbody => new RigidbodyAdapter(rigidbody),
@@ -52,6 +54,9 @@ namespace Sim.Controllers {
             publishPeriod = 1.0 / Math.Max(0.1f, publishRateHz);
             nextPublishTime = 0;
             useRoboBoatFrame = correctRoboBoatBow;
+            // Ground truth beside a real estimator (the boat contract) must not publish the
+            // odom -> base_link transform the EKF owns.
+            publishTransforms = publishTf;
             requestedChildFrameNames = requestedChildFrames == null
                 ? Array.Empty<string>()
                 : new List<string>(requestedChildFrames).ToArray();
@@ -69,11 +74,12 @@ namespace Sim.Controllers {
         private void RegisterTopics() {
             if (topicsRegistered) return;
             ros.RegisterPublisher<OdometryMsg>(odometryTopic);
-            ros.RegisterPublisher<TFMessageMsg>(transformTopic);
+            if (publishTransforms) ros.RegisterPublisher<TFMessageMsg>(transformTopic);
             topicsRegistered = true;
             Debug.Log($"CRANE_ROS_NAV_STATE_READY body={bodyComponent.name} " +
                       $"bodyType={bodyComponent.GetType().Name} odom={odometryTopic} " +
-                      $"tf={transformTopic} frames={odometryFrame}->{baseFrame} " +
+                      $"tf={(publishTransforms ? transformTopic : "off")} " +
+                      $"frames={odometryFrame}->{baseFrame} " +
                       $"rateHz={1.0 / publishPeriod:R} childFrames={childFrames.Count}");
         }
 
@@ -145,6 +151,10 @@ namespace Sim.Controllers {
             odometry.pose.pose.orientation = orientation;
             odometry.twist.twist.linear = linear;
             odometry.twist.twist.angular = angular;
+            if (!publishTransforms) {
+                ros.Publish(odometryTopic, odometry);
+                return;
+            }
 
             var rootTransform = new TransformStampedMsg {
                 header = CreateHeader(simulationTime, odometryFrame),
@@ -186,7 +196,7 @@ namespace Sim.Controllers {
         internal static Vector3Msg ToRosAngularVector(Vector3 unity) =>
             new(-unity.z, unity.x, -unity.y);
 
-        private static HeaderMsg CreateHeader(double seconds, string frame) {
+        internal static HeaderMsg CreateHeader(double seconds, string frame) {
             double integral = Math.Floor(Math.Max(0, seconds));
             uint nanoseconds = (uint)Math.Round((Math.Max(0, seconds) - integral) * 1e9);
             if (nanoseconds >= 1_000_000_000) {
@@ -199,6 +209,7 @@ namespace Sim.Controllers {
 
     internal static class CraneROSNavigationStateBootstrap {
         private static bool enabled;
+        private static bool contract;
         private static string odometryTopic;
         private static string transformTopic;
         private static string odometryFrame;
@@ -209,7 +220,9 @@ namespace Sim.Controllers {
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Install() {
             string[] args = Environment.GetCommandLineArgs();
-            enabled = Array.IndexOf(args, "--crane-ros-nav-state") >= 0 &&
+            // The boat sensor contract keeps ground truth on /crane/odom for scoring, without TF.
+            contract = Array.IndexOf(args, CraneRoboBoatSensorContractBootstrap.Flag) >= 0;
+            enabled = (Array.IndexOf(args, "--crane-ros-nav-state") >= 0 || contract) &&
                       !ROSPublisher.TransportSuppressed;
             if (!enabled) return;
             odometryTopic = ReadString(args, "--crane-ros-odom-topic", "/crane/odom");
@@ -256,7 +269,8 @@ namespace Sim.Controllers {
             var state = body.GetComponent<CraneROSNavigationState>() ??
                         body.gameObject.AddComponent<CraneROSNavigationState>();
             state.Initialize(body, odometryTopic, transformTopic, odometryFrame, baseFrame,
-                publishRate, childFrames, correctRoboBoatBow: controller != null);
+                publishRate, childFrames, correctRoboBoatBow: controller != null,
+                publishTf: !contract);
         }
 
         private static string ReadString(string[] args, string key, string fallback) {

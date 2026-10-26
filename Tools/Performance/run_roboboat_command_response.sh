@@ -11,6 +11,14 @@ ros_domain_id="${CRANE_ROS_DOMAIN_ID:-42}"
 worker_id="${CRANE_WORKER_ID:-0}"
 result_root="${CRANE_RESULT_ROOT:-${root_dir}/PerformanceResults/roboboat-command-response}"
 response_suite="${CRANE_RESPONSE_SUITE:-full}"
+# twist drives the simulator's velocity input; pwm drives the thrusters with boat-mixed ESC
+# pulses, the signal mhseals_hardware's thruster_pwm_node publishes (output_backend topic).
+response_input="${CRANE_RESPONSE_INPUT:-twist}"
+if [[ "${response_input}" == "pwm" ]]; then
+    command_args="--crane-disable-sitl --crane-ros-thruster-pwm /thrusters/pwm"
+else
+    command_args="--crane-ros-cmd-vel /crane/cmd_vel_stamped"
+fi
 unity_extra_args="${CRANE_ROBOBOAT_UNITY_EXTRA_ARGS:-}"
 thruster_diagnostic_arg=""
 if [[ "${CRANE_THRUSTER_DIAGNOSTICS:-0}" == "1" ]]; then
@@ -38,7 +46,7 @@ CRANE_DURATION="${CRANE_DURATION:-65}" CRANE_WARMUP="${CRANE_WARMUP:-3}" \
 CRANE_TIME_SCALE=1 CRANE_DISABLE_ROS=0 \
 CRANE_ROS_PORT_BASE="$((ros_port - worker_id))" ROS_DOMAIN_ID="${ros_domain_id}" \
 CRANE_SCENE="Roboboat Course" CRANE_SCENARIO=roboboat-command-response \
-CRANE_EXTRA_ARGS="--crane-profile train-gpu --crane-ros-nav-state --crane-ros-cmd-vel /crane/cmd_vel_stamped --crane-action-policy bounded --crane-max-action-lag-ticks 10 --crane-command-timeout-ticks 25 ${thruster_diagnostic_arg} ${unity_extra_args}" \
+CRANE_EXTRA_ARGS="--crane-profile train-gpu --crane-ros-nav-state ${command_args} --crane-action-policy bounded --crane-max-action-lag-ticks 10 --crane-command-timeout-ticks 25 ${thruster_diagnostic_arg} ${unity_extra_args}" \
     "${root_dir}/Tools/Performance/run_worker.sh" "${worker_id}" &
 player_pid=$!
 
@@ -47,7 +55,7 @@ docker run --rm --name "${fixture_name}" --network host --ipc host \
     -e ROS_DOMAIN_ID="${ros_domain_id}" \
     -v "${root_dir}:/workspace/crane_sim:ro" -v "${result_root}:/results" \
     "${image}" bash -lc \
-    'source /opt/ros/jazzy/setup.bash; exec python3 /workspace/crane_sim/Tools/Performance/roboboat_command_response_fixture.py --suite '"${response_suite}"' --samples /results/body-response.csv --output /results/body-response.json' \
+    'source /opt/ros/jazzy/setup.bash; exec python3 /workspace/crane_sim/Tools/Performance/roboboat_command_response_fixture.py --input '"${response_input}"' --suite '"${response_suite}"' --samples /results/body-response.csv --output /results/body-response.json' \
     | tee "${result_root}/fixture.log"
 
 wait "${player_pid}"

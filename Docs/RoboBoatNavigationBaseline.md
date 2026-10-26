@@ -50,6 +50,22 @@ NavigateToPose (/navigate_to_pose)
   -> Nav2 controller/costmaps/BT navigator
 ```
 
+The boat's own stack (mhseals_nav localization and Nav2, mhseals_hardware thruster allocation)
+uses a second path with no ArduPilot or MAVROS:
+
+```text
+Nav2 / test suite -> /cmd_vel -> [calibrated_velocity_controller]
+  -> thruster_pwm_node (boat mixer + channel_map, output_backend topic)
+  -> /thrusters/pwm (UInt16MultiArray, physical outputs 1-4, us)
+  -> ROSThrusterPwmCommand (EscPwm, --crane-pwm-outputs wiring) -> Thruster/MotorBase
+crane --crane-roboboat-contract -> /odom/mavros, /imu/raw, /gps/fix -> mhseals_nav EKFs
+crane ground truth -> /crane/odom (no TF) -> scoring only
+```
+
+The boat mixer and `OmniXController` agree on every thruster's sign once
+`ROSOmniXCommand.ToControllerMotion` is applied, so positive boat effort on a thruster is positive
+simulator command; `RoboBoatThrusterPwmTests` pins this.
+
 `run_nav2_controller_fixture.sh` launches four Nav2 servers directly, remaps controller and
 behavior output to `/nav2/cmd_vel`, and launches the lifecycle manager. The fixture is the only
 Twist-to-TwistStamped bridge in this path. ROS callbacks enqueue commands; Unity applies the latest
@@ -116,10 +132,12 @@ lateral command; its small measured sway is consistent with the enabled waves.
 
 ## Thruster model
 
-There are four fixed, diagonal thrusters around the COM. Their imported base-local positions in
-metres are FL `(-0.26637,-0.28232,-0.01287)`, FR `(-0.26636,-0.28432,+0.01287)`,
-RL `(+0.26625,-0.28232,-0.01277)`, and RR `(+0.26630,-0.28432,+0.01282)`; the scene rotates the
-base +90 degrees about Unity Y. Their serialized rotations are the four complementary 45-degree
+There are four fixed, diagonal thrusters around the COM. Their imported positions in metres,
+relative to their hull links, are FL `(-0.26637,-0.28232,-0.01287)`,
+FR `(-0.26636,-0.28432,+0.01287)`, RL `(+0.26625,-0.28232,-0.01277)`, and
+RR `(+0.26630,-0.28432,+0.01282)`; each hull sits `0.3302 m` to its side of `base_link`
+(`left_hull_joint`/`right_hull_joint` in `blastoise.urdf`), so the thrusters are about 0.33 m
+off the centreline. The scene rotates the base +90 degrees about Unity Y. Their serialized rotations are the four complementary 45-degree
 diagonals, and force is applied at each ArticulationBody position. The LiDAR/catamaran noses define
 the bow; the Blastoise head is aft.
 
@@ -160,11 +178,12 @@ quadratic 30, reference speed 1 m/s). Correction (2026-10-20): the Fossen compon
 on the prefab, but a `Roboboat Course.unity` override (lines 3685-3688) enables it. The profiler
 also records it running. Verified defects in Fossen and `GeneralDynamics` (added-mass sign,
 Coriolis DOF routing, bow axis, double normal transform, constant "quadratic" drag) are listed in
-`Docs/ResearchOrchestration/AGENT_HANDOFFS/I1-defect-verification.md`. Calibration runs launched
-with `--crane-roboboat-contract` disable Fossen/GeneralDynamics/Current; this flag exists on
-branches only, not on main. `Current` is enabled, and the scene water surface supplies waves/current. These values are
-scene/model inputs with no calibration provenance in code; they are therefore treated as estimates,
-not measured real-platform constants, and were not changed.
+`Docs/ResearchOrchestration/AGENT_HANDOFFS/I1-defect-verification.md`. `Current` is enabled, and
+the scene water surface supplies waves/current. These values are scene/model inputs with no
+calibration provenance in code; they are therefore treated as estimates, not measured
+real-platform constants. With the RoboBoat contract (`--crane-roboboat-contract`) they are
+replaced by the realism profile described in `SimulationPhysicsAndRuntimeModes.md` (30 kg, T200
+thrust, relative-water hull drag calibrated to the real 2.5 m/s top speed).
 
 The earlier controller-X full-effort test reached 1.246 m/s peak and 1.216 m/s tail, traveled
 17.47 m, then coasted 0.655 m after release. That controller axis is imported-body `+Z`, not the

@@ -2,11 +2,11 @@
     "name": "RoboBoatEditorTests",
     "references": [
         "ControllerAssembly",
+        "SensorsAssembly",
         "MotorsAssembly",
         "PhysicsAssembly",
         "PerformanceAssembly",
         "UtilsAssembly",
-        "SensorsAssembly",
         "Unity.Robotics.ROSTCPConnector.Messages"
     ],
     "includePlatforms": [
