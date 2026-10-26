@@ -115,3 +115,7 @@ ProjectSettings/DynamicsManager.asset
 # Tools/Rig host overlay
 Tools/Rig/rig.local.yaml
 __pycache__/
+
+# Course generator version for player builds (CranePerformanceBuild writes and removes it)
+/Assets/Generated/
+/Assets/Generated.meta

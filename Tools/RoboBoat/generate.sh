@@ -4,6 +4,7 @@
 #   generate.sh --family roboboat_2026 --seeds 0:500 --out DIR       one file per seed
 #   generate.sh --validate DIR --out verdicts.json                   C# verdicts on every truth in DIR
 # UNITY_EDITOR overrides the editor binary; the project is this checkout.
+# Without Unity: Tools/RoboBoat/cli (coursegen), same files and output (cli/README.md).
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 project=$(cd "$here/../.." && pwd)

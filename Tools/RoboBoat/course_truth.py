@@ -8,11 +8,17 @@
     to_geodetic(t, x, y)          (lat, lon) from geodetic_origin, or None
     explain(session)              per-task timeline: gates crossed, clearances, state at decision,
                                   circle sweeps, slip entered vs target, horn zone; JSON for agents
+    identity(t)                   generator.identity: seed, options, generator version, truth_sha256,
+                                  pair_key (cli/README.md)
+    check_identity(t)             problems with it: pair key and (course-frame truth) content hash
+                                  recomputed from the file
 
-CLI: course_truth.py summary|query|render|diff|validate|explain ...  (``-h`` on each)
+CLI: course_truth.py summary|query|render|diff|validate|explain|identity ...  (``-h`` on each)
 """
 
 import argparse
+import decimal
+import hashlib
 import json
 import math
 import sys
@@ -255,6 +261,93 @@ def diff(a, b):
     return {'added': sorted(eb.keys() - ea.keys()), 'removed': sorted(ea.keys() - eb.keys()), 'moved': dict(sorted(moved.items()))}
 
 
+# ---- course identity (cli/README.md) -----------------------------------------------------------
+
+# Root keys Assemble writes before the hashed content (not hashed; Unity sets start/current/labels).
+UNHASHED_ROOT = ('schema', 'schema_version', 'name', 'frame', 'startX', 'startY', 'startYaw', 'currentSpeed',
+                 'currentToward', 'course_frame', 'geodetic_origin', 'label_mode')
+# generator keys added after the hash.
+UNHASHED_GENERATOR = ('crane_commit', 'truth_sha256', 'identity')
+
+
+def _number(v):
+    if isinstance(v, int):
+        return str(v)
+    d = decimal.Decimal(repr(v)).quantize(decimal.Decimal('1e-6'), rounding=decimal.ROUND_HALF_UP)
+    text = format(d, 'f')
+    text = text.rstrip('0').rstrip('.') if '.' in text else text
+    return '0' if text in ('-0', '') else text
+
+
+def _quote(s):
+    out = ['"']
+    for c in s:
+        out.append({'"': '\\"', '\\': '\\\\', '\n': '\\n', '\t': '\\t', '\r': '\\r'}.get(c)
+                   or (f'\\u{ord(c):04x}' if ord(c) < 0x20 else c))
+    out.append('"')
+    return ''.join(out)
+
+
+def canonical(v):
+    """Json.Write (compact) of the C# core: insertion order, numbers rounded to 6 decimals."""
+    if v is None:
+        return 'null'
+    if isinstance(v, bool):
+        return 'true' if v else 'false'
+    if isinstance(v, (int, float)):
+        return _number(v)
+    if isinstance(v, str):
+        return _quote(v)
+    if isinstance(v, dict):
+        return '{' + ','.join(_quote(k) + ':' + canonical(x) for k, x in v.items()) + '}'
+    return '[' + ','.join(canonical(x) for x in v) + ']'
+
+
+def sha256(text):
+    return hashlib.sha256(text.encode('utf-8')).hexdigest()
+
+
+def truth_sha256(t):
+    """The content hash recomputed from the file, or None for a truth moved off the course frame
+    (a Unity session's world-frame truth: compare its stored hash with the CLI's for the identity)."""
+    if any(abs(float(v)) > 0 for v in (t.get('course_frame') or {}).values()):
+        return None
+    hashed = {k: v for k, v in t.items() if k not in UNHASHED_ROOT}
+    hashed['generator'] = {k: v for k, v in t['generator'].items() if k not in UNHASHED_GENERATOR}
+    return sha256(canonical(hashed))
+
+
+def identity(t):
+    return (t.get('generator') or {}).get('identity')
+
+
+def pair_key(seed, options, source_sha256):
+    return sha256(canonical({'seed': seed, 'options': options, 'source_sha256': source_sha256}))
+
+
+def check_identity(t):
+    """Problems with a truth's identity (empty list = consistent)."""
+    g, i = t.get('generator') or {}, identity(t)
+    if not i:
+        return ['no generator.identity (truth from a generator before identity/1)']
+    bad = []
+    if i.get('version') != 1:
+        bad.append(f"identity version {i.get('version')}")
+    if i.get('seed') != g.get('seed') or i['options'].get('mode') != g.get('mode') or i['options'].get('set') != g.get('overrides') \
+            or i['options'].get('family') != t.get('family'):
+        bad.append('identity seed/options differ from generator.seed/mode/overrides/family')
+    if i.get('truth_sha256') != g.get('truth_sha256'):
+        bad.append('identity truth_sha256 differs from generator.truth_sha256')
+    if 'unknown' in (i['generator'].get('source_sha256'), i['generator'].get('crane_commit')):
+        bad.append('generator version unknown')
+    if i.get('pair_key') != pair_key(i.get('seed'), i.get('options'), i['generator'].get('source_sha256')):
+        bad.append('pair_key does not match seed + options + source_sha256')
+    content = truth_sha256(t)
+    if content is not None and content != g.get('truth_sha256'):
+        bad.append(f'content hash {content} != truth_sha256 {g.get("truth_sha256")} (file edited)')
+    return bad
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = ap.add_subparsers(dest='cmd', required=True)
@@ -271,6 +364,7 @@ def main(argv=None):
     d.add_argument('b')
     sub.add_parser('validate').add_argument('truth')
     sub.add_parser('explain').add_argument('session')
+    sub.add_parser('identity', help='print generator.identity; exit 1 if inconsistent').add_argument('truth')
     args = ap.parse_args(argv)
     if args.cmd == 'summary':
         print(summary(load(args.truth)))
@@ -285,6 +379,11 @@ def main(argv=None):
         return validate.main([str(Path(args.truth) / 'course_truth.json' if Path(args.truth).is_dir() else args.truth)])
     elif args.cmd == 'explain':
         print(json.dumps(explain(args.session), indent=1))
+    elif args.cmd == 'identity':
+        t = load(args.truth)
+        bad = check_identity(t)
+        print(json.dumps({'identity': identity(t), 'content_checked': truth_sha256(t) is not None, 'problems': bad}, indent=1))
+        return 1 if bad else 0
     return 0
 
 

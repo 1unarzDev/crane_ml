@@ -69,7 +69,11 @@ namespace Sim.Course {
             truth.Set("currentSpeed", (double)speed).Set("currentToward", CourseFrame.Rad(toward))
                 .Set("label_mode", mode == LabelMode.Camera ? "camera" : "oracle");
             string commit = Arg(args, "--crane-source-commit");
-            if (commit != null) ((JObj)truth["generator"]).Set("crane_commit", commit);
+            var identity = (JObj)Json.Path(truth, "generator.identity");
+            if (commit != null && (identity == null || Json.Path(identity, "generator.crane_commit") as string == "unknown")) {
+                ((JObj)truth["generator"]).Set("crane_commit", commit);
+                identity?.Obj("generator").Set("crane_commit", commit);
+            }
             ulong seed = unchecked((ulong)(long)(Json.Path(truth, "generator.seed") is double s ? s : 0));
 
             var built = CourseBuilder.Build(truth, family.Catalog, mode, seed, family.HideSceneGroups);
@@ -89,7 +93,9 @@ namespace Sim.Course {
             AddStartReset(built.Root, start, startYaw);
 
             string name = truth.Str("name"), sha = CourseTruth.Sha(truth);
-            Debug.Log($"CRANE_COURSE_READY name={name} seed={seed} sha256={sha} placeholders={built.Placeholders} " +
+            Debug.Log($"CRANE_COURSE_READY name={name} seed={seed} sha256={sha} " +
+                      $"pair_key={Json.Path(truth, "generator.identity.pair_key") ?? "none"} " +
+                      $"source_sha256={Json.Path(truth, "generator.identity.generator.source_sha256") ?? "none"} placeholders={built.Placeholders} " +
                       $"labels={mode.ToString().ToLowerInvariant()} truth={truthPath ?? "none"}");
             Debug.Log($"CRANE_ROBOBOAT_COURSE_READY name={name} elements={truth.Arr("elements").Count} " +
                       $"bays={truth.Arr("bays").Count} start=({start.x:R},{start.y:R},{startYaw:R}) truth={truthPath ?? "none"}");

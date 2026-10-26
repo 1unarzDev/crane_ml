@@ -113,7 +113,9 @@ namespace Sim.Course {
             foreach (var kv in rejected) rejections[kv.Key] = (double)kv.Value;
             generator.Set("rejected", rejections);
             string name = $"{family.Name}-s{request.Seed.ToString(CultureInfo.InvariantCulture)}";
-            return CourseTruth.Assemble(core, name, family.Name, family.HandbookId, family.HandbookSha256, generator, results);
+            var truth = CourseTruth.Assemble(core, name, family.Name, family.HandbookId, family.HandbookSha256, generator, results);
+            CourseIdentity.Stamp(truth, family.Name, request);
+            return truth;
         }
 
         /// <summary>Draws every parameter in sorted path order (so adding a pin never shifts the

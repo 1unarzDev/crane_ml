@@ -60,11 +60,30 @@ public static class CranePerformanceBuild {
             target = BuildTarget.StandaloneLinux64,
             options = BuildOptions.Development
         };
-        BuildReport report = BuildPipeline.BuildPlayer(options);
+        BuildReport report;
+        string versionFile = WriteCourseGeneratorVersion();
+        try { report = BuildPipeline.BuildPlayer(options); }
+        finally {
+            AssetDatabase.DeleteAsset("Assets/Generated");
+            File.Delete("Assets/Generated.meta");
+        }
         if (report.summary.result != BuildResult.Succeeded)
             throw new Exception($"CRANE worker build failed: {report.summary.result}");
         WriteBuildManifest(output, report, buildScenes.ToArray());
         Debug.Log($"CRANE_BUILD_COMPLETE path={output} bytes={report.summary.totalSize}");
+    }
+
+    /// <summary>The course generator version the player stamps into every truth (CourseIdentity),
+    /// from this checkout; removed again after the build.</summary>
+    private static string WriteCourseGeneratorVersion() {
+        string commit = ReadArgument("--crane-source-commit", string.Empty);
+        var version = Sim.Course.CourseIdentity.FromCheckout(Directory.GetCurrentDirectory(), commit.Length > 0 ? commit : null);
+        Directory.CreateDirectory(Sim.Course.CourseGeneratorVersionHost.ResourceDir);
+        string path = Sim.Course.CourseGeneratorVersionHost.ResourceDir + "/" + Sim.Course.CourseGeneratorVersionHost.ResourceName + ".json";
+        File.WriteAllText(path, Sim.Course.Json.Write(version.ToJson(), true) + "\n");
+        AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
+        Debug.Log($"CRANE_COURSE_GENERATOR commit={version.CraneCommit} dirty={version.CraneDirty} source_sha256={version.SourceSha256}");
+        return path;
     }
 
     private static void WriteBuildManifest(string output, BuildReport report, string[] buildScenes) {
