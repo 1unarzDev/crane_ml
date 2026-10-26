@@ -168,12 +168,21 @@ namespace Sim.Controllers {
             RoboBoatCourseSpec spec = Parse(File.ReadAllText(path));
             OmniXController boat = UnityEngine.Object.FindAnyObjectByType<OmniXController>(
                 FindObjectsInactive.Exclude);
-            if (boat == null) return;  // a bootstrap scene, before the course scene loads
-            Transform body = boat.GetComponentInParent<ArticulationBody>()?.transform ??
-                             boat.GetComponentInParent<Rigidbody>()?.transform ?? boat.transform;
-            Vector2 start = UnityToRos(body.position);
-            float startYaw = RosYawOfUnityDirection(
-                RoboBoatRosFrame.Rotation(body.rotation) * Vector3.forward);
+            Vector3 startAt, bow;
+            if (boat != null) {
+                Transform body = boat.GetComponentInParent<ArticulationBody>()?.transform ??
+                                 boat.GetComponentInParent<Rigidbody>()?.transform ?? boat.transform;
+                startAt = body.position;
+                bow = RoboBoatRosFrame.Rotation(body.rotation) * Vector3.forward;
+            }
+            else if (Sim.Physics.Core.RobotSelection.StartPose != null) {
+                // --crane-robot replaced the scene boat: the course is laid out from where it stood.
+                startAt = Sim.Physics.Core.RobotSelection.StartPose.position;
+                bow = Sim.Physics.Core.RobotSelection.StartPose.forward;
+            }
+            else return;  // a bootstrap scene, before the course scene loads
+            Vector2 start = UnityToRos(startAt);
+            float startYaw = RosYawOfUnityDirection(bow);
 
             var templates = new Dictionary<string, GameObject>();
             foreach (var element in spec.elements) {
