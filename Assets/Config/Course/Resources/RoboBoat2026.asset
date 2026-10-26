@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cf47b5fe7a2b449eb64d1a59b7d7e0dc, type: 3}
+  m_Name: RoboBoat2026
+  m_EditorClassIdentifier: 
+  familyName: roboboat_2026
+  tasks:
+  - {fileID: 11400000, guid: b29aaceff5e7412c82514691614e486c, type: 2}
+  - {fileID: 11400000, guid: 39e5cd8b48f7466cbb87ce35e9bd3cbb, type: 2}
+  - {fileID: 11400000, guid: 5ab39b137a8a421db59d3c746d878748, type: 2}
+  - {fileID: 11400000, guid: 853bb0d4843d4af79012f7ff4402f7cf, type: 2}
+  - {fileID: 11400000, guid: 1a325a526df9487ea34275b9bc920c5a, type: 2}
+  - {fileID: 11400000, guid: 8a3123878be447658917b3dafc057dff, type: 2}
+  catalog: {fileID: 11400000, guid: 606267009124421ca1a2742373cb8ecb, type: 2}
+  boundary: {x: 10, y: 130, z: 65}
+  handbookId: RoboBoat-2026-Team-Handbook_111125
+  handbookSha256: ee93f4b9775a646657cde91b442f4ed2daedc6f68e3db54e04316bea8e3b2d69
+  constraintSpec: {fileID: 4900000, guid: 54ef7629c610409aa907677b44d718b1, type: 3}

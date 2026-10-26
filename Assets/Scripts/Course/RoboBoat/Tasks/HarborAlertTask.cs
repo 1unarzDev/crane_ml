@@ -1,0 +1,58 @@
+using System;
+using System.Globalization;
+using System.Linq;
+using UnityEngine;
+
+namespace Sim.Course.RoboBoat {
+    [Serializable]
+    public sealed class HarborAlertParams : ITaskParams {
+        [CourseParam("H", "p.56 600/800/1000 Hz; 1200 opt-in")] public ParamRange base_hz = ParamRange.Choice("600", "800", "1000");
+        [CourseParam("H", "p.56 +5%")] public ParamRange freq_offset = ParamRange.Uniform(0, 0.05, "frac");
+        [CourseParam("H", "p.57 one 1 s blast (zone 1) or two 0.5 s (zone 2)")] public ParamRange pattern = ParamRange.Choice("one", "two");
+        [CourseParam("D")] public ParamRange repeats = ParamRange.Int(1, 3);
+        [CourseParam("D", "sim seconds after the course is ready")] public ParamRange trigger_s = ParamRange.Uniform(60, 240, "s");
+        [CourseParam("D", "zone 2 buoy bearing off the pier end")] public ParamRange zone2_bearing_deg = ParamRange.Uniform(-30, 30, "deg");
+        [CourseParam("D", "zone 2 buoy off the outer pier end")] public ParamRange zone2_offset = ParamRange.Uniform(3, 8);
+        [CourseParam("D")] public ParamRange zone_radius = ParamRange.Fixed(3);
+    }
+
+    /// <summary>Task 6, harbor alert (H pp.56–58): one blast sends the boat to zone 1 at the
+    /// sprint's turn mark, two blasts to zone 2, a yellow buoy off the marina's outer end.</summary>
+    [CreateAssetMenu(menuName = "Course/RoboBoat/Harbor Alert")]
+    public sealed class HarborAlertTask : CourseTaskDefinition<HarborAlertParams> {
+        public override string TaskType => "harbor_alert";
+        public override string Cite => "H pp.56-58";
+
+        public override Pose2 Place(PlacementContext c) {
+            var marina = c.ByType("marina") ?? throw new InvalidOperationException("harbor_alert follows marina");
+            var end = (JObj)marina.Anchors["outer_end"];
+            return new Pose2(end.Num("x"), end.Num("y"), 0);
+        }
+
+        public override TaskLayout Generate(TaskContext c) {
+            var l = new TaskLayout();
+            var p = c.Params;
+            string id = TaskId;
+            double r = p.Num(nameof(HarborAlertParams.zone_radius));
+            var speed = c.Placement.ByType("speed_challenge") ?? throw new InvalidOperationException("harbor_alert follows speed_challenge");
+            P2 zone1 = speed.Objects.First(o => o.Role == "mark").At;
+            double bearing = c.Anchor.YawOf(Layouts.Deg(p.Num(nameof(HarborAlertParams.zone2_bearing_deg))));
+            var buoy = l.Add($"{id}.zone2_buoy", "zone_buoy", Kinds.A2Yellow,
+                c.Anchor.Position + P2.Dir(bearing) * p.Num(nameof(HarborAlertParams.zone2_offset)));
+            double hz = double.Parse(p.Str(nameof(HarborAlertParams.base_hz)), CultureInfo.InvariantCulture) *
+                        (1 + p.Num(nameof(HarborAlertParams.freq_offset)));
+            hz = Math.Round(hz, 1);
+            string pattern = p.Str(nameof(HarborAlertParams.pattern));
+            var program = Programs.Horn(hz, pattern, p.Int(nameof(HarborAlertParams.repeats)), Math.Round(p.Num(nameof(HarborAlertParams.trigger_s)), 1));
+            string hornId = $"{id}.horn";
+            l.States.Add(new StateSpec { Id = hornId, Kind = "horn", Initial = "off", Program = program });
+            l.Anchor("zone1", zone1, r);
+            l.Anchor("zone2", buoy.At, r);
+            l.Anchor("approach", buoy.At + P2.Dir(bearing) * 2.5);
+            l.Semantics.Set("zone1", "zone1").Set("zone2", "zone2")
+                .Set("horn", new JObj().Set("id", hornId).Set("freq_hz", hz).Set("pattern", pattern)
+                    .Set("program", program).Set("target_zone", pattern == "one" ? "zone1" : "zone2"));
+            return l;
+        }
+    }
+}

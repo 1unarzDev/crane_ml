@@ -1,0 +1,186 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6b69f4a7bbb94bacbecfbb11b20cd96c, type: 3}
+  m_Name: RoboBoatCatalog
+  m_EditorClassIdentifier: 
+  entries:
+  - kind: roboboat/taylor_red
+    prefab: {fileID: 0}
+    template: RedPoleBuoy0
+    oracleLabel: red_pole_buoy
+    cameraLabel: 
+    radius: 0.229
+    height: 0.99
+    color: 
+    placeholder: 0
+  - kind: roboboat/taylor_green
+    prefab: {fileID: 0}
+    template: GreenPoleBuoy0
+    oracleLabel: green_pole_buoy
+    cameraLabel: 
+    radius: 0.229
+    height: 0.99
+    color: 
+    placeholder: 0
+  - kind: roboboat/a0_red
+    prefab: {fileID: 0}
+    template: RedBuoy0
+    oracleLabel: red_buoy
+    cameraLabel: 
+    radius: 0.102
+    height: 0.152
+    color: 
+    placeholder: 0
+  - kind: roboboat/a0_green
+    prefab: {fileID: 0}
+    template: GreenBuoy0
+    oracleLabel: green_buoy
+    cameraLabel: 
+    radius: 0.102
+    height: 0.152
+    color: 
+    placeholder: 0
+  - kind: roboboat/a0_black
+    prefab: {fileID: 0}
+    template: BlackBuoy0
+    oracleLabel: black_buoy
+    cameraLabel: 
+    radius: 0.102
+    height: 0.152
+    color: 
+    placeholder: 0
+  - kind: roboboat/a2_red
+    prefab: {fileID: 0}
+    template: RedBuoy0
+    oracleLabel: red_buoy
+    cameraLabel: 
+    radius: 0.184
+    height: 0.305
+    color: 
+    placeholder: 0
+  - kind: roboboat/a2_green
+    prefab: {fileID: 0}
+    template: GreenBuoy0
+    oracleLabel: green_buoy
+    cameraLabel: 
+    radius: 0.184
+    height: 0.305
+    color: 
+    placeholder: 0
+  - kind: roboboat/a2_yellow
+    prefab: {fileID: 0}
+    template: RedBuoy0
+    oracleLabel: yellow_buoy
+    cameraLabel: 
+    radius: 0.184
+    height: 0.305
+    color: '#f2c20f'
+    placeholder: 0
+  - kind: roboboat/light_buoy
+    prefab: {fileID: 0}
+    template: 
+    oracleLabel: '{state}_light_buoy'
+    cameraLabel: light_buoy
+    radius: 0.3
+    height: 0.45
+    color: 
+    placeholder: 0
+  - kind: roboboat/light_indicator
+    prefab: {fileID: 0}
+    template: 
+    oracleLabel: '{state}_light_buoy'
+    cameraLabel: light_buoy
+    radius: 0.07
+    height: 0.13
+    color: 
+    placeholder: 0
+  - kind: roboboat/light_sign
+    prefab: {fileID: 0}
+    template: 
+    oracleLabel: '{state}_light_sign'
+    cameraLabel: light_sign
+    radius: 0.3
+    height: 1.5
+    color: 
+    placeholder: 2
+  - kind: roboboat/light_beacon
+    prefab: {fileID: 0}
+    template: 
+    oracleLabel: '{state}_light_beacon'
+    cameraLabel: light_beacon
+    radius: 0.07
+    height: 0.13
+    color: 
+    placeholder: 0
+  - kind: roboboat/dock_spine
+    prefab: {fileID: 0}
+    template: 
+    oracleLabel: 
+    cameraLabel: 
+    radius: 0.254
+    height: 0.406
+    color: '#8c8c8c'
+    placeholder: 1
+  - kind: roboboat/dock_tine
+    prefab: {fileID: 0}
+    template: 
+    oracleLabel: 
+    cameraLabel: 
+    radius: 0.254
+    height: 0.406
+    color: '#8c8c8c'
+    placeholder: 1
+  - kind: roboboat/dock_sign
+    prefab: {fileID: 0}
+    template: 
+    oracleLabel: banner_{state}
+    cameraLabel: banner
+    radius: 0.31
+    height: 1.0
+    color: 
+    placeholder: 2
+  - kind: roboboat/moored_boat
+    prefab: {fileID: 0}
+    template: 
+    oracleLabel: boat
+    cameraLabel: 
+    radius: 0.55
+    height: 0.4
+    color: '#d0d0d0'
+    placeholder: 3
+  - kind: roboboat/hull_water_yellow
+    prefab: {fileID: 0}
+    template: YellowDeliveryBoat0
+    oracleLabel: yellow_target_boat
+    cameraLabel: 
+    radius: 0.55
+    height: 0.3
+    color: 
+    placeholder: 3
+  - kind: roboboat/hull_water_orange
+    prefab: {fileID: 0}
+    template: YellowDeliveryBoat0
+    oracleLabel: orange_target_boat
+    cameraLabel: 
+    radius: 0.55
+    height: 0.3
+    color: '#ff7a00'
+    placeholder: 3
+  - kind: roboboat/hull_ball_black
+    prefab: {fileID: 0}
+    template: BlackDeliveryBoat0
+    oracleLabel: black_target_boat
+    cameraLabel: 
+    radius: 0.55
+    height: 0.3
+    color: 
+    placeholder: 3
