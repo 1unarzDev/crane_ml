@@ -94,7 +94,12 @@ namespace Sim.Tests.Editor {
             reset.Capture(boat.transform, truthStart, Mathf.PI / 3);
             boat.transform.SetPositionAndRotation(new Vector3(23f, 0.1f, 9f), Quaternion.Euler(0f, 50f, 0f));
 
-            var response = reset.Handle();
+            // The service's path: queued, then served at the start of the next physics tick.
+            var reply = reset.Request();
+            Assert.That(reply.IsCompleted, Is.False, "served before the physics tick");
+            reset.ServePending();
+            Assert.That(reply.IsCompleted, Is.True);
+            var response = reply.Result;
 
             Assert.That(response.success, Is.True, response.message);
             Vector3 start = RoboBoatCourse.RosToUnity(truthStart, 0.1f);
@@ -104,6 +109,48 @@ namespace Sim.Tests.Editor {
             Assert.That(RoboBoatStartResetProbe.ReplyPose(response.message, out Vector2 at, out float yaw), Is.True);
             Assert.That(Vector2.Distance(at, truthStart), Is.LessThan(1e-4f), response.message);
             Assert.That(yaw, Is.EqualTo(Mathf.PI / 3).Within(1e-4f));
+        }
+
+        [Test]
+        public void ResetClearsTheImuVelocityHistorySoTheFirstSampleIsNotASpike() {
+            // Differentiating across the teleport read (0 - 4 m/s)/dt: about 200 m/s^2.
+            boat = new GameObject("Boat");
+            var body = boat.AddComponent<Rigidbody>();
+            body.useGravity = false;
+            var imu = boat.AddComponent<CraneRoboBoatSensorContract>();
+            imu.Observe(body);
+            host = new GameObject("Course");
+            var reset = host.AddComponent<RoboBoatStartReset>();
+            reset.Capture(boat.transform, Vector2.zero, 0f);
+            body.linearVelocity = new Vector3(4f, 0f, 0f);
+            imu.Differentiate();
+            imu.Differentiate();
+            Assert.That(imu.SpecificForceWorld, Is.EqualTo(-UnityEngine.Physics.gravity));
+
+            reset.Request();
+            reset.ServePending();
+            imu.Differentiate();  // the same tick, after the reset (execution order -1000)
+
+            Assert.That(body.linearVelocity, Is.EqualTo(Vector3.zero));
+            Assert.That(Vector3.Distance(imu.SpecificForceWorld, -UnityEngine.Physics.gravity),
+                Is.LessThan(1e-4f), imu.SpecificForceWorld.ToString("F3"));
+        }
+
+        [Test]
+        public void ARequestWhileThePhysicsIsPausedFailsInsteadOfHanging() {
+            host = new GameObject("Course");
+            var reset = host.AddComponent<RoboBoatStartReset>();
+            float timeScale = Time.timeScale;
+            try {
+                Time.timeScale = 0f;
+                var reply = reset.Request();
+                Assert.That(reply.IsCompleted, Is.True, "a paused sim runs no FixedUpdate");
+                Assert.That(reply.Result.success, Is.False);
+                Assert.That(reply.Result.message, Does.Contain("sim paused"));
+            }
+            finally {
+                Time.timeScale = timeScale;
+            }
         }
 
         [Test]

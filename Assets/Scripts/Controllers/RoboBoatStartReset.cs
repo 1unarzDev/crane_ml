@@ -21,6 +21,7 @@ namespace Sim.Controllers {
     public sealed class RoboBoatStartReset : MonoBehaviour {
         internal const string Service = "/crane/reset_to_start";
         internal const string ProbeFlag = "--crane-roboboat-reset-probe";
+        internal const string Paused = "sim paused (timeScale 0): no physics tick runs to serve reset_to_start";
 
         private Transform body;
         private Vector2 start;
@@ -60,23 +61,32 @@ namespace Sim.Controllers {
         }
 
         /// <summary>Queues a reset for the start of the next physics tick (a service call
-        /// arrives in Update, between ticks).</summary>
+        /// arrives in Update, between ticks). A paused sim runs no tick, so it fails at once
+        /// instead of leaving the caller waiting.</summary>
         internal Task<TriggerResponse> Request() {
             var reply = new TaskCompletionSource<TriggerResponse>();
             pending.Add(reply);
+            if (Time.timeScale <= 0f) Reply(new TriggerResponse(false, Paused));
             return reply.Task;
         }
 
-        private void FixedUpdate() {
-            if (pending.Count == 0) return;
-            TriggerResponse response = Handle();
-            foreach (TaskCompletionSource<TriggerResponse> reply in pending) reply.TrySetResult(response);
-            pending.Clear();
+        private void FixedUpdate() => ServePending();
+
+        // A pause after a request was queued: fail it rather than hang.
+        private void Update() {
+            if (pending.Count > 0 && Time.timeScale <= 0f) Reply(new TriggerResponse(false, Paused));
         }
 
-        private void OnDestroy() {
-            foreach (TaskCompletionSource<TriggerResponse> reply in pending)
-                reply.TrySetResult(new TriggerResponse(false, "reset_to_start went away before the next physics tick"));
+        /// <summary>Serves every queued request with one reset (FixedUpdate).</summary>
+        internal void ServePending() {
+            if (pending.Count > 0) Reply(Handle());
+        }
+
+        private void OnDestroy() =>
+            Reply(new TriggerResponse(false, "reset_to_start went away before the next physics tick"));
+
+        private void Reply(TriggerResponse response) {
+            foreach (TaskCompletionSource<TriggerResponse> reply in pending) reply.TrySetResult(response);
             pending.Clear();
         }
 
@@ -85,6 +95,10 @@ namespace Sim.Controllers {
                 return new TriggerResponse(false, "no boat body to reset");
             Teleport(body, startPosition, startRotation);
             foreach (PlantBase plant in body.GetComponentsInChildren<PlantBase>()) plant.ResetDynamics();
+            // As the episode reset does: the IMU must not differentiate across the teleport.
+            foreach (CraneRoboBoatSensorContract contract in
+                     body.GetComponentsInChildren<CraneRoboBoatSensorContract>())
+                contract.ClearVelocityHistory();
             string pose = DescribeRosPose(body.position, body.rotation);
             Debug.Log($"CRANE_ROBOBOAT_RESET_TO_START {pose}");
             return new TriggerResponse(true, pose);

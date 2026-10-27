@@ -12,15 +12,21 @@ namespace Sim.Controllers {
     /// three times in a row. For 10 s after each, the boat must stay finite, slow and on the
     /// course truth start (2 m and 15 deg, as the testing harness checks; the position bound grows
     /// with the current's drift), the reply must name the start, and the plant must report no
-    /// out-of-envelope or non-finite event. Logs CRANE_ROBOBOAT_RESET_PROBE lines and quits with
+    /// out-of-envelope or non-finite event. The IMU's first specific-force sample after the reset
+    /// (the reset tick) and the next must be gravity within <see cref="ImuAccelLimit"/>, not (0 - v_prev)/dt. Logs CRANE_ROBOBOAT_RESET_PROBE lines and quits with
     /// 0 on a pass, 3 on a failure.
     /// </summary>
     public sealed class RoboBoatStartResetProbe : MonoBehaviour {
         private const float Watch = 10f, PoseTolerance = 2f, YawToleranceDeg = 15f;
         private const float SpeedMargin = 0.5f, RateLimit = 0.5f;
+        // m/s^2 of linear acceleration (specific force less gravity). The hull put at rest in the
+        // waves reads up to about 13 on the next tick; differentiating across the teleport read
+        // (0 - v_prev)/dt, about 200 from 4 m/s.
+        private const float ImuAccelLimit = 2f * 9.81f;
 
         private RoboBoatStartReset reset;
         private ArticulationBody root;
+        private CraneRoboBoatSensorContract imu;
         private bool pass = true;
 
         private IEnumerator Start() {
@@ -31,6 +37,11 @@ namespace Sim.Controllers {
                 Debug.LogError("CRANE_ROBOBOAT_RESET_PROBE no articulated boat body");
                 Application.Quit(3);
                 yield break;
+            }
+            // Without ROS (--crane-disable-ros) there is no contract: watch the body without publishing.
+            if (!root.TryGetComponent(out imu)) {
+                imu = root.gameObject.AddComponent<CraneRoboBoatSensorContract>();
+                imu.Observe(root);
             }
             Debug.Log($"CRANE_ROBOBOAT_RESET_PROBE start current={RoboBoatCourse.CurrentNow().speed:F3}");
 
@@ -69,7 +80,10 @@ namespace Sim.Controllers {
         private IEnumerator ResetAndWatch(string scenario, int requests) {
             var replies = new System.Threading.Tasks.Task<TriggerResponse>[requests];
             for (int i = 0; i < requests; i++) replies[i] = reset.Request();
-            while (!replies[requests - 1].IsCompleted) yield return null;
+            // Resumes after the tick that served it: the IMU holds the reset tick's sample.
+            while (!replies[requests - 1].IsCompleted) yield return new WaitForFixedUpdate();
+            float imuFirst = (imu.SpecificForceWorld + UnityEngine.Physics.gravity).magnitude;
+            float imuFirstForce = imu.SpecificForceWorld.magnitude, imuNext = float.NaN, imuMax = 0f;
             int events = PlantEvents.Count("OUT_OF_ENVELOPE") + PlantEvents.Count("NONFINITE_STATE") +
                          PlantEvents.Count("NONFINITE_WRENCH");
 
@@ -88,6 +102,10 @@ namespace Sim.Controllers {
             float maxSpeed = 0f, maxRate = 0f, maxExcess = 0f, maxError = 0f, maxYaw = 0f;
             for (float t = 0f; t < Watch; t += Time.fixedDeltaTime) {
                 yield return new WaitForFixedUpdate();
+                // The first differentiated sample: from rest to the first step after the reset.
+                float accel = (imu.SpecificForceWorld + UnityEngine.Physics.gravity).magnitude;
+                if (float.IsNaN(imuNext)) imuNext = accel;
+                imuMax = Mathf.Max(imuMax, accel);
                 Vector3 v = root.linearVelocity, w = root.angularVelocity;
                 Vector3 p = root.transform.position;
                 if (!(IsFinite(v) && IsFinite(w) && IsFinite(p))) {
@@ -107,15 +125,16 @@ namespace Sim.Controllers {
             }
             int newEvents = PlantEvents.Count("OUT_OF_ENVELOPE") + PlantEvents.Count("NONFINITE_STATE") +
                             PlantEvents.Count("NONFINITE_WRENCH") - events;
-            ok &= maxSpeed <= current + SpeedMargin && maxRate <= RateLimit && maxExcess <= PoseTolerance &&
+            ok &= imuFirst <= ImuAccelLimit && imuNext <= ImuAccelLimit && maxSpeed <= current + SpeedMargin && maxRate <= RateLimit && maxExcess <= PoseTolerance &&
                   maxYaw <= YawToleranceDeg && newEvents == 0;
             pass &= ok;
             Debug.Log(string.Format(CultureInfo.InvariantCulture,
                 "CRANE_ROBOBOAT_RESET_PROBE scenario={0} pass={1} requests={2} reply=\"{3}\" reply_err={4:F3} " +
                 "max_speed={5:F3} max_rate={6:F3} max_err={7:F3} max_err_beyond_drift={8:F3} max_yaw_err_deg={9:F2} " +
-                "plant_events={10} start=({11:F3},{12:F3},{13:F3})",
+                "plant_events={10} start=({11:F3},{12:F3},{13:F3}) imu_first_accel={14:F3} imu_first_specific_force={15:F3} imu_next_accel={16:F3} imu_watch_max_accel={17:F3}",
                 scenario, ok ? "true" : "false", requests, replyText, replyError, maxSpeed, maxRate, maxError,
-                maxExcess, maxYaw, newEvents, reset.StartPosition.x, reset.StartPosition.y, reset.StartYaw));
+                maxExcess, maxYaw, newEvents, reset.StartPosition.x, reset.StartPosition.y, reset.StartYaw,
+                imuFirst, imuFirstForce, imuNext, imuMax));
         }
 
         private float YawErrorDeg(float yaw) => Mathf.Abs(Mathf.DeltaAngle(yaw * Mathf.Rad2Deg, reset.StartYaw * Mathf.Rad2Deg));

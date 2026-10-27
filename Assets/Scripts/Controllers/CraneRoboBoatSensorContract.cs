@@ -68,12 +68,7 @@ namespace Sim.Controllers {
         }
 
         public void Initialize(Component target, Settings contractSettings) {
-            body = target switch {
-                Rigidbody rigidbody => new RigidbodyAdapter(rigidbody),
-                ArticulationBody articulation => new ArticulationBodyAdapter(articulation),
-                _ => throw new ArgumentException("The sensor contract requires a PhysX body.",
-                    nameof(target))
-            };
+            Observe(target);
             settings = contractSettings ?? new Settings();
             random = new System.Random(settings.Seed);
             ros = ROSConnection.GetOrCreateInstance();
@@ -89,18 +84,49 @@ namespace Sim.Controllers {
                       $"gpsSigma={settings.GpsSigma:R} velocitySigma={settings.VelocitySigma:R}");
         }
 
+        /// <summary>Tracks a body's velocity for the specific force without publishing (no
+        /// ROS): the reset probe watches the IMU sample of a player run without the transport.
+        /// </summary>
+        internal void Observe(Component target) {
+            body = target switch {
+                Rigidbody rigidbody => new RigidbodyAdapter(rigidbody),
+                ArticulationBody articulation => new ArticulationBodyAdapter(articulation),
+                _ => throw new ArgumentException("The sensor contract requires a PhysX body.",
+                    nameof(target))
+            };
+        }
+
+        /// <summary>World specific force of the last physics tick (the IMU's linear acceleration
+        /// before the body-frame rotation).</summary>
+        internal Vector3 SpecificForceWorld => specificForceWorld;
+
+        /// <summary>Forgets the last tick's velocity, so the next sample after a teleport to
+        /// rest is not (0 - v_prev)/dt (about 200 m/s^2 from 4 m/s).</summary>
+        internal void ClearVelocityHistory() => hasPreviousVelocity = false;
+
         public void CaptureEpisodeInitialState() { }
 
         public void ResetEpisode(in CraneEpisodeResetContext context,
             CraneEpisodeResetPhase phase) {
             if (phase != CraneEpisodeResetPhase.BeforePhysics) return;
-            hasPreviousVelocity = false;
+            ClearVelocityHistory();
             nextOdometry = nextImu = nextGps = 0;
         }
 
         private void FixedUpdate() {
             if (body == null) return;
-            // Differentiate every physics step so the acceleration is exact at any publish rate.
+            Differentiate();
+            if (ros == null) return;
+
+            double now = Clock.time;
+            if (Due(now, settings.OdometryHz, ref nextOdometry)) PublishOdometry(now);
+            if (Due(now, settings.ImuHz, ref nextImu)) PublishImu(now);
+            if (Due(now, settings.GpsHz, ref nextGps)) PublishGps(now);
+        }
+
+        /// <summary>Differentiates every physics step so the acceleration is exact at any
+        /// publish rate.</summary>
+        internal void Differentiate() {
             Vector3 velocity = body.linearVelocity;
             specificForceWorld = hasPreviousVelocity
                 ? SpecificForce(velocity, previousVelocity, Time.fixedDeltaTime,
@@ -108,11 +134,6 @@ namespace Sim.Controllers {
                 : -UnityEngine.Physics.gravity;
             previousVelocity = velocity;
             hasPreviousVelocity = true;
-
-            double now = Clock.time;
-            if (Due(now, settings.OdometryHz, ref nextOdometry)) PublishOdometry(now);
-            if (Due(now, settings.ImuHz, ref nextImu)) PublishImu(now);
-            if (Due(now, settings.GpsHz, ref nextGps)) PublishGps(now);
         }
 
         /// <summary>Advances by whole periods, keeping fractional cadence at any rate.</summary>
