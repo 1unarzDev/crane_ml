@@ -45,9 +45,16 @@ namespace Sim.Physics.Core {
         public void CaptureEpisodeInitialState() { }
 
         public void ResetEpisode(in CraneEpisodeResetContext context, CraneEpisodeResetPhase phase) {
-            if (phase != CraneEpisodeResetPhase.BeforePhysics) return;
+            if (phase == CraneEpisodeResetPhase.BeforePhysics) ResetDynamics();
+        }
+
+        /// <summary>Clears actuator and force-model state and the last tick, for a body that was
+        /// teleported to rest.</summary>
+        public void ResetDynamics() {
             foreach (IActuator actuator in actuators) actuator.ResetState();
             foreach (IForceModel force in forces) force.ResetState();
+            LastWrench = default;
+            LastState = default;
         }
 
         public IActuator Actuator(string name) => actuators.Find(a => a.Name == name);

@@ -72,6 +72,41 @@ namespace Sim.Tests.Editor {
         }
 
         [Test]
+        public void ResetMovesAnArticulatedBoatsTransformsWithItAndRepliesTheTruthStart() {
+            // TeleportRoot moves only the physics pose until the next step. The hull's submersion
+            // reads the transform, so a stale one left the buoyancy centre at the drifted pose and
+            // blew the plant up; the reply, read from it, named the drifted pose (20 m off).
+            boat = new GameObject("Boat");
+            boat.SetActive(false);
+            boat.AddComponent<ArticulationBody>().useGravity = false;
+            var hull = new GameObject("Hull");
+            hull.transform.SetParent(boat.transform, false);
+            hull.transform.localPosition = new Vector3(0f, 0f, 1f);
+            var link = hull.AddComponent<ArticulationBody>();
+            link.jointType = ArticulationJointType.FixedJoint;
+            link.useGravity = false;
+            boat.SetActive(true);
+            Quaternion heading = Quaternion.Euler(0f, 30f, 0f);
+            boat.transform.SetPositionAndRotation(new Vector3(3f, 0.1f, 7f), heading);
+            host = new GameObject("Course");
+            var reset = host.AddComponent<RoboBoatStartReset>();
+            Vector2 truthStart = new(7f, -3f);
+            reset.Capture(boat.transform, truthStart, Mathf.PI / 3);
+            boat.transform.SetPositionAndRotation(new Vector3(23f, 0.1f, 9f), Quaternion.Euler(0f, 50f, 0f));
+
+            var response = reset.Handle();
+
+            Assert.That(response.success, Is.True, response.message);
+            Vector3 start = RoboBoatCourse.RosToUnity(truthStart, 0.1f);
+            Assert.That(Vector3.Distance(boat.transform.position, start), Is.LessThan(1e-4f));
+            Assert.That(Quaternion.Angle(boat.transform.rotation, heading), Is.LessThan(0.01f));
+            Assert.That(Vector3.Distance(hull.transform.position, start + heading * Vector3.forward), Is.LessThan(1e-4f));
+            Assert.That(RoboBoatStartResetProbe.ReplyPose(response.message, out Vector2 at, out float yaw), Is.True);
+            Assert.That(Vector2.Distance(at, truthStart), Is.LessThan(1e-4f), response.message);
+            Assert.That(yaw, Is.EqualTo(Mathf.PI / 3).Within(1e-4f));
+        }
+
+        [Test]
         public void ResetWithoutABoatFailsInsteadOfClaimingSuccess() {
             host = new GameObject("Course");
             var reset = host.AddComponent<RoboBoatStartReset>();
