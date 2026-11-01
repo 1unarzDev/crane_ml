@@ -8,9 +8,10 @@ Three profile formats:
 - older: components: with launch: [package, file] and args: per component.
 - oldest: bringup: args for mhseals_testing measurement.launch.py.
 
-For a current profile, main also prints ``#describe\t<component>`` when a started component
-publishes the robot description (robot_state_publisher, via odom.launch.py), and
-``main(path, urdf)`` points that launch's ``urdf_file`` at another description (run_sim --urdf).
+The started launches that publish the robot description (robot_state_publisher) are named too:
+``described_profile`` for the older formats, ``#describe\t<name>`` lines from main for a current
+one, whose ``main(path, urdf)`` also points their ``urdf_file`` at another description (run_sim
+--urdf appends ``urdf_file:=`` to an older profile's launch itself).
 """
 
 import re
@@ -48,6 +49,13 @@ def from_profile(plant):
     return {name(key): cmd for key, cmd in launches.items()}
 
 
+def described_profile(plant):
+    """cstart names of an older profile's started launches that publish the robot description."""
+    components = plant.get('components') or {}
+    return [name(key) for key, c in components.items()
+            if c.get('start') and c.get('launch') and c['launch'][1] in DESCRIBED]
+
+
 def from_components(items):
     """{name: command} from mhseals_testing Components: the started ones run here, never sensors."""
     out = {}
@@ -78,7 +86,7 @@ def main(path, urdf=''):
     for key, cmd in from_components(items).items():
         print(key, cmd, sep='\t')
     for key in keys:
-        print('#describe', key, sep='\t')
+        print('#describe', name(key), sep='\t')
 
 
 if __name__ == '__main__':

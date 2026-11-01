@@ -163,6 +163,7 @@ print('stack_names=(' + ' '.join(names) + ')')
 print('stack_cmds=(' + ' '.join(map(shlex.quote, names.values())) + ')')
 print('player_args=(' + ' '.join(map(shlex.quote, rig['player_args'])) + ')')
 print('stack_check=(' + ' '.join(['endpoint'] + list(names)) + ')')
+print('described=(' + ' '.join([] if stack.needs_install(plant) else stack.described_profile(plant)) + ')')
 print('record=(' + ' '.join(map(shlex.quote, rig['record'])) + ')')
 EOF
 )"
@@ -196,7 +197,7 @@ port="${port:-$((10000 + domain))}"
 [[ -x "${player}" ]] || { echo "no player ${player}; see simrig.md to build it" >&2; exit 2; }
 [[ -z "${faults}" || -f "${faults}" ]] || { echo "no faults file ${faults}" >&2; exit 2; }
 [[ -z "${urdf}" || ( -f "${urdf}" && "${urdf}" =~ \.(urdf|xacro)$ ) ]] || { echo "--urdf needs a .urdf or .xacro file (got ${urdf})" >&2; exit 2; }
-[[ -z "${urdf}" ]] || ((stack_resolve)) || { echo "--urdf needs a current profile (components: device parts)" >&2; exit 2; }
+[[ -z "${urdf}" ]] || ((stack_resolve || ${#described[@]})) || { echo "--urdf: profile ${profile_name} starts no robot_state_publisher" >&2; exit 2; }
 [[ "${mode}" == effort || "${mode}" == velocity ]] || { echo "--mode effort|velocity (got ${mode})" >&2; exit 2; }
 [[ "${seed}" =~ ^[0-9]+$ ]] || { echo "--seed must be a non-negative integer (got ${seed})" >&2; exit 2; }
 hardware="${hardware:-${hardware_default}}"
@@ -358,10 +359,13 @@ if ((lidar_smear)); then   # rig.yaml lidar_smear: true; crane's cloud goes to /
 fi
 cstart endpoint "ros2 run ros_tcp_endpoint default_server_endpoint --ros-args -p ROS_IP:=127.0.0.1 -p ROS_TCP_PORT:=${port}${endpoint_remap}"
 ((lidar_smear)) && { cstart lidar_smear "ros2 run mhseals_nav lidar_smear"; stack_check+=(lidar_smear); }
-urdf_arg="" described=()
+urdf_arg=""
 if [[ -n "${urdf}" ]]; then
     urdf_arg="${cdir}/urdf_override.${urdf##*.}"
     docker cp -q "${urdf}" "${container}:${urdf_arg}"
+    for i in "${!stack_names[@]}"; do   # an older profile's own odom.launch.py
+        [[ " ${described[*]} " == *" ${stack_names[i]} "* ]] && stack_cmds[i]+=" urdf_file:=${urdf_arg}"
+    done
 fi
 if ((stack_resolve)); then   # a current profile: mhseals_testing resolves its device parts (stack.py)
     docker cp -q "${here}/stack.py" "${container}:${cdir}/stack.py"
@@ -379,7 +383,7 @@ if ((${#described[@]})); then
     deadline=$(($(date +%s) + 60))
     until cexec "${ros_env} ros2 param get /robot_state_publisher robot_description" >"${session}/robot_description.raw" 2>/dev/null &&
           grep -q '^String value is: ' "${session}/robot_description.raw"; do
-        (($(date +%s) < deadline)) || { log "no robot_description from /robot_state_publisher in 60 s; see stack_${described[0]}.log"; exit 1; }
+        (($(date +%s) < deadline)) || { log "no robot_description from /robot_state_publisher in 60 s; see ${described[0]}.log"; exit 1; }
         sleep 1
     done
     sed '1s/^String value is: //' "${session}/robot_description.raw" >"${session}/robot_description.urdf"

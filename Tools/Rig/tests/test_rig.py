@@ -550,6 +550,8 @@ def test_only_started_local_odometry_launches_publish_the_description():
     items = [_component('odometry', launch='odom.launch.py'), _component('robot', start=False, launch='robot.launch.py'),
              _component('far', launch='odom.launch.py', remote='jetson'), _component('watchdogs')]
     assert stack.described(items) == ['odometry']
+    assert stack.described_profile(OLDER) == ['stack_odometry']
+    assert stack.described_profile(CURRENT) == []
 
 
 def test_a_component_placed_on_another_computer_is_refused():
