@@ -50,7 +50,7 @@ def violations(nodes, allow):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument('--allowlist', default=str(HERE / 'truth_allowlist.yaml'))
+    ap.add_argument('--allowlist', default=str(HERE / 'truth_allowlist.yaml'), help='nodes and topics [truth_allowlist.yaml beside this script]')
     ap.add_argument('--info', help='saved ros2 topic info -v output to judge instead of a live graph')
     args = ap.parse_args(argv)
     allow, topics = read_allowlist(args.allowlist)

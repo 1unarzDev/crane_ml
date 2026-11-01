@@ -7,9 +7,14 @@ Courses are generated at runtime from a family of task assets; no scene edits.
   [--crane-course-set task.param=value]... --crane-course-truth DIR/course_truth.json [--crane-detection-labels oracle|camera]
   [--crane-ros-course-truth]`. A `--crane-roboboat-course FILE.json` whose JSON names `family` (and `seed`, `mode`, `set`) does
   the same, so the rig needs no change; a 2025 element list still goes to the legacy builder. `--crane-course-replay truth.json`
-  rebuilds a recorded course. Ready line: `CRANE_COURSE_READY name= seed= sha256=` (plus the legacy `CRANE_ROBOBOAT_COURSE_READY`).
-- Headless, no sim slot: `Tools/RoboBoat/generate.sh --family roboboat_2026 --seed N --out t.json` (or `--seeds A:B --out DIR`).
-- Same family sha + seed + overrides (+ crane commit) gives the same `generator.truth_sha256`, in the editor, the player and CI.
+  rebuilds a recorded course. Ready line: `CRANE_COURSE_READY name= seed= sha256= pair_key= source_sha256=` (plus the legacy
+  `CRANE_ROBOBOAT_COURSE_READY`).
+- Without Unity: `coursegen` (`Tools/RoboBoat/cli`, README there), the same generator files and the same truth byte for byte.
+- Headless editor, no sim slot (a Unity run): `Tools/RoboBoat/generate.sh --family roboboat_2026 --seed N --out t.json` (or
+  `--seeds A:B --out DIR`; `--validate DIR --out verdicts.json` for the C# verdicts).
+- Every truth carries `generator.identity` (seed, options, generator source sha256, `truth_sha256`, `pair_key`;
+  `Tools/RoboBoat/cli/README.md`): the same seed and options from the same generator source give the same `truth_sha256` in
+  coursegen, the editor, the player and CI, and runs pair on `pair_key`.
 
 ## Files
 - `course_truth.json`: `crane.course_truth/2` (schema string still `crane-roboboat-course-truth-v1`, `schema_version: 2`),
@@ -53,9 +58,10 @@ Slips: `bays[].slip` and `semantics.target.slip` are the slip's position on its 
 `bays[].sign.number` and `semantics.target.number`.
 
 ## Agents
-`course_truth.py summary|query|render|diff|validate|explain`. `explain SESSION` joins truth, track.jsonl and events into a
-per-task verdict (gates and direction, clearances, direction-source colour at the gate vs the circling sweep, slip tier, horn
-zone). `coverage.py` bins resolved params across sessions; failing tuples go in `regressions.json`.
+`course_truth.py summary|query|render|diff|validate|explain|identity` (`-h` on each). `identity TRUTH` checks the course identity.
+`explain SESSION` joins truth, track.jsonl and events into a per-task verdict (gates and direction, clearances, direction-source
+colour at the gate vs the circling sweep, slip tier, horn zone). `coverage.py` bins resolved params across sessions; failing
+tuples go in `regressions.json`.
 
 ## Adding a task
 One `XTask : CourseTaskDefinition<XParams>` (Place, Generate), its asset in the family, catalog kinds (and stream A prefabs with a

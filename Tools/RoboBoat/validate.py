@@ -578,9 +578,9 @@ def evaluate(spec, truth):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument('truth')
-    ap.add_argument('--spec')
-    ap.add_argument('--json', action='store_true')
+    ap.add_argument('truth', help='course truth JSON')
+    ap.add_argument('--spec', help='constraint spec [constraints/<family>.json]')
+    ap.add_argument('--json', action='store_true', help='every row as JSON instead of the failed ones')
     args = ap.parse_args(argv)
     truth = json.loads(Path(args.truth).read_text())
     spec = json.loads(Path(args.spec or default_spec(truth)).read_text())

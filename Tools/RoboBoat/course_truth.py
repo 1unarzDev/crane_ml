@@ -350,23 +350,29 @@ def check_identity(t):
     return bad
 
 
-def main(argv=None):
+def parser():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = ap.add_subparsers(dest='cmd', required=True)
-    sub.add_parser('summary').add_argument('truth')
-    q = sub.add_parser('query')
-    q.add_argument('truth')
+    truth = 'course_truth.json or a session directory'
+    sub.add_parser('summary', help='name, truth sha, side, labels, vessel; per task objects, attempts, semantics; row verdicts').add_argument('truth', help=truth)
+    q = sub.add_parser('query', help='elements matching every given filter (JSON)')
+    q.add_argument('truth', help=truth)
     for key in ('task', 'role', 'label', 'kind'):
-        q.add_argument(f'--{key}')
-    r = sub.add_parser('render')
-    r.add_argument('truth')
-    r.add_argument('--track')
-    d = sub.add_parser('diff')
-    d.add_argument('a')
-    d.add_argument('b')
-    sub.add_parser('validate').add_argument('truth')
-    sub.add_parser('explain').add_argument('session')
-    sub.add_parser('identity', help='print generator.identity; exit 1 if inconsistent').add_argument('truth')
+        q.add_argument(f'--{key}', help=f'keep elements with this {key}')
+    r = sub.add_parser('render', help='SVG on stdout (render.py)')
+    r.add_argument('truth', help=truth)
+    r.add_argument('--track', help='track.jsonl ({t, x, y} per line) to draw')
+    d = sub.add_parser('diff', help='element ids added, removed and moved (> 1 mm) from a to b (JSON)')
+    d.add_argument('a', help=truth)
+    d.add_argument('b', help=truth)
+    sub.add_parser('validate', help='re-judge every constraint row (validate.py); exit 1 on a failed row').add_argument('truth', help=truth)
+    sub.add_parser('explain', help='per-task verdict of a run: gates, clearances, states, slip, horn zone (JSON)').add_argument('session', help='session directory')
+    sub.add_parser('identity', help='print generator.identity; exit 1 if inconsistent').add_argument('truth', help=truth)
+    return ap
+
+
+def main(argv=None):
+    ap = parser()
     args = ap.parse_args(argv)
     if args.cmd == 'summary':
         print(summary(load(args.truth)))

@@ -70,8 +70,8 @@ def svg(truth, track=()):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument('truth')
-    ap.add_argument('--track')
+    ap.add_argument('truth', help='course truth JSON')
+    ap.add_argument('--track', help='track.jsonl ({t, x, y} per line) to draw')
     args = ap.parse_args(argv)
     truth = json.loads(Path(args.truth).read_text())
     track = []

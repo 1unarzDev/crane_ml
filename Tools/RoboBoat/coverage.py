@@ -42,9 +42,9 @@ def coverage(items, bins=5):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument('paths', nargs='+')
-    ap.add_argument('--bins', type=int, default=5)
-    ap.add_argument('--json', action='store_true')
+    ap.add_argument('paths', nargs='+', help='truth files, or dirs of course_truth.json / *.json')
+    ap.add_argument('--bins', type=int, default=5, help='equal-width bins per numeric param [5]')
+    ap.add_argument('--json', action='store_true', help='JSON instead of a table')
     args = ap.parse_args(argv)
     cov = coverage(truths(args.paths), args.bins)
     if args.json:
