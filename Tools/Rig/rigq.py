@@ -799,7 +799,8 @@ def row(job):
 
 
 def main(argv=None):
-    # --config and --json go before or after the command; a subcommand's copy only overrides when given.
+    # --config and --json go before or after the command (submit: before only, so its job argv keeps them);
+    # a subcommand's copy only overrides when given.
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument('--config', default=argparse.SUPPRESS, help='rig config [rig.yaml beside this script]')
     common.add_argument('--json', action='store_true', default=argparse.SUPPRESS, help='one JSON document on stdout')
@@ -807,7 +808,7 @@ def main(argv=None):
     ap.add_argument('--config', default=str(HERE / 'rig.yaml'), help='rig config [rig.yaml beside this script]')
     ap.add_argument('--json', action='store_true', help='one JSON document on stdout')
     sub = ap.add_subparsers(dest='cmd', required=True)
-    s = sub.add_parser('submit', parents=[common], help='queue a run (starts a worker if none runs)')
+    s = sub.add_parser('submit', help='queue a run (starts a worker if none runs)')
     s.add_argument('--name', help='job name [the job id]')
     s.add_argument('--kind', choices=('sim', 'cmd', 'build'), default='sim', help='[sim]')
     s.add_argument('--timeout', type=float, help='hard timeout, s [sim: duration + hard_margin_s]')

@@ -321,7 +321,11 @@ def test_cli_json_submit_list_show(rig, tmp_path, capsys):
 
 def test_cli_options_after_the_command_unnamed_jobs_and_help(rig, tmp_path, capsys):
     cfg = str(tmp_path / 'rig.yaml')
-    assert rigq.main(['submit', '--config', cfg, '--kind', 'cmd', '--no-start', '--', 'true']) == 0
+    with pytest.raises(SystemExit):                                     # submit's options are its own
+        rigq.main(['submit', '--config', cfg, '--kind', 'cmd', '--no-start', '--', 'true'])
+    capsys.readouterr()
+    assert rigq.main(['--config', cfg, '--json', 'submit', '--kind', 'cmd', '--no-start', 'true', '--config', 'X']) == 0
+    assert json.loads(capsys.readouterr().out)['argv'] == ['true', '--config', 'X']
     assert rigq.main(['list', '--config', cfg]) == 0                    # no --name: the id names it
     capsys.readouterr()
     assert rigq.main(['--config', cfg, 'list', '--json']) == 0
