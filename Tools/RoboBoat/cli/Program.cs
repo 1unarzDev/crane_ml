@@ -12,8 +12,15 @@ namespace Sim.Course.Cli {
     /// Assets/ (compiled by reference) and the family assets Unity loads, byte-identical to
     /// CourseCli.Generate in the editor. Usage: README.md.</summary>
     static class Program {
-        const string Usage = "coursegen (--seed N | --seeds A:B --out DIR) [--family F] [--mode iid|corner=lo|hi|mixed] " +
-                             "[--set task.param=value]... [--out FILE] [--root CRANE] | --version | --sources";
+        const string Usage =
+            "usage: coursegen --seed N [--out FILE]   one truth (stdout without --out)\n" +
+            "       coursegen --seeds A:B --out DIR   seeds A..B-1 as DIR/<family>-s<N>.json + failures.txt, one JSON summary line\n" +
+            "         [--family roboboat_2026] [--mode iid|corner=lo|corner=hi|corner=mixed] [--set task.param=value]...\n" +
+            "         [--root CRANE]                  the checkout to read (default: the one it was built from)\n" +
+            "       coursegen --version | --sources | --help\n" +
+            "exit 0 ok, 2 bad arguments, 3 stale build or a seed failed to generate";
+        static readonly string[] Valued = { "--seed", "--seeds", "--out", "--family", "--mode", "--set", "--root" };
+        static readonly string[] Switches = { "--version", "--sources", "--help", "-h" };
 
         static int Main(string[] args) {
             try { return Run(args); }
@@ -24,6 +31,14 @@ namespace Sim.Course.Cli {
         }
 
         static int Run(string[] args) {
+            for (int i = 0; i < args.Length; i++) {
+                if (Valued.Contains(args[i]) && i + 1 < args.Length) i++;
+                else if (!Switches.Contains(args[i])) throw new ArgumentException($"unknown or incomplete argument {args[i]}");
+            }
+            if (args.Contains("--help") || args.Contains("-h")) {
+                Console.WriteLine(Usage);
+                return 0;
+            }
             var meta = typeof(Program).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>().ToList();
             string root = Arg(args, "--root") ?? meta.First(m => m.Key == "coursegen.root").Value;
             var compiled = meta.Where(m => m.Key.StartsWith("coursegen.src:", StringComparison.Ordinal))

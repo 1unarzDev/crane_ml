@@ -14,10 +14,13 @@ taken from the Unity install named in `ProjectSettings/ProjectVersion.txt`; over
     dotnet Tools/RoboBoat/cli/bin/Release/net10.0/coursegen.dll --seed 1 --out s1.json
     dotnet Tools/RoboBoat/cli/bin/Release/net10.0/coursegen.dll --seeds 1:201 --mode corner=hi --out DIR
     #   [--family roboboat_2026] [--mode iid|corner=lo|corner=hi|corner=mixed] [--set task.param=value]...
-    #   --seed without --out writes the truth to stdout; --seeds writes DIR/<family>-s<N>.json (the editor's
-#   CourseCli names) + failures.txt and prints one JSON summary line {family, seeds, failed, retried, ms, identity, out}
+    #   [--root CRANE]  the checkout to read (default: the one it was built from)
+    #   --seed without --out writes the truth to stdout; --seeds A:B is seeds A to B-1, written as
+    #   DIR/<family>-s<N>.json (the editor's CourseCli names) + failures.txt, with one JSON summary
+    #   line {family, seeds, failed, retried, ms, identity, out} on stdout
     #   --version   the generator version of this checkout (JSON)
     #   --sources   the compiled generator files and their sha256
+    #   --help      this usage (an unknown argument exits 2 with it)
 
 Each run takes about 1 ms per seed. The options are the same as in Unity: `--seed` is
 `--crane-course-seed`, `--mode` is `--crane-course-mode`, `--set` is `--crane-course-set`, and
@@ -44,6 +47,9 @@ readers ignore it.
       "pair_key": "<64 hex>"
     }
 
+- `options` also has `vessel` (the truth's vessel block) when the course was sized for a
+  non-default vessel; the default vessel stays implicit, so its pair keys do not change. coursegen
+  always uses the default vessel.
 - `source_sha256` is the sha256 of the lines `"<path> <sha256 of file>\n"`, sorted by path, over
   every non-.meta file below `CourseIdentity.SourceDirs`. That covers the generator code and the
   family, task, catalog and constraint assets. Two truths with the same `source_sha256` were made
