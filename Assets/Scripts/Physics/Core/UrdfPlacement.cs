@@ -83,6 +83,7 @@ namespace Sim.Physics.Core {
 
             foreach (var n in f.TopDown().Skip(1)) {
                 var j = f.jointOf[n];
+                if (!have.ContainsKey(j.parent)) continue;   // its parent failed above and is already reported
                 if (!have.TryGetValue(n, out var t)) {
                     if (!f.geometryFree.Contains(n) || !f.HasChildren(n)) {
                         r.errors.Add($"link '{n}' is in the URDF but not in the robot (only geometry-free intermediate frames are created; sync the prefab from this URDF).");
