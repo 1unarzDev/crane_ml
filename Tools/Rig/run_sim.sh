@@ -15,6 +15,11 @@
 #                            [ideal]; the player's CRANE_PLANT_APPLIED line goes to the run log
 #   -r, --robot NAME         robot in place of the scene's boat: a URDF robot name from the
 #                            player's RobotCatalog (--crane-robot) [the scene's]
+#       --urdf PATH          robot description (.urdf, or .xacro expanded in the container) for both
+#                            the stack's robot_state_publisher (urdf_file) and the player's sensor
+#                            frames, e.g. a moved-sensor arrangement [the install's xacro]. Either
+#                            way the player places its frames from the description robot_state_publisher
+#                            publishes (robot_description.urdf, --crane-urdf), so TF and crane agree
 #   -d, --duration S         seconds recorded after the course is ready [30]
 #   -p, --profile NAME|PATH  mhseals_testing profile [crane_full_stack]
 #   -o, --out DIR            session dir [sessions_dir/<profile>_<YYYYmmdd_HHMMSS>]
@@ -54,7 +59,7 @@ set -euo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 config="${here}/rig.yaml"
-course="" faults="" boat_profile="" robot="" duration="" profile="" out="" current="" run_cmd=""
+course="" faults="" boat_profile="" robot="" urdf="" duration="" profile="" out="" current="" run_cmd=""
 overlay="" domain="" port="" drive=1 drive_preset="" smoke=0 seed="" wind="" gps_sigma="" sim_profile=full mode="" hardware="" task=""
 extra=()
 
@@ -66,6 +71,7 @@ while (($#)); do
         -f|--faults) faults="$2"; shift 2 ;;
         -b|--boat-profile) boat_profile="$2"; shift 2 ;;
         -r|--robot) robot="$2"; shift 2 ;;
+        --urdf) urdf="$2"; shift 2 ;;
         -d|--duration) duration="$2"; shift 2 ;;
         -p|--profile) profile="$2"; shift 2 ;;
         -o|--out) out="$2"; shift 2 ;;
@@ -189,6 +195,8 @@ port="${port:-$((10000 + domain))}"
 [[ -f "${course_path}" ]] || { echo "no course ${course_path}" >&2; exit 2; }
 [[ -x "${player}" ]] || { echo "no player ${player}; see simrig.md to build it" >&2; exit 2; }
 [[ -z "${faults}" || -f "${faults}" ]] || { echo "no faults file ${faults}" >&2; exit 2; }
+[[ -z "${urdf}" || ( -f "${urdf}" && "${urdf}" =~ \.(urdf|xacro)$ ) ]] || { echo "--urdf needs a .urdf or .xacro file (got ${urdf})" >&2; exit 2; }
+[[ -z "${urdf}" ]] || ((stack_resolve)) || { echo "--urdf needs a current profile (components: device parts)" >&2; exit 2; }
 [[ "${mode}" == effort || "${mode}" == velocity ]] || { echo "--mode effort|velocity (got ${mode})" >&2; exit 2; }
 [[ "${seed}" =~ ^[0-9]+$ ]] || { echo "--seed must be a non-negative integer (got ${seed})" >&2; exit 2; }
 hardware="${hardware:-${hardware_default}}"
@@ -350,14 +358,37 @@ if ((lidar_smear)); then   # rig.yaml lidar_smear: true; crane's cloud goes to /
 fi
 cstart endpoint "ros2 run ros_tcp_endpoint default_server_endpoint --ros-args -p ROS_IP:=127.0.0.1 -p ROS_TCP_PORT:=${port}${endpoint_remap}"
 ((lidar_smear)) && { cstart lidar_smear "ros2 run mhseals_nav lidar_smear"; stack_check+=(lidar_smear); }
+urdf_arg="" described=()
+if [[ -n "${urdf}" ]]; then
+    urdf_arg="${cdir}/urdf_override.${urdf##*.}"
+    docker cp -q "${urdf}" "${container}:${urdf_arg}"
+fi
 if ((stack_resolve)); then   # a current profile: mhseals_testing resolves its device parts (stack.py)
     docker cp -q "${here}/stack.py" "${container}:${cdir}/stack.py"
     while IFS=$'\t' read -r name argv; do
+        if [[ "${name}" == '#describe' ]]; then described+=("${argv}"); continue; fi
         stack_names+=("${name}"); stack_cmds+=("${argv}"); stack_check+=("${name}")
-    done < <(cexec "${ros_env} cd ${cdir}; python3 -P stack.py profile.yaml")
+    done < <(cexec "${ros_env} cd ${cdir}; python3 -P stack.py profile.yaml ${urdf_arg}")
     ((${#stack_names[@]})) || { log "profile ${profile_name} starts no stack component (resolved with ${install})"; exit 2; }
 fi
 for i in "${!stack_names[@]}"; do cstart "${stack_names[i]}" "${stack_cmds[i]}"; done
+# The player places its sensor frames from the description robot_state_publisher publishes, so TF and
+# crane come from one expansion (robot_description.urdf, --crane-urdf).
+description=""
+if ((${#described[@]})); then
+    deadline=$(($(date +%s) + 60))
+    until cexec "${ros_env} ros2 param get /robot_state_publisher robot_description" >"${session}/robot_description.raw" 2>/dev/null &&
+          grep -q '^String value is: ' "${session}/robot_description.raw"; do
+        (($(date +%s) < deadline)) || { log "no robot_description from /robot_state_publisher in 60 s; see stack_${described[0]}.log"; exit 1; }
+        sleep 1
+    done
+    sed '1s/^String value is: //' "${session}/robot_description.raw" >"${session}/robot_description.urdf"
+    rm -f "${session}/robot_description.raw"
+    description="${session}/robot_description.urdf"
+    log "robot description: ${urdf:-the installed xacro} via ${described[*]}, sha256 $(sha256sum "${description}" | cut -c1-12)"
+else
+    log "no robot_state_publisher in this stack; the player keeps its prefab's sensor frames"
+fi
 # The driver chain boat_test arms (mhseals_testing.ros.arming.driver_commands), on the topic backend.
 driver_names=()
 if ((driver)); then
@@ -399,6 +430,7 @@ elif [[ -n "${boat_profile}" ]]; then
     player_cmd+=(--crane-boat-profile "${boat_profile}")
 fi
 [[ -n "${robot}" ]] && player_cmd+=(--crane-robot "${robot}")
+[[ -n "${description}" ]] && player_cmd+=(--crane-urdf "${description}")
 [[ -n "${current}" ]] && player_cmd+=(--crane-water-current "${current}")
 [[ -n "${wind}" ]] && player_cmd+=(--crane-wind "${wind}")
 [[ -n "${gps_sigma}" ]] && player_cmd+=(--crane-gps-sigma "${gps_sigma}")
@@ -427,6 +459,11 @@ log "course ready"
 # Results are only attributable with the plant that produced them (profile, sha256, status).
 plant_line="$(grep -m1 -o 'CRANE_PLANT_APPLIED .*' "${session}/player.log" || true)"
 log "plant: ${plant_line:-none (no CRANE_PLANT_APPLIED: legacy physics?)}"
+if [[ -n "${description}" ]]; then
+    placed_line="$(grep -m1 -o 'CRANE_URDF_PLACED .*' "${session}/player.log" || true)"
+    [[ -n "${placed_line}" ]] || { log "no CRANE_URDF_PLACED: the player did not place its frames from ${description##*/}"; exit 1; }
+    log "frames: ${placed_line}"
+fi
 docker cp -q "${session}/course_truth.json" "${container}:${cdir}/course_truth.json"
 
 # --- drive or run, then hold until the duration ends ----------------------------------------
@@ -491,6 +528,7 @@ profile: {name: ${profile_name}, sim: true, ground_truth: /crane/odom, path: ${p
 clock: {domain: sim, time_scale: 1.0}
 course: ${course_path}
 faults: ${faults:-null}
+robot_description: {override: ${urdf:-null}, sha256: $([[ -n "${description}" ]] && sha256sum "${description}" | cut -c1-64 || echo null)}
 faults_sha256: $([[ -n "${faults}" ]] && sha256sum "${faults}" | cut -c1-64 || echo null)
 current: ${current:-null}
 wind: ${wind:-null}

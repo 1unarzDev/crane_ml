@@ -7,6 +7,10 @@ Three profile formats:
   ``python3 stack.py profile.yaml`` there (this module's main) after the container is up.
 - older: components: with launch: [package, file] and args: per component.
 - oldest: bringup: args for mhseals_testing measurement.launch.py.
+
+For a current profile, main also prints ``#describe\t<component>`` when a started component
+publishes the robot description (robot_state_publisher, via odom.launch.py), and
+``main(path, urdf)`` points that launch's ``urdf_file`` at another description (run_sim --urdf).
 """
 
 import re
@@ -14,6 +18,7 @@ import shlex
 import sys
 
 SENSORS = 'sensors.launch.py'
+DESCRIBED = ('odom.launch.py', 'robot.launch.py')   # start robot_state_publisher; both take urdf_file
 
 
 def launch(package, file, args):
@@ -55,12 +60,26 @@ def from_components(items):
     return out
 
 
-def main(path):
+def described(items):
+    """Keys of the started components whose launch publishes the robot description."""
+    return [c.key for c in items if c.start and c.launch in DESCRIBED and not c.remote]
+
+
+def main(path, urdf=''):
     from mhseals_testing.harness.components import components
     from mhseals_testing.profiles import load_profile
-    for key, cmd in from_components(components(load_profile(path))).items():
+    profile = load_profile(path)
+    items = components(profile)
+    keys = described(items)
+    if urdf:
+        if not keys:
+            raise SystemExit(f'--urdf: profile {path} starts no robot_state_publisher ({", ".join(DESCRIBED)})')
+        items = components(profile, {key: {'urdf_file': urdf} for key in keys})
+    for key, cmd in from_components(items).items():
         print(key, cmd, sep='\t')
+    for key in keys:
+        print('#describe', key, sep='\t')
 
 
 if __name__ == '__main__':
-    main(sys.argv[1])
+    main(*sys.argv[1:3])
