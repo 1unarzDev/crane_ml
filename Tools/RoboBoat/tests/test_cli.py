@@ -3,7 +3,7 @@
 
 - the tool compiles the generator files in Assets/ by reference, never a copy;
 - its truths carry a consistent identity, keep the goldens and pass validate.py;
-- a binary older than its sources refuses to run.
+- a binary older than its sources refuses to run; --help prints the usage, an unknown argument exits 2.
 
 CRANE_COURSE_CLI_DIR: when set, the truths are also written there (seeds 1-50 per mode plus a
 pinned case) for the Unity EditMode parity test CourseCliParity (same variable).
@@ -109,6 +109,13 @@ class CourseGenCli(unittest.TestCase):
     def test_same_seed_is_byte_identical(self):
         a = dotnet(str(DLL), '--seed', '3', '--mode', 'corner=mixed').stdout
         self.assertEqual(a, (self.out / 'corner=mixed' / 'roboboat_2026-s3.json').read_text())
+
+    def test_help_and_unknown_arguments(self):
+        r = dotnet(str(DLL), '--help')
+        self.assertEqual((r.returncode, r.stdout.split()[:2]), (0, ['usage:', 'coursegen']))
+        r = dotnet(str(DLL), '--seed', '1', '--mod', 'corner=hi')
+        self.assertEqual(r.returncode, 2)
+        self.assertIn('unknown or incomplete argument --mod', r.stderr)
 
     def test_a_stale_build_refuses_to_run(self):
         with tempfile.TemporaryDirectory() as tmp:
