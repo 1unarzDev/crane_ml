@@ -17,7 +17,11 @@ namespace Sim.Controllers {
     /// Publishes what the boat's flight controller provides through MAVROS, so mhseals_nav's
     /// localization runs unchanged with no ArduPilot or MAVROS (odom.launch.py fcu:=false):
     /// /odom/mavros (body-frame velocity), /imu/raw (attitude, body rates, specific force) and
-    /// /gps/fix. Frames follow REP 103 (world ENU, body FLU, frame_id base_link like MAVROS).
+    /// /gps/fix. Frames follow REP 103 (world ENU, body FLU). As on the boat, /gps/fix is the
+    /// antenna's position labelled gps_link (mavros_odometry relabels it) and /imu/raw is labelled
+    /// base_link (MAVROS's frame for the FCU's fused attitude) while its specific force is that of
+    /// the imu_link point, so turns add the centripetal term the FCU's accelerometer sees. Both
+    /// lever arms come from the link GameObjects, which follow the URDF (UrdfPlacement).
     /// </summary>
     public sealed class CraneRoboBoatSensorContract : MonoBehaviour, ICraneEpisodeResettable {
         public sealed class Settings {
@@ -26,6 +30,8 @@ namespace Sim.Controllers {
             public string GpsTopic = "/gps/fix";
             public string WorldFrame = "odom";
             public string BaseFrame = "base_link";
+            public string GpsLink = "gps_link";        // frame_id of /gps/fix and the antenna's link
+            public string ImuLink = "imu_link";        // the accelerometer's point
             // The rates odom.launch.py requests from the real flight controller.
             public float OdometryHz = 20f;
             public float ImuHz = 20f;
@@ -44,6 +50,8 @@ namespace Sim.Controllers {
         private const double AttitudeVariance = 1e-4;
 
         private IPhysicsBody body;
+        private Transform gpsLink, imuLink;
+        private bool linksResolved;
         private ROSConnection ros;
         private Settings settings;
         private System.Random random;
@@ -88,6 +96,7 @@ namespace Sim.Controllers {
         /// ROS): the reset probe watches the IMU sample of a player run without the transport.
         /// </summary>
         internal void Observe(Component target) {
+            linksResolved = false;
             body = target switch {
                 Rigidbody rigidbody => new RigidbodyAdapter(rigidbody),
                 ArticulationBody articulation => new ArticulationBodyAdapter(articulation),
@@ -127,13 +136,39 @@ namespace Sim.Controllers {
         /// <summary>Differentiates every physics step so the acceleration is exact at any
         /// publish rate.</summary>
         internal void Differentiate() {
-            Vector3 velocity = body.linearVelocity;
+            ResolveLinks();
+            Vector3 velocity = imuLink != null ? PointVelocity(imuLink.position) : body.linearVelocity;
             specificForceWorld = hasPreviousVelocity
                 ? SpecificForce(velocity, previousVelocity, Time.fixedDeltaTime,
                     UnityEngine.Physics.gravity)
                 : -UnityEngine.Physics.gravity;
             previousVelocity = velocity;
             hasPreviousVelocity = true;
+        }
+
+        /// <summary>Velocity of a point rigidly attached to the body (v + omega x r about the
+        /// centre of mass).</summary>
+        internal Vector3 PointVelocity(Vector3 worldPoint) =>
+            body.linearVelocity + Vector3.Cross(body.angularVelocity,
+                worldPoint - body.transform.TransformPoint(body.centerOfMass));
+
+        // The sensor links of the robot carrying the body; without them the body origin stands in.
+        private void ResolveLinks() {
+            if (linksResolved) return;
+            linksResolved = true;
+            Transform robot = body.transform.root;
+            gpsLink = Find(robot, settings?.GpsLink ?? "gps_link");
+            imuLink = Find(robot, settings?.ImuLink ?? "imu_link");
+            if (gpsLink == null || imuLink == null)
+                Debug.LogWarning($"CRANE_ROBOBOAT_CONTRACT_LEVER_ARM_MISSING robot={robot.name} " +
+                                 $"gps_link={(gpsLink != null)} imu_link={(imuLink != null)}: " +
+                                 "the body origin stands in for the missing link (GPS labelled base_link)");
+        }
+
+        private static Transform Find(Transform robot, string link) {
+            foreach (Transform t in robot.GetComponentsInChildren<Transform>(true))
+                if (t.name == link) return t;
+            return null;
         }
 
         /// <summary>Advances by whole periods, keeping fractional cadence at any rate.</summary>
@@ -207,7 +242,9 @@ namespace Sim.Controllers {
         }
 
         private void PublishGps(double now) {
-            PointMsg position = CraneROSNavigationState.ToRosPoint(body.position);
+            ResolveLinks();
+            PointMsg position = CraneROSNavigationState.ToRosPoint(
+                gpsLink != null ? gpsLink.position : body.position);
             EnuToGeodetic(position.x + Gaussian(settings.GpsSigma),
                 position.y + Gaussian(settings.GpsSigma),
                 settings.OriginLatitude, settings.OriginLongitude,
@@ -215,7 +252,8 @@ namespace Sim.Controllers {
             double horizontal = Math.Max(PositionVarianceFloor,
                 settings.GpsSigma * settings.GpsSigma);
             ros.Publish(settings.GpsTopic, new NavSatFixMsg {
-                header = CraneROSNavigationState.CreateHeader(now, settings.BaseFrame),
+                header = CraneROSNavigationState.CreateHeader(now,
+                    gpsLink != null ? settings.GpsLink : settings.BaseFrame),
                 status = new NavSatStatusMsg(NavSatStatusMsg.STATUS_FIX,
                     NavSatStatusMsg.SERVICE_GPS),
                 latitude = latitude,
