@@ -15,6 +15,8 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using Sim.Physics.Core;
+using static Sim.Physics.Core.UrdfFrames;
 
 namespace Crane.Urdf
 {
@@ -39,12 +41,13 @@ namespace Crane.Urdf
         }
 
         // ---------- URDF model (our own pass: the stock importer drops tags and we need exact frames) ----------
-        class UJoint { public string name, type, parent; public Vector3 xyz, axis = Vector3.right; public Quaternion rot = Quaternion.identity; }
         class UModel
         {
-            public string name, root, dir;
-            public readonly List<string> links = new List<string>();
-            public readonly Dictionary<string, UJoint> jointOf = new Dictionary<string, UJoint>();   // child link -> joint
+            public string name, dir;
+            public UrdfFrames frames;   // the link tree and its frames, shared with the runtime placement
+            public string root => frames.root;
+            public List<string> links => frames.links;
+            public Dictionary<string, UrdfFrames.Joint> jointOf => frames.jointOf;
             public readonly Dictionary<string, HashSet<string>> tags = new Dictionary<string, HashSet<string>>();
             public readonly Dictionary<string, string> geomHash = new Dictionary<string, string>();
             public readonly HashSet<string> noInertial = new HashSet<string>();
@@ -58,37 +61,19 @@ namespace Crane.Urdf
             { "imu", "imu" }, { "gps", "gps" }, { "navsat", "gps" },
         };
 
-        static Vector3 V(string s, Vector3 dflt)
-        {
-            if (string.IsNullOrWhiteSpace(s)) return dflt;
-            var p = s.Split((char[])null, StringSplitOptions.RemoveEmptyEntries).Select(t => float.Parse(t, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
-            return new Vector3(p[0], p[1], p[2]);
-        }
-
-        // ROS (x fwd, y left, z up) -> Unity (x right, y up, z fwd)
-        static Vector3 M(Vector3 p) => new Vector3(-p.y, p.z, p.x);
-        static Quaternion M(Quaternion q) => new Quaternion(q.y, -q.z, -q.x, q.w);
-        static Quaternion Rpy(Vector3 rpy)
-        {
-            Quaternion ax(Vector3 a, float r) => new Quaternion(a.x * Mathf.Sin(r / 2), a.y * Mathf.Sin(r / 2), a.z * Mathf.Sin(r / 2), Mathf.Cos(r / 2));
-            return ax(Vector3.forward, rpy.z) * ax(Vector3.up, rpy.y) * ax(Vector3.right, rpy.x);   // ROS fixed-axis XYZ, in ROS axes
-        }
-
         static UModel Parse(string urdfPath, Report r)
         {
             var m = new UModel { dir = Path.GetDirectoryName(urdfPath).Replace('\\', '/') };
             try { m.doc = XDocument.Load(urdfPath); }
             catch (Exception e) { r.errors.Add($"'{urdfPath}' is not readable XML: {e.Message}"); return null; }
+            m.frames = UrdfFrames.Parse(m.doc, urdfPath, r.errors);
+            if (m.frames == null) return null;
             var robot = m.doc.Root;
-            if (robot == null || robot.Name.LocalName != "robot") { r.errors.Add($"'{urdfPath}' has no <robot> root element (is it still xacro? expand it with `xacro file.xacro > file.urdf`)."); return null; }
-            if (robot.Descendants().Any(e => e.Name.NamespaceName.Contains("xacro"))) { r.errors.Add($"'{urdfPath}' still contains xacro elements; expand it first (`xacro file.xacro > file.urdf`)."); return null; }
-            m.name = (string)robot.Attribute("name") ?? Path.GetFileNameWithoutExtension(urdfPath);
+            m.name = m.frames.name ?? Path.GetFileNameWithoutExtension(urdfPath);
 
             foreach (var l in robot.Elements("link"))
             {
                 string n = (string)l.Attribute("name");
-                if (m.links.Contains(n)) r.errors.Add($"link '{n}' is defined twice.");
-                m.links.Add(n);
                 if (l.Element("inertial") == null) m.noInertial.Add(n);
                 // mesh paths: resolve by file name under the URDF folder, so package:// and ../ both work
                 foreach (var mesh in l.Descendants("mesh"))
@@ -103,20 +88,9 @@ namespace Crane.Urdf
             }
             foreach (var j in robot.Elements("joint"))
             {
-                var o = j.Element("origin");
-                var uj = new UJoint
-                {
-                    name = (string)j.Attribute("name"), type = (string)j.Attribute("type"),
-                    parent = (string)j.Element("parent")?.Attribute("link"),
-                    xyz = V((string)o?.Attribute("xyz"), Vector3.zero), rot = Rpy(V((string)o?.Attribute("rpy"), Vector3.zero)),
-                    axis = V((string)j.Element("axis")?.Attribute("xyz"), Vector3.right),
-                };
                 string child = (string)j.Element("child")?.Attribute("link");
-                if (!m.links.Contains(child)) { r.errors.Add($"joint '{uj.name}' has child link '{child}', which is not defined."); continue; }
-                if (!m.links.Contains(uj.parent)) { r.errors.Add($"joint '{uj.name}' has parent link '{uj.parent}', which is not defined."); continue; }
-                if (m.jointOf.ContainsKey(child)) { r.errors.Add($"link '{child}' is the child of two joints."); continue; }
-                m.jointOf[child] = uj;
-                if (j.Descendants("param").Any(p => (string)p.Attribute("name") == "thruster" && p.Value.Trim().ToLowerInvariant() == "true")) Tag(m, child, "thruster");
+                if (m.jointOf.TryGetValue(child ?? "", out var uj) && uj.name == (string)j.Attribute("name")
+                    && j.Descendants("param").Any(p => (string)p.Attribute("name") == "thruster" && p.Value.Trim().ToLowerInvariant() == "true")) Tag(m, child, "thruster");
             }
             foreach (var g in robot.Elements("gazebo"))
             {
@@ -129,9 +103,6 @@ namespace Crane.Urdf
                     if (ln != null) Tag(m, ln, "thruster");
                 }
             }
-            var roots = m.links.Where(l => !m.jointOf.ContainsKey(l)).ToList();
-            if (roots.Count != 1) { r.errors.Add($"the URDF needs exactly one root link; found {roots.Count}: {string.Join(", ", roots)}."); return null; }
-            m.root = roots[0];
             return m;
         }
 
@@ -147,27 +118,8 @@ namespace Crane.Urdf
             return BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(s))).Replace("-", "").Substring(0, 12);
         }
 
-        // Expected pose of each link relative to the root link, in Unity, with the profile's body yaw Y on every frame:
-        // position Y·M(p), rotation Y·M(R)·Y⁻¹ (the frame carries the correction; geometry children get Y·M(R)).
-        static void LocalPose(UModel m, string link, Quaternion y, out Vector3 pos, out Quaternion rot)
-        {
-            var j = m.jointOf[link];
-            pos = y * M(j.xyz);
-            rot = y * M(j.rot) * Quaternion.Inverse(y);
-        }
-
-        static void RootPose(UModel m, string link, Quaternion y, out Vector3 pos, out Quaternion rot)
-        {
-            pos = Vector3.zero; rot = Quaternion.identity;
-            var chain = new List<string>();
-            for (string l = link; l != m.root; l = m.jointOf[l].parent) chain.Add(l);
-            chain.Reverse();
-            foreach (var l in chain)
-            {
-                LocalPose(m, l, y, out var lp, out var lr);
-                pos += rot * lp; rot *= lr;
-            }
-        }
+        static void LocalPose(UModel m, string link, Quaternion y, out Vector3 pos, out Quaternion rot) => m.frames.LocalPose(link, y, out pos, out rot);
+        static void RootPose(UModel m, string link, Quaternion y, out Vector3 pos, out Quaternion rot) => m.frames.RootPose(link, y, out pos, out rot);
 
         // ---------- entry points ----------
         [MenuItem("Crane/URDF/Sync Selected URDF")] static void MenuSync() => RunMenu(false);
@@ -217,7 +169,7 @@ namespace Crane.Urdf
             if (m == null || !r.Ok) return r;
             var profile = FindProfile(m.dir) ?? UrdfImportProfile.CreateDefault();
             r.prefabPath = string.IsNullOrEmpty(profile.prefabPath) ? $"{m.dir}/{m.name}.prefab" : profile.prefabPath;
-            var yaw = M(Quaternion.AngleAxis(profile.rootYawDeg, Vector3.forward));   // ROS yaw about z, in ROS axes → Unity
+            var yaw = BodyYaw(profile.rootYawDeg);   // ROS yaw about z, in ROS axes → Unity
             r.changes.Add($"profile '{profile.name}', body yaw {profile.rootYawDeg} deg, {m.links.Count} links");
             bool exists = File.Exists(r.prefabPath);
 
@@ -267,7 +219,7 @@ namespace Crane.Urdf
             if (m == null || !r.Ok) return r;
             var profile = FindProfile(m.dir) ?? UrdfImportProfile.CreateDefault();
             r.prefabPath = string.IsNullOrEmpty(profile.prefabPath) ? $"{m.dir}/{m.name}.prefab" : profile.prefabPath;
-            CheckSceneInstances(m, r.prefabPath, M(Quaternion.AngleAxis(profile.rootYawDeg, Vector3.forward)), r, scenePath);
+            CheckSceneInstances(m, r.prefabPath, BodyYaw(profile.rootYawDeg), r, scenePath);
             return r;
         }
 
