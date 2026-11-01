@@ -137,7 +137,7 @@ class Queue:
     def add(self, spec):
         job_id = time.strftime('%Y%m%d-%H%M%S-') + uuid.uuid4().hex[:6]
         job = dict(spec, id=job_id, state='queued', submitted=time.time(), attempts=0)
-        job.setdefault('name', job_id)
+        job['name'] = job.get('name') or job_id
         fd = self._lock()
         try:
             self._write(job)
@@ -799,39 +799,43 @@ def row(job):
 
 
 def main(argv=None):
+    # --config and --json go before or after the command; a subcommand's copy only overrides when given.
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument('--config', default=argparse.SUPPRESS, help='rig config [rig.yaml beside this script]')
+    common.add_argument('--json', action='store_true', default=argparse.SUPPRESS, help='one JSON document on stdout')
     ap = argparse.ArgumentParser(prog='rigq', description=__doc__.split('\n')[0])
-    ap.add_argument('--config', default=str(HERE / 'rig.yaml'))
+    ap.add_argument('--config', default=str(HERE / 'rig.yaml'), help='rig config [rig.yaml beside this script]')
     ap.add_argument('--json', action='store_true', help='one JSON document on stdout')
     sub = ap.add_subparsers(dest='cmd', required=True)
-    s = sub.add_parser('submit', help='queue a job')
-    s.add_argument('--name')
-    s.add_argument('--kind', choices=('sim', 'cmd', 'build'), default='sim')
+    s = sub.add_parser('submit', parents=[common], help='queue a run (starts a worker if none runs)')
+    s.add_argument('--name', help='job name [the job id]')
+    s.add_argument('--kind', choices=('sim', 'cmd', 'build'), default='sim', help='[sim]')
     s.add_argument('--timeout', type=float, help='hard timeout, s [sim: duration + hard_margin_s]')
     s.add_argument('--stall', type=float, dest='stall_s', help='no-progress timeout, s')
-    s.add_argument('--startup', type=float, dest='startup_s')
-    s.add_argument('--motion-grace', type=float, dest='motion_grace_s')
-    s.add_argument('--min-travel', type=float, dest='min_travel_m')
-    s.add_argument('--expect-motion', action='store_true', default=None)
+    s.add_argument('--startup', type=float, dest='startup_s', help='no-start timeout, s')
+    s.add_argument('--motion-grace', type=float, dest='motion_grace_s', help='commanded-motion time before no_motion trips, s')
+    s.add_argument('--min-travel', type=float, dest='min_travel_m', help='travel that counts as motion, m')
+    s.add_argument('--expect-motion', action='store_true', default=None, help='must move within motion_grace_s of ready even with no command seen')
     s.add_argument('--drive', help='rig.yaml drives: preset (sim)')
     s.add_argument('--session', help='session dir (sim) [sessions_dir/rigq/<id>]')
     s.add_argument('--inject-hang', type=float, metavar='S',
                    help='watchdog test: freeze the player S s after the course is ready')
     s.add_argument('--no-start', action='store_true', help='do not start a worker')
     s.add_argument('rest', nargs=argparse.REMAINDER, help='-- run_sim.sh args (sim) or argv (cmd, build)')
-    ls = sub.add_parser('list')
-    ls.add_argument('--state', choices=('queued', 'running') + FINAL)
-    sh = sub.add_parser('show')
-    sh.add_argument('id')
-    c = sub.add_parser('cancel')
-    c.add_argument('id')
-    r = sub.add_parser('results')
-    r.add_argument('-n', type=int)
-    w = sub.add_parser('worker')
+    ls = sub.add_parser('list', parents=[common], help='jobs, newest last')
+    ls.add_argument('--state', choices=('queued', 'running') + FINAL, help='only jobs in this state')
+    sh = sub.add_parser('show', parents=[common], help='one job')
+    sh.add_argument('id', help='job id')
+    c = sub.add_parser('cancel', parents=[common], help='dequeue, or stop it if running')
+    c.add_argument('id', help='job id')
+    r = sub.add_parser('results', parents=[common], help='finished jobs (results.jsonl)')
+    r.add_argument('-n', type=int, help='only the last N')
+    w = sub.add_parser('worker', parents=[common], help='run jobs (one worker per queue dir), or install|uninstall its unit')
     w.add_argument('action', nargs='?', choices=('install', 'uninstall'),
                    help='write or remove the systemd user unit (never enables it)')
-    w.add_argument('--slots', type=int)
+    w.add_argument('--slots', type=int, help='jobs at once [queue.slots]')
     w.add_argument('--until-empty', action='store_true', help='exit once nothing is queued or running')
-    w.add_argument('--linger', type=float, default=20)
+    w.add_argument('--linger', type=float, default=20, help='idle seconds before a spawned worker exits [20]')
     args = ap.parse_args(argv)
 
     if args.cmd == 'worker' and args.action:

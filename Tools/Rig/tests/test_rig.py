@@ -6,6 +6,7 @@ runs (fake_run.py) that hang, stall, never move, fail and succeed. No ROS, Docke
 
 import json
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -316,6 +317,21 @@ def test_cli_json_submit_list_show(rig, tmp_path, capsys):
     assert [j['id'] for j in json.loads(capsys.readouterr().out)] == [job['id']]
     assert rigq.main(['--config', cfg, '--json', 'submit', '--no-start', '--', '--domain', '7']) == 2
     assert 'belongs to the queue' in json.loads(capsys.readouterr().out)['error']
+
+
+def test_cli_options_after_the_command_unnamed_jobs_and_help(rig, tmp_path, capsys):
+    cfg = str(tmp_path / 'rig.yaml')
+    assert rigq.main(['submit', '--config', cfg, '--kind', 'cmd', '--no-start', '--', 'true']) == 0
+    assert rigq.main(['list', '--config', cfg]) == 0                    # no --name: the id names it
+    capsys.readouterr()
+    assert rigq.main(['--config', cfg, 'list', '--json']) == 0
+    job = json.loads(capsys.readouterr().out)[0]
+    assert job['name'] == job['id']
+    with pytest.raises(SystemExit):
+        rigq.main(['-h'])
+    usage = capsys.readouterr().out
+    for cmd in ('submit', 'list', 'show', 'cancel', 'results', 'worker'):
+        assert re.search(rf'^    {cmd} +\S', usage, re.M), f'rigq {cmd} has no help'
 
 
 def test_worker_unit_install_uninstall(rig, tmp_path, monkeypatch, capsys):
