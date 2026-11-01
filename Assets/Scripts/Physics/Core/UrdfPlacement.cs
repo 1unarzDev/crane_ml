@@ -93,7 +93,9 @@ namespace Sim.Physics.Core {
                     have[n] = t;
                     r.moved.Add($"link={n} parent={j.parent} created");
                 }
-                if (j.type != "fixed" || !have.ContainsKey(j.parent)) continue;   // moving joints keep their pose and anchors
+                // Moving joints (in the URDF or in the robot: the propellers spin) keep their pose and anchors.
+                var body = t.GetComponent<ArticulationBody>();   // Unity's == null, not a pattern: a missing component is a fake null
+                if (j.type != "fixed" || (body != null && !body.isRoot && body.jointType != ArticulationJointType.FixedJoint)) continue;
                 bool reparented = t.parent != have[j.parent];
                 if (reparented) t.SetParent(have[j.parent], false);
                 f.LocalPose(n, y, out var p, out var q);
@@ -113,7 +115,7 @@ namespace Sim.Physics.Core {
                 if (dp > 1e-5f || da > 1e-3f) r.moved.Add($"link={kv.Key} moved_mm={dp * 1000:F1} turned_deg={da:F2}");
             }
             // The solver holds each link at parent anchor ∘ child anchor⁻¹; put the parent anchor where the link now is.
-            foreach (var ab in have.Values.Select(t => t.GetComponent<ArticulationBody>()).Where(a => a != null && !a.isRoot)) {
+            foreach (var ab in have.Values.Select(t => t.GetComponent<ArticulationBody>()).Where(a => a != null && !a.isRoot && a.jointType == ArticulationJointType.FixedJoint)) {
                 var parentBody = ab.transform.parent.GetComponentInParent<ArticulationBody>();
                 if (parentBody == null) continue;
                 Vector3 relPos = parentBody.transform.InverseTransformPoint(ab.transform.position);   // links are unscaled
@@ -138,7 +140,7 @@ namespace Sim.Physics.Core {
 
             private IEnumerator Start() {
                 for (int i = 0; i < 3; i++) yield return new WaitForFixedUpdate();
-                Transform root = result.expected.Keys.FirstOrDefault(t => t != null && t.GetComponent<ArticulationBody>() is { isRoot: true });
+                Transform root = result.expected.Keys.FirstOrDefault(t => t != null && t.GetComponent<ArticulationBody>() != null && t.GetComponent<ArticulationBody>().isRoot);
                 if (root == null) { Destroy(this); yield break; }
                 float worstM = 0, worstDeg = 0;
                 string worst = "";
