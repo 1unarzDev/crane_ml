@@ -31,6 +31,7 @@ if [ "${1:-}" = --litellm ]; then
     for k in LITELLM_MASTER_KEY POSTGRES_PASSWORD; do
       v=$(sed -n "s/^$k=//p" .env 2>/dev/null); [ -n "$v" ] || v=$( [ $k = LITELLM_MASTER_KEY ] && echo sk- )$(openssl rand -hex 24); echo "$k=$v" >> .env.new
     done
+    m=$(ip -4 -br addr show CloudflareWARP 2>/dev/null | awk "{print \$3}" | cut -d/ -f1); [ -n "$m" ] && echo "LITELLM_MESH_ADDR=$m:4000" >> .env.new
     mv .env.new .env && docker compose up -d && for i in $(seq 60); do curl -sf -o /dev/null http://127.0.0.1:4000/health/liveliness && { echo "litellm up on $(hostname):4000"; exit 0; }; sleep 3; done; docker compose logs --tail 40 litellm; exit 1'
   exit 0
 fi

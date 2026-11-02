@@ -1,4 +1,4 @@
-# LiteLLM proxy + its Postgres (keys, budgets, usage log) + Redis (response cache), on loopback :4000.
+# LiteLLM proxy + its Postgres (keys, budgets, usage log) + Redis (response cache), on loopback :4000 and the mesh.
 # .env next to this file (mode 600; deploy/creation.sh --litellm writes it): LITELLM_MASTER_KEY, POSTGRES_PASSWORD,
 # OPEN_ROUTER_API_KEY, GROQ_API_KEY, GOOGLE_AI_STUDIO_KEY, OLLAMA_INNOVATION_URL, OLLAMA_SIMWIN_URL.
 name: litellm
@@ -18,6 +18,8 @@ services:
       - ./config.yaml:/app/config.yaml:ro
     ports:
       - "127.0.0.1:${LITELLM_PORT:-4000}:4000"
+      # Mesh-only access (no public hostname): the host's WARP address, written by deploy/creation.sh --litellm.
+      - "${LITELLM_MESH_ADDR:-127.0.0.1:4001}:4000"
     depends_on:
       db: { condition: service_healthy }
       redis: { condition: service_started }
