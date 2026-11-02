@@ -1,0 +1,7 @@
+# A fitted plant calibration epoch (the numbers of a real twin fit, kept as a fixture).
+epoch: 1
+basis: twin
+plant:
+  gain: 0.15
+  delay_s: [1.2, 0.0, 0.6]
+  speed_scale: 0.7

@@ -1,0 +1,18 @@
+# The toy domain the core's tests run (tests/toy.py). Scenario files are written by the tests.
+adapter: {ref: toy.py:ToyAdapter, options: {reach_m: 1.5, time_limit_s: 240}}
+scenarios: {dir: scenarios, pattern: 'toy-s{seed}.json', format: {name: json}}
+limits:
+  vmax: [1.5, 0.3, 0.6]
+  vmin: [-0.5, -0.3, -0.6]
+  accel: [0.5, 0.3, 0.8]
+  decel: [-1.0, -0.3, -1.0]
+  goal_tol: [0.5, 0.5]
+  precise_tol: [0.2, 0.1]
+  rotate_above: 0.8
+  rotate_wz: 0.5
+  progress_radius: 0.3
+  progress_s: 10.0
+  pass_radius: 1.0
+  footprint: [[0.5, 0.4], [0.5, -0.4], [-0.5, -0.4], [-0.5, 0.4]]
+perception: {name: cone, hfov_deg: 90.0, range_m: 30.0, occlusion: true, mount: [0.3, 0.0, 0.0]}
+workers: 4
