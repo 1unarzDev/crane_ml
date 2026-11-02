@@ -13,6 +13,7 @@ from pathlib import Path
 from . import miniyaml
 
 OS_NAMES = {"linux": "linux", "windows": "windows", "darwin": "darwin"}
+TOOL_TAGS = ("git", "ffmpeg", "dotnet", "docker")
 
 
 def config_dir() -> Path:
@@ -120,6 +121,10 @@ def detect_caps(cfg: dict, backends: list[str]) -> dict:
         "vulkan": _vulkan(),
         "tags": [],
     }
-    caps.update(cfg.get("caps") or {})
+    own = dict(cfg.get("caps") or {})
+    caps.update(own)
+    # Tags: the YAML's plus what the host offers (its os, a GPU, Vulkan, the tools on PATH), so a job can ask for them.
+    found = [caps["os"]] + [t for t in ("gpu", "vulkan") if caps.get(t)] + [t for t in TOOL_TAGS if shutil.which(t)]
+    caps["tags"] = list(dict.fromkeys(list(own.get("tags") or []) + found))
     caps["backends"] = backends
     return caps

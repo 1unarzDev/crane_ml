@@ -1,0 +1,42 @@
+# What install.sh and install.ps1 provision on every worker (owner decision D-20261102-17), read by
+# `python -m crane_cluster.provision`. The core stays domain-agnostic: crane's repos and backends live here.
+# Re-running the installer upgrades each item; a backend is added to worker.yaml only when it is missing
+# and everything it requires is present (it is never edited once there).
+tools:
+  git: {}                                   # Windows: portable MinGit in the user profile; else the system git
+  ffmpeg: {}                                # a static build (BtbN) unless one is on PATH
+  dotnet: {channel: "10.0", min: "10.0.401"}  # crane's course generator (Tools/RoboBoat/cli/global.json)
+repos:                                      # mirrored in the worker's git cache, checked out under <data>/repos
+  crane_ml:
+    url: https://github.com/1unarzDev/crane_ml.git
+    sparse: [cluster, fastsim, theater, Tools/RoboBoat]
+  mhseals_testing:
+    url: https://github.com/MHSeals/mhseals_testing.git
+  mhseals_nav:
+    url: https://github.com/MHSeals/mhseals_nav.git
+backends:
+  fastsim:
+    requires: [repo:crane_ml]
+    config:
+      type: "cluster.backends.fastsim:ClusterBackend"
+      path: "{repos}/crane_ml"
+      root: "{repos}/crane_ml"
+  fastsim_roboboat:
+    requires: [repo:mhseals_testing, dotnet, unity_managed]
+    config:
+      type: "mhseals_testing.fastsim_adapter.cluster:FastsimBackend"
+      path: "{repos}/mhseals_testing"
+      python: "{python}"
+      workers: 4
+      repos:
+        mhseals_testing: https://github.com/MHSeals/mhseals_testing.git
+        mhseals_nav: https://github.com/MHSeals/mhseals_nav.git
+        crane_ml: https://github.com/1unarzDev/crane_ml.git
+  unity:
+    requires: [repo:crane_ml, player]
+    config:
+      type: "cluster.backends.unity:ClusterBackend"
+      path: "{repos}/crane_ml"
+      player: "{player}"
+      batchmode: true
+      timeout_s: 900

@@ -68,12 +68,15 @@ class GitCache:
                 _git("remote", "update", "--prune", cwd=m)
         raise AssertionError
 
-    def checkout(self, name: str, url: str, ref: str, dest: Path) -> str:
-        """A fresh, detached checkout of ref at dest, sharing objects with the mirror. Returns the sha."""
+    def checkout(self, name: str, url: str, ref: str, dest: Path, sparse: list[str] | None = None) -> str:
+        """A fresh, detached checkout of ref at dest, sharing objects with the mirror (only the ``sparse``
+        folders when given). Returns the sha."""
         sha = self.resolve(name, url, ref)
         dest = Path(dest)
         shutil.rmtree(dest, ignore_errors=True)
         dest.parent.mkdir(parents=True, exist_ok=True)
         _git("clone", "--quiet", "--shared", "--no-checkout", str(self.mirror_path(name)), str(dest))
+        if sparse:
+            _git("sparse-checkout", "set", "--cone", *sparse, cwd=dest)
         _git("checkout", "--quiet", "--detach", sha, cwd=dest)
         return sha
