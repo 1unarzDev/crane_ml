@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { AppEnv, requireWorker } from "./auth";
 import { CFG, finishJob, getConfig, heldJob, jobView, leaseJobs, leaseTtlMs, minClientVersion, reclaimExpired } from "./db";
 import { sanitizeCaps, sanitizePolicy } from "./match";
+import { runMetaStatement } from "./runmeta";
 import {
   HttpError,
   compareVersions,
@@ -169,6 +170,7 @@ workerRoutes.post("/v1/jobs/:id/runs", requireWorker, async (c) => {
   const runId = `${job.job_id}.a${job.attempt}.s${seed}`;
   const wall = typeof b.wall_s === "number" && Number.isFinite(b.wall_s) ? b.wall_s : null;
   const error = typeof b.error === "string" ? b.error.slice(0, 2000) : null;
+  const meta = runMetaStatement(c.env, job, runId, seed as number, b.meta);
   await c.env.DB.batch([
     c.env.DB.prepare("DELETE FROM metrics WHERE run_id = ?").bind(runId),
     c.env.DB.prepare(
@@ -180,6 +182,7 @@ workerRoutes.post("/v1/jobs/:id/runs", requireWorker, async (c) => {
       runId,
       JSON.stringify(metrics),
     ),
+    ...(meta ? [meta] : []),
   ]);
   return json({ run_id: runId });
 });

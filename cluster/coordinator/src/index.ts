@@ -3,6 +3,7 @@ import { adminRoutes } from "./admin_routes";
 import { artifactRoutes, sweepArtifacts } from "./artifacts";
 import type { AppEnv } from "./auth";
 import { reclaimExpired } from "./db";
+import { runMetaRoutes } from "./runmeta";
 import { hypRoutes } from "./hypotheses";
 import { Env, HttpError, errorResponse, json } from "./util";
 import { webhookRoutes } from "./webhook";
@@ -21,6 +22,7 @@ app.route("/", workerRoutes);
 app.route("/", artifactRoutes);
 app.route("/", adminRoutes);
 app.route("/", hypRoutes);
+app.route("/", runMetaRoutes);
 app.route("/", webhookRoutes);
 
 /** Cron sweep: reclaim expired leases (retry or dead-letter) and delete expired raw artifacts. */
