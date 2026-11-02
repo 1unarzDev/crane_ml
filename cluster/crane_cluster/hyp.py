@@ -20,9 +20,10 @@ import os
 import re
 import subprocess
 import sys
+import time
 
 from . import miniyaml, promotion
-from .api import ApiError, Client
+from .api import ApiError, Backoff, Client, unavailable, wait_until_up
 
 SHA = re.compile(r"^[0-9a-f]{40}$")
 
@@ -78,11 +79,30 @@ def normalize(spec: dict, resolve: bool = True, purpose: str | None = None, est_
     return out
 
 
+class WaitingClient(Client):
+    """GETs wait out an unavailable coordinator (503 out of quota, 5xx, unreachable): 5 s doubling to 5 min."""
+
+    sleep = staticmethod(time.sleep)
+
+    def get(self, path, **q):
+        b = Backoff()
+        while True:
+            try:
+                return super().get(path, **q)
+            except (ApiError, OSError) as e:
+                why = unavailable(e)
+                if why is None:
+                    raise
+                w = b.step(e)
+                print(f"crane-hyp: coordinator unavailable ({why}); retrying in {w:.0f} s", file=sys.stderr)
+                self.sleep(w)
+
+
 def client(a) -> Client:
     url = a.coordinator or os.environ.get("CRANE_COORDINATOR")
     if not url:
         raise SystemExit("set CRANE_COORDINATOR or pass --coordinator")
-    return Client(url, a.token or os.environ.get("CRANE_TOKEN"))
+    return WaitingClient(url, a.token or os.environ.get("CRANE_TOKEN"))
 
 
 def cmd_submit(a):
@@ -91,7 +111,11 @@ def cmd_submit(a):
                      submitter=a.submitter, campaign=a.campaign)
     if body.get("est_seconds") is None and not all("est_seconds" in s for s in body.get("stages") or [{}]):
         raise SystemExit("est_seconds required: --est-seconds N (per run), est_seconds in the file, or one per stage")
-    r = client(a).post("/v1/hyp", body)
+    c = client(a)
+    # A hypothesis runs only on the cluster (staged, paired arms): when the coordinator is down, wait for it
+    # (5 s doubling to 5 min) and say why, then submit once, so a retried POST cannot queue it twice.
+    wait_until_up(c, log=lambda m: print(f"crane-hyp: {m}; hypotheses run on the cluster only", file=sys.stderr))
+    r = c.post("/v1/hyp", body)
     print(json.dumps(r) if a.json else f"{r['id']}: {r['jobs']} jobs queued for {r['stage']} (baseline {r['baseline_ref'][:12]})")
 
 

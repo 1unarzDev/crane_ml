@@ -20,7 +20,7 @@ import urllib.parse
 from pathlib import Path
 
 from . import __version__, backends as backend_mod, config as config_mod, idle, provision
-from .api import ApiError, Client
+from .api import ApiError, Backoff, Client, unavailable
 from .gitcache import GitCache
 
 log = logging.getLogger("crane-worker")
@@ -42,6 +42,7 @@ class Worker:
         self.repo_urls: dict[str, str] = {}
         self.last_update = 0.0
         self.paused: str | None = None
+        self.backoff = Backoff()
         self.caps = config_mod.detect_caps(cfg, sorted(self.backends))
 
     def note(self, state: str, reason: str | None = None, job: str | None = None) -> None:
@@ -97,27 +98,40 @@ class Worker:
                 self.paused = None
             self.note("idle")
             self.between_jobs(versions)
+            # Long poll: the coordinator holds an empty answer up to wait_s until a job arrives.
+            wait_s = 0 if once else float(self.cfg.get("long_poll_s", 25))
+            t0 = time.monotonic()
             try:
-                r = self.client.post("/v1/lease", {"caps": self.caps, "policy": self.policy, "max_jobs": 1, "state": "idle",
-                                                   "client_version": __version__})
-            except ApiError as e:
-                if e.status == 426:
+                body = {"caps": self.caps, "policy": self.policy, "max_jobs": 1, "state": "idle", "client_version": __version__}
+                if wait_s > 0:
+                    body["wait_s"] = wait_s
+                r = self.client.post("/v1/lease", body)
+            except (ApiError, OSError) as e:
+                if isinstance(e, ApiError) and e.status == 426:
                     log.error("coordinator requires a newer client: %s", e.body)
                     self.stop.wait(600)
                     continue
-                raise
-            except OSError as e:
-                log.warning("coordinator unreachable: %s", e)
-                self.stop.wait(float(self.cfg["poll_s"]))
+                why = unavailable(e)
+                if why is None:
+                    raise
+                # 503 (out of quota), 5xx or unreachable: back off 5 s doubling to 5 min, and say why.
+                w = self.backoff.step(e)
+                log.warning("coordinator unavailable (%s); next lease in %.0f s", why, w)
+                self.note("waiting", f"coordinator unavailable: {why}")
+                if once:
+                    return
+                self.stop.wait(w)
                 continue
+            self.backoff.reset()
             versions = r.get("repos") or {}
             ttl = float(r.get("lease_ttl_s") or 300)
             for job in r["jobs"]:
                 self.run_job(job, ttl)
             if once:
                 return
+            # An empty answer: wait poll_s, less what a long poll already waited (an older coordinator answers at once).
             if not r["jobs"]:
-                self.stop.wait(float(self.cfg["poll_s"]))
+                self.stop.wait(max(0.0, float(self.cfg["poll_s"]) - (time.monotonic() - t0)))
 
     def _safe_post(self, path, body):
         try:

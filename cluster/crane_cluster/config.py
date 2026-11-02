@@ -34,6 +34,7 @@ DEFAULTS = {
     "token_file": None,
     "data_dir": None,
     "poll_s": 30,
+    "long_poll_s": 25,   # the lease call waits up to this long for a job (0: plain polling)
     "heartbeat_s": 60,
     "caps": {},
     "policy": {},
