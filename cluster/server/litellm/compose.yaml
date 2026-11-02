@@ -1,0 +1,49 @@
+# LiteLLM proxy + its Postgres (keys, budgets, usage log) + Redis (response cache), on loopback :4000.
+# .env next to this file (mode 600; deploy/creation.sh --litellm writes it): LITELLM_MASTER_KEY, POSTGRES_PASSWORD,
+# OPEN_ROUTER_API_KEY, GROQ_API_KEY, GOOGLE_AI_STUDIO_KEY, OLLAMA_INNOVATION_URL, OLLAMA_SIMWIN_URL.
+name: litellm
+services:
+  litellm:
+    # main-stable as of 2026-10-23, pinned by digest; LITELLM_IMAGE overrides.
+    image: ${LITELLM_IMAGE:-ghcr.io/berriai/litellm@sha256:37e2dafb088a7723beb998590682957386dfc83ffea1848486f8e0e5cfac0b06}
+    command: ["--config", "/app/config.yaml", "--port", "4000", "--num_workers", "1"]
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      DATABASE_URL: postgresql://litellm:${POSTGRES_PASSWORD}@db:5432/litellm
+      REDIS_HOST: redis
+      LITELLM_LOG: WARNING
+      LITELLM_TELEMETRY: "False"
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+    ports:
+      - "127.0.0.1:${LITELLM_PORT:-4000}:4000"
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_started }
+    mem_limit: 1536m
+    cpus: 1.5
+    logging: { driver: json-file, options: { max-size: 10m, max-file: "3" } }
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: litellm
+      POSTGRES_DB: litellm
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - litellm-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U litellm -d litellm"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    mem_limit: 384m
+    logging: { driver: json-file, options: { max-size: 10m, max-file: "3" } }
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru", "--save", ""]
+    mem_limit: 192m
+volumes:
+  litellm-db:
