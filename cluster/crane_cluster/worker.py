@@ -15,6 +15,7 @@ import subprocess
 import sys
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, wait
 import urllib.parse
 from pathlib import Path
 
@@ -170,6 +171,10 @@ class Worker:
         hb = threading.Thread(target=heartbeat, daemon=True)
         hb.start()
         error = None
+        # Artifact uploads (about 0.8 s each through the coordinator into R2) run in the background,
+        # overlapping the next seeds; the job completes only after they finish.
+        uploads = ThreadPoolExecutor(max_workers=int(self.cfg.get("upload_threads", 8)), thread_name_prefix="upload")
+        pending = []
         try:
             for repo in job.get("repos") or []:
                 self.repo_urls[repo["name"]] = repo["url"]
@@ -192,12 +197,16 @@ class Worker:
                                                             "wall_s": time.time() - t0})
                     break
                 run = self.client.post(f"/v1/jobs/{jid}/runs", {"seed": seed, "metrics": metrics, "wall_s": time.time() - t0})
-                self.upload_artifacts(jid, run["run_id"], backend.artifacts(run_dir))
+                for path, name, retention in backend.artifacts(run_dir):
+                    pending.append(uploads.submit(self._upload_file, jid, run["run_id"], path, name, retention))
                 prov = {"resolved": ctx.resolved, "backend": job["backend"], "worker": self.cfg["name"]}
-                self._upload_bytes(jid, run["run_id"], "provenance.json", json.dumps(prov).encode(), "summary")
+                pending.append(uploads.submit(self._upload_bytes, jid, run["run_id"], "provenance.json",
+                                              json.dumps(prov).encode(), "summary"))
         except Exception as e:
             error = error or f"{type(e).__name__}: {e}"
         finally:
+            wait(pending)
+            uploads.shutdown()
             done.set()
             hb.join(timeout=5)
             try:
@@ -219,7 +228,15 @@ class Worker:
 
     def upload_artifacts(self, jid: str, run_id: str, items) -> None:
         for path, name, retention in items:
-            self._upload_bytes(jid, run_id, name, Path(path).read_bytes(), retention)
+            self._upload_file(jid, run_id, path, name, retention)
+
+    def _upload_file(self, jid, run_id, path, name, retention):
+        try:
+            data = Path(path).read_bytes()
+        except OSError as e:
+            log.warning("artifact %s unreadable: %s", name, e)
+            return
+        self._upload_bytes(jid, run_id, name, data, retention)
 
     def _upload_bytes(self, jid, run_id, name, data, retention):
         q = urllib.parse.urlencode({"run": run_id, "retention": retention})
