@@ -41,7 +41,7 @@ export const admin = (method: string, path: string, json?: unknown) => callJson(
 
 export async function runCron(): Promise<void> {
   const ctx = createExecutionContext();
-  await worker.scheduled(createScheduledController({ scheduledTime: Date.now(), cron: "*/5 * * * *" }), env, ctx);
+  await worker.scheduled(createScheduledController({ scheduledTime: Math.floor(Date.now() / 21_600_000) * 21_600_000, cron: "*/5 * * * *" }) /* a 6 h boundary: the run that also tiers artifacts */, env, ctx);
   await waitOnExecutionContext(ctx);
 }
 

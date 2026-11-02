@@ -119,12 +119,12 @@ interface FeedJob extends Row {
 const STATE: Record<string, string> = { leased: "running", done: "done", dead: "dead", failed: "failed", cancelled: "cancelled", queued: "queued" };
 
 /** Builds the sanitized feed snapshot. */
-export async function buildFeed(env: Env, opts: { recent?: number; jobId?: string } = {}, nowMs = Date.now()) {
+export async function buildFeed(env: Env, opts: { recent?: number; jobId?: string; origin?: string } = {}, nowMs = Date.now()) {
   const recent = opts.recent ?? RECENT_DEFAULT;
   const jobCols = `j.job_id, j.hypothesis_id, j.stage_index, j.arm, j.backend, j.seeds_json, j.needs_json, j.spec_json,
       j.priority, j.status, j.attempt, j.lease_worker, j.leased_at_ms, j.last_error, j.created, j.ended_at, j.purpose,
       j.est_seconds, j.submitter, j.campaign, j.judge, h.name AS hyp_name`;
-  const [active, ended, workers, model] = await env.DB.batch([
+  const [active, ended, workers] = await env.DB.batch([
     env.DB.prepare(
       `SELECT ${jobCols} FROM jobs j LEFT JOIN hypotheses h ON h.id = j.hypothesis_id
         WHERE j.status IN ('queued','leased') ORDER BY j.priority, j.created LIMIT ${ACTIVE_LIMIT}`,
@@ -136,27 +136,47 @@ export async function buildFeed(env: Env, opts: { recent?: number; jobId?: strin
             WHERE j.ended_at IS NOT NULL ORDER BY j.ended_at DESC LIMIT ?1`,
         ).bind(recent),
     env.DB.prepare("SELECT id, name, state, last_seen, disabled, caps_json, policy_json FROM workers"),
-    env.DB.prepare(
+  ]);
+  // The duration model reads MODEL_SAMPLE runs (~2 rows each): refreshed every MODEL_CACHE_S, not every snapshot.
+  const modelRows = await memo(env, opts.origin, "model", MODEL_CACHE_S, async () =>
+    (await env.DB.prepare(
       `SELECT j.backend, r.worker_id, r.wall_s, j.est_seconds, r.created, r.job_id, r.attempt AS run_attempt, j.attempt,
           j.leased_at_ms, j.ended_at FROM runs r JOIN jobs j ON j.job_id = r.job_id
         WHERE r.status = 'ok' AND r.wall_s IS NOT NULL ORDER BY r.created DESC LIMIT ${MODEL_SAMPLE}`,
-    ),
-  ]);
+    ).all()).results as ModelRow[]);
   const activeJobs = active.results as FeedJob[];
   const endedJobs = (ended.results as FeedJob[]).filter((j) => !activeJobs.some((a) => a.job_id === j.job_id));
   const jobs = opts.jobId ? [...activeJobs.filter((j) => j.job_id === opts.jobId), ...endedJobs] : [...activeJobs, ...endedJobs];
   const ids = JSON.stringify(jobs.map((j) => j.job_id));
+  // Run counts and metric means scan every run and metric of every listed job (the feed's largest read, which
+  // exhausted D1's daily row budget on 11-02). An ended job's runs no longer change, so its aggregates are
+  // cached per (job, attempt, ended_at) set; only queued and leased jobs are aggregated on every snapshot.
+  const isLive = (j: FeedJob) => j.status === "queued" || j.status === "leased";
+  const liveIds = JSON.stringify(jobs.filter(isLive).map((j) => j.job_id));
+  const endedJobs_ = jobs.filter((j) => !isLive(j));
+  const endedKey = "ended:" + (await sha256(endedJobs_.map((j) => `${j.job_id}:${j.attempt}:${j.ended_at}`).join(",")));
+  const aggregate = async (jobIds: string) => {
+    const [c, m] = await env.DB.batch([
+      env.DB.prepare(
+        `SELECT r.job_id, r.status, COUNT(*) AS n FROM runs r JOIN jobs j ON j.job_id = r.job_id AND r.attempt = j.attempt
+          WHERE r.job_id IN (SELECT value FROM json_each(?1)) GROUP BY r.job_id, r.status`,
+      ).bind(jobIds),
+      env.DB.prepare(
+        `SELECT r.job_id, m.name, AVG(m.value) AS mean, COUNT(*) AS n FROM runs r
+           JOIN jobs j ON j.job_id = r.job_id AND r.attempt = j.attempt JOIN metrics m ON m.run_id = r.run_id
+          WHERE r.job_id IN (SELECT value FROM json_each(?1)) GROUP BY r.job_id, m.name`,
+      ).bind(jobIds),
+    ]);
+    return { counts: c.results as Row[], metrics: m.results as Row[] };
+  };
+  const [liveAgg, endedAgg] = await Promise.all([
+    aggregate(liveIds),
+    endedJobs_.length ? memo(env, opts.origin, endedKey, ENDED_CACHE_S, () => aggregate(JSON.stringify(endedJobs_.map((j) => j.job_id)))) : { counts: [], metrics: [] },
+  ]);
+  const counts = { results: [...liveAgg.counts, ...endedAgg.counts] };
+  const metrics = { results: [...liveAgg.metrics, ...endedAgg.metrics] };
 
-  const [counts, metrics, replay, insight, recentRuns] = await env.DB.batch([
-    env.DB.prepare(
-      `SELECT r.job_id, r.status, COUNT(*) AS n FROM runs r JOIN jobs j ON j.job_id = r.job_id AND r.attempt = j.attempt
-        WHERE r.job_id IN (SELECT value FROM json_each(?1)) GROUP BY r.job_id, r.status`,
-    ).bind(ids),
-    env.DB.prepare(
-      `SELECT r.job_id, m.name, AVG(m.value) AS mean, COUNT(*) AS n FROM runs r
-         JOIN jobs j ON j.job_id = r.job_id AND r.attempt = j.attempt JOIN metrics m ON m.run_id = r.run_id
-        WHERE r.job_id IN (SELECT value FROM json_each(?1)) GROUP BY r.job_id, m.name`,
-    ).bind(ids),
+  const [replay, insight, recentRuns] = await env.DB.batch([
     env.DB.prepare(
       `SELECT m.job_id, SUM(a.deleted_at IS NULL) AS n, SUM(a.deleted_at IS NULL AND a.r2_deleted_at IS NOT NULL) AS archived, MIN(m.study) AS study
          FROM run_meta m JOIN artifacts a ON a.key = m.traj_key
@@ -186,7 +206,7 @@ export async function buildFeed(env: Env, opts: { recent?: number; jobId?: strin
   ]);
 
   // ---- model, workers
-  const { backends, speed } = durationModel(runWalls(model.results as ModelRow[]), nowMs);
+  const { backends, speed } = durationModel(runWalls(modelRows), nowMs);
   const workerRows = workers.results as Row[];
   const aliasOf = new Map(workerRows.map((w) => [w.id as string, alias(w.name as string)]));
   const live = (w: Row) => !w.disabled && !!w.last_seen && nowMs - Date.parse(w.last_seen as string) <= LIVE_MS;
@@ -356,9 +376,29 @@ const PUBLIC_HEADERS = {
   "x-content-type-options": "nosniff",
 };
 
-const cacheSeconds = (env: Env) => intVar(env.FEED_CACHE_S, 5);
+const cacheSeconds = (env: Env) => intVar(env.FEED_CACHE_S, 15);
+const MODEL_CACHE_S = 300;
+const ENDED_CACHE_S = 86_400;
 
-/** The snapshot through the colo cache (FEED_CACHE_S, default 5 s), so many viewers cost one D1 read. */
+async function sha256(text: string): Promise<string> {
+  const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
+  return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/** A JSON value through the colo cache under this Worker's origin for ttl s (off without an origin or when FEED_CACHE_S is 0, as in tests). */
+async function memo<T>(env: Env, origin: string | undefined, key: string, ttl: number, fn: () => Promise<T>): Promise<T> {
+  const cache = origin && cacheSeconds(env) > 0 && typeof caches !== "undefined" ? (caches as unknown as { default: Cache }).default : null;
+  const req = new Request(`${origin}/v1/feed/_memo/${encodeURIComponent(key)}`);
+  if (cache) {
+    const hit = await cache.match(req);
+    if (hit) return (await hit.json()) as T;
+  }
+  const v = await fn();
+  if (cache) await cache.put(req, new Response(JSON.stringify(v), { headers: { "cache-control": `public, max-age=${ttl}` } }));
+  return v;
+}
+
+/** The snapshot through the colo cache (FEED_CACHE_S, default 15 s), so many viewers cost one D1 read. */
 async function cachedFeed(env: Env, url: URL, recent: number): Promise<string> {
   const ttl = cacheSeconds(env);
   const key = new Request(`${url.origin}/v1/feed?recent=${recent}&_c=1`);
@@ -367,7 +407,7 @@ async function cachedFeed(env: Env, url: URL, recent: number): Promise<string> {
     const hit = await cache.match(key);
     if (hit) return hit.text();
   }
-  const body = JSON.stringify(await buildFeed(env, { recent }));
+  const body = JSON.stringify(await buildFeed(env, { recent, origin: url.origin }));
   if (cache) await cache.put(key, new Response(body, { headers: { "cache-control": `public, max-age=${ttl}` } }));
   return body;
 }
@@ -389,7 +429,7 @@ feedRoutes.get("/v1/feed", async (c) => {
 feedRoutes.get("/v1/feed/jobs/:id", async (c) => {
   const id = c.req.param("id");
   if (!/^[A-Za-z0-9._-]{1,64}$/.test(id)) throw new HttpError(400, "bad job id");
-  const f = await buildFeed(c.env, { jobId: id });
+  const f = await buildFeed(c.env, { jobId: id, origin: new URL(c.req.url).origin });
   const job = f.jobs.find((j) => j.id === id);
   if (!job) throw new HttpError(404, "unknown job");
   return new Response(JSON.stringify({ schema: FEED_SCHEMA, generated_at: f.generated_at, job, runs: f.runs }), {

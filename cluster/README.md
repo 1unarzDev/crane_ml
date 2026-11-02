@@ -324,6 +324,16 @@ npx wrangler deploy
 curl https://cluster.example.org/v1/ping
 ```
 
+Later deploys go through `./deploy.sh` (`npm run deploy`; `CRANE_URL` for another domain): it runs
+`wrangler deploy`, then requires `/v1/ping` and `/v1/feed` to answer 200 within a minute and runs
+`wrangler rollback` otherwise, so a broken deploy cannot leave workers and the study's `nlc.cluster`
+without a coordinator (they fall back to local runs). It does not roll back a failure that was already
+there before the deploy.
+
+D1 on the free plan allows 5M rows read per day for the whole account: the feed caches ended jobs'
+aggregates and the duration model, and the artifact tiering sweep runs every 6 h, to stay under it.
+Past it every D1 route answers 503 `D1 daily quota exhausted` until 00:00 UTC.
+
 GitHub, for each repo whose `main` workers should track: Settings → Webhooks →
 payload URL `https://cluster.example.org/v1/webhook/github`, content type
 `application/json`, the webhook secret, push events only.
