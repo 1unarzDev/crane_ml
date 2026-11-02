@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "crane-cluster"
+version = "0.1.0"
+description = "Domain-agnostic job cluster for staged simulation experiments: worker daemon, backends, promotion analysis"
+requires-python = ">=3.9"
+dependencies = []   # stdlib only; PyYAML is used when present
+
+[project.optional-dependencies]
+yaml = ["PyYAML"]
+
+[project.scripts]
+crane-worker = "crane_cluster.worker:main"
+crane-hyp = "crane_cluster.hyp:main"
+
+[tool.setuptools]
+packages = ["crane_cluster", "crane_cluster.backends"]
