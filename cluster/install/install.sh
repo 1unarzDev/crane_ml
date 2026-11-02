@@ -96,7 +96,9 @@ RestartSec=30
 Nice=10
 IOSchedulingClass=idle
 Environment=PYTHONUNBUFFERED=1
-
+${memory_max:+MemoryMax=$memory_max
+MemorySwapMax=0
+}
 [Install]
 WantedBy=default.target
 UNIT
