@@ -2,7 +2,7 @@
 
     <scenario.filename>  the scenario file, byte for byte
     track.jsonl          {t, x, y, yaw} at track_hz, the scenario's world frame
-    events.jsonl         the controller's events {t, event, ...} (goals included)
+    sim_events.jsonl     the controller's events {t, event, ...} (goals included)
     states.jsonl         the world's state log {t_sim, id, value}
     run.json             outcome, flags, contacts, error, idle, identity, limits, config, provenance
     (the adapter's own files, from DomainAdapter.finalize)
@@ -16,6 +16,7 @@ from pathlib import Path
 import traceback
 
 from fastsim import controller as ctl, identity, perception as perc
+from fastsim.config import merge
 from fastsim.plant import Limits, vehicle
 from fastsim.world import World, contact_cause, footprint_clearance
 
@@ -38,6 +39,7 @@ def simulate(scenario, adapter, cfg, seed, out, base=None, provenance=None):
     out = Path(out)
     if out.exists() and any(out.iterdir()):
         raise FileExistsError(f'{out}: a run directory is written once (provenance)')
+    cfg = merge(cfg, adapter.overrides() or {})
     world = World(scenario)
     lim = adapter.limits() or Limits.from_dict(cfg['limits'])
     dt = float(cfg['dt'])
@@ -110,7 +112,7 @@ def simulate(scenario, adapter, cfg, seed, out, base=None, provenance=None):
     out.mkdir(parents=True, exist_ok=True)
     (out / scenario.filename).write_bytes(scenario.data)
     (out / 'track.jsonl').write_text(''.join(line({'t': t, 'x': x, 'y': y, 'yaw': a}) for t, x, y, a in track))
-    (out / 'events.jsonl').write_text(''.join(line(e) for e in ctx.events))
+    (out / 'sim_events.jsonl').write_text(''.join(line(e) for e in ctx.events))
     (out / 'states.jsonl').write_text(''.join(line(r) for r in scenario.state_log()))
     (out / 'run.json').write_text(json.dumps(summary, indent=2) + '\n')
     adapter.finalize(out, {**summary, 'track': track, 'events': ctx.events, 'context': ctx})

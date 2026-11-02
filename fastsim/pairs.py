@@ -135,13 +135,14 @@ def main(argv=None):
     parser.add_argument('runs', nargs='+', type=Path)
     parser.add_argument('--root', type=Path, default=None)
     parser.add_argument('--describe', help="twin runs' describer MODULE:FUNC (default: run.json)")
-    parser.add_argument('--metrics', help="twin runs' metrics MODULE:FUNC (default: run.json)")
+    parser.add_argument('--metrics', help='both sides\' metrics MODULE:FUNC (default: run.json)')
     args = parser.parse_args(argv)
     if args.action == 'wait':
         made = wait(args.runs, args.root)
     else:
+        metrics = plugin.load(args.metrics) if args.metrics else run_metrics
         made = pair(args.runs, args.root, plugin.load(args.describe) if args.describe else describe_run,
-                    plugin.load(args.metrics) if args.metrics else run_metrics)
+                    metrics, metrics)
     print(json.dumps({'action': args.action, 'root': str(args.root or default_root()), 'new': made}))
     return 0
 

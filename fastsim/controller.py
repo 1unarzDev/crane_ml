@@ -92,7 +92,7 @@ class RunContext:
     events: list = field(default_factory=list)
 
     def emit(self, event, **fields):
-        """A controller event, stamped with sim time, kept in the run's events.jsonl."""
+        """A controller event, stamped with sim time, kept in the run's sim_events.jsonl."""
         self.events.append({'t': self.clock['now'], 'event': event, **fields})
 
 
@@ -119,6 +119,12 @@ class DomainAdapter(ABC):
     def limits(self):
         """The vehicle's Limits, or None to take ``limits`` from the config."""
         return None
+
+    def overrides(self):
+        """Config read from the domain's own files at run time (e.g. ``perception`` from a
+        robot description, ``tracker`` from a tracker config), merged over the YAML for every
+        run and so recorded and hashed with it."""
+        return {}
 
     @abstractmethod
     def controller(self, ctx: RunContext) -> Controller:

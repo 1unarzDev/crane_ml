@@ -15,6 +15,7 @@ boundary, the world's state programs and the generator identity, plus the file's
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 import json
+import os
 from pathlib import Path
 import subprocess
 
@@ -145,7 +146,7 @@ class ScenarioSource:
 
     def __init__(self, dir, pattern='scenario-s{seed}.json', fields=None, generate=None,
                  format=None, base=None):
-        self.dir = Path(base or '.') / Path(dir).expanduser()
+        self.dir = Path(base or '.') / Path(os.path.expandvars(dir)).expanduser()
         self.pattern, self.fields, self.generate_cmd = pattern, dict(fields or {}), generate
         self.format = scenario_format(format, base)
 

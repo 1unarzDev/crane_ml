@@ -1,4 +1,5 @@
-"""Plugin references from YAML: ``package.module:attr`` or ``path/to/file.py:attr``.
+"""Plugin references from YAML: ``package.module:attr`` or ``path/to/file.py:attr`` (a path may
+use ``~`` and ``$VARS``).
 
 Every domain specific (scenario format checks, the controller adapter, twin describers) enters
 the core through one of these, so core code names no domain.
@@ -6,6 +7,7 @@ the core through one of these, so core code names no domain.
 
 import importlib
 import importlib.util
+import os
 from pathlib import Path
 import sys
 
@@ -18,7 +20,7 @@ def load(ref, base=None):
     if not sep or not target or not attr:
         raise ValueError(f'plugin reference {ref!r}: expected MODULE:ATTR or FILE.py:ATTR')
     if target.endswith('.py'):
-        path = Path(target).expanduser()
+        path = Path(os.path.expandvars(target)).expanduser()
         if not path.is_absolute() and base is not None:
             path = Path(base) / path
         name = f'_fastsim_plugin_{abs(hash(str(path.resolve())))}'
