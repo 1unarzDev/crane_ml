@@ -1,0 +1,32 @@
+# crane cluster coordinator. See ../README.md ("Deploying") before deploying; nothing is deployed by default.
+name = "crane-cluster"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+
+[vars]
+MIN_CLIENT_VERSION = "0.1.0"   # fallback until PUT /v1/admin/client_release sets one
+LEASE_TTL_SECONDS = "300"      # initial lease and each heartbeat extension
+MAX_ATTEMPTS = "3"             # default per job; an expired or failed lease at this attempt goes to 'dead'
+MAX_LEASE_JOBS = "4"           # cap on max_jobs per /v1/lease call
+RAW_RETENTION_DAYS = "14"      # default retention of raw artifacts (PUT /v1/admin/retention overrides)
+MAX_ARTIFACT_MB = "95"         # proxied uploads stay under the Workers request-body limit
+
+# Secrets (never put them here):
+#   npx wrangler secret put ADMIN_TOKEN
+#   npx wrangler secret put GITHUB_WEBHOOK_SECRET
+
+[[d1_databases]]
+binding = "DB"
+database_name = "crane-cluster"
+database_id = "00000000-0000-0000-0000-000000000000"   # replace with the id printed by `npx wrangler d1 create crane-cluster`
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "crane-cluster"
+
+[triggers]
+crons = ["*/5 * * * *"]   # reclaim expired leases, delete expired raw artifacts
+
+[observability]
+enabled = true
