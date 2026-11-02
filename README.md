@@ -245,3 +245,4 @@ environments. Read the documentation before treating a run as training-valid.
 - [Architecture and design](Docs/ArchitectureAndDesign.md)
 - [Simulation physics, conventions, and runtime modes](Docs/SimulationPhysicsAndRuntimeModes.md)
 - [Performance engineering and benchmark results](Docs/PerformanceEngineering.md)
+- [Experiment cluster: coordinator, workers, staged hypothesis promotion](cluster/README.md)
