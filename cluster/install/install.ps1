@@ -74,12 +74,13 @@ New-Item -ItemType Directory -Force -Path $lib, $confDir | Out-Null
 # 1. code: a copy of the crane_cluster package
 if (-not $Source) { $Source = Split-Path $PSScriptRoot }
 $tmp = Join-Path ([IO.Path]::GetTempPath()) ("crane-" + [guid]::NewGuid())
-if (Test-Path (Join-Path $Source "crane_cluster")) { $pkg = Join-Path $Source "crane_cluster" }
-elseif (Test-Path (Join-Path $Source "cluster\crane_cluster")) { $pkg = Join-Path $Source "cluster\crane_cluster" }
+$isUrl = $Source -match '^[A-Za-z][A-Za-z0-9+.-]+://|^git@'   # Join-Path takes a URL's scheme for a drive
+if (-not $isUrl -and (Test-Path (Join-Path $Source "crane_cluster"))) { $pkg = Join-Path $Source "crane_cluster" }
+elseif (-not $isUrl -and (Test-Path (Join-Path $Source "cluster\crane_cluster"))) { $pkg = Join-Path $Source "cluster\crane_cluster" }
 else {
   if (-not (Get-Command git -ErrorAction SilentlyContinue)) { throw "git is required to install from $Source" }
   $env:GIT_TERMINAL_PROMPT = "0"
-  git clone -q --depth 1 $Source $tmp
+  git -c filter.lfs.process= -c filter.lfs.smudge= -c filter.lfs.required=false clone -q --depth 1 $Source $tmp   # only cluster/ is used: LFS assets stay pointers (MinGit has no git-lfs)
   if ($LASTEXITCODE -ne 0) { throw "git clone $Source failed" }
   $pkg = Join-Path $tmp "cluster\crane_cluster"
 }
