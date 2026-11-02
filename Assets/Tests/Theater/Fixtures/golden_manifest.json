@@ -1,0 +1,244 @@
+{
+ "iterations": [
+  {
+   "insight": "iteration 0",
+   "iteration": 0
+  },
+  {
+   "insight": "iteration 1",
+   "iteration": 1
+  },
+  {
+   "insight": "iteration 2",
+   "iteration": 2
+  }
+ ],
+ "pack": "golden.pack",
+ "robot": {
+  "plugin": "arrow"
+ },
+ "runs": [
+  {
+   "duration_s": 31.8,
+   "events": [
+    {
+     "kind": "finish",
+     "t": 31.8,
+     "x": 31.8,
+     "y": -0.17
+    }
+   ],
+   "failure_reason": null,
+   "id": "g0",
+   "iteration": 0,
+   "outcome": "finished",
+   "params": {
+    "ctrl.k": 0.5,
+    "ctrl.speed": 1.0
+   },
+   "progress": 1.0,
+   "score": 1.1,
+   "valid": true
+  },
+  {
+   "duration_s": 29.0,
+   "events": [
+    {
+     "kind": "finish",
+     "t": 29.0,
+     "x": 31.9,
+     "y": -1.37
+    }
+   ],
+   "failure_reason": null,
+   "id": "g1",
+   "iteration": 0,
+   "outcome": "finished",
+   "params": {
+    "ctrl.k": 0.5,
+    "ctrl.speed": 1.1
+   },
+   "progress": 1.0,
+   "score": 1.11,
+   "valid": true
+  },
+  {
+   "duration_s": 7.8,
+   "events": [
+    {
+     "kind": "failure",
+     "t": 7.8,
+     "x": 9.36,
+     "y": -1.49
+    }
+   ],
+   "failure_reason": "buoy_hit",
+   "id": "g2",
+   "iteration": 0,
+   "outcome": "failed",
+   "params": {
+    "ctrl.k": 0.5,
+    "ctrl.speed": 1.2
+   },
+   "progress": 0.312,
+   "score": 0.432,
+   "valid": true
+  },
+  {
+   "duration_s": 21.8,
+   "events": [
+    {
+     "kind": "finish",
+     "t": 21.8,
+     "x": 32.7,
+     "y": 0.25
+    }
+   ],
+   "failure_reason": null,
+   "id": "g3",
+   "iteration": 1,
+   "outcome": "finished",
+   "params": {
+    "ctrl.k": 1.5,
+    "ctrl.speed": 1.5
+   },
+   "progress": 1.0,
+   "score": 1.15,
+   "valid": true
+  },
+  {
+   "duration_s": 20.4,
+   "events": [
+    {
+     "kind": "finish",
+     "t": 20.4,
+     "x": 32.64,
+     "y": 0.99
+    }
+   ],
+   "failure_reason": null,
+   "id": "g4",
+   "iteration": 1,
+   "outcome": "finished",
+   "params": {
+    "ctrl.k": 1.5,
+    "ctrl.speed": 1.6
+   },
+   "progress": 1.0,
+   "score": 1.16,
+   "valid": true
+  },
+  {
+   "duration_s": 7.8,
+   "events": [
+    {
+     "kind": "failure",
+     "t": 7.8,
+     "x": 13.26,
+     "y": 0.45
+    }
+   ],
+   "failure_reason": "buoy_hit",
+   "id": "g5",
+   "iteration": 1,
+   "outcome": "failed",
+   "params": {
+    "ctrl.k": 1.5,
+    "ctrl.speed": 1.7
+   },
+   "progress": 0.442,
+   "score": 0.612,
+   "valid": true
+  },
+  {
+   "duration_s": 16.8,
+   "events": [
+    {
+     "kind": "finish",
+     "t": 16.8,
+     "x": 33.6,
+     "y": -0.22
+    }
+   ],
+   "failure_reason": null,
+   "id": "g6",
+   "iteration": 2,
+   "outcome": "finished",
+   "params": {
+    "ctrl.k": 2.5,
+    "ctrl.speed": 2.0
+   },
+   "progress": 1.0,
+   "score": 1.2,
+   "valid": true
+  },
+  {
+   "duration_s": 16.0,
+   "events": [
+    {
+     "kind": "finish",
+     "t": 16.0,
+     "x": 33.6,
+     "y": -0.59
+    }
+   ],
+   "failure_reason": null,
+   "id": "g7",
+   "iteration": 2,
+   "outcome": "finished",
+   "params": {
+    "ctrl.k": 2.5,
+    "ctrl.speed": 2.1
+   },
+   "progress": 1.0,
+   "score": 1.21,
+   "valid": true
+  },
+  {
+   "duration_s": 15.4,
+   "events": [
+    {
+     "kind": "finish",
+     "t": 15.4,
+     "x": 33.88,
+     "y": -0.38
+    }
+   ],
+   "failure_reason": null,
+   "id": "g8",
+   "iteration": 2,
+   "outcome": "finished",
+   "params": {
+    "ctrl.k": 2.5,
+    "ctrl.speed": 2.2
+   },
+   "progress": 1.0,
+   "score": 1.22,
+   "valid": true
+  }
+ ],
+ "schema": "crane-theater/1",
+ "study": "golden",
+ "water": {
+  "mode": "still"
+ },
+ "world": {
+  "bounds": [
+   -5,
+   -10,
+   40,
+   10
+  ],
+  "centreline": [
+   [
+    0,
+    0
+   ],
+   [
+    30,
+    0
+   ]
+  ],
+  "plugin": "plane"
+ }
+}

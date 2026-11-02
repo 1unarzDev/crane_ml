@@ -1,0 +1,14 @@
+{
+    "name": "Crane.Theater.Tests",
+    "references": [
+        "Crane.Theater",
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.RenderPipelines.HighDefinition.Runtime"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ]
+}
