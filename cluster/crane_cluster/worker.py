@@ -286,8 +286,10 @@ def cmd_status(a, cfg):
         line = f"paused ({st.get('reason')})"
     elif st.get("state") == "running":
         line = f"on, running job {st.get('job')}"
-    else:
+    elif st.get("state") == "idle":
         line = "on, idle"
+    else:
+        line = "on, starting"
     print(line)
 
 
