@@ -40,6 +40,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+from .offsite import OFFSITE_DEFAULTS, Offsite
 from .store import Store, StoreError
 
 UA = 'crane-archive/0.1'
@@ -50,6 +51,7 @@ DEFAULTS = {
     'coordinator': 'https://crane.lunarz.dev', 'root': '~/crane-archive', 'node': 'archive', 'quota_bytes': '20G',
     'min_free_bytes': '25G', 'listen': '127.0.0.1:7420', 'token_file': '~/.config/crane-cluster/archive.token',
     'pull': {'interval_s': 300, 'batch': 200, 'min_age_h': 24}, 'scrub': {'gb_per_day': 200}, 'smart': [],
+    'offsite': dict(OFFSITE_DEFAULTS),
 }
 
 
@@ -135,9 +137,10 @@ class Daemon:
         self.cfg, self.store, self.coord, self.log = cfg, store, coord, log
         self.node = str(cfg['node'])
         self.failures: dict = {}          # key -> (count, next_try)
-        self.last = {'pull': None, 'scrub': None, 'evict': None, 'error': None}
+        self.last = {'pull': None, 'scrub': None, 'evict': None, 'offsite': None, 'error': None}
         self.protected: set = set()
         self.stop = threading.Event()
+        self.offsite = Offsite(cfg, store, log=log)
         self.last_health: dict = {}
 
     # ------------------------------------------------------------------ space
@@ -253,7 +256,7 @@ class Daemon:
         return {'node': self.node, 'root_kind': sp['disk']['fs'], 'total': sp['capacity'], 'used': sp['used'],
                 'free': max(0, sp['capacity'] - sp['used']), 'disk_free': sp['disk']['free'], 'objects': st['objects'],
                 'original_bytes': st['original_bytes'], 'kinds': st['kinds'], 'state': state, 'smart': smart,
-                'pool': pool, 'last': self.last}
+                'pool': pool, 'last': self.last, 'offsite': self.offsite.status()}
 
     def heartbeat(self) -> dict:
         h = self.health()
@@ -278,6 +281,8 @@ class Daemon:
                 self.scrub(int((now - last_scrub) * scrub_per_s))
                 last_scrub = now
                 self.store.clean_tmp()
+                if self.offsite.enabled and self.offsite.due():     # the daily timer missed: hold the mirror policy
+                    self.last['offsite'] = {'t': time.time(), **self.offsite.push()}
                 self.heartbeat()
                 self.last['error'] = None
             except Exception as e:  # noqa: BLE001 - the loop must survive any one failure

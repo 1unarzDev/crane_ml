@@ -49,6 +49,9 @@ try:  # Python 3.14
     def _zstd_reader(f):
         return _zstd.ZstdFile(f, 'rb')
     ZSTD = True
+
+    def zstd_writer(f, level=3):
+        return _zstd.ZstdFile(f, 'wb', level=level)
 except ImportError:  # pragma: no cover - depends on the Python
     try:
         import zstandard as _zs
@@ -60,6 +63,9 @@ except ImportError:  # pragma: no cover - depends on the Python
         def _zstd_reader(f):
             return _zs.ZstdDecompressor().stream_reader(f)
         ZSTD = True
+
+        def zstd_writer(f, level=3):
+            return _zs.ZstdCompressor(level=level).stream_writer(f, closefd=False)
     except ImportError:
         ZSTD = False
 
@@ -99,6 +105,11 @@ CREATE INDEX IF NOT EXISTS objects_verified ON objects(verified_at);
 CREATE INDEX IF NOT EXISTS objects_kind ON objects(kind, first_seen);
 CREATE TABLE IF NOT EXISTS keys (key TEXT PRIMARY KEY, sha256 TEXT NOT NULL, kind TEXT, created TEXT);
 CREATE INDEX IF NOT EXISTS keys_sha ON keys(sha256);
+CREATE TABLE IF NOT EXISTS bundles (
+  name TEXT PRIMARY KEY, remote TEXT NOT NULL, created REAL NOT NULL, objects INTEGER NOT NULL, original_bytes INTEGER NOT NULL,
+  bytes INTEGER NOT NULL, md5 TEXT NOT NULL, sha256 TEXT NOT NULL, verified_at REAL NOT NULL);
+CREATE TABLE IF NOT EXISTS copies (
+  sha256 TEXT NOT NULL, bundle TEXT NOT NULL, size INTEGER NOT NULL, kind TEXT NOT NULL, PRIMARY KEY (sha256, bundle));
 CREATE TABLE IF NOT EXISTS log (t REAL NOT NULL, event TEXT NOT NULL, sha256 TEXT, detail TEXT);
 """
 

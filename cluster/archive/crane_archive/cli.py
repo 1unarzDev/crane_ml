@@ -7,6 +7,7 @@
     crane-archive put FILE [--kind K]               store a local file (rig and local runs); prints its sha256
     crane-archive get SHA [-o FILE]                 the original bytes
     crane-archive pin SHA [--off]                   exempt an object from eviction
+    crane-archive offsite push|status|reindex       the off-site (rclone) copy; ``get`` also restores from it
     crane-archive move --to DIR                     copy, verify, and switch the config's root (drives arrived)
 All take --config (default ~/.config/crane-cluster/archive.yaml).
 """
@@ -55,6 +56,8 @@ def main(argv=None) -> None:
     pn.add_argument('--off', action='store_true')
     m = sub.add_parser('move')
     m.add_argument('--to', required=True)
+    o = sub.add_parser('offsite')
+    o.add_argument('action', choices=['push', 'status', 'reindex'])
     a = ap.parse_args(argv)
     cfg = load_config(a.config)
 
@@ -77,7 +80,8 @@ def main(argv=None) -> None:
             h = d.last_health
             return {'node': d.node, **{k: h.get(k) for k in ('state', 'objects', 'used', 'total')}, 'last': d.last}
 
-        srv = make_server(store, str(cfg['listen']), verifier=verifier, health=health)
+        srv = make_server(store, str(cfg['listen']), verifier=verifier, health=health,
+                          restore=d.offsite.restore if d.offsite.enabled else None)
         threading.Thread(target=srv.serve_forever, daemon=True).start()
         signal.signal(signal.SIGTERM, lambda *_: d.stop.set())
         print(f'crane-archive {d.node}: root {store.root}, serving {cfg["listen"]}'
@@ -105,7 +109,22 @@ def main(argv=None) -> None:
         o = store.put_file(a.file, kind=a.kind, name=Path(a.file).name)
         print(o.sha256)
         return
+    if a.cmd == 'offsite':
+        off = Daemon(cfg, store, None).offsite
+        if not off.enabled:
+            sys.exit('crane-archive: offsite.remote is not set in the config')
+        if a.action == 'status':
+            print(json.dumps(off.status(), indent=1))
+            return
+        if a.action == 'reindex':
+            print(f'{off.reindex()} bundles recorded')
+            return
+        r = off.push()
+        print(json.dumps(r))
+        sys.exit(1 if r['error'] else 0)
     if a.cmd == 'get':
+        if not store.has(a.sha):
+            Daemon(cfg, store, None).offsite.restore(a.sha)
         data = store.read_bytes(a.sha)
         if a.out:
             Path(a.out).write_bytes(data)

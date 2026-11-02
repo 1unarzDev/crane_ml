@@ -2,6 +2,7 @@
 
     GET  /o/<sha256>   the original bytes (Range: one byte range); x-content-sha256 on every answer
     HEAD /o/<sha256>   existence and size
+    (an object not in the store is fetched from the off-site bundle when the index knows one)
     GET  /health       the last heartbeat (state, space, scrub)
 
 Cloudflare Access in front of the tunnel lets only the coordinator's service token through. As defense in
@@ -96,9 +97,10 @@ class AccessVerifier:
         return None
 
 
-def make_server(store: Store, listen: str, *, verifier: AccessVerifier | None = None, health=lambda: {}):
+def make_server(store: Store, listen: str, *, verifier: AccessVerifier | None = None, health=lambda: {}, restore=None):
     host, _, port = listen.rpartition(':')
     local = threading.local()
+    restore_lock = threading.Lock()
 
     def db():
         if getattr(local, 'db', None) is None:
@@ -147,6 +149,13 @@ def make_server(store: Store, listen: str, *, verifier: AccessVerifier | None = 
             if not m:
                 return self._send_json(404, {'error': 'not found'})
             o = store.get(m.group(1), db())
+            if not o and restore is not None:      # not here (and the coordinator found nothing in R2): the off-site copy
+                try:
+                    with restore_lock:
+                        o = restore(m.group(1))
+                    o = store.get(m.group(1), db()) if o else None
+                except Exception as e:  # noqa: BLE001 - a remote outage is a 503, not a crash
+                    return self._send_json(503, {'error': 'offsite unavailable', 'detail': str(e)[:200]}, {'retry-after': '300'})
             if not o:
                 return self._send_json(404, {'error': 'not found'})
             start, end = 0, o.size - 1

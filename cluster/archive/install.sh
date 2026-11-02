@@ -69,6 +69,8 @@ min_free_bytes: $min_free
 listen: 127.0.0.1:7420
 pull: {interval_s: 300, batch: 200, min_age_h: 24}
 scrub: {gb_per_day: 200}
+# Off-site copy on an rclone remote (README "Off-site"); remote '' turns it off. rclone holds the credentials.
+# offsite: {remote: 'drive:', root: crane-archive, bundle_bytes: 1.5G, bandwidth: '', transfers: 4, chunk_size: 64M}
 # access: {team_domain: TEAM.cloudflareaccess.com, aud: AUD_TAG}   (cloudflare_setup.py fills this)
 CFG
   echo "wrote $config"
@@ -123,7 +125,33 @@ RestartSec=10
 [Install]
 WantedBy=default.target
 UNIT
+cat > "$units/crane-archive-offsite.service" <<UNIT
+[Unit]
+Description=crane-archive off-site push (bundles to the rclone remote)
+After=network-online.target
+ConditionPathExists=$config
+
+[Service]
+Type=oneshot
+ExecStart=$prefix/bin/crane-archive --config $config offsite push
+Nice=15
+IOSchedulingClass=idle
+TimeoutStartSec=12h
+UNIT
+cat > "$units/crane-archive-offsite.timer" <<UNIT
+[Unit]
+Description=Daily crane-archive off-site push
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+RandomizedDelaySec=15m
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+UNIT
 systemctl --user daemon-reload
+grep -qE '^ *offsite:' "$config" && systemctl --user enable --now crane-archive-offsite.timer
 if [ -f "$token_file" ]; then
   systemctl --user enable crane-archive.service
   systemctl --user restart crane-archive.service

@@ -52,6 +52,35 @@ a day, oldest-verified first. A mismatch is quarantined and reported; the coordi
 has a copy, otherwise marks it gone. The quota is `min(quota_bytes, disk free - min_free_bytes)`. Above 80% the
 daemon evicts the evictable kinds above, oldest first, to 75%; above 90% it pauses pulls of evictable kinds.
 
+## Off-site (rclone remote, `drive:`)
+
+A second, cold copy on any rclone remote; today a Google Shared Drive, so storage counts against the Shared Drive
+(`rclone about` reports no quota there: watch `crane-archive offsite status`). Set it in `archive.yaml`:
+
+```yaml
+offsite: {remote: 'drive:', root: crane-archive, bundle_bytes: 1.5G, bandwidth: '', transfers: 4, chunk_size: 64M, retries: 5, mirror_within_h: 24}
+```
+
+- **Bundles.** `crane-archive offsite push` (the daily `crane-archive-offsite.timer`, 03:30; `install.sh` installs and
+  enables it once `offsite:` is in the config) packs every object with no drive copy into tar + zstd bundles of about
+  `bundle_bytes` of original data (all kinds: trajectories, run artifacts, theater videos, `.crane` hero recordings).
+  Each member is named by its sha256 and holds the original bytes; the bundle is named `YYYYMMDD-<hash of its member
+  hashes>.tar.zst`, under `<root>/bundles/`, with a JSON manifest in `<root>/manifests/` (`offsite reindex` rebuilds
+  the index from the manifests after losing `index.sqlite`).
+- **Upload and check.** `rclone copy` (`--transfers`, `--drive-chunk-size`, `--bwlimit` from `bandwidth`, retries). The
+  bundle counts as stored only after `rclone lsjson --hash` shows the same size and md5 (a remote without md5: `rclone
+  check --download`). Then the index rows (`bundles`, `copies` in `index.sqlite`) record the drive location; D1 is not
+  touched. Nothing on the remote is ever deleted by the daemon.
+- **Retrieval.** `GET /o/<sha>` for an object missing here (the coordinator asks only after R2 missed) fetches its
+  bundle, checks it against the indexed md5, extracts that object into the store and serves it; a remote outage
+  answers `503`. `crane-archive get SHA` does the same.
+- **Mirror policy.** Every object gets a drive copy within `mirror_within_h` (24). The heartbeat carries
+  `offsite.pending_objects`, `oldest_pending_h` and `behind`; if the timer missed and the oldest pending object is within
+  2 h of the limit, the daemon pushes itself.
+- **Credentials.** The remote's token lives in rclone's config, never here. rclone warns that its shared Google
+  `client_id` is being retired during 2026: the owner should create their own client_id
+  (https://rclone.org/drive/#making-your-own-client-id) and re-authorize `drive:` before it stops working.
+
 ## Install (innovation)
 
 ```sh
