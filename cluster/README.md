@@ -53,6 +53,7 @@ container image driven by the `command` backend.
 | `crane_cluster/gitcache.py` | One bare mirror per repo; detached (optionally sparse) checkouts at exact commits. |
 | `crane_cluster/provision.py` | What a joining host gets (D-20261102-17): tools, repos, backends, `tools.json`. |
 | `install/` | `install.sh` (systemd user unit), `install.ps1` (scheduled task), `provision.yaml` (the plan). |
+| `archive/` | `crane-archive`, the cold storage node: a content-addressed, deduplicated store with scrubs and a quota, the pull loop, and the tunnel origin; storage tiers and hardware in `archive/README.md`. |
 | `examples/` | `worker.yaml`, `hypothesis.yaml`. |
 | `tests/` | Python unit tests and `e2e_local.py`. |
 
