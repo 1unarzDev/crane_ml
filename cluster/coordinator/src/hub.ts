@@ -349,10 +349,7 @@ export class Hub extends DurableObject<Env> {
         jobs = maxJobs > 0 ? await this.claim(w.id, caps, policy, Math.min(maxJobs, intVar(this.env.MAX_LEASE_JOBS, 4))) : [];
         if (jobs.length || maxJobs === 0 || Date.now() >= deadline) break;
         this.touchWorker(w, state);
-        // Wake for a new or requeued job, or when the next lease expires (it may come back to the queue).
-        let nextExpiry = Infinity;
-        for (const j of this.jobs.values()) if (j.status === "leased") nextExpiry = Math.min(nextExpiry, (j.lease_expires ?? 0) + 50);
-        await this.waitForWork(Math.max(50, Math.min(deadline, nextExpiry) - Date.now()));
+        await this.waitForWork(deadline - Date.now());
       }
       this.touchWorker(w, jobs.length ? "running" : state);
       return res({ jobs: jobs.map(jobView), repos: this.repos, lease_ttl_s: leaseTtlMs(this.env) / 1000 });
