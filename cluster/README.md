@@ -132,6 +132,10 @@ shutdown) does not count as an attempt. Cancelled or reclaimed jobs come back as
 **Runs and metrics**: one run per seed per attempt (`<job>.a<attempt>.s<seed>`),
 with a flat map of numeric metrics. Analysis reads only each job's final attempt.
 
+**Job inputs**: files a job runs on that are not in a repo (a render's manifest and track pack): an admin
+uploads each as `PUT /v1/admin/inputs/<sha256>` (the body must hash to the key; kept, never swept) and names
+them in the job spec; any worker or viewer reads `GET /v1/inputs/<sha256>`, and the backend checks the hash.
+
 **Artifacts**: workers upload files through the Worker into R2. A `summary` artifact
 (metrics, summary, provenance) is kept forever. A `raw` artifact (logs, recordings,
 bags) expires after `raw_retention_days` (`PUT /v1/admin/retention`, default
@@ -260,6 +264,13 @@ Register it in the worker YAML as `mine: {type: "my_pkg.module:MyBackend", ...op
   MAVROS, the ROS TCP endpoint) need the ROS workspace and stay Linux-only: give them `needs.os: linux`.
   A player is a few hundred MB, over the artifact limit, so it is copied to each host (scp) and
   named by `player:`; multipart or presigned R2 upload would let workers fetch it themselves.
+- `theater-render` (`backends.theater:ClusterBackend`): a ghost-theater video (`theater/README.md`), one seed
+  per chunk of frames (`spec.chunk_frames`), rendered by the worker player (`--crane-theater`) batchmode on
+  the GPU and encoded by ffmpeg (`ffmpeg:` path, or `ffmpeg_url` + `ffmpeg_sha256` of a pinned build). Its
+  inputs (manifest, track pack, world files) are job inputs (see Concepts), fetched by hash. Artifacts per chunk:
+  `video.mp4`, `frames.jsonl`, `render_report.json`, `contact.png` (summary), `player.log` (raw). Jobs need
+  `{gpu: true, tags: [theater-render]}`; a worker gets the tag once a render spike passed there.
+  `python3 -m theater.render submit|assemble` creates the job and joins its chunks.
 
 ### Hosts
 
