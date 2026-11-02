@@ -11,12 +11,15 @@ the coordinator stores. Backends are named in the worker's YAML::
 
 ``type`` is a registered name (``dummy``, ``command``) or ``module:Class`` for a
 backend that lives in another package (a domain adapter), so the core never
-imports domain code.
+imports domain code. ``path`` (a directory or a list) is put on ``sys.path``
+before that import, for a package that is a checkout rather than installed.
 """
 from __future__ import annotations
 
 import importlib
 import json
+import os
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -103,5 +106,10 @@ def build(config: dict) -> dict[str, Backend]:
     out = {}
     for name, opts in (config or {}).items():
         opts = dict(opts or {})
+        paths = opts.pop("path", [])
+        for p in reversed([paths] if isinstance(paths, str) else paths):
+            p = os.path.expanduser(p)
+            if p not in sys.path:
+                sys.path.insert(0, p)
         out[name] = backend_class(opts.pop("type", name))(name, opts)
     return out

@@ -130,6 +130,13 @@ class Backends(unittest.TestCase):
         b = backends.build({"x": {"type": "crane_cluster.backends.dummy:DummyBackend"}})
         self.assertEqual(type(b["x"]).__name__, "DummyBackend")
 
+    def test_a_backend_path_makes_a_checkout_importable(self):
+        with tempfile.TemporaryDirectory() as t:
+            (Path(t) / "outside_pkg.py").write_text(
+                "from crane_cluster.backends import Backend\nclass B(Backend):\n    pass\n")
+            b = backends.build({"x": {"type": "outside_pkg:B", "path": t, "k": 1}})["x"]
+            self.assertEqual((type(b).__name__, b.options), ("B", {"k": 1}))
+
 
 def git(*a, cwd):
     subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t", *a], cwd=cwd, check=True, capture_output=True)
