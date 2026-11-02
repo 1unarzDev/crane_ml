@@ -142,8 +142,9 @@ export async function buildFeed(env: Env, opts: { recent?: number; jobId?: strin
         WHERE r.job_id IN (SELECT value FROM json_each(?1)) GROUP BY r.job_id, m.name`,
     ).bind(ids),
     env.DB.prepare(
-      `SELECT m.job_id, COUNT(*) AS n, MIN(m.study) AS study FROM run_meta m JOIN artifacts a ON a.key = m.traj_key
-        WHERE a.deleted_at IS NULL AND m.job_id IN (SELECT value FROM json_each(?1)) GROUP BY m.job_id`,
+      `SELECT m.job_id, SUM(a.deleted_at IS NULL) AS n, SUM(a.deleted_at IS NULL AND a.r2_deleted_at IS NOT NULL) AS archived, MIN(m.study) AS study
+         FROM run_meta m JOIN artifacts a ON a.key = m.traj_key
+        WHERE m.job_id IN (SELECT value FROM json_each(?1)) GROUP BY m.job_id`,
     ).bind(ids),
     env.DB.prepare(
       `SELECT job_id, insight FROM run_meta WHERE insight IS NOT NULL AND job_id IN (SELECT value FROM json_each(?1))
@@ -152,13 +153,17 @@ export async function buildFeed(env: Env, opts: { recent?: number; jobId?: strin
     opts.jobId
       ? env.DB.prepare(
           `SELECT r.run_id, r.job_id, r.worker_id, r.attempt, r.seed, r.status, r.wall_s, r.error, r.created,
-                  m.score, m.outcome, m.study, m.iteration, (a.key IS NOT NULL AND a.deleted_at IS NULL) AS replay
+                  m.score, m.outcome, m.study, m.iteration, (a.key IS NOT NULL AND a.deleted_at IS NULL) AS replay,
+                  CASE WHEN a.key IS NULL THEN NULL WHEN a.deleted_at IS NOT NULL THEN 'gone' WHEN a.r2_deleted_at IS NOT NULL THEN 'archived' ELSE 'ready' END AS replay_state,
+                  a.sha256 AS traj_sha256, m.course_sha256
              FROM runs r LEFT JOIN run_meta m ON m.run_id = r.run_id LEFT JOIN artifacts a ON a.key = m.traj_key
             WHERE r.job_id = ?1 ORDER BY r.attempt, r.seed`,
         ).bind(opts.jobId)
       : env.DB.prepare(
           `SELECT r.run_id, r.job_id, r.worker_id, r.attempt, r.seed, r.status, r.wall_s, r.error, r.created,
-                  m.score, m.outcome, m.study, m.iteration, (a.key IS NOT NULL AND a.deleted_at IS NULL) AS replay
+                  m.score, m.outcome, m.study, m.iteration, (a.key IS NOT NULL AND a.deleted_at IS NULL) AS replay,
+                  CASE WHEN a.key IS NULL THEN NULL WHEN a.deleted_at IS NOT NULL THEN 'gone' WHEN a.r2_deleted_at IS NOT NULL THEN 'archived' ELSE 'ready' END AS replay_state,
+                  a.sha256 AS traj_sha256, m.course_sha256
              FROM runs r LEFT JOIN run_meta m ON m.run_id = r.run_id LEFT JOIN artifacts a ON a.key = m.traj_key
             ORDER BY r.created DESC LIMIT ?1`,
         ).bind(recent),
@@ -266,7 +271,12 @@ export async function buildFeed(env: Env, opts: { recent?: number; jobId?: strin
       ),
       judge: scrubText((j.judge as string | null) ?? insightOf.get(j.job_id) ?? null, 200),
       error: state === "dead" || state === "failed" ? scrubText(j.last_error as string | null, 160) : null,
-      replay: { available: !!rep, runs: (rep?.n as number) ?? 0, study: rep ? scrubText(rep.study as string, 100) : null },
+      replay: {
+        available: !!rep && (rep.n as number) > 0,
+        runs: (rep?.n as number) ?? 0,
+        archived: (rep?.archived as number) ?? 0,
+        study: rep ? scrubText(rep.study as string, 100) : null,
+      },
     };
   };
 
@@ -284,6 +294,9 @@ export async function buildFeed(env: Env, opts: { recent?: number; jobId?: strin
     study: scrubText(r.study as string | null, 100),
     iteration: r.iteration ?? null,
     replay: !!r.replay,
+    replay_state: (r.replay_state as string | null) ?? null,
+    traj_sha256: (r.traj_sha256 as string | null) ?? null,
+    course: (r.course_sha256 as string | null) ?? null,
     error: scrubText(r.error as string | null, 160),
   });
 

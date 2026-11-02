@@ -14,6 +14,8 @@ declare global {
       RAW_RETENTION_DAYS: string;
       MAX_ARTIFACT_MB: string;
       TEST_MIGRATIONS: D1Migration[];
+      GOLDEN_CTRAJ: string;
+      GOLDEN_JSON: string;
     }
   }
 }

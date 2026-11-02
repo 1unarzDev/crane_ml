@@ -73,3 +73,12 @@ export const requireReader: MiddlewareHandler<AppEnv> = async (c, next) => {
   if (!row) throw UNAUTHORIZED();
   await next();
 };
+
+/** The operator's name for an operator token (POST /v1/admin/operator_token) or the admin token, else null. */
+export async function operatorName(env: Env, req: Request): Promise<string | null> {
+  const tok = bearer(req);
+  if (!tok || tok.length > 256) return null;
+  if (await isAdminToken(env, tok)) return "admin";
+  const row = await env.DB.prepare("SELECT name FROM operator_tokens WHERE token_sha256 = ?").bind(await sha256Hex(tok)).first<{ name: string }>();
+  return row?.name ?? null;
+}

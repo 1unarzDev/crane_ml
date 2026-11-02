@@ -6,6 +6,8 @@ import type { AppEnv } from "./auth";
 import { reclaimExpired } from "./db";
 import { runMetaRoutes } from "./runmeta";
 import { feedRoutes } from "./feed";
+import { replayRoutes } from "./replay";
+import { theaterRoutes } from "./theater";
 import { hypRoutes } from "./hypotheses";
 import { Env, HttpError, errorResponse, json } from "./util";
 import { webhookRoutes } from "./webhook";
@@ -22,6 +24,8 @@ app.notFound(() => json({ error: "not found" }, 404));
 
 app.route("/", archiveRoutes);
 app.route("/", feedRoutes);
+app.route("/", replayRoutes);
+app.route("/", theaterRoutes);
 app.route("/", workerRoutes);
 app.route("/", artifactRoutes);
 app.route("/", adminRoutes);

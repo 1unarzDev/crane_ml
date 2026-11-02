@@ -79,6 +79,6 @@ export async function expireLeases(): Promise<void> {
 
 export async function resetTables(): Promise<void> {
   await env.DB.batch(
-    ["archive_nodes", "archive_tokens", "run_meta", "metrics", "runs", "artifacts", "leases", "jobs", "hypotheses", "repos", "config"].map((t) => env.DB.prepare(`DELETE FROM ${t}`)),
+    ["theater_renders", "operator_tokens", "archive_nodes", "archive_tokens", "run_meta", "metrics", "runs", "artifacts", "leases", "jobs", "hypotheses", "repos", "config"].map((t) => env.DB.prepare(`DELETE FROM ${t}`)),
   );
 }
