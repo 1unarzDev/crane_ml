@@ -86,6 +86,14 @@ class Idle(unittest.TestCase):
         with self.assertRaises(ValueError):
             idle.in_quiet_hours({"quiet_hours": ["9-5"]})
 
+    def test_a_desktop_probe_reports_idle_time_to_a_session_0_worker(self):
+        with tempfile.TemporaryDirectory() as t:
+            path = Path(t) / "input-idle.json"
+            self.assertIsNone(idle.probe_idle_seconds(path))  # nobody logged in
+            path.write_text(json.dumps({"idle_s": 30.0, "at": 1000.0}))
+            self.assertEqual(idle.probe_idle_seconds(path, now=1010.0), 40.0)
+            self.assertIsNone(idle.probe_idle_seconds(path, now=1500.0))  # stale: the probe stopped
+
 
 def ctx(tmp, **job):
     return JobContext(job={"job_id": "j1", "arm": "a", "spec": {}, "seeds": [1], **job}, work_dir=Path(tmp),

@@ -5,6 +5,7 @@ Policy (worker YAML ``policy``):
   quiet_hours: ["09:00-17:00"]   # local times when no new job starts; a range may wrap midnight
   quiet_days: [mon, tue, ...]    # optional: quiet hours apply only on these days (default: every day)
   pause_on_activity: true        # no new job while the user is active; a running job is released
+                                 # (Windows session 0, e.g. an S4U task: crane_cluster.idleprobe on the desktop)
   idle_seconds: 300              # how long without input counts as idle (Linux: keyboard/mouse
                                  # events from /dev/input when readable, e.g. the input group; else
                                  # xprintidle on X11; else logind's IdleHint)
@@ -21,6 +22,7 @@ from __future__ import annotations
 import ctypes
 import datetime as dt
 import glob
+import json
 import os
 import re
 import select
@@ -31,6 +33,8 @@ import sys
 import threading
 import time
 from pathlib import Path
+
+from . import config
 
 DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 _RANGE = re.compile(r"^(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})$")
@@ -61,6 +65,8 @@ def user_idle_seconds() -> float | None:
     """Seconds since the last keyboard/mouse input, or None where it can't be detected."""
     try:
         if sys.platform == "win32":
+            if windows_session_id() == 0:  # a service-like worker (S4U task): the desktop's probe tells
+                return probe_idle_seconds()
             class LASTINPUTINFO(ctypes.Structure):
                 _fields_ = [("cbSize", ctypes.c_uint), ("dwTime", ctypes.c_uint)]
             info = LASTINPUTINFO()
@@ -82,6 +88,28 @@ def user_idle_seconds() -> float | None:
         return _logind_idle()
     except (OSError, subprocess.SubprocessError, ValueError):
         return None
+
+
+def windows_session_id() -> int:
+    """This process's Windows session; 0 is the services session, which sees no one's input."""
+    sid = ctypes.c_ulong()
+    ctypes.windll.kernel32.ProcessIdToSessionId(os.getpid(), ctypes.byref(sid))  # type: ignore[attr-defined]
+    return sid.value
+
+
+def probe_path() -> Path:
+    return config.data_dir() / "input-idle.json"
+
+
+def probe_idle_seconds(path: Path | None = None, now: float | None = None, stale_s: float = 120) -> float | None:
+    """Idle seconds that ``crane_cluster.idleprobe`` reports from the interactive desktop, aged to now;
+    None without a fresh report (nobody logged in, or no probe running)."""
+    try:
+        r = json.loads((path or probe_path()).read_text())
+        age = (now if now is not None else time.time()) - float(r["at"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    return None if age > stale_s or age < -stale_s else float(r["idle_s"]) + max(0.0, age)
 
 
 def _logind_idle() -> float | None:
