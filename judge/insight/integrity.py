@@ -29,15 +29,24 @@ def record_checks(rec: RunRecord, values=None, required=('pose.se2',)):
             out.append(Insight('integrity.missing_channel', 'warn',
                                f'{rec.tier} run {rec.run_id} has no {name}', scope=scope,
                                data={'channel': name}))
+    seen = []
     for name, ch in rec.channels.items():
-        if len(ch) < 3:
-            continue
+        if len(ch) < 3 or any(len(ch.t) == len(t) and np.array_equal(ch.t, t) for t in seen):
+            continue                                   # derived channels share their source's clock
+        seen.append(ch.t)
         dt = np.diff(ch.t)
         if (dt < 0).any():
             out.append(Insight('integrity.time_reversal', 'fail',
                                f'{name} time runs backwards {int((dt < 0).sum())} times in {rec.run_id}',
                                scope={**scope, 'channel': name}))
         med = float(np.median(dt[dt > 0])) if (dt > 0).any() else 0.0
+        mean = float((ch.t[-1] - ch.t[0]) / (len(ch.t) - 1))
+        if 0 < med < 0.25 * mean:
+            out.append(Insight('integrity.bursty', 'info',
+                               f'{name} in {rec.run_id} arrives in bursts: median spacing {med * 1000:.0f} ms '
+                               f'vs mean {mean * 1000:.0f} ms (bunched timestamps; rates from raw differences are inflated)',
+                               scope={**scope, 'channel': name}, data={'median_s': med, 'mean_s': mean}))
+        med = max(med, mean)
         if med > 0:
             holes = np.nonzero(dt > GAP_FACTOR * med)[0]
             if len(holes):
