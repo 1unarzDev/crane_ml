@@ -63,13 +63,19 @@ _STATE = {}
 
 
 def _init(cfg, base, provenance):
-    _STATE.update(cfg=cfg, base=base, provenance=provenance, adapter=adapter_of(cfg, base),
-                  source=ScenarioSource(**cfg['scenarios'], base=base))
+    # A failing initializer makes a Pool respawn workers forever: keep the error, raise it per job.
+    try:
+        _STATE.update(cfg=cfg, base=base, provenance=provenance, adapter=adapter_of(cfg, base),
+                      source=ScenarioSource(**cfg['scenarios'], base=base))
+    except Exception as error:  # noqa: BLE001
+        _STATE['error'] = error
 
 
 def _one(job):
     seed, out = job
     s = _STATE
+    if 'error' in s:
+        raise RuntimeError(f"worker set-up failed: {type(s['error']).__name__}: {s['error']}") from s['error']
     started = time.perf_counter()
     summary = simulate(s['source'].load(seed), s['adapter'], s['cfg'], seed, out, s['base'],
                        s['provenance'])
