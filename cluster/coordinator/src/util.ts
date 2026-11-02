@@ -1,6 +1,5 @@
 export interface Env {
   DB: D1Database;
-  HUB: DurableObjectNamespace<import("./hub").Hub>;
   BUCKET: R2Bucket;
   ADMIN_TOKEN: string;
   GITHUB_WEBHOOK_SECRET?: string;
@@ -11,9 +10,6 @@ export interface Env {
   RAW_RETENTION_DAYS?: string;
   MAX_ARTIFACT_MB?: string;
   FEED_CACHE_S?: string;
-  FEED_HISTORY_S?: string;         // the Hub re-reads the feed's D1 history at most this often (after a change)
-  D1_READ_BUDGET?: string;         // rows read per UTC day the plan allows (free: 5M, shared by the account)
-  D1_GUARD_FRAC?: string;          // past this fraction of the budget the feed's history freezes and the dashboard warns
   ARCHIVE_URL?: string;            // the archive node's origin behind Cloudflare Access (https://archive.crane.lunarz.dev)
   ARCHIVE_ACCESS_ID?: string;      // secret: Access service token id (crane-coordinator-archive)
   ARCHIVE_ACCESS_SECRET?: string;  // secret

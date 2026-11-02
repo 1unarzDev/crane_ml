@@ -1,5 +1,4 @@
-import { createExecutionContext, createScheduledController, env, runInDurableObject, waitOnExecutionContext } from "cloudflare:test";
-import type { Hub } from "../src/hub";
+import { createExecutionContext, createScheduledController, env, waitOnExecutionContext } from "cloudflare:test";
 import worker from "../src/index";
 
 export const ADMIN = "test-admin-token";
@@ -73,22 +72,13 @@ export function lease(w: { token: string; caps: Record<string, unknown> }, max_j
   return callJson("POST", "/v1/lease", { token: w.token, json: { caps: w.caps, max_jobs, ...extra } });
 }
 
-export const hub = () => env.HUB.get(env.HUB.idFromName("hub"));
-
-/** Moves every lease into the past (in the Hub, which holds them) so the next reclaim treats it as expired. */
-export async function expireLeases(at = 1): Promise<void> {
-  await env.DB.prepare("UPDATE jobs SET lease_expires = ? WHERE status = 'leased'").bind(at).run();
-  await runInDurableObject(hub(), (h: Hub) => {
-    for (const j of h.jobs.values()) if (j.status === "leased") j.lease_expires = at;
-  });
+/** Moves every lease into the past so the next reclaim treats it as expired. */
+export async function expireLeases(): Promise<void> {
+  await env.DB.prepare("UPDATE jobs SET lease_expires = 1 WHERE status = 'leased'").run();
 }
-
-/** Writes the Hub's batched heartbeat state to D1. */
-export const flushHub = () => runInDurableObject(hub(), (h: Hub) => h.flush());
 
 export async function resetTables(): Promise<void> {
   await env.DB.batch(
     ["theater_renders", "operator_tokens", "archive_nodes", "archive_tokens", "run_meta", "metrics", "runs", "artifacts", "leases", "jobs", "hypotheses", "repos", "config"].map((t) => env.DB.prepare(`DELETE FROM ${t}`)),
   );
-  await runInDurableObject(hub(), (h: Hub) => h.load(false));
 }

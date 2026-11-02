@@ -7,7 +7,6 @@ import { Hono } from "hono";
 import type { AppEnv } from "./auth";
 import { Caps, Needs, Policy, matches } from "./match";
 import { alias, scrubText } from "./purpose";
-import { hubStub } from "./hubstub";
 import { Env, HttpError, intVar, nowIso, parseJson } from "./util";
 
 export const feedRoutes = new Hono<AppEnv>();
@@ -100,7 +99,7 @@ interface SchedWorker {
   free_at: number;
 }
 
-export interface FeedJob extends Row {
+interface FeedJob extends Row {
   job_id: string;
   purpose: string;
   submitter: string | null;
@@ -119,61 +118,65 @@ export interface FeedJob extends Row {
 
 const STATE: Record<string, string> = { leased: "running", done: "done", dead: "dead", failed: "failed", cancelled: "cancelled", queued: "queued" };
 
-/**
- * Where the feed's inputs come from. Without one, everything is read from D1 (the colo cache memoizes the
- * slow parts). The Hub passes its memory: the active jobs, the workers and the live jobs' run aggregates,
- * plus a memo that refreshes the D1-backed history (ended jobs, replay, insight, recent runs, the duration
- * model) only after something changed and no more often than its interval.
- */
-export interface FeedSource {
-  active: FeedJob[];
-  workers: Row[];
-  live: { counts: Row[]; metrics: Row[] };
-  memo: <T>(key: string, kind: "history" | "model" | "ended", fn: () => Promise<T>) => Promise<T>;
-}
-
-const JOB_COLS = `j.job_id, j.hypothesis_id, j.stage_index, j.arm, j.backend, j.seeds_json, j.needs_json, j.spec_json,
+/** Builds the sanitized feed snapshot. */
+export async function buildFeed(env: Env, opts: { recent?: number; jobId?: string; origin?: string } = {}, nowMs = Date.now()) {
+  const recent = opts.recent ?? RECENT_DEFAULT;
+  const jobCols = `j.job_id, j.hypothesis_id, j.stage_index, j.arm, j.backend, j.seeds_json, j.needs_json, j.spec_json,
       j.priority, j.status, j.attempt, j.lease_worker, j.leased_at_ms, j.last_error, j.created, j.ended_at, j.purpose,
       j.est_seconds, j.submitter, j.campaign, j.judge, h.name AS hyp_name`;
-
-/** Feed order of active jobs: lease order (priority, then age). */
-export const byLeaseOrder = (a: Row, b: Row) =>
-  Number(a.priority) - Number(b.priority) || String(a.created).localeCompare(String(b.created));
-
-/** Run counts and metric means of these jobs' current attempts. */
-async function aggregate(env: Env, jobIds: string) {
-  const [c, m] = await env.DB.batch([
+  const [active, ended, workers] = await env.DB.batch([
     env.DB.prepare(
-      `SELECT r.job_id, r.status, COUNT(*) AS n FROM runs r JOIN jobs j ON j.job_id = r.job_id AND r.attempt = j.attempt
-        WHERE r.job_id IN (SELECT value FROM json_each(?1)) GROUP BY r.job_id, r.status`,
-    ).bind(jobIds),
-    env.DB.prepare(
-      `SELECT r.job_id, m.name, AVG(m.value) AS mean, COUNT(*) AS n FROM runs r
-         JOIN jobs j ON j.job_id = r.job_id AND r.attempt = j.attempt JOIN metrics m ON m.run_id = r.run_id
-        WHERE r.job_id IN (SELECT value FROM json_each(?1)) GROUP BY r.job_id, m.name`,
-    ).bind(jobIds),
-  ]);
-  return { counts: c.results as Row[], metrics: m.results as Row[] };
-}
-
-const RUN_COLS = `r.run_id, r.job_id, r.worker_id, r.attempt, r.seed, r.status, r.wall_s, r.error, r.created,
-                  m.score, m.outcome, m.study, m.iteration, (a.key IS NOT NULL AND a.deleted_at IS NULL) AS replay,
-                  CASE WHEN a.key IS NULL THEN NULL WHEN a.deleted_at IS NOT NULL THEN 'gone' WHEN a.r2_deleted_at IS NOT NULL THEN 'archived' ELSE 'ready' END AS replay_state,
-                  a.sha256 AS traj_sha256, m.course_sha256`;
-
-/** The D1-backed history of a snapshot: ended jobs, replay and insight rows for the listed jobs, recent runs. */
-async function loadHistory(env: Env, recent: number, jobId: string | undefined, activeIds: string[]) {
-  const [ended] = await env.DB.batch([
-    jobId
-      ? env.DB.prepare(`SELECT ${JOB_COLS} FROM jobs j LEFT JOIN hypotheses h ON h.id = j.hypothesis_id WHERE j.job_id = ?1`).bind(jobId)
+      `SELECT ${jobCols} FROM jobs j LEFT JOIN hypotheses h ON h.id = j.hypothesis_id
+        WHERE j.status IN ('queued','leased') ORDER BY j.priority, j.created LIMIT ${ACTIVE_LIMIT}`,
+    ),
+    opts.jobId
+      ? env.DB.prepare(`SELECT ${jobCols} FROM jobs j LEFT JOIN hypotheses h ON h.id = j.hypothesis_id WHERE j.job_id = ?1`).bind(opts.jobId)
       : env.DB.prepare(
-          `SELECT ${JOB_COLS} FROM jobs j LEFT JOIN hypotheses h ON h.id = j.hypothesis_id
+          `SELECT ${jobCols} FROM jobs j LEFT JOIN hypotheses h ON h.id = j.hypothesis_id
             WHERE j.ended_at IS NOT NULL ORDER BY j.ended_at DESC LIMIT ?1`,
         ).bind(recent),
+    env.DB.prepare("SELECT id, name, state, last_seen, disabled, caps_json, policy_json FROM workers"),
   ]);
-  const endedRows = ended.results as FeedJob[];
-  const ids = JSON.stringify([...new Set([...activeIds, ...endedRows.map((j) => j.job_id)])]);
-  const [replay, insight, runs] = await env.DB.batch([
+  // The duration model reads MODEL_SAMPLE runs (~2 rows each): refreshed every MODEL_CACHE_S, not every snapshot.
+  const modelRows = await memo(env, opts.origin, "model", MODEL_CACHE_S, async () =>
+    (await env.DB.prepare(
+      `SELECT j.backend, r.worker_id, r.wall_s, j.est_seconds, r.created, r.job_id, r.attempt AS run_attempt, j.attempt,
+          j.leased_at_ms, j.ended_at FROM runs r JOIN jobs j ON j.job_id = r.job_id
+        WHERE r.status = 'ok' AND r.wall_s IS NOT NULL ORDER BY r.created DESC LIMIT ${MODEL_SAMPLE}`,
+    ).all()).results as ModelRow[]);
+  const activeJobs = active.results as FeedJob[];
+  const endedJobs = (ended.results as FeedJob[]).filter((j) => !activeJobs.some((a) => a.job_id === j.job_id));
+  const jobs = opts.jobId ? [...activeJobs.filter((j) => j.job_id === opts.jobId), ...endedJobs] : [...activeJobs, ...endedJobs];
+  const ids = JSON.stringify(jobs.map((j) => j.job_id));
+  // Run counts and metric means scan every run and metric of every listed job (the feed's largest read, which
+  // exhausted D1's daily row budget on 11-02). An ended job's runs no longer change, so its aggregates are
+  // cached per (job, attempt, ended_at) set; only queued and leased jobs are aggregated on every snapshot.
+  const isLive = (j: FeedJob) => j.status === "queued" || j.status === "leased";
+  const liveIds = JSON.stringify(jobs.filter(isLive).map((j) => j.job_id));
+  const endedJobs_ = jobs.filter((j) => !isLive(j));
+  const endedKey = "ended:" + (await sha256(endedJobs_.map((j) => `${j.job_id}:${j.attempt}:${j.ended_at}`).join(",")));
+  const aggregate = async (jobIds: string) => {
+    const [c, m] = await env.DB.batch([
+      env.DB.prepare(
+        `SELECT r.job_id, r.status, COUNT(*) AS n FROM runs r JOIN jobs j ON j.job_id = r.job_id AND r.attempt = j.attempt
+          WHERE r.job_id IN (SELECT value FROM json_each(?1)) GROUP BY r.job_id, r.status`,
+      ).bind(jobIds),
+      env.DB.prepare(
+        `SELECT r.job_id, m.name, AVG(m.value) AS mean, COUNT(*) AS n FROM runs r
+           JOIN jobs j ON j.job_id = r.job_id AND r.attempt = j.attempt JOIN metrics m ON m.run_id = r.run_id
+          WHERE r.job_id IN (SELECT value FROM json_each(?1)) GROUP BY r.job_id, m.name`,
+      ).bind(jobIds),
+    ]);
+    return { counts: c.results as Row[], metrics: m.results as Row[] };
+  };
+  const [liveAgg, endedAgg] = await Promise.all([
+    aggregate(liveIds),
+    endedJobs_.length ? memo(env, opts.origin, endedKey, ENDED_CACHE_S, () => aggregate(JSON.stringify(endedJobs_.map((j) => j.job_id)))) : { counts: [], metrics: [] },
+  ]);
+  const counts = { results: [...liveAgg.counts, ...endedAgg.counts] };
+  const metrics = { results: [...liveAgg.metrics, ...endedAgg.metrics] };
+
+  const [replay, insight, recentRuns] = await env.DB.batch([
     env.DB.prepare(
       `SELECT m.job_id, SUM(a.deleted_at IS NULL) AS n, SUM(a.deleted_at IS NULL AND a.r2_deleted_at IS NOT NULL) AS archived, MIN(m.study) AS study
          FROM run_meta m JOIN artifacts a ON a.key = m.traj_key
@@ -183,74 +186,28 @@ async function loadHistory(env: Env, recent: number, jobId: string | undefined, 
       `SELECT job_id, insight FROM run_meta WHERE insight IS NOT NULL AND job_id IN (SELECT value FROM json_each(?1))
         ORDER BY created DESC`,
     ).bind(ids),
-    jobId
+    opts.jobId
       ? env.DB.prepare(
-          `SELECT ${RUN_COLS} FROM runs r LEFT JOIN run_meta m ON m.run_id = r.run_id LEFT JOIN artifacts a ON a.key = m.traj_key
+          `SELECT r.run_id, r.job_id, r.worker_id, r.attempt, r.seed, r.status, r.wall_s, r.error, r.created,
+                  m.score, m.outcome, m.study, m.iteration, (a.key IS NOT NULL AND a.deleted_at IS NULL) AS replay,
+                  CASE WHEN a.key IS NULL THEN NULL WHEN a.deleted_at IS NOT NULL THEN 'gone' WHEN a.r2_deleted_at IS NOT NULL THEN 'archived' ELSE 'ready' END AS replay_state,
+                  a.sha256 AS traj_sha256, m.course_sha256
+             FROM runs r LEFT JOIN run_meta m ON m.run_id = r.run_id LEFT JOIN artifacts a ON a.key = m.traj_key
             WHERE r.job_id = ?1 ORDER BY r.attempt, r.seed`,
-        ).bind(jobId)
+        ).bind(opts.jobId)
       : env.DB.prepare(
-          `SELECT ${RUN_COLS} FROM runs r LEFT JOIN run_meta m ON m.run_id = r.run_id LEFT JOIN artifacts a ON a.key = m.traj_key
+          `SELECT r.run_id, r.job_id, r.worker_id, r.attempt, r.seed, r.status, r.wall_s, r.error, r.created,
+                  m.score, m.outcome, m.study, m.iteration, (a.key IS NOT NULL AND a.deleted_at IS NULL) AS replay,
+                  CASE WHEN a.key IS NULL THEN NULL WHEN a.deleted_at IS NOT NULL THEN 'gone' WHEN a.r2_deleted_at IS NOT NULL THEN 'archived' ELSE 'ready' END AS replay_state,
+                  a.sha256 AS traj_sha256, m.course_sha256
+             FROM runs r LEFT JOIN run_meta m ON m.run_id = r.run_id LEFT JOIN artifacts a ON a.key = m.traj_key
             ORDER BY r.created DESC LIMIT ?1`,
         ).bind(recent),
   ]);
-  return { ended: endedRows, replay: replay.results as Row[], insight: insight.results as Row[], runs: runs.results as Row[] };
-}
 
-const MODEL_SQL = `SELECT j.backend, r.worker_id, r.wall_s, j.est_seconds, r.created, r.job_id, r.attempt AS run_attempt, j.attempt,
-          j.leased_at_ms, j.ended_at FROM runs r JOIN jobs j ON j.job_id = r.job_id
-        WHERE r.status = 'ok' AND r.wall_s IS NOT NULL ORDER BY r.created DESC LIMIT ${MODEL_SAMPLE}`;
-
-/** Builds the sanitized feed snapshot (from D1, or from the Hub's memory with `src`). */
-export async function buildFeed(env: Env, opts: { recent?: number; jobId?: string; origin?: string } = {}, nowMs = Date.now(), src?: FeedSource) {
-  const recent = opts.recent ?? RECENT_DEFAULT;
-  let activeJobs: FeedJob[];
-  let workerRows: Row[];
-  if (src) {
-    activeJobs = [...src.active].sort(byLeaseOrder).slice(0, ACTIVE_LIMIT);
-    workerRows = src.workers;
-  } else {
-    const [active, workers] = await env.DB.batch([
-      env.DB.prepare(
-        `SELECT ${JOB_COLS} FROM jobs j LEFT JOIN hypotheses h ON h.id = j.hypothesis_id
-          WHERE j.status IN ('queued','leased') ORDER BY j.priority, j.created LIMIT ${ACTIVE_LIMIT}`,
-      ),
-      env.DB.prepare("SELECT id, name, state, last_seen, disabled, caps_json, policy_json FROM workers"),
-    ]);
-    activeJobs = active.results as FeedJob[];
-    workerRows = workers.results as Row[];
-  }
-  const activeIds = activeJobs.map((j) => j.job_id);
-  const hist = src
-    ? await src.memo(`hist:${recent}:${opts.jobId ?? ""}`, "history", () => loadHistory(env, recent, opts.jobId, activeIds))
-    : await loadHistory(env, recent, opts.jobId, activeIds);
-  // The duration model reads MODEL_SAMPLE runs (~2 rows each): refreshed every MODEL_CACHE_S, not every snapshot.
-  const loadModel = async () => (await env.DB.prepare(MODEL_SQL).all()).results as ModelRow[];
-  const modelRows = src ? await src.memo("model", "model", loadModel) : await memo(env, opts.origin, "model", MODEL_CACHE_S, loadModel);
-  const endedJobs = hist.ended.filter((j) => !activeJobs.some((a) => a.job_id === j.job_id));
-  const jobs = opts.jobId ? [...activeJobs.filter((j) => j.job_id === opts.jobId), ...endedJobs] : [...activeJobs, ...endedJobs];
-  // Run counts and metric means scan every run and metric of every listed job (the feed's largest read, which
-  // exhausted D1's daily row budget on 11-02). An ended job's runs no longer change, so its aggregates are
-  // cached per (job, attempt, ended_at) set; live jobs' come from the Hub's memory (or D1 without one).
-  const isLive = (j: FeedJob) => j.status === "queued" || j.status === "leased";
-  const endedJobs_ = jobs.filter((j) => !isLive(j));
-  const endedKey = "ended:" + (await sha256(endedJobs_.map((j) => `${j.job_id}:${j.attempt}:${j.ended_at}`).join(",")));
-  const endedIds = JSON.stringify(endedJobs_.map((j) => j.job_id));
-  const [liveAgg, endedAgg] = await Promise.all([
-    src ? src.live : aggregate(env, JSON.stringify(jobs.filter(isLive).map((j) => j.job_id))),
-    !endedJobs_.length
-      ? { counts: [], metrics: [] }
-      : src
-        ? src.memo(endedKey, "ended", () => aggregate(env, endedIds))
-        : memo(env, opts.origin, endedKey, ENDED_CACHE_S, () => aggregate(env, endedIds)),
-  ]);
-  const listed = new Set(jobs.map((j) => j.job_id));
-  const counts = { results: [...liveAgg.counts, ...endedAgg.counts].filter((r) => listed.has(r.job_id as string)) };
-  const metrics = { results: [...liveAgg.metrics, ...endedAgg.metrics].filter((r) => listed.has(r.job_id as string)) };
-  const replay = { results: hist.replay };
-  const insight = { results: hist.insight };
-  const recentRuns = { results: hist.runs };
   // ---- model, workers
   const { backends, speed } = durationModel(runWalls(modelRows), nowMs);
+  const workerRows = workers.results as Row[];
   const aliasOf = new Map(workerRows.map((w) => [w.id as string, alias(w.name as string)]));
   const live = (w: Row) => !w.disabled && !!w.last_seen && nowMs - Date.parse(w.last_seen as string) <= LIVE_MS;
 
@@ -441,8 +398,7 @@ async function memo<T>(env: Env, origin: string | undefined, key: string, ttl: n
   return v;
 }
 
-/** The snapshot through the colo cache (FEED_CACHE_S, default 15 s), so many viewers cost one Hub call; the
- * Hub builds it from memory (src/hub.ts), so a snapshot costs no D1 read unless the history changed. */
+/** The snapshot through the colo cache (FEED_CACHE_S, default 15 s), so many viewers cost one D1 read. */
 async function cachedFeed(env: Env, url: URL, recent: number): Promise<string> {
   const ttl = cacheSeconds(env);
   const key = new Request(`${url.origin}/v1/feed?recent=${recent}&_c=1`);
@@ -451,7 +407,7 @@ async function cachedFeed(env: Env, url: URL, recent: number): Promise<string> {
     const hit = await cache.match(key);
     if (hit) return hit.text();
   }
-  const body = await hubStub(env).feed(recent);
+  const body = JSON.stringify(await buildFeed(env, { recent, origin: url.origin }));
   if (cache) await cache.put(key, new Response(body, { headers: { "cache-control": `public, max-age=${ttl}` } }));
   return body;
 }
@@ -473,9 +429,10 @@ feedRoutes.get("/v1/feed", async (c) => {
 feedRoutes.get("/v1/feed/jobs/:id", async (c) => {
   const id = c.req.param("id");
   if (!/^[A-Za-z0-9._-]{1,64}$/.test(id)) throw new HttpError(400, "bad job id");
-  const body = await hubStub(c.env).feedJob(id);
-  if (body === null) throw new HttpError(404, "unknown job");
-  return new Response(body, {
+  const f = await buildFeed(c.env, { jobId: id, origin: new URL(c.req.url).origin });
+  const job = f.jobs.find((j) => j.id === id);
+  if (!job) throw new HttpError(404, "unknown job");
+  return new Response(JSON.stringify({ schema: FEED_SCHEMA, generated_at: f.generated_at, job, runs: f.runs }), {
     headers: { "content-type": "application/json; charset=utf-8", "cache-control": "public, max-age=5", ...PUBLIC_HEADERS },
   });
 });
@@ -484,7 +441,6 @@ feedRoutes.get("/v1/feed/jobs/:id", async (c) => {
  * SSE: an `event: feed` with the whole snapshot at connect and whenever it changes (polled every
  * `interval` s, 2..60, default 5), a comment ping every 15 s otherwise, closed after `max_s` (default 300,
  * at most 900; EventSource reconnects by itself after `retry`). `once=1` sends one event and closes.
- * The stream lives in the Hub, which polls its in-memory snapshot (no D1 read per poll).
  */
 feedRoutes.get("/v1/feed/stream", async (c) => {
   const q = (k: string, d: number, lo: number, hi: number) => {
@@ -493,11 +449,53 @@ feedRoutes.get("/v1/feed/stream", async (c) => {
     if (!Number.isFinite(n) || n < lo || n > hi) throw new HttpError(400, `${k} must be in [${lo}, ${hi}]`);
     return n;
   };
-  const u = new URL(c.req.url);
-  const fwd = new URL("https://hub/v1/feed/stream");
-  fwd.searchParams.set("interval", String(q("interval", 5, 2, 60)));
-  fwd.searchParams.set("max_s", String(q("max_s", 300, 1, 900)));
-  fwd.searchParams.set("recent", String(recentParam(c.req.query("recent"))));
-  if (u.searchParams.get("once") === "1") fwd.searchParams.set("once", "1");
-  return hubStub(c.env).fetch(new Request(fwd, { signal: c.req.raw.signal }));
+  const interval = q("interval", 5, 2, 60) * 1000;
+  const maxMs = q("max_s", 300, 1, 900) * 1000;
+  const once = c.req.query("once") === "1";
+  const recent = recentParam(c.req.query("recent"));
+  const url = new URL(c.req.url);
+  const env = c.env;
+  const enc = new TextEncoder();
+  const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
+  const writer = writable.getWriter();
+  const loop = async () => {
+    const t0 = Date.now();
+    let last = "";
+    let lastSent = 0;
+    let lastFeed = 0;
+    try {
+      await writer.write(enc.encode("retry: 5000\n\n"));
+      while (true) {
+        const body = await cachedFeed(env, url, recent);
+        // Changes that matter: ETAs, clocks and heartbeats move every poll, so they refresh every 30 s instead.
+        const key = body.replace(/"generated_at":"[^"]*"|"drain_s":[^,}]*|"eta":\{[^}]*\}|"last_seen":"[^"]*"/g, "");
+        if (key !== last || Date.now() - lastFeed >= 30_000) {
+          await writer.write(enc.encode(`event: feed\ndata: ${body}\n\n`));
+          last = key;
+          lastSent = lastFeed = Date.now();
+        } else if (Date.now() - lastSent >= 15_000) {
+          await writer.write(enc.encode(": ping\n\n"));
+          lastSent = Date.now();
+        }
+        if (once || Date.now() - t0 + interval > maxMs) break;
+        await new Promise((r) => setTimeout(r, interval));
+      }
+      await writer.close();
+    } catch {
+      // The client went away; nothing to clean up.
+      try {
+        await writer.abort();
+      } catch {}
+    }
+  };
+  // Not waitUntil: the loop lives as long as the client reads the stream (writes block until it does).
+  void loop();
+  return new Response(readable, {
+    headers: {
+      "content-type": "text/event-stream; charset=utf-8",
+      "cache-control": "no-cache, no-transform",
+      "x-accel-buffering": "no",
+      ...PUBLIC_HEADERS,
+    },
+  });
 });

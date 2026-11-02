@@ -3,8 +3,7 @@ import { adminRoutes } from "./admin_routes";
 import { archiveRoutes } from "./archive";
 import { artifactRoutes, sweepArtifacts } from "./artifacts";
 import type { AppEnv } from "./auth";
-import { Book, bookReads, bookSink, countingDb } from "./budget";
-import { hubStub } from "./hubstub";
+import { reclaimExpired } from "./db";
 import { runMetaRoutes } from "./runmeta";
 import { feedRoutes } from "./feed";
 import { replayRoutes } from "./replay";
@@ -16,38 +15,6 @@ import { webhookRoutes } from "./webhook";
 import { workerRoutes } from "./worker_routes";
 
 const app = new Hono<AppEnv>();
-
-// ---- D1 read budget: every query in this isolate is tallied per route and hour (src/budget.ts); the tally
-// goes to the Hub at most once a minute (or past 20k rows), which keeps the day's book and the guard.
-let tally: Book = {};
-let lastPush = 0;
-const PUSH_MS = 60_000;
-
-export function pushReads(env: Env, ctx: { waitUntil(p: Promise<unknown>): void } | undefined, force = false) {
-  const n = bookReads(tally);
-  if (!Object.keys(tally).length || (!force && Date.now() - lastPush < PUSH_MS && n < 20_000)) return;
-  const b = tally;
-  tally = {};
-  lastPush = Date.now();
-  const p = hubStub(env)
-    .addReads(b)
-    .catch(() => {});
-  if (ctx) ctx.waitUntil(p);
-  return p;
-}
-
-export const countedEnv = (env: Env, label: () => string): Env => ({ ...env, DB: countingDb(env.DB, label, (l, m) => bookSink(tally)(l, m)) });
-
-app.use("*", async (c, next) => {
-  const env = c.env;
-  c.env = countedEnv(env, () => `${c.req.method} ${c.req.routePath}`);
-  await next();
-  let ctx;
-  try {
-    ctx = c.executionCtx;
-  } catch {}
-  pushReads(env, ctx);
-});
 
 app.onError((err, c) => {
   if (err instanceof HttpError) return errorResponse(err);
@@ -80,20 +47,14 @@ app.route("/", webhookRoutes);
 const TIER_EVERY_H = 6;
 
 /**
- * Cron sweep: the Hub reclaims expired leases (retry or dead-letter) and writes its batched heartbeat state
- * every run; artifacts are tiered out of R2 (archive.ts) on the first run of every TIER_EVERY_H hours (or
- * always, when `tier` is true), unless the day's D1 reads passed the guard.
+ * Cron sweep: reclaim expired leases (retry or dead-letter) every run, and tier artifacts out of R2
+ * (archive.ts) on the first run of every TIER_EVERY_H hours (or always, when `tier` is true).
  */
 export async function sweep(env: Env, nowMs = Date.now(), tier = true) {
-  const leases = await hubStub(env).sweep(nowMs);
-  const doTier = tier && !leases.degraded;
-  const cenv = countedEnv(env, () => "cron");
-  const artifacts = doTier ? await sweepArtifacts(cenv, nowMs) : { deleted: [], r2_deleted: [], held: 0 };
-  pushReads(env, undefined, true);
+  const leases = await reclaimExpired(env, nowMs);
+  const artifacts = tier ? await sweepArtifacts(env, nowMs) : { deleted: [], r2_deleted: [], held: 0 };
   return {
-    requeued: leases.requeued,
-    dead: leases.dead,
-    degraded: leases.degraded,
+    ...leases,
     artifacts_deleted: artifacts.deleted.length,
     artifacts_r2_deleted: artifacts.r2_deleted.length,
     artifacts_held: artifacts.held,
@@ -114,4 +75,3 @@ export default {
 } satisfies ExportedHandler<Env>;
 
 export { app };
-export { Hub } from "./hub";

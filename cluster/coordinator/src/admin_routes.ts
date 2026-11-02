@@ -3,7 +3,6 @@ import { Hono } from "hono";
 import { hotDays, hotDaysStmt } from "./archive";
 import { AppEnv, requireAdmin, requireViewer } from "./auth";
 import { CFG, getConfig, jobView, JobRow, rawRetentionDays, setConfigStmt } from "./db";
-import { hubStub } from "./hubstub";
 import { jobInsert, JobInput } from "./jobs";
 import { scrub } from "./purpose";
 import { HttpError, compareVersions, isObject, isStringArray, json, nowIso, parseJson, randomToken, readJson, sha256Hex } from "./util";
@@ -37,7 +36,6 @@ adminRoutes.post("/v1/admin/workers/:id/disable", async (c) => {
   const b = await readJson<{ disabled?: unknown }>(c.req.raw);
   const r = await c.env.DB.prepare("UPDATE workers SET disabled = ? WHERE id = ?").bind(b.disabled === false ? 0 : 1, c.req.param("id")).run();
   if (!r.meta.changes) throw new HttpError(404, "unknown worker");
-  await hubStub(c.env).syncWorkers([c.req.param("id")]);
   return json({ ok: true });
 });
 
@@ -55,7 +53,6 @@ adminRoutes.post("/v1/admin/jobs", async (c) => {
     if (String(e).includes("UNIQUE")) throw new HttpError(409, "a job_id already exists");
     throw e;
   }
-  await hubStub(c.env).syncJobs(made.map((m) => m.id));
   return json({ job_ids: made.map((m) => m.id) });
 });
 
@@ -69,7 +66,6 @@ adminRoutes.post("/v1/admin/jobs/cancel", async (c) => {
   )
     .bind(JSON.stringify(b.job_ids), nowIso())
     .all<{ job_id: string }>();
-  await hubStub(c.env).syncJobs(results.map((r) => r.job_id));
   return json({ cancelled: results.map((r) => r.job_id) });
 });
 
@@ -82,7 +78,6 @@ adminRoutes.post("/v1/admin/jobs/judge", async (c) => {
   if (scrub(line) !== line) throw new HttpError(400, "line looks like it holds a secret, an address or a local path; the feed is public");
   const r = await c.env.DB.prepare("UPDATE jobs SET judge = ?2 WHERE job_id = ?1").bind(b.job_id, line).run();
   if (!r.meta.changes) throw new HttpError(404, "unknown job");
-  await hubStub(c.env).touchHistory();
   return json({ ok: true });
 });
 
@@ -96,15 +91,8 @@ adminRoutes.post("/v1/admin/jobs/requeue", async (c) => {
   )
     .bind(JSON.stringify(b.job_ids))
     .all<{ job_id: string }>();
-  await hubStub(c.env).syncJobs(results.map((r) => r.job_id));
   return json({ requeued: results.map((r) => r.job_id) });
 });
-
-/** D1 reads per route today and per hour (48 h), and the read guard (src/budget.ts, src/hub.ts). */
-adminRoutes.get("/v1/admin/reads", async (c) => json(await hubStub(c.env).readStats()));
-
-/** Writes the Hub's batched state and reloads it from D1 (after editing jobs or workers in D1 by hand). */
-adminRoutes.post("/v1/admin/hub/reload", async (c) => json(await hubStub(c.env).reload()));
 
 /** Registers a repo (url, main branch) and optionally sets main_version by hand. */
 adminRoutes.put("/v1/admin/repos", async (c) => {
@@ -118,7 +106,6 @@ adminRoutes.put("/v1/admin/repos", async (c) => {
   )
     .bind(b.name, str(b.url), str(b.main_branch), str(b.main_version), nowIso())
     .run();
-  await hubStub(c.env).syncConfig();
   return json(await c.env.DB.prepare("SELECT * FROM repos WHERE name = ?").bind(b.name).first());
 });
 
@@ -133,7 +120,6 @@ adminRoutes.put("/v1/admin/client_release", async (c) => {
     stmts.push(setConfigStmt(c.env, CFG.minClientVersion, b.min_version));
   }
   await c.env.DB.batch(stmts);
-  await hubStub(c.env).syncConfig();
   return json(await getConfig(c.env));
 });
 
@@ -149,7 +135,6 @@ adminRoutes.put("/v1/admin/retention", async (c) => {
   }
   if (b.hot_days !== undefined) stmts.push(hotDaysStmt(c.env, b.hot_days));
   await c.env.DB.batch(stmts);
-  await hubStub(c.env).syncConfig();
   return json({ raw_days: await rawRetentionDays(c.env), hot_days: await hotDays(c.env) });
 });
 

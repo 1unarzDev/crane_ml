@@ -1,7 +1,6 @@
 // GitHub push webhook: a push to a repo's main branch sets repos.main_version.
 // Workers see the new version in every lease response and update their caches between jobs.
 import { Hono } from "hono";
-import { hubStub } from "./hubstub";
 import type { AppEnv } from "./auth";
 import { HttpError, constantTimeEqual, hmacSha256Hex, isObject, json, nowIso } from "./util";
 
@@ -40,6 +39,5 @@ webhookRoutes.post("/v1/webhook/github", async (c) => {
   )
     .bind(name, url, branch, after, nowIso())
     .run();
-  await hubStub(c.env).syncConfig();
   return json({ ok: true, repo: name, main_version: after });
 });

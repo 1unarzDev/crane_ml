@@ -1,5 +1,4 @@
 import type { MiddlewareHandler } from "hono";
-import { hubStub } from "./hubstub";
 import { Env, HttpError, bearer, sha256Hex } from "./util";
 
 export interface WorkerRow {
@@ -23,11 +22,14 @@ async function isAdminToken(env: Env, tok: string): Promise<boolean> {
   return !!env.ADMIN_TOKEN && (await sha256Hex(tok)) === (await sha256Hex(env.ADMIN_TOKEN));
 }
 
-/** A worker's token, checked against the Hub's memory (no D1 read). */
 export const requireWorker: MiddlewareHandler<AppEnv> = async (c, next) => {
   const tok = bearer(c.req.raw);
-  if (!tok || tok.length > 256) throw UNAUTHORIZED();
-  const row = await hubStub(c.env).auth(await sha256Hex(tok));
+  if (!tok) throw UNAUTHORIZED();
+  const row = await c.env.DB.prepare(
+    "SELECT id, name, caps_json, policy_json, client_version FROM workers WHERE token_sha256 = ? AND disabled = 0",
+  )
+    .bind(await sha256Hex(tok))
+    .first<WorkerRow>();
   if (!row) throw UNAUTHORIZED();
   c.set("worker", row);
   await next();

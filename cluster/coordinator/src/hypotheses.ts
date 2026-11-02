@@ -4,7 +4,6 @@
 // posts its decision to /advance, which enqueues the next stage or finishes.
 import { Hono } from "hono";
 import { AppEnv, requireAdmin, requireViewer } from "./auth";
-import { hubStub } from "./hubstub";
 import { JobInput, SAFE_NAME, jobInsert, parseSeeds, resolveRepos } from "./jobs";
 import { checkCampaign, checkEst, checkPurpose, checkSubmitter } from "./purpose";
 import { HttpError, isObject, json, nowIso, parseJson, randomId, readJson } from "./util";
@@ -178,7 +177,6 @@ hypRoutes.post("/v1/hyp", requireAdmin, async (c) => {
     h.stages_json, h.promotion_json, submitter, now, purpose, est, campaign);
   const jobs = await stageJobs(c.env, h, 0, seeds, activeArms(h));
   await c.env.DB.batch([insert, ...jobs]);
-  await hubStub(c.env).syncHypothesis(h.id);
   return json({ id: h.id, stage: stages[0].name, jobs: jobs.length, baseline_ref: baseline });
 });
 
@@ -282,6 +280,5 @@ hypRoutes.post("/v1/hyp/:id/advance", requireAdmin, async (c) => {
       "UPDATE hypotheses SET stage_index = ?2, status = ?3, variants_json = ?4, decisions_json = ?5, updated = ?6 WHERE id = ?1",
     ).bind(h.id, stageIndex, status, h.variants_json, JSON.stringify(decisions), nowIso()),
   ]);
-  await hubStub(c.env).syncHypothesis(h.id);
   return json({ id: h.id, status, stage_index: stageIndex, stage: status === "running" ? stages[stageIndex].name : status, jobs: action === "reject" ? 0 : stmts.length });
 });

@@ -1,6 +1,6 @@
 import { env } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
-import { CPU_CAPS, GPU_CAPS, addJobs, admin, callJson, expireLeases, flushHub, lease, makeWorker, resetTables, runCron } from "./helpers";
+import { CPU_CAPS, GPU_CAPS, addJobs, admin, callJson, expireLeases, lease, makeWorker, resetTables, runCron } from "./helpers";
 
 beforeEach(resetTables);
 
@@ -59,10 +59,9 @@ describe("leases", () => {
     const [id] = await addJobs([{}]);
     const w = await makeWorker("w");
     await lease(w);
-    await expireLeases(Date.now() + 1000);
+    await env.DB.prepare("UPDATE jobs SET lease_expires = ? WHERE job_id = ?").bind(Date.now() + 1000, id).run();
     const hb = await callJson("POST", "/v1/heartbeat", { token: w.token, json: { job_ids: [id], state: "running" } });
     expect(hb.body.extended).toEqual([id]);
-    await flushHub(); // the Hub writes lease expiry to D1 in batches
     const exp = await env.DB.prepare("SELECT lease_expires FROM jobs WHERE job_id = ?").bind(id).first<{ lease_expires: number }>();
     expect(exp!.lease_expires).toBeGreaterThan(Date.now() + 200_000);
     const rel = await callJson("POST", "/v1/release", { token: w.token, json: { job_ids: [id] } });
