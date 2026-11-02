@@ -48,6 +48,11 @@ def test_round_trip_within_the_quantum(tmp_path):
     assert t.times()[20] == 1.0
 
 
+def test_an_empty_events_section_reads_as_no_events():
+    # the Unity recorder (.NET DeflateStream) writes 0 bytes for a run without events
+    assert traj._inflate(b'') == b''
+
+
 def test_equal_input_gives_equal_bytes():
     cols = boat_run(minutes=0.5)
     assert traj.encode({'a': 1}, cols, hz=20) == traj.encode({'a': 1}, cols, hz=20)

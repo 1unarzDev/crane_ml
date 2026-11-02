@@ -99,7 +99,8 @@ def _deflate(data: bytes) -> bytes:
 
 
 def _inflate(data: bytes) -> bytes:
-    return zlib.decompress(data, -15)
+    # .NET's DeflateStream writes nothing for no input: a Unity run with no events has a 0-byte section
+    return zlib.decompress(data, -15) if data else b''
 
 
 def quantize(v: float, scale: float, offset: float = 0.0) -> int:
