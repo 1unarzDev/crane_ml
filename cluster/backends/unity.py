@@ -1,0 +1,167 @@
+"""The ``unity`` backend: one crane player run per seed, scored from the player's own outputs.
+
+No ROS, no SITL and no navigation stack: the player builds the seed's course itself
+(``--crane-course-family``), runs its benchmark for ``duration`` simulated seconds and quits.
+The run directory gets ``result.json`` (the benchmark, ``crane-benchmark-v1``),
+``course_truth.json`` (the generated course and its identity) and ``player.log``. Metrics are
+the numeric leaves of ``result.json`` (dotted names; lists of named entries by name) plus
+``course_ready`` and ``player_s`` (wall seconds). Full-stack jobs (Nav2, MAVROS, the ROS TCP
+endpoint) need a Linux host with the ROS workspace and are not run here; tag those ``os: linux``.
+
+Worker YAML (``path`` puts this crane copy on sys.path)::
+
+    unity:
+      type: "cluster.backends.unity:ClusterBackend"
+      path: C:/Users/me/AppData/Local/crane-cluster/crane
+      player: C:/Users/me/AppData/Local/crane-cluster/players/CRANE-Worker-Windows/CRANE.exe
+      batchmode: true        # -batchmode: GPU rendering, no window. false only where no one can see a
+                             # window (Windows session 0, a Linux host without DISPLAY); refused otherwise
+      timeout_s: 900         # per seed
+      args: []               # extra player arguments for this host
+
+Job spec keys (override the options): ``family`` (default roboboat_2026), ``mode`` (iid,
+corner=lo|hi|mixed), ``set`` (list of task.param=value), ``scene``, ``scenario``, ``sim_profile``
+(default full), ``duration``, ``warmup``, ``time_scale``, ``args`` (list, appended).
+"""
+
+import json
+import os
+import signal
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+DEFAULTS = {'family': 'roboboat_2026', 'scene': 'Roboboat Course', 'scenario': 'cluster',
+            'sim_profile': 'full', 'duration': 30, 'warmup': 5, 'time_scale': 1, 'batchmode': True,
+            'timeout_s': 900, 'width': 640, 'height': 360}
+
+
+def windows_session_id():
+    """This process's Windows session (0: the services session, no desktop anyone sees)."""
+    import ctypes
+    sid = ctypes.c_ulong()
+    ctypes.windll.kernel32.ProcessIdToSessionId(os.getpid(), ctypes.byref(sid))  # type: ignore[attr-defined]
+    return sid.value
+
+
+def window_visible(env):
+    """Would a player window be visible to someone on this host?"""
+    if sys.platform == 'win32':
+        return windows_session_id() != 0
+    return bool(env.get('DISPLAY') or env.get('WAYLAND_DISPLAY'))
+
+
+def flatten(value, prefix=''):
+    """Numeric leaves as {dotted.name: float}; a list of {'name': ...} objects is keyed by name."""
+    out = {}
+    if isinstance(value, bool):
+        return {prefix: float(value)} if prefix else {}
+    if isinstance(value, (int, float)):
+        return {prefix: float(value)} if prefix else {}
+    if isinstance(value, dict):
+        for k, v in value.items():
+            out.update(flatten(v, f'{prefix}.{k}' if prefix else str(k)))
+    elif isinstance(value, list) and value and all(isinstance(x, dict) and isinstance(x.get('name'), str)
+                                                   for x in value):
+        for x in value:
+            out.update(flatten({k: v for k, v in x.items() if k != 'name'}, f'{prefix}.{x["name"]}'))
+    return out
+
+
+class ClusterBackend:
+    def __init__(self, name='unity', options=None):
+        self.name, self.options, self.ctx, self.proc = name, dict(options or {}), None, None
+
+    def update(self):
+        pass
+
+    def prepare(self, ctx):
+        self.ctx = ctx
+        self.job = {**DEFAULTS, **self.options, **ctx.spec}
+        if not self.job.get('player'):
+            raise RuntimeError('unity backend: no player configured')
+        self.player = Path(os.path.expandvars(str(self.job['player']))).expanduser()
+        if not self.player.is_file():
+            raise RuntimeError(f'unity backend: player {self.player} not found')
+        self.env = {**os.environ, **getattr(ctx, 'env', {})}
+        if not self.job['batchmode'] and window_visible(self.env):
+            raise RuntimeError('unity backend: batchmode is off and a player window would be visible here')
+
+    def argv(self, seed, run_dir):
+        j = self.job
+        a = [str(self.player)]
+        if j['batchmode']:
+            a.append('-batchmode')
+        a += ['-screen-fullscreen', '0', '-screen-width', str(j['width']), '-screen-height', str(j['height']),
+              '-logFile', str(run_dir / 'player.log'),
+              '--crane-worker', '--crane-benchmark', '--crane-disable-ros', '--crane-disable-sitl',
+              '--crane-worker-id', str(getattr(self.ctx, 'isolation', {}).get('slot', 0)),
+              '--crane-seed', str(seed), '--crane-course-seed', str(seed),
+              '--crane-course-family', str(j['family']), '--crane-course-truth', str(run_dir / 'course_truth.json'),
+              '--crane-scene', str(j['scene']), '--crane-scenario', str(j['scenario']),
+              '--crane-sim-profile', str(j['sim_profile']), '--crane-time-scale', str(j['time_scale']),
+              '--crane-warmup', str(j['warmup']), '--crane-duration', str(j['duration']),
+              '--crane-output', str(run_dir / 'result.json')]
+        if j.get('mode'):
+            a += ['--crane-course-mode', str(j['mode'])]
+        for pin in j.get('set') or []:
+            a += ['--crane-course-set', str(pin)]
+        return a + [str(x) for x in self.options.get('args') or []] + [str(x) for x in self.ctx.spec.get('args') or []]
+
+    def run(self, seed):
+        run_dir = Path(self.ctx.work_dir) / 'runs' / f's{int(seed)}'
+        run_dir.mkdir(parents=True, exist_ok=True)
+        kw = {'cwd': str(self.player.parent), 'env': self.env,
+              'stdout': subprocess.DEVNULL, 'stderr': subprocess.DEVNULL}
+        if sys.platform == 'win32':
+            si = subprocess.STARTUPINFO()
+            si.dwFlags |= subprocess.STARTF_USESHOWWINDOW  # SW_HIDE for any window the player makes
+            kw.update(startupinfo=si, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
+                      | subprocess.BELOW_NORMAL_PRIORITY_CLASS)
+        else:
+            kw['start_new_session'] = True
+        t0 = time.time()
+        self.proc = subprocess.Popen(self.argv(seed, run_dir), **kw)
+        try:
+            rc = self.proc.wait(timeout=float(self.job['timeout_s']))
+        except subprocess.TimeoutExpired:
+            self.cancel()
+            raise RuntimeError(f'seed {seed}: player timed out after {self.job["timeout_s"]} s')
+        finally:
+            self.proc = None
+        (run_dir / 'player_s.txt').write_text(f'{time.time() - t0:.3f}\n')
+        if rc != 0 or not (run_dir / 'result.json').is_file():
+            tail = ''
+            if (run_dir / 'player.log').is_file():
+                tail = (run_dir / 'player.log').read_bytes()[-1500:].decode(errors='replace')
+            raise RuntimeError(f'seed {seed}: player exited {rc} without result.json: {tail}')
+        return run_dir
+
+    def metrics(self, run_dir):
+        run_dir = Path(run_dir)
+        m = flatten(json.loads((run_dir / 'result.json').read_text()))
+        m['course_ready'] = float((run_dir / 'course_truth.json').is_file())
+        m['player_s'] = float((run_dir / 'player_s.txt').read_text())
+        return m
+
+    def artifacts(self, run_dir):
+        run_dir = Path(run_dir)
+        return [(run_dir / n, n, r) for n, r in (('result.json', 'summary'), ('course_truth.json', 'summary'),
+                                                ('player.log', 'raw')) if (run_dir / n).is_file()]
+
+    def cancel(self):
+        p = self.proc
+        if not p or p.poll() is not None:
+            return
+        try:
+            if sys.platform == 'win32':  # the player and its crash handler
+                subprocess.run(['taskkill', '/T', '/F', '/PID', str(p.pid)], capture_output=True, check=False,
+                               creationflags=subprocess.CREATE_NO_WINDOW)
+            else:
+                os.killpg(p.pid, signal.SIGTERM)
+        except (OSError, ProcessLookupError):
+            pass
+
+    def finish(self):
+        self.cancel()
