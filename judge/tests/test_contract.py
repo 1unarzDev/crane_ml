@@ -4,7 +4,9 @@ import ast
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-CORE = [p for p in ROOT.rglob('*.py') if 'tests' not in p.parts and 'packs' not in p.parts]
+# the CLI (__main__) wires packs in; everything else is core
+CORE = [p for p in ROOT.rglob('*.py') if 'tests' not in p.parts and 'packs' not in p.parts
+        and p.name != '__main__.py']
 FORBIDDEN = ('mhseals', 'nlc', 'fastsim', 'crane_cluster', 'judge.packs')
 
 

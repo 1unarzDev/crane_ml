@@ -127,3 +127,23 @@ def test_modular_morphology_refusal():
     b = replace(a, header=replace(a.header, robot=replace(a.header.robot, morphology={'modules': ['m1', 'm2']})))
     assert not morphology_ok(effort, a, b) and morphology_ok(effort, a, a)
     assert morphology_ok(generic_motion.PACK.metrics['motion.duration'], a, b)
+
+
+def test_shared_twin_is_one_unit_and_anchor_aligns():
+    from dataclasses import replace
+    from judge.record import Event
+    hi = tq.simulate(tq.PARAMS_HIGH, 0, 'high')
+    pairs = [(s, tq.simulate(tq.PARAMS_LOW, s, 'low'), hi) for s in range(4)]
+    rep = judge_tiers(pairs, tq.TASK, PACKS, pose='pose.xz')
+    assert rep['g4']['n_units'] == 1
+    assert any(i['kind'] == 'tiers.shared_twins' for i in rep['insights'])
+    # a high run that idles 3 s before its task starts aligns on the anchor event, not the window
+    from judge.insight.divergence import aligned
+    lo = tq.simulate(tq.PARAMS_LOW, 1, 'low')
+    ch = lo.channels['pose.xz']
+    late = replace(lo, channels={**lo.channels, 'pose.xz': replace(ch, t=ch.t + 3.0)},
+                   events=(Event(3.0, 'task.start'),),
+                   header=replace(lo.header, window=(0.0, lo.header.window[1] + 3.0, 'time')))
+    early = replace(lo, events=(Event(0.0, 'task.start'),))
+    tau, a, b = aligned(early, late, 'pose.xz', anchor='task.start')
+    assert np.abs(a - b).max() < 1e-6

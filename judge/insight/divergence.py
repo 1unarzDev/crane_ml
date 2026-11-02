@@ -52,11 +52,20 @@ def _xy(rec, pose):
     return ch, ch.v[:, :2]
 
 
-def aligned(low: RunRecord, high: RunRecord, pose='pose.se2', dt=DT):
-    """(tau, xy_low, xy_high) on relative time from each window start, over the common span."""
+def start(rec: RunRecord, anchor=''):
+    """The record's task start: the first ``anchor`` event, else the window start."""
+    if anchor:
+        ev = rec.events_of(anchor)
+        if ev:
+            return float(ev[0].t)
+    return float(rec.header.window[0])
+
+
+def aligned(low: RunRecord, high: RunRecord, pose='pose.se2', dt=DT, anchor=''):
+    """(tau, xy_low, xy_high) on relative time from each task start, over the common span."""
     cl, cl_xy = _xy(low, pose)
     ch, ch_xy = _xy(high, pose)
-    l0, h0 = low.header.window[0], high.header.window[0]
+    l0, h0 = start(low, anchor), start(high, anchor)
     span = min(cl.t[-1] - l0, ch.t[-1] - h0)
     if span <= dt:
         return None
@@ -97,10 +106,13 @@ def cusum_first(tau, e, tol, h):
 
 def motion_class(high: RunRecord, t0, t1, pose='pose.se2', turn_wz=0.15, hold_v=0.05):
     ch = high.channel(pose).window(t0, t1)
-    if len(ch) < 3:
+    if len(ch) < 3 or ch.t[-1] - ch.t[0] < 0.5:
         return 'short'
-    v = np.hypot(*np.gradient(ch.v[:, :2], ch.t, axis=0).T)
-    wz = np.abs(np.gradient(np.unwrap(ch.v[:, 2]), ch.t)) if ch.v.shape[1] > 2 else np.zeros(len(ch))
+    t = np.arange(ch.t[0], ch.t[-1], 0.2)          # uniform: jittery logs inflate rates
+    p = np.column_stack([np.interp(t, ch.t, ch.v[:, k]) for k in range(2)])
+    v = np.hypot(*(np.diff(p, axis=0) / 0.2).T)
+    wz = (np.abs(np.diff(np.interp(t, ch.t, np.unwrap(ch.v[:, 2])))) / 0.2 if ch.v.shape[1] > 2
+          else np.zeros(len(v)))
     if np.mean(wz) > turn_wz:
         return 'turn'
     if np.mean(v) < hold_v:
@@ -139,7 +151,7 @@ def _local(replayer, mode, high, t0, t1, pose, H):
 
 
 def decompose(low: RunRecord, high: RunRecord, replayer: Optional[Replayer], segments,
-              pose='pose.se2'):
+              pose='pose.se2', anchor=''):
     """Per segment {t0, t1, label, motion, open, reset, free, local_sum, ...}.
 
     ``open`` and ``reset`` are RMS errors over sub-windows of ``replayer.horizon_s`` (None: the
@@ -148,7 +160,7 @@ def decompose(low: RunRecord, high: RunRecord, replayer: Optional[Replayer], seg
     adds the reset errors at the sub-window ends: the drift that dynamics alone would accumulate."""
     hc = high.channel(pose)
     lc = low.channel(pose)
-    h0, l0 = high.header.window[0], low.header.window[0]
+    h0, l0 = start(high, anchor), start(low, anchor)
     H = getattr(replayer, 'horizon_s', None) if replayer else None
     rows = []
     for t0, t1, label in segments:
@@ -174,11 +186,11 @@ def uniform_segments(rec, seg_s=10.0):
 
 
 def pair_insights(low: RunRecord, high: RunRecord, replayer=None, segments=None, pose='pose.se2',
-                  tol=0.5, h=2.0):
+                  tol=0.5, h=2.0, anchor=''):
     """Insights for one pair: first divergence, time vs path residual, and the split."""
     out = []
     scope = {'pair': [low.run_id, high.run_id], 'tiers': [low.tier, high.tier]}
-    al = aligned(low, high, pose)
+    al = aligned(low, high, pose, anchor=anchor)
     if al is None:
         return out, {}
     tau, a, b = al
@@ -194,8 +206,8 @@ def pair_insights(low: RunRecord, high: RunRecord, replayer=None, segments=None,
         out.append(Insight('divergence.first', 'warn',
                            f'{low.tier} leaves {high.tier} at t+{first:.1f} s near ({where[0]:.1f}, {where[1]:.1f}); '
                            f'time RMS {summary["time_rms"]:.2f} m, path RMS {summary["path_rms"]:.2f} m',
-                           evidence=(Span(high.run_id, high.header.window[0] + first,
-                                          high.header.window[0] + min(first + 10, tau[-1]), (pose,), 'diverge'),),
+                           evidence=(Span(high.run_id, start(high, anchor) + first,
+                                          start(high, anchor) + min(first + 10, tau[-1]), (pose,), 'diverge'),),
                            scope=scope, data=summary))
     ratio = summary['time_rms'] / max(summary['path_rms'], 1e-6)
     if summary['time_rms'] > tol and ratio > 2.5:
@@ -208,7 +220,7 @@ def pair_insights(low: RunRecord, high: RunRecord, replayer=None, segments=None,
                            f'different routes: path residual {summary["path_rms"]:.2f} m (max {summary["path_max"]:.1f} m)',
                            scope=scope, data=summary))
     segs = segments if segments is not None else uniform_segments(high)
-    rows = decompose(low, high, replayer, segs, pose) if segs else []
+    rows = decompose(low, high, replayer, segs, pose, anchor) if segs else []
     summary['segments'] = rows
     split = split_summary(rows, tol)
     summary['split'] = split
@@ -258,7 +270,7 @@ def split_summary(rows, tol=0.5):
         elif out['explained'] < 0.3:
             out['dominant'] = 'decision/upstream'
         elif out['open_mean'] is None:
-            out['dominant'] = 'dynamics'
+            out['dominant'] = 'execution'      # plant + controller + local planning, not separable
         else:
             share = out['open_mean'] / max(out['reset_mean'], 1e-9)
             out['plant_share'] = float(min(1.0, share))

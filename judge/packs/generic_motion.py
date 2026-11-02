@@ -56,9 +56,11 @@ class HeadingRateRMS(_PoseMetric):
 
     def compute(self, rec, task):
         ch, _ = self.xy(rec)
-        if ch.v.shape[1] < 3 or len(ch) < 3:
+        if ch.v.shape[1] < 3 or len(ch) < 3 or ch.t[-1] - ch.t[0] < 1.0:
             return unscorable('no heading field')
-        w = np.gradient(np.unwrap(ch.v[:, 2]), ch.t)
+        t = np.arange(ch.t[0], ch.t[-1], 0.1)      # uniform: jittery high-rate logs inflate rates
+        yaw = np.interp(t, ch.t, np.unwrap(ch.v[:, 2]))
+        w = np.diff(yaw) / 0.1
         return MetricValue(float(np.sqrt(np.mean(w ** 2))))
 
 

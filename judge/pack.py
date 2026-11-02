@@ -62,6 +62,7 @@ class Pack:
     metrics: Mapping[str, Metric] = field(default_factory=dict)
     event_vocab: Mapping[str, str] = field(default_factory=dict)   # kind -> description
     decision_events: tuple = ()        # kinds that are decisions (for the event-timeline diff)
+    anchor_event: str = ''             # event kind that starts the task (pairs align on its first time)
     outcome: Optional[Callable[[RunRecord, Mapping[str, MetricValue]], str]] = None  # failure mode
     segmenter: Optional[Callable] = None   # (rec) -> [(t0, t1, label)]
     dependency: Optional[DepGraph] = None

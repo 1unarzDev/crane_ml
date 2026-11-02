@@ -155,10 +155,12 @@ def tier_agreement(low: Mapping[str, Sequence[float]], high: Mapping[str, Sequen
 
 # ------------------------------------------------------------------ G4: value agreement
 
-def tier_gap(pairs: Sequence, objectives: Sequence[Objective], gate='G4', seed=0):
-    """G4 over paired (low, high) runs: per objective metric the gap low - high."""
+def tier_gap(pairs: Sequence, objectives: Sequence[Objective], gate='G4', seed=0, unit=None):
+    """G4 over paired (low, high) runs: per objective metric the gap low - high. ``unit(high)``
+    groups pairs for a cluster bootstrap (default: every pair is a unit)."""
     usable = [(k, a, b) for k, a, b in pairs if gate_ok(a, gate) and gate_ok(b, gate)]
     out = {'n_pairs': len(pairs), 'n_usable': len(usable),
+           'n_units': len({unit(b) for _, _, b in usable}) if unit else len(usable),
            'excluded': dict(Counter(_why_excluded(a, b, gate) for _, a, b in pairs
                                     if not (gate_ok(a, gate) and gate_ok(b, gate)))),
            'metrics': {}, 'failure_modes': failure_confusion(usable)}
@@ -169,10 +171,17 @@ def tier_gap(pairs: Sequence, objectives: Sequence[Objective], gate='G4', seed=0
         if not d:
             out['metrics'][m] = {'n': 0, 'verdict': 'unscorable on one tier'}
             continue
+        units = {}
+        for (_, a, b) in usable:
+            x, y = a.get(m), b.get(m)
+            if x is not None and y is not None:
+                units.setdefault(unit(b) if unit else id(b), []).append(x - y)
         gaps = [x - y for x, y in d]
-        bias, ci = stats.bootstrap_ci(gaps, lambda g: sum(g) / len(g), seed=seed)
+        groups = list(units.values())
+        bias, ci = stats.bootstrap_ci(groups, lambda gs: sum(sum(g) for g in gs) / sum(len(g) for g in gs),
+                                      seed=seed)
         sd = math.sqrt(sum((g - bias) ** 2 for g in gaps) / (len(gaps) - 1)) if len(gaps) > 1 else 0.0
-        row = {'n': len(gaps), 'low_mean': sum(x for x, _ in d) / len(d),
+        row = {'n': len(gaps), 'n_units': len(groups), 'low_mean': sum(x for x, _ in d) / len(d),
                'high_mean': sum(y for _, y in d) / len(d), 'bias': bias, 'bias_ci95': list(ci),
                'sd': sd, 'max_abs': max(abs(g) for g in gaps), 'band': obj.band}
         pos = [(x, y) for x, y in d if y]

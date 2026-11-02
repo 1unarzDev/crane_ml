@@ -74,26 +74,31 @@ def judge_runs(records, task, packs, success=('success',), pose='pose.se2'):
 
 
 def judge_tiers(pairs, task, packs, replayer=None, decision_kinds=(), segmenter=None, pose='pose.se2',
-                tol=0.5, roster_low=None, roster_high=None):
-    """``pairs`` [(key, low RunRecord, high RunRecord)]."""
+                tol=0.5, roster_low=None, roster_high=None, anchor=None):
+    """``pairs`` [(key, low RunRecord, high RunRecord)]. Pairs that share a high-tier run are one
+    unit for the G4 bootstrap (one Unity twin paired with several fast variants is one twin)."""
+    if anchor is None:
+        anchor = next((p.anchor_event for p in packs if p.anchor_event), '')
     scored = [(k, *score([a, b], task, packs)) for k, a, b in pairs]
     objectives = list(task.ordered()) if task else []
-    gap = tier_gap(scored, objectives)
+    gap = tier_gap(scored, objectives, unit=lambda s: s.rec.run_id)
     ins = integrity.batch_validity([r for _, a, b in pairs for r in (a, b)])
     per_pair = []
     for (k, a, b), (_, sa, sb) in zip(pairs, scored):
         row = {'key': str(k), 'low': a.run_id, 'high': b.run_id, 'valid': [a.validity.valid, b.validity.valid],
                'outcome': [sa.outcome, sb.outcome]}
-        ins += integrity.pair_checks(a, b)
+        pc = integrity.pair_checks(a, b)
+        ins += pc
+        row['code_mismatch'] = [i.data for i in pc if i.kind == 'integrity.code_mismatch']
         try:
             segs = segmenter(b) if segmenter else None
-            pi, summ = divergence.pair_insights(a, b, replayer, segs, pose, tol)
+            pi, summ = divergence.pair_insights(a, b, replayer, segs, pose, tol, anchor=anchor)
             ins += pi
             row['divergence'] = summ
         except LookupError as e:
             row['divergence'] = {'unavailable': str(e)}
         if decision_kinds:
-            ei, info = events.first_difference(a, b, decision_kinds, pose)
+            ei, info = events.first_difference(a, b, decision_kinds, pose, anchor=anchor)
             row['events'] = info
             if ei:
                 ins.append(ei)
@@ -121,6 +126,12 @@ def _rollups(per_pair, a_tier, b_tier):
                            + (f' (dynamics explain median {sorted(ex)[len(ex) // 2]:.0%})' if ex else '')
                            + (f'; others: {", ".join(f"{d} {c}" for d, c in dom.most_common()[1:])}' if len(dom) > 1 else ''),
                            scope={'tiers': [a_tier, b_tier], 'pairs': n}, data=dict(dom), basis='model-relative:replay'))
+    twins = {p['high'] for p in per_pair}
+    if len(twins) < n:
+        out.append(Insight('tiers.shared_twins', 'warn',
+                           f'{n} pairs but only {len(twins)} distinct {b_tier} runs: the effective sample is '
+                           f'{len(twins)} (G4 bootstraps by {b_tier} run)',
+                           scope={'tiers': [a_tier, b_tier]}, data={'pairs': n, 'distinct_high': len(twins)}))
     ev = [p.get('events') or {} for p in per_pair]
     dec = [e for e in ev if e.get('kind') == 'decision']
     if dec:
@@ -136,6 +147,13 @@ def _rollups(per_pair, a_tier, b_tier):
         out.append(Insight('tiers.timeline_agreement', 'info',
                            f'decision timelines agree {sum(agree) / len(agree):.0%} on average over {len(agree)} pairs',
                            scope={'tiers': [a_tier, b_tier]}, data={'mean': sum(agree) / len(agree)}))
+    cm = [p for p in per_pair if p.get('code_mismatch')]
+    if cm:
+        repos = Counter(k for p in cm for d in p['code_mismatch'] for k in d)
+        out.append(Insight('tiers.code_mismatch', 'warn',
+                           f'{len(cm)}/{n} pairs ran different code on the two tiers '
+                           f'({", ".join(f"{k} {v}x" for k, v in repos.most_common())}): their gap mixes tier and code',
+                           scope={'tiers': [a_tier, b_tier]}, data=dict(repos)))
     pace = [(p.get('divergence') or {}) for p in per_pair]
     pr = [(d['time_rms'], d['path_rms']) for d in pace if 'time_rms' in d]
     if pr:

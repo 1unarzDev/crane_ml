@@ -22,8 +22,9 @@ def label(e, keys=('kind', 'why', 'stage', 'reason_class')):
     return f'{e.kind}:{extra}' if extra else e.kind
 
 
-def timeline(rec: RunRecord, kinds, labeler=label):
-    t0 = rec.header.window[0]
+def timeline(rec: RunRecord, kinds, labeler=label, anchor=''):
+    from judge.insight.divergence import start
+    t0 = start(rec, anchor)
     return [(float(e.t - t0), labeler(e), e) for e in rec.events if e.kind in kinds]
 
 
@@ -58,9 +59,11 @@ def align(a, b, tol_s=5.0, gap=-1.0, mismatch=-1.0):
 
 
 def first_difference(low: RunRecord, high: RunRecord, kinds, pose='pose.se2', tol_s=5.0,
-                     near_m=1.0, labeler=label):
+                     near_m=1.0, labeler=label, anchor=''):
     """Insight for the first differing decision (or None when the timelines agree)."""
-    a, b = timeline(low, kinds, labeler), timeline(high, kinds, labeler)
+    from judge.insight.divergence import start
+    a, b = timeline(low, kinds, labeler, anchor), timeline(high, kinds, labeler, anchor)
+    s_low, s_high = start(low, anchor), start(high, anchor)
     if not a and not b:
         return None, {'n_low': 0, 'n_high': 0}
     al = align(a, b, tol_s)
@@ -77,8 +80,8 @@ def first_difference(low: RunRecord, high: RunRecord, kinds, pose='pose.se2', to
     resid = None
     try:
         lc, hc = low.channel(pose), high.channel(pose)
-        pa = np.array([np.interp(t_rel + low.header.window[0], lc.t, lc.v[:, k]) for k in range(2)])
-        pb = np.array([np.interp(t_rel + high.header.window[0], hc.t, hc.v[:, k]) for k in range(2)])
+        pa = np.array([np.interp(t_rel + s_low, lc.t, lc.v[:, k]) for k in range(2)])
+        pb = np.array([np.interp(t_rel + s_high, hc.t, hc.v[:, k]) for k in range(2)])
         resid = float(np.linalg.norm(pa - pb))
     except LookupError:
         pass
@@ -89,7 +92,7 @@ def first_difference(low: RunRecord, high: RunRecord, kinds, pose='pose.se2', to
              + (f' with the robots {resid:.2f} m apart' if resid is not None else '')
              + (' -> decision divergence (perception/world model/planner), not dynamics' if decision
                 else ' -> follows an earlier state divergence' if resid is not None else ''))
-    ev = (Span(high.run_id, high.header.window[0] + t_rel, high.header.window[0] + t_rel + 5, (pose,), 'decision'),)
+    ev = (Span(high.run_id, s_high + t_rel, s_high + t_rel + 5, (pose,), 'decision'),)
     return Insight('events.first_difference', 'warn' if decision else 'info', claim, evidence=ev,
                    scope={'pair': [low.run_id, high.run_id], 'tiers': [low.tier, high.tier]},
                    data=info, basis='descriptive'), info
