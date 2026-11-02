@@ -170,11 +170,13 @@ export async function mount(host, ctx) {
   function renderG4() {
     if (!g4?.g4?.metrics) { $('g4').innerHTML = `<h4><span>G4 · tier gap per objective</span></h4><div class="note">No G4 table for these runs.</div>`; return; }
     const ms = Object.entries(g4.g4.metrics);
-    const span = Math.max(...ms.map(([, m]) => Math.max(Math.abs(m.bias_ci95?.[0] ?? 0), Math.abs(m.bias_ci95?.[1] ?? 0), m.band || 0))) || 1;
-    const P = (v) => 50 + (v / span) * 48;
+    // each row on its own scale (objectives have different units): the band, the CI and zero are what matter
+    let span = 1;
+    const P = (v) => 50 + (v / span) * 46;
     let h = `<h4><span>G4 · tier gap per objective</span><span>${esc(g4.n_pairs)} pairs</span></h4><table class="g4"><tr><th>objective</th><th>bias [95% CI] vs band</th><th>bias</th><th>in band</th><th>verdict</th></tr>`;
     for (const [k, m] of ms) {
       const lo = m.bias_ci95?.[0], hi = m.bias_ci95?.[1];
+      span = Math.max(Math.abs(lo ?? 0), Math.abs(hi ?? 0), Math.abs(m.bias ?? 0), m.band || 0) || 1;
       h += `<tr><td>${esc(k)}</td><td><span class="ci" title="band ±${m.band}"><span class="band" style="left:${P(-m.band)}%;right:${100 - P(m.band)}%"></span><span class="z" style="left:50%"></span>${lo != null ? `<span class="cib" style="left:${P(lo)}%;width:${P(hi) - P(lo)}%"></span>` : ''}<span class="pt" style="left:${P(m.bias)}%"></span></span></td><td>${fmt.n(m.bias)}</td><td>${Math.round((m.band_coverage || 0) * 100)}%</td><td class="s-${esc(m.verdict)}">${esc(m.verdict)}</td></tr>`;
     }
     h += '</table>';
