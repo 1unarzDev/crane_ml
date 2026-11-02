@@ -330,9 +330,18 @@ Later deploys go through `./deploy.sh` (`npm run deploy`; `CRANE_URL` for anothe
 without a coordinator (they fall back to local runs). It does not roll back a failure that was already
 there before the deploy.
 
-D1 on the free plan allows 5M rows read per day for the whole account: the feed caches ended jobs'
-aggregates and the duration model, and the artifact tiering sweep runs every 6 h, to stay under it.
-Past it every D1 route answers 503 `D1 daily quota exhausted` until 00:00 UTC.
+D1 on the free plan allows 5M rows read per day for the whole account. The hot state lives in the Hub, one
+Durable Object (`src/hub.ts`): the queued and leased jobs, the workers and their tokens, config, the live
+jobs' run aggregates and the feed snapshot. Lease polls (`wait_s` long-polls up to 25 s), heartbeats, worker
+auth, the feed and its SSE stream are served from its memory and read no D1 row; job transitions are written
+through to D1 with conditional UPDATEs, heartbeat state in batches by the cron, and the Hub reloads from D1
+when it starts (`POST /v1/admin/hub/reload` after editing jobs or workers in D1 by hand). The feed re-reads
+its D1 history (ended jobs, recent runs) only after a change, at most every `FEED_HISTORY_S`. Every D1 query
+is counted per route and hour (`GET /v1/admin/reads`, admin); past `D1_GUARD_FRAC` (60%) of
+`D1_READ_BUDGET` the feed's history freezes, artifact tiering pauses and the dashboard shows a banner until
+00:00 UTC. Past the quota itself every D1 route answers 503 `D1 daily quota exhausted` with Retry-After;
+workers and `crane-hyp` wait it out (5 s doubling to 5 min). New migrations go out before the code:
+`npx wrangler d1 migrations apply crane-cluster --remote`, then `./deploy.sh`.
 
 GitHub, for each repo whose `main` workers should track: Settings → Webhooks →
 payload URL `https://cluster.example.org/v1/webhook/github`, content type
