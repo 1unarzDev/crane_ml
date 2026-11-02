@@ -160,14 +160,16 @@ halving, stage 1 and stage 2 to `candidate`.
 
 ## Deploying
 
-Nothing is deployed by default, and `wrangler.toml` carries a placeholder database id.
-From `coordinator/`:
+The coordinator runs at `https://crane.lunarz.dev`; `wrangler.toml` holds its database id,
+bucket and custom domain, and the admin token and webhook secret live in
+`~/.config/crane-cluster/secrets.env` on the deploying machine. A fresh deployment, from
+`coordinator/`:
 
 ```sh
 npm ci
 npx wrangler login
 npx wrangler d1 create crane-cluster            # copy database_id into wrangler.toml
-npx wrangler r2 bucket create crane-cluster
+npx wrangler r2 bucket create crane-cluster-artifacts
 npx wrangler d1 migrations apply crane-cluster --remote
 openssl rand -base64 32 | npx wrangler secret put ADMIN_TOKEN
 openssl rand -hex 32    | tee /dev/stderr | npx wrangler secret put GITHUB_WEBHOOK_SECRET

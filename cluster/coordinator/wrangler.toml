@@ -1,7 +1,8 @@
-# crane cluster coordinator. See ../README.md ("Deploying") before deploying; nothing is deployed by default.
+# crane cluster coordinator, deployed at crane.lunarz.dev. See ../README.md ("Deploying").
 name = "crane-cluster"
 main = "src/index.ts"
 compatibility_date = "2026-10-01"
+routes = [{ pattern = "crane.lunarz.dev", custom_domain = true }]
 
 [vars]
 MIN_CLIENT_VERSION = "0.1.0"   # fallback until PUT /v1/admin/client_release sets one
@@ -18,12 +19,12 @@ MAX_ARTIFACT_MB = "95"         # proxied uploads stay under the Workers request-
 [[d1_databases]]
 binding = "DB"
 database_name = "crane-cluster"
-database_id = "00000000-0000-0000-0000-000000000000"   # replace with the id printed by `npx wrangler d1 create crane-cluster`
+database_id = "be499d65-4b97-4c0e-bf0d-e6094f780afc"
 migrations_dir = "migrations"
 
 [[r2_buckets]]
 binding = "BUCKET"
-bucket_name = "crane-cluster"
+bucket_name = "crane-cluster-artifacts"
 
 [triggers]
 crons = ["*/5 * * * *"]   # reclaim expired leases, delete expired raw artifacts

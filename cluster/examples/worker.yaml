@@ -35,7 +35,7 @@ backends:
     image: ghcr.io/example/sim-worker:latest
     command: "run-sim --scenario {scenario} --seed {seed} --out {run_dir}"
     timeout_s: 1800
-  # A backend from another package (a domain adapter):
-  # domain_fast:
-  #   type: "some_package.cluster_backend:FastSimBackend"
-  #   option: value
+  # A backend from another package (a domain adapter); path puts a checkout on sys.path:
+  # fastsim:
+  #   type: "cluster.backends.fastsim:ClusterBackend"
+  #   path: ~/src/crane_ml
