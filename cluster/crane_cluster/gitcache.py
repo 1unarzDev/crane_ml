@@ -2,6 +2,7 @@
 
 Mirrors are fetched only between jobs (``refresh``) or when a job names a
 commit the mirror lacks; a running job's checkout never changes under it.
+Git LFS files stay pointers (the mirror holds no LFS objects to smudge from).
 """
 from __future__ import annotations
 
@@ -16,7 +17,7 @@ SHA = re.compile(r"^[0-9a-f]{40}$")
 
 def _git(*args, cwd=None, timeout=1800) -> str:
     r = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, timeout=timeout,
-                       env={"GIT_TERMINAL_PROMPT": "0", **_base_env()})
+                       env={**_base_env(), "GIT_TERMINAL_PROMPT": "0", "GIT_LFS_SKIP_SMUDGE": "1"})
     if r.returncode != 0:
         raise RuntimeError(f"git {' '.join(args)}: {r.stderr.strip()[-500:]}")
     return r.stdout.strip()
