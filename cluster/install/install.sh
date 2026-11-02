@@ -1,14 +1,19 @@
 #!/usr/bin/env bash
-# Installs a crane cluster worker for the current user (Linux: systemd --user service).
+# Installs a crane cluster worker for the current user (Linux: systemd --user service) and provisions
+# what its backends need (install/provision.yaml), user-level: uv and a Python venv with the packages,
+# a static ffmpeg, the .NET SDK, a Vulkan check, a Unity player and UnityEngine.CoreModule.dll when
+# given, and the repos the backends check out (git is the system's; the owner installs it if missing).
 #   install.sh --coordinator URL --invite CODE [--name NAME] [--source DIR|GIT_URL]
 #              [--config FILE] [--prefix DIR] [--memory-max SIZE] [--no-service]
+#              [--player ZIP|DIR|URL] [--unity-managed DIR|DLL|URL] [--minimal]
 # --memory-max caps the service and its jobs (systemd MemoryMax=, e.g. 6G; swap is capped at 0).
-# The worker is stdlib-only Python (>= 3.9) plus git; docker is needed only for
-# container backends. Re-running updates the code and keeps config and token.
+# --minimal: no venv, tools or repos (the worker itself is stdlib-only Python >= 3.9).
+# Re-running updates the code, upgrades tools and packages, and keeps config and token.
 # A host that must never run jobs opts out with an empty file /etc/crane-cluster/deny.
 set -euo pipefail
 
-coordinator= invite= name= source= service=1 memory_max=
+coordinator= invite= name= source= service=1 memory_max= player= unity_managed= minimal=0
+packages="numpy pyyaml py_trees mcap mcap-ros2-support"
 prefix="${XDG_DATA_HOME:-$HOME/.local/share}/crane-cluster"
 config="${XDG_CONFIG_HOME:-$HOME/.config}/crane-cluster/worker.yaml"
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -23,7 +28,10 @@ while [ $# -gt 0 ]; do
     --prefix) prefix=$2; shift 2 ;;
     --memory-max) memory_max=$2; shift 2 ;;
     --no-service) service=0; shift ;;
-    -h|--help) sed -n '2,8p' "$0"; exit 0 ;;
+    --player) player=$2; shift 2 ;;
+    --unity-managed) unity_managed=$2; shift 2 ;;
+    --minimal) minimal=1; shift ;;
+    -h|--help) sed -n '2,12p' "$0"; exit 0 ;;
     *) echo "install.sh: unknown argument $1" >&2; exit 2 ;;
   esac
 done
@@ -34,7 +42,24 @@ py=$(command -v python3 || true)
 if [ -z "$py" ] || ! "$py" -c 'import sys; sys.exit(sys.version_info < (3, 9))'; then
   echo "install.sh: python3 >= 3.9 required" >&2; exit 1
 fi
-command -v git >/dev/null || { echo "install.sh: git required" >&2; exit 1; }
+command -v git >/dev/null || echo "install.sh: no git: jobs with repos need it (owner step: sudo apt install git)" >&2
+
+# Python for the worker and its jobs: a uv venv with the packages (uv fetched to ~/.local/bin if missing)
+if [ "$minimal" = 0 ]; then
+  uv=$(command -v uv || echo "$HOME/.local/bin/uv")
+  if [ ! -x "$uv" ]; then
+    arch=$(uname -m); [ "$arch" = arm64 ] && arch=aarch64
+    mkdir -p "$HOME/.local/bin"
+    curl -fsSL "https://github.com/astral-sh/uv/releases/latest/download/uv-$arch-unknown-linux-gnu.tar.gz" |
+      tar -xz -C "$HOME/.local/bin" --strip-components=1 && echo "installed uv at $uv" || uv=
+  fi
+  if [ -n "$uv" ] && { [ -x "$prefix/venv/bin/python" ] || "$uv" venv -q --python 3.12 "$prefix/venv"; } &&
+     "$uv" pip install -q -U --python "$prefix/venv/bin/python" $packages; then
+    py="$prefix/venv/bin/python"
+  else
+    echo "install.sh: no uv venv; using $py without packages" >&2
+  fi
+fi
 
 # 1. code: a copy of the crane_cluster package (no pip; the network is used only for a git source)
 [ -n "$source" ] || source="$here/.."
@@ -71,12 +96,20 @@ if [ ! -f "$config" ]; then
   echo "wrote $config (edit backends, caps and policy there)"
 fi
 
-# 3. join (skipped without an invite, e.g. when re-running to update)
+# 3. provisioning: tools, repos, and the backends they make possible (added to the config when missing)
+plan="$(dirname "$pkg")/install/provision.yaml"
+if [ "$minimal" = 0 ] && [ -f "$plan" ]; then
+  cp "$plan" "$prefix/provision.yaml"
+  PYTHONPATH="$lib" "$py" -m crane_cluster.provision --plan "$prefix/provision.yaml" --tools "$prefix/tools" \
+    --config "$config" ${player:+--player "$player"} ${unity_managed:+--unity-managed "$unity_managed"}
+fi
+
+# 4. join (skipped without an invite, e.g. when re-running to update)
 if [ -n "$invite" ]; then
   "$prefix/bin/crane-worker" --config "$config" join --coordinator "$coordinator" --invite "$invite" ${name:+--name "$name"}
 fi
 
-# 4. service
+# 5. service
 [ "$service" = 1 ] || exit 0
 if ! command -v systemctl >/dev/null || ! systemctl --user show-environment >/dev/null 2>&1; then
   echo "no systemd user session; run the worker with: $prefix/bin/crane-worker --config $config run"
@@ -104,5 +137,8 @@ WantedBy=default.target
 UNIT
 systemctl --user daemon-reload
 systemctl --user enable --now crane-worker.service
+# a re-run restarts a worker that holds no job, so it runs the new code and tools
+state=$(sed -n 's/.*"state": "\([a-z]*\)".*/\1/p' "${XDG_CACHE_HOME:-$HOME/.cache}/crane-cluster/state.json" 2>/dev/null || true)
+case $state in idle|paused|stopped) systemctl --user restart crane-worker.service ;; esac
 echo "started crane-worker.service; logs: journalctl --user -u crane-worker -f"
 echo "to keep it running after logout: loginctl enable-linger $USER"

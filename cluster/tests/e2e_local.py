@@ -115,7 +115,7 @@ def main():
                            f"policy:\n  nice: 5\nbackends:\n  dummy:\n    type: dummy\n    sleep_s: 0.3\n")
             # the real installer, minus the systemd unit: copies the package, joins with the invite
             subprocess.run(["bash", str(HERE / "install" / "install.sh"), "--coordinator", url, "--invite", invites.pop(),
-                            "--config", str(cfg), "--prefix", str(d / "inst"), "--no-service"], check=True, capture_output=True)
+                            "--config", str(cfg), "--prefix", str(d / "inst"), "--no-service", "--minimal"], check=True, capture_output=True)
             workers[name] = cfg
 
         def start_worker(name):

@@ -50,8 +50,9 @@ container image driven by the `command` backend.
 | `crane_cluster/promotion.py` | Paired Wilcoxon signed-rank test (exact for n ≤ 30), Holm correction, successive halving, and the promote/extend/reject decision. |
 | `crane_cluster/hyp.py` | `crane-hyp submit|status|report`. |
 | `crane_cluster/idle.py` | Nice/ionice, quiet hours, user-idle detection (X11, logind, Windows, macOS). |
-| `crane_cluster/gitcache.py` | One bare mirror per repo; detached checkouts at exact commits. |
-| `install/` | `install.sh` (systemd user unit) and `install.ps1` (scheduled task). |
+| `crane_cluster/gitcache.py` | One bare mirror per repo; detached (optionally sparse) checkouts at exact commits. |
+| `crane_cluster/provision.py` | What a joining host gets (D-20261102-17): tools, repos, backends, `tools.json`. |
+| `install/` | `install.sh` (systemd user unit), `install.ps1` (scheduled task), `provision.yaml` (the plan). |
 | `examples/` | `worker.yaml`, `hypothesis.yaml`. |
 | `tests/` | Python unit tests and `e2e_local.py`. |
 
@@ -129,8 +130,22 @@ powershell -ExecutionPolicy Bypass -File install\install.ps1 -Coordinator https:
 ```
 
 The installer copies `crane_cluster` (no pip), writes `~/.config/crane-cluster/worker.yaml`
-if missing, joins with the invite (the token goes to `~/.config/crane-cluster/token`,
-mode 600) and starts the service. Configure backends, caps and policy in the YAML
+if missing, provisions the host, joins with the invite (the token goes to `~/.config/crane-cluster/token`,
+mode 600) and starts the service.
+
+Provisioning (`install/provision.yaml`, run by `python -m crane_cluster.provision`; `--minimal` /
+`-Minimal` skips it) is user-level and idempotent, so a re-run upgrades: uv and a venv with the
+packages (numpy, pyyaml, py_trees, mcap, mcap-ros2-support); git (Windows: portable MinGit from the
+latest git-for-windows release in `%USERPROFILE%\Tools\MinGit`; Linux: the system git, else an owner
+step); a static ffmpeg (BtbN) unless one is on PATH; the .NET SDK (`dotnet-install`, for crane's course
+generator) unless the system has it; a Vulkan check; a Unity player (`--player ZIP|DIR|URL`; none is
+published on the coordinator, a player is over its artifact limit) and `UnityEngine.CoreModule.dll`
+(`--unity-managed DIR|DLL|URL`, else a Unity editor or a Mono player on the host); and the plan's repos,
+mirrored in the worker's git cache and checked out at main under `<data dir>/repos/<name>`. Each plan
+backend whose requirements are met and that the YAML lacks is added to it (`fastsim`, `fastsim_roboboat`,
+`unity`). Tool folders and environment go to `tools.json` beside the config, which the worker puts on
+its PATH at start (no system PATH change). Detected tags join the YAML's: the os, `gpu`, `vulkan` and the
+tools found (`git`, `ffmpeg`, `dotnet`, `docker`). A re-run restarts the worker when it holds no job. Configure backends, caps and policy in the YAML
 (see `examples/worker.yaml`), then restart the service. Re-run the installer
 without `--invite` to update the code. A host that must never run jobs opts out
 with an empty `/etc/crane-cluster/deny`. On macOS without systemd, the installer
@@ -146,14 +161,17 @@ crane-worker on       # removes the flag, enables and starts the service
 crane-worker status   # off | paused (reason) | on, running job J | on, idle
 ```
 
+On Windows it is `%LOCALAPPDATA%\crane-cluster\bin\crane-worker.cmd on|off|status`: `off` writes the flag
+and disables the scheduled task (the running worker releases its job and idles), `on` enables and starts it.
+
 Pause rules a host can set in its YAML: `policy.quiet_hours`, `policy.pause_on_activity`
 with `policy.idle_seconds` (Linux reads keyboard/mouse activity from `/dev/input`
 when the user may, e.g. the `input` group, so it works under Wayland; else
 `xprintidle` or logind), and `pause_when: <shell command>` (exit 0 = pause).
 
 Windows: `install.ps1` takes Python from `-Python`, else makes a uv venv
-(`%LOCALAPPDATA%\crane-cluster\venv`, with `-Packages numpy,pyyaml` for fastsim), else uses
-`python`/`py` (the Microsoft Store stubs don't count); git is needed only for jobs with `repos`.
+(`%LOCALAPPDATA%\crane-cluster\venv`; uv is downloaded to `~\.local\bin` when missing), else uses
+`python`/`py` (the Microsoft Store stubs don't count).
 `-Background` registers `crane-worker` as an S4U task: it runs whether or not anyone is logged in,
 in session 0, so no window it or a player opens ever reaches a desktop, and a repeating trigger
 restarts it after a reboot. Session 0 can't see the user's input, so `-Background` also registers
@@ -202,13 +220,14 @@ Register it in the worker YAML as `mine: {type: "my_pkg.module:MyBackend", ...op
 - **innovation** (Linux): `crane-worker.service`, `~/.config/crane-cluster/worker.yaml`,
   tags `innovation, nlc`; fastsim from a crane checkout (`path`/`root`).
 - **simwin** (`ssh simwin`, Windows 11 "COLLIN", user Mrmag, i7-12700 20 threads, RTX 3060 12 GB,
-  16 GB): `install.ps1 -Background -Packages numpy,pyyaml`, tags `simwin, windows, nlc`, backends
-  `fastsim` and `unity`. The crane copy is `%LOCALAPPDATA%\crane-cluster\crane` (`cluster/` and
-  `fastsim/` plus `COMMIT`), the player `%LOCALAPPDATA%\crane-cluster\players\CRANE-Worker-Windows\CRANE.exe`
-  (`CranePerformanceBuild.BuildLinuxWorker --crane-build-target windows64`, built on Linux),
-  config `%APPDATA%\crane-cluster\worker.yaml`, log `%LOCALAPPDATA%\crane-cluster\worker.log`.
-  Update: copy a new crane tree there, replace `lib\crane_cluster` with its `cluster\crane_cluster`,
-  then `Stop-ScheduledTask crane-worker; Start-ScheduledTask crane-worker`.
+  16 GB): `install.ps1 -Background -UnityManaged <UnityEngine.CoreModule.dll of 6000.5.10f1>`, tags
+  `simwin, windows, nlc`, backends `fastsim`, `fastsim_nlc`, `fastsim_roboboat` and `unity`. Tools in
+  `%USERPROFILE%\Tools` (MinGit, ffmpeg, dotnet, unity-managed), repos in `%LOCALAPPDATA%\crane-cluster\repos`.
+  The crane copy for `fastsim`/`unity` is `%LOCALAPPDATA%\crane-cluster\crane` (`cluster/` and `fastsim/`
+  plus `COMMIT`). The `unity` player `%LOCALAPPDATA%\crane-cluster\players\CRANE-Worker-Windows\CRANE.exe`
+  (`CranePerformanceBuild.BuildLinuxWorker --crane-build-target windows64`, built on Linux) is not on the
+  host as of 2026-11-02: give it with `-Player`. Config `%APPDATA%\crane-cluster\worker.yaml`, log
+  `%LOCALAPPDATA%\crane-cluster\worker.log`. Update: copy `cluster/` there and re-run the installer.
   Its ALD (Ollama) LLM tasks are paused for the cluster (owner, 2026-11-02). To resume them:
   `Enable-ScheduledTask ald-worker; Enable-ScheduledTask ald-wake; Start-ScheduledTask ald-worker`
   (`ald-install-once` was left as is). To pause the cluster there instead: `Disable-ScheduledTask crane-worker`.
