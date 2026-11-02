@@ -41,7 +41,9 @@ public static class CranePerformanceBuild {
 
     /// <summary>Choose a product-specific startup scene without editing shared scene settings.</summary>
     public static void BuildLinuxWorkerWithInitialScene(string initialScene) {
-        string output = ReadArgument("--crane-build-output", "Builds/CRANE-Worker/CRANE.x86_64");
+        bool windows = ReadArgument("--crane-build-target", "linux64") == "windows64";
+        string output = ReadArgument("--crane-build-output",
+            windows ? "Builds/CRANE-Worker-Windows/CRANE.exe" : "Builds/CRANE-Worker/CRANE.x86_64");
         var buildScenes = new List<string>(Scenes);
         if (!string.IsNullOrEmpty(initialScene)) {
             if (!buildScenes.Remove(initialScene))
@@ -57,7 +59,7 @@ public static class CranePerformanceBuild {
         var options = new BuildPlayerOptions {
             scenes = buildScenes.ToArray(),
             locationPathName = output,
-            target = BuildTarget.StandaloneLinux64,
+            target = windows ? BuildTarget.StandaloneWindows64 : BuildTarget.StandaloneLinux64,
             options = BuildOptions.Development
         };
         BuildReport report;
