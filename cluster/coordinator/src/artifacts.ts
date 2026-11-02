@@ -4,9 +4,10 @@
 // after their kind's hot window once archived, and reads fall back to the archive (archive.ts).
 import { Hono } from "hono";
 import { fetchArtifact, kindOf } from "./archive";
-import { AppEnv, requireAdmin, requireReader, requireViewer, requireWorker } from "./auth";
-import { heldJob, rawRetentionDays } from "./db";
-import { HttpError, intVar, json, nowIso, readJson, sha256Hex } from "./util";
+import { AppEnv, requireAdmin, requireReader, requireViewer } from "./auth";
+import { rawRetentionDays } from "./db";
+import { hubStub } from "./hubstub";
+import { HttpError, bearer, intVar, json, nowIso, readJson, sha256Hex } from "./util";
 
 export { sweepArtifacts, type SweepResult } from "./archive";
 
@@ -15,11 +16,12 @@ export const artifactRoutes = new Hono<AppEnv>();
 const ART_NAME = /^[A-Za-z0-9._-][A-Za-z0-9._/-]{0,199}$/;
 const DAY_MS = 86_400_000;
 
-artifactRoutes.put("/v1/jobs/:id/artifacts/*", requireWorker, async (c) => {
-  const w = c.get("worker");
+artifactRoutes.put("/v1/jobs/:id/artifacts/*", async (c) => {
   const jobId = c.req.param("id");
-  const job = await heldJob(c.env, jobId, w.id);
-  if (!job) throw new HttpError(409, "not the lease holder");
+  const tok = bearer(c.req.raw);
+  if (!tok || tok.length > 256) throw new HttpError(401, "unauthorized");
+  const held = await hubStub(c.env).held(await sha256Hex(tok), jobId); // the Hub's memory, no D1 read
+  if (held.status !== 200) return new Response(held.body, { status: held.status, headers: { "content-type": "application/json; charset=utf-8" } });
   const prefix = `/v1/jobs/${jobId}/artifacts/`;
   const name = decodeURIComponent(new URL(c.req.url).pathname.slice(prefix.length));
   if (!ART_NAME.test(name) || name.split("/").some((p) => p === ".." || p === "")) throw new HttpError(400, "bad artifact name");

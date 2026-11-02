@@ -121,6 +121,7 @@ describe("public feed", () => {
     await env.DB.prepare("UPDATE jobs SET purpose = '(legacy)', est_seconds = NULL, submitter = NULL, last_error = 'boom at /home/u/x key=sk-abcdefghijklmnopqrstu', status = 'dead', ended_at = ?2 WHERE job_id = ?1")
       .bind(id, new Date().toISOString())
       .run();
+    await admin("POST", "/v1/admin/hub/reload"); // a hand edit in D1: the Hub re-reads it
     expect((await admin("POST", "/v1/admin/jobs/judge", { job_id: id, line: "worse than baseline on 5 of 6 seeds" })).status).toBe(200);
     expect((await admin("POST", "/v1/admin/jobs/judge", { job_id: id, line: "see 192.168.1.4" })).status).toBe(400);
     expect((await callJson("POST", "/v1/admin/jobs/judge", { json: { job_id: id, line: "x" } })).status).toBe(401);

@@ -1,4 +1,3 @@
-import { Caps, Needs, Policy, matches } from "./match";
 import { Env, intVar, nowIso, parseJson } from "./util";
 
 // ---------------------------------------------------------------- config
@@ -38,34 +37,6 @@ export async function rawRetentionDays(env: Env): Promise<number> {
 export const leaseTtlMs = (env: Env): number => intVar(env.LEASE_TTL_SECONDS, 600) * 1000;
 export const maxAttempts = (env: Env): number => intVar(env.MAX_ATTEMPTS, 3);
 
-export interface ReclaimResult {
-  requeued: string[];
-  dead: string[];
-}
-
-/** Expired leases go back to the queue, or to 'dead' once the job used up its attempts. */
-export async function reclaimExpired(env: Env, nowMs = Date.now()): Promise<ReclaimResult> {
-  const [, upd] = await env.DB.batch([
-    env.DB.prepare(
-      `UPDATE leases SET outcome = 'expired'
-        WHERE outcome IS NULL AND (job_id, attempt) IN (
-          SELECT job_id, attempt FROM jobs WHERE status = 'leased' AND lease_expires < ?1)`,
-    ).bind(nowMs),
-    env.DB.prepare(
-      `UPDATE jobs
-          SET status = CASE WHEN attempt >= COALESCE(max_attempts, ?2) THEN 'dead' ELSE 'queued' END,
-              last_error = 'lease expired (worker ' || lease_worker || ')',
-              ended_at = CASE WHEN attempt >= COALESCE(max_attempts, ?2) THEN ?3 ELSE ended_at END,
-              lease_worker = NULL, lease_expires = NULL
-        WHERE status = 'leased' AND lease_expires < ?1
-        RETURNING job_id, status`,
-    ).bind(nowMs, maxAttempts(env), nowIso(nowMs)),
-  ]);
-  const out: ReclaimResult = { requeued: [], dead: [] };
-  for (const r of upd.results as { job_id: string; status: string }[]) (r.status === "dead" ? out.dead : out.requeued).push(r.job_id);
-  return out;
-}
-
 export interface JobRow {
   job_id: string;
   hypothesis_id: string | null;
@@ -88,44 +59,6 @@ export interface JobRow {
   est_seconds: number | null;
   submitter: string | null;
   campaign: string | null;
-}
-
-const SCAN_LIMIT = 200;
-
-/**
- * Leases up to maxJobs queued jobs this worker can run. Candidates are read in
- * priority order, filtered by capability matching, then claimed one by one with
- * a conditional UPDATE, so two workers racing for the same job can't both win.
- */
-export async function leaseJobs(env: Env, workerId: string, caps: Caps, policy: Policy, maxJobs: number, nowMs = Date.now()): Promise<JobRow[]> {
-  const { results } = await env.DB.prepare(
-    `SELECT job_id, backend, needs_json FROM jobs
-      WHERE status = 'queued' AND backend IN (SELECT value FROM json_each(?1))
-      ORDER BY priority, created LIMIT ?2`,
-  )
-    .bind(JSON.stringify(caps.backends ?? []), SCAN_LIMIT)
-    .all<{ job_id: string; backend: string; needs_json: string }>();
-  const out: JobRow[] = [];
-  const expires = nowMs + leaseTtlMs(env);
-  for (const r of results) {
-    if (out.length >= maxJobs) break;
-    if (!matches(r.backend, parseJson<Needs>(r.needs_json, {}), caps, policy)) continue;
-    const got = await env.DB.prepare(
-      `UPDATE jobs SET status = 'leased', lease_worker = ?2, lease_expires = ?3, leased_at_ms = ?4, attempt = attempt + 1
-        WHERE job_id = ?1 AND status = 'queued' RETURNING *`,
-    )
-      .bind(r.job_id, workerId, expires, nowMs)
-      .first<JobRow>();
-    if (got) out.push(got);
-  }
-  return out;
-}
-
-/** The job if this worker currently holds its lease, else null. */
-export async function heldJob(env: Env, jobId: string, workerId: string): Promise<JobRow | null> {
-  return await env.DB.prepare("SELECT * FROM jobs WHERE job_id = ? AND status = 'leased' AND lease_worker = ?")
-    .bind(jobId, workerId)
-    .first<JobRow>();
 }
 
 /** Finishes the holder's lease: ok -> done; failed -> retried, or dead after max attempts. */

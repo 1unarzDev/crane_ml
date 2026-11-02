@@ -4,6 +4,7 @@ declare global {
   namespace Cloudflare {
     interface Env {
       DB: D1Database;
+      HUB: DurableObjectNamespace<import("../src/hub").Hub>;
       BUCKET: R2Bucket;
       ADMIN_TOKEN: string;
       GITHUB_WEBHOOK_SECRET: string;

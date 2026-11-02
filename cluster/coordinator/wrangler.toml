@@ -11,7 +11,10 @@ MAX_ATTEMPTS = "3"             # default per job; an expired or failed lease at 
 MAX_LEASE_JOBS = "4"           # cap on max_jobs per /v1/lease call
 RAW_RETENTION_DAYS = "14"      # default retention of raw artifacts (PUT /v1/admin/retention overrides)
 MAX_ARTIFACT_MB = "95"         # proxied uploads stay under the Workers request-body limit
-FEED_CACHE_S = "15"            # the public feed's colo cache: viewers within this many seconds share one D1 read
+FEED_CACHE_S = "15"            # the public feed's colo cache: viewers within this many seconds share one Hub call
+FEED_HISTORY_S = "60"          # the Hub re-reads the feed's D1 history (ended jobs, recent runs) at most this often
+D1_READ_BUDGET = "5000000"     # D1 rows read per UTC day on the free plan (shared by the account)
+D1_GUARD_FRAC = "0.6"          # past this share of the budget the feed's history freezes and the dashboard shows a banner
 
 ARCHIVE_URL = "https://crane-archive.lunarz.dev"   # the archive node's tunnel (../archive/README.md)
 R2_SOFT_CAP_GB = "200"         # a lagging archive holds expired items in R2 until R2 use passes this
@@ -28,6 +31,15 @@ binding = "DB"
 database_name = "crane-cluster"
 database_id = "be499d65-4b97-4c0e-bf0d-e6094f780afc"
 migrations_dir = "migrations"
+
+# The Hub (src/hub.ts): one Durable Object with the hot state (queue, leases, workers, feed snapshot).
+[[durable_objects.bindings]]
+name = "HUB"
+class_name = "Hub"
+
+[[migrations]]
+tag = "v1-hub"
+new_sqlite_classes = ["Hub"]   # the free plan's Durable Objects are SQLite-backed
 
 [[r2_buckets]]
 binding = "BUCKET"
