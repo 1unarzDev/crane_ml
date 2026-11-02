@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>crane viewer</title>
+<meta name="description" content="The fast-tier viewer: one run in depth, two tiers on one clock, a batch at a glance.">
+<meta name="theme-color" content="#04070d">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='4' y='4' width='8' height='8' rx='1.5' transform='rotate(45 8 8)' fill='%237DD3DC'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chivo:wght@300;400;600;800&family=Chivo+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="viewer.css">
+<link rel="modulepreload" href="app.js"><link rel="modulepreload" href="core.js"><link rel="modulepreload" href="data.js"><link rel="modulepreload" href="ctraj.js">
+</head>
+<body>
+<div class="shell">
+  <header class="bar">
+    <a class="brand" href="#/" title="crane viewer"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><rect x="4" y="4" width="8" height="8" rx="1.5" transform="rotate(45 8 8)" fill="#7DD3DC"/></svg><b>crane</b><span>viewer</span></a>
+    <nav class="modes" id="modes" aria-label="View"></nav>
+    <div class="pick" id="pick"></div>
+    <div class="chips" id="chips"></div>
+    <span class="src" id="src"></span>
+  </header>
+  <main id="view" class="view"><div class="boot">Loading runs…</div></main>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
