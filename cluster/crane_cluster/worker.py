@@ -196,7 +196,7 @@ class Worker:
                     self._safe_post(f"/v1/jobs/{jid}/runs", {"seed": seed, "status": "failed", "error": str(e)[:2000],
                                                             "wall_s": time.time() - t0})
                     break
-                run = self.client.post(f"/v1/jobs/{jid}/runs", {"seed": seed, "metrics": metrics, "wall_s": time.time() - t0})
+                run = self._post_run(jid, backend, run_dir, {"seed": seed, "metrics": metrics, "wall_s": time.time() - t0})
                 for path, name, retention in backend.artifacts(run_dir):
                     pending.append(uploads.submit(self._upload_file, jid, run["run_id"], path, name, retention))
                 prov = {"resolved": ctx.resolved, "backend": job["backend"], "worker": self.cfg["name"]}
@@ -225,6 +225,25 @@ class Worker:
         if not self.cfg.get("keep_work"):
             shutil.rmtree(work, ignore_errors=True)
         return outcome
+
+    def _post_run(self, jid: str, backend, run_dir, body: dict) -> dict:
+        """POST the run, with the backend's ``run_meta(run_dir, metrics)`` (the theater index) when it has one.
+        A meta the coordinator refuses (or one that fails to build) never costs the run: it is sent without."""
+        meta = None
+        if callable(getattr(backend, "run_meta", None)):
+            try:
+                meta = backend.run_meta(run_dir, body["metrics"])
+            except Exception as e:  # metadata is optional; the run's numbers are not
+                log.warning("run meta: %s", e)
+        if not meta:
+            return self.client.post(f"/v1/jobs/{jid}/runs", body)
+        try:
+            return self.client.post(f"/v1/jobs/{jid}/runs", {**body, "meta": meta})
+        except ApiError as e:
+            if e.status != 400:
+                raise
+            log.warning("run meta refused (%s); posting the run without it", e)
+            return self.client.post(f"/v1/jobs/{jid}/runs", body)
 
     def upload_artifacts(self, jid: str, run_id: str, items) -> None:
         for path, name, retention in items:

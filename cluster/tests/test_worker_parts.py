@@ -7,6 +7,7 @@ import textwrap
 import threading
 import time
 import unittest
+from types import SimpleNamespace
 from pathlib import Path
 
 from crane_cluster import backends, config, hyp, idle, miniyaml, worker
@@ -210,6 +211,41 @@ class FakeClient:
 
     def paths(self):
         return [p for p, _ in self.calls]
+
+
+class RunMeta(unittest.TestCase):
+    """The backend's run_meta rides on the run report; a refused or broken meta never costs the run."""
+
+    class Client(FakeClient):
+        def __init__(self, refuse):
+            super().__init__()
+            self.refuse = refuse
+
+        def post(self, path, body):
+            if self.refuse and "meta" in body:
+                self.calls.append((path, body))
+                raise worker.ApiError(400, {"error": "meta.outcome must be one of ..."})
+            return super().post(path, body)
+
+    def post(self, backend, refuse=False):
+        w = worker.Worker.__new__(worker.Worker)
+        w.client = self.Client(refuse)
+        run = w._post_run("j", backend, "/run", {"seed": 1, "metrics": {"m": 1.0}})
+        return run, [b for _, b in w.client.calls]
+
+    def test_meta_is_sent_and_a_refusal_falls_back(self):
+        meta = SimpleNamespace(run_meta=lambda run_dir, metrics: {"study": "s", "score": metrics["m"]})
+        run, bodies = self.post(meta)
+        self.assertEqual((run, bodies[0]["meta"]), ({"run_id": "r1"}, {"study": "s", "score": 1.0}))
+        run, bodies = self.post(meta, refuse=True)
+        self.assertEqual((run, ["meta" in b for b in bodies]), ({"run_id": "r1"}, [True, False]))
+
+    def test_a_backend_without_meta_or_a_failing_one_posts_the_run(self):
+        def boom(run_dir, metrics):
+            raise ValueError("no traj")
+        for backend in (SimpleNamespace(), SimpleNamespace(run_meta=boom)):
+            run, bodies = self.post(backend)
+            self.assertEqual((run, bodies), ({"run_id": "r1"}, [{"seed": 1, "metrics": {"m": 1.0}}]))
 
 
 class PauseWhen(unittest.TestCase):

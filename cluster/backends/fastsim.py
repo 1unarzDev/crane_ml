@@ -93,8 +93,23 @@ class ClusterBackend:
         numbers.update(succeeded=float(m['outcome'] == 'SUCCEEDED'), flags=float(len(m['flags'])))
         return numbers
 
+    def run_meta(self, run_dir, metrics):
+        """Stamp run.ctraj with the job's study, iteration, params (the spec's ``params``, else its
+        ``overrides`` without ``scenarios``) and score; return its run_meta (None without the file)."""
+        from theater import meta
+        path = Path(run_dir) / 'run.ctraj'
+        if not path.is_file():
+            return None
+        overrides = {k: v for k, v in (self.ctx.spec.get('overrides') or {}).items() if k != 'scenarios'}
+        fields = meta.job_fields(self.ctx.job, self.ctx.spec, params=overrides, metrics=metrics)
+        fields.pop('job_id', None)
+        if 'progress' in metrics:
+            fields['progress'] = float(metrics['progress'])
+        header, sha = meta.stamp(path, **fields)
+        return meta.run_meta(header, traj_name='run.ctraj', traj_sha256=sha)
+
     def artifacts(self, run_dir):
-        return [(p, p.name, 'summary' if p.name == 'run.json' else 'raw')
+        return [(p, p.name, 'summary' if p.name in ('run.json', 'run.ctraj') else 'raw')
                 for p in sorted(Path(run_dir).iterdir()) if p.is_file()]
 
     def cancel(self):

@@ -49,7 +49,26 @@ def test_crane_worker_runs_it_from_a_job_spec(tmp_path):
     m = backend.metrics(run_dir)
     assert run_dir == tmp_path / 'job' / 'runs' / 'v' / 's3'
     assert m['succeeded'] == 1.0 and all(isinstance(v, float) for v in m.values())
-    assert ('run.json', 'summary') in [(n, r) for _, n, r in backend.artifacts(run_dir)]
+    assert {('run.json', 'summary'), ('run.ctraj', 'summary')} <= {(n, r) for _, n, r in backend.artifacts(run_dir)}
+
+
+def test_the_backend_stamps_and_indexes_the_trajectory(tmp_path):
+    from types import SimpleNamespace
+    from theater import traj
+    toy.write_scenario(tmp_path / 'scenarios', 3)
+    spec = {'repo': 'crane', 'workdir': 'fastsim/tests', 'config': 'toy.yaml', 'metric': 'run.sim_s',
+            'overrides': {'scenarios': {'dir': str(tmp_path / 'scenarios')}, 'vehicle': {'gain': 0.2}},
+            'theater': {'study': 'toy-tune', 'iteration': 4}}
+    job = {'job_id': 'j2', 'spec': spec, 'arm': 'v1'}
+    ctx = SimpleNamespace(job=job, spec=spec, work_dir=tmp_path / 'job', repos={'crane': HERE.parents[1]})
+    backend = ClusterBackend('fastsim', {})
+    backend.prepare(ctx)
+    run_dir = backend.run(3)
+    metrics = backend.metrics(run_dir)
+    m = backend.run_meta(run_dir, metrics)
+    assert (m['study'], m['iteration'], m['outcome'], m['recorder']) == ('toy-tune', 4, 'finished', 'fastsim')
+    assert m['score'] == metrics['run.sim_s'] and m['params'] == {'vehicle.gain': 0.2} and m['course_sha256']
+    assert traj.read_header(run_dir / 'run.ctraj')['arm'] == 'v1'
 
 
 TOY_GENERATE = ['{python}', '-c', 'import sys; sys.path[:0] = [sys.argv[1], sys.argv[1] + "/../.."]; import toy; '

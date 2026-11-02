@@ -21,7 +21,13 @@ Worker YAML (``path`` puts this crane copy on sys.path)::
 
 Job spec keys (override the options): ``family`` (default roboboat_2026), ``mode`` (iid,
 corner=lo|hi|mixed), ``set`` (list of task.param=value), ``scene``, ``scenario``, ``sim_profile``
-(default full), ``duration``, ``warmup``, ``time_scale``, ``args`` (list, appended).
+(default full), ``duration``, ``warmup``, ``time_scale``, ``args`` (list, appended), ``traj``
+(default true: ``--crane-traj`` records ``run.ctraj``, crane-traj/1, at ``traj_hz``), ``params``,
+``theater`` (study, iteration, insight, score_metric: see ``theater/meta.py``).
+
+``run.ctraj`` is stamped with the job's study, iteration, params, score, the outcome (``finished``,
+or ``invalid`` when result.json says ``valid: false``) and the course truth's hash, uploaded as a
+``summary`` artifact (kept forever, a few hundred KB at most) and indexed through the run's meta.
 """
 
 import json
@@ -34,7 +40,8 @@ from pathlib import Path
 
 DEFAULTS = {'family': 'roboboat_2026', 'scene': 'Roboboat Course', 'scenario': 'cluster',
             'sim_profile': 'full', 'duration': 30, 'warmup': 5, 'time_scale': 1, 'batchmode': True,
-            'timeout_s': 900, 'width': 640, 'height': 360}
+            'timeout_s': 900, 'width': 640, 'height': 360, 'traj': True, 'traj_hz': 20}
+TRAJ = 'run.ctraj'
 
 
 def windows_session_id():
@@ -105,6 +112,8 @@ class ClusterBackend:
               '--crane-output', str(run_dir / 'result.json')]
         if j.get('mode'):
             a += ['--crane-course-mode', str(j['mode'])]
+        if j.get('traj'):
+            a += ['--crane-traj', str(run_dir / TRAJ), '--crane-traj-hz', str(j['traj_hz'])]
         for pin in j.get('set') or []:
             a += ['--crane-course-set', str(pin)]
         return a + [str(x) for x in self.options.get('args') or []] + [str(x) for x in self.ctx.spec.get('args') or []]
@@ -145,10 +154,30 @@ class ClusterBackend:
         m['player_s'] = float((run_dir / 'player_s.txt').read_text())
         return m
 
+    def run_meta(self, run_dir, metrics):
+        """Stamp run.ctraj (study, iteration, params, score, outcome, course hash); its run_meta, or None."""
+        from theater import meta
+        path = Path(run_dir) / TRAJ
+        if not path.is_file():
+            return None
+        result = meta.load_json(Path(run_dir) / 'result.json') or {}
+        truth = meta.load_json(Path(run_dir) / 'course_truth.json') or {}
+        gen = truth.get('generator') or {}
+        valid = result.get('valid')
+        fields = meta.job_fields(self.ctx.job, self.ctx.spec, metrics=metrics)
+        course = {'family': str(self.job['family']), 'name': truth.get('name'), 'truth_sha256': gen.get('truth_sha256'),
+                  'pair_key': (gen.get('identity') or {}).get('pair_key'), 'set': list(self.job.get('set') or [])}
+        fields.pop('job_id', None)
+        header, sha = meta.stamp(path, **fields, valid=valid if isinstance(valid, bool) else None,
+                                 outcome='invalid' if valid is False else 'finished',
+                                 seed=int(Path(run_dir).name.lstrip('s') or 0),
+                                 course={k: v for k, v in course.items() if v is not None})
+        return meta.run_meta(header, traj_name=TRAJ, traj_sha256=sha)
+
     def artifacts(self, run_dir):
         run_dir = Path(run_dir)
         return [(run_dir / n, n, r) for n, r in (('result.json', 'summary'), ('course_truth.json', 'summary'),
-                                                ('player.log', 'raw')) if (run_dir / n).is_file()]
+                                                (TRAJ, 'summary'), ('player.log', 'raw')) if (run_dir / n).is_file()]
 
     def cancel(self):
         p = self.proc
