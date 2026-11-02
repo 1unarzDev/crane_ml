@@ -1,0 +1,41 @@
+# crane-worker configuration. Default location: ~/.config/crane-cluster/worker.yaml
+# (Windows: %APPDATA%\crane-cluster\worker.yaml). Every key is optional except coordinator.
+coordinator: https://cluster.example.org
+# name: my-box                 # default: the hostname
+poll_s: 30                     # seconds between lease attempts when idle
+heartbeat_s: 60                # seconds between heartbeats while a job runs
+update_interval_s: 3600        # how often backends may pull images (between jobs only)
+
+# Capability overrides; everything else is detected (os, arch, cpu, ram_gb, gpu, vram_gb, vulkan).
+caps:
+  tags: [cpu-pool]
+
+# Availability on a shared machine.
+policy:
+  nice: 10
+  quiet_hours: ["09:00-18:00"]
+  quiet_days: [mon, tue, wed, thu, fri]
+  pause_on_activity: true
+  idle_seconds: 600
+  max_est_minutes: 120
+
+# Per-job isolation: commands see CRANE_PORT_BASE and CRANE_ISOLATION_ID
+# (template fields {port_base} and {isolation_id}) so concurrent jobs never share ports.
+isolation:
+  port_base: 20000
+  port_stride: 100
+  id_base: 1
+
+# Backends this worker offers, by the name jobs use.
+backends:
+  dummy:
+    type: dummy
+  sim:
+    type: command
+    image: ghcr.io/example/sim-worker:latest
+    command: "run-sim --scenario {scenario} --seed {seed} --out {run_dir}"
+    timeout_s: 1800
+  # A backend from another package (a domain adapter):
+  # domain_fast:
+  #   type: "some_package.cluster_backend:FastSimBackend"
+  #   option: value

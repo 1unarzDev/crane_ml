@@ -1,0 +1,33 @@
+# A hypothesis: one claim about one metric, tested against the baseline on identical seeds.
+name: wider-turn-gain
+claim: A larger turn gain raises the mean score without hurting robustness.
+metric: score
+direction: increase            # or decrease
+repo: example/sim-stack        # optional: the repo whose refs the arms differ in
+repo_url: https://github.com/example/sim-stack.git
+baseline: "@main"              # pinned to the commit main points at when submitted
+variants:
+  - name: gain-1p5
+    ref: hyp/turn-gain-1p5     # branch names are resolved to exact commits at submit
+    params: {effect: 0.2}      # merged into the job spec for this arm
+  - name: gain-2
+    ref: hyp/turn-gain-2
+scenario: family-a
+seeds: 12                      # or an explicit list
+budget:
+  max_runs: 400
+stages:
+  - name: fast
+    backend: dummy
+    params: {sleep_s: 1}
+    needs: {min_cpu: 2}
+  - name: gpu
+    backend: sim
+    needs: {gpu: true, vulkan: true, min_vram_gb: 6}
+    seeds_per_job: 4
+promotion:
+  alpha: 0.05
+  min_pairs: 6
+  min_effect: 0.0
+  halving_eta: 2
+  max_seeds: 48
