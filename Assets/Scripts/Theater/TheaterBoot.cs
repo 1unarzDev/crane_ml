@@ -125,14 +125,16 @@ namespace Crane.Theater {
                       $"acts={script.Acts.Count} frames={a}:{b}/{total} fps={script.Fps} size={script.Width}x{script.Height} " +
                       $"gfx={SystemInfo.graphicsDeviceType} device={SystemInfo.graphicsDeviceName} quality={QualitySettings.names[QualitySettings.GetQualityLevel()]}");
 
-            // determinism: no motion blur, exposure without temporal adaptation
+            // determinism: no motion blur, exposure without temporal adaptation. Only these parameters are
+            // overridden: Add<T>(true) would override all of them, and Exposure's defaults (mode Fixed, EV100 0)
+            // replace the scene's automatic exposure with a white frame.
             var volGo = new GameObject("Theater Volume");
             var vol = volGo.AddComponent<Volume>();
             vol.isGlobal = true; vol.priority = 10000;
             var profile = ScriptableObject.CreateInstance<VolumeProfile>();
-            var exposure = profile.Add<Exposure>(true);
+            var exposure = profile.Add<Exposure>(false);
             exposure.adaptationMode.Override(AdaptationMode.Fixed);
-            var blur = profile.Add<MotionBlur>(true);
+            var blur = profile.Add<MotionBlur>(false);
             blur.intensity.Override(0f);
             vol.sharedProfile = profile;
 
