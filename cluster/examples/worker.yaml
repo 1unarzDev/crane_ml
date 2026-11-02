@@ -19,6 +19,9 @@ policy:
   idle_seconds: 600
   max_est_minutes: 120
 
+# The host's own pause rule: exit 0 = pause (release the running job, lease nothing).
+# pause_when: "test -e ~/.cache/my-app/busy"
+
 # Per-job isolation: commands see CRANE_PORT_BASE and CRANE_ISOLATION_ID
 # (template fields {port_base} and {isolation_id}) so concurrent jobs never share ports.
 isolation:

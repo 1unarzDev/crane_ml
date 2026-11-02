@@ -4,10 +4,12 @@ import subprocess
 import sys
 import tempfile
 import textwrap
+import threading
+import time
 import unittest
 from pathlib import Path
 
-from crane_cluster import backends, hyp, idle, miniyaml
+from crane_cluster import backends, config, hyp, idle, miniyaml, worker
 from crane_cluster.backends import JobContext
 from crane_cluster.gitcache import GitCache
 
@@ -179,6 +181,70 @@ class HypSpec(unittest.TestCase):
         body = hyp.normalize(miniyaml.load_file(example), resolve=False)
         json.dumps(body)
         self.assertEqual(body["direction"], "increase")
+
+
+class FakeClient:
+    """Records worker calls; leases ``jobs`` once."""
+    def __init__(self, jobs=()):
+        self.jobs, self.calls = list(jobs), []
+
+    def post(self, path, body):
+        self.calls.append((path, body))
+        if path == "/v1/lease":
+            jobs, self.jobs = self.jobs, []
+            return {"jobs": jobs, "repos": {}, "lease_ttl_s": 3}
+        if path.endswith("/runs"):
+            return {"run_id": "r1"}
+        return {}
+
+    def upload(self, *a):
+        pass
+
+    def paths(self):
+        return [p for p, _ in self.calls]
+
+
+class PauseWhen(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.flag = Path(self.tmp.name) / "live"
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def worker(self, jobs=(), **extra):
+        cfg = config.load(None)
+        cfg.update(data_dir=Path(self.tmp.name) / "data", poll_s=0.05, heartbeat_s=0.1, policy={"nice": 0},
+                   pause_when=f"test -e '{self.flag}'", backends={"dummy": {"type": "dummy"}}, **extra)
+        return worker.Worker(cfg, client=FakeClient(jobs))
+
+    def test_command_exit_status(self):
+        self.assertFalse(idle.pause_requested(None))
+        self.assertTrue(idle.pause_requested("true"))
+        self.assertFalse(idle.pause_requested("false"))
+        self.assertTrue(idle.pause_requested("sleep 5", timeout_s=0.2))  # a hung check pauses
+        self.assertEqual(idle.unavailable_reason({}, cfg={"pause_when": "true"}), "pause_when")
+        self.assertIsNone(idle.unavailable_reason({}, cfg={"pause_when": "false"}))
+
+    def test_paused_worker_leases_nothing_then_resumes(self):
+        self.flag.touch()
+        w = self.worker()
+        w.loop(once=True)
+        self.assertEqual(w.client.paths(), ["/v1/heartbeat"])
+        self.assertEqual(w.client.calls[0][1]["state"], "paused")
+        self.flag.unlink()
+        w.loop(once=True)
+        self.assertEqual(w.client.paths()[-1], "/v1/lease")
+
+    def test_running_job_is_released_on_pause(self):
+        job = {"job_id": "j1", "backend": "dummy", "attempt": 1, "seeds": [1, 2], "spec": {"sleep_s": 30}}
+        w = self.worker([job])
+        threading.Timer(0.3, self.flag.touch).start()
+        t0 = time.time()
+        w.loop(once=True)
+        self.assertLess(time.time() - t0, 10)
+        self.assertIn(("/v1/release", {"job_ids": ["j1"]}), w.client.calls)
+        self.assertFalse([p for p in w.client.paths() if p.endswith("/complete") or p.endswith("/runs")])
 
 
 if __name__ == "__main__":

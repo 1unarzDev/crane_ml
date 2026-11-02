@@ -70,7 +70,10 @@ webhook sets. Every job therefore records the commit it ran.
 what each worker reports (detected, then overridden by its YAML `caps`) and the
 backends it offers. The worker's availability `policy` adds two coordinator-side
 rules: `max_est_minutes` refuses long jobs, and `require_tags` reserves a machine
-for tagged jobs. Quiet hours and pause-on-activity are enforced by the worker.
+for tagged jobs. Quiet hours and pause-on-activity are enforced by the worker, as is
+a host's own rule: `pause_when: <shell command>` in the worker YAML runs between jobs
+and on every heartbeat, and while it exits 0 the worker releases its lease (no attempt
+penalty) and leases nothing; it resumes once the command exits nonzero.
 
 **Leases**: a lease lasts `LEASE_TTL_SECONDS`, and each heartbeat extends it. When a
 worker vanishes, its lease expires and the job is requeued. A job that has used

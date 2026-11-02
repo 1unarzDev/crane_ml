@@ -38,6 +38,7 @@ class Worker:
         self.repo_seen: dict[str, str | None] = {}
         self.repo_urls: dict[str, str] = {}
         self.last_update = 0.0
+        self.paused: str | None = None
         self.caps = config_mod.detect_caps(cfg, sorted(self.backends))
 
     # ------------------------------------------------------------ between jobs
@@ -66,11 +67,19 @@ class Worker:
         idle.lower_priority(self.policy)
         versions: dict[str, str | None] = {}
         while not self.stop.is_set():
-            reason = idle.unavailable_reason(self.policy)
+            reason = idle.unavailable_reason(self.policy, cfg=self.cfg)
             if reason:
+                if reason != self.paused:
+                    log.info("paused: %s", reason)
+                self.paused = reason
                 self._safe_post("/v1/heartbeat", {"job_ids": [], "state": "paused", "stats": {"reason": reason}})
-                self.stop.wait(float(self.cfg["poll_s"]))
+                if once:
+                    return
+                self.stop.wait(min(float(self.cfg["poll_s"]), float(self.cfg["heartbeat_s"])))
                 continue
+            if self.paused:
+                log.info("resumed (%s cleared)", self.paused)
+                self.paused = None
             self.between_jobs(versions)
             try:
                 r = self.client.post("/v1/lease", {"caps": self.caps, "policy": self.policy, "max_jobs": 1, "state": "idle",
@@ -121,7 +130,9 @@ class Worker:
         def heartbeat():
             period = max(1.0, min(float(self.cfg["heartbeat_s"]), ttl / 3))
             while not done.wait(period):
-                if self.stop.is_set() or (self.policy.get("pause_on_activity") and idle.user_active(self.policy)):
+                if self.stop.is_set() or (self.policy.get("pause_on_activity") and idle.user_active(self.policy)) \
+                        or idle.pause_requested(self.cfg.get("pause_when"), float(self.cfg.get("pause_when_timeout_s", 20))):
+                    log.info("releasing job %s (stop, user activity or pause_when)", jid)
                     released.set()
                     backend.cancel()
                     return

@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # Installs a crane cluster worker for the current user (Linux: systemd --user service).
 #   install.sh --coordinator URL --invite CODE [--name NAME] [--source DIR|GIT_URL]
-#              [--config FILE] [--prefix DIR] [--no-service]
+#              [--config FILE] [--prefix DIR] [--memory-max SIZE] [--no-service]
+# --memory-max caps the service and its jobs (systemd MemoryMax=, e.g. 6G; swap is capped at 0).
 # The worker is stdlib-only Python (>= 3.9) plus git; docker is needed only for
 # container backends. Re-running updates the code and keeps config and token.
 # A host that must never run jobs opts out with an empty file /etc/crane-cluster/deny.
 set -euo pipefail
 
-coordinator= invite= name= source= service=1
+coordinator= invite= name= source= service=1 memory_max=
 prefix="${XDG_DATA_HOME:-$HOME/.local/share}/crane-cluster"
 config="${XDG_CONFIG_HOME:-$HOME/.config}/crane-cluster/worker.yaml"
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -20,8 +21,9 @@ while [ $# -gt 0 ]; do
     --source) source=$2; shift 2 ;;
     --config) config=$2; shift 2 ;;
     --prefix) prefix=$2; shift 2 ;;
+    --memory-max) memory_max=$2; shift 2 ;;
     --no-service) service=0; shift ;;
-    -h|--help) sed -n '2,7p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,8p' "$0"; exit 0 ;;
     *) echo "install.sh: unknown argument $1" >&2; exit 2 ;;
   esac
 done

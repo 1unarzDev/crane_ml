@@ -7,6 +7,12 @@ Policy (worker YAML ``policy``):
   pause_on_activity: true        # no new job while the user is active; a running job is released
   idle_seconds: 300              # how long without input counts as idle
   max_est_minutes / require_tags # matched by the coordinator
+
+Top-level ``pause_when: <shell command>`` is the host's own pause rule: the
+worker runs it between jobs and on every heartbeat, and exit 0 means pause (a
+running job's lease is released without an attempt penalty, no new job is
+leased) until the command exits nonzero. A command that hangs past
+``pause_when_timeout_s`` (default 20) counts as pause.
 """
 from __future__ import annotations
 
@@ -112,8 +118,23 @@ def lower_priority(policy: dict) -> None:
         ctypes.windll.kernel32.SetPriorityClass(ctypes.windll.kernel32.GetCurrentProcess(), BELOW_NORMAL)  # type: ignore[attr-defined]
 
 
-def unavailable_reason(policy: dict, now: dt.datetime | None = None) -> str | None:
-    """Why no new job should start right now, or None."""
+def pause_requested(command: str | None, timeout_s: float = 20) -> bool:
+    """True when the host's ``pause_when`` shell command exits 0 (or hangs past timeout_s)."""
+    if not command:
+        return False
+    try:
+        return subprocess.run(command, shell=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                              stderr=subprocess.DEVNULL, timeout=timeout_s).returncode == 0
+    except subprocess.TimeoutExpired:
+        return True
+    except OSError:
+        return False
+
+
+def unavailable_reason(policy: dict, now: dt.datetime | None = None, cfg: dict | None = None) -> str | None:
+    """Why no new job should start right now, or None. ``cfg`` supplies the host's pause_when."""
+    if cfg and pause_requested(cfg.get("pause_when"), float(cfg.get("pause_when_timeout_s", 20))):
+        return "pause_when"
     if in_quiet_hours(policy, now):
         return "quiet hours"
     if user_active(policy):

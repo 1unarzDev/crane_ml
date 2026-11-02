@@ -36,6 +36,8 @@ DEFAULTS = {
     "heartbeat_s": 60,
     "caps": {},
     "policy": {},
+    "pause_when": None,          # shell command; exit 0 = pause (see idle.py)
+    "pause_when_timeout_s": 20,
     "isolation": {"port_base": 20000, "port_stride": 100, "id_base": 1, "slot": 0},
     "backends": {"dummy": {"type": "dummy"}},
 }
