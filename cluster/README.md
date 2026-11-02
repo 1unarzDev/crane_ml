@@ -141,6 +141,16 @@ with `policy.idle_seconds` (Linux reads keyboard/mouse activity from `/dev/input
 when the user may, e.g. the `input` group, so it works under Wayland; else
 `xprintidle` or logind), and `pause_when: <shell command>` (exit 0 = pause).
 
+Windows: `install.ps1` takes Python from `-Python`, else makes a uv venv
+(`%LOCALAPPDATA%\crane-cluster\venv`, with `-Packages numpy,pyyaml` for fastsim), else uses
+`python`/`py` (the Microsoft Store stubs don't count); git is needed only for jobs with `repos`.
+`-Background` registers `crane-worker` as an S4U task: it runs whether or not anyone is logged in,
+in session 0, so no window it or a player opens ever reaches a desktop, and a repeating trigger
+restarts it after a reboot. Session 0 can't see the user's input, so `-Background` also registers
+`crane-idleprobe` (at logon, hidden, in the desktop session); it writes the desktop's idle time to
+`%LOCALAPPDATA%\crane-cluster\input-idle.json` and `pause_on_activity` reads it (no fresh report:
+nobody is logged in, never paused).
+
 Isolation: each job gets `CRANE_PORT_BASE` and `CRANE_ISOLATION_ID` (template fields
 `{port_base}`, `{isolation_id}`), so a backend can derive non-overlapping ports or
 middleware domain ids.
@@ -161,6 +171,37 @@ class MyBackend(Backend):
 ```
 
 Register it in the worker YAML as `mine: {type: "my_pkg.module:MyBackend", ...options}`.
+
+### crane backends (`backends/`, outside the domain-agnostic core)
+
+- `fastsim` (`backends.fastsim:ClusterBackend`): the fast-sim core per seed. With a spec `repo` the
+  workdir is inside that checkout; on a host without git, the option `root` (the host's crane copy)
+  resolves a relative `workdir`, so one job runs anywhere. A copy names its commit in a `COMMIT`
+  file at its root (`<sha>[ dirty]`), which goes into every run identity.
+- `unity` (`backends.unity:ClusterBackend`): a crane player per seed, without ROS or SITL: the
+  course comes from `--crane-course-family` and the seed, the run is the player's benchmark, and
+  the metrics are the numeric leaves of `result.json` plus `course_ready` and `player_s`
+  (`course_truth.json`, `player.log` are artifacts). `batchmode: true` (default) renders on the
+  GPU without a window; `false` is refused where a window would be visible. Full-stack jobs (Nav2,
+  MAVROS, the ROS TCP endpoint) need the ROS workspace and stay Linux-only: give them `needs.os: linux`.
+  A player is a few hundred MB, over the artifact limit, so it is copied to each host (scp) and
+  named by `player:`; multipart or presigned R2 upload would let workers fetch it themselves.
+
+### Hosts
+
+- **innovation** (Linux): `crane-worker.service`, `~/.config/crane-cluster/worker.yaml`,
+  tags `innovation, nlc`; fastsim from a crane checkout (`path`/`root`).
+- **simwin** (`ssh simwin`, Windows 11 "COLLIN", user Mrmag, i7-12700 20 threads, RTX 3060 12 GB,
+  16 GB): `install.ps1 -Background -Packages numpy,pyyaml`, tags `simwin, windows, nlc`, backends
+  `fastsim` and `unity`. The crane copy is `%LOCALAPPDATA%\crane-cluster\crane` (`cluster/` and
+  `fastsim/` plus `COMMIT`), the player `%LOCALAPPDATA%\crane-cluster\players\CRANE-Worker-Windows\CRANE.exe`
+  (`CranePerformanceBuild.BuildLinuxWorker --crane-build-target windows64`, built on Linux),
+  config `%APPDATA%\crane-cluster\worker.yaml`, log `%LOCALAPPDATA%\crane-cluster\worker.log`.
+  Update: copy a new crane tree there, replace `lib\crane_cluster` with its `cluster\crane_cluster`,
+  then `Stop-ScheduledTask crane-worker; Start-ScheduledTask crane-worker`.
+  Its ALD (Ollama) LLM tasks are paused for the cluster (owner, 2026-11-02). To resume them:
+  `Enable-ScheduledTask ald-worker; Enable-ScheduledTask ald-wake; Start-ScheduledTask ald-worker`
+  (`ald-install-once` was left as is). To pause the cluster there instead: `Disable-ScheduledTask crane-worker`.
 
 ## Testing
 
