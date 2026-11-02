@@ -20,6 +20,22 @@ def test_the_backend_runs_a_job_seed_by_seed(tmp_path):
     assert backend.cfg['vehicle']['gain'] == 0.15
 
 
+def test_a_run_writes_its_track_as_crane_traj(tmp_path):
+    import json
+    from theater import traj
+    toy.write_scenario(tmp_path / 'scenarios', 4)
+    job = {'id': 'j1', 'workdir': str(HERE), 'config': 'toy.yaml', 'out': str(tmp_path / 'out'),
+           'overrides': {'scenarios': {'dir': str(tmp_path / 'scenarios')}}}
+    run_dir = FastsimBackend().prepare(job).run(4)
+    t = traj.read(run_dir / 'run.ctraj')
+    track = [json.loads(line) for line in (run_dir / 'track.jsonl').read_text().splitlines()]
+    assert t.ticks == len(track) and t.header['pose_dims'] == 'planar' and t.header['outcome'] == 'finished'
+    assert all(abs(t.columns['robot.x'][i] - r['x']) <= 0.005 + 1e-9 and abs(t.columns['robot.yaw'][i] - r['yaw']) < 1e-4
+               for i, r in enumerate(track))
+    assert t.header['course']['pair_key'] == 'toy-4' and t.header['build']['recorder'] == 'fastsim'
+    assert [e['kind'] for e in t.events].count('visited') == 4
+
+
 def test_crane_worker_runs_it_from_a_job_spec(tmp_path):
     from types import SimpleNamespace
     toy.write_scenario(tmp_path / 'scenarios', 3)

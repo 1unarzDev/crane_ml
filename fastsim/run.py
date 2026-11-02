@@ -2,6 +2,7 @@
 
     <scenario.filename>  the scenario file, byte for byte
     track.jsonl          {t, x, y, yaw} at track_hz, the scenario's world frame
+    run.ctraj            the same track and the events as crane-traj/1 (theater/traj.py), planar
     sim_events.jsonl     the controller's events {t, event, ...} (goals included)
     states.jsonl         the world's state log {t_sim, id, value}
     run.json             outcome, flags, contacts, error, idle, identity, limits, config, provenance
@@ -19,6 +20,7 @@ from fastsim import controller as ctl, identity, perception as perc
 from fastsim.config import merge
 from fastsim.plant import Limits, vehicle
 from fastsim.world import World, contact_cause, footprint_clearance
+from theater import traj as ctraj
 
 SCHEMA = 'crane.fastsim.run/1'
 UNHASHED = ('workers', 'max_workers', 'scenarios')  # change no result
@@ -115,5 +117,29 @@ def simulate(scenario, adapter, cfg, seed, out, base=None, provenance=None):
     (out / 'sim_events.jsonl').write_text(''.join(line(e) for e in ctx.events))
     (out / 'states.jsonl').write_text(''.join(line(r) for r in scenario.state_log()))
     (out / 'run.json').write_text(json.dumps(summary, indent=2) + '\n')
+    write_traj(out / 'run.ctraj', summary, track, ctx.events, float(cfg['track_hz']), adapter)
     adapter.finalize(out, {**summary, 'track': track, 'events': ctx.events, 'context': ctx})
     return summary
+
+
+def write_traj(path, summary, track, events, hz, adapter):
+    """``run.ctraj``: the planar track at ``hz`` and the run's events (crane-traj/1). The header
+    carries what the run knows; a cluster backend stamps study, iteration, params and score."""
+    outcome = {'SUCCEEDED': 'finished', 'TIMEOUT': 'timeout'}.get(summary['outcome'], 'failed')
+    evs = [{'t': c['t'], 'kind': 'contact', 'id': c['id'], 'cause': c['cause']} for c in summary['contacts']]
+    evs += [{**{k: v for k, v in e.items() if k not in ('t', 'event')}, 't': e['t'], 'kind': str(e.get('event'))}
+            for e in events if isinstance(e, dict) and 't' in e]
+    if summary['error']:
+        evs.append({'t': summary['error']['t'], 'kind': 'failure', 'reason': 'logic_exception'})
+    evs.sort(key=lambda e: e['t'])
+    agent = 'robot'
+    cols = {f'{agent}.x': [r[1] for r in track], f'{agent}.y': [r[2] for r in track], f'{agent}.yaw': [r[3] for r in track]}
+    sc = summary['scenario']
+    header = {'run_id': summary['identity'].get('run_sha256'), 'seed': summary['seed'], 'pose_dims': 'planar',
+              'robot': {'model': str((adapter.identity() or {}).get('domain', 'robot')), 'agents': [agent]},
+              'frame': {'type': 'enu', 'origin': 'scenario'},
+              'course': {'name': sc['name'], 'pair_key': sc['pair_key'], 'truth_sha256': sc['truth_sha256']},
+              'build': {'recorder': 'fastsim', 'core_version': summary['identity'].get('core')},
+              'water': {'mode': 'none'}, 'outcome': outcome, 'valid': True,
+              'failure_reason': None if outcome != 'failed' else summary['outcome'].lower()}
+    ctraj.write(path, {k: v for k, v in header.items() if v is not None}, cols, evs, hz=hz)

@@ -1,0 +1,80 @@
+{
+ "blocks": 2,
+ "columns": [
+  "boat.x",
+  "boat.y",
+  "boat.z",
+  "boat.yaw",
+  "boat.pitch",
+  "boat.roll",
+  "boat.speed"
+ ],
+ "events": [
+  {
+   "index": 0,
+   "kind": "gate",
+   "t": 3.25,
+   "task": "entry"
+  },
+  {
+   "cause": "bump",
+   "id": "buoy-3",
+   "kind": "contact",
+   "t": 31.0
+  }
+ ],
+ "header": {
+  "pose_dims": "6dof",
+  "seed": 7
+ },
+ "hz": 20.0,
+ "samples": {
+  "0": {
+   "boat.pitch": 0.0,
+   "boat.roll": -0.03,
+   "boat.speed": 1.5,
+   "boat.x": -12.5,
+   "boat.y": 40.0,
+   "boat.yaw": 0.8176,
+   "boat.z": 0.0
+  },
+  "1": {
+   "boat.pitch": 0.001,
+   "boat.roll": -0.03,
+   "boat.speed": 1.505,
+   "boat.x": -12.43,
+   "boat.y": 40.08,
+   "boat.yaw": 0.8176,
+   "boat.z": 0.0
+  },
+  "599": {
+   "boat.pitch": -0.0199,
+   "boat.roll": -0.0031,
+   "boat.speed": 1.401,
+   "boat.x": 32.42,
+   "boat.y": 37.69,
+   "boat.yaw": 0.7959,
+   "boat.z": -0.01
+  },
+  "600": {
+   "boat.pitch": -0.0198,
+   "boat.roll": -0.0046,
+   "boat.speed": 1.401,
+   "boat.x": 32.5,
+   "boat.y": 37.76,
+   "boat.yaw": 0.7973,
+   "boat.z": -0.02
+  },
+  "699": {
+   "boat.pitch": -0.0076,
+   "boat.roll": 0.0277,
+   "boat.speed": 1.462,
+   "boat.x": 39.93,
+   "boat.y": 45.2,
+   "boat.yaw": 0.6815,
+   "boat.z": 0.04
+  }
+ },
+ "sha256": "8d5067e392f503fd3af0323440dd262298160fd595c8abfe2382ed26a2332f36",
+ "ticks": 700
+}
