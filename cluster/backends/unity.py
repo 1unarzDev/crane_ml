@@ -19,6 +19,12 @@ Worker YAML (``path`` puts this crane copy on sys.path)::
       timeout_s: 900         # per seed
       args: []               # extra player arguments for this host
 
+Water validity: a run whose benchmark sampled the water and got any invalid search
+(``invalidWaterSearches`` > 0: HDRP's water never updated, so the boat's buoyancy and every
+water-derived number are wrong) fails its seed with the counts, unless ``require_valid_water:
+false``; then it is scored with ``water_valid`` 0 so analyses can censor it. ``water_valid`` is
+in every run's metrics.
+
 Job spec keys (override the options): ``family`` (default roboboat_2026), ``mode`` (iid,
 corner=lo|hi|mixed), ``set`` (list of task.param=value), ``scene``, ``scenario``, ``sim_profile``
 (default full), ``duration``, ``warmup``, ``time_scale``, ``args`` (list, appended).
@@ -34,7 +40,25 @@ from pathlib import Path
 
 DEFAULTS = {'family': 'roboboat_2026', 'scene': 'Roboboat Course', 'scenario': 'cluster',
             'sim_profile': 'full', 'duration': 30, 'warmup': 5, 'time_scale': 1, 'batchmode': True,
-            'timeout_s': 900, 'width': 640, 'height': 360}
+            'timeout_s': 900, 'width': 640, 'height': 360, 'require_valid_water': True}
+
+
+def water_check(result):
+    """(valid, why) for a crane-benchmark-v1 result: every sampled water search must be valid."""
+    invalid = int(result.get('invalidWaterSearches') or 0)
+    samples = int(result.get('validationSamplesCaptured') or 0)
+    if invalid:
+        return False, (f'{invalid} invalid water searches in {samples} validation samples (HDRP water '
+                       f'never updated: simulation time {water_time(result)}); rebuild the player with '
+                       f'the batch water driver or run without -batchmode')
+    return True, ''
+
+
+def water_time(result):
+    for sample in reversed(result.get('validation') or []):
+        for w in sample.get('water') or []:
+            return w.get('simulationTime')
+    return None
 
 
 def windows_session_id():
@@ -136,11 +160,16 @@ class ClusterBackend:
             if (run_dir / 'player.log').is_file():
                 tail = (run_dir / 'player.log').read_bytes()[-1500:].decode(errors='replace')
             raise RuntimeError(f'seed {seed}: player exited {rc} without result.json: {tail}')
+        ok, why = water_check(json.loads((run_dir / 'result.json').read_text()))
+        if not ok and self.job.get('require_valid_water', True):
+            raise RuntimeError(f'seed {seed}: invalid run: {why}')
         return run_dir
 
     def metrics(self, run_dir):
         run_dir = Path(run_dir)
-        m = flatten(json.loads((run_dir / 'result.json').read_text()))
+        result = json.loads((run_dir / 'result.json').read_text())
+        m = flatten(result)
+        m['water_valid'] = float(water_check(result)[0])
         m['course_ready'] = float((run_dir / 'course_truth.json').is_file())
         m['player_s'] = float((run_dir / 'player_s.txt').read_text())
         return m

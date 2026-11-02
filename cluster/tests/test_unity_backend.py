@@ -20,9 +20,11 @@ FAKE_PLAYER = textwrap.dedent("""\
     open(arg('-logFile'), 'w').write(' '.join(a))
     if arg('--crane-course-seed') == '13':
         sys.exit(4)
+    bad = 21 if arg('--crane-course-seed') == '21' else 0
     json.dump({{'name': 'c', 'generator': {{'seed': int(arg('--crane-course-seed'))}}}}, open(arg('--crane-course-truth'), 'w'))
     json.dump({{'schema': 'crane-benchmark-v1', 'scene': arg('--crane-scene'), 'simulatedSeconds': float(arg('--crane-duration')),
-               'valid': True, 'markers': [{{'name': 'Physics', 'meanMillisecondsPerFrame': 1.5}}], 'samples': [1, 2]}},
+               'valid': not bad, 'invalidWaterSearches': bad, 'validationSamplesCaptured': 21,
+               'validation': [{{'water': [{{'simulationTime': 0.0, 'valid': not bad}}]}}], 'markers': [{{'name': 'Physics', 'meanMillisecondsPerFrame': 1.5}}], 'samples': [1, 2]}},
               open(arg('--crane-output'), 'w'))
 """)
 
@@ -52,6 +54,14 @@ class UnityBackendTest(unittest.TestCase):
         self.assertEqual(m['markers.Physics.meanMillisecondsPerFrame'], 1.5)
         self.assertNotIn('samples', m)
         self.assertEqual([n for _, n, _ in b.artifacts(run_dir)], ['result.json', 'course_truth.json', 'player.log'])
+
+    def test_invalid_water_fails_the_seed_unless_allowed(self):
+        with self.assertRaisesRegex(RuntimeError, '21 invalid water searches in 21 validation samples'):
+            self.backend({}).run(21)
+        b = self.backend({'require_valid_water': False})
+        m = b.metrics(b.run(21))
+        self.assertEqual((m['water_valid'], m['invalidWaterSearches'], m['valid']), (0.0, 21.0, 0.0))
+        self.assertEqual(self.backend({}).metrics(self.backend({}).run(7))['water_valid'], 1.0)
 
     def test_a_failing_player_fails_the_seed_with_its_log(self):
         with self.assertRaisesRegex(RuntimeError, 'exited 4'):
