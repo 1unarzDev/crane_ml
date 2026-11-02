@@ -55,8 +55,15 @@ export async function makeWorker(name = "w", caps: Record<string, unknown> = CPU
   return { ...(r.body as { worker_id: string; token: string }), caps };
 }
 
+/** What every job submission must carry (purpose, per-run estimate, submitter). */
+export const JOB_META = {
+  purpose: "Checks that the coordinator leases and completes dummy jobs in priority order.",
+  est_seconds: 30,
+  submitter: "vitest",
+};
+
 export async function addJobs(jobs: Record<string, unknown>[]): Promise<string[]> {
-  const r = await admin("POST", "/v1/admin/jobs", { jobs: jobs.map((j) => ({ backend: "dummy", ...j })) });
+  const r = await admin("POST", "/v1/admin/jobs", { jobs: jobs.map((j) => ({ backend: "dummy", ...JOB_META, ...j })) });
   if (r.status !== 200) throw new Error(`jobs: ${r.status} ${JSON.stringify(r.body)}`);
   return r.body.job_ids;
 }

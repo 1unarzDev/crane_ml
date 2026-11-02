@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { hmacSha256Hex } from "../src/util";
-import { addJobs, admin, callJson, resetTables } from "./helpers";
+import { JOB_META, addJobs, admin, callJson, resetTables } from "./helpers";
 
 beforeEach(resetTables);
 
@@ -36,7 +36,7 @@ describe("github webhook", () => {
   });
 
   it("an unknown repo's @main is refused", async () => {
-    const r = await admin("POST", "/v1/admin/jobs", { jobs: [{ backend: "dummy", repos: [{ name: "org/x", url: "u", ref: "@main" }] }] });
+    const r = await admin("POST", "/v1/admin/jobs", { jobs: [{ backend: "dummy", ...JOB_META, repos: [{ name: "org/x", url: "u", ref: "@main" }] }] });
     expect(r.status).toBe(400);
   });
 });

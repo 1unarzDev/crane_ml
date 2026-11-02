@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { AppEnv, requireAdmin, requireViewer } from "./auth";
 import { CFG, getConfig, jobView, JobRow, rawRetentionDays, setConfigStmt } from "./db";
 import { jobInsert, JobInput } from "./jobs";
+import { scrub } from "./purpose";
 import { HttpError, compareVersions, isObject, isStringArray, json, nowIso, parseJson, randomToken, readJson, sha256Hex } from "./util";
 
 export const adminRoutes = new Hono<AppEnv>();
@@ -59,12 +60,24 @@ adminRoutes.post("/v1/admin/jobs/cancel", async (c) => {
   const b = await readJson(c.req.raw);
   if (!isStringArray(b.job_ids)) throw new HttpError(400, "job_ids must be a list of strings");
   const { results } = await c.env.DB.prepare(
-    `UPDATE jobs SET status = 'cancelled', lease_worker = NULL, lease_expires = NULL
+    `UPDATE jobs SET status = 'cancelled', lease_worker = NULL, lease_expires = NULL, ended_at = ?2
       WHERE status IN ('queued','leased') AND job_id IN (SELECT value FROM json_each(?1)) RETURNING job_id`,
   )
-    .bind(JSON.stringify(b.job_ids))
+    .bind(JSON.stringify(b.job_ids), nowIso())
     .all<{ job_id: string }>();
   return json({ cancelled: results.map((r) => r.job_id) });
+});
+
+/** A one-line verdict on a job (a judge's or the submitter's), shown in the public feed. */
+adminRoutes.post("/v1/admin/jobs/judge", async (c) => {
+  const b = await readJson(c.req.raw);
+  if (typeof b.job_id !== "string") throw new HttpError(400, "job_id required");
+  const line = typeof b.line === "string" ? b.line.replace(/\s+/g, " ").trim() : "";
+  if (!line || line.length > 200) throw new HttpError(400, "line must be 1..200 chars");
+  if (scrub(line) !== line) throw new HttpError(400, "line looks like it holds a secret, an address or a local path; the feed is public");
+  const r = await c.env.DB.prepare("UPDATE jobs SET judge = ?2 WHERE job_id = ?1").bind(b.job_id, line).run();
+  if (!r.meta.changes) throw new HttpError(404, "unknown job");
+  return json({ ok: true });
 });
 
 /** Requeues dead or failed jobs with a fresh attempt budget. */
@@ -72,7 +85,7 @@ adminRoutes.post("/v1/admin/jobs/requeue", async (c) => {
   const b = await readJson(c.req.raw);
   if (!isStringArray(b.job_ids)) throw new HttpError(400, "job_ids must be a list of strings");
   const { results } = await c.env.DB.prepare(
-    `UPDATE jobs SET status = 'queued', attempt = 0 WHERE status IN ('dead','failed')
+    `UPDATE jobs SET status = 'queued', attempt = 0, ended_at = NULL WHERE status IN ('dead','failed')
         AND job_id IN (SELECT value FROM json_each(?1)) RETURNING job_id`,
   )
     .bind(JSON.stringify(b.job_ids))

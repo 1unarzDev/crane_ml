@@ -55,10 +55,11 @@ export async function reclaimExpired(env: Env, nowMs = Date.now()): Promise<Recl
       `UPDATE jobs
           SET status = CASE WHEN attempt >= COALESCE(max_attempts, ?2) THEN 'dead' ELSE 'queued' END,
               last_error = 'lease expired (worker ' || lease_worker || ')',
+              ended_at = CASE WHEN attempt >= COALESCE(max_attempts, ?2) THEN ?3 ELSE ended_at END,
               lease_worker = NULL, lease_expires = NULL
         WHERE status = 'leased' AND lease_expires < ?1
         RETURNING job_id, status`,
-    ).bind(nowMs, maxAttempts(env)),
+    ).bind(nowMs, maxAttempts(env), nowIso(nowMs)),
   ]);
   const out: ReclaimResult = { requeued: [], dead: [] };
   for (const r of upd.results as { job_id: string; status: string }[]) (r.status === "dead" ? out.dead : out.requeued).push(r.job_id);
@@ -83,6 +84,10 @@ export interface JobRow {
   lease_expires: number | null;
   last_error: string | null;
   created: string;
+  purpose: string;
+  est_seconds: number | null;
+  submitter: string | null;
+  campaign: string | null;
 }
 
 const SCAN_LIMIT = 200;
@@ -133,7 +138,8 @@ export async function finishJob(env: Env, job: JobRow, workerId: string, ok: boo
     env.DB.prepare(
       `UPDATE jobs SET status = ?3, lease_worker = NULL, lease_expires = NULL, last_error = ?4,
               done_at = CASE WHEN ?3 = 'done' THEN ?5 ELSE done_at END,
-              done_by = CASE WHEN ?3 = 'done' THEN ?2 ELSE done_by END
+              done_by = CASE WHEN ?3 = 'done' THEN ?2 ELSE done_by END,
+              ended_at = CASE WHEN ?3 IN ('done','dead') THEN ?5 ELSE ended_at END
         WHERE job_id = ?1 AND status = 'leased' AND lease_worker = ?2`,
     ).bind(job.job_id, workerId, status, error ? error.slice(0, 2000) : null, now),
   ]);
@@ -157,5 +163,9 @@ export function jobView(j: JobRow) {
     attempt: j.attempt,
     lease_expires: j.lease_expires ? nowIso(j.lease_expires) : null,
     last_error: j.last_error,
+    purpose: j.purpose,
+    est_seconds: j.est_seconds,
+    submitter: j.submitter,
+    campaign: j.campaign,
   };
 }

@@ -5,6 +5,7 @@
 import { Hono } from "hono";
 import { AppEnv, requireAdmin, requireViewer } from "./auth";
 import { JobInput, SAFE_NAME, jobInsert, parseSeeds, resolveRepos } from "./jobs";
+import { checkCampaign, checkEst, checkPurpose, checkSubmitter } from "./purpose";
 import { HttpError, isObject, json, nowIso, parseJson, randomId, readJson } from "./util";
 
 export const hypRoutes = new Hono<AppEnv>();
@@ -22,6 +23,7 @@ interface Stage {
   needs?: unknown;
   priority?: number;
   seeds_per_job?: number;
+  est_seconds?: number; // per run; overrides the hypothesis's
 }
 interface HypRow {
   id: string;
@@ -40,6 +42,10 @@ interface HypRow {
   stage_index: number;
   status: string;
   decisions_json: string;
+  submitted_by: string | null;
+  purpose: string;
+  est_seconds: number | null;
+  campaign: string | null;
   created: string;
   updated: string;
 }
@@ -53,7 +59,8 @@ function parseStages(v: unknown): Stage[] {
     if (s.params !== undefined && !isObject(s.params)) throw new HttpError(400, `stages[${i}].params must be an object`);
     const spj = s.seeds_per_job ?? 1;
     if (!Number.isInteger(spj) || (spj as number) < 1) throw new HttpError(400, `stages[${i}].seeds_per_job must be >= 1`);
-    return { ...(s as unknown as Stage), name: typeof s.name === "string" ? s.name : `stage${i + 1}`, seeds_per_job: spj as number };
+    const est = s.est_seconds === undefined ? undefined : checkEst(s.est_seconds, `stages[${i}].est_seconds`);
+    return { ...(s as unknown as Stage), name: typeof s.name === "string" ? s.name : `stage${i + 1}`, seeds_per_job: spj as number, est_seconds: est };
   });
 }
 
@@ -102,8 +109,12 @@ async function stageJobs(env: AppEnv["Bindings"], h: HypRow, stageIndex: number,
         seeds: seeds.slice(i, i + chunk),
         needs: stage.needs,
         priority: stage.priority,
+        purpose: h.purpose,
+        est_seconds: stage.est_seconds ?? h.est_seconds,
+        submitter: h.submitted_by,
+        campaign: h.campaign,
       };
-      out.push((await jobInsert(env, job)).stmt);
+      out.push((await jobInsert(env, job, true)).stmt);
     }
   }
   return out;
@@ -118,6 +129,10 @@ hypRoutes.post("/v1/hyp", requireAdmin, async (c) => {
   if (b.direction !== "increase" && b.direction !== "decrease") throw new HttpError(400, "direction must be increase or decrease");
   if (typeof b.baseline_ref !== "string" || !b.baseline_ref) throw new HttpError(400, "baseline_ref required");
   const stages = parseStages(b.stages);
+  const purpose = checkPurpose(b.purpose);
+  const est = b.est_seconds === undefined && stages.every((s) => s.est_seconds !== undefined) ? null : checkEst(b.est_seconds);
+  const submitter = checkSubmitter(b.submitter ?? b.submitted_by);
+  const campaign = checkCampaign(b.campaign);
   const variants = parseVariants(b.variants);
   const seeds = parseSeeds(b.seeds);
   const repo = typeof b.repo === "string" ? b.repo : null;
@@ -147,15 +162,19 @@ hypRoutes.post("/v1/hyp", requireAdmin, async (c) => {
     stage_index: 0,
     status: "running",
     decisions_json: "[]",
+    submitted_by: submitter,
+    purpose,
+    est_seconds: est,
+    campaign,
     created: now,
     updated: now,
   };
   const insert = c.env.DB.prepare(
     `INSERT INTO hypotheses(id, name, claim, metric, direction, repo, baseline_ref, variants_json, scenario, seeds_json,
-                            budget_json, stages_json, promotion_json, submitted_by, created, updated)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?15)`,
+                            budget_json, stages_json, promotion_json, submitted_by, created, updated, purpose, est_seconds, campaign)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?15, ?16, ?17, ?18)`,
   ).bind(h.id, h.name, h.claim, h.metric, h.direction, repo, baseline, h.variants_json, h.scenario, h.seeds_json, h.budget_json,
-    h.stages_json, h.promotion_json, typeof b.submitted_by === "string" ? b.submitted_by.slice(0, 100) : null, now);
+    h.stages_json, h.promotion_json, submitter, now, purpose, est, campaign);
   const jobs = await stageJobs(c.env, h, 0, seeds, activeArms(h));
   await c.env.DB.batch([insert, ...jobs]);
   return json({ id: h.id, stage: stages[0].name, jobs: jobs.length, baseline_ref: baseline });
@@ -170,6 +189,7 @@ function hypView(h: HypRow) {
     promotion: parseJson(h.promotion_json, {}), stage_index: h.stage_index,
     stage: h.status === "running" ? stages[h.stage_index]?.name : h.status,
     status: h.status, decisions: parseJson(h.decisions_json, []), created: h.created, updated: h.updated,
+    purpose: h.purpose, est_seconds: h.est_seconds, submitter: h.submitted_by, campaign: h.campaign,
   };
 }
 
@@ -250,7 +270,9 @@ hypRoutes.post("/v1/hyp/:id/advance", requireAdmin, async (c) => {
     stmts = await stageJobs(c.env, h, stageIndex, seeds, activeArms(h));
   } else if (action === "reject") {
     status = "rejected";
-    stmts = [c.env.DB.prepare("UPDATE jobs SET status = 'cancelled' WHERE hypothesis_id = ? AND status = 'queued'").bind(h.id)];
+    stmts = [
+      c.env.DB.prepare("UPDATE jobs SET status = 'cancelled', ended_at = ?2 WHERE hypothesis_id = ?1 AND status = 'queued'").bind(h.id, nowIso()),
+    ];
   } else throw new HttpError(400, "action must be promote, extend or reject");
   await c.env.DB.batch([
     ...stmts,

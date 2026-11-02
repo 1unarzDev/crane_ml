@@ -1,5 +1,6 @@
 // Job creation shared by the admin API and hypothesis stages.
 import { parseNeeds } from "./match";
+import { checkCampaign, checkEst, checkPurpose, checkSubmitter } from "./purpose";
 import { Env, HttpError, isObject, nowIso, randomId } from "./util";
 
 export const SAFE_NAME = /^[A-Za-z0-9._-]{1,64}$/;
@@ -25,6 +26,14 @@ export interface JobInput {
   needs?: unknown;
   priority?: number;
   max_attempts?: number | null;
+  /** 1-2 sentences by the submitting agent: what hypothesis this tests or what it is for (public). */
+  purpose: string;
+  /** Estimated seconds per run (per seed). */
+  est_seconds: number | null;
+  /** The submitting agent or session label. */
+  submitter: string | null;
+  /** Optional link to a campaign, boat test or study. */
+  campaign?: string | null;
 }
 
 export function parseSeeds(v: unknown, field = "seeds"): number[] {
@@ -60,8 +69,15 @@ export async function resolveRepos(env: Env, v: unknown): Promise<RepoRef[]> {
   return out;
 }
 
-/** Validates one job and returns its INSERT statement and id. */
-export async function jobInsert(env: Env, j: JobInput): Promise<{ id: string; stmt: D1PreparedStatement }> {
+/**
+ * Validates one job and returns its INSERT statement and id. ``inherited``: a hypothesis's stage job, whose
+ * purpose, estimate and submitter were checked when the hypothesis was created (or are a pre-v3 legacy row's).
+ */
+export async function jobInsert(
+  env: Env,
+  j: JobInput,
+  inherited = false,
+): Promise<{ id: string; stmt: D1PreparedStatement }> {
   if (typeof j.backend !== "string" || !SAFE_NAME.test(j.backend)) throw new HttpError(400, "backend must be a name");
   const id = j.job_id ?? randomId("j_");
   if (!SAFE_NAME.test(id)) throw new HttpError(400, "job_id must match [A-Za-z0-9._-]{1,64}");
@@ -75,11 +91,15 @@ export async function jobInsert(env: Env, j: JobInput): Promise<{ id: string; st
   const priority = j.priority ?? 100;
   if (!Number.isInteger(priority)) throw new HttpError(400, "priority must be an integer");
   if (j.max_attempts != null && (!Number.isInteger(j.max_attempts) || j.max_attempts < 1)) throw new HttpError(400, "max_attempts must be >= 1");
+  const purpose = inherited ? j.purpose || "(legacy)" : checkPurpose(j.purpose);
+  const est = inherited ? (j.est_seconds ?? null) : checkEst(j.est_seconds);
+  const submitter = inherited ? (j.submitter ?? null) : checkSubmitter(j.submitter);
+  const campaign = inherited ? (j.campaign ?? null) : checkCampaign(j.campaign);
   const repos = await resolveRepos(env, j.repos);
   const stmt = env.DB.prepare(
     `INSERT INTO jobs(job_id, hypothesis_id, stage_index, arm, backend, repos_json, spec_json, seeds_json, needs_json,
-                      priority, max_attempts, created)
-     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)`,
+                      priority, max_attempts, created, purpose, est_seconds, submitter, campaign)
+     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)`,
   ).bind(
     id,
     j.hypothesis_id ?? null,
@@ -93,6 +113,10 @@ export async function jobInsert(env: Env, j: JobInput): Promise<{ id: string; st
     priority,
     j.max_attempts ?? null,
     nowIso(),
+    purpose,
+    est,
+    submitter,
+    campaign,
   );
   return { id, stmt };
 }

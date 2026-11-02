@@ -190,6 +190,15 @@ class HypSpec(unittest.TestCase):
         body = hyp.normalize(miniyaml.load_file(example), resolve=False)
         json.dumps(body)
         self.assertEqual(body["direction"], "increase")
+        self.assertEqual(body["est_seconds"], 45)
+        body = hyp.normalize(spec, purpose="Tests whether variant a moves m on the dummy stage.", est_seconds=3,
+                             submitter="agent-1", campaign="c")
+        self.assertEqual((body["purpose"], body["est_seconds"], body["submitted_by"], body["campaign"]),
+                         ("Tests whether variant a moves m on the dummy stage.", 3, "agent-1", "c"))
+        with self.assertRaises(SystemExit):
+            hyp.check_purpose("test")
+        with self.assertRaises(SystemExit):
+            hyp.main(["submit", str(example)])  # --purpose is required
 
 
 class FakeClient:

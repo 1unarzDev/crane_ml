@@ -76,7 +76,8 @@ def main():
                     'overrides': {'scenarios': {'dir': str(tmp / 'scenarios'), 'generate': TOY_GENERATE},
                                   'vehicle': {'gain': gain}},
                     'theater': {'study': 'e2e-toy', 'iteration': it, 'insight': f'gain {gain}'}}
-            jobs.append({'backend': 'fastsim', 'seeds': [1, 2, 3], 'spec': spec})
+            jobs.append({'backend': 'fastsim', 'seeds': [1, 2, 3], 'spec': spec, 'est_seconds': 5, 'submitter': 'e2e',
+                         'purpose': f'Theater end-to-end: toy fastsim iteration {it} with gain {gain} for the select manifest.'})
         ids = adm.post('/v1/admin/jobs', {'jobs': jobs})['job_ids']
         w = worker.Worker(cfg)
         for _ in ids:

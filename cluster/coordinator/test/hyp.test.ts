@@ -8,6 +8,9 @@ const HYP = {
   claim: "a larger turn gain raises the score",
   metric: "score",
   direction: "increase",
+  purpose: "Tests whether a larger turn gain raises the course score on the fast tier.",
+  est_seconds: 20,
+  submitter: "vitest",
   baseline_ref: "base",
   variants: [
     { name: "a", ref: "va", params: { effect: 0.2 } },

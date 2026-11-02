@@ -3,6 +3,9 @@ name: wider-turn-gain
 claim: A larger turn gain raises the mean score without hurting robustness.
 metric: score
 direction: increase            # or decrease
+# purpose (required, public): what this tests or is for, 1-2 sentences; crane-hyp submit --purpose gives it.
+est_seconds: 45                # required: estimated seconds per run (a stage's est_seconds overrides)
+campaign: turn-tuning          # optional: a campaign, boat test or study
 repo: example/sim-stack        # optional: the repo whose refs the arms differ in
 repo_url: https://github.com/example/sim-stack.git
 baseline: "@main"              # pinned to the commit main points at when submitted

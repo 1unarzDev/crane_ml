@@ -1,8 +1,13 @@
 """crane-hyp: submit a hypothesis, watch it, and report/apply the promotion decision.
 
-  crane-hyp submit hypothesis.yaml       # enqueue stage 1 (refs resolved to exact commits)
+  crane-hyp submit hypothesis.yaml --purpose "..."  # enqueue stage 1 (refs resolved to exact commits)
   crane-hyp status [ID]                  # one hypothesis, or the recent list
   crane-hyp report ID [--apply] [--json] # paired test vs baseline; --apply posts the decision
+
+Every submission says why it runs, in public (the coordinator's /v1/feed): --purpose, 1-2
+sentences by the submitting agent on what the hypothesis tests or what it is for; est_seconds
+(per run) from --est-seconds, the file or every stage; the submitter from --submitter,
+CRANE_SUBMITTER or the user; --campaign optionally links a campaign, boat test or study.
 
 Environment: CRANE_COORDINATOR (URL) and CRANE_TOKEN (admin token for submit and
 --apply; a viewer token is enough for status and report).
@@ -34,9 +39,30 @@ def ls_remote(url: str, ref: str) -> str:
     return shas.pop()
 
 
-def normalize(spec: dict, resolve: bool = True) -> dict:
-    """hypothesis.yaml -> the coordinator's POST /v1/hyp body."""
+PURPOSE_MIN = 20
+
+
+def check_purpose(text) -> str:
+    """The coordinator's first checks, locally: 1-2 real sentences, not a placeholder."""
+    s = " ".join(str(text or "").split())
+    if len(s) < PURPOSE_MIN or len([w for w in s.split() if any(ch.isalpha() for ch in w)]) < 4:
+        raise SystemExit(f"--purpose needs 1-2 sentences ({PURPOSE_MIN}+ chars) on what this tests or is for; "
+                         "it is shown publicly at /v1/feed")
+    return s
+
+
+def normalize(spec: dict, resolve: bool = True, purpose: str | None = None, est_seconds: float | None = None,
+              submitter: str | None = None, campaign: str | None = None) -> dict:
+    """hypothesis.yaml (+ the CLI's purpose, estimate, submitter, campaign) -> the coordinator's POST /v1/hyp body."""
     out = dict(spec)
+    if purpose is not None:
+        out["purpose"] = purpose
+    if est_seconds is not None:
+        out["est_seconds"] = est_seconds
+    if campaign is not None:
+        out["campaign"] = campaign
+    if submitter:
+        out["submitted_by"] = submitter
     seeds = out.get("seeds", 10)
     out["seeds"] = list(range(1, seeds + 1)) if isinstance(seeds, int) else [int(s) for s in seeds]
     if "baseline" in out and "baseline_ref" not in out:
@@ -60,7 +86,11 @@ def client(a) -> Client:
 
 
 def cmd_submit(a):
-    body = normalize(miniyaml.load_file(a.file), resolve=not a.no_resolve)
+    spec = miniyaml.load_file(a.file)
+    body = normalize(spec, resolve=not a.no_resolve, purpose=check_purpose(a.purpose), est_seconds=a.est_seconds,
+                     submitter=a.submitter, campaign=a.campaign)
+    if body.get("est_seconds") is None and not all("est_seconds" in s for s in body.get("stages") or [{}]):
+        raise SystemExit("est_seconds required: --est-seconds N (per run), est_seconds in the file, or one per stage")
     r = client(a).post("/v1/hyp", body)
     print(json.dumps(r) if a.json else f"{r['id']}: {r['jobs']} jobs queued for {r['stage']} (baseline {r['baseline_ref'][:12]})")
 
@@ -124,6 +154,10 @@ def main(argv=None):
     s = sub.add_parser("submit")
     s.add_argument("file")
     s.add_argument("--no-resolve", action="store_true", help="send branch names as given instead of exact commits")
+    s.add_argument("--purpose", required=True, help="1-2 sentences: what this hypothesis tests or is for (public)")
+    s.add_argument("--est-seconds", type=float, help="estimated seconds per run (else the file's est_seconds)")
+    s.add_argument("--submitter", help="agent or session label (default CRANE_SUBMITTER, else the user)")
+    s.add_argument("--campaign", help="optional campaign, boat test or study this belongs to")
     st = sub.add_parser("status")
     st.add_argument("id", nargs="?")
     r = sub.add_parser("report")
