@@ -45,7 +45,10 @@ class Coordinator:
         self.url, self.token, self.timeout = url.rstrip('/'), token, timeout
 
     def _open(self, path: str):
-        req = urllib.request.Request(self.url + path, headers={'authorization': f'Bearer {self.token}'} if self.token else {})
+        headers = {'user-agent': 'crane-theater/1'}  # Cloudflare refuses urllib's default agent (error 1010)
+        if self.token:
+            headers['authorization'] = f'Bearer {self.token}'
+        req = urllib.request.Request(self.url + path, headers=headers)
         try:
             return urllib.request.urlopen(req, timeout=self.timeout)
         except urllib.error.HTTPError as e:
