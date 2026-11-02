@@ -91,6 +91,27 @@ and replay availability (runs with a kept `.ctraj`). Nothing private leaves: no
 tokens, worker ids, specs, needs, repo URLs or paths; free text goes through a
 secret scrubber (`src/purpose.ts`). Snapshots are cached per colo for `FEED_CACHE_S`.
 
+**Dashboard** (`coordinator/public/`, Workers static assets at `/`, no build step): the
+public, read-only view of the feed. Now (one sentence, a berth per live worker, the
+queue with start times and a log-scale estimate glyph, recent results), Runs,
+Campaigns (each hypothesis arm as a line from fast to unity to real), Workers (with the
+duration model) and a job page per job (`#/job/:id`, `#/run/:run_id`) with a 2-D ghost
+replay: the run's `.ctraj` decoded in the browser (`public/traj.js`, tested on
+`theater/tests/golden`), the course, and the same seed from the study's other runs as
+ghosts; `#/fleet/:study` replays a study's per-iteration best and failures coloured by
+iteration. Its token-free reads: `GET /v1/feed/runs/:run_id/traj[?lod=1]` (header cut to
+public keys; `run.lod.ctraj` when the worker wrote one; read through the archive fallback,
+`503` while only an offline archive has it, `410` once gone), `GET /v1/feed/courses/:truth_sha256` (from `truths/<sha>` or a run's
+`course_truth.json`, kept reduced at `courses/<sha>.json`), `GET /v1/feed/ghosts?run=`,
+`GET /v1/feed/fleet?study=` and `/v1/feed/fleet.pack` (LODs as `u32 len, bytes`), and
+`GET /v1/feed/renders?job=|study=` with `.../renders/:id/video` (Range). The "Render in
+Unity theater" button needs an operator token (`POST /v1/admin/operator_token`, pasted
+into the page, kept for the tab): it records a request (`POST /v1/operator/renders`,
+with a purpose); whoever runs `theater.render` lists `GET /v1/admin/renders?status=requested`,
+reports `POST /v1/admin/renders/:id {status, render_job_id}` and attaches the video with
+`PUT /v1/admin/renders/:id/video/final.mp4`. The storage design's `/v1/replay/*` (handles,
+tiers) can take over the replay reads; the page only needs these paths.
+
 **Needs and capabilities**: a job's `needs` (`os`, `arch`, `gpu`, `vulkan`,
 `min_cpu`, `min_ram_gb`, `min_vram_gb`, `tags`, `est_minutes`) are matched against
 what each worker reports (detected, then overridden by its YAML `caps`) and the
