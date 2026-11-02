@@ -19,7 +19,7 @@ from concurrent.futures import ThreadPoolExecutor, wait
 import urllib.parse
 from pathlib import Path
 
-from . import __version__, backends as backend_mod, config as config_mod, idle
+from . import __version__, backends as backend_mod, config as config_mod, idle, provision
 from .api import ApiError, Client
 from .gitcache import GitCache
 
@@ -292,8 +292,22 @@ def _systemd_unit() -> bool:
     return r.returncode == 0
 
 
+TASK = "crane-worker"
+
+
+def _win_task() -> str | None:
+    """The scheduled task's state (Ready, Running, Disabled) when install.ps1 registered it, else None."""
+    if sys.platform != "win32":
+        return None
+    r = subprocess.run(["powershell", "-NoProfile", "-Command", f"(Get-ScheduledTask -TaskName {TASK} -ErrorAction Stop).State"],
+                       capture_output=True, text=True, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    return r.stdout.strip() or None if r.returncode == 0 else None
+
+
 def cmd_toggle(a, cfg):
-    """on/off: the off flag (honoured by any running worker, at once) plus, under systemd, enable/disable --now."""
+    """on/off: the off flag (honoured by any running worker, at once) plus, under systemd, enable/disable --now.
+    On Windows `off` disables the scheduled task (the running worker idles on the flag and is not restarted)
+    and `on` enables and starts it."""
     flag: Path = cfg["off_file"]
     if a.cmd == "off":
         flag.parent.mkdir(parents=True, exist_ok=True)
@@ -302,6 +316,10 @@ def cmd_toggle(a, cfg):
         flag.unlink(missing_ok=True)
     if _systemd_unit():
         subprocess.run(["systemctl", "--user", "disable" if a.cmd == "off" else "enable", "--now", "--quiet", UNIT], check=False)
+    elif _win_task():
+        verbs = f"Disable-ScheduledTask {TASK}" if a.cmd == "off" else f"Enable-ScheduledTask {TASK}; Start-ScheduledTask {TASK}"
+        subprocess.run(["powershell", "-NoProfile", "-Command", verbs + " | Out-Null"], check=False,
+                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     cmd_status(a, cfg)
 
 
@@ -344,8 +362,9 @@ def main(argv=None):
     sub.add_parser("off", help="take no jobs until `on`: releases the current job now, stops and disables the service")
     sub.add_parser("status", help="on, off or paused (with the reason), and the current job")
     a = p.parse_args(argv)
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
     path = a.config or (config_mod.config_dir() / "worker.yaml")
+    provision.apply_tools_env(path)  # the installer's tools (git, ffmpeg, dotnet) on PATH for jobs
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
     cfg = config_mod.load(path if Path(path).exists() else None)
     if a.cmd == "join":
         return cmd_join(a, cfg)
