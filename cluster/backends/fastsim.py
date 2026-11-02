@@ -106,10 +106,11 @@ class ClusterBackend:
         if 'progress' in metrics:
             fields['progress'] = float(metrics['progress'])
         header, sha = meta.stamp(path, **fields)
+        meta.write_lod(path)
         return meta.run_meta(header, traj_name='run.ctraj', traj_sha256=sha)
 
     def artifacts(self, run_dir):
-        return [(p, p.name, 'summary' if p.name in ('run.json', 'run.ctraj') else 'raw')
+        return [(p, p.name, 'summary' if p.name in ('run.json', 'run.ctraj', 'run.lod.ctraj') else 'raw')
                 for p in sorted(Path(run_dir).iterdir()) if p.is_file()]
 
     def cancel(self):

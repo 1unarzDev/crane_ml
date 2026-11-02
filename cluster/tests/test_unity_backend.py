@@ -80,6 +80,10 @@ class UnityBackendTest(unittest.TestCase):
         h = traj.read_header(run_dir / 'run.ctraj')
         self.assertEqual((h['arm'], h['course']['pair_key'], h['course']['set'], h['insight']), ('baseline', 'pk', ['nav.gates=3'], 'go'))
         self.assertEqual(m['traj_sha256'], __import__('hashlib').sha256((run_dir / 'run.ctraj').read_bytes()).hexdigest())
+        lod = traj.read_header(run_dir / 'run.lod.ctraj')
+        self.assertEqual((lod['parent_sha256'], lod['outcome'], lod['hz']), (m['traj_sha256'], 'finished', 2.0))
+        self.assertNotIn('params', lod)
+        self.assertIn(('run.lod.ctraj', 'summary'), [(n, r) for _, n, r in b.artifacts(run_dir)])
 
     def test_no_trajectory_when_turned_off(self):
         b = self.backend({'traj': False})

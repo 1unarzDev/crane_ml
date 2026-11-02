@@ -42,6 +42,7 @@ DEFAULTS = {'family': 'roboboat_2026', 'scene': 'Roboboat Course', 'scenario': '
             'sim_profile': 'full', 'duration': 30, 'warmup': 5, 'time_scale': 1, 'batchmode': True,
             'timeout_s': 900, 'width': 640, 'height': 360, 'traj': True, 'traj_hz': 20}
 TRAJ = 'run.ctraj'
+LOD = 'run.lod.ctraj'   # the 2 Hz overview (theater.traj.lod), public-safe header
 
 
 def windows_session_id():
@@ -172,12 +173,14 @@ class ClusterBackend:
                                  outcome='invalid' if valid is False else 'finished',
                                  seed=int(Path(run_dir).name.lstrip('s') or 0),
                                  course={k: v for k, v in course.items() if v is not None})
+        meta.write_lod(path)
         return meta.run_meta(header, traj_name=TRAJ, traj_sha256=sha)
 
     def artifacts(self, run_dir):
         run_dir = Path(run_dir)
         return [(run_dir / n, n, r) for n, r in (('result.json', 'summary'), ('course_truth.json', 'summary'),
-                                                (TRAJ, 'summary'), ('player.log', 'raw')) if (run_dir / n).is_file()]
+                                                (TRAJ, 'summary'), (LOD, 'summary'),
+                                                ('player.log', 'raw')) if (run_dir / n).is_file()]
 
     def cancel(self):
         p = self.proc

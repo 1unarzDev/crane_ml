@@ -85,6 +85,15 @@ def stamp(path, **fields) -> tuple:
     return T.read_header(path), sha
 
 
+def write_lod(path):
+    """Write ``run.lod.ctraj`` next to a stamped ``run.ctraj`` (after stamping: the LOD copies the
+    outcome and names the full file's sha256). A LOD failure never fails the run; returns its sha or None."""
+    try:
+        return T.write_lod(path)
+    except (OSError, T.TrajError, ValueError, KeyError):
+        return None
+
+
 def outcome_of_fastsim(outcome: str) -> tuple:
     """(outcome, failure_reason) from a fastsim run outcome."""
     o = FASTSIM_OUTCOMES.get(outcome)
