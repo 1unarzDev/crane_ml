@@ -1,6 +1,6 @@
 import { env } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
-import { durationModel, modelRunSeconds } from "../src/feed";
+import { durationModel, modelRunSeconds, runWalls } from "../src/feed";
 import { alias, checkPurpose, scrub } from "../src/purpose";
 import { JOB_META, addJobs, admin, call, callJson, lease, makeWorker, resetTables } from "./helpers";
 
@@ -174,5 +174,11 @@ describe("scrubber and aliases", () => {
     expect(modelRunSeconds(8, backends.b)).toBe(10);
     expect(modelRunSeconds(null, backends.b)).toBe(25);
     expect(modelRunSeconds(8, undefined)).toBe(null);
+  });
+
+  it("a batched job's runs take their share of the lease", () => {
+    const base = { job_id: "j", attempt: 1, run_attempt: 1, leased_at_ms: 1_000_000, ended_at: new Date(1_030_000).toISOString(), wall_s: 0.001 };
+    const out = runWalls([base, base, { ...base, wall_s: 25 }, { ...base, run_attempt: 0 }, { ...base, job_id: "k", ended_at: null }]);
+    expect(out.map((r) => r.wall_s)).toEqual([10, 10, 25, 0.001, 0.001]);
   });
 });

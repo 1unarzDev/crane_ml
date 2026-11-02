@@ -70,6 +70,21 @@ export function durationModel(rows: { backend: string; worker_id: string; wall_s
   return { backends, speed };
 }
 
+/** A run's wall time for the model: a batched backend (all seeds in prepare, mhseals_testing's
+ * fastsim_roboboat) reports ~0 s per seed, so a finished attempt's runs take at least their share of
+ * the job's leased time (lease to end over the attempt's runs in the sample). */
+export function runWalls<R extends { job_id: string; run_attempt: number; attempt: number; leased_at_ms: number | null; ended_at: string | null; wall_s: number }>(rows: R[]): R[] {
+  const n = new Map<string, number>();
+  for (const r of rows) if (r.run_attempt === r.attempt) n.set(r.job_id, (n.get(r.job_id) ?? 0) + 1);
+  return rows.map((r) => {
+    const end = r.ended_at ? Date.parse(r.ended_at) : NaN;
+    if (r.run_attempt !== r.attempt || !r.leased_at_ms || !Number.isFinite(end) || end <= r.leased_at_ms) return r;
+    return { ...r, wall_s: Math.max(r.wall_s, (end - r.leased_at_ms) / 1000 / n.get(r.job_id)!) };
+  });
+}
+
+type ModelRow = Parameters<typeof durationModel>[0][number] & Parameters<typeof runWalls>[0][number];
+
 /** The model's seconds per run for a job: the estimate times the backend's ratio, else the backend median. */
 export function modelRunSeconds(est: number | null, m: BackendModel | undefined): number | null {
   if (m && m.n_ratio >= MODEL_MIN_N && m.ratio !== null && est) return est * m.ratio;
@@ -122,7 +137,8 @@ export async function buildFeed(env: Env, opts: { recent?: number; jobId?: strin
         ).bind(recent),
     env.DB.prepare("SELECT id, name, state, last_seen, disabled, caps_json, policy_json FROM workers"),
     env.DB.prepare(
-      `SELECT j.backend, r.worker_id, r.wall_s, j.est_seconds, r.created FROM runs r JOIN jobs j ON j.job_id = r.job_id
+      `SELECT j.backend, r.worker_id, r.wall_s, j.est_seconds, r.created, r.job_id, r.attempt AS run_attempt, j.attempt,
+          j.leased_at_ms, j.ended_at FROM runs r JOIN jobs j ON j.job_id = r.job_id
         WHERE r.status = 'ok' AND r.wall_s IS NOT NULL ORDER BY r.created DESC LIMIT ${MODEL_SAMPLE}`,
     ),
   ]);
@@ -170,7 +186,7 @@ export async function buildFeed(env: Env, opts: { recent?: number; jobId?: strin
   ]);
 
   // ---- model, workers
-  const { backends, speed } = durationModel(model.results as never, nowMs);
+  const { backends, speed } = durationModel(runWalls(model.results as ModelRow[]), nowMs);
   const workerRows = workers.results as Row[];
   const aliasOf = new Map(workerRows.map((w) => [w.id as string, alias(w.name as string)]));
   const live = (w: Row) => !w.disabled && !!w.last_seen && nowMs - Date.parse(w.last_seen as string) <= LIVE_MS;
