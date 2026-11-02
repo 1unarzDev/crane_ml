@@ -34,3 +34,20 @@ def test_crane_worker_runs_it_from_a_job_spec(tmp_path):
     assert run_dir == tmp_path / 'job' / 'runs' / 'v' / 's3'
     assert m['succeeded'] == 1.0 and all(isinstance(v, float) for v in m.values())
     assert ('run.json', 'summary') in [(n, r) for _, n, r in backend.artifacts(run_dir)]
+
+
+TOY_GENERATE = ['{python}', '-c', 'import sys; sys.path[:0] = [sys.argv[1], sys.argv[1] + "/../.."]; import toy; '
+                '[toy.write_scenario(sys.argv[2], s) for s in range(int(sys.argv[3]), int(sys.argv[4]))]',
+                '{base}', '{dir}', '{seeds_from}', '{seeds_to}']
+
+
+def test_a_worker_without_git_resolves_workdir_under_its_root_and_generates_scenarios(tmp_path):
+    from types import SimpleNamespace
+    spec = {'workdir': 'fastsim/tests', 'config': 'toy.yaml',
+            'overrides': {'scenarios': {'dir': str(tmp_path / 'scenarios'), 'generate': TOY_GENERATE}}}
+    ctx = SimpleNamespace(job={'job_id': 'j3', 'spec': spec, 'seeds': [4, 5]}, spec=spec, work_dir=tmp_path / 'job',
+                          repos={})
+    backend = ClusterBackend('fastsim', {'root': str(HERE.parents[1])})
+    backend.prepare(ctx)
+    assert (tmp_path / 'scenarios' / 'toy-s5.json').is_file()
+    assert backend.metrics(backend.run(5))['succeeded'] == 1.0

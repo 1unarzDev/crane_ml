@@ -18,6 +18,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 
 from fastsim import plugin
 from fastsim.identity import sha256
@@ -142,11 +143,13 @@ def scenario_format(spec, base=None):
 class ScenarioSource:
     """Seed -> scenario file: ``dir`` + ``pattern`` (``{seed}`` and any key of ``fields``),
     and optionally a ``generate`` command template run once for the missing seeds
-    (``{seeds_from}``, ``{seeds_to}`` (exclusive), ``{dir}`` and the fields substituted)."""
+    (``{seeds_from}``, ``{seeds_to}`` (exclusive), ``{dir}``, ``{base}`` (the domain YAML's
+    folder), ``{python}`` (this interpreter) and the fields substituted)."""
 
     def __init__(self, dir, pattern='scenario-s{seed}.json', fields=None, generate=None,
                  format=None, base=None):
-        self.dir = Path(base or '.') / Path(os.path.expandvars(dir)).expanduser()
+        self.base = Path(base or '.')
+        self.dir = self.base / Path(os.path.expandvars(dir)).expanduser()
         self.pattern, self.fields, self.generate_cmd = pattern, dict(fields or {}), generate
         self.format = scenario_format(format, base)
 
@@ -157,7 +160,8 @@ class ScenarioSource:
         missing = [s for s in seeds if not self.path(s).exists()]
         if missing and self.generate_cmd:
             self.dir.mkdir(parents=True, exist_ok=True)
-            words = dict(self.fields, seeds_from=min(missing), seeds_to=max(missing) + 1, dir=self.dir)
+            words = dict(self.fields, seeds_from=min(missing), seeds_to=max(missing) + 1, dir=self.dir,
+                         base=self.base, python=sys.executable)
             subprocess.run([str(w).format(**words) for w in self.generate_cmd], check=True,
                            capture_output=True)
         return missing

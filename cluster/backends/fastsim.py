@@ -62,8 +62,9 @@ class ClusterBackend:
     """FastsimBackend for crane-worker: ``type: "cluster.backends.fastsim:ClusterBackend"``.
 
     The job spec carries the ``job`` keys above (``out`` is the worker's job folder). A spec
-    ``repo`` resolves ``workdir`` inside that repo's checkout at the job's exact ref; otherwise
-    ``workdir`` comes from the spec or the backend options. Metrics are numbers only:
+    ``repo`` resolves ``workdir`` inside that repo's checkout at the job's exact ref; otherwise a
+    backend option ``root`` (this worker's crane copy, for hosts without git) resolves it, or
+    ``workdir`` is taken as is. A job can then name the same relative ``workdir`` on every host. Metrics are numbers only:
     ``succeeded`` (1 or 0), ``flags`` (a count) and the run's and adapter's numbers.
     """
 
@@ -76,8 +77,11 @@ class ClusterBackend:
     def prepare(self, ctx):
         self.ctx = ctx
         job = {**self.options, **ctx.spec, 'id': ctx.job.get('job_id'), 'out': str(ctx.work_dir / 'runs')}
+        job.setdefault('seeds', ctx.job.get('seeds'))  # the job's own seeds, so a generating source makes them
         if job.get('repo'):
             job['workdir'] = str(Path(ctx.repos[job['repo']]) / job.get('workdir', '.'))
+        elif job.get('root'):
+            job['workdir'] = str(Path(job['root']).expanduser() / job.get('workdir', '.'))
         self.fast = FastsimBackend().prepare(job)
 
     def run(self, seed):
