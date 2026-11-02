@@ -17,3 +17,4 @@
 *.xml text eol=lf
 *.blend filter=lfs diff=lfs merge=lfs -text
 *.ctraj binary
+*.pack binary
