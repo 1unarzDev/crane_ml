@@ -41,9 +41,21 @@ VERSION = 1
 BLOCK_S = 30.0
 OUTCOMES = ('finished', 'failed', 'timeout', 'invalid', 'unknown')
 
-M = 0.01                         # position quantum: 1 cm
-RAD = math.radians(0.01)         # angle quantum: 0.01 deg
-SCALES = {'x': M, 'y': M, 'z': M, 'yaw': RAD, 'pitch': RAD, 'roll': RAD, 'speed': 0.001}
+M = 0.01                         # position quantum: 1 cm (mm costs 30-45% more for detail no render shows)
+DEG = math.radians(1.0)
+# Writer defaults (design-storage 1.2): yaw 0.02 deg moves a 1 m bow 0.35 mm, pitch and roll at 0.05 deg are
+# invisible on a 1 m hull; speed is derivable from x, y and hz, so a writer that keeps it stores 1 cm/s.
+# Every scale is in the file, so old readers read files written with any scales.
+SCALES = {'x': M, 'y': M, 'z': M, 'yaw': 0.02 * DEG, 'pitch': 0.05 * DEG, 'roll': 0.05 * DEG, 'speed': 0.01}
+SCALES_V1 = {'x': M, 'y': M, 'z': M, 'yaw': 0.01 * DEG, 'pitch': 0.01 * DEG, 'roll': 0.01 * DEG, 'speed': 0.001}
+
+# The overview LOD (``run.lod.ctraj``): the same format at 2 Hz, planar x y yaw at 5 cm and 0.5 deg, 6-DOF
+# adds z at 2 cm and pitch/roll at 0.2 deg; one block per 600 s. Catmull-Rom from 2 Hz rebuilds a 20 Hz
+# boat path to p99 1.9 cm. Its header keeps only public-safe keys (no params, paths or ids).
+LOD_HZ = 2.0
+LOD_BLOCK_S = 600.0
+LOD_SCALES = {'x': 0.05, 'y': 0.05, 'yaw': 0.5 * DEG, 'z': 0.02, 'pitch': 0.2 * DEG, 'roll': 0.2 * DEG}
+LOD_HEADER_KEYS = ('pose_dims', 'box', 'outcome', 'progress', 'valid', 'robot', 'frame')
 POSE6 = ('x', 'y', 'z', 'yaw', 'pitch', 'roll')
 PLANAR = ('x', 'y', 'yaw')
 
@@ -52,9 +64,14 @@ class TrajError(ValueError):
     pass
 
 
-def scale_of(name: str) -> float:
+def scale_of(name: str, scales: dict = SCALES) -> float:
     """The default quantum of a column by its last dotted part (1 mm-ish for anything unknown)."""
-    return SCALES.get(name.rsplit('.', 1)[-1], 0.001)
+    return scales.get(name.rsplit('.', 1)[-1], 0.001)
+
+
+def specs_for(names, scales: dict) -> list:
+    """Column specs for ``names`` at ``scales`` (by last dotted part), e.g. ``specs_for(cols, SCALES_V1)``."""
+    return [Column(n, scale_of(n, scales)) for n in names]
 
 
 def _zigzag(n: int) -> int:
@@ -370,4 +387,63 @@ def problems(traj: Traj, *, max_speed: float = 15.0, bounds: dict | None = None)
         out.append(f'{len(late)} events outside the run ({late[0]})')
     if traj.header.get('outcome') not in (None, *OUTCOMES):
         out.append(f'unknown outcome {traj.header["outcome"]!r}')
+    return out
+
+
+def lod(full: bytes, *, hz: float = LOD_HZ, parent_sha256: str | None = None) -> bytes:
+    """The overview LOD of a full ``.ctraj`` (bytes in, bytes out): every pose column resampled to ``hz``
+    by nearest sample, at the LOD scales, events copied, and a header with only public-safe keys plus
+    ``course.truth_sha256``, ``lod`` {of_hz, hz} and ``parent_sha256`` (the full file's sha256)."""
+    import hashlib
+    t = loads(full)
+    src_hz = t.hz
+    step = src_hz / hz if hz < src_hz else 1.0
+    out_hz = src_hz / step
+    n = int(math.floor((t.ticks - 1) / step)) + 1 if t.ticks else 0
+    idx = [min(t.ticks - 1, int(math.floor(i * step + 0.5))) for i in range(n)]
+    cols, specs = {}, []
+    for c in t.specs:
+        axis = c.name.rsplit('.', 1)[-1]
+        if axis not in LOD_SCALES:
+            continue
+        cols[c.name] = [t.columns[c.name][i] for i in idx]
+        specs.append(Column(c.name, LOD_SCALES[axis]))
+    h = t.header
+    header = {k: h[k] for k in LOD_HEADER_KEYS if k in h}
+    truth = (h.get('course') or {}).get('truth_sha256') if isinstance(h.get('course'), dict) else None
+    if truth:
+        header['course'] = {'truth_sha256': truth}
+    header['lod'] = {'of_hz': src_hz, 'hz': out_hz, 'of_ticks': t.ticks}
+    header['parent_sha256'] = parent_sha256 or hashlib.sha256(full).hexdigest()
+    return encode(header, cols, t.events, hz=out_hz, t0_s=float(h.get('t0_s', 0.0)), specs=specs,
+                  block_s=LOD_BLOCK_S)
+
+
+def write_lod(full_path, lod_path=None) -> str:
+    """Write ``run.lod.ctraj`` next to ``run.ctraj`` (atomically); return its sha256."""
+    import hashlib
+    full_path = Path(full_path)
+    lod_path = Path(lod_path) if lod_path else full_path.with_name(full_path.name.replace('.ctraj', '') + '.lod.ctraj')
+    data = lod(full_path.read_bytes())
+    tmp = lod_path.with_name(lod_path.name + '.tmp')
+    tmp.write_bytes(data)
+    tmp.replace(lod_path)
+    return hashlib.sha256(data).hexdigest()
+
+
+def fleet_pack(files) -> bytes:
+    """Many files in one response (``GET /v1/replay/fleet``): ``u32 len, bytes`` repeated."""
+    return b''.join(struct.pack('<I', len(f)) + f for f in files)
+
+
+def fleet_unpack(data: bytes) -> list:
+    out, pos = [], 0
+    while pos < len(data):
+        if pos + 4 > len(data):
+            raise TrajError('truncated fleet pack')
+        (n,) = struct.unpack_from('<I', data, pos)
+        if pos + 4 + n > len(data):
+            raise TrajError('truncated fleet pack')
+        out.append(data[pos + 4:pos + 4 + n])
+        pos += 4 + n
     return out

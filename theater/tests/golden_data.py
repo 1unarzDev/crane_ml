@@ -1,6 +1,8 @@
 """The cross-language golden run: the Python writer makes golden/small.ctraj from this, and the
 Unity EditMode test (Assets/Tests/Performance/CraneTrajTests.cs) decodes it and checks the
-values listed in golden/small.json. Regenerate both with ``python3 -m theater.tests.golden_data``."""
+values listed in golden/small.json. Regenerate both with ``python3 -m theater.tests.golden_data``.
+The golden file keeps the first writer's scales (``traj.SCALES_V1``), so it does not change when the
+writer defaults do; ``specs()`` pins them."""
 
 import json
 import math
@@ -30,10 +32,15 @@ def data():
     return header, cols, events, hz
 
 
+def specs(cols):
+    from theater import traj
+    return traj.specs_for(cols, traj.SCALES_V1)
+
+
 def main():
     from theater import traj
     header, cols, events, hz = data()
-    sha = traj.write(HERE / 'small.ctraj', header, cols, events, hz=hz)
+    sha = traj.write(HERE / 'small.ctraj', header, cols, events, hz=hz, specs=specs(cols))
     picks = [0, 1, 599, 600, 699]
     expect = {'sha256': sha, 'ticks': 700, 'hz': hz, 'blocks': 2, 'columns': list(cols),
               'samples': {str(i): {k: v[i] for k, v in cols.items()} for i in picks},

@@ -107,14 +107,14 @@ def test_the_golden_file_is_current():
     """golden/small.ctraj (read by the Unity test) is what this writer makes from golden_data."""
     header, cols, events, hz = golden_data.data()
     want = json.loads((golden_data.HERE / 'small.json').read_text())
-    data = traj.encode(header, cols, events, hz=hz)
+    data = traj.encode(header, cols, events, hz=hz, specs=golden_data.specs(cols))
     assert (golden_data.HERE / 'small.ctraj').read_bytes() == data
     assert hashlib.sha256(data).hexdigest() == want['sha256']
     t = traj.loads(data)
     assert t.ticks == want['ticks'] and t.events == want['events']
     for i, sample in want['samples'].items():
         for k, v in sample.items():
-            assert abs(t.columns[k][int(i)] - v) <= traj.scale_of(k) / 2 + 1e-9
+            assert abs(t.columns[k][int(i)] - v) <= traj.scale_of(k, traj.SCALES_V1) / 2 + 1e-9
 
 
 def test_job_fields_and_run_meta(tmp_path):
@@ -131,3 +131,46 @@ def test_job_fields_and_run_meta(tmp_path):
     assert m['course_sha256'] == 'abc' and m['recorder'] == 'unity' and m['traj_sha256'] == sha
     assert m['iteration'] == 2 and m['insight'] == 'raise lookahead' and 'job_id' not in m
     assert meta.job_fields({'job_id': 'j'})['study'] == 'adhoc'
+
+
+def test_writer_scales_keep_a_ten_minute_boat_small():
+    """Recommended scales (yaw 0.02, pitch/roll 0.05 deg, speed dropped) against the first writer's."""
+    cols = {k: v for k, v in boat_run(minutes=10.0).items() if not k.endswith(('speed', '.cmd.v', '.cmd.w'))}
+    new = traj.encode({'seed': 1}, cols, hz=20)
+    old = traj.encode({'seed': 1}, cols, hz=20, specs=traj.specs_for(cols, traj.SCALES_V1))
+    assert len(new) < 0.85 * len(old) and len(new) < 30_000, (len(new), len(old))
+    t = traj.loads(new)
+    assert t.specs[3].scale == traj.SCALES['yaw']
+
+
+def test_lod_is_small_public_and_follows_the_run(tmp_path):
+    cols = boat_run(minutes=10.0)
+    header = {'seed': 1, 'pose_dims': '6dof', 'robot': {'agents': ['boat']}, 'params': {'secret.path': '/home/x'},
+              'course': {'name': 'c', 'truth_sha256': 'abc'}, 'study': 's', 'outcome': 'finished', 'valid': True}
+    events = [{'t': 12.0, 'kind': 'gate', 'index': 0}]
+    full = traj.encode(header, cols, events, hz=20)
+    small = traj.lod(full)
+    assert len(small) < 7_000, len(small)
+    t = traj.loads(small)
+    assert t.hz == 2.0 and t.ticks == 1200 and t.events == events
+    assert set(t.columns) == {f'boat.{k}' for k in traj.POSE6}
+    assert 'params' not in t.header and 'study' not in t.header and 'seed' not in t.header
+    assert t.header['course'] == {'truth_sha256': 'abc'} and t.header['outcome'] == 'finished'
+    assert t.header['parent_sha256'] == hashlib.sha256(full).hexdigest()
+    assert t.header['lod'] == {'of_hz': 20.0, 'hz': 2.0, 'of_ticks': 12000}
+    for i in (0, 7, 1199):
+        assert abs(t.columns['boat.x'][i] - cols['boat.x'][i * 10]) <= 0.026
+    p = tmp_path / 'run.ctraj'
+    p.write_bytes(full)
+    sha = traj.write_lod(p)
+    assert hashlib.sha256((tmp_path / 'run.lod.ctraj').read_bytes()).hexdigest() == sha
+    planar = traj.lod(traj.encode({}, {'r.x': [0.1 * i for i in range(100)], 'r.y': [0.0] * 100,
+                                       'r.yaw': [0.0] * 100, 'r.speed': [1.0] * 100}, hz=10))
+    assert set(traj.loads(planar).columns) == {'r.x', 'r.y', 'r.yaw'} and traj.loads(planar).ticks == 20
+
+
+def test_fleet_pack_round_trips():
+    a, b = traj.lod(traj.encode({}, {'r.x': [0.0, 1.0]}, hz=2)), b'xyz'
+    assert traj.fleet_unpack(traj.fleet_pack([a, b])) == [a, b]
+    with pytest.raises(traj.TrajError):
+        traj.fleet_unpack(traj.fleet_pack([a])[:-1])
