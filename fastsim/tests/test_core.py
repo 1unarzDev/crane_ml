@@ -133,3 +133,12 @@ def test_the_core_names_no_domain():
             text = path.read_text().lower()
             found = [w for w in DOMAIN_WORDS if re.search(rf'\b{w}s?\b', text)]
             assert not found, f'{path.name}: {found}'
+
+
+def test_a_copied_tree_without_git_names_its_commit_in_a_commit_file(tmp_path, monkeypatch):
+    from fastsim import identity
+    (tmp_path / 'crane' / 'fastsim').mkdir(parents=True)
+    (tmp_path / 'crane' / 'COMMIT').write_text('abc123 dirty\n')
+    monkeypatch.setenv('PATH', '')  # no git
+    state = identity.git_state(tmp_path / 'crane' / 'fastsim')
+    assert state == {'commit': 'abc123', 'dirty': True, 'source': str(tmp_path / 'crane')}

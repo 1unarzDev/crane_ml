@@ -47,14 +47,25 @@ def rng(seed, *stream):
 
 
 def git_state(path):
-    """{commit, dirty, source} of the git tree holding ``path`` (commit None outside git)."""
+    """{commit, dirty, source} of the git tree holding ``path``. Outside git (or on a host without
+    git) a ``COMMIT`` file in an enclosing folder names it: a copied tree's first word is its commit,
+    and the word ``dirty`` anywhere in it marks local changes. Otherwise commit is None."""
     path = Path(path).resolve()
     where = path if path.is_dir() else path.parent
 
     def git(*args):
-        return subprocess.run(['git', '-C', str(where), *args], capture_output=True, text=True,
-                              check=False).stdout.strip()
-    return {'commit': git('rev-parse', 'HEAD') or None,
+        try:
+            return subprocess.run(['git', '-C', str(where), *args], capture_output=True, text=True,
+                                  check=False).stdout.strip()
+        except OSError:  # no git on this host
+            return ''
+    commit = git('rev-parse', 'HEAD') or None
+    if commit is None:
+        for folder in (where, *where.parents):
+            if (folder / 'COMMIT').is_file():
+                words = (folder / 'COMMIT').read_text().split()
+                return {'commit': words[0] if words else None, 'dirty': 'dirty' in words, 'source': str(folder)}
+    return {'commit': commit,
             'dirty': bool(git('status', '--porcelain', '--untracked-files=no', '--', str(where))),
             'source': git('rev-parse', '--show-toplevel') or str(where)}
 
