@@ -328,7 +328,8 @@ Later deploys go through `./deploy.sh` (`npm run deploy`; `CRANE_URL` for anothe
 `wrangler deploy`, then requires `/v1/ping` and `/v1/feed` to answer 200 within a minute and runs
 `wrangler rollback` otherwise, so a broken deploy cannot leave workers and the study's `nlc.cluster`
 without a coordinator (they fall back to local runs). It does not roll back a failure that was already
-there before the deploy.
+there before the deploy. It also copies crane_ml's `viewer/web` and the ctraj codec into `public/viewer/`
+(ignored by git), so the dashboard's run pages link to the deep view at `/viewer/#/run/<run_id>`.
 
 D1 on the free plan allows 5M rows read per day for the whole account: the feed caches ended jobs'
 aggregates and the duration model, and the artifact tiering sweep runs every 6 h, to stay under it.

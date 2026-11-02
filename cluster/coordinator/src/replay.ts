@@ -17,7 +17,8 @@ const PUBLIC = { "access-control-allow-origin": "*", "x-content-type-options": "
 const IMMUTABLE = "public, max-age=31536000, immutable";
 const RUN_ID = /^[A-Za-z0-9._-]{1,128}$/;
 const SHA = /^[0-9a-f]{16,64}$/;
-const HEADER_KEYS = ["schema", "hz", "t0_s", "ticks", "duration_s", "columns", "box", "pose_dims", "robot", "frame", "outcome", "progress", "valid", "score", "seed", "iteration", "lod", "parent_sha256"];
+// tier, task and channels (the present/empty/absent grammar) let the deep view say what a run can and cannot show
+const HEADER_KEYS = ["schema", "hz", "t0_s", "ticks", "duration_s", "columns", "box", "pose_dims", "robot", "frame", "outcome", "progress", "valid", "score", "seed", "iteration", "lod", "parent_sha256", "tier", "task", "channels"];
 
 export interface ReplayRow {
   run_id: string;

@@ -15,6 +15,12 @@ healthy() {
   done
 }
 
+# The deep view (/viewer/) is crane_ml's viewer/web plus the ctraj codec: copied in, never committed here.
+rm -rf public/viewer
+mkdir -p public/viewer
+cp ../../viewer/web/* public/viewer/
+cp ../../theater/web/ctraj.js public/viewer/ctraj.js
+
 before=ok
 healthy || before=failing
 npx wrangler deploy "$@"

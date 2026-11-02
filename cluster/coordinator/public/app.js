@@ -1,6 +1,7 @@
 // crane run dashboard ("Ledger"): the public, read-only view of the cluster's queue. Reads /v1/feed and its SSE
 // stream, the job pages read /v1/feed/jobs/:id, and replays read the /v1/feed replay routes. Hash routes:
-// #/now #/runs #/campaigns #/workers #/job/:id #/run/:run_id #/fleet/:study. No build step.
+// #/now #/runs #/campaigns #/workers #/job/:id #/run/:run_id #/fleet/:study. No build step. A run's deep view (run,
+// tier bench, batch) is crane_ml's viewer/, which deploy.sh copies to /viewer/.
 import { decode, track } from './traj.js';
 import { mount, ramp } from './replay.js';
 
@@ -306,7 +307,7 @@ async function mountTheater(data, rid) {
     const ghosts = (await Promise.all(gh.runs.map((g) => loadTrack(g, true).then((t) => ({ track: t, label: g.arm || `iter ${g.iteration}`, color: '#C792EA' }), () => null)))).filter(Boolean);
     if (key !== routeKey) return;
     const out = run.outcome && run.outcome !== 'unknown' ? run.outcome : run.status;
-    host.innerHTML = theaterShell(`<b>Seed ${esc(run.seed)}</b>, <span class="${failed(run) ? 'bad' : 'ok'}">${esc(out)}</span>${run.score != null ? `, score ${esc(run.score)}` : ''}<br>${ghosts.length ? `ghosts: ${ghosts.map((g) => esc(g.label)).join(', ')} on the same seed` : ''}${course ? '' : '<br>course not stored'}`);
+    host.innerHTML = theaterShell(`<b>Seed ${esc(run.seed)}</b>, <span class="${failed(run) ? 'bad' : 'ok'}">${esc(out)}</span>${run.score != null ? `, score ${esc(run.score)}` : ''} · <a href="/viewer/#/run/${encodeURIComponent(run.run_id)}">Deep view</a>${j.replay.study ? ` · <a href="/viewer/#/batch/${encodeURIComponent(j.replay.study)}">batch</a>` : ''}<br>${ghosts.length ? `ghosts: ${ghosts.map((g) => esc(g.label)).join(', ')} on the same seed` : ''}${course ? '' : '<br>course not stored'}`);
     const marks = tr.events.filter((e) => BAD.test(e.kind)).map((e) => ({ t: e.t, bad: true }));
     wireTheater(host, { track: tr, course, ghosts, marks, theme: { vmax: Math.max(2, ...Array.from(tr.v).slice(0, 5000)) } });
     $('#evs').innerHTML = tr.events.length ? `<div class="evs">${tr.events.slice(0, 200).map((e) => `<button data-t="${e.t}" class="${BAD.test(e.kind) ? 'bad' : ''}"><span>${Number(e.t).toFixed(1)} s</span>${esc(evText(e))}</button>`).join('')}</div>` : '';
@@ -356,6 +357,7 @@ async function mountFleet(study) {
   try {
     const idx = await getJSON(`/v1/feed/fleet?${q}`);
     if (!idx.runs.length) { $('#flede').innerHTML = `Ghost fleet of <em>${esc(study)}</em>. <span class="d">No stored trajectories in this study.</span>`; return; }
+    $('#flede').insertAdjacentHTML('beforeend', ` <a href="/viewer/#/batch/${encodeURIComponent(study)}">Batch deep view</a>`);
     const buf = new Uint8Array(await (await fetch(`/v1/feed/fleet.pack?${q}&h=${idx.pack_sha256}`)).arrayBuffer());
     const v = new DataView(buf.buffer), files = [];
     for (let p = 0; p + 4 <= buf.length;) { const n = v.getUint32(p, true); files.push(buf.subarray(p + 4, p + 4 + n)); p += 4 + n; }
