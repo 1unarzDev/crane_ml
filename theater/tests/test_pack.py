@@ -84,3 +84,43 @@ class SynthTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class FromSelectTest(unittest.TestCase):
+    def test_select_and_ctraj_become_a_pack(self):
+        from theater import traj
+        import math as m
+        truth = RoboBoatWorld.only_tasks(SynthTest.TRUTH, ['entry_gates', 'debris_clearance'])
+        with tempfile.TemporaryDirectory() as d:
+            d = Path(d)
+            (d / 'trajs').mkdir()
+            runs = []
+            for k in range(2):
+                n = 100
+                cols = {'robot.x': [0.2 * i for i in range(n)], 'robot.y': [0.1 * k] * n, 'robot.z': [0.0] * n,
+                        'robot.yaw': [0.0] * n, 'robot.pitch': [0.0] * n, 'robot.roll': [m.radians(3)] * n, 'robot.speed': [4.0] * n}
+                traj.write(d / 'trajs' / f'r{k}.ctraj', {'robot': {'agents': ['robot']}}, cols,
+                           [{'t': 2.0, 'kind': 'gate', 'x': 8.0, 'y': 0.0}], hz=20)
+                runs.append({'run_id': f'r{k}', 'iteration': k, 'score': 0.5 + k, 'outcome': 'finished', 'valid': True,
+                             'params': {'a': k}, 'flags': []})
+            runs.append({'run_id': 'gone', 'iteration': 1, 'score': 0, 'outcome': 'failed', 'flags': ['traj_missing']})
+            sel = {'schema': 'crane-theater-select/1', 'study': 's', 'water': {'mode': 'locked'}, 'runs': runs,
+                   'iterations': [{'iteration': 0, 'best_run': 'r0', 'insights': ['first']}]}
+            doc = pack.from_select(sel, d / 'trajs', RoboBoatWorld(truth), d / 'out')
+            h, back = pack.read_pack(d / 'out' / 'tracks.pack')
+            self.assertEqual(len(back), 2)
+            self.assertEqual(doc['source']['skipped'], ['gone'])
+            self.assertAlmostEqual(back[0][10]['x'], 4.0, places=2)     # 10 Hz from 20 Hz: t = 1 s
+            self.assertAlmostEqual(back[0][10]['roll'], 3.0, places=2)
+            self.assertGreater(back[0][-1]['progress'], back[0][5]['progress'])
+            self.assertEqual(doc['iterations'][0]['insight'], 'first')
+            self.assertEqual(doc['runs'][1]['events'][0]['kind'], 'gate')
+            self.assertEqual(doc['world']['plugin'], 'roboboat')
+
+    def test_progress_follows_a_course_that_doubles_back(self):
+        line = [(0, 0), (20, 0), (20, 2), (0, 2)]
+        xs = [i for i in range(21)] + [20 - i for i in range(21)]
+        ys = [0] * 21 + [2] * 21
+        p = pack.progress_along(line, xs, ys)
+        self.assertTrue(all(b >= a for a, b in zip(p, p[1:])))
+        self.assertAlmostEqual(p[-1], 1.0, places=2)

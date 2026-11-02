@@ -2,8 +2,9 @@
 
     python3 -m theater.render script DIR [--seconds 15] [--fps 60]       # write the standard cut into DIR/manifest.json
     python3 -m theater.render local DIR --player CRANE.x86_64 --out OUT [--frames A:B] [--size WxH] [--display :1]
-    python3 -m theater.render submit DIR [--chunk-s 10] [--tag theater-render] [--worker NAME]   # prints the job id
-    python3 -m theater.render assemble JOB --out OUT     # chunks -> video.mp4, final_h265.mp4, preview.gif, contact sheets
+    python3 -m theater.render pack SELECT.json --trajs DIR --truth course_truth.json --out DIR   # from select + fetch
+    python3 -m theater.render submit DIR --purpose '...' [--chunk-s 10] [--worker NAME] [--render-id R]   # job id
+    python3 -m theater.render assemble JOB --out OUT [--render-id R]   # chunks -> video.mp4, final_h265.mp4, gif, sheets
     python3 -m theater.render inspect OUT                # the render report's checks; exit 1 when one fails
 
 DIR holds manifest.json, its pack and the world's inputs (e.g. course_truth.json). Run ``local`` under the host's
@@ -177,11 +178,16 @@ def cmd_submit(a):
     seeds = list(range(math.ceil(total / chunk)))
     tags = [a.tag] + ([a.worker] if a.worker else [])
     job = {'backend': 'theater-render', 'seeds': seeds, 'priority': a.priority, 'max_attempts': 3,
+           'purpose': a.purpose, 'est_seconds': max(60.0, a.chunk_s * 12), 'submitter': a.submitter,
+           **({'campaign': a.campaign} if a.campaign else {}),
            'spec': {'inputs': inputs, 'chunk_frames': chunk, 'total_frames': total, 'study': m.get('study'),
                     **({'stills': a.stills} if a.stills else {})},
            'needs': {'gpu': True, 'tags': tags, 'est_minutes': max(5, round(a.chunk_s * 2))}}
     r = http('POST', '/v1/admin/jobs', token, body={'jobs': [job]})
-    print(json.dumps({'job_id': r['job_ids'][0], 'chunks': len(seeds), 'frames': total, 'chunk_frames': chunk}))
+    jid = r['job_ids'][0]
+    if a.render_id:   # a dashboard render request: it now has a job
+        http('POST', f'/v1/admin/renders/{a.render_id}', token, body={'status': 'rendering', 'render_job_id': jid})
+    print(json.dumps({'job_id': jid, 'chunks': len(seeds), 'frames': total, 'chunk_frames': chunk}))
 
 
 def viewer_token():
@@ -232,7 +238,17 @@ def cmd_assemble(a):
     lst.write_text(''.join(f"file '{p.resolve()}'\n" for p in parts))
     run = lambda *argv: subprocess.run([ffmpeg, '-hide_banner', '-loglevel', 'error', '-y', *argv], check=True)
     run('-f', 'concat', '-safe', '0', '-i', str(lst), '-c', 'copy', '-movflags', '+faststart', str(out / 'video.mp4'))
-    finish(out, ffmpeg, reports, a.job)
+    merged = finish(out, ffmpeg, reports, a.job)
+    if a.render_id:   # answer the dashboard's render request with the video
+        token = secrets().get('ADMIN_TOKEN')
+        for name in ('final_h265.mp4', 'video.mp4'):
+            p = out / name
+            if p.is_file() and p.stat().st_size < 95 * 2 ** 20:
+                http('PUT', f'/v1/admin/renders/{a.render_id}/video/{name}', token, data=p.read_bytes(),
+                     headers={'content-type': 'application/octet-stream'})
+                break
+        if not merged['ok']:
+            http('POST', f'/v1/admin/renders/{a.render_id}', token, body={'status': 'failed', 'note': 'render report not ok'})
 
 
 def finish(out, ffmpeg, reports, job=None):
@@ -250,6 +266,7 @@ def finish(out, ffmpeg, reports, job=None):
     (out / 'render_report.json').write_text(json.dumps(merged, indent=1, sort_keys=True) + '\n')
     print(json.dumps({'video': str(out / 'video.mp4'), 'ok': merged['ok'], 'frames': merged['frames_written'],
                       'checks': merged['checks']}))
+    return merged
 
 
 def contact_sheets(video, out, ffmpeg, every_s=5):
@@ -279,6 +296,16 @@ def merge_reports(reports):
         for k in ('fps', 'size', 'total_frames', 'script', 'unity', 'quality', 'world'):
             m.setdefault(k, r.get(k))
     return m
+
+
+def cmd_pack(a):
+    from . import pack
+    from .worlds import RoboBoatWorld
+    truth = json.loads(Path(a.truth).read_text())
+    if a.tasks:
+        truth = RoboBoatWorld.only_tasks(truth, a.tasks.split(','))
+    doc = pack.from_select(a.select, a.trajs, RoboBoatWorld(truth), a.out, hz=a.hz)
+    print(f"{len(doc['runs'])} runs -> {a.out} (skipped {len(doc['source']['skipped'])} without a trajectory)")
 
 
 # ---------------------------------------------------------------------- inspect
@@ -324,11 +351,19 @@ def main(argv=None):
     p.add_argument('args', nargs='*')
     p = sub.add_parser('submit'); p.add_argument('dir'); p.add_argument('--chunk-s', type=float, default=10)
     p.add_argument('--tag', default='theater-render'); p.add_argument('--worker'); p.add_argument('--priority', type=int, default=0)
-    p.add_argument('--stills', type=int)
+    p.add_argument('--stills', type=int); p.add_argument('--render-id', help='the dashboard render request this answers')
+    p.add_argument('--purpose', required=True, help='1-2 sentences: what this render is for (public feed)')
+    p.add_argument('--submitter', default='theater-render'); p.add_argument('--campaign')
     p = sub.add_parser('assemble'); p.add_argument('job'); p.add_argument('--out', required=True); p.add_argument('--ffmpeg')
+    p.add_argument('--render-id', help='upload the final video to this dashboard render request')
+    p = sub.add_parser('pack', help='a theater manifest and pack from `python3 -m theater select` and `fetch`')
+    p.add_argument('select'); p.add_argument('--trajs', required=True); p.add_argument('--truth', required=True)
+    p.add_argument('--tasks', help='keep only these tasks of the truth, e.g. entry_gates,debris_clearance')
+    p.add_argument('--hz', type=float, default=10); p.add_argument('--out', required=True)
     p = sub.add_parser('inspect'); p.add_argument('out')
     a = ap.parse_args(argv)
-    return {'script': cmd_script, 'local': cmd_local, 'submit': cmd_submit, 'assemble': cmd_assemble, 'inspect': cmd_inspect}[a.cmd](a) or 0
+    return {'script': cmd_script, 'local': cmd_local, 'submit': cmd_submit, 'assemble': cmd_assemble, 'inspect': cmd_inspect,
+            'pack': cmd_pack}[a.cmd](a) or 0
 
 
 if __name__ == '__main__':

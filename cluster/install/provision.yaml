@@ -40,3 +40,10 @@ backends:
       player: "{player}"
       batchmode: true
       timeout_s: 900
+  theater-render:                         # ghost-theater chunks (theater/README.md); jobs also need the worker's
+    requires: [repo:crane_ml, player, ffmpeg]   # theater-render tag, given once a render spike passed there
+    config:
+      type: "cluster.backends.theater:ClusterBackend"
+      path: "{repos}/crane_ml"
+      player: "{player}"
+      timeout_s: 3600

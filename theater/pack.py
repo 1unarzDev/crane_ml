@@ -155,3 +155,92 @@ def centreline_progress(line):
                 bd, best = d, (s0 + u * L) / total
         return best
     return progress
+
+
+def progress_along(line, xs, ys, window=(2.0, 12.0)):
+    """Progress (0..1) of a path along the polyline ``line``, tracked forward: each sample is projected only on
+    the stretch from ``window[0]`` m behind to ``window[1]`` m ahead of the previous one, so a course that
+    doubles back (out through a channel and back) is not read as the nearer leg."""
+    seg, total = [], 0.0
+    for (ax, ay), (bx, by) in zip(line, line[1:]):
+        L = math.hypot(bx - ax, by - ay)
+        seg.append((ax, ay, bx, by, L, total))
+        total += L
+    total = max(total, 1e-9)
+    out, s = [], 0.0
+    for x, y in zip(xs, ys):
+        best, bd = s, float('inf')
+        for ax, ay, bx, by, L, s0 in seg:
+            if L <= 0 or s0 > s + window[1] or s0 + L < s - window[0]:
+                continue
+            u = max(0.0, min(1.0, ((x - ax) * (bx - ax) + (y - ay) * (by - ay)) / (L * L)))
+            sa = s0 + u * L
+            if sa < s - window[0] or sa > s + window[1]:
+                continue
+            d = (x - ax - u * (bx - ax)) ** 2 + (y - ay - u * (by - ay)) ** 2
+            if d < bd:
+                bd, best = d, sa
+        s = max(s, best)
+        out.append(min(1.0, s / total))
+    return out
+
+
+def from_select(select, trajs, world, out, hz=10.0, truth_file='course_truth.json'):
+    """A theater manifest and pack from a ``crane-theater-select/1`` manifest (``theater.cli select``) and its
+    fetched ``.ctraj`` files (``trajs/<run_id>.ctraj``); ``world`` is a Python world plug-in (``theater.worlds``)
+    whose truth is written next to them. Runs without a trajectory are left out (reported)."""
+    from . import traj as ctraj
+    out = Path(out)
+    out.mkdir(parents=True, exist_ok=True)
+    doc = json.loads(Path(select).read_text()) if not isinstance(select, dict) else select
+    line = world.centreline()
+    runs, metas, skipped = [], [], []
+    for r in doc['runs']:
+        p = Path(trajs) / f"{r['run_id']}.ctraj"
+        if not p.is_file():
+            skipped.append(r['run_id'])
+            continue
+        t = ctraj.read(p)
+        agent = t.agents()[0]
+        col = lambda k: t.columns.get(f'{agent}.{k}')
+        xs, ys = col('x'), col('y')
+        times = t.times()
+        prog = progress_along(line, xs, ys)
+        samples = []
+        for i, ti in enumerate(times):
+            s = {'x': xs[i], 'y': ys[i], 'progress': prog[i]}
+            for k in ('z', 'yaw', 'pitch', 'roll'):
+                c = col(k)
+                if c is not None:
+                    s[k] = math.degrees(c[i]) if k != 'z' else c[i]
+            c = col('speed')
+            s['speed'] = c[i] if c is not None else 0.0
+            samples.append((ti - times[0], s))
+        res = resample(samples, hz)
+        for s in res:
+            s['yaw'] = wrap_deg(s.get('yaw', 0.0))
+        runs.append(res)
+        evs = []
+        for e in t.events:
+            ev = {k: v for k, v in e.items() if isinstance(v, (int, float, str))}
+            ev['t'] = float(e.get('t', 0.0)) - float(t.header.get('t0_s', 0.0)) + 0.0
+            evs.append(ev)
+        metas.append({'id': r['run_id'], 'iteration': r.get('iteration') or 0, 'outcome': r.get('outcome') or 'unknown',
+                      'failure_reason': r.get('failure_reason'), 'score': r.get('score') if r.get('score') is not None else 0.0,
+                      'progress': r.get('progress') if r.get('progress') is not None else prog[-1] if prog else 0.0,
+                      'valid': bool(r.get('valid', True)) and 'invalid' not in (r.get('flags') or []),
+                      'duration_s': (len(res) - 1) / hz, 'params': r.get('params') or {}, 'events': evs,
+                      'flags': r.get('flags') or [], 'insight': r.get('insight')})
+    if not runs:
+        raise ValueError('no trajectories: fetch them first (python3 -m theater fetch MANIFEST --dir DIR)')
+    (out / truth_file).write_text(json.dumps(world.truth, indent=1) + '\n')
+    sx, sy, _ = world.start()
+    write_pack(out / 'tracks.pack', runs, hz, origin=(round(sx), round(sy), 0.0))
+    iterations = [{'iteration': it['iteration'], 'runs': it.get('runs'), 'best': it.get('best_run'),
+                   'best_score': it.get('best_score'), 'insight': '; '.join(it.get('insights') or [])}
+                  for it in doc.get('iterations') or []]
+    planar = all('z' not in r[0] for r in runs if r)
+    return write_manifest(out / 'manifest.json', world=world.manifest_world(truth_file), robot={'plugin': world.name},
+                          runs=metas, study=doc.get('study') or doc.get('hypothesis'), iterations=iterations,
+                          water=doc.get('water'), extra={'pose_dims': 'planar' if planar else '6dof',
+                                                         'source': {'schema': doc.get('schema'), 'skipped': skipped}})
