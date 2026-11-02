@@ -36,8 +36,9 @@ def load(ref, base=None):
     return obj
 
 
-def build(spec, registry, base=None, **kwargs):
-    """An instance from ``{name|ref: ..., **options}``: a registry name or a plugin reference."""
+def build(spec, registry, where=None, **kwargs):
+    """An instance from ``{name|ref: ..., **options}``: a registry name or a plugin reference
+    (a file reference resolved in ``where``); ``kwargs`` go to the factory."""
     spec = dict(spec or {})
     name = spec.pop('name', None)
     ref = spec.pop('ref', None)
@@ -45,5 +46,5 @@ def build(spec, registry, base=None, **kwargs):
         raise ValueError(f'give exactly one of name ({sorted(registry)}) or ref: {spec}')
     if name is not None and name not in registry:
         raise ValueError(f'unknown {name!r}; known: {sorted(registry)}')
-    factory = registry[name] if name is not None else load(ref, base)
+    factory = registry[name] if name is not None else load(ref, where)
     return factory(**spec, **kwargs)

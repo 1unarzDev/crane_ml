@@ -4,6 +4,7 @@ A run's identity is the sha256 of {scenario content, config, adapter identity, s
 code}; nothing here reads a wall clock, so equal identities mean byte-equal run directories.
 """
 
+import functools
 import hashlib
 import json
 from pathlib import Path
@@ -58,8 +59,9 @@ def git_state(path):
             'source': git('rev-parse', '--show-toplevel') or str(where)}
 
 
+@functools.lru_cache(maxsize=1)
 def core_version():
-    """The fast-sim core's own code version, part of every run identity."""
+    """The fast-sim core's own code version, part of every run identity (read once per process)."""
     state = git_state(Path(__file__).parent)
     return {'commit': state['commit'], 'dirty': state['dirty']}
 

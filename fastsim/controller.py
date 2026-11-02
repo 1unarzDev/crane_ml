@@ -106,7 +106,10 @@ class Controller(ABC):
 
 
 class DomainAdapter(ABC):
-    """Built from the YAML ``adapter.options`` (and ``base``, the YAML's folder)."""
+    """Built once per worker as ``Adapter(base=<the YAML's folder>, **adapter.options)``."""
+
+    def __init__(self, base=None, **options):
+        self.base, self.options = base, options
 
     def identity(self):
         """What makes this domain's runs differ (versions, parameter digests): hashed into

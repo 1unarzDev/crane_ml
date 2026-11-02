@@ -1,0 +1,31 @@
+# Fast-sim core defaults. A domain YAML overrides any key (maps merge key by key); unknown
+# top-level keys are refused. Every number used is recorded with every run.
+dt: 0.05            # s; plant step (fixed; no wall clock is read)
+tick_hz: 10.0       # controller ticks per sim second
+track_hz: 10.0      # track.jsonl samples and contact checks per sim second
+time_limit_s: 600   # unless the adapter gives one per run
+grace_s: 5.0        # s past the time limit before the loop gives up (outcome TIMEOUT)
+mux_idle_s: 0.5     # no live goal and no hold for longer counts as idle (flag idle_drift)
+workers: 4          # batch processes; never above max_workers
+max_workers: 8
+# The vehicle: {model: kinematic|first_order|(ref), gain, **plant options} (plant.py).
+vehicle: {model: kinematic, gain: 1.0}
+# A fitted calibration file (relative to the YAML that names it) whose ``plant`` block overrides
+# ``vehicle``; null keeps the uncalibrated vehicle. A refit writes a new epoch file (fidelity.py).
+calibration: null
+# The vehicle's limits (plant.Limits fields), unless the adapter supplies them.
+limits: null
+# Perception {name: cone|(ref), **options} (perception.py); mount null is the body origin.
+perception: {name: cone, hfov_deg: 90.0, range_m: 20.0, occlusion: true, mount: null}
+# A hold-over tracker {class_groups, timeout, tau, miss_in_fov_s, promote}, or null for the
+# current sightings only (confidence 1, static).
+tracker: null
+# Seed -> scenario: {dir, pattern, fields, generate, format: {name|ref, ...}} (scenario.py).
+scenarios: null
+# The domain: {ref: MODULE:CLASS or FILE.py:CLASS, options: {...}} (controller.py).
+adapter: null
+# What the tier does not model, recorded with every run.
+fidelity: >-
+  kinematic fast tier: no drift, current, waves or hydrodynamics; perception is truth labels
+  in a cone; no timing or latency beyond the plant's delays; routes are straight lines (no
+  planner); contacts are geometry and never stop the vehicle
