@@ -98,6 +98,7 @@ def simulate(scenario, adapter, cfg, seed, out, base=None, provenance=None):
     pair_key, truth_sha = scenario.pair_key
     summary = {'schema': SCHEMA, 'fidelity': cfg['fidelity'], 'outcome': outcome or 'TIMEOUT',
                'seed': int(seed), 'sim_s': round(step * dt, 3), 'time_limit_s': time_limit,
+               'condition': {**adapter.condition(ctx), 'time_limit_s': time_limit},
                'flags': flags, 'contacts': contacts, 'error': crash,
                'idle': {'first_t': idle['first_t'], 's': round(idle['s'], 3)},
                'min_clearance_m': round(least, 3) if least < math.inf else None,

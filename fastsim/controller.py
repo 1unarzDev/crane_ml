@@ -128,6 +128,11 @@ class DomainAdapter(ABC):
         """The run's time limit (s), or None for the config's ``time_limit_s``."""
         return None
 
+    def condition(self, ctx):
+        """What else must match for a twin run to pair with this one (e.g. task, profile);
+        the run's time limit is always part of it."""
+        return {}
+
     def finalize(self, run_dir, result):
         """Write domain files into the run directory (``result`` is the run summary)."""
 
