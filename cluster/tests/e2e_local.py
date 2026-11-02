@@ -8,7 +8,7 @@ the cron sweep; the GitHub webhook; and a hypothesis walked from stage 1 through
 successive halving and stage 2 to 'candidate' with `crane-hyp report --apply`,
 on arms checked out from a local git repo at exact commits.
 
-  python3 tests/e2e_local.py [--keep]
+  python3 tests/e2e_local.py [--keep] [--server]   (--server: the self-hosted coordinator, cluster/server)
 """
 from __future__ import annotations
 
@@ -31,6 +31,7 @@ sys.path.insert(0, str(HERE))
 from crane_cluster.api import Client  # noqa: E402
 
 ADMIN = "e2e-admin-token"
+SERVER = "--server" in sys.argv  # run against cluster/server (self-hosted) instead of `wrangler dev`
 HOOK = "e2e-hook-secret"
 TTL = 6
 
@@ -92,12 +93,18 @@ def main():
     state = tmp / "state"
     try:
         print(f"[e2e] temp dir {tmp}")
-        subprocess.run(["npx", "wrangler", "d1", "migrations", "apply", "crane-cluster", "--local", "--persist-to", str(state)],
-                       cwd=coord, env=env, check=True, capture_output=True)
-        procs.start("wrangler", ["npx", "wrangler", "dev", "--local", "--ip", "127.0.0.1", "--port", str(port),
-                                 "--persist-to", str(state), "--test-scheduled", "--show-interactive-dev-session=false",
-                                 "--var", f"ADMIN_TOKEN:{ADMIN}", "--var", f"GITHUB_WEBHOOK_SECRET:{HOOK}",
-                                 "--var", f"LEASE_TTL_SECONDS:{TTL}"], tmp / "wrangler.log", cwd=coord, env=env)
+        if SERVER:  # the self-hosted coordinator (server/dist, built by `npm run build` there)
+            procs.start("wrangler", ["node", "--disable-warning=ExperimentalWarning", str(HERE / "server" / "dist" / "main.mjs")],
+                        tmp / "wrangler.log", env={**env, "CRANE_DATA_DIR": str(state), "PORT": str(port), "ADMIN_TOKEN": ADMIN,
+                                                   "GITHUB_WEBHOOK_SECRET": HOOK, "LEASE_TTL_SECONDS": str(TTL),
+                                                   "ARCHIVE_URL": "", "CRANE_TEST_SCHEDULED": "1"})
+        else:
+            subprocess.run(["npx", "wrangler", "d1", "migrations", "apply", "crane-cluster", "--local", "--persist-to", str(state)],
+                           cwd=coord, env=env, check=True, capture_output=True)
+            procs.start("wrangler", ["npx", "wrangler", "dev", "--local", "--ip", "127.0.0.1", "--port", str(port),
+                                     "--persist-to", str(state), "--test-scheduled", "--show-interactive-dev-session=false",
+                                     "--var", f"ADMIN_TOKEN:{ADMIN}", "--var", f"GITHUB_WEBHOOK_SECRET:{HOOK}",
+                                     "--var", f"LEASE_TTL_SECONDS:{TTL}"], tmp / "wrangler.log", cwd=coord, env=env)
         adm = Client(url, ADMIN, retries=0)
 
         def up():
