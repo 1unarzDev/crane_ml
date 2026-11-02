@@ -202,6 +202,13 @@ def pair_ratios(root, sessions, epoch_sha, session_of, match=None):
     return ratios
 
 
+def keep(store, batch):
+    """Store sessions' segments (an epoch's own fit sessions go in this way, never scored)."""
+    (Path(store) / 'segments').mkdir(parents=True, exist_ok=True)
+    for b in batch:
+        (Path(store) / 'segments' / f"{b['session']}.json").write_text(json.dumps(b))
+
+
 def score_batch(epoch_path, store, batch, limits, uncalibrated, bounds=None, ratios=None,
                 session_key=str, note='', dt=DT):
     """Score the epoch on a new batch [{session, segments, cuts}] once; with ``bounds`` refit the
@@ -220,9 +227,7 @@ def score_batch(epoch_path, store, batch, limits, uncalibrated, bounds=None, rat
             raise ValueError(f"{b['session']} was already scored or fitted on; a batch is scored once")
         if b['session'] <= newest:
             raise ValueError(f"{b['session']} is not newer than epoch {epoch['epoch']}'s data ({newest})")
-    (store / 'segments').mkdir(parents=True, exist_ok=True)
-    for b in batch:
-        (store / 'segments' / f"{b['session']}.json").write_text(json.dumps(b))
+    keep(store, batch)
     segments = [s for b in batch for s in b['segments']]
     names = [b['session'] for b in batch]
     look = 1 + sum(r['epoch_sha256'] == epoch_sha for r in scored)
