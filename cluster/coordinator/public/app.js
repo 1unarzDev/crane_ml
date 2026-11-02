@@ -55,8 +55,14 @@ async function getJSON(url) {
 }
 function setFeed(f) {
   const same = FEED && JSON.stringify({ ...FEED, generated_at: 0 }) === JSON.stringify({ ...f, generated_at: 0 });
-  FEED = f; connState = 'live'; status();
+  FEED = f; connState = 'live'; status(); budgetBanner(f.budget);
   if (!same) render(false);
+}
+// The coordinator's D1 read guard (src/hub.ts): past its share of the daily budget the history freezes.
+function budgetBanner(b) {
+  const el = $('#banner'); if (!el) return;
+  el.hidden = !(b && b.degraded);
+  if (b && b.degraded) el.textContent = `Read budget: ${Math.round(b.frac * 100)}% of today’s database reads are used, so finished jobs and recent runs refresh again after 00:00 UTC. Queued and running jobs still update live.`;
 }
 function connect() {
   getJSON('/v1/feed?recent=200').then(setFeed, () => { connState = 'error'; status(); });
