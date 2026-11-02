@@ -211,6 +211,7 @@ namespace Sim.Performance {
             else if (LowPresentation &&
                      (Screen.width != InteractiveWidth || Screen.height != InteractiveHeight))
                 Screen.SetResolution(InteractiveWidth, InteractiveHeight, Screen.fullScreenMode);
+            if (!StrictGraphicsFree) EnsureBatchWaterDriver();
 
             EmitResolvedReport();
         }
@@ -324,6 +325,26 @@ namespace Sim.Performance {
                 camera.enabled = false;
                 if (camera.TryGetComponent(out AudioListener listener)) listener.enabled = false;
             }
+        }
+
+        /// <summary>
+        /// Batch mode renders no camera on its own, and a sensor camera rendering on demand does not
+        /// run HDRP's per-frame water update, so every water search came back invalid (simulation
+        /// time 0) unless no sensor camera existed. In a GPU batch player with water, give the water
+        /// its own offscreen driver camera (culling mask 0, 64x64), whatever the other cameras do.
+        /// Interactive players render every frame already and are left alone.
+        /// </summary>
+        internal static void EnsureBatchWaterDriver() {
+            if (!Application.isBatchMode || SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null) return;
+            if (UnityEngine.Object.FindObjectsByType<WaterSurface>(FindObjectsInactive.Exclude).Length == 0) return;
+            foreach (CraneWaterUpdateDriver existing in
+                     UnityEngine.Object.FindObjectsByType<CraneWaterUpdateDriver>(FindObjectsInactive.Exclude))
+                if (existing.isActiveAndEnabled) return;
+            var host = new GameObject("CRANE Water Update Driver");
+            Camera camera = host.AddComponent<Camera>();
+            camera.depth = -100;
+            host.AddComponent<CraneWaterUpdateDriver>().Configure(camera);
+            Debug.Log("CRANE_WATER_BATCH_DRIVER added (batch mode, water present)");
         }
 
         private static void DisableAllRenderingCameras() {
