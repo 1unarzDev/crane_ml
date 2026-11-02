@@ -329,7 +329,7 @@ async function checkOperator() {
 async function mountRenders(j) {
   const host = $('#renders'); if (!host) return;
   const study = j.replay.study;
-  const [a, b] = await Promise.all([getJSON(`/v1/feed/renders?job=${encodeURIComponent(j.id)}`), study ? getJSON(`/v1/feed/renders?study=${encodeURIComponent(study)}`) : { renders: [] }].map((p) => p.catch(() => ({ renders: [] }))));
+  const [a, b] = await Promise.all([getJSON(`/v1/feed/renders?job=${encodeURIComponent(j.id)}`), study ? getJSON(`/v1/feed/renders?study=${encodeURIComponent(study)}`) : { renders: [] }].map((p) => Promise.resolve(p).catch(() => ({ renders: [] }))));
   const all = [...new Map([...a.renders, ...b.renders].map((r) => [r.id, r])).values()];
   const vids = all.filter((r) => r.video), pend = all.filter((r) => !r.video && ['requested', 'rendering'].includes(r.status));
   const can = !!opName && j.replay.available;
