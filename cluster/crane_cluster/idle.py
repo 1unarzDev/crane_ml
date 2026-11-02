@@ -5,7 +5,9 @@ Policy (worker YAML ``policy``):
   quiet_hours: ["09:00-17:00"]   # local times when no new job starts; a range may wrap midnight
   quiet_days: [mon, tue, ...]    # optional: quiet hours apply only on these days (default: every day)
   pause_on_activity: true        # no new job while the user is active; a running job is released
-  idle_seconds: 300              # how long without input counts as idle
+  idle_seconds: 300              # how long without input counts as idle (Linux: keyboard/mouse
+                                 # events from /dev/input when readable, e.g. the input group; else
+                                 # xprintidle on X11; else logind's IdleHint)
   max_est_minutes / require_tags # matched by the coordinator
 
 Top-level ``pause_when: <shell command>`` is the host's own pause rule: the
@@ -18,11 +20,17 @@ from __future__ import annotations
 
 import ctypes
 import datetime as dt
+import glob
 import os
 import re
+import select
 import shutil
+import struct
 import subprocess
 import sys
+import threading
+import time
+from pathlib import Path
 
 DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 _RANGE = re.compile(r"^(\d{1,2}):(\d{2})-(\d{1,2}):(\d{2})$")
@@ -60,6 +68,10 @@ def user_idle_seconds() -> float | None:
             if ctypes.windll.user32.GetLastInputInfo(ctypes.byref(info)):  # type: ignore[attr-defined]
                 return (ctypes.windll.kernel32.GetTickCount() - info.dwTime) / 1000.0  # type: ignore[attr-defined]
             return None
+        if sys.platform.startswith("linux"):
+            seconds = _INPUT.idle_seconds()
+            if seconds is not None:
+                return seconds
         if sys.platform == "darwin":
             out = subprocess.run(["ioreg", "-c", "IOHIDSystem"], capture_output=True, text=True, timeout=5).stdout
             m = re.search(r'"HIDIdleTime" = (\d+)', out)
@@ -87,11 +99,65 @@ def _logind_idle() -> float | None:
         p = dict(x.split("=", 1) for x in props.splitlines() if "=" in x)
         if p.get("Type") not in ("x11", "wayland"):
             continue
-        if p.get("IdleHint") != "yes":
-            return 0.0
         since = int(p.get("IdleSinceHint", "0") or 0)
+        if p.get("IdleHint") != "yes":
+            if not since:  # nothing on this desktop maintains the hint: unknown, not "always active"
+                continue
+            return 0.0
         idle.append(max(0.0, dt.datetime.now().timestamp() - since / 1e6) if since else 0.0)
     return min(idle) if idle else None
+
+
+class _InputWatch:
+    """Linux: the time of the last key, button, pointer or touch event on any readable
+    /dev/input/event* device (read without grabbing; event contents are discarded).
+    Started on first use; until then, and when no device is readable, idle time is unknown."""
+    EVENT = struct.Struct("llHHi")
+    USER_TYPES = {1, 2, 3}  # EV_KEY, EV_REL, EV_ABS
+
+    def __init__(self):
+        self.started = self.last = None
+        self.readable = False
+        self.lock = threading.Lock()
+
+    def idle_seconds(self) -> float | None:
+        with self.lock:
+            if self.started is None:
+                self.started = self.last = time.monotonic()
+                self.readable = bool(self._open())
+                if self.readable:
+                    threading.Thread(target=self._watch, daemon=True).start()
+        return time.monotonic() - self.last if self.readable else None
+
+    def _open(self) -> dict:
+        fds = {}
+        for path in sorted(glob.glob("/dev/input/event*")):
+            try:
+                fds[os.open(path, os.O_RDONLY | os.O_NONBLOCK)] = path
+            except OSError:
+                pass
+        return fds
+
+    def _watch(self) -> None:
+        fds, rescan = self._open(), time.monotonic() + 60
+        while True:
+            if time.monotonic() > rescan:  # hotplugged keyboards and mice
+                for fd in fds:
+                    os.close(fd)
+                fds, rescan = self._open(), time.monotonic() + 60
+            ready = select.select(list(fds), [], [], 5)[0] if fds else time.sleep(5) or []
+            for fd in ready:
+                try:
+                    data = os.read(fd, self.EVENT.size * 64)
+                except OSError:
+                    continue
+                for off in range(0, len(data) - self.EVENT.size + 1, self.EVENT.size):
+                    if self.EVENT.unpack_from(data, off)[2] in self.USER_TYPES:
+                        self.last = time.monotonic()
+                        break
+
+
+_INPUT = _InputWatch()
 
 
 def user_active(policy: dict) -> bool:
@@ -132,7 +198,9 @@ def pause_requested(command: str | None, timeout_s: float = 20) -> bool:
 
 
 def unavailable_reason(policy: dict, now: dt.datetime | None = None, cfg: dict | None = None) -> str | None:
-    """Why no new job should start right now, or None. ``cfg`` supplies the host's pause_when."""
+    """Why no new job should start right now, or None. ``cfg`` supplies the off flag and pause_when."""
+    if cfg and cfg.get("off_file") and Path(cfg["off_file"]).exists():
+        return "off"
     if cfg and pause_requested(cfg.get("pause_when"), float(cfg.get("pause_when_timeout_s", 20))):
         return "pause_when"
     if in_quiet_hours(policy, now):

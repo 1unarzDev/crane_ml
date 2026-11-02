@@ -124,7 +124,22 @@ mode 600) and starts the service. Configure backends, caps and policy in the YAM
 (see `examples/worker.yaml`), then restart the service. Re-run the installer
 without `--invite` to update the code. A host that must never run jobs opts out
 with an empty `/etc/crane-cluster/deny`. On macOS without systemd, the installer
-prints the run command.
+prints the run command. `--memory-max 6G` caps the service and its jobs (systemd
+`MemoryMax`, no swap).
+
+Turning a worker on and off (`crane-worker` is in `~/.local/share/crane-cluster/bin`):
+
+```sh
+crane-worker off      # no jobs until `on`: the current job is released now (no attempt penalty),
+                      # survives reboots (flag ~/.config/crane-cluster/off; the service is stopped and disabled)
+crane-worker on       # removes the flag, enables and starts the service
+crane-worker status   # off | paused (reason) | on, running job J | on, idle
+```
+
+Pause rules a host can set in its YAML: `policy.quiet_hours`, `policy.pause_on_activity`
+with `policy.idle_seconds` (Linux reads keyboard/mouse activity from `/dev/input`
+when the user may, e.g. the `input` group, so it works under Wayland; else
+`xprintidle` or logind), and `pause_when: <shell command>` (exit 0 = pause).
 
 Isolation: each job gets `CRANE_PORT_BASE` and `CRANE_ISOLATION_ID` (template fields
 `{port_base}`, `{isolation_id}`), so a backend can derive non-overlapping ports or

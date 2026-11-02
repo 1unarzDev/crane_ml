@@ -214,8 +214,9 @@ class PauseWhen(unittest.TestCase):
 
     def worker(self, jobs=(), **extra):
         cfg = config.load(None)
-        cfg.update(data_dir=Path(self.tmp.name) / "data", poll_s=0.05, heartbeat_s=0.1, policy={"nice": 0},
-                   pause_when=f"test -e '{self.flag}'", backends={"dummy": {"type": "dummy"}}, **extra)
+        cfg.update({"data_dir": Path(self.tmp.name) / "data", "off_file": Path(self.tmp.name) / "off", "poll_s": 0.05,
+                    "heartbeat_s": 0.1, "policy": {"nice": 0}, "pause_when": f"test -e '{self.flag}'",
+                    "backends": {"dummy": {"type": "dummy"}}, **extra})
         return worker.Worker(cfg, client=FakeClient(jobs))
 
     def test_command_exit_status(self):
@@ -245,6 +246,62 @@ class PauseWhen(unittest.TestCase):
         self.assertLess(time.time() - t0, 10)
         self.assertIn(("/v1/release", {"job_ids": ["j1"]}), w.client.calls)
         self.assertFalse([p for p in w.client.paths() if p.endswith("/complete") or p.endswith("/runs")])
+
+
+    def test_off_flag_releases_at_once_and_status_reports_it(self):
+        job = {"job_id": "j2", "backend": "dummy", "attempt": 1, "seeds": [1], "spec": {"sleep_s": 30}}
+        w = self.worker([job], heartbeat_s=60, pause_when=None)
+        off = w.cfg["off_file"]
+        threading.Timer(0.3, off.touch).start()
+        t0 = time.time()
+        w.loop(once=True)
+        self.assertLess(time.time() - t0, 5)  # well inside one 60 s heartbeat
+        self.assertIn(("/v1/release", {"job_ids": ["j2"]}), w.client.calls)
+        w.loop(once=True)
+        self.assertEqual(w.client.calls[-1][1]["stats"], {"reason": "off"})
+        status = lambda: self._status(w.cfg)
+        self.assertEqual(status(), "off")
+        off.unlink()
+        self.assertEqual(status(), "paused (off)")  # the daemon's last word until its next round
+        w.note("running", job="j3")
+        self.assertEqual(status(), "on, running job j3")
+
+    def _status(self, cfg):
+        import contextlib
+        import io
+        from unittest import mock
+        buf = io.StringIO()
+        with mock.patch.object(worker, "_systemd_unit", return_value=False), contextlib.redirect_stdout(buf):
+            worker.cmd_status(None, cfg)
+        return buf.getvalue().strip()
+
+
+class InputWatch(unittest.TestCase):
+    def test_key_events_count_and_sync_events_do_not(self):
+        from unittest import mock
+        import os
+        r, wfd = os.pipe()
+        os.set_blocking(r, False)
+        watch = idle._InputWatch()
+        with mock.patch.object(watch, "_open", side_effect=lambda: {r: "fake"}):
+            first = watch.idle_seconds()
+            self.assertIsNotNone(first)
+            time.sleep(0.3)
+            os.write(wfd, watch.EVENT.pack(0, 0, 0, 0, 0))  # EV_SYN only: not user input
+            time.sleep(0.2)
+            self.assertGreater(watch.idle_seconds(), 0.4)
+            os.write(wfd, watch.EVENT.pack(0, 0, 1, 30, 1))  # EV_KEY
+            for _ in range(50):
+                if watch.idle_seconds() < 0.2:
+                    break
+                time.sleep(0.05)
+            self.assertLess(watch.idle_seconds(), 0.2)
+
+    def test_unknown_without_devices(self):
+        from unittest import mock
+        watch = idle._InputWatch()
+        with mock.patch.object(watch, "_open", return_value={}):
+            self.assertIsNone(watch.idle_seconds())
 
 
 if __name__ == "__main__":

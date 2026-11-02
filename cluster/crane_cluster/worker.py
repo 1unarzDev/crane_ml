@@ -1,6 +1,6 @@
 """The worker daemon: lease a job, check out its exact refs, run its backend per
 seed, report metrics and artifacts, heartbeat throughout. Repos and images are
-updated only between jobs. ``crane-worker join|run|caps``.
+updated only between jobs. ``crane-worker join|run|caps|on|off|status``.
 """
 from __future__ import annotations
 
@@ -8,8 +8,10 @@ import argparse
 import hashlib
 import json
 import logging
+import os
 import shutil
 import signal
+import subprocess
 import sys
 import threading
 import time
@@ -40,6 +42,17 @@ class Worker:
         self.last_update = 0.0
         self.paused: str | None = None
         self.caps = config_mod.detect_caps(cfg, sorted(self.backends))
+
+    def note(self, state: str, reason: str | None = None, job: str | None = None) -> None:
+        """What ``crane-worker status`` reports: <data_dir>/state.json."""
+        try:
+            path = self.cfg["data_dir"] / "state.json"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.with_suffix(".tmp")
+            tmp.write_text(json.dumps({"state": state, "reason": reason, "job": job, "pid": os.getpid(), "at": time.time()}))
+            tmp.replace(path)
+        except OSError as e:
+            log.warning("state file: %s", e)
 
     # ------------------------------------------------------------ between jobs
 
@@ -72,6 +85,7 @@ class Worker:
                 if reason != self.paused:
                     log.info("paused: %s", reason)
                 self.paused = reason
+                self.note("paused", reason)
                 self._safe_post("/v1/heartbeat", {"job_ids": [], "state": "paused", "stats": {"reason": reason}})
                 if once:
                     return
@@ -80,6 +94,7 @@ class Worker:
             if self.paused:
                 log.info("resumed (%s cleared)", self.paused)
                 self.paused = None
+            self.note("idle")
             self.between_jobs(versions)
             try:
                 r = self.client.post("/v1/lease", {"caps": self.caps, "policy": self.policy, "max_jobs": 1, "state": "idle",
@@ -126,13 +141,22 @@ class Worker:
             "isolation_id": int(iso["id_base"]) + slot})
         revoked, released = threading.Event(), threading.Event()
         done = threading.Event()
+        self.note("running", job=jid)
 
         def heartbeat():
             period = max(1.0, min(float(self.cfg["heartbeat_s"]), ttl / 3))
-            while not done.wait(period):
-                if self.stop.is_set() or (self.policy.get("pause_on_activity") and idle.user_active(self.policy)) \
-                        or idle.pause_requested(self.cfg.get("pause_when"), float(self.cfg.get("pause_when_timeout_s", 20))):
-                    log.info("releasing job %s (stop, user activity or pause_when)", jid)
+            tick, beat = min(1.0, period), time.monotonic() + period
+            while not done.wait(tick):
+                now = self.stop.is_set() or self.cfg["off_file"].exists()  # shutdown or `crane-worker off`: at once
+                if not now and time.monotonic() < beat:
+                    continue
+                beat = time.monotonic() + period
+                why = "stop" if self.stop.is_set() else "off" if now else \
+                    "user active" if self.policy.get("pause_on_activity") and idle.user_active(self.policy) else \
+                    "pause_when" if idle.pause_requested(self.cfg.get("pause_when"), float(self.cfg.get("pause_when_timeout_s", 20))) \
+                    else None
+                if why:
+                    log.info("releasing job %s (%s)", jid, why)
                     released.set()
                     backend.cancel()
                     return
@@ -221,6 +245,52 @@ def cmd_join(a, cfg):
     print(f"joined as {r['worker_id']}; token saved to {tf}")
 
 
+UNIT = "crane-worker.service"
+
+
+def _systemd_unit() -> bool:
+    """True when this user's systemd runs the worker as crane-worker.service (install.sh)."""
+    if not shutil.which("systemctl"):
+        return False
+    r = subprocess.run(["systemctl", "--user", "cat", UNIT], capture_output=True, text=True)
+    return r.returncode == 0
+
+
+def cmd_toggle(a, cfg):
+    """on/off: the off flag (honoured by any running worker, at once) plus, under systemd, enable/disable --now."""
+    flag: Path = cfg["off_file"]
+    if a.cmd == "off":
+        flag.parent.mkdir(parents=True, exist_ok=True)
+        flag.write_text(f"crane-worker off at {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+    else:
+        flag.unlink(missing_ok=True)
+    if _systemd_unit():
+        subprocess.run(["systemctl", "--user", "disable" if a.cmd == "off" else "enable", "--now", "--quiet", UNIT], check=False)
+    cmd_status(a, cfg)
+
+
+def cmd_status(a, cfg):
+    service = None
+    if _systemd_unit():
+        service = subprocess.run(["systemctl", "--user", "is-active", UNIT], capture_output=True, text=True).stdout.strip()
+    try:
+        st = json.loads((cfg["data_dir"] / "state.json").read_text())
+    except (OSError, ValueError):
+        st = {}
+    running = service == "active" if service is not None else bool(st) and time.time() - st.get("at", 0) < 3 * float(cfg["poll_s"]) + 60
+    if cfg["off_file"].exists():
+        line = "off" + (" (worker still stopping)" if running and st.get("state") == "running" else "")
+    elif not running:
+        line = "on, but the worker is not running" + (f" (service {service})" if service else "")
+    elif st.get("state") == "paused":
+        line = f"paused ({st.get('reason')})"
+    elif st.get("state") == "running":
+        line = f"on, running job {st.get('job')}"
+    else:
+        line = "on, idle"
+    print(line)
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog="crane-worker", description=__doc__)
     p.add_argument("--config", help="worker YAML (default: <config dir>/worker.yaml if present)")
@@ -232,12 +302,19 @@ def main(argv=None):
     r = sub.add_parser("run", help="run the daemon")
     r.add_argument("--once", action="store_true", help="one lease round, then exit")
     sub.add_parser("caps", help="print detected capabilities")
+    sub.add_parser("on", help="take jobs again (removes the off flag; starts and enables the service)")
+    sub.add_parser("off", help="take no jobs until `on`: releases the current job now, stops and disables the service")
+    sub.add_parser("status", help="on, off or paused (with the reason), and the current job")
     a = p.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
     path = a.config or (config_mod.config_dir() / "worker.yaml")
     cfg = config_mod.load(path if Path(path).exists() else None)
     if a.cmd == "join":
         return cmd_join(a, cfg)
+    if a.cmd in ("on", "off"):
+        return cmd_toggle(a, cfg)
+    if a.cmd == "status":
+        return cmd_status(a, cfg)
     if a.cmd == "caps":
         print(json.dumps(config_mod.detect_caps(cfg, sorted(backend_mod.build(cfg["backends"]))), indent=2))
         return
@@ -247,6 +324,7 @@ def main(argv=None):
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, lambda *_: w.stop.set())
     w.loop(once=a.once)
+    w.note("stopped")
 
 
 if __name__ == "__main__":

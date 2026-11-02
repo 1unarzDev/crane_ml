@@ -55,6 +55,8 @@ def load(path: str | Path | None) -> dict:
     cfg["name"] = cfg["name"] or socket.gethostname()
     cfg["token_file"] = Path(os.path.expanduser(cfg["token_file"] or config_dir() / "token"))
     cfg["data_dir"] = Path(os.path.expanduser(cfg["data_dir"] or data_dir()))
+    # `crane-worker off` creates it beside the config; the worker takes no job while it exists.
+    cfg["off_file"] = Path(os.path.expanduser(cfg.get("off_file") or (Path(path).parent if path else config_dir()) / "off"))
     return cfg
 
 
