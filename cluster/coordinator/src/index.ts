@@ -4,6 +4,7 @@ import { artifactRoutes, sweepArtifacts } from "./artifacts";
 import type { AppEnv } from "./auth";
 import { reclaimExpired } from "./db";
 import { runMetaRoutes } from "./runmeta";
+import { feedRoutes } from "./feed";
 import { hypRoutes } from "./hypotheses";
 import { Env, HttpError, errorResponse, json } from "./util";
 import { webhookRoutes } from "./webhook";
@@ -18,6 +19,7 @@ app.onError((err, c) => {
 });
 app.notFound(() => json({ error: "not found" }, 404));
 
+app.route("/", feedRoutes);
 app.route("/", workerRoutes);
 app.route("/", artifactRoutes);
 app.route("/", adminRoutes);

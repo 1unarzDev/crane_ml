@@ -9,6 +9,7 @@ export interface Env {
   MAX_LEASE_JOBS?: string;
   RAW_RETENTION_DAYS?: string;
   MAX_ARTIFACT_MB?: string;
+  FEED_CACHE_S?: string;
 }
 
 export class HttpError extends Error {

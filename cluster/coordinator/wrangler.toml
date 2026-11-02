@@ -11,6 +11,7 @@ MAX_ATTEMPTS = "3"             # default per job; an expired or failed lease at 
 MAX_LEASE_JOBS = "4"           # cap on max_jobs per /v1/lease call
 RAW_RETENTION_DAYS = "14"      # default retention of raw artifacts (PUT /v1/admin/retention overrides)
 MAX_ARTIFACT_MB = "95"         # proxied uploads stay under the Workers request-body limit
+FEED_CACHE_S = "5"             # the public feed's colo cache: viewers within this many seconds share one D1 read
 
 # Secrets (never put them here):
 #   npx wrangler secret put ADMIN_TOKEN

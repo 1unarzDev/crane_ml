@@ -9,7 +9,7 @@ export default defineConfig(async () => {
       cloudflareTest({
         wrangler: { configPath: "./wrangler.toml" },
         miniflare: {
-          bindings: { ADMIN_TOKEN: "test-admin-token", GITHUB_WEBHOOK_SECRET: "test-hook-secret", TEST_MIGRATIONS: migrations },
+          bindings: { ADMIN_TOKEN: "test-admin-token", GITHUB_WEBHOOK_SECRET: "test-hook-secret", FEED_CACHE_S: "0", TEST_MIGRATIONS: migrations },
         },
       }),
     ],

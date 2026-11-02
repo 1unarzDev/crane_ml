@@ -62,9 +62,33 @@ otherwise it parses the YAML subset the config files use.
 ## Concepts
 
 **Job**: one backend invocation over a list of seeds at exact repo refs:
-`{backend, repos: [{name, url, ref}], spec, seeds, needs, priority, max_attempts}`.
+`{backend, repos: [{name, url, ref}], spec, seeds, needs, priority, max_attempts,
+purpose, est_seconds, submitter, campaign}`.
 A ref of `@main` resolves at creation to the repo's `main_version`, which the
 webhook sets. Every job therefore records the commit it ran.
+
+**Purpose, estimate, submitter**: every submission (`POST /v1/admin/jobs`, `POST /v1/hyp`)
+must carry `purpose`, 1-2 sentences written by the submitting agent on what hypothesis the
+job tests or what it is for (20-600 chars; placeholders like "test" or "sweep" are refused,
+and so is text that looks like a secret, an address or a local path, because the feed is
+public), `est_seconds`, the estimated seconds per run (per seed), and `submitter`, the
+agent or session label. `campaign` (a boat test, a study) is optional. A hypothesis's
+stage jobs inherit them; a stage's own `est_seconds` overrides the hypothesis's. Rows
+from before migration `0003` read `(legacy)`. `POST /v1/admin/jobs/judge {job_id, line}`
+attaches a one-line verdict.
+
+**Run feed** (public, no token): `GET /v1/feed[?recent=N]` (schema `crane-feed/1`),
+`GET /v1/feed/jobs/:id` (one job and its runs) and `GET /v1/feed/stream` (SSE: an
+`event: feed` with the snapshot at connect and on change, `?interval=`, `?max_s=`,
+`?once=1`). Each job shows its state, purpose, submitter, campaign, hypothesis and
+stage, the submitter's estimate next to the duration model's (per backend: the median
+of `actual / estimate` over the last 2000 ok runs once it has 5, else the median run
+time), its queue position and ETA (a list-scheduling pass over the queue in lease
+order onto the live workers that can run it, each scaled by its own speed history),
+progress, worker alias, metric means, the judge line (or the latest run_meta insight)
+and replay availability (runs with a kept `.ctraj`). Nothing private leaves: no
+tokens, worker ids, specs, needs, repo URLs or paths; free text goes through a
+secret scrubber (`src/purpose.ts`). Snapshots are cached per colo for `FEED_CACHE_S`.
 
 **Needs and capabilities**: a job's `needs` (`os`, `arch`, `gpu`, `vulkan`,
 `min_cpu`, `min_ram_gb`, `min_vram_gb`, `tags`, `est_minutes`) are matched against

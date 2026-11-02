@@ -16,6 +16,7 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import shutil
 import signal
 import socket
@@ -32,6 +33,10 @@ from crane_cluster.api import Client  # noqa: E402
 ADMIN = "e2e-admin-token"
 HOOK = "e2e-hook-secret"
 TTL = 6
+
+
+# What every job submission must carry (the public feed shows it).
+META = {"purpose": "End-to-end check of leases, retries and artifacts on dummy jobs.", "est_seconds": 4, "submitter": "e2e"}
 
 
 def free_port() -> int:
@@ -123,14 +128,14 @@ def main():
             procs.start(name, [str(exe), "--config", str(workers[name]), "run"], tmp / f"worker-{name}.log", cwd=tmp)
 
         # ---- kill A mid-job: its lease must expire and B must finish the job on attempt 2
-        [victim] = adm.post("/v1/admin/jobs", {"jobs": [{"backend": "dummy", "seeds": [1, 2, 3], "spec": {"sleep_s": 4}}]})["job_ids"]
+        [victim] = adm.post("/v1/admin/jobs", {"jobs": [{"backend": "dummy", "seeds": [1, 2, 3], "spec": {"sleep_s": 4}, **META}]})["job_ids"]
         start_worker("A")
         wait_for(lambda: adm.get(f"/v1/jobs/{victim}/runs")["runs"], 30, "A to finish its first seed of the victim job")
         procs.kill("A")
         print(f"[e2e] worker A killed mid-job {victim}")
         t_kill = time.time()
-        others = adm.post("/v1/admin/jobs", {"jobs": [{"backend": "dummy", "seeds": [s]} for s in range(10, 16)]
-                                             + [{"backend": "dummy", "needs": {"gpu": True}}]})["job_ids"]
+        others = adm.post("/v1/admin/jobs", {"jobs": [{"backend": "dummy", "seeds": [s], **META} for s in range(10, 16)]
+                                             + [{"backend": "dummy", "needs": {"gpu": True}, **META}]})["job_ids"]
         start_worker("B")
 
         def victim_done():
@@ -209,7 +214,9 @@ stages:
 promotion: {{alpha: 0.05, min_pairs: 6, halving_eta: 2, max_seeds: 24}}
 """)
         cli_env = {**os.environ, "CRANE_COORDINATOR": url, "CRANE_TOKEN": ADMIN, "PYTHONPATH": str(HERE)}
-        out = subprocess.run([sys.executable, "-m", "crane_cluster.hyp", "--json", "submit", str(hyp_yaml)], env=cli_env,
+        out = subprocess.run([sys.executable, "-m", "crane_cluster.hyp", "--json", "submit", str(hyp_yaml),
+                              "--purpose", "End-to-end check that the strong gain branch is promoted over the flat one.",
+                              "--est-seconds", "2", "--submitter", "e2e"], env=cli_env,
                              capture_output=True, text=True, check=True).stdout
         hid = json.loads(out)["id"]
         print(f"[e2e] hypothesis {hid} submitted")
@@ -239,6 +246,16 @@ promotion: {{alpha: 0.05, min_pairs: 6, halving_eta: 2, max_seeds: 24}}
         baseline = [x for x in st2 if x["arm"] == "baseline"][0]
         assert baseline["repos"][0]["ref"] == main_sha
         print(f"[e2e] hypothesis reached candidate: {[d[:2] for d in decisions]}")
+
+        # ---- the public feed: no token, every job with its purpose, nothing private
+        feed_raw = subprocess.run(["curl", "-sf", f"{url}/v1/feed?recent=200"], capture_output=True, text=True, check=True).stdout
+        feed = json.loads(feed_raw)
+        assert feed["schema"] == "crane-feed/1" and feed["jobs"], feed
+        assert all(len(j["purpose"]) >= 20 and j["submitter"] for j in feed["jobs"]), feed["jobs"]
+        assert ADMIN not in feed_raw and str(tmp) not in feed_raw and not re.search(r"\bw_[0-9a-f]{16}\b", feed_raw), "the feed leaks"
+        sse = subprocess.run(["curl", "-sf", f"{url}/v1/feed/stream?once=1"], capture_output=True, text=True, check=True).stdout
+        assert "event: feed" in sse, sse[:200]
+        print(f"[e2e] feed: {len(feed['jobs'])} jobs, {len(feed['runs'])} runs, sse ok")
         print("[e2e] PASS")
     except BaseException:
         for log in sorted(tmp.glob("*.log")):
