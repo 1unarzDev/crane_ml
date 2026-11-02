@@ -93,6 +93,16 @@ cron sweep deletes expired raw objects and keeps their rows with `deleted_at`.
 Uploads are proxied, so a single file must fit the Workers request-body limit
 (`MAX_ARTIFACT_MB`, default 95).
 
+**Run meta and trajectories**: a backend may also report a run's `run_meta(run_dir, metrics)`, sent
+with the run (`meta`) and stored in `run_meta` (migration `0002`): study, iteration, params, score,
+outcome, progress, validity, course and build hashes and the name of its trajectory artifact. The
+`unity` and `fastsim` backends record a `run.ctraj` (crane-traj/1, `theater/traj.py`, a few hundred KB
+at most), stamp it with the job's `theater` spec (study, iteration, insight, score_metric) or its
+hypothesis and stage, and upload it as a `summary` artifact, so it never expires. `GET /v1/runs/query`
+(viewer) selects runs by study or hypothesis, iterations, outcome and per-iteration top k; the ghost
+theater's `python3 -m theater select` turns that into a render manifest. A coordinator that refuses a
+meta never costs the run: the worker posts it again without.
+
 **Hypothesis**: a claim, a metric, a direction, a baseline ref, variants (refs plus
 optional params), a scenario family, seeds, a run budget, and a list of stages,
 each with a backend, params and needs. Example: `examples/hypothesis.yaml`. Each
