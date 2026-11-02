@@ -42,6 +42,7 @@ class JobContext:
     resolved: dict[str, str] = field(default_factory=dict)     # repo name -> commit sha checked out
     isolation: dict = field(default_factory=dict)              # slot, port_base, isolation_id
     env: dict[str, str] = field(default_factory=dict)          # extra environment for child processes
+    client: object | None = None                               # the worker's coordinator client (job inputs)
 
     @property
     def spec(self) -> dict:

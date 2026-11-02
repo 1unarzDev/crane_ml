@@ -139,7 +139,7 @@ class Worker:
         slot = int(iso.get("slot", 0))
         ctx = backend_mod.JobContext(job=job, work_dir=work, isolation={
             "slot": slot, "port_base": int(iso["port_base"]) + slot * int(iso["port_stride"]),
-            "isolation_id": int(iso["id_base"]) + slot})
+            "isolation_id": int(iso["id_base"]) + slot}, client=self.client)
         revoked, released = threading.Event(), threading.Event()
         done = threading.Event()
         self.note("running", job=jid)
