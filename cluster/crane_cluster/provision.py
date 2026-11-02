@@ -138,7 +138,10 @@ class Provisioner:
             name, how = ensure_release("git-for-windows/git", r"MinGit-[\d.]+-64-bit\.zip", mingit)
             self.add_path(mingit / "cmd")
             git = str(mingit / "cmd" / "git.exe")
-            subprocess.run([git, "config", "--system", "core.longpaths", "true"], capture_output=True)  # MinGit's own etc
+            # MinGit's own etc/gitconfig: checkouts byte-identical to Linux ones (content hashes such as a
+            # course generator's source_sha256 must match across hosts), and deep Unity paths
+            for key, value in (("core.autocrlf", "false"), ("core.longpaths", "true")):
+                subprocess.run([git, "config", "--system", key, value], capture_output=True)
             self.note("git", f"{how} {name[:-4]} at {mingit}")
         elif shutil.which("git"):
             self.note("git", f"system {_run(['git', '--version'])}")
