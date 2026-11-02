@@ -1,0 +1,159 @@
+{
+    "name": "PlantCard-43a27863b1c5",
+    "fixedDeltaTime": 0.02,
+    "mass": 30.0,
+    "ixx": 2.2,
+    "iyy": 2.0,
+    "izz": 4.1,
+    "comBow": 0.0,
+    "comPort": 0.0,
+    "addedMass": {
+        "a11": 75.32663976659241,
+        "a22": 105.78970758881914,
+        "a26": 0.0,
+        "a66": 0.4057327047207169
+    },
+    "surge": {
+        "d1Pos": 17.618815549090957,
+        "d1Neg": 17.618815549090957,
+        "d2Pos": 99.00210733857443,
+        "d2Neg": 99.00210733857443
+    },
+    "sway": {
+        "d1Pos": 102.45691686270163,
+        "d1Neg": 102.45691686270163,
+        "d2Pos": 81.88781349932869,
+        "d2Neg": 81.88781349932869
+    },
+    "yaw": {
+        "d1Pos": 0.07257130675417602,
+        "d1Neg": 0.07257130675417602,
+        "d2Pos": 9.063404912307504,
+        "d2Neg": 9.063404912307504
+    },
+    "heave": {
+        "d1": 150.0,
+        "d2": 40.0
+    },
+    "roll": {
+        "d1": 30.0,
+        "d2": 10.0
+    },
+    "pitch": {
+        "d1": 30.0,
+        "d2": 10.0
+    },
+    "thrusters": [
+        {
+            "name": "front_left",
+            "x": 0.27,
+            "y": 0.34,
+            "z": 0.0,
+            "alphaDeg": 135.0,
+            "kForward": 58.857142857142854,
+            "kReverse": 44.14285714285714,
+            "vRef": 16.0,
+            "nV": 0.0,
+            "deadbandUs": 10.0,
+            "offsetUs": 0.0,
+            "tauT": 0.0,
+            "deadTime": 0.2,
+            "submersionDepth": 0.08,
+            "kappa": 0.0
+        },
+        {
+            "name": "front_right",
+            "x": 0.27,
+            "y": -0.34,
+            "z": 0.0,
+            "alphaDeg": -135.0,
+            "kForward": 58.857142857142854,
+            "kReverse": 44.14285714285714,
+            "vRef": 16.0,
+            "nV": 0.0,
+            "deadbandUs": 10.0,
+            "offsetUs": 0.0,
+            "tauT": 0.0,
+            "deadTime": 0.2,
+            "submersionDepth": 0.08,
+            "kappa": 0.0
+        },
+        {
+            "name": "rear_right",
+            "x": -0.27,
+            "y": -0.34,
+            "z": 0.0,
+            "alphaDeg": -45.0,
+            "kForward": 58.857142857142854,
+            "kReverse": 44.14285714285714,
+            "vRef": 16.0,
+            "nV": 0.0,
+            "deadbandUs": 10.0,
+            "offsetUs": 0.0,
+            "tauT": 0.0,
+            "deadTime": 0.2,
+            "submersionDepth": 0.08,
+            "kappa": 0.0
+        },
+        {
+            "name": "rear_left",
+            "x": -0.27,
+            "y": 0.34,
+            "z": 0.0,
+            "alphaDeg": 45.0,
+            "kForward": 58.857142857142854,
+            "kReverse": 44.14285714285714,
+            "vRef": 16.0,
+            "nV": 0.0,
+            "deadbandUs": 10.0,
+            "offsetUs": 0.0,
+            "tauT": 0.0,
+            "deadTime": 0.2,
+            "submersionDepth": 0.08,
+            "kappa": 0.0
+        }
+    ],
+    "envelope": {
+        "surge": 2.5,
+        "sway": 1.7,
+        "yaw": 1.9
+    },
+    "provenance": {
+        "kind": "plantcard",
+        "card_sha": "43a27863b1c594a5e872bba08b8c9fb85d79e5493749efb6f8708207d5084cc3",
+        "card_status": "fitted",
+        "robot": "roboboat/blastoise",
+        "particle": null,
+        "gauge": "effective (thrust fixed at k_ref; effective per-axis inertia)",
+        "source": "plantcard view unity of 43a27863b1c5, base characterized.json",
+        "structure_gap": [
+            "thruster_lag_lumped_into_dead_time",
+            "deadband_rescaled_thrust_curve (Unity: hard deadband, q^2)",
+            "sway/surge-thrust-induced yaw (thruster-hull interaction, even in thrust)",
+            "current_and_force_bias"
+        ],
+        "summary": "card status fitted; pos_err_max@H2s cov 0.86; pos_err_max@H5s cov 0.89; pos_err_max@H10s cov 0.89",
+        "parameters": [
+            {
+                "name": "dyn.surge",
+                "status": "fitted",
+                "reason": ""
+            },
+            {
+                "name": "dyn.sway",
+                "status": "fitted",
+                "reason": ""
+            },
+            {
+                "name": "dyn.yaw",
+                "status": "fitted",
+                "reason": ""
+            },
+            {
+                "name": "act",
+                "status": "fitted",
+                "reason": "lumped, prior_dominated"
+            }
+        ]
+    }
+}
