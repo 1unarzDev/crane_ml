@@ -29,7 +29,12 @@ const median = (xs: number[]): number | null => {
   const m = s.length >> 1;
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 };
-const round = (x: number | null, d = 1) => (x === null || !Number.isFinite(x) ? null : Math.round(x * 10 ** d) / 10 ** d);
+/** Rounds to d decimals; without d, to 3 below 1 (sub-second fast-sim runs), 2 below 10, else 1. */
+const round = (x: number | null, d?: number) => {
+  if (x === null || !Number.isFinite(x)) return null;
+  const k = d ?? (Math.abs(x) < 1 ? 3 : Math.abs(x) < 10 ? 2 : 1);
+  return Math.round(x * 10 ** k) / 10 ** k;
+};
 const clamp = (x: number, [lo, hi]: [number, number]) => Math.min(hi, Math.max(lo, x));
 
 export interface BackendModel {
