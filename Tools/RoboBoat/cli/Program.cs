@@ -40,7 +40,9 @@ namespace Sim.Course.Cli {
                 return 0;
             }
             var meta = typeof(Program).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>().ToList();
-            string root = Arg(args, "--root") ?? meta.First(m => m.Key == "coursegen.root").Value;
+            // No trailing separator: on Windows "C:\crane\" would escape the quote around git's -C argument
+            // (CourseIdentity.Git), and every truth would record crane_commit unknown.
+            string root = Path.TrimEndingDirectorySeparator(Arg(args, "--root") ?? meta.First(m => m.Key == "coursegen.root").Value);
             var compiled = meta.Where(m => m.Key.StartsWith("coursegen.src:", StringComparison.Ordinal))
                 .ToDictionary(m => m.Key.Substring("coursegen.src:".Length), m => m.Value.ToLowerInvariant());
             if (args.Contains("--sources")) {
