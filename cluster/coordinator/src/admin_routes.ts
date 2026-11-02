@@ -1,5 +1,6 @@
 // Admin API (ADMIN_TOKEN) and read-only status views (viewer token or admin).
 import { Hono } from "hono";
+import { hotDays, hotDaysStmt } from "./archive";
 import { AppEnv, requireAdmin, requireViewer } from "./auth";
 import { CFG, getConfig, jobView, JobRow, rawRetentionDays, setConfigStmt } from "./db";
 import { jobInsert, JobInput } from "./jobs";
@@ -122,12 +123,19 @@ adminRoutes.put("/v1/admin/client_release", async (c) => {
   return json(await getConfig(c.env));
 });
 
-/** Retention for new raw artifacts, in days (existing artifacts keep their expiry). */
+/** Retention: raw_days for new raw artifacts (existing ones keep their expiry); hot_days {kind: days}, how
+ * long each kind stays in R2 once an archive node holds it (archive.ts; unset kinds keep their defaults). */
 adminRoutes.put("/v1/admin/retention", async (c) => {
   const b = await readJson(c.req.raw);
-  if (!Number.isInteger(b.raw_days) || (b.raw_days as number) < 1) throw new HttpError(400, "raw_days must be a positive integer");
-  await setConfigStmt(c.env, CFG.rawRetentionDays, String(b.raw_days)).run();
-  return json({ raw_days: await rawRetentionDays(c.env) });
+  if (b.raw_days === undefined && b.hot_days === undefined) throw new HttpError(400, "raw_days or hot_days required");
+  const stmts = [];
+  if (b.raw_days !== undefined) {
+    if (!Number.isInteger(b.raw_days) || (b.raw_days as number) < 1) throw new HttpError(400, "raw_days must be a positive integer");
+    stmts.push(setConfigStmt(c.env, CFG.rawRetentionDays, String(b.raw_days)));
+  }
+  if (b.hot_days !== undefined) stmts.push(hotDaysStmt(c.env, b.hot_days));
+  await c.env.DB.batch(stmts);
+  return json({ raw_days: await rawRetentionDays(c.env), hot_days: await hotDays(c.env) });
 });
 
 // ------------------------------------------------------------------ read-only views

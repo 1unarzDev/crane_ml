@@ -50,3 +50,26 @@ export const requireViewer: MiddlewareHandler<AppEnv> = async (c, next) => {
   if (!row) throw UNAUTHORIZED();
   await next();
 };
+
+async function isArchiveToken(env: Env, tok: string): Promise<boolean> {
+  const row = await env.DB.prepare("SELECT name FROM archive_tokens WHERE token_sha256 = ?").bind(await sha256Hex(tok)).first();
+  return !!row;
+}
+
+/** An archive node (crane-archive): /v1/archive/* and artifact reads, nothing else. The admin token passes too. */
+export const requireArchive: MiddlewareHandler<AppEnv> = async (c, next) => {
+  const tok = bearer(c.req.raw);
+  if (!tok || tok.length > 256) throw UNAUTHORIZED();
+  if ((await isAdminToken(c.env, tok)) || (await isArchiveToken(c.env, tok))) return next();
+  throw UNAUTHORIZED();
+};
+
+/** Artifact reads: a viewer, the admin or an archive node. */
+export const requireReader: MiddlewareHandler<AppEnv> = async (c, next) => {
+  const tok = bearer(c.req.raw);
+  if (!tok || tok.length > 256) throw UNAUTHORIZED();
+  if ((await isAdminToken(c.env, tok)) || (await isArchiveToken(c.env, tok))) return next();
+  const row = await c.env.DB.prepare("SELECT name FROM viewer_tokens WHERE token_sha256 = ?").bind(await sha256Hex(tok)).first();
+  if (!row) throw UNAUTHORIZED();
+  await next();
+};

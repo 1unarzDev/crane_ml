@@ -10,6 +10,11 @@ export interface Env {
   RAW_RETENTION_DAYS?: string;
   MAX_ARTIFACT_MB?: string;
   FEED_CACHE_S?: string;
+  ARCHIVE_URL?: string;            // the archive node's origin behind Cloudflare Access (https://archive.crane.lunarz.dev)
+  ARCHIVE_ACCESS_ID?: string;      // secret: Access service token id (crane-coordinator-archive)
+  ARCHIVE_ACCESS_SECRET?: string;  // secret
+  R2_SOFT_CAP_GB?: string;         // R2 use above which a lagging archive no longer holds expired raw items
+  ARCHIVE_MAX_LAG_GB?: string;     // unarchived bytes past their hot window above which the archive counts as lagging
 }
 
 export class HttpError extends Error {
