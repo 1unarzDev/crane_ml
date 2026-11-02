@@ -4,4 +4,4 @@
   Referrer-Policy: no-referrer
   Permissions-Policy: camera=(), microphone=(), geolocation=()
 /*.js
-  Cache-Control: public, max-age=300
+  Cache-Control: public, max-age=0, must-revalidate
