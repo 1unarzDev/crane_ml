@@ -58,6 +58,48 @@ class FastsimBackend:
                 'flags': run['flags'], **numbers}
 
 
+class ClusterBackend:
+    """FastsimBackend for crane-worker: ``type: "cluster.backends.fastsim:ClusterBackend"``.
+
+    The job spec carries the ``job`` keys above (``out`` is the worker's job folder). A spec
+    ``repo`` resolves ``workdir`` inside that repo's checkout at the job's exact ref; otherwise
+    ``workdir`` comes from the spec or the backend options. Metrics are numbers only:
+    ``succeeded`` (1 or 0), ``flags`` (a count) and the run's and adapter's numbers.
+    """
+
+    def __init__(self, name=NAME, options=None):
+        self.name, self.options, self.ctx = name, dict(options or {}), None
+
+    def update(self):
+        pass
+
+    def prepare(self, ctx):
+        self.ctx = ctx
+        job = {**self.options, **ctx.spec, 'id': ctx.job.get('job_id'), 'out': str(ctx.work_dir / 'runs')}
+        if job.get('repo'):
+            job['workdir'] = str(Path(ctx.repos[job['repo']]) / job.get('workdir', '.'))
+        self.fast = FastsimBackend().prepare(job)
+
+    def run(self, seed):
+        return self.fast.run(seed)
+
+    def metrics(self, run_dir):
+        m = self.fast.metrics(run_dir)
+        numbers = {k: float(v) for k, v in m.items() if isinstance(v, (int, float)) and not isinstance(v, bool)}
+        numbers.update(succeeded=float(m['outcome'] == 'SUCCEEDED'), flags=float(len(m['flags'])))
+        return numbers
+
+    def artifacts(self, run_dir):
+        return [(p, p.name, 'summary' if p.name == 'run.json' else 'raw')
+                for p in sorted(Path(run_dir).iterdir()) if p.is_file()]
+
+    def cancel(self):
+        pass
+
+    def finish(self):
+        pass
+
+
 def create():
     return FastsimBackend()
 
