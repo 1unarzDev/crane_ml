@@ -34,7 +34,7 @@ from concurrent.futures import ThreadPoolExecutor, wait
 import urllib.parse
 from pathlib import Path
 
-from . import __version__, backends as backend_mod, config as config_mod, idle, provision
+from . import __version__, backends as backend_mod, config as config_mod, gpuwindow, idle, provision
 from .slots import Slots
 from .api import ApiError, Backoff, Client, unavailable
 from .gitcache import GitCache
@@ -46,14 +46,19 @@ class Stop(Exception):
     pass
 
 
+def flag_dir(cfg: dict) -> Path:
+    """Where drain and stop flags live: beside the off flag (the GPU runner: its gpu/ subdirectory)."""
+    return Path(cfg.get("flag_dir") or Path(cfg["off_file"]).parent)
+
+
 def drain_file(cfg: dict) -> Path:
     """`crane-worker drain` creates it beside the off flag; the worker removes it when it exits drained."""
-    return Path(cfg["off_file"]).parent / "drain"
+    return flag_dir(cfg) / "drain"
 
 
 def stop_file(cfg: dict) -> Path:
     """`crane-worker stop` creates it: release the running jobs now and exit (removed on the way out)."""
-    return Path(cfg["off_file"]).parent / "stop"
+    return flag_dir(cfg) / "stop"
 
 
 GUARD_KEYS = ("admit", "admit_waited")   # host-guard options (module docstring), not the backend's
@@ -77,6 +82,8 @@ def run_guard(cmd: list[str], timeout: float = 20) -> tuple[int | None, str]:
 
 
 class Worker:
+    gate: gpuwindow.Gate | None = None   # the GPU runner's window and idle gate (set in __init__)
+
     def __init__(self, cfg: dict, client: Client | None = None):
         self.cfg = cfg
         self.policy = cfg.get("policy") or {}
@@ -94,6 +101,14 @@ class Worker:
         self.jobs: dict[str, threading.Thread] = {}   # running job id -> its thread
         self.freed = threading.Event()                # set when a job ends (a slot came free)
         self.git_lock = threading.Lock()              # the git mirrors are shared between jobs
+        # The GPU runner (--gpu-window): leases only inside its window while the user is away (gpuwindow.py).
+        self.gate = gpuwindow.Gate(cfg["gpu"]) if cfg.get("gpu") else None
+
+    def lease_policy(self, waiting: str | None = None) -> dict:
+        """The policy sent with a lease; the GPU runner's carries its window for the feed."""
+        if not self.gate:
+            return self.policy
+        return {**self.policy, "window": self.gate.report(waiting=waiting)}
 
     def note(self, state: str, reason: str | None = None, job: str | None = None) -> None:
         """What ``crane-worker status`` reports: <data_dir>/state.json."""
@@ -165,12 +180,18 @@ class Worker:
                 self.freed.clear()
                 continue
             reason = idle.unavailable_reason(self.policy, cfg=self.cfg)
+            if not reason and self.gate:
+                reason = self.gate.closed()
             if reason:
                 if reason != self.paused:
                     log.info("paused: %s", reason)
                 self.paused = reason
                 self.note("paused", reason)
-                self._safe_post("/v1/heartbeat", {"job_ids": [], "state": "paused", "stats": {"reason": reason}})
+                if self.gate:   # a lease for no job: the coordinator keeps the runner's window (feed: "next at")
+                    self._safe_post("/v1/lease", {"caps": self.caps, "policy": self.lease_policy(reason), "max_jobs": 0,
+                                                  "state": "paused", "client_version": __version__})
+                else:
+                    self._safe_post("/v1/heartbeat", {"job_ids": [], "state": "paused", "stats": {"reason": reason}})
                 if once:
                     return
                 self.stop.wait(min(float(self.cfg["poll_s"]), float(self.cfg["heartbeat_s"])))
@@ -191,7 +212,7 @@ class Worker:
             t0 = time.monotonic()
             try:
                 # max_jobs: any mix of that many fits, since each backend alone fits that many.
-                body = {"caps": self.caps, "policy": self.policy, "max_jobs": min(free.values()), "backends": sorted(free),
+                body = {"caps": self.caps, "policy": self.lease_policy(), "max_jobs": min(free.values()), "backends": sorted(free),
                         "state": "running" if self.jobs else "idle", "client_version": __version__}
                 if wait_s > 0:
                     body["wait_s"] = wait_s
@@ -312,6 +333,10 @@ class Worker:
         ctx = backend_mod.JobContext(job=job, work_dir=work, isolation={
             "slot": slot, "port_base": int(iso["port_base"]) + slot * int(iso["port_stride"]),
             "isolation_id": int(iso["id_base"]) + slot}, client=self.client, env={"CRANE_JOB_ID": jid})
+        if self.gate:
+            if sys.platform == "win32" and self.gate.opts.get("desktop"):
+                ctx.env["CRANE_DESKTOP"] = str(self.gate.opts["desktop"])   # players start there (hiddendesk.py)
+            self.gate.arm()
         release_after = 60 * float(self.cfg.get("admit_release_min", 5))
         revoked, released = threading.Event(), threading.Event()
         done = threading.Event()
@@ -320,6 +345,13 @@ class Worker:
             period = max(1.0, min(float(self.cfg["heartbeat_s"]), ttl / 3))
             tick, beat = min(1.0, period), time.monotonic() + period
             while not done.wait(tick):
+                # The GPU runner: input, an unlock or the window's end gives the job back within a tick.
+                why = self.gate.interrupted() if self.gate else None
+                if why:
+                    log.info("releasing job %s (%s)", jid, why)
+                    released.set()
+                    backend.cancel()
+                    return
                 now = self.stop.is_set() or self.cfg["off_file"].exists()  # shutdown or `crane-worker off`: at once
                 if not now and time.monotonic() < beat:
                     continue
@@ -542,9 +574,78 @@ def cmd_status(a, cfg):
     print(line)
 
 
+def no_console_windows() -> None:
+    """Windows, the GPU runner: it runs (pythonw, no console) in the user's desktop session, where a console
+    program it starts (git, nvidia-smi, a guard) would open a console window on his screen. Every child gets
+    CREATE_NO_WINDOW unless it asks for a console of its own."""
+    if sys.platform != "win32" or getattr(subprocess.Popen, "_crane_no_window", False):
+        return
+    orig = subprocess.Popen.__init__
+    keep = subprocess.CREATE_NEW_CONSOLE | subprocess.DETACHED_PROCESS
+
+    def init(self, *args, **kw):
+        flags = kw.get("creationflags", 0) or 0
+        if not flags & keep:
+            kw["creationflags"] = flags | subprocess.CREATE_NO_WINDOW
+        orig(self, *args, **kw)
+    subprocess.Popen.__init__ = init
+    subprocess.Popen._crane_no_window = True
+
+
+def cmd_gpu_check(a, cfg):
+    """The GPU runner's one-time check, run in the user's session (task crane-gpu-check) while he is away: a short
+    unity benchmark on the hidden desktop, watched every 0.1 s for any window of the player on the visible
+    desktop and for the foreground. Writes <data dir>/gpu/gpu-check.json; ok means it rendered unseen."""
+    gate = gpuwindow.Gate(cfg["gpu"])
+    idle_s, locked = gate.idle_fn(), gate.locked_fn()
+    if not a.force and not locked and (idle_s is None or idle_s < 60):
+        sys.exit(f"the user is active (idle {idle_s} s, not locked): run it while he is away, or --force")
+    if "unity" not in cfg["backends"]:
+        sys.exit("gpu-check needs the unity backend in the config")
+    from . import hiddendesk
+    desk = str(cfg["gpu"].get("desktop") or "")
+    work = cfg["data_dir"] / "gpu-check"
+    shutil.rmtree(work, ignore_errors=True)
+    work.mkdir(parents=True)
+    job = {"job_id": "gpu-check", "backend": "unity", "attempt": 1, "seeds": [1],
+           "spec": {"duration": 5, "warmup": 1, "traj": False, "require_valid_water": False}}
+    backend = backend_mod.build({"unity": cfg["backends"]["unity"]})["unity"]
+    ctx = backend_mod.JobContext(job=job, work_dir=work, isolation={"slot": 16, "port_base": 21600, "isolation_id": 17},
+                                 env={"CRANE_JOB_ID": "gpu-check", **({"CRANE_DESKTOP": desk} if desk else {})})
+    out = {"desktop": desk or None, "idle_s": idle_s, "locked": locked, "at": time.strftime("%Y-%m-%d %H:%M:%S")}
+    result: dict = {}
+
+    def run():
+        try:
+            backend.prepare(ctx)
+            result["run_dir"] = str(backend.run(1))
+        except Exception as e:  # reported, not raised: the watch below must finish
+            result["error"] = f"{type(e).__name__}: {e}"[:1500]
+    t = threading.Thread(target=run, daemon=True)
+    t.start()
+    pids = lambda: hiddendesk.tree(p.pid) if (p := getattr(backend, "proc", None)) else set()   # noqa: E731
+    seen, hidden = {"samples": 0, "visible": 0, "foreground": 0, "errors": 0}, 0
+    t0 = time.monotonic()
+    while t.is_alive() and time.monotonic() - t0 < 900:
+        w = hiddendesk.watch(pids, 1.0)
+        for k in seen:
+            seen[k] += w[k]
+        if desk:   # what the player made where nobody sees it (only the runner's players live there)
+            hidden = max(hidden, len(hiddendesk.windows_of(None, desk, visible_only=False)))
+    t.join(timeout=5)
+    backend.cancel()
+    out.update(result, visible_samples=seen["visible"], foreground_samples=seen["foreground"], samples=seen["samples"],
+               watch_errors=seen["errors"], hidden_desktop_windows=hidden, player_s=round(time.monotonic() - t0, 1))
+    out["ok"] = "run_dir" in result and not seen["visible"] and not seen["foreground"]
+    (cfg["data_dir"] / "gpu-check.json").write_text(json.dumps(out, indent=2))
+    print(json.dumps(out, indent=2))
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(prog="crane-worker", description=__doc__)
     p.add_argument("--config", help="worker YAML (default: <config dir>/worker.yaml if present)")
+    p.add_argument("--gpu-window", action="store_true",
+                   help="the GPU runner: only the gpu_window backends, in the user's session, inside its window (gpuwindow.py)")
     sub = p.add_subparsers(dest="cmd", required=True)
     j = sub.add_parser("join", help="register with an invite; saves the worker token")
     j.add_argument("--coordinator")
@@ -559,11 +660,20 @@ def main(argv=None):
     sub.add_parser("stop", help="release the running jobs to the queue now (no attempt counted), then exit (the "
                                "service restarts it)")
     sub.add_parser("status", help="on, off or paused (with the reason), and the running jobs")
+    g = sub.add_parser("gpu-check", help="with --gpu-window, in the user's session while he is away: a short player "
+                                         "run on the hidden desktop, verified unseen (writes gpu-check.json)")
+    g.add_argument("--force", action="store_true", help="run even though the user is active")
     a = p.parse_args(argv)
     path = a.config or (config_mod.config_dir() / "worker.yaml")
     provision.apply_tools_env(path)  # the installer's tools (git, ffmpeg, dotnet) on PATH for jobs
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
-    cfg = config_mod.load(path if Path(path).exists() else None)
+    cfg = config_mod.for_role(config_mod.load(path if Path(path).exists() else None), a.gpu_window)
+    if a.gpu_window:
+        no_console_windows()
+    if a.cmd == "gpu-check":
+        if not a.gpu_window:
+            sys.exit("gpu-check is the GPU runner's: crane-worker --gpu-window gpu-check")
+        return cmd_gpu_check(a, cfg)
     if a.cmd == "join":
         return cmd_join(a, cfg)
     if a.cmd in ("on", "off"):
