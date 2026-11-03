@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from backends import theater
+from crane_backends import theater
 from crane_cluster.backends import JobContext
 
 FAKE_PLAYER = textwrap.dedent("""\

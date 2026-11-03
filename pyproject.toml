@@ -1,0 +1,20 @@
+# crane_ml is a Unity project; this file only makes its research-cluster plugin installable
+# (`pip install -e .`), so the platform finds crane's backends by entry point (crane_backends/__init__.py).
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "crane-backends"
+version = "0.1.0"
+description = "crane's backends for the research cluster: fastsim, unity, theater-render"
+requires-python = ">=3.9"
+dependencies = []   # fastsim/ and theater/ come from this checkout; crane_cluster from the worker
+
+[project.entry-points."research_cluster.backends"]
+fastsim = "crane_backends.fastsim:ClusterBackend"
+unity = "crane_backends.unity:ClusterBackend"
+theater-render = "crane_backends.theater:ClusterBackend"
+
+[tool.setuptools.packages.find]
+include = ["crane_backends*", "fastsim*", "theater*"]

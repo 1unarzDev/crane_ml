@@ -59,7 +59,7 @@ class FastsimBackend:
 
 
 class ClusterBackend:
-    """FastsimBackend for crane-worker: ``type: "cluster.backends.fastsim:ClusterBackend"``.
+    """FastsimBackend for crane-worker: ``type: "crane_backends.fastsim:ClusterBackend"``.
 
     The job spec carries the ``job`` keys above (``out`` is the worker's job folder). A spec
     ``repo`` resolves ``workdir`` inside that repo's checkout at the job's exact ref; otherwise a

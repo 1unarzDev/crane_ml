@@ -9,8 +9,8 @@ the worker fetches them with its own token and checks each hash.
 Worker YAML (``path`` puts this crane copy on sys.path)::
 
     theater-render:
-      type: "cluster.backends.theater:ClusterBackend"
-      path: ~/crane                    # this crane copy (cluster/ and theater/)
+      type: "crane_backends.theater:ClusterBackend"
+      path: ~/crane                    # this crane copy (crane_backends/ and theater/)
       player: ~/players/CRANE-Worker/CRANE.x86_64      # the worker player (has --crane-theater)
       ffmpeg: /usr/bin/ffmpeg          # or ffmpeg_url + ffmpeg_sha256 (a pinned static build, cached)
       display: null                    # Linux: an X display for the NVIDIA Vulkan device, if it needs one;

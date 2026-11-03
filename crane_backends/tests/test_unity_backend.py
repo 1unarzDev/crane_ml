@@ -10,7 +10,7 @@ from unittest import mock
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # the crane root: theater
-from backends import unity  # noqa: E402
+from crane_backends import unity  # noqa: E402
 from crane_cluster.backends import JobContext  # noqa: E402
 from theater import traj  # noqa: E402
 
@@ -113,7 +113,7 @@ class UnityBackendTest(unittest.TestCase):
             self.backend({'batchmode': False})
 
     def test_a_windows_host_with_two_gpus_renders_on_the_discrete_one(self):
-        from backends import gpu
+        from crane_backends import gpu
         harmony = [(0, 'Intel(R) UHD Graphics 770', 128 << 20, False), (1, 'NVIDIA GeForce RTX 3060', 12 << 30, False),
                   (2, 'Microsoft Basic Render Driver', 0, True)]
         self.assertEqual(gpu.player_gpu_args([], harmony), ['-force-device-index', '1'])

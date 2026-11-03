@@ -22,7 +22,9 @@ from pathlib import Path
 from types import SimpleNamespace
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path[:0] = [str(ROOT), str(ROOT / 'cluster')]
+sys.path.insert(0, str(ROOT))
+from crane_backends import find_platform  # noqa: E402
+PLATFORM = Path(find_platform() or '.')   # a research-cluster checkout (RESEARCH_CLUSTER, ~/research-cluster): crane_cluster, coordinator/
 from crane_cluster import config as config_mod, worker  # noqa: E402
 from crane_cluster.api import Client  # noqa: E402
 from theater import cli, traj  # noqa: E402
@@ -41,7 +43,7 @@ def free_port():
 
 def main():
     tmp = Path(tempfile.mkdtemp(prefix='crane-theater-e2e-'))
-    port, coord_dir = free_port(), ROOT / 'cluster' / 'coordinator'
+    port, coord_dir = free_port(), PLATFORM / 'coordinator'
     url = f'http://127.0.0.1:{port}'
     env = {**os.environ, 'WRANGLER_SEND_METRICS': 'false', 'CI': '1', 'NO_COLOR': '1'}
     state = tmp / 'state'
@@ -69,7 +71,7 @@ def main():
         cfg = config_mod.load(None)
         cfg.update(coordinator=url, name='e2e', token_file=tmp / 'token', data_dir=tmp / 'data', off_file=tmp / 'off',
                    poll_s=0.2, heartbeat_s=1, policy={'nice': 0}, caps={'tags': [], 'gpu': None},
-                   backends={'fastsim': {'type': 'cluster.backends.fastsim:ClusterBackend', 'root': str(ROOT)}})
+                   backends={'fastsim': {'type': 'crane_backends.fastsim:ClusterBackend', 'root': str(ROOT)}})
         jobs = []
         for it, gain in enumerate((0.05, 0.15, 0.3)):
             spec = {'workdir': 'fastsim/tests', 'config': 'toy.yaml', 'metric': 'run.sim_s',

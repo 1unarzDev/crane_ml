@@ -1,6 +1,6 @@
 """The cluster's fastsim backend: prepare a job, run seeds, read metrics."""
 
-from cluster.backends.fastsim import ClusterBackend, FastsimBackend
+from crane_backends.fastsim import ClusterBackend, FastsimBackend
 from test_core import HERE
 import toy
 

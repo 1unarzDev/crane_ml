@@ -6,7 +6,10 @@ import pytest
 
 from judge import stats
 
-promotion = pytest.importorskip('cluster.crane_cluster.promotion')
+from crane_backends import find_platform  # noqa: E402
+
+find_platform()   # the research-cluster checkout (RESEARCH_CLUSTER, ~/research-cluster) or an installed worker
+promotion = pytest.importorskip('crane_cluster.promotion')
 
 
 @pytest.mark.parametrize('seed', range(25))

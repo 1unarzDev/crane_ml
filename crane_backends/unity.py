@@ -11,7 +11,7 @@ endpoint) need a Linux host with the ROS workspace and are not run here; tag tho
 Worker YAML (``path`` puts this crane copy on sys.path)::
 
     unity:
-      type: "cluster.backends.unity:ClusterBackend"
+      type: "crane_backends.unity:ClusterBackend"
       path: C:/Users/me/AppData/Local/crane-cluster/crane
       player: C:/Users/me/AppData/Local/crane-cluster/players/CRANE-Worker-Windows/CRANE.exe
       batchmode: true        # -batchmode: GPU rendering, no window. false only where no one can see a
