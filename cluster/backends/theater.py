@@ -39,13 +39,16 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-from .gpu import player_gpu_args
+from .gpu import hidden_desktop, player_gpu_args, start_player
 
 DEFAULTS = {'timeout_s': 3600, 'crf': 18, 'preset': 'medium', 'preroll_s': 2, 'manifest': 'manifest.json'}
 
 
 def window_visible(env):
+    """Not in session 0, nor on the GPU runner's hidden desktop (``CRANE_DESKTOP``)."""
     if sys.platform == 'win32':
+        if hidden_desktop(env):
+            return False
         import ctypes
         sid = ctypes.c_ulong()
         ctypes.windll.kernel32.ProcessIdToSessionId(os.getpid(), ctypes.byref(sid))  # type: ignore[attr-defined]
@@ -144,7 +147,7 @@ class ClusterBackend:
                 self.env.setdefault('SDL_VIDEODRIVER', 'dummy')
         elif window_visible(self.env):
             # -batchmode never opens a window; a desktop session is still refused, as the unity backend does
-            raise RuntimeError('theater: refusing to run the player in a desktop session (run the worker in session 0)')
+            raise RuntimeError('theater: refusing to run the player on a visible desktop (session 0 or the GPU runner only)')
         self.ffmpeg = self._ffmpeg()
         self.inputs = self.fetch_inputs(Path(ctx.work_dir) / 'input')
         self.manifest = json.loads((self.inputs / self.job['manifest']).read_text())
@@ -190,16 +193,8 @@ class ClusterBackend:
     def run(self, seed):
         run_dir = Path(self.ctx.work_dir) / 'chunks' / f'c{int(seed):04d}'
         run_dir.mkdir(parents=True, exist_ok=True)
-        kw = {'cwd': str(self.player.parent), 'env': self.env, 'stdout': subprocess.DEVNULL, 'stderr': subprocess.DEVNULL}
-        if sys.platform == 'win32':
-            si = subprocess.STARTUPINFO()
-            si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-            kw.update(startupinfo=si, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
-                      | subprocess.BELOW_NORMAL_PRIORITY_CLASS)
-        else:
-            kw['start_new_session'] = True
         t0 = time.time()
-        self.proc = subprocess.Popen(self.argv(seed, run_dir), **kw)
+        self.proc = start_player(self.argv(seed, run_dir), str(self.player.parent), self.env)
         try:
             rc = self.proc.wait(timeout=float(self.job['timeout_s']))
         except subprocess.TimeoutExpired:

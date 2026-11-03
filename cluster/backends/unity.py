@@ -44,7 +44,7 @@ import sys
 import time
 from pathlib import Path
 
-from .gpu import player_gpu_args
+from .gpu import hidden_desktop, player_gpu_args, start_player
 
 DEFAULTS = {'family': 'roboboat_2026', 'scene': 'Roboboat Course', 'scenario': 'cluster',
             'sim_profile': 'full', 'duration': 30, 'warmup': 5, 'time_scale': 1, 'batchmode': True,
@@ -81,9 +81,10 @@ def windows_session_id():
 
 
 def window_visible(env):
-    """Would a player window be visible to someone on this host?"""
+    """Would a player window be visible to someone on this host? Not in session 0, nor on the GPU runner's
+    hidden desktop (``CRANE_DESKTOP``)."""
     if sys.platform == 'win32':
-        return windows_session_id() != 0
+        return windows_session_id() != 0 and not hidden_desktop(env)
     return bool(env.get('DISPLAY') or env.get('WAYLAND_DISPLAY'))
 
 
@@ -150,17 +151,8 @@ class ClusterBackend:
     def run(self, seed):
         run_dir = Path(self.ctx.work_dir) / 'runs' / f's{int(seed)}'
         run_dir.mkdir(parents=True, exist_ok=True)
-        kw = {'cwd': str(self.player.parent), 'env': self.env,
-              'stdout': subprocess.DEVNULL, 'stderr': subprocess.DEVNULL}
-        if sys.platform == 'win32':
-            si = subprocess.STARTUPINFO()
-            si.dwFlags |= subprocess.STARTF_USESHOWWINDOW  # SW_HIDE for any window the player makes
-            kw.update(startupinfo=si, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
-                      | subprocess.BELOW_NORMAL_PRIORITY_CLASS)
-        else:
-            kw['start_new_session'] = True
         t0 = time.time()
-        self.proc = subprocess.Popen(self.argv(seed, run_dir), **kw)
+        self.proc = start_player(self.argv(seed, run_dir), str(self.player.parent), self.env)
         try:
             rc = self.proc.wait(timeout=float(self.job['timeout_s']))
         except subprocess.TimeoutExpired:

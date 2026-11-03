@@ -76,3 +76,27 @@ def player_gpu_args(args, adapters=None):
         return []
     idx = discrete_index(dxgi_adapters() if adapters is None else adapters)
     return [] if idx is None else ['-force-device-index', str(idx)]
+
+
+def hidden_desktop(env):
+    """The hidden desktop the GPU runner starts players on (``CRANE_DESKTOP``), or None."""
+    return env.get('CRANE_DESKTOP') if sys.platform == 'win32' else None
+
+
+def start_player(argv, cwd, env):
+    """Starts a player at below-normal priority with no console window, detached from the worker's signals.
+    Under the GPU runner (Windows, the user's desktop session) it starts on the runner's hidden desktop
+    (crane_cluster/hiddendesk.py), so nothing it opens can be seen or take focus."""
+    import subprocess
+    if sys.platform != 'win32':
+        return subprocess.Popen(argv, cwd=cwd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                start_new_session=True)
+    flags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW | subprocess.BELOW_NORMAL_PRIORITY_CLASS
+    desk = hidden_desktop(env)
+    if desk:
+        from crane_cluster import hiddendesk
+        return hiddendesk.popen(argv, desk, cwd=cwd, env=env, creationflags=flags)
+    si = subprocess.STARTUPINFO()
+    si.dwFlags |= subprocess.STARTF_USESHOWWINDOW  # SW_HIDE for any window the player makes
+    return subprocess.Popen(argv, cwd=cwd, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                            startupinfo=si, creationflags=flags)
