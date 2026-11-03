@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mismatch, parseNeeds, sanitizeCaps } from "../src/match";
+import { mismatch, parseNeeds, sanitizeCaps, sanitizePolicy } from "../src/match";
 
 const cpu = { os: "linux", arch: "x86_64", cpu: 8, ram_gb: 16, gpu: null, vulkan: false, tags: ["lab"], backends: ["dummy", "fast"] };
 const gpu = { ...cpu, os: "windows", gpu: "rtx 4070", gpu_count: 1, vram_gb: 12, vulkan: true, backends: ["dummy", "render"] };
@@ -53,5 +53,17 @@ describe("scheduler matching", () => {
 
   it("sanitizeCaps keeps known, well-typed fields only", () => {
     expect(sanitizeCaps({ os: "Linux", cpu: 4, vulkan: "yes", evil: 1, backends: ["dummy"] })).toEqual({ os: "linux", cpu: 4, backends: ["dummy"] });
+  });
+});
+
+describe("a GPU runner's window", () => {
+  it("matches only while its window is open, and keeps a valid window from the worker", () => {
+    const open = { window: { enabled: true, open: true, until: "2026-11-03T08:00-06:00" } };
+    expect(mismatch("render", {}, gpu, open)).toBeNull();
+    expect(mismatch("render", {}, gpu, { window: { enabled: true, open: false } })).toBe("policy: outside its GPU window");
+    expect(mismatch("render", {}, gpu, { window: { enabled: false, open: true } })).toBe("policy: outside its GPU window");
+    const p = sanitizePolicy({ window: { open: false, next_at: "2026-11-03T01:00-06:00", until: "soon", waiting: "x".repeat(200), extra: 1 } });
+    expect(p.window).toEqual({ enabled: true, open: false, next_at: "2026-11-03T01:00-06:00", waiting: "x".repeat(80) });
+    expect(sanitizePolicy({ window: { next_at: "2026-11-03T01:00-06:00" } }).window).toBeUndefined();
   });
 });

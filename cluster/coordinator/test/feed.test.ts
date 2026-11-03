@@ -2,7 +2,7 @@ import { env } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
 import { durationModel, modelRunSeconds, runWalls } from "../src/feed";
 import { alias, checkPurpose, scrub } from "../src/purpose";
-import { JOB_META, addJobs, admin, call, callJson, lease, makeWorker, resetTables } from "./helpers";
+import { GPU_CAPS, JOB_META, addJobs, admin, call, callJson, lease, makeWorker, resetTables } from "./helpers";
 
 beforeEach(resetTables);
 
@@ -180,5 +180,26 @@ describe("scrubber and aliases", () => {
     const base = { job_id: "j", attempt: 1, run_attempt: 1, leased_at_ms: 1_000_000, ended_at: new Date(1_030_000).toISOString(), wall_s: 0.001 };
     const out = runWalls([base, base, { ...base, wall_s: 25 }, { ...base, run_attempt: 0 }, { ...base, job_id: "k", ended_at: null }]);
     expect(out.map((r) => r.wall_s)).toEqual([10, 10, 25, 0.001, 0.001]);
+  });
+});
+
+describe("a GPU runner in the feed", () => {
+  it("shows its next window, schedules GPU jobs from it, and leases them only inside it", async () => {
+    const caps = { ...GPU_CAPS, os: "windows", backends: ["unity"] };
+    const w = await makeWorker("simwin-gpu", caps);
+    const next = new Date(Date.now() + 3 * 3600_000).toISOString();
+    const [id] = await addJobs([{ backend: "unity", seeds: [1] }]);
+    const closed = { window: { enabled: true, open: false, next_at: next, waiting: "outside the GPU window" } };
+    // A closed runner reports with a lease for no job, and even a real lease call gets nothing.
+    expect((await lease(w, 0, { policy: closed, state: "paused" })).body.jobs).toEqual([]);
+    expect((await lease(w, 1, { policy: closed })).body.jobs).toEqual([]);
+    await lease(w, 0, { policy: closed, state: "paused" });
+    const feed = (await callJson("GET", "/v1/feed")).body;
+    expect(feed.workers.find((x: { alias: string }) => x.alias === "simwin-gpu").window).toMatchObject({ open: false, next_at: next });
+    const job = feed.jobs.find((j: { id: string }) => j.id === id);
+    expect(job.eta.window_at).toBe(next);
+    expect(Date.parse(job.eta.start_at)).toBe(Date.parse(next));
+    const open = { window: { enabled: true, open: true, until: next } };
+    expect((await lease(w, 1, { policy: open })).body.jobs.map((j: { job_id: string }) => j.job_id)).toEqual([id]);
   });
 });

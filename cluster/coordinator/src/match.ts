@@ -35,6 +35,16 @@ export interface Policy {
   require_tags?: string[]; // only take jobs that carry at least one of these tags (reserved machines)
   quiet_hours?: string[];
   pause_on_activity?: boolean;
+  window?: Window; // a GPU runner's schedule (crane_cluster/gpuwindow.py): it leases only while open
+}
+
+/** A GPU runner's window as it last reported it: open until `until`, or closed until `next_at` (ISO times). */
+export interface Window {
+  enabled: boolean;
+  open: boolean;
+  until?: string;
+  next_at?: string;
+  waiting?: string; // why it is not leasing now (outside the hours, the user active)
 }
 
 const asList = (v: string | string[] | undefined): string[] | null =>
@@ -56,6 +66,7 @@ export function mismatch(backend: string, needs: Needs, caps: Caps, policy: Poli
   const tags = new Set(caps.tags ?? []);
   for (const t of needs.tags ?? []) if (!tags.has(t)) return `tag ${t}`;
   if (policy.max_est_minutes !== undefined && (needs.est_minutes ?? 0) > policy.max_est_minutes) return "policy: too long";
+  if (policy.window && !(policy.window.enabled && policy.window.open)) return "policy: outside its GPU window";
   if (policy.require_tags?.length && !(needs.tags ?? []).some((t) => policy.require_tags!.includes(t))) return "policy: reserved";
   return null;
 }
@@ -127,6 +138,14 @@ export function sanitizePolicy(v: unknown): Policy {
   // Informational only (the worker enforces them locally); kept for status views.
   if (strs(v.quiet_hours)) out.quiet_hours = v.quiet_hours as string[];
   if (typeof v.pause_on_activity === "boolean") out.pause_on_activity = v.pause_on_activity;
+  const w = v.window;
+  if (isObject(w) && typeof w.open === "boolean") {
+    const iso = (x: unknown) => (typeof x === "string" && x.length <= 40 && !Number.isNaN(Date.parse(x)) ? x : undefined);
+    out.window = { enabled: w.enabled !== false, open: w.open };
+    if (iso(w.until)) out.window.until = iso(w.until);
+    if (iso(w.next_at)) out.window.next_at = iso(w.next_at);
+    if (typeof w.waiting === "string") out.window.waiting = w.waiting.slice(0, 80);
+  }
   return out;
 }
 

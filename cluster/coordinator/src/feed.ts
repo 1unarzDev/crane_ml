@@ -233,10 +233,22 @@ export async function buildFeed(env: Env, opts: { recent?: number; jobId?: strin
 
   // ---- ETAs: running jobs free their worker at their expected end; queued jobs go, in lease order, to the
   // eligible live worker that frees up first.
+  // A GPU runner outside its window (paused) is scheduled from its next opening, with its window counted open.
+  const opensAt = new Map<string, number>();
+  const windowAt = (w: Row) => {
+    const win = parseJson<Policy>(w.policy_json as string, {}).window;
+    return win?.enabled && !win.open && win.next_at ? Date.parse(win.next_at) : null;
+  };
   const sched: SchedWorker[] = workerRows
-    .filter((w) => live(w) && w.state !== "paused")
-    .map((w) => ({ id: w.id as string, caps: parseJson<Caps>(w.caps_json as string, {}), policy: parseJson<Policy>(w.policy_json as string, {}), free_at: nowMs }));
-  const eta = new Map<string, { start: number | null; end: number | null; position: number | null; note: string | null }>();
+    .filter((w) => live(w) && (w.state !== "paused" || windowAt(w) !== null))
+    .map((w) => {
+      const policy = parseJson<Policy>(w.policy_json as string, {});
+      const at = windowAt(w);
+      if (at !== null) opensAt.set(w.id as string, at);
+      return { id: w.id as string, caps: parseJson<Caps>(w.caps_json as string, {}), free_at: Math.max(nowMs, at ?? nowMs),
+        policy: policy.window ? { ...policy, window: { ...policy.window, open: true } } : policy };
+    });
+  const eta = new Map<string, { start: number | null; end: number | null; position: number | null; note: string | null; window_at?: number | null }>();
   for (const j of activeJobs.filter((x) => x.status === "leased")) {
     const done = runCounts.get(j.job_id);
     const left = Math.max(0, nSeeds(j) - (done ? done.ok + done.failed : 0));
@@ -255,12 +267,21 @@ export async function buildFeed(env: Env, opts: { recent?: number; jobId?: strin
     const needs = parseJson<Needs>(j.needs_json, {});
     const ok = sched.filter((w) => matches(j.backend, needs, w.caps, w.policy));
     if (!ok.length) {
-      eta.set(j.job_id, { start: null, end: null, position, note: `no live worker can run ${j.backend} with these needs` });
+      // A GPU runner that could run it but waits (window open, the PC in use; or switched off) says so.
+      const runner = workerRows.find((w) => {
+        const p = parseJson<Policy>(w.policy_json as string, {});
+        return live(w) && p.window && matches(j.backend, needs, parseJson<Caps>(w.caps_json as string, {}), { ...p, window: { ...p.window, enabled: true, open: true } });
+      });
+      const win = runner && parseJson<Policy>(runner.policy_json as string, {}).window;
+      const note = !win ? `no live worker can run ${j.backend} with these needs`
+        : !win.enabled ? "GPU window off" : "GPU window open; waiting for the PC to be idle";
+      eta.set(j.job_id, { start: null, end: null, position, note });
       continue;
     }
     const w = ok.reduce((a, b) => (b.free_at < a.free_at ? b : a));
     const dur = nSeeds(j) * (runS(j).used ?? FALLBACK_RUN_S) * speedOf(w.id, j.backend) * 1000;
-    eta.set(j.job_id, { start: w.free_at, end: w.free_at + dur, position, note: null });
+    const opens = opensAt.get(w.id);
+    eta.set(j.job_id, { start: w.free_at, end: w.free_at + dur, position, note: null, window_at: opens !== undefined && w.free_at === opens ? opens : null });
     w.free_at += dur;
   }
 
@@ -294,7 +315,8 @@ export async function buildFeed(env: Env, opts: { recent?: number; jobId?: strin
       },
       queue_position: state === "queued" ? (e?.position ?? null) : null,
       eta: e && (state === "queued" || state === "running")
-        ? { start_at: e.start === null ? null : nowIso(e.start), done_at: e.end === null ? null : nowIso(e.end), remaining_s: e.end === null ? null : round((e.end - nowMs) / 1000, 0), note: e.note }
+        ? { start_at: e.start === null ? null : nowIso(e.start), done_at: e.end === null ? null : nowIso(e.end), remaining_s: e.end === null ? null : round((e.end - nowMs) / 1000, 0), note: e.note,
+            window_at: e.window_at ? nowIso(e.window_at) : null }
         : null,
       progress: { runs_ok: c.ok, runs_failed: c.failed, fraction: n ? round((c.ok + c.failed) / n, 3) : null },
       worker: state === "running" ? aliasOf.get(j.lease_worker as string) ?? null : null,
@@ -357,6 +379,7 @@ export async function buildFeed(env: Env, opts: { recent?: number; jobId?: strin
         state: live(w) ? ((w.state as string) ?? "idle") : "offline",
         last_seen: w.last_seen ?? null,
         backends: parseJson<Caps>(w.caps_json as string, {}).backends ?? [],
+        window: parseJson<Policy>(w.policy_json as string, {}).window ?? null,
         job: activeJobs.find((j) => j.status === "leased" && j.lease_worker === w.id)?.job_id ?? null,
       }))
       .sort((a, b) => Number(b.live) - Number(a.live) || String(a.alias).localeCompare(String(b.alias))),
