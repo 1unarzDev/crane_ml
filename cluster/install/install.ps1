@@ -13,9 +13,15 @@
 # -Background: the task runs whether or not anyone is logged in (S4U, Windows session 0), so nothing it
 # starts can show a window on a desktop; a second hidden task in the user's desktop session
 # (crane-idleprobe, at logon) reports input idle time for pause_on_activity.
+# GPU runner: when worker.yaml has a gpu_window: section, its backends (unity, theater-render) cannot render in
+# session 0, so a second task, crane-gpu, runs them in the user's desktop session ("only when the user is logged
+# on", hidden, below normal): it leases only inside the window's hours while the PC is idle or locked, and gives a
+# job back at the first input (cluster/crane_cluster/gpuwindow.py). -GpuInvite joins its identity (<name>-gpu).
+# crane-gpu-check (on demand, no trigger) runs its one-time unseen-render check: schtasks /run /tn crane-gpu-check.
 param(
   [Parameter(Mandatory = $true)][string]$Coordinator,
   [string]$Invite = "",
+  [string]$GpuInvite = "",
   [string]$Name = "",
   [string]$Source = "",
   [string]$Python = "",
@@ -138,6 +144,14 @@ if ($Invite) {
   if ($LASTEXITCODE -ne 0) { throw "join failed" }
 }
 
+# 4b. the GPU runner's identity
+$gpuWindow = [bool](Select-String -Path $config -Pattern '^gpu_window:' -Quiet)
+if ($GpuInvite) {
+  if (-not $gpuWindow) { throw "-GpuInvite: add a gpu_window: section to $config first" }
+  & $py -m crane_cluster.worker --config $config --gpu-window join --coordinator $Coordinator --invite $GpuInvite
+  if ($LASTEXITCODE -ne 0) { throw "GPU runner join failed" }
+}
+
 # 5. scheduled task
 if ($NoTask) { Write-Host "run with: `$env:PYTHONPATH='$lib'; python -m crane_cluster.worker --config '$config' run"; exit 0 }
 # A .pyw launcher run by pythonw.exe: no console window, and no environment variables needed.
@@ -182,6 +196,37 @@ if ($Background) {
     (New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 5)))
   Register-ScheduledTask -TaskName "crane-worker" -Action $action -Trigger $trigger -Settings $settings `
     -Description "crane cluster worker" -Force | Out-Null
+}
+if ($gpuWindow -and -not $NoTask) {
+  # The GPU runner: the user's session, only while he is logged on (Interactive), hidden, below normal priority.
+  # It decides itself when to lease (its window and his idle time); the 5-minute trigger restarts it after a drain.
+  foreach ($t in @(@{n = "crane-gpu"; a = "run"; log = "gpu.log"}, @{n = "crane-gpu-check"; a = "gpu-check"; log = "gpu-check.log"})) {
+    $file = Join-Path $prefix "$($t.n).pyw"
+    Set-Content -Path $file -Encoding UTF8 -Value @(
+      "import logging, sys",
+      "sys.path.insert(0, '$libLit')",
+      "logging.basicConfig(filename=r'$prefix\$($t.log)', level=logging.INFO)",
+      "from crane_cluster.worker import main",
+      "main(['--config', '$confLit', '--gpu-window', '$($t.a)'])"
+    )
+  }
+  $gpuPrincipal = New-ScheduledTaskPrincipal -UserId $user -LogonType Interactive -RunLevel Limited
+  $gpuTriggers = @((New-ScheduledTaskTrigger -AtLogOn -User $user),
+    (New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 5)))
+  Register-ScheduledTask -TaskName "crane-gpu" -Trigger $gpuTriggers -Settings $settings -Principal $gpuPrincipal `
+    -Action (New-ScheduledTaskAction -Execute $pyw -Argument "`"$(Join-Path $prefix 'crane-gpu.pyw')`"" -WorkingDirectory $prefix) `
+    -Description "crane GPU runner: unity/theater jobs in this session, only inside gpu_window hours while the PC is idle or locked" -Force | Out-Null
+  $checkSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -Hidden -Priority 7 -ExecutionTimeLimit (New-TimeSpan -Minutes 20)
+  Register-ScheduledTask -TaskName "crane-gpu-check" -Settings $checkSettings -Principal $gpuPrincipal `
+    -Action (New-ScheduledTaskAction -Execute $pyw -Argument "`"$(Join-Path $prefix 'crane-gpu-check.pyw')`"" -WorkingDirectory $prefix) `
+    -Description "crane GPU runner check (on demand, while the user is away): a short hidden player run" -Force | Out-Null
+  $gpuState = $null
+  try { $gpuState = (Get-Content -Raw (Join-Path $prefix "gpu\state.json") | ConvertFrom-Json).state } catch { }
+  if ((Get-ScheduledTask -TaskName "crane-gpu").State -eq "Running") {
+    if ($gpuState -in "idle", "paused", "stopped") { Stop-ScheduledTask -TaskName "crane-gpu"; Start-ScheduledTask -TaskName "crane-gpu" }
+    else { & $py -m crane_cluster.worker --config $config --gpu-window drain }
+  } else { Start-ScheduledTask -TaskName "crane-gpu" }   # in a logged-off session it starts at the next logon
+  Write-Host "GPU runner: task crane-gpu (status: $bin\crane-worker.cmd --gpu-window status)"
 }
 $state = $null
 try { $state = (Get-Content -Raw (Join-Path $prefix "state.json") | ConvertFrom-Json).state } catch { }

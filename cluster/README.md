@@ -262,6 +262,19 @@ pass `-force-device-index` for the adapter with the most dedicated memory (`back
 `-force-device-index` wins), and `install.ps1` sets the per-app "high performance" GPU preference
 (`HKCU\Software\Microsoft\DirectX\UserGpuPreferences`) for the players it finds.
 
+GPU window (a shared Windows PC): session 0 cannot render (Unity's D3D12 device fails with 887a0022,
+D3D11 hangs), so a `gpu_window:` section in worker.yaml moves its backends (default unity and
+theater-render) out of the background worker into the GPU runner, task `crane-gpu` (Interactive: only
+while the user is logged on, hidden, below normal; `crane-worker --gpu-window ...`, its own identity
+`<name>-gpu`, joined with `install.ps1 -GpuInvite CODE`). It leases only inside `hours` (default
+`mon-fri 01:00-08:00` and `fri,sat 23:00-11:00`, local) while the PC has had no input for
+`idle_seconds` (600) or is locked; any input, an unlock or the window's end kills the player and releases
+the job within a second, no attempt counted. Players run `-batchmode` on a hidden desktop that is never
+shown (`crane_cluster/hiddendesk.py`). The feed shows "GPU window: next at HH:MM". `enabled: false` keeps
+the window reported but leases nothing; `schtasks /run /tn crane-gpu-check` (while the user is away) runs a
+short player there and writes `%LOCALAPPDATA%\crane-cluster\gpu\gpu-check.json` (`ok`: it rendered, with no
+window of it on the visible desktop and never the foreground).
+
 Isolation: each job gets `CRANE_PORT_BASE` and `CRANE_ISOLATION_ID` (template fields
 `{port_base}`, `{isolation_id}`), so a backend can derive non-overlapping ports or
 middleware domain ids; concurrent jobs on one worker get consecutive slots.

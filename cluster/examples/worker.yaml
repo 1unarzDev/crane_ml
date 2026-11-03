@@ -19,6 +19,17 @@ policy:
   idle_seconds: 600
   max_est_minutes: 120
 
+# A shared Windows PC: GPU backends cannot render from the background task (session 0), so a second worker, the
+# GPU runner (task crane-gpu, install.ps1), runs them in the user's session, only inside these hours (local time;
+# a range past midnight ends the next day) while the PC is idle or locked; any input or an unlock gives the job
+# back within a second. enabled: false keeps it reporting its window but leasing nothing (crane_cluster/gpuwindow.py).
+# gpu_window:
+#   enabled: true
+#   backends: [unity, theater-render]
+#   hours: ["mon-fri 01:00-08:00", "fri,sat 23:00-11:00"]
+#   idle_seconds: 600
+#   locked_idle_seconds: 60
+
 # The host's own pause rule: exit 0 = pause (release the running job, lease nothing).
 # pause_when: "test -e ~/.cache/my-app/busy"
 
