@@ -158,5 +158,38 @@ Shader "Hidden/Crane/TheaterWorld" {
             }
             ENDHLSL
         }
+
+        // 5: far wash: the same plane where something stands in front of it (ZTest Greater) far from the camera
+        // (_WashFar: distances where it starts and is full) or in the frame's corners (_WashFar.z: vignette level), so a
+        // distant shore or a corner of foam reads as the same navy; buoys and boats near the course keep their colour.
+        Pass {
+            Name "WashFar"
+            Blend SrcAlpha OneMinusSrcAlpha
+            ZWrite Off ZTest Greater Cull Off
+            HLSLPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            float4 _WashRect; float _WashY; float4 _WashColor; float4 _WashView; float4 _WashFar;
+            struct V { float4 pos : SV_POSITION; float3 w : TEXCOORD0; };
+            V vert(uint vid : SV_VertexID) {
+                float2 q[6] = { float2(0, 0), float2(1, 0), float2(1, 1), float2(0, 0), float2(1, 1), float2(0, 1) };
+                float2 uv = q[vid];
+                V o;
+                o.w = float3(lerp(_WashRect.x, _WashRect.z, uv.x), _WashY, lerp(_WashRect.y, _WashRect.w, uv.y));
+                o.pos = Clip(o.w);
+                return o;
+            }
+            float4 frag(V i) : SV_Target {
+                float2 p = i.pos.xy / max(_WashView.xy, 1) * 2 - 1;
+                p.x *= _WashView.x / max(_WashView.y, 1) * 0.75;
+                float vig = smoothstep(_WashView.w, 1.6, length(p)) * _WashView.z;
+                float far = smoothstep(_WashFar.x, _WashFar.y, distance(i.w, _CamPos));
+                float corner = _WashFar.z > 0 ? smoothstep(_WashFar.z, _WashFar.z + 0.15, vig) : 0;
+                float a = max(far, corner) * saturate(_WashColor.a + vig * (1 - _WashColor.a));
+                clip(a - 0.002);
+                return float4(_WashColor.rgb * (1 - 0.5 * vig), a);
+            }
+            ENDHLSL
+        }
     }
 }

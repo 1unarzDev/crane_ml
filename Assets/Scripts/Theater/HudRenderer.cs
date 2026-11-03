@@ -253,6 +253,10 @@ namespace Crane.Theater {
                 HeroRow(cx - pw * 0.5f + 22 * s, top - 30 * s, pw - 44 * s, Colormaps.Gold, "BEST", m.goldId, m.goldScore, m.goldDuration, m.goldProgress, m.goldDone);
                 if (two) {
                     HeroRow(cx - pw * 0.5f + 22 * s, top - 96 * s, pw - 44 * s, Colormaps.Silver, "PREVIOUS", m.silverId, m.silverScore, m.silverDuration, m.silverProgress, m.silverDone);
+                    if (m.goldDone && m.goldDuration < m.silverDuration) {   // gold is in: the silver run's lag counts up until it arrives
+                        float late = (m.silverDone ? m.silverDuration : m.runTime) - m.goldDuration;
+                        Text($"{(m.silverDone ? "arrived " : "")}+{F(late, "0")} s", cx - pw * 0.5f + 48 * s, top - 140 * s, 18, Colormaps.Silver, 0, FontStyle.Bold);
+                    }
                     float dt = m.goldDuration - m.silverDuration;
                     Text($"Δ {(dt >= 0 ? "+" : "")}{F(dt, "0.0")} s", cx + pw * 0.5f - 22 * s, top - 140 * s, 18, Dim, 1);
                 }
@@ -325,7 +329,7 @@ namespace Crane.Theater {
             if (!spot) {
                 var rows = st.Rows(active);
                 float ry = pad + 6 * s, vw = 0;
-                foreach (var r in rows) vw = Mathf.Max(vw, Measure(r.value, 22, FontStyle.Normal, true));
+                foreach (var r in active >= 0 ? st.AllIterationRows() : rows) vw = Mathf.Max(vw, Measure(r.value, 22, FontStyle.Normal, true));   // one width for every iteration: the panel does not jump
                 float x0 = pad + Measure(st.iterLabel.ToLowerInvariant(), 16, FontStyle.Normal) + 14 * s;
                 float cw = 44 * s, ch = 16 * s, gap = 8 * s;
                 float blockW = Mathf.Max(300 * s + vw, m.colour == "iteration" ? x0 - pad + n * (cw + gap) : 0);
@@ -347,7 +351,7 @@ namespace Crane.Theater {
                         float x = x0 + i * (cw + gap);
                         if (it == cur) Rect(x - 2 * s, ly - 2 * s, cw + 4 * s, ch + 4 * s, Ink.WithA(0.9f));
                         Rect(x, ly, cw, ch, col.WithA(lit ? 1f : (cur >= 0 && it < cur ? 0.45f : 0.25f)));
-                        Text(it.ToString(CultureInfo.InvariantCulture), x + cw * 0.5f, ly + ch + 8 * s, 15, lit ? Ink : Dim, 0.5f, it == cur ? FontStyle.Bold : FontStyle.Normal, false, true);
+                        Text(it.ToString(CultureInfo.InvariantCulture), x + cw * 0.5f, ly + ch + 8 * s, 15, lit ? Ink : Dim, 0.5f, FontStyle.Normal, false, true);   // one weight: the mono font has no bold face
                     }
                 }
             }
@@ -408,7 +412,8 @@ namespace Crane.Theater {
         /// <summary>World labels (projected ring labels and the like): clamped to the safe area and moved off the HUD's
         /// blocks and each other (the nearest free place, a thin leader back to the anchor when it moved far).</summary>
         void WorldLabels(HudModel m, float pad) {
-            foreach (var (at, label, col) in m.labels) {
+            foreach (var r in m.avoid) occupied.Add(r);
+            foreach (var (at, anchor, label, col) in m.labels) {
                 float lw = Measure(label, 18, FontStyle.Bold, true) + 16 * s, lh = 28 * s;
                 var want = new Rect(at.x - lw * 0.5f, at.y - 7 * s, lw, lh);
                 Rect best = Clamp(want, pad);
@@ -423,7 +428,11 @@ namespace Crane.Theater {
                         }
                     if (bestD == float.MaxValue) continue;   // nowhere free: better no label than one over the numbers
                 }
-                if (Vector2.Distance(best.center, want.center) > 40 * s) Line(new Vector2(at.x, at.y + 7 * s), best.center, 1.5f * s, col.WithA(0.6f));
+                if (Vector2.Distance(best.center, anchor) > 30 * s) {   // a leader from the point the label names to the label's near edge
+                    var edge = new Vector2(Mathf.Clamp(anchor.x, best.xMin, best.xMax), Mathf.Clamp(anchor.y, best.yMin, best.yMax));
+                    Line(anchor, edge, 1.5f * s, col.WithA(0.7f));
+                    Dot(anchor, 3f * s, col);
+                }
                 Rect(best.x, best.y, best.width, best.height, Panel.WithA(Mathf.Max(0.75f, Panel.a)));
                 occupied.Add(best);
                 Text(label, best.center.x, best.y + 7 * s, 18, col, 0.5f, FontStyle.Bold, true, true);
@@ -514,6 +523,10 @@ namespace Crane.Theater {
                     foreach (var kv in notes) if (int.TryParse(kv.Key, out int it) && kv.Value is string t) sparkNotes[it] = t;
                 if (labs != null) { sparkPointLabels = new string[labs.Count]; for (int i = 0; i < labs.Count; i++) sparkPointLabels[i] = labs[i] as string ?? ""; }
             }
+        }
+
+        public IEnumerable<(string label, string value, Color? color)> AllIterationRows() {
+            foreach (var kv in metrics) if (kv.Key != "all") foreach (var r in kv.Value) yield return r;
         }
 
         public List<(string label, string value, Color? color)> Rows(int iteration) =>

@@ -257,20 +257,34 @@ namespace Crane.Theater {
             exit(encoded && capture.Frames == b - a ? 0 : 4);
         }
 
-        /// <summary>Manifest <c>hud.labels</c> [{x, y, text, color, acts, dx, dy}]: text pinned to a point on the water
-        /// (trajectory frame), projected with this frame's camera into the HUD's pixels.</summary>
+        /// <summary>Manifest <c>hud.labels</c> [{x, y, text, color, acts, dx, dy, anchor: [x, y], after_s}]: text pinned to a
+        /// point on the water (trajectory frame), projected with this frame's camera into the HUD's pixels. With an anchor
+        /// the label sits at (x, y) and a leader runs back to the anchor (the point it names). A label waits after_s into its
+        /// act (while a camera settles) and is dropped while its anchor is off the frame (never clamped onto the edge).
+        /// The spotlight's boats are kept clear of labels.</summary>
         static void WorldLabels(TheaterManifest manifest, ITheaterWorld world, Camera cam, FrameState fs) {
+            foreach (var g in fs.heroes) {
+                var hp = cam.WorldToScreenPoint(g.pos);
+                if (hp.z > 0) fs.hud.avoid.Add(new Rect(hp.x - 70, hp.y - 45, 140, 90));
+            }
             var labels = TJson.Arr(TJson.Obj(manifest.Raw, "hud"), "labels");
             if (labels == null) return;
             foreach (var o in labels) {
                 var acts = TJson.Arr(o, "acts");
                 if (acts != null && !acts.Contains((double)fs.act)) continue;
-                var p = world.ToUnity((float)TJson.Num(o, "x"), (float)TJson.Num(o, "y"), 0);
-                p.y = world.SurfaceY(p);
-                var sp = cam.WorldToScreenPoint(p);
-                if (sp.z <= 0) continue;
+                if (fs.tau < TJson.Num(o, "after_s", 0)) continue;
+                Vector3 Project(float x, float y) {
+                    var p = world.ToUnity(x, y, 0);
+                    p.y = world.SurfaceY(p);
+                    return cam.WorldToScreenPoint(p);
+                }
+                var sp = Project((float)TJson.Num(o, "x"), (float)TJson.Num(o, "y"));
+                var an = TJson.Arr(o, "anchor");
+                var ap = an != null && an.Count == 2 ? Project(Convert.ToSingle(an[0]), Convert.ToSingle(an[1])) : sp;
+                if (sp.z <= 0 || ap.z <= 0) continue;
+                if (ap.x < 0 || ap.y < 0 || ap.x > cam.pixelWidth || ap.y > cam.pixelHeight) continue;
                 var col = TheaterOverlay.Hex(o, "color", Color.white);
-                fs.hud.labels.Add((new Vector2(sp.x + (float)TJson.Num(o, "dx"), sp.y + (float)TJson.Num(o, "dy")), TJson.Str(o, "text", ""), col));
+                fs.hud.labels.Add((new Vector2(sp.x + (float)TJson.Num(o, "dx"), sp.y + (float)TJson.Num(o, "dy")), new Vector2(ap.x, ap.y), TJson.Str(o, "text", ""), col));
             }
         }
 

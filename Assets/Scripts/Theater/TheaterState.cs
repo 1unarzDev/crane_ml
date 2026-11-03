@@ -21,7 +21,8 @@ namespace Crane.Theater {
 
     public sealed class HudModel {
         public string title, caption, headline = "", actType, colour, ramp, legendLo, legendHi, insight = "";
-        public readonly List<(Vector2 at, string text, Color color)> labels = new List<(Vector2, string, Color)>();   // world labels, in pixels
+        public readonly List<(Vector2 at, Vector2 anchor, string text, Color color)> labels = new List<(Vector2, Vector2, string, Color)>();   // world labels and the points they name, in pixels
+        public readonly List<Rect> avoid = new List<Rect>();   // pixels world labels keep off (the spotlight's boats)
         public int iteration = -1, iterFrom, iterTo, iterCount, iterMin, runs, finished, failed, running;
         public int active = -1;
         public int current = -1;   // the iteration that stands out (legend chip)   // the one iteration the frame shows (its evolution step, the act's only iteration, a compare's hero), else -1
@@ -303,6 +304,7 @@ namespace Crane.Theater {
                 }
                 else hud.running++;
                 if (a.history && r.iteration < current) op *= a.pastAlpha;
+                if (a.fadeIn > 0) op *= Smoothstep(tr / (a.fadeIn * Mathf.Max(1e-3f, a.speed)));
                 c.a = op;
                 g.color = c;
                 st.ghosts.Add(g);
@@ -381,12 +383,12 @@ namespace Crane.Theater {
             if (p.hero >= 0) {
                 var g = M.Runs[p.hero];
                 h.goldId = g.id; h.goldIter = g.iteration; h.goldScore = g.score; h.goldDuration = Arrival(g); h.goldDone = t >= h.goldDuration;
-                h.goldProgress = M.Pack.At(p.hero, Mathf.Min(t, g.duration)).progress;
+                h.goldProgress = h.goldDone ? 1f : M.Pack.At(p.hero, Mathf.Min(t, g.duration)).progress;   // arrival fills the bar
             }
             if (p.previous >= 0) {
                 var s = M.Runs[p.previous];
                 h.silverId = s.id; h.silverIter = s.iteration; h.silverScore = s.score; h.silverDuration = Arrival(s); h.silverDone = t >= h.silverDuration;
-                h.silverProgress = M.Pack.At(p.previous, Mathf.Min(t, s.duration)).progress;
+                h.silverProgress = h.silverDone ? 1f : M.Pack.At(p.previous, Mathf.Min(t, s.duration)).progress;
                 if (p.hero >= 0) {
                     var g = M.Runs[p.hero];
                     var labels = TJson.Obj(TJson.Obj(M.Raw, "hud"), "param_labels");   // {key: label}: only these, in this order

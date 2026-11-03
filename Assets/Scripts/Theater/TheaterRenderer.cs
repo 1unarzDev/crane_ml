@@ -33,7 +33,8 @@ namespace Crane.Theater {
         readonly TheaterState st;
         readonly ITheaterRobot robot;
         readonly Material mat;
-        readonly Mesh ghostMesh;
+        readonly Mesh ghostMesh, chevronMesh;
+        bool chevrons;
         GraphicsBuffer ghostBuf, heroBuf, markerBuf;
         int ghostCount, heroCount, markerCount;
         readonly GhostGpu[] ghostData, heroData = new GhostGpu[4];
@@ -67,6 +68,7 @@ namespace Crane.Theater {
         bool washOn;
         Color washColor;
         float washLift, washVignette, washStart;
+        Vector3 washFar;   // look.wash.far [start, full] x the camera's distance to the water ahead; corner: vignette level (0: off)
         public readonly Dictionary<string, int> Stats = new Dictionary<string, int>();
 
         public TheaterRenderer(TheaterState state, ITheaterRobot robot) {
@@ -75,6 +77,7 @@ namespace Crane.Theater {
             if (shader == null) throw new InvalidOperationException("theater: shader Resources/CraneTheaterWorld missing");
             mat = new Material(shader) { name = "theater world", hideFlags = HideFlags.DontSave };
             ghostMesh = robot.GhostMesh();
+            chevronMesh = Chevron();
             int max = Mathf.Max(1, st.M.Runs.Count);
             ghostData = new GhostGpu[max];
             ghostBuf = new GraphicsBuffer(GraphicsBuffer.Target.Structured, max, Marshal.SizeOf<GhostGpu>());
@@ -93,6 +96,9 @@ namespace Crane.Theater {
                 washLift = (float)TJson.Num(wash, "lift", 0.3);
                 washVignette = (float)TJson.Num(wash, "vignette", 0);
                 washStart = (float)TJson.Num(wash, "vignette_start", 0.6);
+                var far = TJson.Arr(wash, "far");
+                if (far != null && far.Count == 2) washFar = new Vector3(Convert.ToSingle(far[0]), Convert.ToSingle(far[1]), 0);
+                washFar.z = (float)TJson.Num(wash, "corner", 0);
             }
         }
 
@@ -125,6 +131,7 @@ namespace Crane.Theater {
                 markerData[i] = new MarkerGpu { pos = marks[i].pos, radius = marks[i].radius, age = marks[i].age, color = marks[i].color };
             if (markerCount > 0) markerBuf.SetData(markerData, 0, 0, markerCount);
 
+            chevrons = p.act.ghostShape == "chevron";
             ghostProps.SetFloat("_Core", p.act.ghostCore >= 0 ? p.act.ghostCore : 0.22f);
             ghostProps.SetFloat("_Rim", p.act.ghostRim >= 0 ? p.act.ghostRim : 1.6f);
             cometsOn = p.act.trails == "comet" || p.act.trails == "top";
@@ -137,6 +144,19 @@ namespace Crane.Theater {
             if (heatOn) AdvanceHeat(f);
             st.Overlay?.Prepare(f, st, st.S.Fps);
             Ready = true;
+        }
+
+        /// <summary>A flat heading arrow (+z forward, 1.5 m long at scale 1) lifted above the still water's crests, both
+        /// faces, normals up: many of them overlapping read as arrows, not as a stack of translucent hulls.</summary>
+        static Mesh Chevron() {
+            const float y = 0.25f;
+            var v = new[] { new Vector3(0, y, 0.9f), new Vector3(0.55f, y, -0.6f), new Vector3(0, y, -0.25f), new Vector3(-0.55f, y, -0.6f) };
+            var m = new Mesh { name = "theater chevron" };
+            m.SetVertices(v);
+            m.SetNormals(new[] { Vector3.up, Vector3.up, Vector3.up, Vector3.up });
+            m.SetTriangles(new[] { 0, 1, 2, 0, 2, 3, 0, 2, 1, 0, 3, 2 }, 0);
+            m.bounds = new Bounds(Vector3.zero, Vector3.one * 4f);
+            return m;
         }
 
         static GhostGpu Gpu(GhostDraw g) => new GhostGpu {
@@ -370,6 +390,15 @@ namespace Crane.Theater {
                 mat.SetVector("_WashColor", new Vector4(washColor.r, washColor.g, washColor.b, washColor.a));
                 mat.SetVector("_WashView", new Vector4(cam.pixelWidth, cam.pixelHeight, washVignette, washStart));
                 cmd.DrawProcedural(Matrix4x4.identity, mat, 4, MeshTopology.Triangles, 6, 1);
+                if (washFar.x > 0 || washFar.z > 0) {
+                    // the camera's distance to the water straight ahead (or below it) scales the far band
+                    float wy = st.World.SurfaceY(b.center) + washLift;
+                    var ct = cam.transform;
+                    float d0 = ct.forward.y < -0.05f ? (ct.position.y - wy) / -ct.forward.y : Mathf.Max(1f, ct.position.y - wy) * 3f;
+                    var far = washFar.x > 0 ? new Vector4(washFar.x * d0, Mathf.Max(washFar.x + 0.01f, washFar.y) * d0, washFar.z, 0) : new Vector4(1e9f, 2e9f, washFar.z, 0);
+                    mat.SetVector("_WashFar", far);
+                    cmd.DrawProcedural(Matrix4x4.identity, mat, 5, MeshTopology.Triangles, 6, 1);
+                }
             }
             if (heatOn) {
                 mat.SetTexture("_Heat", heatTex);
@@ -387,7 +416,7 @@ namespace Crane.Theater {
                 cmd.DrawMesh(trails, Matrix4x4.identity, mat, 0, 1, trailProps);
             }
             if (cometsOn && comets.vertexCount > 0) cmd.DrawMesh(comets, Matrix4x4.identity, mat, 0, 1, cometProps);
-            if (ghostCount > 0) cmd.DrawMeshInstancedProcedural(ghostMesh, 0, mat, 0, ghostCount, ghostProps);
+            if (ghostCount > 0) cmd.DrawMeshInstancedProcedural(chevrons ? chevronMesh : ghostMesh, 0, mat, 0, ghostCount, ghostProps);
             if (heroCount > 0) cmd.DrawMeshInstancedProcedural(ghostMesh, 0, mat, 0, heroCount, heroProps);
             if (markerCount > 0) {
                 mat.SetBuffer("_Markers", markerBuf);
