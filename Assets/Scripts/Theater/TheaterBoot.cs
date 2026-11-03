@@ -136,6 +136,18 @@ namespace Crane.Theater {
             exposure.adaptationMode.Override(AdaptationMode.Fixed);
             var blur = profile.Add<MotionBlur>(false);
             blur.intensity.Override(0f);
+            // the manifest's grade (look: {exposure_ev, saturation, contrast, color_filter, vignette}), e.g. a dusk
+            // water that matches a study's figures; absent, the scene's own grade
+            var look = TJson.Obj(manifest.Raw, "look");
+            if (look != null) {
+                var grade = profile.Add<ColorAdjustments>(false);
+                grade.postExposure.Override((float)TJson.Num(look, "exposure_ev", 0));
+                grade.saturation.Override((float)TJson.Num(look, "saturation", 0));
+                grade.contrast.Override((float)TJson.Num(look, "contrast", 0));
+                if (TJson.Str(look, "color_filter") is string cf && ColorUtility.TryParseHtmlString(cf, out var filter)) grade.colorFilter.Override(filter);
+                float vig = (float)TJson.Num(look, "vignette", 0);
+                if (vig > 0) { var vg = profile.Add<Vignette>(false); vg.intensity.Override(vig); vg.smoothness.Override(0.5f); }
+            }
             vol.sharedProfile = profile;
 
             foreach (var c in FindObjectsByType<Camera>(FindObjectsInactive.Exclude)) c.enabled = false;
@@ -159,7 +171,7 @@ namespace Crane.Theater {
             cpv.targetCamera = cam;
             cpv.injectionPoint = CustomPassInjectionPoint.AfterPostProcess;
             cpv.customPasses.Add(new TheaterPass { R = renderer, name = "ghost theater" });
-            var hud = new HudRenderer(script.Width, script.Height);
+            var hud = new HudRenderer(script.Width, script.Height, TJson.Obj(manifest.Raw, "hud"));
 
             GameObject gold = null, silver = null;
             bool heroes = false;

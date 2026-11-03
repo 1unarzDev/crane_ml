@@ -11,30 +11,52 @@ namespace Crane.Theater {
     public sealed class HudRenderer : IDisposable {
         readonly Material mat;
         readonly Font font;
-        readonly Mesh shapes = new Mesh { name = "hud shapes" }, text = new Mesh { name = "hud text" };
-        readonly List<Vector3> sv = new List<Vector3>(), tv = new List<Vector3>();
-        readonly List<Color> sc = new List<Color>(), tc = new List<Color>();
-        readonly List<Vector2> tu = new List<Vector2>();
-        readonly List<int> si = new List<int>(), ti = new List<int>();
+        readonly Font mono;   // numbers (the style's mono font; the label font without one)
+        readonly Mesh shapes = new Mesh { name = "hud shapes" }, text = new Mesh { name = "hud text" }, textMono = new Mesh { name = "hud numbers" };
+        readonly List<Vector3> sv = new List<Vector3>(), tv = new List<Vector3>(), mv = new List<Vector3>();
+        readonly List<Color> sc = new List<Color>(), tc = new List<Color>(), mc = new List<Color>();
+        readonly List<Vector2> tu = new List<Vector2>(), mu = new List<Vector2>();
+        readonly List<int> si = new List<int>(), ti = new List<int>(), mi = new List<int>();
+        readonly MaterialPropertyBlock textProps = new MaterialPropertyBlock(), monoProps = new MaterialPropertyBlock();
+        readonly HudStyle style;
         readonly CommandBuffer cmd = new CommandBuffer { name = "theater hud" };
         readonly int w, h;
         readonly float s;
         static readonly int[] Sizes = { 15, 18, 22, 26, 32, 44, 72 };
         const string Charset = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~→–×·Δ•";
-        static readonly Color Ink = new Color(0.94f, 0.96f, 1f, 1f), Dim = new Color(0.66f, 0.72f, 0.8f, 1f), Panel = new Color(0.02f, 0.04f, 0.07f, 0.55f);
+        Color Ink = new Color(0.94f, 0.96f, 1f, 1f), Dim = new Color(0.66f, 0.72f, 0.8f, 1f), Panel = new Color(0.02f, 0.04f, 0.07f, 0.55f);
 
-        public HudRenderer(int width, int height) {
+        public HudRenderer(int width, int height, Dictionary<string, object> styleDoc = null) {
             w = width; h = height; s = height / 1080f;
             var shader = Resources.Load<Shader>("CraneTheaterHud");
             if (shader == null) throw new InvalidOperationException("theater: shader Resources/CraneTheaterHud missing");
             mat = new Material(shader) { hideFlags = HideFlags.DontSave };
-            font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            foreach (int size in Sizes) {
-                font.RequestCharactersInTexture(Charset, Px(size), FontStyle.Normal);
-                font.RequestCharactersInTexture(Charset, Px(size), FontStyle.Bold);
+            style = styleDoc != null ? new HudStyle(styleDoc) : null;
+            font = OsFont(style?.font) ?? Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            mono = OsFont(style?.mono) ?? font;
+            if (style != null) { Ink = style.ink; Dim = style.dim; Panel = style.panel; }
+            foreach (var f in mono == font ? new[] { font } : new[] { font, mono })
+                foreach (int size in Sizes) {
+                    f.RequestCharactersInTexture(Charset, Px(size), FontStyle.Normal);
+                    f.RequestCharactersInTexture(Charset, Px(size), FontStyle.Bold);
+                }
+            shapes.MarkDynamic(); text.MarkDynamic(); textMono.MarkDynamic();
+            Font.textureRebuilt += f => { if (f == font || f == mono) rebuilt = true; };
+        }
+
+        /// <summary>A font by family name: one the theater carries (Resources/Fonts: DejaVu Sans, DejaVu Sans Mono),
+        /// else an installed OS font; null when absent, or when no name is given.</summary>
+        static Font OsFont(string name) {
+            if (string.IsNullOrEmpty(name)) return null;
+            var carried = Resources.Load<Font>("Fonts/" + name.Replace(" ", ""));
+            if (carried != null) return carried;
+            try {
+                foreach (var n in Font.GetOSInstalledFontNames())
+                    if (string.Equals(n, name, StringComparison.OrdinalIgnoreCase)) return Font.CreateDynamicFontFromOSFont(n, 32);
             }
-            shapes.MarkDynamic(); text.MarkDynamic();
-            Font.textureRebuilt += f => { if (f == font) rebuilt = true; };
+            catch (Exception) { }
+            Debug.LogWarning($"theater hud: font '{name}' is not installed; using the built-in font");
+            return null;
         }
 
         public void Dispose() { cmd.Release(); }
@@ -71,27 +93,30 @@ namespace Crane.Theater {
             }
         }
 
-        float Measure(string str, int size, FontStyle style) {
+        float Measure(string str, int size, FontStyle style, bool num = false) {
             float x = 0;
-            foreach (char ch in str) if (font.GetCharacterInfo(ch, out var ci, Px(size), style)) x += ci.advance;
+            var f = num ? mono : font;
+            foreach (char ch in str) if (f.GetCharacterInfo(ch, out var ci, Px(size), style)) x += ci.advance;
             return x;
         }
 
         /// <summary>Text with its baseline at y; align 0 left, 0.5 centre, 1 right. Returns the width.</summary>
-        float Text(string str, float x, float y, int size, Color c, float align = 0, FontStyle style = FontStyle.Normal, bool shadow = true) {
+        float Text(string str, float x, float y, int size, Color c, float align = 0, FontStyle style = FontStyle.Normal, bool shadow = true, bool num = false) {
             if (string.IsNullOrEmpty(str)) return 0;
-            font.RequestCharactersInTexture(str, Px(size), style);
-            float width = Measure(str, size, style);
+            (num ? mono : font).RequestCharactersInTexture(str, Px(size), style);
+            float width = Measure(str, size, style, num);
             x = Mathf.Round(x - width * align); y = Mathf.Round(y);
-            if (shadow) Glyphs(str, x + 1.5f * s, y - 1.5f * s, size, new Color(0, 0, 0, 0.6f * c.a), style);
-            Glyphs(str, x, y, size, c, style);
+            if (shadow) Glyphs(str, x + 1.5f * s, y - 1.5f * s, size, new Color(0, 0, 0, 0.6f * c.a), style, num);
+            Glyphs(str, x, y, size, c, style, num);
             return width;
         }
 
-        void Glyphs(string str, float x, float y, int size, Color c, FontStyle style) {
+        void Glyphs(string str, float x, float y, int size, Color c, FontStyle style, bool num = false) {
             Color lc = c.linear.WithA(c.a);
+            var f = num && mono != font ? mono : font;
+            var tv = f == font ? this.tv : mv; var tu = f == font ? this.tu : mu; var tc = f == font ? this.tc : mc; var ti = f == font ? this.ti : mi;
             foreach (char ch in str) {
-                if (!font.GetCharacterInfo(ch, out var ci, Px(size), style)) continue;
+                if (!f.GetCharacterInfo(ch, out var ci, Px(size), style)) continue;
                 int k = tv.Count;
                 tv.Add(new Vector2(x + ci.minX, y + ci.minY)); tu.Add(ci.uvBottomLeft);
                 tv.Add(new Vector2(x + ci.maxX, y + ci.minY)); tu.Add(ci.uvBottomRight);
@@ -116,21 +141,26 @@ namespace Crane.Theater {
                 Layout(m);
                 if (!rebuilt) break;
             }
-            shapes.Clear(); text.Clear();
+            shapes.Clear(); text.Clear(); textMono.Clear();
             shapes.SetVertices(sv); shapes.SetColors(sc); shapes.SetTriangles(si, 0, false);
             text.SetVertices(tv); text.SetColors(tc); text.SetUVs(0, tu); text.SetTriangles(ti, 0, false);
-            shapes.bounds = text.bounds = new Bounds(Vector3.zero, Vector3.one * 1e6f);
+            textMono.SetVertices(mv); textMono.SetColors(mc); textMono.SetUVs(0, mu); textMono.SetTriangles(mi, 0, false);
+            shapes.bounds = text.bounds = textMono.bounds = new Bounds(Vector3.zero, Vector3.one * 1e6f);
             mat.SetVector("_Screen", new Vector4(w, h, SystemInfo.graphicsUVStartsAtTop ? -1f : 1f, 0));
-            mat.SetTexture("_MainTex", font.material.mainTexture);
+            textProps.SetTexture("_MainTex", font.material.mainTexture);
+            monoProps.SetTexture("_MainTex", mono.material.mainTexture);
             cmd.Clear();
             cmd.SetRenderTarget(target);
             cmd.DrawMesh(shapes, Matrix4x4.identity, mat, 0, 0);
-            cmd.DrawMesh(text, Matrix4x4.identity, mat, 0, 1);
+            cmd.DrawMesh(text, Matrix4x4.identity, mat, 0, 1, textProps);
+            if (mv.Count > 0) cmd.DrawMesh(textMono, Matrix4x4.identity, mat, 0, 1, monoProps);
             Graphics.ExecuteCommandBuffer(cmd);
         }
 
         void Layout(HudModel m) {
             sv.Clear(); sc.Clear(); si.Clear(); tv.Clear(); tc.Clear(); tu.Clear(); ti.Clear();
+            mv.Clear(); mc.Clear(); mu.Clear(); mi.Clear();
+            if (style != null) { LayoutStyled(m); return; }
             float pad = 36 * s, W = w, H = h;
 
             // top left: title and caption
@@ -207,10 +237,15 @@ namespace Crane.Theater {
                 Text(m.insight, W * 0.5f, pad + 42 * s, 22, Ink, 0.5f);
             }
 
+            Heroes(m, pad, 0);
+        }
+
+        void Heroes(HudModel m, float pad, float drop) {
+            float W = w, H = h;
             // compare: gold vs silver
             if (m.goldId != null && (m.actType == "compare" || m.actType == "spotlight")) {
-                float cx = W * 0.5f, top = H - pad;
-                float pw = 620 * s;
+                float cx = W * 0.5f, top = H - pad - drop;
+                float pw = (style != null ? 760 : 620) * s;
                 bool two = m.silverId != null;
                 Rect(cx - pw * 0.5f, top - (two ? 150 : 84) * s, pw, (two ? 166 : 100) * s, Panel);
                 HeroRow(cx - pw * 0.5f + 22 * s, top - 30 * s, pw - 44 * s, Colormaps.Gold, "BEST", m.goldId, m.goldScore, m.goldDuration, m.goldProgress, m.goldDone);
@@ -230,6 +265,95 @@ namespace Crane.Theater {
 
         }
 
+        /// <summary>The figure-style layout (manifest <c>hud</c>): brand, title and caption top left; the iteration
+        /// counter with one dot per iteration top right; the iteration's metric rows bottom left (labels in the label
+        /// font, values in the mono font); the study's own series as a sparkline with axes bottom right.</summary>
+        void LayoutStyled(HudModel m) {
+            var st = style;
+            float pad = 48 * s, W = w, H = h, top = H - pad;
+            int active = m.active;
+            if (Panel.a > 0) {
+                Rect(0, H - 170 * s, W, 170 * s, Panel);
+                Rect(0, 0, W, 250 * s, Panel);
+            }
+            Text(st.brand, pad, top - 2 * s, 15, Dim, 0, FontStyle.Bold);
+            float tw = Text(m.title, pad, top - 50 * s, 44, Ink, 0, FontStyle.Bold);
+            Text(st.subtitle, pad + tw + 18 * s, top - 50 * s, 26, Ink);
+            Text(m.caption, pad, top - 90 * s, 20, Dim);
+
+            // top right: counter and dots
+            float rx = W - pad;
+            Text(st.iterLabel, rx, top - 2 * s, 18, Dim, 1);
+            string counter = active >= 0 ? active.ToString(CultureInfo.InvariantCulture) : $"{m.iterFrom}–{m.iterTo}";
+            Text(counter, rx, top - 76 * s, 72, Ink, 1, FontStyle.Bold);
+            int n = Mathf.Max(1, m.iterCount);
+            for (int i = 0; i < n; i++) {
+                int it = m.iterMin + i;
+                var c = active < 0 || it <= active ? st.accent : Dim.WithA(0.35f);
+                var at = new Vector2(rx - (n - 1 - i) * 26 * s - 8 * s, top - 108 * s);
+                Dot(at, (it == active ? 7f : 5f) * s, c);
+            }
+            Text($"{m.runs} runs   {m.running} running   {m.finished} arrived", rx, top - 146 * s, 16, Dim, 1, FontStyle.Normal, true, true);
+
+            // bottom left: metric rows, legend above them
+            var rows = st.Rows(active);
+            float ry = pad + 6 * s;
+            for (int i = rows.Count - 1; i >= 0; i--) {
+                Text(rows[i].label, pad, ry, 20, Dim);
+                Text(rows[i].value, pad + 300 * s, ry, 22, rows[i].color ?? Ink, 0, FontStyle.Normal, true, true);
+                ry += 36 * s;
+            }
+            if (m.colour == "iteration" && active < 0) {
+                float lw = 300 * s, lh = 10 * s, ly = ry + 14 * s;
+                const int steps = 24;
+                for (int i = 0; i < steps; i++) {
+                    Color a = Colormaps.Eval(m.ramp, i / (float)steps), b = Colormaps.Eval(m.ramp, (i + 1) / (float)steps);
+                    float x0 = pad + lw * i / steps, x1 = pad + lw * (i + 1) / steps;
+                    Quad(new Vector2(x0, ly), new Vector2(x1, ly), new Vector2(x1, ly + lh), new Vector2(x0, ly + lh), a, b, b, a);
+                }
+                Text($"{st.iterLabel.ToLowerInvariant()} {m.iterMin}", pad, ly + 22 * s, 16, Dim);
+                Text($"{m.iterMin + n - 1}", pad + lw, ly + 22 * s, 16, Dim, 1, FontStyle.Normal, true, true);
+            }
+
+            // bottom right: the series
+            var v = st.spark;
+            if (v != null && v.Length > 0) {
+                float gw = 400 * s, gh = 150 * s, gx = W - pad - gw, gy = pad + 34 * s;
+                Text(st.sparkLabel, gx + gw, gy + gh + 30 * s, 20, Ink, 1);
+                float lo = st.sparkLo, hi = st.sparkHi;
+                if (!(hi > lo)) {
+                    lo = float.PositiveInfinity; hi = float.NegativeInfinity;
+                    foreach (float x in v) if (!float.IsNaN(x)) { lo = Mathf.Min(lo, x); hi = Mathf.Max(hi, x); }
+                    if (!(hi > lo)) hi = lo + 1;
+                }
+                var grid = Dim.WithA(0.22f);
+                for (int k = 0; k <= 2; k++) {
+                    float val = lo + (hi - lo) * k / 2f, y = gy + gh * k / 2f;
+                    Line(new Vector2(gx, y), new Vector2(gx + gw, y), 1f * s, grid);
+                    Text(val.ToString(st.sparkFmt, CultureInfo.InvariantCulture), gx - 24 * s, y - 6 * s, 15, Dim, 1, FontStyle.Normal, false, true);
+                }
+                int cursor = active >= 0 ? active - m.iterMin : v.Length - 1;
+                Vector2? prev = null;
+                for (int i = 0; i < v.Length; i++) {
+                    float x = gx + (v.Length > 1 ? gw * i / (v.Length - 1) : gw * 0.5f);
+                    Text((m.iterMin + i).ToString(CultureInfo.InvariantCulture), x, gy - 28 * s, 15, Dim, 0.5f, FontStyle.Normal, false, true);
+                    if (float.IsNaN(v[i])) continue;
+                    var pt = new Vector2(x, gy + gh * Mathf.Clamp01((v[i] - lo) / (hi - lo)));
+                    bool past = i <= cursor;
+                    if (prev.HasValue) Line(prev.Value, pt, (past ? 3f : 1.5f) * s, past ? st.accent : Dim.WithA(0.35f));
+                    if (past) {
+                        Dot(pt, 4.5f * s, st.accent);
+                        string lab = st.sparkPointLabels != null && i < st.sparkPointLabels.Length ? st.sparkPointLabels[i] : v[i].ToString(st.sparkFmt, CultureInfo.InvariantCulture);
+                        Text(lab, pt.x, pt.y + 12 * s, 14, Dim, 0.5f, FontStyle.Normal, false, true);
+                    }
+                    if (i == cursor) Dot(pt, 7f * s, Ink);
+                    prev = pt;
+                }
+            }
+
+            Heroes(m, pad, 150 * s);
+        }
+
         void Row(float rx, float y, string label, string value, Color c) {
             Dot(new Vector2(rx - 300 * s, y + 7 * s), 5 * s, c);
             Text(label, rx - 286 * s, y, 18, Dim);
@@ -239,12 +363,58 @@ namespace Crane.Theater {
         void HeroRow(float x, float y, float width, Color c, string label, string id, float score, float duration, float progress, bool done) {
             Dot(new Vector2(x + 8 * s, y + 8 * s), 8 * s, c);
             Text(label, x + 26 * s, y, 18, c, 0, FontStyle.Bold);
-            Text(id, x + 140 * s, y, 18, Ink);
+            Text(id, x + (style != null ? 150 : 140) * s, y, 18, Ink);
             Text($"score {F(score, "0.000")}   {F(duration, "0.0")} s", x + width, y, 18, Ink, 1);
             float bw = width - 26 * s, bx = x + 26 * s, by = y - 26 * s;
             Rect(bx, by, bw, 8 * s, new Color(1, 1, 1, 0.15f));
             Rect(bx, by, bw * Mathf.Clamp01(progress), 8 * s, done ? c : c * new Color(1, 1, 1, 0.8f));
         }
+    }
+
+    /// <summary>Manifest <c>hud</c>: <c>{brand, subtitle, iteration_label, font, mono, palette: {ink, dim, panel,
+    /// accent}, metrics: {"&lt;iteration&gt;"|"all": [[label, value, colour?]]}, spark: {label, values, lo, hi, format,
+    /// point_labels}}</c>.</summary>
+    public sealed class HudStyle {
+        public string brand = "", subtitle = "", iterLabel = "ITERATION", font, mono, sparkLabel = "", sparkFmt = "0.00";
+        public Color ink = new Color(0.91f, 0.925f, 0.95f), dim = new Color(0.545f, 0.576f, 0.639f), panel = new Color(0.04f, 0.07f, 0.13f, 0f),
+            accent = new Color(0.165f, 0.47f, 0.84f);
+        public float[] spark;
+        public string[] sparkPointLabels;
+        public float sparkLo = float.NaN, sparkHi = float.NaN;
+        readonly Dictionary<string, List<(string label, string value, Color? color)>> metrics = new Dictionary<string, List<(string, string, Color?)>>();
+
+        public HudStyle(Dictionary<string, object> d) {
+            brand = TJson.Str(d, "brand", brand); subtitle = TJson.Str(d, "subtitle", subtitle);
+            iterLabel = TJson.Str(d, "iteration_label", iterLabel); font = TJson.Str(d, "font"); mono = TJson.Str(d, "mono");
+            var pal = TJson.Obj(d, "palette");
+            if (pal != null) {
+                ink = TheaterOverlay.Hex(pal, "ink", ink); dim = TheaterOverlay.Hex(pal, "dim", dim); accent = TheaterOverlay.Hex(pal, "accent", accent);
+                panel = TheaterOverlay.Hex(pal, "panel", panel); panel.a = (float)TJson.Num(pal, "panel_alpha", 0);
+            }
+            if (TJson.Obj(d, "metrics") is Dictionary<string, object> ms)
+                foreach (var kv in ms) {
+                    var rows = new List<(string, string, Color?)>();
+                    foreach (var r in kv.Value as List<object> ?? new List<object>())
+                        if (r is List<object> l && l.Count >= 2) {
+                            Color? c = null;
+                            if (l.Count > 2 && l[2] is string hex && ColorUtility.TryParseHtmlString(hex, out var col)) c = col;
+                            rows.Add((l[0] as string ?? "", l[1] as string ?? "", c));
+                        }
+                    metrics[kv.Key] = rows;
+                }
+            var sp = TJson.Obj(d, "spark");
+            if (sp != null) {
+                sparkLabel = TJson.Str(sp, "label", ""); sparkFmt = TJson.Str(sp, "format", sparkFmt);
+                sparkLo = (float)TJson.Num(sp, "lo", double.NaN); sparkHi = (float)TJson.Num(sp, "hi", double.NaN);
+                var vals = TJson.Arr(sp, "values");
+                if (vals != null) { spark = new float[vals.Count]; for (int i = 0; i < vals.Count; i++) spark[i] = vals[i] is double x ? (float)x : float.NaN; }
+                var labs = TJson.Arr(sp, "point_labels");
+                if (labs != null) { sparkPointLabels = new string[labs.Count]; for (int i = 0; i < labs.Count; i++) sparkPointLabels[i] = labs[i] as string ?? ""; }
+            }
+        }
+
+        public List<(string label, string value, Color? color)> Rows(int iteration) =>
+            metrics.TryGetValue(iteration >= 0 ? iteration.ToString(CultureInfo.InvariantCulture) : "all", out var r) ? r : new List<(string, string, Color?)>();
     }
 
     static class ColorExt {

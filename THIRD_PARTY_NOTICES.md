@@ -62,3 +62,10 @@ DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVI
 DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
 IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
 OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+## DejaVu fonts
+
+The ghost theater HUD (`Assets/Scripts/Theater/Resources/Fonts/`) carries `DejaVuSans.ttf` and
+`DejaVuSansMono.ttf` (DejaVu 2.37, as shipped with matplotlib), so a study's video uses its figures' type.
+Bitstream Vera Fonts license with DejaVu changes in the public domain; the full text is
+`Assets/Scripts/Theater/Resources/Fonts/LICENSE_DEJAVU.txt`.

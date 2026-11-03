@@ -24,6 +24,20 @@ It is pose playback: nothing is re-simulated, so a render is reproducible whatev
 A drone or another robot plugs in with its own `ITheaterWorld` (how the world is built, its frame, its surface)
 and `ITheaterRobot` (a ghost mesh of a few hundred triangles, its full visuals for heroes) plus a Python world.
 
+## Study layers (optional manifest keys)
+
+A study can draw its own world geometry and numbers without domain code in the theater:
+
+| key | what |
+|---|---|
+| `overlay` | `crane-theater-overlay/1` (`TheaterOverlay`): `shapes` in the trajectory frame (`disc` with fill, rim and a curtain; `ring`; `band` along a polyline; `wall`), each with `color`, `alpha`, `pulse_hz` and the `acts` / `iterations` it shows in; `halo` (a ring of `radius_by_iteration` around every ghost and hero); `events` (marker colour and size per event kind, `"none"` hides one) |
+| `hud` | the figure-style HUD (`HudStyle`): `brand`, `subtitle`, `iteration_label`, `font` / `mono` (DejaVu Sans and DejaVu Sans Mono are carried in `Resources/Fonts`, others come from the OS), `palette` {ink, dim, accent, panel, panel_alpha}, `metrics` rows per iteration (and `all`), and `spark` (the study's own series with axes and point labels) |
+| `look` | a grade over the scene: `exposure_ev`, `saturation`, `contrast`, `color_filter`, `vignette` |
+| `ramps` | named colour ramps (`{"epoch": ["#cde2fb", ...]}`) usable as an act's `ramp` |
+
+An act's `event_markers: "all"` marks every shown run's events (default: heroes and trail runs); `trails: "top"` with
+`colour: "iteration"` colours the trails by iteration. Without these keys a render is unchanged.
+
 ## Determinism
 
 1. State: frame f's state (every ghost, hero, marker, the camera and the HUD numbers) is a pure function of
