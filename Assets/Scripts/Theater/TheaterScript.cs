@@ -39,7 +39,8 @@ namespace Crane.Theater {
         public float markerLife;
         public bool history;                   // the current iteration stands out: earlier ones fade (ghosts) and their paths stay, dimmed
         public float pastAlpha = 0.3f;         // an earlier iteration's ghosts (x the ghost alpha) and the newest past paths
-        public float pastDecay = 0.6f;         // each older iteration's paths: x this per step back               // video seconds an event marker shows (0: the speed-scaled default)
+        public float pastDecay = 0.6f;         // each older iteration's paths: x this per step back
+        public float dip;                      // video seconds the frame dips toward the HUD panel colour on each side of this act's start (0: a hard cut)
         public Dictionary<string, object> camera = new Dictionary<string, object> { { "shot", "orbit" } };
         public string Shot => TJson.Str(camera, "shot", "orbit");
         public float Cam(string key, float fallback) => (float)TJson.Num(camera, key, fallback);
@@ -56,7 +57,9 @@ namespace Crane.Theater {
         /// <summary><c>{"fps", "size": [w, h], "title", "acts": [{"type", "duration_s", "speed", "t0", "iterations": [a, b],
         /// "iteration_list", "outcome", "top_k", "sample", "seed", "stagger_s", "per_iteration_s", "colour", "ramp", "trails", "trail_k",
         /// "tail_s", "heat", "markers", "event_markers", "hero", "previous", "ghost_scale", "ghost_alpha", "caption", "headline", "linger_s", "trail_alpha", "ghost_core", "ghost_rim", "iteration_stagger_s",
-        /// "under_iteration", "under_alpha", "marker_life_s", "camera": {"shot", ...}}]}</c></summary>
+        /// "under_iteration", "under_alpha", "marker_life_s", "history", "past_alpha", "past_decay", "dip_s",
+        /// "camera": {"shot", ..., "blend_in_s"}}]}</c>. camera.blend_in_s eases the act's camera in from where the previous
+        /// act's camera ended (a dolly instead of a cut).</summary>
         public static TheaterScript Parse(object doc) {
             var s = new TheaterScript {
                 Fps = (float)TJson.Num(doc, "fps", 60), Title = TJson.Str(doc, "title", "")
@@ -81,7 +84,8 @@ namespace Crane.Theater {
                     ghostRim = (float)TJson.Num(o, "ghost_rim", -1), iterationStagger = (float)TJson.Num(o, "iteration_stagger_s", 0),
                     under = (int)TJson.Num(o, "under_iteration", int.MinValue), underAlpha = (float)TJson.Num(o, "under_alpha", 0.22),
                     markerLife = (float)TJson.Num(o, "marker_life_s", 0), history = TJson.Bool(o, "history", false),
-                    pastAlpha = (float)TJson.Num(o, "past_alpha", 0.3), pastDecay = (float)TJson.Num(o, "past_decay", 0.6)
+                    pastAlpha = (float)TJson.Num(o, "past_alpha", 0.3), pastDecay = (float)TJson.Num(o, "past_decay", 0.6),
+                    dip = (float)TJson.Num(o, "dip_s", 0)
                 };
                 var it = TJson.Arr(o, "iterations");
                 if (it != null && it.Count == 2) { a.iterFrom = (int)(double)it[0]; a.iterTo = (int)(double)it[1]; }

@@ -31,6 +31,8 @@ namespace Crane.Theater {
         public string goldId, silverId;
         public float goldScore, silverScore, goldDuration, silverDuration, goldProgress, silverProgress;
         public bool goldDone, silverDone;
+        public int goldIter = -1, silverIter = -1;
+        public float fade;   // 0..1: how far the frame dips toward the panel colour (an act transition)
         public List<string> paramDiff = new List<string>();
     }
 
@@ -113,6 +115,7 @@ namespace Crane.Theater {
                 p.frames = Mathf.RoundToInt((t + s.Acts[i].duration) * s.Fps) - f;
                 t += s.Acts[i].duration; f += p.frames;
                 CameraPath(p);
+                if (Plans.Count > 0) BlendIn(Plans[Plans.Count - 1], p);
                 Plans.Add(p);
             }
         }
@@ -309,6 +312,7 @@ namespace Crane.Theater {
             if (p.previous >= 0) st.heroes.Add(HeroGhost(p.previous, heroT, Colormaps.Silver));
             if (a.markers) Markers(p, st, t);
             st.camPos = p.camPos[local]; st.camRot = p.camRot[local]; st.fov = p.camFov[local];
+            st.hud.fade = Dip(p, local);
             Hud(p, st, t, iteration);
             return st;
         }
@@ -376,12 +380,12 @@ namespace Crane.Theater {
             }
             if (p.hero >= 0) {
                 var g = M.Runs[p.hero];
-                h.goldId = g.id; h.goldScore = g.score; h.goldDuration = Arrival(g); h.goldDone = t >= h.goldDuration;
+                h.goldId = g.id; h.goldIter = g.iteration; h.goldScore = g.score; h.goldDuration = Arrival(g); h.goldDone = t >= h.goldDuration;
                 h.goldProgress = M.Pack.At(p.hero, Mathf.Min(t, g.duration)).progress;
             }
             if (p.previous >= 0) {
                 var s = M.Runs[p.previous];
-                h.silverId = s.id; h.silverScore = s.score; h.silverDuration = Arrival(s); h.silverDone = t >= h.silverDuration;
+                h.silverId = s.id; h.silverIter = s.iteration; h.silverScore = s.score; h.silverDuration = Arrival(s); h.silverDone = t >= h.silverDuration;
                 h.silverProgress = M.Pack.At(p.previous, Mathf.Min(t, s.duration)).progress;
                 if (p.hero >= 0) {
                     var g = M.Runs[p.hero];
@@ -530,6 +534,37 @@ namespace Crane.Theater {
                 p.camRot[f] = Quaternion.LookRotation(fwdDir.normalized, Mathf.Abs(Vector3.Dot(fwdDir.normalized, up)) > 0.999f ? north : up);
                 p.camFov[f] = fov;
             }
+        }
+
+        /// <summary>camera.blend_in_s: the act's camera starts where the previous act's ended and eases onto its own
+        /// path (position and rotation, smoothstep), so the cut is a short dolly.</summary>
+        void BlendIn(ActPlan prev, ActPlan p) {
+            int n = Mathf.Min(p.frames, Mathf.RoundToInt(p.act.Cam("blend_in_s", 0f) * S.Fps));
+            if (n <= 1 || prev.camPos.Length == 0) return;
+            Vector3 p0 = prev.camPos[prev.camPos.Length - 1];
+            Quaternion r0 = prev.camRot[prev.camRot.Length - 1];
+            float f0 = prev.camFov[prev.camFov.Length - 1];
+            for (int f = 0; f < n; f++) {
+                float w = Smoothstep(f / (float)n);
+                p.camPos[f] = Vector3.Lerp(p0, p.camPos[f], w);
+                p.camRot[f] = Quaternion.Slerp(r0, p.camRot[f], w);
+                p.camFov[f] = Mathf.Lerp(f0, p.camFov[f], w);
+            }
+        }
+
+        /// <summary>dip_s: the frame dips toward the panel colour over dip_s before an act that asks for it and recovers
+        /// over dip_s after its start (peak 0.85 at the cut).</summary>
+        float Dip(ActPlan p, int local) {
+            float fade = 0f;
+            if (p.index > 0 && p.act.dip > 0) {
+                float u = local / (p.act.dip * S.Fps);
+                if (u < 1f) fade = Mathf.Max(fade, 0.85f * (1f - Smoothstep(u)));
+            }
+            if (p.index + 1 < Plans.Count && Plans[p.index + 1].act.dip > 0) {
+                float u = (p.frames - local) / (Plans[p.index + 1].act.dip * S.Fps);
+                if (u < 1f) fade = Mathf.Max(fade, 0.85f * (1f - Smoothstep(u)));
+            }
+            return fade;
         }
 
         static float Smoothstep(float u) { u = Mathf.Clamp01(u); return u * u * (3 - 2 * u); }

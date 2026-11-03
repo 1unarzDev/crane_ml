@@ -61,7 +61,12 @@ namespace Crane.Theater {
                 col.a = (float)TJson.Num(o, "alpha", 0.6);
                 switch (TJson.Str(o, "kind", "ring")) {
                     case "disc": Disc(o, col); break;
-                    case "ring": Ring(P(o), (float)TJson.Num(o, "r", 1), (float)TJson.Num(o, "width", 0.12), col, 0.06f); break;
+                    case "ring": {
+                        int dashes = (int)TJson.Num(o, "dash", 0);
+                        if (dashes > 0) DashedRing(P(o), (float)TJson.Num(o, "r", 1), (float)TJson.Num(o, "width", 0.12), col, 0.06f, dashes, (float)TJson.Num(o, "duty", 0.55));
+                        else Ring(P(o), (float)TJson.Num(o, "r", 1), (float)TJson.Num(o, "width", 0.12), col, 0.06f);
+                        break;
+                    }
                     case "band": Band(Points(o), (float)TJson.Num(o, "half_width", 1), col); break;
                     case "wall": Wall(Points(o), (float)TJson.Num(o, "height", 1.5), col); break;
                     default: continue;
@@ -127,6 +132,23 @@ namespace Crane.Theater {
             }
         }
 
+        /// <summary>A ring of <paramref name="dashes"/> arcs, each <paramref name="duty"/> of its share of the circle
+        /// (a margin drawn as a guide, not a boundary).</summary>
+        void DashedRing(Vector2 at, float r, float width, Color col, float lift, int dashes, float duty) {
+            int per = Mathf.Max(2, 96 / dashes);
+            for (int d = 0; d < dashes; d++) {
+                float a0 = 2 * Mathf.PI * d / dashes, span = 2 * Mathf.PI / dashes * Mathf.Clamp01(duty);
+                int b = v.Count;
+                for (int i = 0; i <= per; i++) {
+                    float a = a0 + span * i / per;
+                    var dir = new Vector2(Mathf.Cos(a), Mathf.Sin(a));
+                    v.Add(W(at.x + dir.x * (r - width), at.y + dir.y * (r - width), lift)); c.Add(col); u.Add(new Vector2(0, -1));
+                    v.Add(W(at.x + dir.x * (r + width), at.y + dir.y * (r + width), lift)); c.Add(col); u.Add(new Vector2(0, 1));
+                    if (i > 0) { int k = b + 2 * i; Tri(k - 2, k - 1, k); Tri(k - 1, k + 1, k); }
+                }
+            }
+        }
+
         void Disc(object o, Color col) {
             var at = P(o);
             float r = (float)TJson.Num(o, "r", 1), fill = (float)TJson.Num(o, "fill", 0.25), rim = (float)TJson.Num(o, "rim", 0.14);
@@ -156,8 +178,34 @@ namespace Crane.Theater {
             }
         }
 
+        /// <summary>A polyline resampled every <paramref name="step"/> metres along its length, then smoothed by a
+        /// moving average over <paramref name="window"/> metres (the ends kept): a band as wide as a tube stays a band
+        /// at a sharp turn instead of folding over itself into spikes.</summary>
+        static List<Vector2> Smoothed(List<Vector2> pts, float step, float window) {
+            var even = new List<Vector2> { pts[0] };
+            float carry = 0;
+            for (int i = 1; i < pts.Count; i++) {
+                Vector2 a = pts[i - 1], b = pts[i];
+                float L = Vector2.Distance(a, b), d = step - carry;
+                while (d <= L) { even.Add(Vector2.Lerp(a, b, d / L)); d += step; }
+                carry = L - (d - step);
+            }
+            if (Vector2.Distance(even[even.Count - 1], pts[pts.Count - 1]) > 1e-3f) even.Add(pts[pts.Count - 1]);
+            int k = Mathf.Max(0, Mathf.RoundToInt(window / step * 0.5f));
+            if (k == 0 || even.Count < 3) return even;
+            var outp = new List<Vector2>(even.Count);
+            for (int i = 0; i < even.Count; i++) {
+                int kk = Mathf.Min(k, Mathf.Min(i, even.Count - 1 - i));   // shrink the window at the ends: they stay put
+                Vector2 sum = Vector2.zero;
+                for (int j = i - kk; j <= i + kk; j++) sum += even[j];
+                outp.Add(sum / (2 * kk + 1));
+            }
+            return outp;
+        }
+
         void Band(List<Vector2> pts, float hw, Color col) {
             if (pts.Count < 2) return;
+            pts = Smoothed(pts, Mathf.Clamp(hw * 0.25f, 0.1f, 0.5f), hw * 3f);
             int b = v.Count;
             for (int i = 0; i < pts.Count; i++) {
                 Vector2 a = pts[Mathf.Max(0, i - 1)], z = pts[Mathf.Min(pts.Count - 1, i + 1)];

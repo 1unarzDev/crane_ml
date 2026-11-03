@@ -63,6 +63,10 @@ namespace Crane.Theater {
         bool[] failDone;
         float densityLogMax = 1f, failMax = 1f;
         bool heatOn;
+        // wash (manifest look.wash {color, alpha, lift, vignette, vignette_start}): a tinted plane over the water
+        bool washOn;
+        Color washColor;
+        float washLift, washVignette, washStart;
         public readonly Dictionary<string, int> Stats = new Dictionary<string, int>();
 
         public TheaterRenderer(TheaterState state, ITheaterRobot robot) {
@@ -81,6 +85,15 @@ namespace Crane.Theater {
             ghostProps.SetBuffer("_Ghosts", ghostBuf); ghostProps.SetFloat("_Core", 0.22f); ghostProps.SetFloat("_Rim", 1.6f);
             heroProps.SetBuffer("_Ghosts", heroBuf); heroProps.SetFloat("_Core", 0.12f); heroProps.SetFloat("_Rim", 2.2f);
             HeatInit();
+            var wash = TJson.Obj(TJson.Obj(st.M.Raw, "look"), "wash");
+            if (wash != null) {
+                washOn = true;
+                washColor = TheaterOverlay.Hex(wash, "color", new Color(0.04f, 0.07f, 0.13f)).linear;
+                washColor.a = (float)TJson.Num(wash, "alpha", 0.7);
+                washLift = (float)TJson.Num(wash, "lift", 0.3);
+                washVignette = (float)TJson.Num(wash, "vignette", 0);
+                washStart = (float)TJson.Num(wash, "vignette_start", 0.6);
+            }
         }
 
         public void Dispose() {
@@ -350,6 +363,14 @@ namespace Crane.Theater {
             mat.SetMatrix("_TheaterVP", vp);
             mat.SetVector("_CamPos", cam.transform.position);
             CoreUtils.SetRenderTarget(cmd, color, depth, ClearFlag.None);
+            if (washOn) {
+                var b = st.World.Bounds;
+                mat.SetVector("_WashRect", new Vector4(b.center.x - 2000f, b.center.z - 2000f, b.center.x + 2000f, b.center.z + 2000f));
+                mat.SetFloat("_WashY", st.World.SurfaceY(b.center) + washLift);
+                mat.SetVector("_WashColor", new Vector4(washColor.r, washColor.g, washColor.b, washColor.a));
+                mat.SetVector("_WashView", new Vector4(cam.pixelWidth, cam.pixelHeight, washVignette, washStart));
+                cmd.DrawProcedural(Matrix4x4.identity, mat, 4, MeshTopology.Triangles, 6, 1);
+            }
             if (heatOn) {
                 mat.SetTexture("_Heat", heatTex);
                 mat.SetVector("_HeatRect", heatRect);

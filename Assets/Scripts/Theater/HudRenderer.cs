@@ -21,8 +21,9 @@ namespace Crane.Theater {
         readonly HudStyle style;
         readonly CommandBuffer cmd = new CommandBuffer { name = "theater hud" };
         readonly int w, h;
+        readonly List<Rect> occupied = new List<Rect>();   // styled HUD: the blocks this frame, kept clear of world labels
         readonly float s;
-        static readonly int[] Sizes = { 15, 18, 22, 26, 32, 44, 72 };
+        static readonly int[] Sizes = { 14, 15, 16, 18, 20, 22, 26, 32, 44, 56, 72 };
         const string Charset = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~→–×·Δ•";
         Color Ink = new Color(0.94f, 0.96f, 1f, 1f), Dim = new Color(0.66f, 0.72f, 0.8f, 1f), Panel = new Color(0.02f, 0.04f, 0.07f, 0.55f);
 
@@ -247,7 +248,8 @@ namespace Crane.Theater {
                 float cx = W * 0.5f, top = H - pad - drop;
                 float pw = (style != null ? 760 : 620) * s;
                 bool two = m.silverId != null;
-                Rect(cx - pw * 0.5f, top - (two ? 150 : 84) * s, pw, (two ? 166 : 100) * s, Panel);
+                if (style != null) Block(cx - pw * 0.5f, top - (two ? 150 : 84) * s, pw, (two ? 166 : 100) * s);
+                else Rect(cx - pw * 0.5f, top - (two ? 150 : 84) * s, pw, (two ? 166 : 100) * s, Panel);
                 HeroRow(cx - pw * 0.5f + 22 * s, top - 30 * s, pw - 44 * s, Colormaps.Gold, "BEST", m.goldId, m.goldScore, m.goldDuration, m.goldProgress, m.goldDone);
                 if (two) {
                     HeroRow(cx - pw * 0.5f + 22 * s, top - 96 * s, pw - 44 * s, Colormaps.Silver, "PREVIOUS", m.silverId, m.silverScore, m.silverDuration, m.silverProgress, m.silverDone);
@@ -255,9 +257,10 @@ namespace Crane.Theater {
                     Text($"Δ {(dt >= 0 ? "+" : "")}{F(dt, "0.0")} s", cx + pw * 0.5f - 22 * s, top - 140 * s, 18, Dim, 1);
                 }
                 if (m.paramDiff.Count > 0) {
-                    float px = pad, py = H - pad - 170 * s;
+                    float px = pad, py = H - pad - (style != null ? 196 : 170) * s;
                     float pwid = 0; foreach (var line in m.paramDiff) pwid = Mathf.Max(pwid, Measure(line, 18, FontStyle.Normal));
-                    Rect(px - 20 * s, py - m.paramDiff.Count * 28 * s - 14 * s, Mathf.Max(pwid, 220 * s) + 40 * s, m.paramDiff.Count * 28 * s + 50 * s, Panel);
+                    if (style != null) Block(px - 20 * s, py - m.paramDiff.Count * 28 * s - 14 * s, Mathf.Max(pwid, 220 * s) + 40 * s, m.paramDiff.Count * 28 * s + 50 * s);
+                    else Rect(px - 20 * s, py - m.paramDiff.Count * 28 * s - 14 * s, Mathf.Max(pwid, 220 * s) + 40 * s, m.paramDiff.Count * 28 * s + 50 * s, Panel);
                     Text("WHAT CHANGED", px, py, 15, Dim, 0, FontStyle.Bold);
                     for (int i = 0; i < m.paramDiff.Count; i++) Text(m.paramDiff[i], px, py - (i + 1) * 28 * s, 18, Ink);
                 }
@@ -272,61 +275,80 @@ namespace Crane.Theater {
             var st = style;
             float pad = 48 * s, W = w, H = h, top = H - pad;
             int active = m.active;
-            if (Panel.a > 0) {   // scrims: the top band and the bottom band fade into the scene; the bottom-left block gets a panel
+            bool spot = m.goldId != null && (m.actType == "compare" || m.actType == "spotlight");   // no fleet counters in a spotlight
+            occupied.Clear();
+            if (m.fade > 0) Rect(0, 0, W, H, Panel.WithA(m.fade));   // an act transition: the frame dips toward the panel colour
+            if (Panel.a > 0) {   // scrims: the top band and the bottom band fade into the scene
                 Color clear = Panel.WithA(0f);
                 float tb = st.scrimTop * s, bb = st.scrimBottom * s;
                 Quad(new Vector2(0, H - tb), new Vector2(W, H - tb), new Vector2(W, H), new Vector2(0, H), clear, clear, Panel, Panel);
                 Quad(new Vector2(0, 0), new Vector2(W, 0), new Vector2(W, bb), new Vector2(0, bb), Panel, Panel, clear, clear);
-                float lw = st.scrimLeft * s, lh = st.scrimLeftHeight * s;
-                Quad(new Vector2(0, 0), new Vector2(lw, 0), new Vector2(lw, lh), new Vector2(0, lh), Panel, clear, clear, Panel);
             }
-            foreach (var (at, label, col) in m.labels) {   // world labels under the HUD's text
-                float lw = Measure(label, 18, FontStyle.Bold, true);
-                Rect(at.x - lw * 0.5f - 8 * s, at.y - 7 * s, lw + 16 * s, 28 * s, Panel.WithA(Mathf.Max(0.55f, Panel.a)));
-                Text(label, at.x, at.y, 18, col, 0.5f, FontStyle.Bold, true, true);
-            }
+
+            // top left: brand, title and subtitle, caption, on one panel
+            float tw = Measure(m.title ?? "", 44, FontStyle.Bold), sw = Measure(st.subtitle, 26, FontStyle.Normal);
+            float bw = Mathf.Max(tw + 18 * s + sw, Mathf.Max(Measure(m.caption ?? "", 20, FontStyle.Normal), Measure(st.brand, 15, FontStyle.Bold)));
+            Block(pad - 22 * s, top - 108 * s, bw + 44 * s, 132 * s);
             Text(st.brand, pad, top - 2 * s, 15, Dim, 0, FontStyle.Bold);
-            float tw = Text(m.title, pad, top - 50 * s, 44, Ink, 0, FontStyle.Bold);
+            Text(m.title, pad, top - 50 * s, 44, Ink, 0, FontStyle.Bold);
             Text(st.subtitle, pad + tw + 18 * s, top - 50 * s, 26, Ink);
             Text(m.caption, pad, top - 90 * s, 20, Dim);
 
-            // top right: counter and dots
+            // top right: counter and dots (a spotlight: "0 vs 5")
             float rx = W - pad;
-            Text(st.iterLabel, rx, top - 2 * s, 18, Dim, 1);
-            string counter = active >= 0 ? active.ToString(CultureInfo.InvariantCulture) : $"{m.iterFrom}–{m.iterTo}";
-            Text(counter, rx, top - 76 * s, 72, Ink, 1, FontStyle.Bold);
             int n = Mathf.Max(1, m.iterCount);
+            string counter = spot && m.silverIter >= 0 ? $"{m.silverIter} vs {m.goldIter}"
+                : active >= 0 ? active.ToString(CultureInfo.InvariantCulture) : $"{m.iterFrom}–{m.iterTo}";
+            int csize = spot ? 56 : 72;
+            string runsLine = spot ? null : $"{m.runs} runs   {m.running} running   {m.finished} arrived";
+            float cwid = Mathf.Max(Measure(counter, csize, FontStyle.Bold), Mathf.Max(n * 26 * s, runsLine != null ? Measure(runsLine, 16, FontStyle.Normal, true) : 0));
+            Block(rx - cwid - 22 * s, top - (runsLine != null ? 160 : 124) * s, cwid + 44 * s, (runsLine != null ? 184 : 148) * s);
+            Text(st.iterLabel, rx, top - 2 * s, 18, Dim, 1);
+            Text(counter, rx, top - 76 * s, csize, Ink, 1, FontStyle.Bold);
             for (int i = 0; i < n; i++) {
                 int it = m.iterMin + i;
-                var c = active < 0 || it <= active ? (st.dotsByRamp && m.ramp != null ? Colormaps.Eval(m.ramp, n > 1 ? i / (float)(n - 1) : 1f) : st.accent) : Dim.WithA(0.35f);
+                bool on = spot ? it == m.goldIter || it == m.silverIter : active < 0 || it <= active;
+                var c = on ? (st.dotsByRamp && m.ramp != null ? Colormaps.Eval(m.ramp, n > 1 ? i / (float)(n - 1) : 1f) : st.accent) : Dim.WithA(0.35f);
                 var at = new Vector2(rx - (n - 1 - i) * 26 * s - 8 * s, top - 108 * s);
-                Dot(at, (it == active ? 7f : 5f) * s, c);
+                Dot(at, (it == active || (spot && on) ? 7f : 5f) * s, c);
             }
-            if (m.goldId == null)   // a compare act's heroes have their own bars
-                Text($"{m.runs} runs   {m.running} running   {m.finished} arrived", rx, top - 146 * s, 16, Dim, 1, FontStyle.Normal, true, true);
-            if (!string.IsNullOrEmpty(m.headline)) Text(m.headline, W * 0.5f, pad + 6 * s, 26, Ink, 0.5f, FontStyle.Bold);
+            if (runsLine != null) Text(runsLine, rx, top - 146 * s, 16, Dim, 1, FontStyle.Normal, true, true);
 
-            // bottom left: metric rows, legend above them
-            var rows = st.Rows(active);
-            float ry = pad + 6 * s;
-            for (int i = rows.Count - 1; i >= 0; i--) {
-                Text(rows[i].label, pad, ry, 20, Dim);
-                Text(rows[i].value, pad + 300 * s, ry, 22, rows[i].color ?? Ink, 0, FontStyle.Normal, true, true);
-                ry += 36 * s;
+            // bottom centre: the headline on its own pill
+            if (!string.IsNullOrEmpty(m.headline)) {
+                float hw = Measure(m.headline, 26, FontStyle.Bold);
+                Block(W * 0.5f - hw * 0.5f - 24 * s, pad - 10 * s, hw + 48 * s, 48 * s);
+                Text(m.headline, W * 0.5f, pad + 6 * s, 26, Ink, 0.5f, FontStyle.Bold);
             }
-            if (m.colour == "iteration") {   // one chip per iteration in its ramp colour; the current one lit, the rest dimmed
-                float cw = 44 * s, ch = 16 * s, gap = 8 * s, ly = ry + 14 * s;
+
+            // bottom left: metric rows, legend above them (not in a spotlight: its panel says what changed)
+            if (!spot) {
+                var rows = st.Rows(active);
+                float ry = pad + 6 * s, vw = 0;
+                foreach (var r in rows) vw = Mathf.Max(vw, Measure(r.value, 22, FontStyle.Normal, true));
                 float x0 = pad + Measure(st.iterLabel.ToLowerInvariant(), 16, FontStyle.Normal) + 14 * s;
-                Text(st.iterLabel.ToLowerInvariant(), pad, ly + 2 * s, 16, Dim);
-                int cur = m.current >= 0 ? m.current : active;
-                for (int i = 0; i < n; i++) {
-                    int it = m.iterMin + i;
-                    var col = Colormaps.Eval(m.ramp, n > 1 ? i / (float)(n - 1) : 1f);
-                    bool lit = cur < 0 || it == cur;
-                    float x = x0 + i * (cw + gap);
-                    if (it == cur) Rect(x - 2 * s, ly - 2 * s, cw + 4 * s, ch + 4 * s, Ink.WithA(0.9f));
-                    Rect(x, ly, cw, ch, col.WithA(lit ? 1f : (cur >= 0 && it < cur ? 0.45f : 0.25f)));
-                    Text(it.ToString(CultureInfo.InvariantCulture), x + cw * 0.5f, ly + ch + 6 * s, 15, lit ? Ink : Dim, 0.5f, FontStyle.Bold, true, true);
+                float cw = 44 * s, ch = 16 * s, gap = 8 * s;
+                float blockW = Mathf.Max(300 * s + vw, m.colour == "iteration" ? x0 - pad + n * (cw + gap) : 0);
+                float blockH = rows.Count * 36 * s + (m.colour == "iteration" ? 62 * s : 0);
+                Block(pad - 22 * s, pad - 16 * s, blockW + 44 * s, blockH + 20 * s);
+                for (int i = rows.Count - 1; i >= 0; i--) {
+                    Text(rows[i].label, pad, ry, 20, Dim);
+                    Text(rows[i].value, pad + 300 * s, ry, 22, rows[i].color ?? Ink, 0, FontStyle.Normal, true, true);
+                    ry += 36 * s;
+                }
+                if (m.colour == "iteration") {   // one chip per iteration in its ramp colour; the current one lit, the rest dimmed
+                    float ly = ry + 6 * s;
+                    Text(st.iterLabel.ToLowerInvariant(), pad, ly + 2 * s, 16, Dim);
+                    int cur = m.current >= 0 ? m.current : active;
+                    for (int i = 0; i < n; i++) {
+                        int it = m.iterMin + i;
+                        var col = Colormaps.Eval(m.ramp, n > 1 ? i / (float)(n - 1) : 1f);
+                        bool lit = cur < 0 || it == cur;
+                        float x = x0 + i * (cw + gap);
+                        if (it == cur) Rect(x - 2 * s, ly - 2 * s, cw + 4 * s, ch + 4 * s, Ink.WithA(0.9f));
+                        Rect(x, ly, cw, ch, col.WithA(lit ? 1f : (cur >= 0 && it < cur ? 0.45f : 0.25f)));
+                        Text(it.ToString(CultureInfo.InvariantCulture), x + cw * 0.5f, ly + ch + 8 * s, 15, lit ? Ink : Dim, 0.5f, it == cur ? FontStyle.Bold : FontStyle.Normal, false, true);
+                    }
                 }
             }
 
@@ -334,6 +356,7 @@ namespace Crane.Theater {
             var v = st.spark;
             if (v != null && v.Length > 0) {
                 float gw = 400 * s, gh = 150 * s, gx = W - pad - gw, gy = pad + 34 * s;
+                Block(gx - 66 * s, gy - 50 * s, gw + 88 * s, gh + 98 * s);
                 Text(st.sparkLabel, gx + gw, gy + gh + 30 * s, 20, Ink, 1);
                 float lo = st.sparkLo, hi = st.sparkHi;
                 if (!(hi > lo)) {
@@ -360,6 +383,11 @@ namespace Crane.Theater {
                         Dot(pt, 4.5f * s, st.accent);
                         string lab = st.sparkPointLabels != null && i < st.sparkPointLabels.Length ? st.sparkPointLabels[i] : v[i].ToString(st.sparkFmt, CultureInfo.InvariantCulture);
                         Text(lab, pt.x, pt.y + 12 * s, 14, Dim, 0.5f, FontStyle.Normal, false, true);
+                        if (st.sparkNotes.TryGetValue(m.iterMin + i, out var note)) {
+                            float nw = Measure(note, 14, FontStyle.Normal);
+                            float nx = Mathf.Min(pt.x, gx + gw + 18 * s - nw * 0.5f);
+                            Text(note, nx, pt.y + 32 * s, 14, st.noteColor, 0.5f);
+                        }
                     }
                     if (i == cursor) Dot(pt, 7f * s, Ink);
                     prev = pt;
@@ -367,6 +395,51 @@ namespace Crane.Theater {
             }
 
             Heroes(m, pad, 150 * s);
+            WorldLabels(m, pad);
+        }
+
+        /// <summary>A backing panel for a HUD block (styled HUD): opaque enough that the water, its foam and the buoys
+        /// under it do not show through; its rectangle is kept so world labels stay clear of it.</summary>
+        void Block(float x, float y, float bw, float bh) {
+            Rect(x, y, bw, bh, Panel.WithA(Mathf.Max(Panel.a, style != null ? style.blockAlpha : 0.82f)));
+            occupied.Add(new Rect(x, y, bw, bh));
+        }
+
+        /// <summary>World labels (projected ring labels and the like): clamped to the safe area and moved off the HUD's
+        /// blocks and each other (the nearest free place, a thin leader back to the anchor when it moved far).</summary>
+        void WorldLabels(HudModel m, float pad) {
+            foreach (var (at, label, col) in m.labels) {
+                float lw = Measure(label, 18, FontStyle.Bold, true) + 16 * s, lh = 28 * s;
+                var want = new Rect(at.x - lw * 0.5f, at.y - 7 * s, lw, lh);
+                Rect best = Clamp(want, pad);
+                float bestD = Free(best) ? 0 : float.MaxValue;
+                if (bestD > 0) {
+                    for (int ring = 1; ring <= 40 && bestD == float.MaxValue; ring++)
+                        for (int k = 0; k < 16; k++) {
+                            float a = 2 * Mathf.PI * k / 16;
+                            var c = Clamp(new Rect(want.x + Mathf.Cos(a) * ring * 12 * s, want.y + Mathf.Sin(a) * ring * 12 * s, lw, lh), pad);
+                            float d = Vector2.Distance(c.center, want.center);
+                            if (d < bestD && Free(c)) { best = c; bestD = d; }
+                        }
+                    if (bestD == float.MaxValue) continue;   // nowhere free: better no label than one over the numbers
+                }
+                if (Vector2.Distance(best.center, want.center) > 40 * s) Line(new Vector2(at.x, at.y + 7 * s), best.center, 1.5f * s, col.WithA(0.6f));
+                Rect(best.x, best.y, best.width, best.height, Panel.WithA(Mathf.Max(0.75f, Panel.a)));
+                occupied.Add(best);
+                Text(label, best.center.x, best.y + 7 * s, 18, col, 0.5f, FontStyle.Bold, true, true);
+            }
+        }
+
+        Rect Clamp(Rect r, float pad) {
+            r.x = Mathf.Clamp(r.x, pad * 0.5f, w - pad * 0.5f - r.width);
+            r.y = Mathf.Clamp(r.y, pad * 0.5f, h - pad * 0.5f - r.height);
+            return r;
+        }
+
+        bool Free(Rect r) {
+            var g = new Rect(r.x - 6 * s, r.y - 6 * s, r.width + 12 * s, r.height + 12 * s);
+            foreach (var o in occupied) if (o.Overlaps(g)) return false;
+            return true;
         }
 
         void Row(float rx, float y, string label, string value, Color c) {
@@ -397,6 +470,9 @@ namespace Crane.Theater {
         public string[] sparkPointLabels;
         public float sparkLo = float.NaN, sparkHi = float.NaN;
         public bool dotsByRamp;
+        public float blockAlpha = 0.82f;   // palette.block_alpha: the panels behind the HUD's blocks
+        public readonly Dictionary<int, string> sparkNotes = new Dictionary<int, string>();   // spark.notes {"<iteration>": text}
+        public Color noteColor = new Color(0.93f, 0.63f, 0f);
         public float scrimTop = 210, scrimBottom = 330, scrimLeft = 900, scrimLeftHeight = 380;   // pixels at 1080 p
         readonly Dictionary<string, List<(string label, string value, Color? color)>> metrics = new Dictionary<string, List<(string, string, Color?)>>();
 
@@ -407,6 +483,8 @@ namespace Crane.Theater {
             if (pal != null) {
                 ink = TheaterOverlay.Hex(pal, "ink", ink); dim = TheaterOverlay.Hex(pal, "dim", dim); accent = TheaterOverlay.Hex(pal, "accent", accent);
                 panel = TheaterOverlay.Hex(pal, "panel", panel); panel.a = (float)TJson.Num(pal, "panel_alpha", 0);
+                blockAlpha = (float)TJson.Num(pal, "block_alpha", blockAlpha);
+                noteColor = TheaterOverlay.Hex(pal, "note", noteColor);
             }
             dotsByRamp = TJson.Bool(d, "dots_by_ramp", false);
             var sc = TJson.Obj(d, "scrim");   // {top, bottom, left, left_height} in pixels at 1080 p
@@ -432,6 +510,8 @@ namespace Crane.Theater {
                 var vals = TJson.Arr(sp, "values");
                 if (vals != null) { spark = new float[vals.Count]; for (int i = 0; i < vals.Count; i++) spark[i] = vals[i] is double x ? (float)x : float.NaN; }
                 var labs = TJson.Arr(sp, "point_labels");
+                if (TJson.Obj(sp, "notes") is Dictionary<string, object> notes)
+                    foreach (var kv in notes) if (int.TryParse(kv.Key, out int it) && kv.Value is string t) sparkNotes[it] = t;
                 if (labs != null) { sparkPointLabels = new string[labs.Count]; for (int i = 0; i < labs.Count; i++) sparkPointLabels[i] = labs[i] as string ?? ""; }
             }
         }

@@ -130,5 +130,33 @@ Shader "Hidden/Crane/TheaterWorld" {
             }
             ENDHLSL
         }
+
+        // 4: wash, the one alpha-blended layer: a tinted plane just above the water, under everything else the pass
+        // draws, that darkens the water (and its foam) towards a study's figure background, with a screen vignette.
+        // Objects that stand out of the water (buoys, hero boats) pass the depth test and stay lit.
+        Pass {
+            Name "Wash"
+            Blend SrcAlpha OneMinusSrcAlpha
+            ZWrite Off ZTest LEqual Cull Off
+            HLSLPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            float4 _WashRect; float _WashY; float4 _WashColor; float4 _WashView;   // view: w, h, vignette, vignette start
+            struct V { float4 pos : SV_POSITION; };
+            V vert(uint vid : SV_VertexID) {
+                float2 q[6] = { float2(0, 0), float2(1, 0), float2(1, 1), float2(0, 0), float2(1, 1), float2(0, 1) };
+                float2 uv = q[vid];
+                V o;
+                o.pos = Clip(float3(lerp(_WashRect.x, _WashRect.z, uv.x), _WashY, lerp(_WashRect.y, _WashRect.w, uv.y)));
+                return o;
+            }
+            float4 frag(V i) : SV_Target {
+                float2 p = i.pos.xy / max(_WashView.xy, 1) * 2 - 1;
+                p.x *= _WashView.x / max(_WashView.y, 1) * 0.75;
+                float vig = smoothstep(_WashView.w, 1.6, length(p)) * _WashView.z;
+                return float4(_WashColor.rgb * (1 - 0.5 * vig), saturate(_WashColor.a + vig * (1 - _WashColor.a)));
+            }
+            ENDHLSL
+        }
     }
 }
