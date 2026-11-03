@@ -17,6 +17,10 @@ reckoning: over the 12 s baselines it moves up to 11 m while GPS moves 0.1-1.7 m
 Grid: 10 Hz. The session is the trial block (``matrix_04``, ``pairs_01``, ...), the replication
 unit for validation. The world current is the GPS drift over the baseline window (flag
 ``current_from_drift``: wind drift is not separated from water motion).
+
+A session manifest beside the trial (``session_manifest``: the boat TUI's labels) drops a trial whose
+window overlaps bad data, an intervention, a link hold or an invalid tag, and adds the operator's
+wind, waves and current to its quality.
 """
 
 import hashlib
@@ -29,6 +33,7 @@ import numpy as np
 from plantcard.family import Evidence, Segment
 from plantcard.marine import mcap_lite as M
 from plantcard.marine.fossen3 import pwm_to_q
+from plantcard.marine import session_manifest
 
 DEFAULT_DIR = Path.home() / 'astro_dock' / 'bags' / 'field_trials_20261018'
 CMD_ORDER = ('front_left', 'rear_right', 'front_right', 'rear_left')
@@ -96,6 +101,9 @@ def read_trial(path, thruster_names, baseline_s=12.0, post_s=10.0):
     hi = min(t_off + post_s, tg[-1] - 1.0, to[-1], ti[-1])
     if t_on - lo < 4.0 or hi - t_off < 3.0:
         return None, 'too little data around the pulse'
+    labels = session_manifest.find(path)
+    if labels is not None and session_manifest.overlaps(labels, lo, hi):
+        return None, 'labelled ' + ', '.join(session_manifest.overlaps(labels, lo, hi))
     grid = np.arange(lo, hi, DT)
     pos = np.stack([np.interp(grid, tg, P[:, 0]), np.interp(grid, tg, P[:, 1])], -1)
     psi = np.interp(grid, to, yaw)
@@ -124,7 +132,8 @@ def read_trial(path, thruster_names, baseline_s=12.0, post_s=10.0):
         quality={'status': doc['status'], 'gps_fixes': len(gps), 'gps_sd_m': float(np.sqrt(gps[0]['cov'][0])),
                  'odom_baseline_disp_m': float(np.hypot(*(odo_xy[k1] - odo_xy[k0]))),
                  'gps_baseline_disp_m': float(np.hypot(*(pos[k1] - pos[k0]))),
-                 'wave_translation_acc': doc.get('wave_envelope', {}).get('translation_acceleration')},
+                 'wave_translation_acc': doc.get('wave_envelope', {}).get('translation_acceleration'),
+                 'conditions': session_manifest.conditions_at(labels, t_on) if labels is not None else {}},
         labels=[settings.get('action', ''), settings.get('axis') or settings.get('position', ''),
                 f'effort={settings.get("effort")}'] + list(settings.get('positions') or []),
         meta={'current': cur, 'current_sd': cur_sd, 'fit_window': (t_on - 1.0 - t0, min(hi, t_off + 8.0) - t0),
