@@ -186,7 +186,8 @@ class Worker:
                 if reason != self.paused:
                     log.info("paused: %s", reason)
                 self.paused = reason
-                self.note("paused", reason)
+                # Jobs still running (released at their next heartbeat) are named, so an installer won't kill them.
+                self.note("paused", reason, job=", ".join(sorted(self.jobs)) or None)
                 if self.gate:   # a lease for no job: the coordinator keeps the runner's window (feed: "next at")
                     self._safe_post("/v1/lease", {"caps": self.caps, "policy": self.lease_policy(reason), "max_jobs": 0,
                                                   "state": "paused", "client_version": __version__})

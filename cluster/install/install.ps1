@@ -221,7 +221,7 @@ if ($gpuWindow -and -not $NoTask) {
     -Action (New-ScheduledTaskAction -Execute $pyw -Argument "`"$(Join-Path $prefix 'crane-gpu-check.pyw')`"" -WorkingDirectory $prefix) `
     -Description "crane GPU runner check (on demand, while the user is away): a short hidden player run" -Force | Out-Null
   $gpuState = $null
-  try { $gpuState = (Get-Content -Raw (Join-Path $prefix "gpu\state.json") | ConvertFrom-Json).state } catch { }
+  try { $st = Get-Content -Raw (Join-Path $prefix "gpu\state.json") | ConvertFrom-Json; $gpuState = if ($st.job) { "running" } else { $st.state } } catch { }
   if ((Get-ScheduledTask -TaskName "crane-gpu").State -eq "Running") {
     if ($gpuState -in "idle", "paused", "stopped") { Stop-ScheduledTask -TaskName "crane-gpu"; Start-ScheduledTask -TaskName "crane-gpu" }
     else { & $py -m crane_cluster.worker --config $config --gpu-window drain }
@@ -229,7 +229,7 @@ if ($gpuWindow -and -not $NoTask) {
   Write-Host "GPU runner: task crane-gpu (status: $bin\crane-worker.cmd --gpu-window status)"
 }
 $state = $null
-try { $state = (Get-Content -Raw (Join-Path $prefix "state.json") | ConvertFrom-Json).state } catch { }
+try { $st = Get-Content -Raw (Join-Path $prefix "state.json") | ConvertFrom-Json; $state = if ($st.job) { "running" } else { $st.state } } catch { }
 if ((Get-ScheduledTask -TaskName "crane-worker").State -eq "Running") {
   # Stop-ScheduledTask kills the worker outright (its jobs would fail): only while it holds no job. A busy worker
   # drains instead: it finishes its jobs and exits, and the task's 5-minute trigger starts it on the new code.
