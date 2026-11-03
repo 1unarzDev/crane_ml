@@ -81,7 +81,7 @@ def windows_session_id():
 
 
 def window_visible(env):
-    """Would a player window be visible to someone on this host? Not in session 0, nor on the GPU runner's
+    """Would a player window be visible to someone on this host? Not in session 0, nor on the gpu lane's
     hidden desktop (``CRANE_DESKTOP``)."""
     if sys.platform == 'win32':
         return windows_session_id() != 0 and not hidden_desktop(env)

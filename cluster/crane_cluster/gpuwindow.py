@@ -1,21 +1,19 @@
-"""The GPU window: when a desktop-session runner may lease GPU jobs on someone else's PC.
+"""The GPU window: when a worker's gpu lane may lease GPU jobs on someone else's PC.
 
 A Windows worker in session 0 (an S4U task) cannot render: Unity's D3D12 device fails there (887a0022) and
-D3D11 hangs. GPU backends (unity, theater-render) therefore run in a second worker, the GPU runner, inside
-the logged-on user's session (``crane-worker --gpu-window run``, the ``crane-gpu`` task install.ps1
-registers), while the session-0 worker keeps the CPU backends. The machine's owner is using it, so the
-runner leases only inside a schedule AND while the PC is idle or locked, and gives the job back the moment
-he returns. Worker YAML::
+D3D11 hangs. So a Windows worker on a shared PC runs as ONE hidden task in the logged-on user's session
+(install.ps1), with two lanes (config.lanes): the cpu lane (every other backend, paused on his activity as the
+policy says) and the gpu lane, the backends named here. The PC's owner is using it, so the gpu lane leases only
+inside a schedule AND while the PC is idle or locked, and gives the job back the moment he returns. Worker YAML::
 
     gpu_window:
-      enabled: true                      # false: the runner reports its window but leases nothing
-      backends: [unity, theater-render]  # run only by the runner; the session-0 worker drops them
+      enabled: true                      # false: the lane reports its window but leases nothing
+      backends: [unity, theater-render]  # the gpu lane; every other backend is the cpu lane
       hours:                             # local time, "DAYS HH:MM-HH:MM"; a range past midnight ends the next day
         - "mon-fri 01:00-08:00"          #   weekday nights
         - "fri,sat 23:00-11:00"          #   longer on weekends: Fri 23:00-Sat 11:00 and Sat 23:00-Sun 11:00
       idle_seconds: 600                  # no keyboard/mouse input this long counts as idle
       locked_idle_seconds: 60            # a locked (or disconnected) session: this long without input
-      name: simwin-gpu                   # its coordinator identity (default <name>-gpu); token: token-gpu
       desktop: crane-gpu                 # players start on this hidden desktop (never shown); "" to not
 
 DAYS: ``mon``..``sun``, ranges (``mon-fri``), lists (``fri,sat``), ``daily``. Leasing starts only when the
@@ -137,7 +135,7 @@ def session_locked() -> bool | None:
 
 
 def input_idle_seconds() -> float | None:
-    """Seconds since the last keyboard/mouse input in this session (the runner runs in the user's session)."""
+    """Seconds since the last keyboard/mouse input in this session (the worker runs in the user's session)."""
     from . import idle
     return idle.user_idle_seconds()
 
@@ -145,7 +143,7 @@ def input_idle_seconds() -> float | None:
 # ---------------------------------------------------------------- the gate
 
 class Gate:
-    """Decides, from the schedule, the idle time and the lock state, whether the runner may lease now
+    """Decides, from the schedule, the idle time and the lock state, whether the gpu lane may lease now
     (``closed()``) and whether a running job must go back now (``interrupted()``). The probes are injectable
     so the logic is tested without a desktop."""
 

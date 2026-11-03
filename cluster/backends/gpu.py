@@ -79,13 +79,13 @@ def player_gpu_args(args, adapters=None):
 
 
 def hidden_desktop(env):
-    """The hidden desktop the GPU runner starts players on (``CRANE_DESKTOP``), or None."""
+    """The hidden desktop the gpu lane starts players on (``CRANE_DESKTOP``), or None."""
     return env.get('CRANE_DESKTOP') if sys.platform == 'win32' else None
 
 
 def start_player(argv, cwd, env):
     """Starts a player at below-normal priority with no console window, detached from the worker's signals.
-    Under the GPU runner (Windows, the user's desktop session) it starts on the runner's hidden desktop
+    In the gpu lane (Windows, the user's desktop session) it starts on the lane's hidden desktop
     (crane_cluster/hiddendesk.py), so nothing it opens can be seen or take focus."""
     import subprocess
     if sys.platform != 'win32':

@@ -104,30 +104,39 @@ class GateTest(unittest.TestCase):
         self.assertTrue(gate(Probe(0)).report()["until"].startswith("2026-11-02T08:00"))
 
 
-class Roles(unittest.TestCase):
-    def cfg(self):
+class Lanes(unittest.TestCase):
+    def cfg(self, gpu_window=True):
         c = config.load(None)
-        c["name"] = "simwin"
+        c["name"] = "harmony"
         c["backends"] = {"unity": {"type": "dummy"}, "theater-render": {"type": "dummy"}, "fastsim": {"type": "dummy"}}
         c["policy"] = {"nice": 10, "pause_on_activity": True, "idle_seconds": 300, "max_est_minutes": 60}
-        c["gpu_window"] = {"enabled": True}
+        if gpu_window:
+            c["gpu"] = gpuwindow.options({"enabled": True})
         return c
 
     def test_split(self):
-        main = config.for_role(self.cfg(), gpu=False)
-        self.assertEqual(sorted(main["backends"]), ["fastsim"])
-        gpu = config.for_role(self.cfg(), gpu=True)
-        self.assertEqual(sorted(gpu["backends"]), ["theater-render", "unity"])
-        self.assertEqual(gpu["name"], "simwin-gpu")
-        self.assertEqual(gpu["token_file"].name, "token-gpu")
-        self.assertEqual(gpu["policy"], {"nice": 10, "max_est_minutes": 60})
-        self.assertEqual(worker.flag_dir(gpu).name, "gpu")
-        self.assertEqual(gpu["off_file"], main["off_file"])   # `crane-worker off` stops both
-        c = self.cfg()
-        del c["gpu_window"]
-        self.assertEqual(sorted(config.for_role(c, gpu=False)["backends"]), ["fastsim", "theater-render", "unity"])
-        with self.assertRaises(SystemExit):
-            config.for_role(c, gpu=True)
+        self.assertEqual(config.lanes(self.cfg()), {"cpu": ["fastsim"], "gpu": ["theater-render", "unity"]})
+        self.assertEqual(config.lanes(self.cfg(gpu_window=False)), {"cpu": ["fastsim", "theater-render", "unity"]})
+
+    def test_policy_reports_both_lanes(self):
+        w = worker.Worker(self.cfg(), client=FakeClient([]))
+        p = w.lease_policy({"cpu": "user active", "gpu": "outside the GPU window"})
+        self.assertEqual(p["window"]["backends"], ["theater-render", "unity"])
+        self.assertEqual(p["lanes"], [{"name": "cpu", "backends": ["fastsim"], "paused": "user active"},
+                                      {"name": "gpu", "backends": ["theater-render", "unity"], "paused": "outside the GPU window"}])
+        self.assertEqual(p["max_est_minutes"], 60)
+
+    def test_cpu_lane_leases_while_the_gpu_lane_is_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            c = self.cfg()
+            c.update({"data_dir": Path(tmp), "off_file": Path(tmp) / "off", "policy": {"nice": 0}})
+            w = worker.Worker(c, client=FakeClient([]))
+            probe = Probe(idle=0)   # he is at it, outside the hours
+            w.gate = gate(probe, now=D(2026, 11, 2, 12, 0))
+            w.loop(once=True)
+            path, body = w.client.calls[-1]
+            self.assertEqual((path, body["backends"]), ("/v1/lease", ["fastsim"]))
+            self.assertEqual([l.get("paused") for l in body["policy"]["lanes"]], [None, "outside the GPU window (next at Tue 01:00)"])
 
 
 class Client(FakeClient):
@@ -139,7 +148,7 @@ class Client(FakeClient):
 
 
 class Flip(unittest.TestCase):
-    """The runner leases while the PC is idle, gives the job back at the first input and waits for idle again."""
+    """The gpu lane leases while the PC is idle, gives the job back at the first input and waits for idle again."""
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -151,8 +160,7 @@ class Flip(unittest.TestCase):
         cfg = config.load(None)
         cfg.update({"data_dir": Path(self.tmp.name) / "data", "off_file": Path(self.tmp.name) / "off", "poll_s": 0.05,
                     "heartbeat_s": 60, "policy": {"nice": 0}, "backends": {"unity": {"type": "dummy"}},
-                    "gpu_window": {"enabled": True, "check_s": 0.2}})
-        cfg = config.for_role(cfg, gpu=True)
+                    "gpu": gpuwindow.options({"enabled": True, "check_s": 0.2})})
         w = worker.Worker(cfg, client=Client(jobs))
         w.gate = gpuwindow.Gate(cfg["gpu"], idle_fn=probe.idle, locked_fn=lambda: probe.locked, clock=now,
                                 mono=lambda: probe.t)

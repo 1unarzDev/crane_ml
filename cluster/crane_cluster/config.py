@@ -43,7 +43,7 @@ DEFAULTS = {
     "isolation": {"port_base": 20000, "port_stride": 100, "id_base": 1, "slot": 0},
     "slots": None,               # concurrent jobs per backend (see slots.py); none: one job at a time
     "admit_release_min": 5,      # a leased job waiting this long in its host guard goes back (worker.py)
-    "gpu_window": None,          # GPU backends run by a desktop-session runner on a schedule (gpuwindow.py)
+    "gpu_window": None,          # the gpu lane: GPU backends only on a schedule while the user is away (gpuwindow.py)
     "backends": {"dummy": {"type": "dummy"}},
 }
 
@@ -62,40 +62,20 @@ def load(path: str | Path | None) -> dict:
     cfg["data_dir"] = Path(os.path.expanduser(cfg["data_dir"] or data_dir()))
     # `crane-worker off` creates it beside the config; the worker takes no job while it exists.
     cfg["off_file"] = Path(os.path.expanduser(cfg.get("off_file") or (Path(path).parent if path else config_dir()) / "off"))
+    if cfg.get("gpu_window"):
+        from . import gpuwindow
+        cfg["gpu"] = gpuwindow.options(cfg["gpu_window"])
     return cfg
 
 
-def for_role(cfg: dict, gpu: bool) -> dict:
-    """The config one worker process runs with. With a ``gpu_window`` section its GPU backends belong to the
-    GPU runner (``--gpu-window``): the main worker drops them, and the runner keeps only them, under its own
-    identity (``<name>-gpu``, token-gpu), data and control directories, with one job at a time and no
-    pause_on_activity or quiet hours (its window and idle gate replace them)."""
-    gw = cfg.get("gpu_window")
-    if not gw:
-        if gpu:
-            raise SystemExit("--gpu-window: the config has no gpu_window section")
-        return cfg
-    from . import gpuwindow
-    opts = gpuwindow.options(gw)
-    names = set(opts["backends"])
-    out = dict(cfg)
-    if not gpu:
-        out["backends"] = {k: v for k, v in cfg["backends"].items() if k not in names}
-        return out
-    out["gpu"] = opts
-    out["backends"] = {k: v for k, v in cfg["backends"].items() if k in names}
-    out["name"] = opts.get("name") or f"{cfg['name']}-gpu"
-    out["token_file"] = Path(os.path.expanduser(opts.get("token_file") or Path(cfg["token_file"]).parent / "token-gpu"))
-    out["data_dir"] = Path(cfg["data_dir"]) / "gpu"
-    out["flag_dir"] = Path(cfg["off_file"]).parent / "gpu"   # its own drain/stop; `off` (off_file) stops both
-    out["slots"] = None
-    pol = dict(cfg.get("policy") or {})
-    for k in ("pause_on_activity", "quiet_hours", "quiet_days", "idle_seconds"):
-        pol.pop(k, None)
-    out["policy"] = pol
-    iso = dict(cfg["isolation"])
-    iso["slot"] = int(iso.get("slot", 0)) + 16   # ports and ids clear of the main worker's slots
-    out["isolation"] = iso
+def lanes(cfg: dict) -> dict[str, list[str]]:
+    """A worker's lanes: with a ``gpu_window`` section (``cfg["gpu"]``) its GPU backends form the gpu lane, which
+    leases only inside the window while the user is away (gpuwindow.py); the rest form the cpu lane, paused by the
+    policy (pause_on_activity, quiet hours). Without one, every backend is in the cpu lane."""
+    names = set((cfg.get("gpu") or {}).get("backends") or [])
+    out = {"cpu": sorted(b for b in cfg["backends"] if b not in names)}
+    if cfg.get("gpu"):
+        out["gpu"] = sorted(b for b in cfg["backends"] if b in names)
     return out
 
 

@@ -94,6 +94,7 @@ class WorkerLoopTest(unittest.TestCase):
         w = worker.Worker.__new__(worker.Worker)
         w.cfg = {"poll_s": 30, "heartbeat_s": 60, "long_poll_s": 25, "data_dir": mock.MagicMock()}
         w.cfg["off_file"] = Path(tempfile.mkdtemp()) / "off"
+        w.lanes, w.lane_of = {"cpu": ["dummy"]}, {"dummy": "cpu"}
         w.cfg["backends"] = {"dummy": {"type": "dummy"}}
         w.policy, w.caps, w.paused = {}, {"backends": ["dummy"]}, None
         w.slots, w.jobs, w.freed = Slots(w.cfg, w.caps), {}, threading.Event()

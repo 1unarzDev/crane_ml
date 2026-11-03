@@ -45,7 +45,7 @@ DEFAULTS = {'timeout_s': 3600, 'crf': 18, 'preset': 'medium', 'preroll_s': 2, 'm
 
 
 def window_visible(env):
-    """Not in session 0, nor on the GPU runner's hidden desktop (``CRANE_DESKTOP``)."""
+    """Not in session 0, nor on the gpu lane's hidden desktop (``CRANE_DESKTOP``)."""
     if sys.platform == 'win32':
         if hidden_desktop(env):
             return False
@@ -147,7 +147,7 @@ class ClusterBackend:
                 self.env.setdefault('SDL_VIDEODRIVER', 'dummy')
         elif window_visible(self.env):
             # -batchmode never opens a window; a desktop session is still refused, as the unity backend does
-            raise RuntimeError('theater: refusing to run the player on a visible desktop (session 0 or the GPU runner only)')
+            raise RuntimeError('theater: refusing to run the player on a visible desktop (session 0 or the gpu lane only)')
         self.ffmpeg = self._ffmpeg()
         self.inputs = self.fetch_inputs(Path(ctx.work_dir) / 'input')
         self.manifest = json.loads((self.inputs / self.job['manifest']).read_text())

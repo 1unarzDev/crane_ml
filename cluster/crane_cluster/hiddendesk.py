@@ -1,11 +1,11 @@
 """Windows: start a process on a hidden desktop of this session, so no window it makes can be seen or take focus.
 
-The GPU runner works in the logged-on user's session (its players need the desktop session's GPU access).
+The worker runs in the logged-on user's session (its gpu lane's players need the desktop session's GPU access).
 A player runs with ``-batchmode`` (no window); ``popen`` additionally starts it on a desktop of the user's
 window station that is created here and never switched to (``CreateDesktop`` + ``STARTUPINFO.lpDesktop``).
 Windows only ever shows the input desktop, so a window, dialog or console the player or its children open
 lands where nobody sees it and cannot take the foreground. ``windows_of`` lists the windows a process has on a
-desktop, which ``crane-worker --gpu-window gpu-check`` uses to verify that.
+desktop, which ``crane-worker gpu-check`` uses to verify that.
 """
 from __future__ import annotations
 
