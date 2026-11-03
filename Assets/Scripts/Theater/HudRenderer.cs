@@ -135,7 +135,11 @@ namespace Crane.Theater {
 
         bool rebuilt;
 
+        float dipAlpha;   // the act-transition dip, drawn over the HUD's shapes and text
+        Mesh dip;
+
         public void Draw(RenderTexture target, HudModel m) {
+            dipAlpha = 0f;
             // a glyph outside the preloaded set can rebuild the atlas mid-layout; lay out again when it does
             for (int pass = 0; pass < 3; pass++) {
                 rebuilt = false;
@@ -155,6 +159,16 @@ namespace Crane.Theater {
             cmd.DrawMesh(shapes, Matrix4x4.identity, mat, 0, 0);
             cmd.DrawMesh(text, Matrix4x4.identity, mat, 0, 1, textProps);
             if (mv.Count > 0) cmd.DrawMesh(textMono, Matrix4x4.identity, mat, 0, 1, monoProps);
+            if (dipAlpha > 0) {
+                dip ??= new Mesh { name = "hud dip" };
+                var c = Panel.linear.WithA(dipAlpha);
+                dip.Clear();
+                dip.SetVertices(new[] { new Vector3(0, 0), new Vector3(w, 0), new Vector3(w, h), new Vector3(0, h) });
+                dip.SetColors(new[] { c, c, c, c });
+                dip.SetTriangles(new[] { 0, 1, 2, 0, 2, 3 }, 0, false);
+                dip.bounds = new Bounds(Vector3.zero, Vector3.one * 1e6f);
+                cmd.DrawMesh(dip, Matrix4x4.identity, mat, 0, 0);
+            }
             Graphics.ExecuteCommandBuffer(cmd);
         }
 
@@ -281,7 +295,6 @@ namespace Crane.Theater {
             int active = m.active;
             bool spot = m.goldId != null && (m.actType == "compare" || m.actType == "spotlight");   // no fleet counters in a spotlight
             occupied.Clear();
-            if (m.fade > 0) Rect(0, 0, W, H, Panel.WithA(m.fade));   // an act transition: the frame dips toward the panel colour
             if (Panel.a > 0) {   // scrims: the top band and the bottom band fade into the scene
                 Color clear = Panel.WithA(0f);
                 float tb = st.scrimTop * s, bb = st.scrimBottom * s;
@@ -291,7 +304,7 @@ namespace Crane.Theater {
 
             // top left: brand, title and subtitle, caption, on one panel
             float tw = Measure(m.title ?? "", 44, FontStyle.Bold), sw = Measure(st.subtitle, 26, FontStyle.Normal);
-            float bw = Mathf.Max(tw + 18 * s + sw, Mathf.Max(Measure(m.caption ?? "", 20, FontStyle.Normal), Measure(st.brand, 15, FontStyle.Bold)));
+            float bw = Mathf.Max(tw + 18 * s + sw, Mathf.Max(Mathf.Max(TitleCaptionMin, Measure(m.caption ?? "", 20, FontStyle.Normal)), Measure(st.brand, 15, FontStyle.Bold)));
             Block(pad - 22 * s, top - 108 * s, bw + 44 * s, 132 * s);
             Text(st.brand, pad, top - 2 * s, 15, Dim, 0, FontStyle.Bold);
             Text(m.title, pad, top - 50 * s, 44, Ink, 0, FontStyle.Bold);
@@ -305,7 +318,9 @@ namespace Crane.Theater {
                 : active >= 0 ? active.ToString(CultureInfo.InvariantCulture) : $"{m.iterFrom}–{m.iterTo}";
             int csize = spot ? 56 : 72;
             string runsLine = spot ? null : $"{m.runs} runs   {m.running} running   {m.finished} arrived";
-            float cwid = Mathf.Max(Measure(counter, csize, FontStyle.Bold), Mathf.Max(n * 26 * s, runsLine != null ? Measure(runsLine, 16, FontStyle.Normal, true) : 0));
+            // one width for the act: sized for the widest the counts can get (every run running and arrived)
+            string runsWide = spot ? null : $"{m.runs} runs   {m.runs} running   {m.runs} arrived";
+            float cwid = Mathf.Max(Measure(counter, csize, FontStyle.Bold), Mathf.Max(n * 26 * s, runsWide != null ? Measure(runsWide, 16, FontStyle.Normal, true) : 0));
             Block(rx - cwid - 22 * s, top - (runsLine != null ? 160 : 124) * s, cwid + 44 * s, (runsLine != null ? 184 : 148) * s);
             Text(st.iterLabel, rx, top - 2 * s, 18, Dim, 1);
             Text(counter, rx, top - 76 * s, csize, Ink, 1, FontStyle.Bold);
@@ -386,7 +401,9 @@ namespace Crane.Theater {
                     if (past) {
                         Dot(pt, 4.5f * s, st.accent);
                         string lab = st.sparkPointLabels != null && i < st.sparkPointLabels.Length ? st.sparkPointLabels[i] : v[i].ToString(st.sparkFmt, CultureInfo.InvariantCulture);
-                        Text(lab, pt.x, pt.y + 12 * s, 14, Dim, 0.5f, FontStyle.Normal, false, true);
+                        // below the point where the line comes down into it (a dip or a fall), above at a peak or a climb
+                        bool below = i > 0 && !float.IsNaN(v[i - 1]) && v[i - 1] > v[i];
+                        HaloText(lab, pt.x, below ? pt.y - 26 * s : pt.y + 12 * s, 14, Dim, 0.5f, true);
                         if (st.sparkNotes.TryGetValue(m.iterMin + i, out var note)) {
                             float nw = Measure(note, 14, FontStyle.Normal);
                             float nx = Mathf.Min(pt.x, gx + gw + 18 * s - nw * 0.5f);
@@ -400,6 +417,27 @@ namespace Crane.Theater {
 
             Heroes(m, pad, 150 * s);
             WorldLabels(m, pad);
+            // an act transition: the frame dips toward the panel colour, the HUD's text with it (drawn last, over everything)
+            dipAlpha = m.fade;
+        }
+
+        /// <summary>Widest caption over the whole script (styled HUD): the title panel keeps one width for every act.</summary>
+        public float TitleCaptionMin;
+        public void LockTitle(IEnumerable<string> captions) {
+            foreach (var c in captions) {
+                if (string.IsNullOrEmpty(c)) continue;
+                font.RequestCharactersInTexture(c, Px(20), FontStyle.Normal);
+                TitleCaptionMin = Mathf.Max(TitleCaptionMin, Measure(c, 20, FontStyle.Normal));
+            }
+        }
+
+        /// <summary>Text with a 2 px halo in the panel colour, so a line under it does not strike it through.</summary>
+        void HaloText(string str, float x, float y, int size, Color c, float align, bool num) {
+            var hc = Panel.WithA(1f);
+            for (int dx = -1; dx <= 1; dx++)
+                for (int dy = -1; dy <= 1; dy++)
+                    if (dx != 0 || dy != 0) Text(str, x + dx * 2f * s, y + dy * 2f * s, size, hc, align, FontStyle.Normal, false, num);
+            Text(str, x, y, size, c, align, FontStyle.Normal, false, num);
         }
 
         /// <summary>A backing panel for a HUD block (styled HUD): opaque enough that the water, its foam and the buoys

@@ -48,8 +48,9 @@ namespace Crane.Theater {
             cometProps = new MaterialPropertyBlock(), trailProps = new MaterialPropertyBlock(), overlayProps = new MaterialPropertyBlock();
         // per act
         int trailAct = -1, historyKey = int.MinValue;
-        Mesh trails, history;
-        readonly MaterialPropertyBlock historyProps = new MaterialPropertyBlock();
+        Mesh trails, history, historyNew;   // historyNew: the iteration that retired last, faded into the past layer
+        readonly MaterialPropertyBlock historyProps = new MaterialPropertyBlock(), historyNewProps = new MaterialPropertyBlock();
+        float historyNewStart, historyNewGain0 = 0f, historyNewRamp = 0.4f;
         float trailNow;
         bool cometsOn;
         // heat
@@ -128,7 +129,7 @@ namespace Crane.Theater {
             foreach (var h in f.heroes) marks.Add(new MarkerDraw { pos = h.pos, age = 0.35f, radius = 1.0f, color = h.color * new Color(1, 1, 1, 0.7f) });
             markerCount = Mathf.Min(marks.Count, markerData.Length);
             for (int i = 0; i < markerCount; i++)
-                markerData[i] = new MarkerGpu { pos = marks[i].pos, radius = marks[i].radius, age = marks[i].age, color = marks[i].color };
+                markerData[i] = new MarkerGpu { pos = marks[i].pos + Vector3.up * 0.3f, radius = marks[i].radius, age = marks[i].age, color = marks[i].color };
             if (markerCount > 0) markerBuf.SetData(markerData, 0, 0, markerCount);
 
             chevrons = p.act.ghostShape == "chevron";
@@ -140,6 +141,10 @@ namespace Crane.Theater {
             trailNow = st.ActRunTime(p, f.tau, out _);
             int key = p.act.history ? p.index * 100000 + st.CurrentIteration(p, f.tau) : int.MinValue;
             if (key != historyKey) BuildHistory(p, f.tau, key);
+            if (historyNew != null) {
+                float u = Mathf.Clamp01((f.tau - historyNewStart) / Mathf.Max(1e-3f, historyNewRamp));
+                historyNewProps.SetFloat("_Gain", Mathf.Lerp(historyNewGain0, 1f, u * u * (3f - 2f * u)));
+            }
             heatOn = p.act.heat;
             if (heatOn) AdvanceHeat(f);
             st.Overlay?.Prepare(f, st, st.S.Fps);
@@ -210,34 +215,61 @@ namespace Crane.Theater {
         }
 
         /// <summary>history acts: every run of an earlier iteration than the current one, as a full dimmed path
-        /// (the newest past iteration at past_alpha, each older one x past_decay), rebuilt when the iteration changes.</summary>
+        /// (the newest past iteration at past_alpha, each older one x past_decay), rebuilt when the iteration changes. The
+        /// iteration that just retired is its own mesh, faded in over 0.4 s (at an act's start: faded down from the previous
+        /// act's trail brightness over the camera blend), so a whole iteration's paths never pop in one frame.</summary>
         void BuildHistory(ActPlan p, float tau, int key) {
             historyKey = key;
             if (history != null) UnityEngine.Object.Destroy(history);
-            history = null;
+            if (historyNew != null) UnityEngine.Object.Destroy(historyNew);
+            history = historyNew = null;
             if (!p.act.history) return;
             int cur = st.CurrentIteration(p, tau);
-            cv.Clear(); cc.Clear(); cu.Clear(); ci.Clear();
             var pack = st.M.Pack;
             var pts = new List<(Vector3, float)>();
-            float n0 = Mathf.Sqrt(30f);
-            foreach (var r in st.M.Runs) {
-                if (r.iteration >= cur || r.iteration < st.M.MinIteration) continue;
-                float u = st.M.MaxIteration > st.M.MinIteration ? (r.iteration - st.M.MinIteration) / (float)(st.M.MaxIteration - st.M.MinIteration) : 1f;
-                var c = Colormaps.Eval(p.act.ramp, u).linear;
-                c.a = p.act.pastAlpha * 0.5f * Mathf.Pow(p.act.pastDecay, cur - 1 - r.iteration) * p.act.trailAlpha;
-                if (c.a < 0.01f) continue;
-                pts.Clear();
-                int n = pack.Samples(r.index), step = Mathf.Max(1, Mathf.RoundToInt(pack.Hz / 5f));
-                for (int k = 0; k < n; k += step) pts.Add((st.UnityPos(pack.Sample(r.index, k)), -1e6f));
-                pts.Add((st.UnityPos(pack.Sample(r.index, n - 1)), -1e6f));
-                Ribbon(pts, 0.12f, c, false, 1f);
+            Mesh Build(bool newest) {
+                cv.Clear(); cc.Clear(); cu.Clear(); ci.Clear();
+                foreach (var r in st.M.Runs) {
+                    if (r.iteration >= cur || r.iteration < st.M.MinIteration) continue;
+                    if ((r.iteration == cur - 1) != newest) continue;
+                    float u = st.M.MaxIteration > st.M.MinIteration ? (r.iteration - st.M.MinIteration) / (float)(st.M.MaxIteration - st.M.MinIteration) : 1f;
+                    var c = Colormaps.Eval(p.act.ramp, u).linear;
+                    c.a = p.act.pastAlpha * 0.5f * Mathf.Pow(p.act.pastDecay, cur - 1 - r.iteration) * p.act.trailAlpha;
+                    if (c.a < 0.01f) continue;
+                    pts.Clear();
+                    int n = pack.Samples(r.index), step = Mathf.Max(1, Mathf.RoundToInt(pack.Hz / 5f));
+                    for (int k = 0; k < n; k += step) pts.Add((st.UnityPos(pack.Sample(r.index, k)), -1e6f));
+                    pts.Add((st.UnityPos(pack.Sample(r.index, n - 1)), -1e6f));
+                    Ribbon(pts, 0.12f, c, false, 1f);
+                }
+                if (cv.Count == 0) return null;
+                var mesh = new Mesh { name = newest ? "theater history (newest)" : "theater history", indexFormat = IndexFormat.UInt32 };
+                mesh.SetVertices(cv); mesh.SetColors(cc); mesh.SetUVs(0, cu); mesh.SetTriangles(ci, 0, false);
+                mesh.bounds = new Bounds(Vector3.zero, Vector3.one * 1e5f);
+                return mesh;
             }
-            if (cv.Count == 0) return;
-            history = new Mesh { name = "theater history", indexFormat = IndexFormat.UInt32 };
-            history.SetVertices(cv); history.SetColors(cc); history.SetUVs(0, cu); history.SetTriangles(ci, 0, false);
-            history.bounds = new Bounds(Vector3.zero, Vector3.one * 1e5f);
-            historyProps.SetFloat("_Now", 0f); historyProps.SetFloat("_Tail", 0f); historyProps.SetFloat("_Floor", 1f); historyProps.SetFloat("_Gain", 1f);
+            history = Build(false);
+            historyNew = Build(true);
+            foreach (var props in new[] { historyProps, historyNewProps }) {
+                props.SetFloat("_Now", 0f); props.SetFloat("_Tail", 0f); props.SetFloat("_Floor", 1f); props.SetFloat("_Gain", 1f);
+            }
+            // when the newest past iteration began to be past (deterministic: from the act's clock, not the frame order)
+            var a = p.act;
+            historyNewStart = 0f;
+            if (a.type == "evolution") historyNewStart = Mathf.Max(0, Array.IndexOf(p.iterations, cur)) * a.perIteration;
+            else if (a.iterationStagger > 0 && p.iterations.Length > 0)
+                historyNewStart = Mathf.Max(0f, ((cur - p.iterations[0]) * a.iterationStagger - a.t0) / Mathf.Max(1e-3f, a.speed));
+            historyNewGain0 = 0f; historyNewRamp = 0.4f;
+            if (historyNewStart <= 1e-3f && p.index > 0) {
+                // the act opens with it already past: it was the previous act's bright trails; decay from that brightness
+                var prev = st.Plans[p.index - 1];
+                if (prev.trailRuns.Count > 0) {
+                    float was = 0.55f * Mathf.Clamp(Mathf.Sqrt(24f / prev.trailRuns.Count), 0.12f, 1f) * prev.act.trailAlpha * (0.16f / 0.12f);
+                    float now = a.pastAlpha * 0.5f * a.trailAlpha;
+                    historyNewGain0 = Mathf.Clamp(was / Mathf.Max(1e-3f, now), 1f, 6f);
+                }
+                historyNewRamp = Mathf.Max(0.4f, a.Cam("blend_in_s", 0f));
+            }
         }
 
         void BuildTrails(ActPlan p) {
@@ -411,6 +443,7 @@ namespace Crane.Theater {
             }
             st.Overlay?.Draw(cmd, mat, overlayProps);
             if (history != null) cmd.DrawMesh(history, Matrix4x4.identity, mat, 0, 1, historyProps);
+            if (historyNew != null) cmd.DrawMesh(historyNew, Matrix4x4.identity, mat, 0, 1, historyNewProps);
             if (trails != null) {
                 trailProps.SetFloat("_Now", trailNow);
                 cmd.DrawMesh(trails, Matrix4x4.identity, mat, 0, 1, trailProps);

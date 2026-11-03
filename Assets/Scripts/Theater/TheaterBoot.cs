@@ -176,6 +176,7 @@ namespace Crane.Theater {
             cpv.injectionPoint = CustomPassInjectionPoint.AfterPostProcess;
             cpv.customPasses.Add(new TheaterPass { R = renderer, name = "ghost theater" });
             var hud = new HudRenderer(script.Width, script.Height, TJson.Obj(manifest.Raw, "hud"));
+            hud.LockTitle(script.Acts.ConvertAll(x => x.caption));
 
             GameObject gold = null, silver = null;
             bool heroes = false;
@@ -196,9 +197,12 @@ namespace Crane.Theater {
             var report = new Report(state, outDir);
             var renderMs = new List<double>();
             var sw = new System.Diagnostics.Stopwatch();
-            for (int f = first; f < b; f++) {
+            // the very first frame of a render has no preroll: warm it up (the water and HDRP's history settle; an unsettled
+            // first frame showed a dark tile at the start pose), rendering frame 0 a few times and discarding them
+            int warm = first == 0 ? 6 : 0;
+            for (int f = first - warm; f < b; f++) {
                 sw.Restart();
-                var fs = state.Evaluate(f);
+                var fs = state.Evaluate(Mathf.Max(0, f));
                 float t = state.ActRunTime(fs.plan, fs.tau, out _);
                 world.SetTime(t);
                 PlaceHero(gold, fs, fs.plan.hero, robot);
