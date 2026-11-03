@@ -187,8 +187,16 @@ namespace Crane.Theater {
         public static int ActiveIteration(FrameState f) =>
             f.iteration >= 0 ? f.iteration : f.plan.iterations.Length == 1 ? f.plan.iterations[0] : -1;
 
-        bool Visible(HashSet<int> acts, HashSet<int> iterations, int act, int it) =>
-            (acts == null || acts.Contains(act)) && (iterations == null || it < 0 || iterations.Contains(it));
+        /// <summary>In the act, and for its iteration: the one it shows, else (a compare, a fleet of several) one of
+        /// the act's own iterations.</summary>
+        static bool Visible(HashSet<int> acts, HashSet<int> iterations, int act, int it, int[] actIterations) {
+            if (acts != null && !acts.Contains(act)) return false;
+            if (iterations == null) return true;
+            if (it >= 0) return iterations.Contains(it);
+            if (actIterations == null) return true;
+            foreach (int k in actIterations) if (iterations.Contains(k)) return true;
+            return false;
+        }
 
         readonly List<(Mesh m, float gain)> draw = new List<(Mesh, float)>();
 
@@ -197,10 +205,10 @@ namespace Crane.Theater {
             int it = ActiveIteration(f);
             float tv = f.frame / Mathf.Max(1f, fps);
             foreach (var s in shapes)
-                if (Visible(s.acts, s.iterations, f.act, it))
+                if (Visible(s.acts, s.iterations, f.act, it, f.plan?.iterations))
                     draw.Add((s.mesh, s.pulse > 0 ? 0.7f + 0.3f * Mathf.Sin(2 * Mathf.PI * s.pulse * tv) : 1f));
             halosOn = false;
-            if (halos == null || !Visible(haloActs, null, f.act, -1)) return;
+            if (halos == null || !Visible(haloActs, null, f.act, -1, null)) return;
             v.Clear(); c.Clear(); u.Clear(); idx.Clear();
             void Add(GhostDraw g, float alphaScale) {
                 int rit = st.M.Runs[g.run].iteration;

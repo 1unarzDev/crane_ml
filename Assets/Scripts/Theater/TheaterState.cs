@@ -20,9 +20,11 @@ namespace Crane.Theater {
     }
 
     public sealed class HudModel {
-        public string title, caption, actType, colour, ramp, legendLo, legendHi, insight = "";
+        public string title, caption, headline = "", actType, colour, ramp, legendLo, legendHi, insight = "";
+        public readonly List<(Vector2 at, string text, Color color)> labels = new List<(Vector2, string, Color)>();   // world labels, in pixels
         public int iteration = -1, iterFrom, iterTo, iterCount, iterMin, runs, finished, failed, running;
-        public int active = -1;   // the one iteration the frame shows (its evolution step, the act's only iteration, a compare's hero), else -1
+        public int active = -1;
+        public int current = -1;   // the iteration that stands out (legend chip)   // the one iteration the frame shows (its evolution step, the act's only iteration, a compare's hero), else -1
         public float best = float.NaN, runTime, speed;
         public float[] spark;
         public int sparkCursor = -1;
@@ -149,6 +151,11 @@ namespace Crane.Theater {
                 var rng = new System.Random(a.seed * 7919 + 17);
                 for (int i = 0; i < p.stagger.Length; i++) p.stagger[i] = (float)(rng.NextDouble() * a.stagger);
             }
+            if (a.iterationStagger > 0 && p.runs.Count > 0) {
+                int lo = int.MaxValue;
+                foreach (int i in p.runs) lo = Math.Min(lo, M.Runs[i].iteration);
+                for (int i = 0; i < p.stagger.Length; i++) p.stagger[i] += (M.Runs[p.runs[i]].iteration - lo) * a.iterationStagger;
+            }
             p.staggerByRun = new float[M.Runs.Count];
             for (int i = 0; i < p.runs.Count; i++) p.staggerByRun[p.runs[i]] = p.stagger[i];
             var its = new SortedSet<int>();
@@ -199,6 +206,19 @@ namespace Crane.Theater {
             return a.t0 + tau * a.speed;
         }
 
+        /// <summary>The iteration that stands out at this frame: an evolution's step, else (iteration_stagger_s) the newest
+        /// iteration that has started, else the act's last (-1: none).</summary>
+        public int CurrentIteration(ActPlan p, float tau) {
+            float t = ActRunTime(p, tau, out int it);
+            if (it >= 0) return it;
+            if (p.iterations.Length == 0) return -1;
+            if (p.act.iterationStagger > 0) {
+                int lo = p.iterations[0];
+                return Mathf.Clamp(lo + Mathf.FloorToInt(t / p.act.iterationStagger), lo, p.iterations[p.iterations.Length - 1]);
+            }
+            return p.iterations[p.iterations.Length - 1];
+        }
+
         IEnumerable<int> Visible(ActPlan p, int iteration) {
             if (iteration >= 0 && p.byIteration.TryGetValue(iteration, out var l)) return l;
             return p.runs;
@@ -247,7 +267,11 @@ namespace Crane.Theater {
             var shown = new List<int>(Visible(p, iteration));
             float alpha = Mathf.Clamp(a.ghostAlpha * Mathf.Sqrt(30f / Mathf.Max(1, shown.Count)), 0.05f, a.ghostAlpha);
             var hud = st.hud;
-            hud.runs = shown.Count;
+            bool fleet = a.ghostAlpha > 0;   // ghost_alpha 0: only the heroes are shown (and counted)
+            if (!fleet) shown.Clear();
+            hud.runs = fleet ? shown.Count : (p.hero >= 0 ? 1 : 0) + (p.previous >= 0 ? 1 : 0);
+            float linger = a.linger > 0 ? a.linger * a.speed : 1f;
+            int current = a.history ? CurrentIteration(p, st.tau) : int.MinValue;
             for (int k = 0; k < shown.Count; k++) {
                 int i = shown[k];
                 if (i == p.hero || i == p.previous) continue;
@@ -268,12 +292,14 @@ namespace Crane.Theater {
                         hud.failed++;
                     }
                     else {
-                        if (after > 1f) { hud.finished++; continue; }
-                        op *= 1f - after;
+                        if (after > linger) { hud.finished++; continue; }
+                        op *= a.linger > 0 ? Mathf.Lerp(1f, 0.35f, Mathf.Clamp01(after / (0.25f * linger))) * Mathf.Clamp01((linger - after) / (0.15f * linger))
+                                           : 1f - after;
                         hud.finished++;
                     }
                 }
                 else hud.running++;
+                if (a.history && r.iteration < current) op *= a.pastAlpha;
                 c.a = op;
                 g.color = c;
                 st.ghosts.Add(g);
@@ -300,7 +326,8 @@ namespace Crane.Theater {
                 float rt = t - p.staggerByRun[run];
                 foreach (var e in r.events) {
                     float age = rt - e.t;
-                    if (age < 0 || age > 1.6f * Mathf.Max(1f, p.act.speed / 4f)) continue;
+                    float life = p.act.markerLife > 0 ? p.act.markerLife * p.act.speed : 1.6f * Mathf.Max(1f, p.act.speed / 4f);
+                    if (age < 0 || age > life) continue;
                     float sc = scale;
                     Color c = e.kind == "failure" || e.kind == "violation" ? Colormaps.Failure : e.kind == "finish" ? Colormaps.Gold : Colormaps.Gate;
                     if (Overlay != null && Overlay.EventStyle(e.kind, out var ec, out float er, out bool hide)) {
@@ -310,7 +337,7 @@ namespace Crane.Theater {
                     }
                     Vector3 at = float.IsNaN(e.x) ? UnityPos(M.Pack.At(run, e.t)) : World.ToUnity(e.x, e.y, 0);
                     if (float.IsNaN(e.x) || Planar) at.y = World.SurfaceY(at);
-                    st.markers.Add(new MarkerDraw { pos = at, age = age / Mathf.Max(1f, p.act.speed / 4f), radius = sc, color = c.linear });
+                    st.markers.Add(new MarkerDraw { pos = at, age = p.act.markerLife > 0 ? 1.6f * age / life : age / Mathf.Max(1f, p.act.speed / 4f), radius = sc, color = c.linear });
                 }
             }
             if (p.hero >= 0) Add(p.hero, 2.2f);
@@ -324,13 +351,14 @@ namespace Crane.Theater {
 
         void Hud(ActPlan p, FrameState st, float t, int iteration) {
             var a = p.act; var h = st.hud;
-            h.title = S.Title; h.caption = a.caption; h.actType = a.type; h.colour = a.colour; h.ramp = a.ramp;
+            h.title = S.Title; h.caption = a.caption; h.headline = a.headline; h.actType = a.type; h.colour = a.colour; h.ramp = a.ramp;
             h.runTime = t; h.speed = a.speed;
             h.iterFrom = p.iterations.Length > 0 ? p.iterations[0] : M.MinIteration;
             h.iterTo = p.iterations.Length > 0 ? p.iterations[p.iterations.Length - 1] : M.MaxIteration;
             h.iterCount = M.MaxIteration - M.MinIteration + 1;
             h.iterMin = M.MinIteration;
             h.iteration = iteration;
+            h.current = a.history ? CurrentIteration(p, st.tau) : iteration;
             h.active = iteration >= 0 ? iteration : p.iterations.Length == 1 ? p.iterations[0]
                 : (a.type == "compare" || a.type == "spotlight") && p.hero >= 0 ? M.Runs[p.hero].iteration : -1;
             h.spark = BestPerIteration;
@@ -348,24 +376,33 @@ namespace Crane.Theater {
             }
             if (p.hero >= 0) {
                 var g = M.Runs[p.hero];
-                h.goldId = g.id; h.goldScore = g.score; h.goldDuration = g.duration; h.goldDone = t >= g.duration;
+                h.goldId = g.id; h.goldScore = g.score; h.goldDuration = Arrival(g); h.goldDone = t >= h.goldDuration;
                 h.goldProgress = M.Pack.At(p.hero, Mathf.Min(t, g.duration)).progress;
             }
             if (p.previous >= 0) {
                 var s = M.Runs[p.previous];
-                h.silverId = s.id; h.silverScore = s.score; h.silverDuration = s.duration; h.silverDone = t >= s.duration;
+                h.silverId = s.id; h.silverScore = s.score; h.silverDuration = Arrival(s); h.silverDone = t >= h.silverDuration;
                 h.silverProgress = M.Pack.At(p.previous, Mathf.Min(t, s.duration)).progress;
                 if (p.hero >= 0) {
                     var g = M.Runs[p.hero];
-                    var keys = new List<string>(g.parameters.Keys); keys.Sort(StringComparer.Ordinal);
+                    var labels = TJson.Obj(TJson.Obj(M.Raw, "hud"), "param_labels");   // {key: label}: only these, in this order
+                    var keys = labels != null ? new List<string>(labels.Keys) : new List<string>(g.parameters.Keys);
+                    if (labels == null) keys.Sort(StringComparer.Ordinal);
                     foreach (var k in keys) {
-                        if (!(g.parameters[k] is double gv)) continue;
+                        if (!g.parameters.TryGetValue(k, out var go) || !(go is double gv)) continue;
                         double sv = s.parameters.TryGetValue(k, out var o) && o is double d ? d : double.NaN;
-                        if (double.IsNaN(sv) || Math.Abs(gv - sv) > 1e-9) h.paramDiff.Add($"{Short(k)}  {Fmt(sv)} → {Fmt(gv)}");
+                        string name = labels != null ? TJson.Str(labels, k, k) : Short(k);
+                        if (double.IsNaN(sv) || Math.Abs(gv - sv) > 1e-9) h.paramDiff.Add($"{name}  {Fmt(sv)} → {Fmt(gv)}");
                         if (h.paramDiff.Count >= 6) break;
                     }
                 }
             }
+        }
+
+        /// <summary>A run's arrival time: its "arrived" (or "finish") event, else its duration.</summary>
+        static float Arrival(TheaterRun r) {
+            foreach (var e in r.events) if (e.kind == "arrived" || e.kind == "finish") return e.t;
+            return r.duration;
         }
 
         static string Short(string k) { int i = k.LastIndexOf('.'); return i >= 0 && i < k.Length - 1 ? k.Substring(i + 1) : k; }
@@ -383,6 +420,18 @@ namespace Crane.Theater {
             string shot = a.Shot;
             float fov = a.Cam("fov", 50f);
             Bounds B = World.Bounds;
+            // camera {center: [x, y], extent: [ex, ey]} (trajectory frame, metres): frame this region, not the world's bounds
+            if (TJson.Arr(a.camera, "center") is List<object> cxy && cxy.Count >= 2) {
+                var cu = World.ToUnity((float)(double)cxy[0], (float)(double)cxy[1], 0);
+                cu.y = World.SurfaceY(cu);
+                Vector3 size = B.size;
+                if (TJson.Arr(a.camera, "extent") is List<object> e && e.Count >= 2) {
+                    var ex = (World.ToUnity((float)(double)e[0], 0, 0) - World.ToUnity(0, 0, 0));
+                    var ey = (World.ToUnity(0, (float)(double)e[1], 0) - World.ToUnity(0, 0, 0));
+                    size = new Vector3(Mathf.Abs(ex.x) + Mathf.Abs(ey.x), 0, Mathf.Abs(ex.z) + Mathf.Abs(ey.z));
+                }
+                B = new Bounds(cu, size);
+            }
             Vector3 C = B.center;
             Vector3 north = North, east = East;
             float vt = Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad), ht = vt * aspect;
@@ -390,9 +439,11 @@ namespace Crane.Theater {
             float ext = Mathf.Max(B.size.x, B.size.z);
 
             // Targets for tracking shots, smoothed forward from the act's start (critically damped).
-            Vector3[] target = null, heading = null;
+            Vector3[] target = null, heading = null, fit = null;
+            bool both = TJson.Str(a.camera, "target", "hero") == "heroes" && p.hero >= 0 && p.previous >= 0;   // the midpoint of hero and previous
+            bool course = TJson.Str(a.camera, "heading", "hero") == "course";   // a fixed heading: the trajectory frame's +x
             if (shot == "follow" || shot == "chase" || shot == "pack") {
-                target = new Vector3[n]; heading = new Vector3[n];
+                target = new Vector3[n]; heading = new Vector3[n]; fit = new Vector3[n];
                 for (int f = 0; f < n; f++) {
                     float tau = f / S.Fps;
                     float t = ActRunTime(p, tau, out int it);
@@ -410,12 +461,18 @@ namespace Crane.Theater {
                         var q = M.Pack.At(p.hero, Mathf.Clamp(t, 0, M.Runs[p.hero].duration));
                         target[f] = UnityPos(q);
                         float yaw = World.UnityYaw(q.yaw) * Mathf.Deg2Rad;
-                        heading[f] = new Vector3(Mathf.Sin(yaw), 0, Mathf.Cos(yaw));
+                        heading[f] = course ? east : new Vector3(Mathf.Sin(yaw), 0, Mathf.Cos(yaw));
+                        if (both) {
+                            var o = UnityPos(M.Pack.At(p.previous, Mathf.Clamp(t, 0, M.Runs[p.previous].duration)));
+                            fit[f] = new Vector3(Vector3.Distance(target[f], o), 0, 0);
+                            target[f] = (target[f] + o) * 0.5f;
+                        }
                     }
                 }
                 float omega = a.Cam("stiffness", shot == "pack" ? 1.2f : 2.0f);
                 Smooth(target, omega, 1f / S.Fps);
                 Smooth(heading, omega * 0.6f, 1f / S.Fps);
+                Smooth(fit, omega * 0.5f, 1f / S.Fps);
             }
 
             for (int f = 0; f < n; f++) {
@@ -443,7 +500,9 @@ namespace Crane.Theater {
                         float back = a.Cam("back", shot == "chase" ? 5f : 9f), height = a.Cam("height", shot == "chase" ? 2.5f : 7f);
                         Vector3 hd = heading[f]; hd.y = 0; hd = hd.sqrMagnitude > 1e-6f ? hd.normalized : east;
                         Vector3 side = Vector3.Cross(Vector3.up, hd) * a.Cam("side", 0f);
-                        pos = target[f] - hd * back + Vector3.up * height + side;
+                        // fit_m: the separation (hero to previous) the shot holds at its set distance; wider pulls back
+                        float k = both && a.Cam("fit_m", 0f) > 0 ? Mathf.Max(1f, fit[f].x / a.Cam("fit_m", 1f)) : 1f;
+                        pos = target[f] + (-hd * back + Vector3.up * height + side) * k;
                         look = target[f] + hd * a.Cam("lead", 4f);
                         break;
                     }

@@ -272,9 +272,18 @@ namespace Crane.Theater {
             var st = style;
             float pad = 48 * s, W = w, H = h, top = H - pad;
             int active = m.active;
-            if (Panel.a > 0) {
-                Rect(0, H - 170 * s, W, 170 * s, Panel);
-                Rect(0, 0, W, 250 * s, Panel);
+            if (Panel.a > 0) {   // scrims: the top band and the bottom band fade into the scene; the bottom-left block gets a panel
+                Color clear = Panel.WithA(0f);
+                float tb = st.scrimTop * s, bb = st.scrimBottom * s;
+                Quad(new Vector2(0, H - tb), new Vector2(W, H - tb), new Vector2(W, H), new Vector2(0, H), clear, clear, Panel, Panel);
+                Quad(new Vector2(0, 0), new Vector2(W, 0), new Vector2(W, bb), new Vector2(0, bb), Panel, Panel, clear, clear);
+                float lw = st.scrimLeft * s, lh = st.scrimLeftHeight * s;
+                Quad(new Vector2(0, 0), new Vector2(lw, 0), new Vector2(lw, lh), new Vector2(0, lh), Panel, clear, clear, Panel);
+            }
+            foreach (var (at, label, col) in m.labels) {   // world labels under the HUD's text
+                float lw = Measure(label, 18, FontStyle.Bold, true);
+                Rect(at.x - lw * 0.5f - 8 * s, at.y - 7 * s, lw + 16 * s, 28 * s, Panel.WithA(Mathf.Max(0.55f, Panel.a)));
+                Text(label, at.x, at.y, 18, col, 0.5f, FontStyle.Bold, true, true);
             }
             Text(st.brand, pad, top - 2 * s, 15, Dim, 0, FontStyle.Bold);
             float tw = Text(m.title, pad, top - 50 * s, 44, Ink, 0, FontStyle.Bold);
@@ -289,11 +298,13 @@ namespace Crane.Theater {
             int n = Mathf.Max(1, m.iterCount);
             for (int i = 0; i < n; i++) {
                 int it = m.iterMin + i;
-                var c = active < 0 || it <= active ? st.accent : Dim.WithA(0.35f);
+                var c = active < 0 || it <= active ? (st.dotsByRamp && m.ramp != null ? Colormaps.Eval(m.ramp, n > 1 ? i / (float)(n - 1) : 1f) : st.accent) : Dim.WithA(0.35f);
                 var at = new Vector2(rx - (n - 1 - i) * 26 * s - 8 * s, top - 108 * s);
                 Dot(at, (it == active ? 7f : 5f) * s, c);
             }
-            Text($"{m.runs} runs   {m.running} running   {m.finished} arrived", rx, top - 146 * s, 16, Dim, 1, FontStyle.Normal, true, true);
+            if (m.goldId == null)   // a compare act's heroes have their own bars
+                Text($"{m.runs} runs   {m.running} running   {m.finished} arrived", rx, top - 146 * s, 16, Dim, 1, FontStyle.Normal, true, true);
+            if (!string.IsNullOrEmpty(m.headline)) Text(m.headline, W * 0.5f, pad + 6 * s, 26, Ink, 0.5f, FontStyle.Bold);
 
             // bottom left: metric rows, legend above them
             var rows = st.Rows(active);
@@ -303,16 +314,20 @@ namespace Crane.Theater {
                 Text(rows[i].value, pad + 300 * s, ry, 22, rows[i].color ?? Ink, 0, FontStyle.Normal, true, true);
                 ry += 36 * s;
             }
-            if (m.colour == "iteration" && active < 0) {
-                float lw = 300 * s, lh = 10 * s, ly = ry + 14 * s;
-                const int steps = 24;
-                for (int i = 0; i < steps; i++) {
-                    Color a = Colormaps.Eval(m.ramp, i / (float)steps), b = Colormaps.Eval(m.ramp, (i + 1) / (float)steps);
-                    float x0 = pad + lw * i / steps, x1 = pad + lw * (i + 1) / steps;
-                    Quad(new Vector2(x0, ly), new Vector2(x1, ly), new Vector2(x1, ly + lh), new Vector2(x0, ly + lh), a, b, b, a);
+            if (m.colour == "iteration") {   // one chip per iteration in its ramp colour; the current one lit, the rest dimmed
+                float cw = 44 * s, ch = 16 * s, gap = 8 * s, ly = ry + 14 * s;
+                float x0 = pad + Measure(st.iterLabel.ToLowerInvariant(), 16, FontStyle.Normal) + 14 * s;
+                Text(st.iterLabel.ToLowerInvariant(), pad, ly + 2 * s, 16, Dim);
+                int cur = m.current >= 0 ? m.current : active;
+                for (int i = 0; i < n; i++) {
+                    int it = m.iterMin + i;
+                    var col = Colormaps.Eval(m.ramp, n > 1 ? i / (float)(n - 1) : 1f);
+                    bool lit = cur < 0 || it == cur;
+                    float x = x0 + i * (cw + gap);
+                    if (it == cur) Rect(x - 2 * s, ly - 2 * s, cw + 4 * s, ch + 4 * s, Ink.WithA(0.9f));
+                    Rect(x, ly, cw, ch, col.WithA(lit ? 1f : (cur >= 0 && it < cur ? 0.45f : 0.25f)));
+                    Text(it.ToString(CultureInfo.InvariantCulture), x + cw * 0.5f, ly + ch + 6 * s, 15, lit ? Ink : Dim, 0.5f, FontStyle.Bold, true, true);
                 }
-                Text($"{st.iterLabel.ToLowerInvariant()} {m.iterMin}", pad, ly + 22 * s, 16, Dim);
-                Text($"{m.iterMin + n - 1}", pad + lw, ly + 22 * s, 16, Dim, 1, FontStyle.Normal, true, true);
             }
 
             // bottom right: the series
@@ -364,7 +379,7 @@ namespace Crane.Theater {
             Dot(new Vector2(x + 8 * s, y + 8 * s), 8 * s, c);
             Text(label, x + 26 * s, y, 18, c, 0, FontStyle.Bold);
             Text(id, x + (style != null ? 150 : 140) * s, y, 18, Ink);
-            Text($"score {F(score, "0.000")}   {F(duration, "0.0")} s", x + width, y, 18, Ink, 1);
+            Text($"score {F(score, "0.000")}   {(style != null ? "to goal " : "")}{F(duration, "0.0")} s", x + width, y, 18, Ink, 1);
             float bw = width - 26 * s, bx = x + 26 * s, by = y - 26 * s;
             Rect(bx, by, bw, 8 * s, new Color(1, 1, 1, 0.15f));
             Rect(bx, by, bw * Mathf.Clamp01(progress), 8 * s, done ? c : c * new Color(1, 1, 1, 0.8f));
@@ -381,6 +396,8 @@ namespace Crane.Theater {
         public float[] spark;
         public string[] sparkPointLabels;
         public float sparkLo = float.NaN, sparkHi = float.NaN;
+        public bool dotsByRamp;
+        public float scrimTop = 210, scrimBottom = 330, scrimLeft = 900, scrimLeftHeight = 380;   // pixels at 1080 p
         readonly Dictionary<string, List<(string label, string value, Color? color)>> metrics = new Dictionary<string, List<(string, string, Color?)>>();
 
         public HudStyle(Dictionary<string, object> d) {
@@ -390,6 +407,12 @@ namespace Crane.Theater {
             if (pal != null) {
                 ink = TheaterOverlay.Hex(pal, "ink", ink); dim = TheaterOverlay.Hex(pal, "dim", dim); accent = TheaterOverlay.Hex(pal, "accent", accent);
                 panel = TheaterOverlay.Hex(pal, "panel", panel); panel.a = (float)TJson.Num(pal, "panel_alpha", 0);
+            }
+            dotsByRamp = TJson.Bool(d, "dots_by_ramp", false);
+            var sc = TJson.Obj(d, "scrim");   // {top, bottom, left, left_height} in pixels at 1080 p
+            if (sc != null) {
+                scrimTop = (float)TJson.Num(sc, "top", scrimTop); scrimBottom = (float)TJson.Num(sc, "bottom", scrimBottom);
+                scrimLeft = (float)TJson.Num(sc, "left", scrimLeft); scrimLeftHeight = (float)TJson.Num(sc, "left_height", scrimLeftHeight);
             }
             if (TJson.Obj(d, "metrics") is Dictionary<string, object> ms)
                 foreach (var kv in ms) {

@@ -146,6 +146,10 @@ namespace Crane.Theater {
                 grade.contrast.Override((float)TJson.Num(look, "contrast", 0));
                 if (TJson.Str(look, "color_filter") is string cf && ColorUtility.TryParseHtmlString(cf, out var filter)) grade.colorFilter.Override(filter);
                 float vig = (float)TJson.Num(look, "vignette", 0);
+                if (look.ContainsKey("bloom")) {
+                    var bl = profile.Add<Bloom>(false);
+                    bl.intensity.Override((float)TJson.Num(look, "bloom", 0.1));
+                }
                 if (vig > 0) { var vg = profile.Add<Vignette>(false); vg.intensity.Override(vig); vg.smoothness.Override(0.5f); }
             }
             vol.sharedProfile = profile;
@@ -201,6 +205,7 @@ namespace Crane.Theater {
                 PlaceHero(silver, fs, fs.plan.previous, robot);
                 cam.transform.SetPositionAndRotation(fs.camPos, fs.camRot);
                 cam.fieldOfView = fs.fov;
+                WorldLabels(manifest, world, cam, fs);
                 renderer.Prepare(fs);
                 cam.Render();
                 hud.Draw(rt, fs.hud);
@@ -250,6 +255,23 @@ namespace Crane.Theater {
             Debug.Log($"CRANE_THEATER_DONE frames={capture.Frames} video={video} encoded={encoded} errors={errors} wall_s={wall.Elapsed.TotalSeconds:0.0}");
             renderer.Dispose(); hud.Dispose(); capture.Dispose();
             exit(encoded && capture.Frames == b - a ? 0 : 4);
+        }
+
+        /// <summary>Manifest <c>hud.labels</c> [{x, y, text, color, acts, dx, dy}]: text pinned to a point on the water
+        /// (trajectory frame), projected with this frame's camera into the HUD's pixels.</summary>
+        static void WorldLabels(TheaterManifest manifest, ITheaterWorld world, Camera cam, FrameState fs) {
+            var labels = TJson.Arr(TJson.Obj(manifest.Raw, "hud"), "labels");
+            if (labels == null) return;
+            foreach (var o in labels) {
+                var acts = TJson.Arr(o, "acts");
+                if (acts != null && !acts.Contains((double)fs.act)) continue;
+                var p = world.ToUnity((float)TJson.Num(o, "x"), (float)TJson.Num(o, "y"), 0);
+                p.y = world.SurfaceY(p);
+                var sp = cam.WorldToScreenPoint(p);
+                if (sp.z <= 0) continue;
+                var col = TheaterOverlay.Hex(o, "color", Color.white);
+                fs.hud.labels.Add((new Vector2(sp.x + (float)TJson.Num(o, "dx"), sp.y + (float)TJson.Num(o, "dy")), TJson.Str(o, "text", ""), col));
+            }
         }
 
         static void PlaceHero(GameObject hero, FrameState fs, int run, ITheaterRobot robot) {
