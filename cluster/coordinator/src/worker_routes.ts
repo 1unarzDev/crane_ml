@@ -2,7 +2,7 @@
 import { Hono } from "hono";
 import { AppEnv, requireWorker } from "./auth";
 import { CFG, finishJob, getConfig, heldJob, jobView, leaseJobs, leaseTtlMs, minClientVersion, reclaimExpired } from "./db";
-import { sanitizeCaps, sanitizePolicy } from "./match";
+import { leaseCaps, sanitizeCaps, sanitizePolicy } from "./match";
 import { runMetaStatement } from "./runmeta";
 import {
   HttpError,
@@ -93,7 +93,7 @@ workerRoutes.post("/v1/lease", requireWorker, async (c) => {
 
   const now = Date.now();
   await reclaimExpired(c.env, now);
-  const jobs = maxJobs > 0 ? await leaseJobs(c.env, w.id, caps, policy, Math.min(maxJobs, intVar(c.env.MAX_LEASE_JOBS, 4)), now) : [];
+  const jobs = maxJobs > 0 ? await leaseJobs(c.env, w.id, leaseCaps(caps, b.backends), policy, Math.min(maxJobs, intVar(c.env.MAX_LEASE_JOBS, 4)), now) : [];
   await c.env.DB.prepare(
     `UPDATE workers SET last_seen = ?2, client_version = COALESCE(?3, client_version), caps_json = ?4, policy_json = ?5,
             state = ?6 WHERE id = ?1`,

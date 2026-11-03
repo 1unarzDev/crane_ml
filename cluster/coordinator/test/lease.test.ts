@@ -33,6 +33,17 @@ describe("leases", () => {
     expect((await lease({ ...w, caps: { ...CPU_CAPS, backends: ["render"] } })).body.jobs).toHaveLength(1);
   });
 
+  it("a lease's backends narrow that call only (a multi-slot worker's free slots)", async () => {
+    await addJobs([{ backend: "render" }, {}, {}]);
+    const w = await makeWorker("w");
+    const caps = { ...CPU_CAPS, backends: ["dummy", "render"] };
+    const one = await lease({ ...w, caps }, 4, { backends: ["render"] });
+    expect(one.body.jobs.map((j: { backend: string }) => j.backend)).toEqual(["render"]);
+    expect((await lease({ ...w, caps }, 4, { backends: [] })).body.jobs).toHaveLength(0);
+    expect((await lease({ ...w, caps }, 4, { backends: ["dummy"] })).body.jobs).toHaveLength(2);
+    expect((await lease({ ...w, caps }, 1, { backends: "dummy" })).status).toBe(400);
+  });
+
   it("an expired lease is retried, then dead-lettered after max attempts", async () => {
     const [id] = await addJobs([{ max_attempts: 2 }]);
     const a = await makeWorker("a");

@@ -664,10 +664,10 @@ index 652bf6f..74f7743 100644
  });
 diff --git a/cluster/coordinator/src/hub.ts b/cluster/coordinator/src/hub.ts
 new file mode 100644
-index 0000000..dd0a4ce
+index 0000000..dfb3d43
 --- /dev/null
 +++ b/cluster/coordinator/src/hub.ts
-@@ -0,0 +1,842 @@
+@@ -0,0 +1,843 @@
 +// The Hub: one Durable Object holding the coordinator's hot state in memory: the queued and leased jobs, the
 +// workers (tokens, liveness, caps), config and repo versions, the live jobs' run aggregates and the feed
 +// snapshot. Leasing, heartbeats, auth and the feed are served from memory (no D1 read per poll); D1 stays
@@ -680,7 +680,7 @@ index 0000000..dd0a4ce
 +import { Book, addTo, bookReads, countingDb, dayKey, hourKey, mergeBook } from "./budget";
 +import { CFG, JobRow, finishJob, jobView, leaseTtlMs, maxAttempts } from "./db";
 +import { FEED_SCHEMA, FeedJob, FeedSource, buildFeed, byLeaseOrder } from "./feed";
-+import { Caps, Needs, Policy, matches, sanitizeCaps, sanitizePolicy } from "./match";
++import { Caps, Needs, Policy, leaseCaps, matches, sanitizeCaps, sanitizePolicy } from "./match";
 +import { runMetaStatement } from "./runmeta";
 +import { Env, HttpError, compareVersions, intVar, isObject, isStringArray, nowIso, parseJson } from "./util";
 +
@@ -1007,6 +1007,7 @@ index 0000000..dd0a4ce
 +      const waitS = typeof b.wait_s === "number" && Number.isFinite(b.wait_s) ? Math.min(LONG_POLL_MAX_S, Math.max(0, b.wait_s)) : 0;
 +      const caps = b.caps !== undefined ? sanitizeCaps(b.caps) : sanitizeCaps(parseJson(w.caps_json, {}));
 +      const policy = b.policy !== undefined ? sanitizePolicy(b.policy) : sanitizePolicy(parseJson(w.policy_json, {}));
++      const matchCaps = leaseCaps(caps, b.backends);   // a multi-slot worker's free backends, this call only
 +      const state = typeof b.state === "string" && STATES.has(b.state) ? b.state : "idle";
 +      const capsJson = JSON.stringify(caps);
 +      const policyJson = JSON.stringify(policy);
@@ -1016,7 +1017,7 @@ index 0000000..dd0a4ce
 +      let jobs: JobRow[] = [];
 +      for (;;) {
 +        await this.reclaim(Date.now());
-+        jobs = maxJobs > 0 ? await this.claim(w.id, caps, policy, Math.min(maxJobs, intVar(this.env.MAX_LEASE_JOBS, 4))) : [];
++        jobs = maxJobs > 0 ? await this.claim(w.id, matchCaps, policy, Math.min(maxJobs, intVar(this.env.MAX_LEASE_JOBS, 4))) : [];
 +        if (jobs.length || maxJobs === 0 || Date.now() >= deadline) break;
 +        this.touchWorker(w, state);
 +        // Wake for a new or requeued job, or when the next lease expires (it may come back to the queue).
@@ -1672,7 +1673,7 @@ index 27fbbe4..e0f4b58 100644
    return json({ ok: true, repo: name, main_version: after });
  });
 diff --git a/cluster/coordinator/src/worker_routes.ts b/cluster/coordinator/src/worker_routes.ts
-index c88e32d..efa0a7a 100644
+index ed01df2..efa0a7a 100644
 --- a/cluster/coordinator/src/worker_routes.ts
 +++ b/cluster/coordinator/src/worker_routes.ts
 @@ -1,33 +1,14 @@
@@ -1680,11 +1681,7 @@ index c88e32d..efa0a7a 100644
  import { Hono } from "hono";
 -import { AppEnv, requireWorker } from "./auth";
 -import { CFG, finishJob, getConfig, heldJob, jobView, leaseJobs, leaseTtlMs, minClientVersion, reclaimExpired } from "./db";
-+import type { AppEnv } from "./auth";
-+import { CFG, getConfig } from "./db";
-+import type { HubRes } from "./hub";
-+import { hubStub } from "./hubstub";
- import { sanitizeCaps, sanitizePolicy } from "./match";
+-import { leaseCaps, sanitizeCaps, sanitizePolicy } from "./match";
 -import { runMetaStatement } from "./runmeta";
 -import {
 -  HttpError,
@@ -1700,6 +1697,11 @@ index c88e32d..efa0a7a 100644
 -  readJson,
 -  sha256Hex,
 -} from "./util";
++import type { AppEnv } from "./auth";
++import { CFG, getConfig } from "./db";
++import type { HubRes } from "./hub";
++import { hubStub } from "./hubstub";
++import { sanitizeCaps, sanitizePolicy } from "./match";
 +import { HttpError, bearer, json, nowIso, randomId, randomToken, readJson, sha256Hex } from "./util";
  
  export const workerRoutes = new Hono<AppEnv>();
@@ -1752,7 +1754,7 @@ index c88e32d..efa0a7a 100644
  
 -  const now = Date.now();
 -  await reclaimExpired(c.env, now);
--  const jobs = maxJobs > 0 ? await leaseJobs(c.env, w.id, caps, policy, Math.min(maxJobs, intVar(c.env.MAX_LEASE_JOBS, 4)), now) : [];
+-  const jobs = maxJobs > 0 ? await leaseJobs(c.env, w.id, leaseCaps(caps, b.backends), policy, Math.min(maxJobs, intVar(c.env.MAX_LEASE_JOBS, 4)), now) : [];
 -  await c.env.DB.prepare(
 -    `UPDATE workers SET last_seen = ?2, client_version = COALESCE(?3, client_version), caps_json = ?4, policy_json = ?5,
 -            state = ?6 WHERE id = ?1`,
@@ -2092,7 +2094,7 @@ index 0000000..2461371
 +  });
 +});
 diff --git a/cluster/coordinator/test/lease.test.ts b/cluster/coordinator/test/lease.test.ts
-index fc33f4f..b46b82d 100644
+index d741747..01c9eb0 100644
 --- a/cluster/coordinator/test/lease.test.ts
 +++ b/cluster/coordinator/test/lease.test.ts
 @@ -1,6 +1,6 @@
@@ -2103,7 +2105,7 @@ index fc33f4f..b46b82d 100644
  
  beforeEach(resetTables);
  
-@@ -59,9 +59,10 @@ describe("leases", () => {
+@@ -70,9 +70,10 @@ describe("leases", () => {
      const [id] = await addJobs([{}]);
      const w = await makeWorker("w");
      await lease(w);

@@ -1,6 +1,6 @@
 // Scheduler matching: a job's needs against a worker's capabilities and policy.
 // Pure functions, no I/O, so they are unit-tested directly.
-import { isObject } from "./util";
+import { HttpError, isObject } from "./util";
 
 /** What a worker reports it has. Unknown numbers count as 0, unknown flags as false. */
 export interface Caps {
@@ -128,4 +128,13 @@ export function sanitizePolicy(v: unknown): Policy {
   if (strs(v.quiet_hours)) out.quiet_hours = v.quiet_hours as string[];
   if (typeof v.pause_on_activity === "boolean") out.pause_on_activity = v.pause_on_activity;
   return out;
+}
+
+/** The caps one lease call matches with. A lease body's `backends` (a multi-slot worker names the ones with a free
+ * slot) narrows caps.backends for this call only; the stored caps keep every backend the worker offers. */
+export function leaseCaps(caps: Caps, only: unknown): Caps {
+  if (only === undefined) return caps;
+  if (!strs(only)) throw new HttpError(400, "backends must be an array of backend names");
+  const free = new Set(only as string[]);
+  return { ...caps, backends: (caps.backends ?? []).filter((b) => free.has(b)) };
 }
