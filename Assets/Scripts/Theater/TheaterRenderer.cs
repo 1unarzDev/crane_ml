@@ -44,7 +44,7 @@ namespace Crane.Theater {
         readonly List<Vector2> cu = new List<Vector2>();
         readonly List<int> ci = new List<int>();
         readonly MaterialPropertyBlock ghostProps = new MaterialPropertyBlock(), heroProps = new MaterialPropertyBlock(),
-            cometProps = new MaterialPropertyBlock(), trailProps = new MaterialPropertyBlock();
+            cometProps = new MaterialPropertyBlock(), trailProps = new MaterialPropertyBlock(), overlayProps = new MaterialPropertyBlock();
         // per act
         int trailAct = -1;
         Mesh trails;
@@ -117,6 +117,7 @@ namespace Crane.Theater {
             trailNow = st.ActRunTime(p, f.tau, out _);
             heatOn = p.act.heat;
             if (heatOn) AdvanceHeat(f);
+            st.Overlay?.Prepare(f, st, st.S.Fps);
             Ready = true;
         }
 
@@ -134,7 +135,7 @@ namespace Crane.Theater {
                 if (tan.sqrMagnitude < 1e-8f) tan = Vector3.forward;
                 Vector3 side = Vector3.Cross(Vector3.up, tan.normalized);
                 float w = width * 0.5f * (taper ? Mathf.Lerp(0.15f, 1f, i / (float)(pts.Count - 1)) : 1f);
-                Vector3 p = pts[i].p + Vector3.up * 0.05f;
+                Vector3 p = pts[i].p + Vector3.up * 0.2f;   // above the still water's wave crests
                 cv.Add(p - side * w); cv.Add(p + side * w);
                 cc.Add(c); cc.Add(c);
                 cu.Add(new Vector2(pts[i].u * uScale, -1)); cu.Add(new Vector2(pts[i].u * uScale, 1));
@@ -179,8 +180,11 @@ namespace Crane.Theater {
             if (p.previous >= 0) runs.Add((p.previous, Colormaps.Silver.linear, 0.28f));
             for (int i = 0; i < p.trailRuns.Count; i++) {
                 var r = st.M.Runs[p.trailRuns[i]];
-                var c = Colormaps.Eval(p.act.ramp, p.scoreHi > p.scoreLo ? (r.score - p.scoreLo) / (p.scoreHi - p.scoreLo) : 1f).linear;
-                c.a = 0.55f;
+                float u = p.act.colour == "iteration"
+                    ? (st.M.MaxIteration > st.M.MinIteration ? (r.iteration - st.M.MinIteration) / (float)(st.M.MaxIteration - st.M.MinIteration) : 1f)
+                    : p.scoreHi > p.scoreLo ? (r.score - p.scoreLo) / (p.scoreHi - p.scoreLo) : 1f;
+                var c = Colormaps.Eval(p.act.ramp, u).linear;
+                c.a = 0.55f * Mathf.Clamp(Mathf.Sqrt(24f / p.trailRuns.Count), 0.12f, 1f);   // many trails add up to white
                 runs.Add((r.index, c, 0.16f));
             }
             if (runs.Count == 0) return;
@@ -308,6 +312,7 @@ namespace Crane.Theater {
                 mat.SetVector("_FailColor", new Vector4(1.0f, 0.18f, 0.08f, 0.85f));
                 cmd.DrawProcedural(Matrix4x4.identity, mat, 3, MeshTopology.Triangles, 6, 1);
             }
+            st.Overlay?.Draw(cmd, mat, overlayProps);
             if (trails != null) {
                 trailProps.SetFloat("_Now", trailNow);
                 cmd.DrawMesh(trails, Matrix4x4.identity, mat, 0, 1, trailProps);

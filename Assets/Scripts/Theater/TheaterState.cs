@@ -21,7 +21,8 @@ namespace Crane.Theater {
 
     public sealed class HudModel {
         public string title, caption, actType, colour, ramp, legendLo, legendHi, insight = "";
-        public int iteration = -1, iterFrom, iterTo, iterCount, runs, finished, failed, running;
+        public int iteration = -1, iterFrom, iterTo, iterCount, iterMin, runs, finished, failed, running;
+        public int active = -1;   // the one iteration the frame shows (its evolution step, the act's only iteration, a compare's hero), else -1
         public float best = float.NaN, runTime, speed;
         public float[] spark;
         public int sparkCursor = -1;
@@ -86,6 +87,7 @@ namespace Crane.Theater {
         public readonly List<ActPlan> Plans = new List<ActPlan>();
         public readonly float[] BestPerIteration;
         public readonly bool Planar;
+        public readonly TheaterOverlay Overlay;   // manifest "overlay" (null without one)
         readonly float aspect;
         public int FrameCount => S.FrameCount;
 
@@ -94,6 +96,14 @@ namespace Crane.Theater {
             aspect = s.Width / (float)s.Height;
             BestPerIteration = m.BestPerIteration();
             Planar = TJson.Str(m.Raw, "pose_dims", "6dof") == "planar";
+            if (TJson.Obj(m.Raw, "ramps") is Dictionary<string, object> ramps)
+                foreach (var kv in ramps) {
+                    var stops = new List<Color32>();
+                    foreach (var hex in kv.Value as List<object> ?? new List<object>())
+                        if (hex is string hs && ColorUtility.TryParseHtmlString(hs, out var col)) stops.Add(col);
+                    Colormaps.Register(kv.Key, stops.ToArray());
+                }
+            if (TJson.Obj(m.Raw, "overlay") is Dictionary<string, object> ov) Overlay = new TheaterOverlay(ov, world);
             float t = 0; int f = 0;
             for (int i = 0; i < s.Acts.Count; i++) {
                 var p = Plan(s.Acts[i], i);
@@ -287,18 +297,29 @@ namespace Crane.Theater {
         void Markers(ActPlan p, FrameState st, float t) {
             void Add(int run, float scale) {
                 var r = M.Runs[run];
+                float rt = t - p.staggerByRun[run];
                 foreach (var e in r.events) {
-                    float age = t - e.t;
+                    float age = rt - e.t;
                     if (age < 0 || age > 1.6f * Mathf.Max(1f, p.act.speed / 4f)) continue;
-                    Color c = e.kind == "failure" ? Colormaps.Failure : e.kind == "finish" ? Colormaps.Gold : Colormaps.Gate;
+                    float sc = scale;
+                    Color c = e.kind == "failure" || e.kind == "violation" ? Colormaps.Failure : e.kind == "finish" ? Colormaps.Gold : Colormaps.Gate;
+                    if (Overlay != null && Overlay.EventStyle(e.kind, out var ec, out float er, out bool hide)) {
+                        if (hide) continue;
+                        c = ec;
+                        if (er > 0) sc = er;
+                    }
                     Vector3 at = float.IsNaN(e.x) ? UnityPos(M.Pack.At(run, e.t)) : World.ToUnity(e.x, e.y, 0);
                     if (float.IsNaN(e.x) || Planar) at.y = World.SurfaceY(at);
-                    st.markers.Add(new MarkerDraw { pos = at, age = age / Mathf.Max(1f, p.act.speed / 4f), radius = scale, color = c.linear });
+                    st.markers.Add(new MarkerDraw { pos = at, age = age / Mathf.Max(1f, p.act.speed / 4f), radius = sc, color = c.linear });
                 }
             }
             if (p.hero >= 0) Add(p.hero, 2.2f);
             if (p.previous >= 0) Add(p.previous, 1.8f);
             foreach (int i in p.trailRuns) Add(i, 1.4f);
+            if (p.act.eventMarkers == "all") {
+                foreach (int i in Visible(p, st.iteration))
+                    if (i != p.hero && i != p.previous && !p.trailRuns.Contains(i)) Add(i, 1.2f);
+            }
         }
 
         void Hud(ActPlan p, FrameState st, float t, int iteration) {
@@ -308,7 +329,10 @@ namespace Crane.Theater {
             h.iterFrom = p.iterations.Length > 0 ? p.iterations[0] : M.MinIteration;
             h.iterTo = p.iterations.Length > 0 ? p.iterations[p.iterations.Length - 1] : M.MaxIteration;
             h.iterCount = M.MaxIteration - M.MinIteration + 1;
+            h.iterMin = M.MinIteration;
             h.iteration = iteration;
+            h.active = iteration >= 0 ? iteration : p.iterations.Length == 1 ? p.iterations[0]
+                : (a.type == "compare" || a.type == "spotlight") && p.hero >= 0 ? M.Runs[p.hero].iteration : -1;
             h.spark = BestPerIteration;
             int cursor = iteration >= 0 ? iteration : h.iterTo;
             h.sparkCursor = cursor - M.MinIteration;

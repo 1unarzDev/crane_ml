@@ -23,6 +23,7 @@ namespace Crane.Theater {
         public int trailK = 12;
         public float tail = 2.5f;              // comet tail, run seconds
         public bool heat, markers = true;
+        public string eventMarkers = "heroes";   // heroes (heroes and trail runs) | all (every shown run)
         public string hero = "auto";           // auto | none | best | <run id>
         public string previous = "auto";       // auto | none | previous | <run id>
         public float ghostScale = 1.6f;
@@ -43,7 +44,7 @@ namespace Crane.Theater {
 
         /// <summary><c>{"fps", "size": [w, h], "title", "acts": [{"type", "duration_s", "speed", "t0", "iterations": [a, b],
         /// "iteration_list", "outcome", "top_k", "sample", "seed", "stagger_s", "per_iteration_s", "colour", "ramp", "trails", "trail_k",
-        /// "tail_s", "heat", "markers", "hero", "previous", "ghost_scale", "ghost_alpha", "caption", "camera": {"shot", ...}}]}</c></summary>
+        /// "tail_s", "heat", "markers", "event_markers", "hero", "previous", "ghost_scale", "ghost_alpha", "caption", "camera": {"shot", ...}}]}</c></summary>
         public static TheaterScript Parse(object doc) {
             var s = new TheaterScript {
                 Fps = (float)TJson.Num(doc, "fps", 60), Title = TJson.Str(doc, "title", "")
@@ -61,7 +62,7 @@ namespace Crane.Theater {
                     trails = TJson.Str(o, "trails", "comet"), trailK = (int)TJson.Num(o, "trail_k", 12),
                     tail = (float)TJson.Num(o, "tail_s", 2.5), heat = TJson.Bool(o, "heat", false),
                     markers = TJson.Bool(o, "markers", true), hero = TJson.Str(o, "hero", "auto"),
-                    previous = TJson.Str(o, "previous", "auto"), ghostScale = (float)TJson.Num(o, "ghost_scale", 1.6),
+                    previous = TJson.Str(o, "previous", "auto"), eventMarkers = TJson.Str(o, "event_markers", "heroes"), ghostScale = (float)TJson.Num(o, "ghost_scale", 1.6),
                     ghostAlpha = (float)TJson.Num(o, "ghost_alpha", 0.9), caption = TJson.Str(o, "caption", "")
                 };
                 var it = TJson.Arr(o, "iterations");

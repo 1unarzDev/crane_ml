@@ -19,8 +19,13 @@ namespace Crane.Theater {
             new Color32(240, 249, 33, 255), new Color32(240, 249, 33, 255)
         };
 
+        static readonly System.Collections.Generic.Dictionary<string, Color32[]> Custom = new System.Collections.Generic.Dictionary<string, Color32[]>();
+
+        /// <summary>A study's own ramp (manifest <c>ramps</c>: {name: ["#rrggbb", ...]}, at least two stops).</summary>
+        public static void Register(string name, Color32[] stops) { if (stops != null && stops.Length >= 2) Custom[name] = stops; }
+
         public static Color Eval(string name, float u) {
-            var stops = name == "viridis" ? Viridis : name == "plasma" ? Plasma : Cividis;
+            var stops = Custom.TryGetValue(name ?? "", out var cs) ? cs : name == "viridis" ? Viridis : name == "plasma" ? Plasma : Cividis;
             u = Mathf.Clamp01(float.IsNaN(u) ? 0 : u) * (stops.Length - 1);
             int i = Mathf.Min(stops.Length - 2, (int)u);
             return Color.Lerp(stops[i], stops[i + 1], u - i);
