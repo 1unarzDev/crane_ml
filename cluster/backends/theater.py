@@ -39,6 +39,8 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
+from .gpu import player_gpu_args
+
 DEFAULTS = {'timeout_s': 3600, 'crf': 18, 'preset': 'medium', 'preroll_s': 2, 'manifest': 'manifest.json'}
 
 
@@ -182,7 +184,8 @@ class ClusterBackend:
                           ('stills', '--crane-theater-stills'), ('seconds', '--crane-theater-seconds')):
             if j.get(key) is not None:
                 a += [flag, str(j[key])]
-        return a + [str(x) for x in self.options.get('args') or []] + [str(x) for x in self.ctx.spec.get('args') or []]
+        extra = [str(x) for x in self.options.get('args') or []] + [str(x) for x in self.ctx.spec.get('args') or []]
+        return a + extra + player_gpu_args(extra)   # Windows with an iGPU and a dGPU: the dGPU (gpu.py)
 
     def run(self, seed):
         run_dir = Path(self.ctx.work_dir) / 'chunks' / f'c{int(seed):04d}'

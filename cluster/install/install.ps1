@@ -116,6 +116,20 @@ if (-not $Minimal) {
   if ($LASTEXITCODE -ne 0) { throw "provisioning failed" }
 }
 
+# 3b. GPU: on a host with an integrated and a discrete GPU, ask Windows to give the players the discrete one
+# (per-app "High performance", user-level). Unity 6 still takes DXGI adapter 0, so the unity and theater backends
+# also pass -force-device-index for the discrete adapter (cluster\backends\gpu.py); this covers other launches.
+$gpus = @(Get-CimInstance Win32_VideoController -ErrorAction SilentlyContinue | Where-Object { $_.PNPDeviceID -like "PCI\*" })
+if ($gpus.Count -ge 2) {
+  $pref = "HKCU:\Software\Microsoft\DirectX\UserGpuPreferences"
+  if (-not (Test-Path $pref)) { New-Item -Force $pref | Out-Null }
+  Get-ChildItem (Join-Path $prefix "players") -Recurse -Filter *.exe -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -notlike "UnityCrashHandler*" } | ForEach-Object {
+      New-ItemProperty -Path $pref -Name $_.FullName -Value "GpuPreference=2;" -PropertyType String -Force | Out-Null
+      Write-Host "GPU preference: high performance for $($_.FullName)"
+    }
+}
+
 # 4. join
 if ($Invite) {
   $joinArgs = @("-m", "crane_cluster.worker", "--config", $config, "join", "--coordinator", $Coordinator, "--invite", $Invite)

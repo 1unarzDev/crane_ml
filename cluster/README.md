@@ -256,6 +256,12 @@ restarts it after a reboot. Session 0 can't see the user's input, so `-Backgroun
 `%LOCALAPPDATA%\crane-cluster\input-idle.json` and `pause_on_activity` reads it (no fresh report:
 nobody is logged in, never paused).
 
+GPU on Windows: on a host with an integrated and a discrete GPU the background players landed on the
+integrated one (DXGI adapter 0, the desktop's) and crashed in its driver. The unity and theater backends
+pass `-force-device-index` for the adapter with the most dedicated memory (`backends/gpu.py`; a job's own
+`-force-device-index` wins), and `install.ps1` sets the per-app "high performance" GPU preference
+(`HKCU\Software\Microsoft\DirectX\UserGpuPreferences`) for the players it finds.
+
 Isolation: each job gets `CRANE_PORT_BASE` and `CRANE_ISOLATION_ID` (template fields
 `{port_base}`, `{isolation_id}`), so a backend can derive non-overlapping ports or
 middleware domain ids; concurrent jobs on one worker get consecutive slots.

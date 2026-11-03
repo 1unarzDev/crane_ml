@@ -44,6 +44,8 @@ import sys
 import time
 from pathlib import Path
 
+from .gpu import player_gpu_args
+
 DEFAULTS = {'family': 'roboboat_2026', 'scene': 'Roboboat Course', 'scenario': 'cluster',
             'sim_profile': 'full', 'duration': 30, 'warmup': 5, 'time_scale': 1, 'batchmode': True,
             'timeout_s': 900, 'width': 640, 'height': 360, 'traj': True, 'traj_hz': 20,
@@ -142,7 +144,8 @@ class ClusterBackend:
             a += ['--crane-traj', str(run_dir / TRAJ), '--crane-traj-hz', str(j['traj_hz'])]
         for pin in j.get('set') or []:
             a += ['--crane-course-set', str(pin)]
-        return a + [str(x) for x in self.options.get('args') or []] + [str(x) for x in self.ctx.spec.get('args') or []]
+        extra = [str(x) for x in self.options.get('args') or []] + [str(x) for x in self.ctx.spec.get('args') or []]
+        return a + extra + player_gpu_args(extra)   # Windows with an iGPU and a dGPU: the dGPU (gpu.py)
 
     def run(self, seed):
         run_dir = Path(self.ctx.work_dir) / 'runs' / f's{int(seed)}'
