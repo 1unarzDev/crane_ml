@@ -114,11 +114,11 @@ class UnityBackendTest(unittest.TestCase):
 
     def test_a_windows_host_with_two_gpus_renders_on_the_discrete_one(self):
         from backends import gpu
-        simwin = [(0, 'Intel(R) UHD Graphics 770', 128 << 20, False), (1, 'NVIDIA GeForce RTX 3060', 12 << 30, False),
+        harmony = [(0, 'Intel(R) UHD Graphics 770', 128 << 20, False), (1, 'NVIDIA GeForce RTX 3060', 12 << 30, False),
                   (2, 'Microsoft Basic Render Driver', 0, True)]
-        self.assertEqual(gpu.player_gpu_args([], simwin), ['-force-device-index', '1'])
-        self.assertEqual(gpu.player_gpu_args(['-force-device-index', '0'], simwin), [])   # the job picked one
-        self.assertEqual(gpu.player_gpu_args([], simwin[1:]), [])                          # one hardware adapter
+        self.assertEqual(gpu.player_gpu_args([], harmony), ['-force-device-index', '1'])
+        self.assertEqual(gpu.player_gpu_args(['-force-device-index', '0'], harmony), [])   # the job picked one
+        self.assertEqual(gpu.player_gpu_args([], harmony[1:]), [])                          # one hardware adapter
         self.assertEqual(gpu.player_gpu_args([], ()), [])                                  # not Windows
         if sys.platform != 'win32':
             self.assertEqual(gpu.dxgi_adapters(), ())

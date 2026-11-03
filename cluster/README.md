@@ -249,12 +249,12 @@ when the user may, e.g. the `input` group, so it works under Wayland; else
 Windows: `install.ps1` takes Python from `-Python`, else makes a uv venv
 (`%LOCALAPPDATA%\crane-cluster\venv`; uv is downloaded to `~\.local\bin` when missing), else uses
 `python`/`py` (the Microsoft Store stubs don't count).
-`-Background` registers `crane-worker` as an S4U task: it runs whether or not anyone is logged in,
-in session 0, so no window it or a player opens ever reaches a desktop, and a repeating trigger
-restarts it after a reboot. Session 0 can't see the user's input, so `-Background` also registers
-`crane-idleprobe` (at logon, hidden, in the desktop session); it writes the desktop's idle time to
-`%LOCALAPPDATA%\crane-cluster\input-idle.json` and `pause_on_activity` reads it (no fresh report:
-nobody is logged in, never paused).
+The installer registers ONE scheduled task, `crane-worker`: Interactive (it runs only while the user is
+logged on, in his own session, so the worker reads his input itself), hidden (`pythonw`, no console window),
+below-normal priority, at logon plus a 5-minute trigger that restarts it after a drain. Every child it starts
+gets no console window and no error dialog. Re-running it over the older layout (a session-0 S4U
+`crane-worker`, `crane-idleprobe`, the separate `crane-gpu` runner) drains the old tasks (their jobs finish, up
+to `-DrainMinutes`, default 120) and removes them; the `off` flag is left as it is.
 
 GPU on Windows: on a host with an integrated and a discrete GPU the background players landed on the
 integrated one (DXGI adapter 0, the desktop's) and crashed in its driver. The unity and theater backends
@@ -262,18 +262,18 @@ pass `-force-device-index` for the adapter with the most dedicated memory (`back
 `-force-device-index` wins), and `install.ps1` sets the per-app "high performance" GPU preference
 (`HKCU\Software\Microsoft\DirectX\UserGpuPreferences`) for the players it finds.
 
-GPU window (a shared Windows PC): session 0 cannot render (Unity's D3D12 device fails with 887a0022,
-D3D11 hangs), so a `gpu_window:` section in worker.yaml moves its backends (default unity and
-theater-render) out of the background worker into the GPU runner, task `crane-gpu` (Interactive: only
-while the user is logged on, hidden, below normal; `crane-worker --gpu-window ...`, its own identity
-`<name>-gpu`, joined with `install.ps1 -GpuInvite CODE`). It leases only inside `hours` (default
-`mon-fri 01:00-08:00` and `fri,sat 23:00-11:00`, local) while the PC has had no input for
-`idle_seconds` (600) or is locked; any input, an unlock or the window's end kills the player and releases
-the job within a second, no attempt counted. Players run `-batchmode` on a hidden desktop that is never
-shown (`crane_cluster/hiddendesk.py`). The feed shows "GPU window: next at HH:MM". `enabled: false` keeps
+Lanes (a shared Windows PC): session 0 cannot render (Unity's D3D12 device fails with 887a0022, D3D11
+hangs), and the PC's user must never see or feel the cluster, so the one worker runs two lanes. The cpu lane
+(every backend but the gpu ones) pauses on his activity (`policy.pause_on_activity`, `idle_seconds`). A
+`gpu_window:` section in worker.yaml makes its backends (default unity and theater-render) the gpu lane: it
+leases only inside `hours` (default `mon-fri 01:00-08:00` and `fri,sat 23:00-11:00`, local) while the PC has
+had no input for `idle_seconds` (600) or is locked; any input, an unlock or the window's end kills the player
+and releases the job within a second, no attempt counted. Players run `-batchmode` on a hidden desktop that
+is never shown (`crane_cluster/hiddendesk.py`). Each lease names only the open lanes' backends; the feed shows
+the worker's lanes ("cpu lane: paused (user active)") and "GPU window: next at HH:MM". `enabled: false` keeps
 the window reported but leases nothing; `schtasks /run /tn crane-gpu-check` (while the user is away) runs a
-short player there and writes `%LOCALAPPDATA%\crane-cluster\gpu\gpu-check.json` (`ok`: it rendered, with no
-window of it on the visible desktop and never the foreground).
+short player there and writes `%LOCALAPPDATA%\crane-cluster\gpu-check.json` (`ok`: it rendered, with no window
+of it on the visible desktop and never the foreground).
 
 Isolation: each job gets `CRANE_PORT_BASE` and `CRANE_ISOLATION_ID` (template fields
 `{port_base}`, `{isolation_id}`), so a backend can derive non-overlapping ports or
@@ -322,9 +322,10 @@ Register it in the worker YAML as `mine: {type: "my_pkg.module:MyBackend", ...op
 
 - **innovation** (Linux): `crane-worker.service`, `~/.config/crane-cluster/worker.yaml`,
   tags `innovation, nlc`; fastsim from a crane checkout (`path`/`root`).
-- **simwin** (`ssh simwin`, Windows 11 "COLLIN", user Mrmag, i7-12700 20 threads, RTX 3060 12 GB,
-  16 GB): `install.ps1 -Background -UnityManaged <UnityEngine.CoreModule.dll of 6000.5.10f1>`, tags
-  `simwin, windows, nlc`, backends `fastsim`, `fastsim_nlc`, `fastsim_roboboat` and `unity`. Tools in
+- **harmony** (`ssh harmony`, alias `simwin`; Windows 11 "COLLIN", user Mrmag, i7-12700 20 threads, RTX 3060 12 GB,
+  16 GB): `install.ps1 -UnityManaged <UnityEngine.CoreModule.dll of 6000.5.10f1>`, tags
+  `harmony, windows, nlc`; cpu lane `fastsim`, `fastsim_nlc`, `fastsim_roboboat`, `nlc_task`, gpu lane `unity`,
+  `theater-render` (off until `crane-gpu-check` passes). Formerly `simwin`, renamed 2026-11-03 (same worker id). Tools in
   `%USERPROFILE%\Tools` (MinGit, ffmpeg, dotnet, unity-managed), repos in `%LOCALAPPDATA%\crane-cluster\repos`.
   The crane copy for `fastsim`/`unity` is `%LOCALAPPDATA%\crane-cluster\crane` (`cluster/` and `fastsim/`
   plus `COMMIT`). The `unity` player `%LOCALAPPDATA%\crane-cluster\players\CRANE-Worker-Windows\CRANE.exe`

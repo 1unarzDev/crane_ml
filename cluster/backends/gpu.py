@@ -1,6 +1,6 @@
 """Which GPU a Windows player renders on.
 
-A Windows host with an integrated and a discrete GPU (simwin: Intel UHD 770 and an RTX 3060) lists the
+A Windows host with an integrated and a discrete GPU (harmony: Intel UHD 770 and an RTX 3060) lists the
 adapter driving the desktop first, and a Unity player takes DXGI adapter 0 unless told otherwise; in the
 background (session 0) that put the players on the Intel GPU, which crashed in its driver. Neither the
 per-app preference (``HKCU\\Software\\Microsoft\\DirectX\\UserGpuPreferences``, which install.ps1 still sets)

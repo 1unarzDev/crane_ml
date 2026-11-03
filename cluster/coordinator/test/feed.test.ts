@@ -100,7 +100,7 @@ describe("public feed", () => {
   });
 
   it("the duration model corrects the submitter's estimate after enough runs", async () => {
-    const w = await makeWorker("simwin");
+    const w = await makeWorker("harmony");
     // Submitters said 10 s; the runs took 30 s.
     const [done] = await addJobs([{ seeds: [1, 2, 3, 4, 5, 6], est_seconds: 10 }]);
     await lease(w, 1);
@@ -160,7 +160,7 @@ describe("scrubber and aliases", () => {
 
   it("aliases are short host-like names", () => {
     expect(alias("lunarz@innovation.lan")).toBe("innovation");
-    expect(alias("SimWin")).toBe("simwin");
+    expect(alias("Harmony")).toBe("harmony");
     expect(alias("")).toBe(null);
   });
 
