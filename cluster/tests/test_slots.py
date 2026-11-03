@@ -129,5 +129,64 @@ class ConcurrentWorker(unittest.TestCase):
         self.assertNotIn("slots", w.new_backend("dummy").options)
 
 
+    def test_a_host_guard_admits_backends_before_leasing(self):
+        import sys
+        py = [sys.executable, "-c"]
+        w = self.worker([], backends={"dummy": {"type": "dummy", "admit": py + ["import sys; sys.exit(1)"]},
+                                      "gpu": {"type": "dummy", "admit": py + ["print('x')"]},
+                                      "odd": {"type": "dummy", "admit": py + ["import sys; sys.exit(2)"]}})
+        self.assertEqual(w.admitted({"dummy": 3, "gpu": 1, "odd": 1}), {"gpu": 1, "odd": 1})   # a broken guard never blocks
+        self.assertNotIn("admit", w.new_backend("dummy").options)
+
+    def test_a_job_waiting_in_its_host_guard_goes_back_to_the_queue(self):
+        import sys
+        waited = [sys.executable, "-c", "import os, sys; print(400 if sys.argv[1] == os.environ.get('JOB') else '')"]
+        jobs = [{"job_id": "w", "backend": "dummy", "attempt": 1, "seeds": [1, 2], "spec": {"sleep_s": 5}}]
+        w = self.worker(jobs, admit_release_min=5, backends={"dummy": {"type": "dummy", "admit_waited": waited}})
+        os_env = __import__("os").environ
+        os_env["JOB"] = "w"
+        try:
+            t0 = time.time()
+            self.assertEqual(w.run_job(jobs[0], 30), "released")
+        finally:
+            del os_env["JOB"]
+        self.assertLess(time.time() - t0, 4)
+        paths = [p for p, _ in w.client.calls]
+        self.assertIn("/v1/release", paths)
+        self.assertNotIn("/v1/jobs/w/complete", paths)
+        w.cfg["admit_release_min"] = 10   # 400 s is under 10 min: the job keeps running
+        jobs[0]["spec"]["sleep_s"] = 0.05
+        self.assertEqual(w.run_job(jobs[0], 30), "unknown")   # completed (the fake answers {} to /complete)
+
+    def test_the_job_id_reaches_child_processes(self):
+        w = self.worker([])
+        seen = {}
+        from crane_cluster.backends import dummy
+        prep = dummy.DummyBackend.prepare
+
+        def prepare(b, ctx):
+            seen.update(ctx.env)
+            prep(b, ctx)
+        dummy.DummyBackend.prepare = prepare
+        try:
+            w.run_job({"job_id": "e", "backend": "dummy", "attempt": 1, "seeds": [1], "spec": {"sleep_s": 0}}, 30)
+        finally:
+            dummy.DummyBackend.prepare = prep
+        self.assertEqual(seen.get("CRANE_JOB_ID"), "e")
+
+    def test_stop_releases_running_jobs_and_exits(self):
+        jobs = [{"job_id": "s", "backend": "dummy", "attempt": 1, "seeds": [1], "spec": {"sleep_s": 10}}]
+        w = self.worker(jobs, slots={"cpus": 8})
+        worker.stop_file(w.cfg).parent.mkdir(parents=True, exist_ok=True)
+        worker.stop_file(w.cfg).touch()   # asked before this process started: ignored
+        threading.Timer(0.4, worker.stop_file(w.cfg).touch).start()
+        t0 = time.time()
+        w.loop()
+        self.assertLess(time.time() - t0, 4)
+        paths = [p for p, _ in w.client.calls]
+        self.assertIn("/v1/release", paths)
+        self.assertNotIn("/v1/jobs/s/complete", paths)
+        self.assertFalse(worker.stop_file(w.cfg).exists())
+
 if __name__ == "__main__":
     unittest.main()

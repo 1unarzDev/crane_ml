@@ -1,6 +1,21 @@
 """The worker daemon: lease jobs up to its free slots (slots.py), check out their exact refs, run each
 backend per seed in its own thread, report metrics and artifacts, heartbeat each job throughout. Repos and
-images are updated only while no job runs. ``crane-worker join|run|caps|on|off|drain|status``.
+images are updated only while no job runs. ``crane-worker join|run|caps|on|off|drain|stop|status``.
+
+Host guards: a backend whose jobs pass through a host's own admission (a shared machine's heavy-job guard)
+names two commands, so the worker never holds a job that guard would keep waiting::
+
+    fastsim_roboboat:
+      admit: [~/bin/heavy, probe, sim]     # exit 0: a job started now gets a slot at once (1: not now)
+      admit_waited: [~/bin/heavy, waited]  # + the job id: the seconds that job has waited there (1: not waiting)
+
+The backend is leased only while ``admit`` exits 0. A leased job that has still waited ``admit_release_min``
+minutes (worker option, default 5) goes back to the queue (a release: no attempt counted). Child
+processes get ``CRANE_JOB_ID``, so the guard can tell the jobs apart.
+
+Restarts: ``crane-worker drain`` finishes the running jobs, then exits; ``crane-worker stop`` (and SIGTERM,
+which the systemd unit sends to the worker alone) releases them back to the queue at once and exits. Either
+way the service or the scheduled task starts it again on the installed code, and no job fails for it.
 """
 from __future__ import annotations
 
@@ -34,6 +49,31 @@ class Stop(Exception):
 def drain_file(cfg: dict) -> Path:
     """`crane-worker drain` creates it beside the off flag; the worker removes it when it exits drained."""
     return Path(cfg["off_file"]).parent / "drain"
+
+
+def stop_file(cfg: dict) -> Path:
+    """`crane-worker stop` creates it: release the running jobs now and exit (removed on the way out)."""
+    return Path(cfg["off_file"]).parent / "stop"
+
+
+GUARD_KEYS = ("admit", "admit_waited")   # host-guard options (module docstring), not the backend's
+
+
+def guard_cmd(opts: dict | None, key: str) -> list[str] | None:
+    cmd = (opts or {}).get(key)
+    if not cmd:
+        return None
+    return [os.path.expanduser(str(c)) for c in ([cmd] if isinstance(cmd, str) else cmd)]
+
+
+def run_guard(cmd: list[str], timeout: float = 20) -> tuple[int | None, str]:
+    """(exit code, stdout) of a host-guard command; (None, why) when it could not run."""
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+        return r.returncode, r.stdout.strip()
+    except (OSError, subprocess.SubprocessError) as e:
+        return None, str(e)
 
 
 class Worker:
@@ -96,6 +136,7 @@ class Worker:
 
     def loop(self, once: bool = False) -> None:
         idle.lower_priority(self.policy)
+        stop_file(self.cfg).unlink(missing_ok=True)   # a stop asked before this process started is done
         versions: dict[str, str | None] = {}
         try:
             self._loop(once, versions)
@@ -106,6 +147,12 @@ class Worker:
     def _loop(self, once: bool, versions: dict) -> None:
         drain = drain_file(self.cfg)
         while not self.stop.is_set():
+            if stop_file(self.cfg).exists():
+                # `crane-worker stop`: running jobs go back to the queue at once (heartbeat sees stop), then exit.
+                stop_file(self.cfg).unlink(missing_ok=True)
+                log.info("stop requested; releasing %s and exiting", ", ".join(sorted(self.jobs)) or "nothing")
+                self.stop.set()
+                return
             if drain.exists():
                 # `crane-worker drain`: lease nothing, let running jobs finish, then exit for the service to restart.
                 if not self.jobs:
@@ -134,8 +181,8 @@ class Worker:
             if not self.jobs:
                 self.note("idle")
                 self.between_jobs(versions)
-            free = self.slots.free()
-            if not free:   # every slot that could take a job is busy: wait for one to come free
+            free = self.admitted(self.slots.free())
+            if not free:   # every slot that could take a job is busy (or its host guard says not now): wait
                 self.freed.wait(float(self.cfg["poll_s"]))
                 self.freed.clear()
                 continue
@@ -182,6 +229,35 @@ class Worker:
                     self.freed.clear()
                 else:
                     self.stop.wait(left)
+
+    def admitted(self, free: dict[str, int]) -> dict[str, int]:
+        """The free backends whose host guard (``admit``) would start a job now; the rest wait for a later round."""
+        out, refused = {}, self.__dict__.setdefault("refused", {})   # backend -> why its guard refuses it now
+        for b, k in free.items():
+            cmd = guard_cmd(self.cfg["backends"].get(b), "admit")
+            rc, why = (0, "") if cmd is None else run_guard(cmd)
+            if rc is None or rc not in (0, 1):   # a guard that fails to answer never blocks the backend
+                log.warning("admit %s: %s (exit %s); leasing it anyway", b, why[-200:], rc)
+                rc = 0
+            if rc == 0:
+                out[b] = k
+                if refused.pop(b, None):
+                    log.info("host guard admits %s again", b)
+            elif refused.get(b) != why:
+                refused[b] = why
+                log.info("not leasing %s: host guard: %s", b, why or "not now")
+        return out
+
+    def guard_waited(self, backend: str, jid: str) -> float | None:
+        """Seconds the job has waited in its host guard (``admit_waited``), or None."""
+        cmd = guard_cmd(self.cfg["backends"].get(backend), "admit_waited")
+        if cmd is None:
+            return None
+        rc, out = run_guard(cmd + [jid])
+        try:
+            return float(out.split()[0]) if rc == 0 and out else None
+        except ValueError:
+            return None
 
     def _start(self, job: dict, ttl: float) -> None:
         jid = job["job_id"]
@@ -235,7 +311,8 @@ class Worker:
         slot = int(iso.get("slot", 0)) + slot   # each concurrent job its own ports and isolation id
         ctx = backend_mod.JobContext(job=job, work_dir=work, isolation={
             "slot": slot, "port_base": int(iso["port_base"]) + slot * int(iso["port_stride"]),
-            "isolation_id": int(iso["id_base"]) + slot}, client=self.client)
+            "isolation_id": int(iso["id_base"]) + slot}, client=self.client, env={"CRANE_JOB_ID": jid})
+        release_after = 60 * float(self.cfg.get("admit_release_min", 5))
         revoked, released = threading.Event(), threading.Event()
         done = threading.Event()
 
@@ -251,6 +328,10 @@ class Worker:
                     "user active" if self.policy.get("pause_on_activity") and idle.user_active(self.policy) else \
                     "pause_when" if idle.pause_requested(self.cfg.get("pause_when"), float(self.cfg.get("pause_when_timeout_s", 20))) \
                     else None
+                if not why:
+                    waited = self.guard_waited(job["backend"], jid)
+                    if waited is not None and waited >= release_after:
+                        why = f"waited {waited / 60:.0f} min in the host guard"
                 if why:
                     log.info("releasing job %s (%s)", jid, why)
                     released.set()
@@ -427,6 +508,14 @@ def cmd_drain(a, cfg):
     cmd_status(a, cfg)
 
 
+def cmd_stop(a, cfg):
+    """Release the running jobs (no attempt counted) and exit now; the service or task restarts the worker."""
+    flag = stop_file(cfg)
+    flag.parent.mkdir(parents=True, exist_ok=True)
+    flag.write_text(f"crane-worker stop at {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+    print("stop requested: the worker releases its jobs and exits within a few seconds")
+
+
 def cmd_status(a, cfg):
     service = None
     if _systemd_unit():
@@ -467,6 +556,8 @@ def main(argv=None):
     sub.add_parser("on", help="take jobs again (removes the off flag; starts and enables the service)")
     sub.add_parser("off", help="take no jobs until `on`: releases the current job now, stops and disables the service")
     sub.add_parser("drain", help="lease nothing more, finish the running jobs, then exit (the service restarts it)")
+    sub.add_parser("stop", help="release the running jobs to the queue now (no attempt counted), then exit (the "
+                               "service restarts it)")
     sub.add_parser("status", help="on, off or paused (with the reason), and the running jobs")
     a = p.parse_args(argv)
     path = a.config or (config_mod.config_dir() / "worker.yaml")
@@ -481,6 +572,8 @@ def main(argv=None):
         return cmd_status(a, cfg)
     if a.cmd == "drain":
         return cmd_drain(a, cfg)
+    if a.cmd == "stop":
+        return cmd_stop(a, cfg)
     if a.cmd == "caps":
         print(json.dumps(config_mod.detect_caps(cfg, sorted(backend_mod.build(cfg["backends"]))), indent=2))
         return

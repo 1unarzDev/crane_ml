@@ -124,6 +124,11 @@ After=network-online.target
 
 [Service]
 ExecStart=$prefix/bin/crane-worker --config $config run
+# A stop or restart never fails a job: SIGTERM goes to the worker alone (mixed), which releases its running jobs
+# to the queue (no attempt counted) and stops their processes itself; anything left is killed after the timeout.
+# To let running jobs finish first: crane-worker drain (the worker exits when they are done; Restart= brings it back).
+KillMode=mixed
+TimeoutStopSec=180
 Restart=always
 RestartSec=30
 Nice=10
@@ -137,8 +142,12 @@ WantedBy=default.target
 UNIT
 systemctl --user daemon-reload
 systemctl --user enable --now crane-worker.service
-# a re-run restarts a worker that holds no job, so it runs the new code and tools
+# a re-run restarts a worker that holds no job, so it runs the new code and tools; a busy one drains (finishes its
+# jobs, exits, and systemd starts it on the new code)
 state=$(sed -n 's/.*"state": "\([a-z]*\)".*/\1/p' "${XDG_CACHE_HOME:-$HOME/.cache}/crane-cluster/state.json" 2>/dev/null || true)
-case $state in idle|paused|stopped) systemctl --user restart crane-worker.service ;; esac
+case $state in
+  idle|paused|stopped) systemctl --user restart crane-worker.service ;;
+  running|draining) "$prefix/bin/crane-worker" --config "$config" drain ;;
+esac
 echo "started crane-worker.service; logs: journalctl --user -u crane-worker -f"
 echo "to keep it running after logout: loginctl enable-linger $USER"

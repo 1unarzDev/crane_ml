@@ -210,10 +210,25 @@ Turning a worker on and off (`crane-worker` is in `~/.local/share/crane-cluster/
 crane-worker off      # no jobs until `on`: the current job is released now (no attempt penalty),
                       # survives reboots (flag ~/.config/crane-cluster/off; the service is stopped and disabled)
 crane-worker on       # removes the flag, enables and starts the service
-crane-worker drain    # lease nothing more, finish the running jobs, then exit (systemd restarts it on the
-                      # installed code; on Windows start the task again)
+crane-worker drain    # lease nothing more, finish the running jobs, then exit (systemd, or the Windows task's
+                      # 5-minute trigger, starts it again on the installed code)
+crane-worker stop     # release the running jobs to the queue now (no attempt counted), then exit and restart
 crane-worker status   # off | paused (reason) | on, running job J | draining | on, idle
 ```
+
+Restarts never fail a job. Before updating or restarting a busy worker, `crane-worker drain` (or `stop`
+when it can't wait). The systemd unit sends SIGTERM to the worker alone (`KillMode=mixed`), which releases
+its jobs like `stop`, so `systemctl --user restart crane-worker` is safe too. On Windows
+`Stop-ScheduledTask` kills the worker outright: use `crane-worker.cmd drain|stop` instead. A re-run of
+either installer restarts an idle worker and drains a busy one.
+
+Host guards: a backend whose jobs also wait in a host's own admission (innovation's heavy-job guard
+wraps the RoboBoat and Unity runs) names `admit` (exit 0: a job started now would run at once) and
+`admit_waited` (given the job id, prints how long that job has waited there), e.g.
+`admit: [~/astro_dock/src/mhseals_agents/tools/heavy, probe, sim]` and
+`admit_waited: [~/astro_dock/src/mhseals_agents/tools/heavy, waited]`. The worker leases that backend only
+while `admit` says yes, and gives a leased job that has waited `admit_release_min` (default 5) minutes
+back to the queue (a release: no attempt counted). Jobs see `CRANE_JOB_ID`, which heavy records.
 
 Slots: without a `slots:` section a worker runs one job at a time. With one it leases up to its free
 slots and runs each job in its own thread, with its own backend instance, run directory and isolation

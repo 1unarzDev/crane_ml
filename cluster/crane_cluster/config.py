@@ -42,6 +42,7 @@ DEFAULTS = {
     "pause_when_timeout_s": 20,
     "isolation": {"port_base": 20000, "port_stride": 100, "id_base": 1, "slot": 0},
     "slots": None,               # concurrent jobs per backend (see slots.py); none: one job at a time
+    "admit_release_min": 5,      # a leased job waiting this long in its host guard goes back (worker.py)
     "backends": {"dummy": {"type": "dummy"}},
 }
 

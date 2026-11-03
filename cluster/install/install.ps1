@@ -163,16 +163,24 @@ if ($Background) {
     -Settings $settings -Principal $probePrincipal -Description "reports desktop idle time to the crane worker" -Force | Out-Null
   Start-ScheduledTask -TaskName "crane-idleprobe"
 } else {
-  $trigger = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+  # The repeating trigger starts it again after it exits for a restart (crane-worker drain or stop).
+  $trigger = @((New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME),
+    (New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 5)))
   Register-ScheduledTask -TaskName "crane-worker" -Action $action -Trigger $trigger -Settings $settings `
     -Description "crane cluster worker" -Force | Out-Null
 }
 $state = $null
 try { $state = (Get-Content -Raw (Join-Path $prefix "state.json") | ConvertFrom-Json).state } catch { }
 if ((Get-ScheduledTask -TaskName "crane-worker").State -eq "Running") {
+  # Stop-ScheduledTask kills the worker outright (its jobs would fail): only while it holds no job. A busy worker
+  # drains instead: it finishes its jobs and exits, and the task's 5-minute trigger starts it on the new code.
+  # By hand: crane-worker.cmd drain (finish, then restart) or crane-worker.cmd stop (release the jobs now, restart).
   if ($state -in "idle", "paused", "stopped") {  # no job held: restart now on the new code and tools
     Stop-ScheduledTask -TaskName "crane-worker"; Start-ScheduledTask -TaskName "crane-worker"
     Write-Host "restarted the idle worker on the new code"
-  } else { Write-Host "the worker is busy ($state): restart it after its job: Stop-ScheduledTask crane-worker; Start-ScheduledTask crane-worker" }
+  } else {
+    & $py -m crane_cluster.worker --config $config drain
+    Write-Host "the worker is busy ($state): it drains (finishes its jobs) and restarts on the new code"
+  }
 } else { Start-ScheduledTask -TaskName "crane-worker"; Write-Host "started scheduled task 'crane-worker'" }
-Write-Host "toggle and status: $bin\crane-worker.cmd on|off|status"
+Write-Host "toggle and status: $bin\crane-worker.cmd on|off|status; restarts: drain (finish jobs) or stop (release them)"
