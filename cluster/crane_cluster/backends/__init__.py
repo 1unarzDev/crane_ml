@@ -107,6 +107,8 @@ def build(config: dict) -> dict[str, Backend]:
     out = {}
     for name, opts in (config or {}).items():
         opts = dict(opts or {})
+        for k in ("slots", "cpus", "mem_gb", "gpu"):   # the worker's slot options (slots.py), not the backend's
+            opts.pop(k, None)
         paths = opts.pop("path", [])
         for p in reversed([paths] if isinstance(paths, str) else paths):
             p = os.path.expanduser(p)

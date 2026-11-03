@@ -1,6 +1,6 @@
-"""The worker daemon: lease a job, check out its exact refs, run its backend per
-seed, report metrics and artifacts, heartbeat throughout. Repos and images are
-updated only between jobs. ``crane-worker join|run|caps|on|off|status``.
+"""The worker daemon: lease jobs up to its free slots (slots.py), check out their exact refs, run each
+backend per seed in its own thread, report metrics and artifacts, heartbeat each job throughout. Repos and
+images are updated only while no job runs. ``crane-worker join|run|caps|on|off|drain|status``.
 """
 from __future__ import annotations
 
@@ -20,6 +20,7 @@ import urllib.parse
 from pathlib import Path
 
 from . import __version__, backends as backend_mod, config as config_mod, idle, provision
+from .slots import Slots
 from .api import ApiError, Backoff, Client, unavailable
 from .gitcache import GitCache
 
@@ -28,6 +29,11 @@ log = logging.getLogger("crane-worker")
 
 class Stop(Exception):
     pass
+
+
+def drain_file(cfg: dict) -> Path:
+    """`crane-worker drain` creates it beside the off flag; the worker removes it when it exits drained."""
+    return Path(cfg["off_file"]).parent / "drain"
 
 
 class Worker:
@@ -44,9 +50,19 @@ class Worker:
         self.paused: str | None = None
         self.backoff = Backoff()
         self.caps = config_mod.detect_caps(cfg, sorted(self.backends))
+        self.slots = Slots(cfg, self.caps)
+        self.jobs: dict[str, threading.Thread] = {}   # running job id -> its thread
+        self.freed = threading.Event()                # set when a job ends (a slot came free)
+        self.git_lock = threading.Lock()              # the git mirrors are shared between jobs
 
     def note(self, state: str, reason: str | None = None, job: str | None = None) -> None:
         """What ``crane-worker status`` reports: <data_dir>/state.json."""
+        with self._note_lock:
+            self._note(state, reason, job)
+
+    _note_lock = threading.Lock()
+
+    def _note(self, state, reason, job) -> None:
         try:
             path = self.cfg["data_dir"] / "state.json"
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -81,7 +97,26 @@ class Worker:
     def loop(self, once: bool = False) -> None:
         idle.lower_priority(self.policy)
         versions: dict[str, str | None] = {}
+        try:
+            self._loop(once, versions)
+        finally:
+            for t in list(self.jobs.values()):   # shutdown: running jobs release themselves (heartbeat sees stop)
+                t.join()
+
+    def _loop(self, once: bool, versions: dict) -> None:
+        drain = drain_file(self.cfg)
         while not self.stop.is_set():
+            if drain.exists():
+                # `crane-worker drain`: lease nothing, let running jobs finish, then exit for the service to restart.
+                if not self.jobs:
+                    drain.unlink(missing_ok=True)
+                    log.info("drained; exiting for a restart")
+                    self.stop.set()
+                    return
+                self.note("draining", job=", ".join(sorted(self.jobs)))
+                self.freed.wait(float(self.cfg["poll_s"]))
+                self.freed.clear()
+                continue
             reason = idle.unavailable_reason(self.policy, cfg=self.cfg)
             if reason:
                 if reason != self.paused:
@@ -96,13 +131,21 @@ class Worker:
             if self.paused:
                 log.info("resumed (%s cleared)", self.paused)
                 self.paused = None
-            self.note("idle")
-            self.between_jobs(versions)
-            # Long poll: the coordinator holds an empty answer up to wait_s until a job arrives.
-            wait_s = 0 if once else float(self.cfg.get("long_poll_s", 25))
+            if not self.jobs:
+                self.note("idle")
+                self.between_jobs(versions)
+            free = self.slots.free()
+            if not free:   # every slot that could take a job is busy: wait for one to come free
+                self.freed.wait(float(self.cfg["poll_s"]))
+                self.freed.clear()
+                continue
+            # Long poll while idle: the coordinator holds an empty answer up to wait_s until a job arrives.
+            wait_s = 0 if once or self.jobs else float(self.cfg.get("long_poll_s", 25))
             t0 = time.monotonic()
             try:
-                body = {"caps": self.caps, "policy": self.policy, "max_jobs": 1, "state": "idle", "client_version": __version__}
+                # max_jobs: any mix of that many fits, since each backend alone fits that many.
+                body = {"caps": self.caps, "policy": self.policy, "max_jobs": min(free.values()), "backends": sorted(free),
+                        "state": "running" if self.jobs else "idle", "client_version": __version__}
                 if wait_s > 0:
                     body["wait_s"] = wait_s
                 r = self.client.post("/v1/lease", body)
@@ -117,7 +160,8 @@ class Worker:
                 # 503 (out of quota), 5xx or unreachable: back off 5 s doubling to 5 min, and say why.
                 w = self.backoff.step(e)
                 log.warning("coordinator unavailable (%s); next lease in %.0f s", why, w)
-                self.note("waiting", f"coordinator unavailable: {why}")
+                if not self.jobs:
+                    self.note("waiting", f"coordinator unavailable: {why}")
                 if once:
                     return
                 self.stop.wait(w)
@@ -126,12 +170,43 @@ class Worker:
             versions = r.get("repos") or {}
             ttl = float(r.get("lease_ttl_s") or 300)
             for job in r["jobs"]:
-                self.run_job(job, ttl)
+                self._start(job, ttl)
             if once:
                 return
-            # An empty answer: wait poll_s, less what a long poll already waited (an older coordinator answers at once).
+            # Leased some: ask again at once for the slots still free. An empty answer: wait poll_s, less what a
+            # long poll already waited (an older coordinator answers at once), or until a slot comes free.
             if not r["jobs"]:
-                self.stop.wait(max(0.0, float(self.cfg["poll_s"]) - (time.monotonic() - t0)))
+                left = max(0.0, float(self.cfg["poll_s"]) - (time.monotonic() - t0))
+                if self.jobs:
+                    self.freed.wait(left)
+                    self.freed.clear()
+                else:
+                    self.stop.wait(left)
+
+    def _start(self, job: dict, ttl: float) -> None:
+        jid = job["job_id"]
+        slot = self.slots.acquire(jid, job["backend"])
+
+        def body():
+            try:
+                self.run_job(job, ttl, slot=slot)
+            except Exception:
+                log.exception("job %s crashed", jid)
+            finally:
+                self.slots.release(jid)
+                self.jobs.pop(jid, None)
+                self._note_running()
+                self.freed.set()
+
+        t = threading.Thread(target=body, name=f"job-{jid}", daemon=True)
+        self.jobs[jid] = t
+        self._note_running()
+        t.start()
+
+    def _note_running(self) -> None:
+        ids = sorted(self.jobs)
+        if ids:
+            self.note("running", job=", ".join(ids))
 
     def _safe_post(self, path, body):
         try:
@@ -142,21 +217,27 @@ class Worker:
 
     # ------------------------------------------------------------ one job
 
-    def run_job(self, job: dict, ttl: float) -> str:
+    def new_backend(self, name: str):
+        """A fresh backend instance per job: concurrent jobs never share a backend's per-job state."""
+        if name not in self.backends:
+            raise KeyError(f"backend {name} is not configured here")
+        return backend_mod.build({name: self.cfg["backends"][name]})[name]
+
+    def run_job(self, job: dict, ttl: float, slot: int = 0) -> str:
         jid = job["job_id"]
-        log.info("job %s (%s, arm %s, attempt %s, seeds %s)", jid, job["backend"], job.get("arm"), job["attempt"], job["seeds"])
-        backend = self.backends[job["backend"]]
+        log.info("job %s (%s, arm %s, attempt %s, slot %s, seeds %s)", jid, job["backend"], job.get("arm"), job["attempt"],
+                 slot, job["seeds"])
+        backend = self.new_backend(job["backend"])
         work = self.cfg["data_dir"] / "jobs" / f"{jid}-a{job['attempt']}"
         shutil.rmtree(work, ignore_errors=True)
         work.mkdir(parents=True)
         iso = self.cfg["isolation"]
-        slot = int(iso.get("slot", 0))
+        slot = int(iso.get("slot", 0)) + slot   # each concurrent job its own ports and isolation id
         ctx = backend_mod.JobContext(job=job, work_dir=work, isolation={
             "slot": slot, "port_base": int(iso["port_base"]) + slot * int(iso["port_stride"]),
             "isolation_id": int(iso["id_base"]) + slot}, client=self.client)
         revoked, released = threading.Event(), threading.Event()
         done = threading.Event()
-        self.note("running", job=jid)
 
         def heartbeat():
             period = max(1.0, min(float(self.cfg["heartbeat_s"]), ttl / 3))
@@ -193,7 +274,8 @@ class Worker:
             for repo in job.get("repos") or []:
                 self.repo_urls[repo["name"]] = repo["url"]
                 dest = work / "src" / repo["name"].replace("/", "__")
-                ctx.resolved[repo["name"]] = self.git.checkout(repo["name"], repo["url"], repo["ref"], dest)
+                with self.git_lock:
+                    ctx.resolved[repo["name"]] = self.git.checkout(repo["name"], repo["url"], repo["ref"], dest)
                 ctx.repos[repo["name"]] = dest
             backend.prepare(ctx)
             for seed in job["seeds"]:
@@ -337,6 +419,14 @@ def cmd_toggle(a, cfg):
     cmd_status(a, cfg)
 
 
+def cmd_drain(a, cfg):
+    """Lease nothing more, let the running jobs finish, then exit (the service restarts on the installed code)."""
+    flag = drain_file(cfg)
+    flag.parent.mkdir(parents=True, exist_ok=True)
+    flag.write_text(f"crane-worker drain at {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+    cmd_status(a, cfg)
+
+
 def cmd_status(a, cfg):
     service = None
     if _systemd_unit():
@@ -354,6 +444,8 @@ def cmd_status(a, cfg):
         line = f"paused ({st.get('reason')})"
     elif st.get("state") == "running":
         line = f"on, running job {st.get('job')}"
+    elif st.get("state") == "draining" or drain_file(cfg).exists():
+        line = f"draining (running {st.get('job') or 'nothing'})"
     elif st.get("state") == "idle":
         line = "on, idle"
     else:
@@ -374,7 +466,8 @@ def main(argv=None):
     sub.add_parser("caps", help="print detected capabilities")
     sub.add_parser("on", help="take jobs again (removes the off flag; starts and enables the service)")
     sub.add_parser("off", help="take no jobs until `on`: releases the current job now, stops and disables the service")
-    sub.add_parser("status", help="on, off or paused (with the reason), and the current job")
+    sub.add_parser("drain", help="lease nothing more, finish the running jobs, then exit (the service restarts it)")
+    sub.add_parser("status", help="on, off or paused (with the reason), and the running jobs")
     a = p.parse_args(argv)
     path = a.config or (config_mod.config_dir() / "worker.yaml")
     provision.apply_tools_env(path)  # the installer's tools (git, ffmpeg, dotnet) on PATH for jobs
@@ -386,6 +479,8 @@ def main(argv=None):
         return cmd_toggle(a, cfg)
     if a.cmd == "status":
         return cmd_status(a, cfg)
+    if a.cmd == "drain":
+        return cmd_drain(a, cfg)
     if a.cmd == "caps":
         print(json.dumps(config_mod.detect_caps(cfg, sorted(backend_mod.build(cfg["backends"]))), indent=2))
         return

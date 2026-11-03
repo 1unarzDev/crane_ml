@@ -41,6 +41,7 @@ DEFAULTS = {
     "pause_when": None,          # shell command; exit 0 = pause (see idle.py)
     "pause_when_timeout_s": 20,
     "isolation": {"port_base": 20000, "port_stride": 100, "id_base": 1, "slot": 0},
+    "slots": None,               # concurrent jobs per backend (see slots.py); none: one job at a time
     "backends": {"dummy": {"type": "dummy"}},
 }
 
@@ -83,6 +84,27 @@ def _ram_gb() -> float:
     except (OSError, ValueError):
         pass
     return 0.0
+
+
+def mem_available_gb() -> float | None:
+    """MemAvailable (Linux) or available physical memory (Windows) in GB; None where unknown."""
+    try:
+        if sys.platform.startswith("linux"):
+            for line in Path("/proc/meminfo").read_text().splitlines():
+                if line.startswith("MemAvailable:"):
+                    return int(line.split()[1]) / 1024**2
+        if sys.platform == "win32":
+            class MEMSTAT(ctypes.Structure):
+                _fields_ = [("dwLength", ctypes.c_ulong), ("dwMemoryLoad", ctypes.c_ulong)] + \
+                           [(n, ctypes.c_ulonglong) for n in ("ullTotalPhys", "ullAvailPhys", "ullTotalPageFile",
+                            "ullAvailPageFile", "ullTotalVirtual", "ullAvailVirtual", "ullAvailExtendedVirtual")]
+            m = MEMSTAT()
+            m.dwLength = ctypes.sizeof(m)
+            ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(m))  # type: ignore[attr-defined]
+            return m.ullAvailPhys / 1024**3
+    except (OSError, ValueError):
+        pass
+    return None
 
 
 def _gpu() -> tuple[str | None, int, float]:

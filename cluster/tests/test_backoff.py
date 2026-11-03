@@ -1,14 +1,17 @@
 """Clients wait out an unavailable coordinator (503 out of quota, 5xx, unreachable): 5 s doubling to 5 min."""
 import io
+import tempfile
 import json
 import threading
 import unittest
 import urllib.error
 from contextlib import redirect_stderr
+from pathlib import Path
 from unittest import mock
 
 from crane_cluster import api, hyp, worker
 from crane_cluster.api import ApiError, Backoff, unavailable
+from crane_cluster.slots import Slots
 
 
 def http_error(code, body, retry_after=None):
@@ -90,12 +93,15 @@ class WorkerLoopTest(unittest.TestCase):
     def make(self, responses):
         w = worker.Worker.__new__(worker.Worker)
         w.cfg = {"poll_s": 30, "heartbeat_s": 60, "long_poll_s": 25, "data_dir": mock.MagicMock()}
+        w.cfg["off_file"] = Path(tempfile.mkdtemp()) / "off"
+        w.cfg["backends"] = {"dummy": {"type": "dummy"}}
         w.policy, w.caps, w.paused = {}, {"backends": ["dummy"]}, None
+        w.slots, w.jobs, w.freed = Slots(w.cfg, w.caps), {}, threading.Event()
         w.stop = threading.Event()
         w.backoff = Backoff()
         w.note = lambda *a, **k: None
         w.between_jobs = lambda v: None
-        w.run_job = mock.Mock(side_effect=lambda *a: w.stop.set())
+        w.run_job = mock.Mock(side_effect=lambda *a, **k: w.stop.set())
         seq = iter(responses)
         bodies = []
 
@@ -120,7 +126,7 @@ class WorkerLoopTest(unittest.TestCase):
         return w, bodies, waits
 
     def test_backs_off_on_503_and_unreachable_then_long_polls(self):
-        job = {"job_id": "j1"}
+        job = {"job_id": "j1", "backend": "dummy"}
         w, bodies, waits = self.make([
             ApiError(503, {"error": "D1 daily quota exhausted"}, 9000),
             OSError("refused"),
@@ -131,7 +137,7 @@ class WorkerLoopTest(unittest.TestCase):
              mock.patch.object(worker.idle, "lower_priority"):
             w.loop()
         self.assertEqual(waits[:3], [300, 10, 20])  # Retry-After capped at 5 min, then doubling from where it was
-        w.run_job.assert_called_once_with(job, 300.0)
+        w.run_job.assert_called_once_with(job, 300.0, slot=0)
         self.assertEqual(bodies[0]["wait_s"], 25)
         self.assertEqual(w.backoff.next, 5)  # reset after the coordinator answered
 

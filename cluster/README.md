@@ -210,8 +210,18 @@ Turning a worker on and off (`crane-worker` is in `~/.local/share/crane-cluster/
 crane-worker off      # no jobs until `on`: the current job is released now (no attempt penalty),
                       # survives reboots (flag ~/.config/crane-cluster/off; the service is stopped and disabled)
 crane-worker on       # removes the flag, enables and starts the service
-crane-worker status   # off | paused (reason) | on, running job J | on, idle
+crane-worker drain    # lease nothing more, finish the running jobs, then exit (systemd restarts it on the
+                      # installed code; on Windows start the task again)
+crane-worker status   # off | paused (reason) | on, running job J | draining | on, idle
 ```
+
+Slots: without a `slots:` section a worker runs one job at a time. With one it leases up to its free
+slots and runs each job in its own thread, with its own backend instance, run directory and isolation
+slot, and heartbeats each job. Per backend, `slots`, `cpus` (cores a job uses) and `mem_gb` (its memory
+estimate) set how many run at once; `slots.cpus` is the shared core budget (default half the cores),
+GPU backends (unity, theater) take one GPU slot each, and a job starts only while MemAvailable less
+`slots.reserve_gb` admits its estimate. Details in `crane_cluster/slots.py`. The lease call names the
+backends with a free slot (`backends`), so the coordinator hands out only jobs that fit.
 
 On Windows it is `%LOCALAPPDATA%\crane-cluster\bin\crane-worker.cmd on|off|status`: `off` writes the flag
 and disables the scheduled task (the running worker releases its job and idles), `on` enables and starts it.
@@ -233,7 +243,7 @@ nobody is logged in, never paused).
 
 Isolation: each job gets `CRANE_PORT_BASE` and `CRANE_ISOLATION_ID` (template fields
 `{port_base}`, `{isolation_id}`), so a backend can derive non-overlapping ports or
-middleware domain ids.
+middleware domain ids; concurrent jobs on one worker get consecutive slots.
 
 ### Writing a backend
 
