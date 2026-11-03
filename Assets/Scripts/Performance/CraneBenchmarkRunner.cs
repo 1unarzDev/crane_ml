@@ -323,7 +323,7 @@ namespace Sim.Performance {
                 RecordValidation(CaptureValidation(simulatedElapsed));
                 nextValidationTime += validationPeriodSeconds;
             }
-            if (wallClock.Elapsed.TotalSeconds >= durationSeconds) Finish();
+            if (wallClock.Elapsed.TotalSeconds >= durationSeconds || CraneRuntimeMetrics.FinishRequested) Finish();
         }
 
         private void BeginMeasurement() {

@@ -273,6 +273,11 @@ namespace Sim.Utils.Performance {
         }
         public static void ReportCommandTimeout() => Interlocked.Increment(ref s_CommandTimeouts);
 
+        /// <summary>Set by an external episode driver (the lockstep link) when it is done: the
+        /// benchmark runner then finishes at once instead of waiting out --crane-duration.</summary>
+        public static bool FinishRequested { get; private set; }
+        public static void RequestFinish() => FinishRequested = true;
+
         public static void ReportSitlServoPacket(bool valid, long frame) {
             if (valid) {
                 Interlocked.Increment(ref s_SitlValidServoPackets);

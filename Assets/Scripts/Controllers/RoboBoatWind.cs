@@ -77,12 +77,18 @@ namespace Sim.Controllers {
             string value = index + 1 < args.Length ? args[index + 1] : "";
             if (!RoboBoatCourse.ParseCurrent(value, out float speed, out float toward))
                 throw new ArgumentException($"{Flag} expects speed,toward_deg; got {value}");
+            Attach(boat, speed, toward, (int)RoboBoatPhysics.ReadFloat(args, "--crane-seed", 0f));
+        }
+
+        /// <summary>Wind of a mean speed (m/s) toward a direction (degrees counter-clockwise from
+        /// world +x), gusts seeded by ``seed``.</summary>
+        internal static void Attach(OmniXController boat, float speed, float toward, int seed) {
             ArticulationBody root = RoboBoatPhysics.Root(boat);
             var wind = root.gameObject.AddComponent<RoboBoatWind>();
             wind.body = root;
             wind.meanSpeed = speed;
             wind.meanToward = toward * Mathf.Deg2Rad;
-            wind.random = new System.Random((int)RoboBoatPhysics.ReadFloat(args, "--crane-seed", 0f));
+            wind.random = new System.Random(seed);
             Debug.Log($"CRANE_ROBOBOAT_WIND speed={speed:R} toward_deg={toward:R} " +
                       $"gust={GustIntensity:R} veer_deg={VeerDeg:R}");
         }

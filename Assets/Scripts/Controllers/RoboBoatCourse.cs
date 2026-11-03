@@ -30,6 +30,12 @@ namespace Sim.Controllers {
             string value = index + 1 < args.Length ? args[index + 1] : null;
             if (!ParseCurrent(value, out float speed, out float toward))
                 throw new ArgumentException($"{CurrentFlag} expects speed,toward_deg; got {value}");
+            ApplyCurrent(speed, toward);
+        }
+
+        /// <summary>Sets the uniform water current on every water surface: speed in m/s,
+        /// direction counter-clockwise from the world +x of /crane/odom.</summary>
+        public static void ApplyCurrent(float speed, float toward) {
             foreach (var surface in UnityEngine.Object.FindObjectsByType<WaterSurface>(FindObjectsSortMode.None)) {
                 surface.largeCurrentSpeedValue = speed;
                 surface.largeOrientationValue = HdrpOrientation(toward);
