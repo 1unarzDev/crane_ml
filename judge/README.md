@@ -27,7 +27,7 @@ JUDGE G4 6/6 usable | quad.time_to_last_gate bias -3.09 [-4.71,-1.25] band 0.5 F
 | `pack.py` | `Pack` (metrics, decision events, outcome, segmenter, dependency graph, hints, replayer) |
 | `source.py` | `Source`, `FidelityProfile`, `Refused` |
 | `pairing.py` | exact / block / loose pairing; the design label travels with the comparison |
-| `stats.py` | one statistics module (golden parity with `cluster/crane_cluster/promotion.py` and mhseals_testing `reliability.py`) |
+| `stats.py` | one statistics module (golden parity with research-cluster `crane_cluster/promotion.py` and mhseals_testing `reliability.py`) |
 | `compare.py` | paired comparisons, G3 (regret, MMRV, top-k recall), G4 (gap bands, failure-mode table), exclusion accounting |
 | `insight/` | integrity, divergence (time vs path residual, CUSUM, counterfactual replay split), event-timeline diff, failure clusters with bootstrap stability, first cause, hints, LLM citation validator |
 | `render.py` | report files, one-liner, Markdown, viewer feed |

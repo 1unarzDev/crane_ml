@@ -245,4 +245,7 @@ environments. Read the documentation before treating a run as training-valid.
 - [Architecture and design](Docs/ArchitectureAndDesign.md)
 - [Simulation physics, conventions, and runtime modes](Docs/SimulationPhysicsAndRuntimeModes.md)
 - [Performance engineering and benchmark results](Docs/PerformanceEngineering.md)
-- [Experiment cluster: coordinator, workers, staged hypothesis promotion](cluster/README.md)
+- Experiment cluster (coordinator, workers, staged hypothesis promotion, dashboard): moved on 2026-11-03 to its own
+  private repository, [1unarzDev/research-cluster](https://github.com/1unarzDev/research-cluster), with its history.
+  crane's backends for it stay here as the plugin package [`crane_backends/`](crane_backends/__init__.py)
+  (entry points in `pyproject.toml`)

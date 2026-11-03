@@ -19,7 +19,7 @@ It is pose playback: nothing is re-simulated, so a render is reproducible whatev
 | `theater/render.py` | `script` (the standard cut), `local`, `submit` (cluster), `assemble`, `inspect` |
 | `Assets/Scripts/Theater/` | `Crane.Theater`: manifest and pack readers, acts, state machine and camera director, GPU ghosts (HDRP custom pass), HUD, ffmpeg capture |
 | `Assets/Scripts/Theater/RoboBoat/` | `ITheaterWorld`/`ITheaterRobot` for RoboBoat (the only domain code) |
-| `cluster/backends/theater.py` | the `theater-render` job kind: one seed per chunk of frames |
+| `crane_backends/theater.py` | the `theater-render` job kind: one seed per chunk of frames |
 
 A drone or another robot plugs in with its own `ITheaterWorld` (how the world is built, its frame, its surface)
 and `ITheaterRobot` (a ghost mesh of a few hundred triangles, its full visuals for heroes) plus a Python world.

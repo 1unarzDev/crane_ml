@@ -2,7 +2,7 @@
 
 Pure Python (no numpy needed) so the stdlib-only cluster side can vendor or import it. Golden
 parity tests (``tests/test_stats.py`` here, ``judge_pack/tests`` in mhseals_testing) pin these to
-``cluster/crane_cluster/promotion.py`` and mhseals_testing ``analysis/reliability.py`` so the
+research-cluster ``crane_cluster/promotion.py`` and mhseals_testing ``analysis/reliability.py`` so the
 cluster's promote decision and the referee's non-inferiority verdict cannot disagree on one data
 set. The unit of analysis is the caller's: scenario blocks or sessions, never samples.
 """

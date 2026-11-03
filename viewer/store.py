@@ -1,5 +1,5 @@
 """The local run store behind ``python -m viewer serve``: crane-traj/1 runs, course truths and judge reports
-found under a set of roots, served in the coordinator's feed shapes (``cluster/coordinator/src/replay.ts``) so
+found under a set of roots, served in the coordinator's feed shapes (research-cluster ``coordinator/src/replay.ts``) so
 one page reads both. Run ids are the header's ``run_id`` (else the file's path under its root)."""
 
 from __future__ import annotations

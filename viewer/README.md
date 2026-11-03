@@ -43,9 +43,9 @@ shows every time from the run's task_started.
 |---|---|
 | `ingest.py` | run dirs (the fastsim / mhseals_testing layout) -> `run.ctraj` + LOD: pose at 10 Hz, task events, decisions, goals in the world frame, behaviour, referee rows, contacts, near misses, channel status |
 | `store.py` | the local store in the coordinator's feed shapes, the run index (studies, tier pairs, rank agreement) and the judge's evidence per run |
-| `server.py` | stdlib HTTP server: the page, `/ctraj.js` (`theater/web/ctraj.js`), `/v1/feed/*` as in `cluster/coordinator/src/replay.ts`, and the local-only `/v1/viewer/index` and `/v1/viewer/judge` |
+| `server.py` | stdlib HTTP server: the page, `/ctraj.js` (`theater/web/ctraj.js`), `/v1/feed/*` as in research-cluster `coordinator/src/replay.ts`, and the local-only `/v1/viewer/index` and `/v1/viewer/judge` |
 | `web/` | no build step: `app.js` (routes), `data.js` (sources, run model, judge evidence), `core.js` (sampling, alignment, palettes), `run.js`, `tiers.js`, `batch.js`, `viewer.css` |
 
 On the dashboard the page reads the public feed only (no judge reports, headers cut to public keys), so
-it says what it cannot show rather than guessing. `cluster/coordinator/deploy.sh` copies `web/` and the
+it says what it cannot show rather than guessing. research-cluster's `coordinator/deploy.sh` copies `web/` and the
 codec into `public/viewer/` at deploy time.
