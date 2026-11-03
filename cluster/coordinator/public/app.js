@@ -40,6 +40,8 @@ const left = (iso) => (iso ? Math.max(0, (Date.parse(iso) - Date.now()) / 1000) 
 const isLegacy = (j) => j.purpose === '(legacy)';
 // A GPU runner's window (crane_cluster/gpuwindow.py), and a queued job that waits for one.
 const windowLine = (w) => !w ? '' : !w.enabled ? 'GPU window: off' : w.open ? (w.waiting ? 'GPU window open, waiting for the PC to be idle' : `GPU window open until ${clock(w.until)}`) : w.next_at ? `GPU window: next at ${clock(w.next_at)}` : 'GPU window: none scheduled';
+// A worker's lanes (one Windows worker: a cpu lane and a gpu lane), each with why it takes no job now.
+const lanesLine = (ls) => (ls || []).map((l) => `${l.name} lane: ${l.paused ? `paused (${l.paused})` : 'open'}`).join('<br>');
 const etaNote = (j) => j.eta?.note || (j.eta?.window_at ? `GPU window: next at ${clock(j.eta.window_at)}` : '');
 const perRun = (j) => j.estimate.model_run_s ?? j.estimate.agent_run_s;
 const failed = (r) => r.status !== 'ok' || ['failed', 'timeout', 'invalid', 'FAILURE'].includes(r.outcome);
@@ -215,7 +217,7 @@ function viewWorkers() {
     const j = w.job && J[w.job], n = FEED.runs.filter((r) => r.worker === w.alias).length;
     return `<div class="wk"><div><h3><i class="${w.live ? '' : 'off'}"></i>${esc(w.alias)}</h3><div class="bk">${w.backends.map(esc).join('<br>')}</div></div>
       <div>${j ? `<a href="#/job/${esc(j.id)}" class="p">${esc(j.purpose)}</a><div class="prog cont"><i style="width:${(j.progress.fraction || 0) * 100}%"></i></div>` : `<span class="mute">${w.live ? 'Idle.' : 'Offline.'}</span>`}</div>
-      <div class="ws">${w.live ? 'live' : 'offline'}, seen ${ago(w.last_seen)}<br>${w.window ? `${esc(windowLine(w.window))}<br>` : ''}${j ? `${live(j.eta?.done_at)} left on this job<br>` : ''}${n} runs in the feed</div></div>`;
+      <div class="ws">${w.live ? 'live' : 'offline'}, seen ${ago(w.last_seen)}<br>${w.lanes?.length ? `${lanesLine(w.lanes.map((l) => ({ ...l, name: esc(l.name), paused: l.paused && esc(l.paused) })))}<br>` : ''}${w.window ? `${esc(windowLine(w.window))}<br>` : ''}${j ? `${live(j.eta?.done_at)} left on this job<br>` : ''}${n} runs in the feed</div></div>`;
   }).join('');
   const bk = Object.entries(FEED.backends).sort((a, b) => b[1].runs_last_hour - a[1].runs_last_hour).map(([n, b]) =>
     `<tr><td>${esc(n)}</td><td class="r">${dur(b.median_run_s)}</td><td class="r">${b.ratio && b.n >= 5 ? `${b.ratio.toFixed(2)}×` : '<span class="mute">learning</span>'}</td><td class="r">${b.n}</td><td class="r">${b.runs_last_hour}</td></tr>`).join('');

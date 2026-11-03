@@ -35,7 +35,15 @@ export interface Policy {
   require_tags?: string[]; // only take jobs that carry at least one of these tags (reserved machines)
   quiet_hours?: string[];
   pause_on_activity?: boolean;
-  window?: Window; // a GPU runner's schedule (crane_cluster/gpuwindow.py): it leases only while open
+  window?: Window; // a GPU lane's schedule (crane_cluster/gpuwindow.py): its backends lease only while open
+  lanes?: Lane[]; // informational: a worker's lanes (cpu, gpu) and why each is paused, for the dashboard
+}
+
+/** One lane of a worker (a Windows worker's cpu and gpu lanes): its backends, and why it takes no job now. */
+export interface Lane {
+  name: string;
+  backends: string[];
+  paused?: string;
 }
 
 /** A GPU runner's window as it last reported it: open until `until`, or closed until `next_at` (ISO times). */
@@ -45,7 +53,12 @@ export interface Window {
   until?: string;
   next_at?: string;
   waiting?: string; // why it is not leasing now (outside the hours, the user active)
+  backends?: string[]; // the backends it gates (a lane of one worker); absent: all of the worker's
 }
+
+/** Whether a worker's window gates this backend (a GPU lane's backends; a whole-worker window, every backend). */
+export const windowGates = (w: Window | undefined, backend: string): w is Window =>
+  !!w && (!w.backends || w.backends.includes(backend));
 
 const asList = (v: string | string[] | undefined): string[] | null =>
   v === undefined ? null : (Array.isArray(v) ? v : [v]).map((s) => s.toLowerCase());
@@ -66,7 +79,7 @@ export function mismatch(backend: string, needs: Needs, caps: Caps, policy: Poli
   const tags = new Set(caps.tags ?? []);
   for (const t of needs.tags ?? []) if (!tags.has(t)) return `tag ${t}`;
   if (policy.max_est_minutes !== undefined && (needs.est_minutes ?? 0) > policy.max_est_minutes) return "policy: too long";
-  if (policy.window && !(policy.window.enabled && policy.window.open)) return "policy: outside its GPU window";
+  if (windowGates(policy.window, backend) && !(policy.window.enabled && policy.window.open)) return "policy: outside its GPU window";
   if (policy.require_tags?.length && !(needs.tags ?? []).some((t) => policy.require_tags!.includes(t))) return "policy: reserved";
   return null;
 }
@@ -145,6 +158,13 @@ export function sanitizePolicy(v: unknown): Policy {
     if (iso(w.until)) out.window.until = iso(w.until);
     if (iso(w.next_at)) out.window.next_at = iso(w.next_at);
     if (typeof w.waiting === "string") out.window.waiting = w.waiting.slice(0, 80);
+    if (strs(w.backends)) out.window.backends = w.backends as string[];
+  }
+  if (Array.isArray(v.lanes) && v.lanes.length <= 4) {
+    out.lanes = v.lanes
+      .filter((l): l is Record<string, unknown> => isObject(l) && typeof l.name === "string" && strs(l.backends))
+      .map((l) => ({ name: (l.name as string).slice(0, 16), backends: l.backends as string[],
+        ...(typeof l.paused === "string" ? { paused: l.paused.slice(0, 80) } : {}) }));
   }
   return out;
 }

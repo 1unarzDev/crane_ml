@@ -5,7 +5,7 @@
 // speed from history, and ETAs from a list-scheduling pass over the queue in lease order.
 import { Hono } from "hono";
 import type { AppEnv } from "./auth";
-import { Caps, Needs, Policy, matches } from "./match";
+import { Caps, Needs, Policy, matches, windowGates } from "./match";
 import { alias, scrubText } from "./purpose";
 import { Env, HttpError, intVar, nowIso, parseJson } from "./util";
 
@@ -270,7 +270,7 @@ export async function buildFeed(env: Env, opts: { recent?: number; jobId?: strin
       // A GPU runner that could run it but waits (window open, the PC in use; or switched off) says so.
       const runner = workerRows.find((w) => {
         const p = parseJson<Policy>(w.policy_json as string, {});
-        return live(w) && p.window && matches(j.backend, needs, parseJson<Caps>(w.caps_json as string, {}), { ...p, window: { ...p.window, enabled: true, open: true } });
+        return live(w) && windowGates(p.window, j.backend) && matches(j.backend, needs, parseJson<Caps>(w.caps_json as string, {}), { ...p, window: { ...p.window, enabled: true, open: true } });
       });
       const win = runner && parseJson<Policy>(runner.policy_json as string, {}).window;
       const note = !win ? `no live worker can run ${j.backend} with these needs`
@@ -380,6 +380,7 @@ export async function buildFeed(env: Env, opts: { recent?: number; jobId?: strin
         last_seen: w.last_seen ?? null,
         backends: parseJson<Caps>(w.caps_json as string, {}).backends ?? [],
         window: parseJson<Policy>(w.policy_json as string, {}).window ?? null,
+        lanes: parseJson<Policy>(w.policy_json as string, {}).lanes ?? null,
         job: activeJobs.find((j) => j.status === "leased" && j.lease_worker === w.id)?.job_id ?? null,
       }))
       .sort((a, b) => Number(b.live) - Number(a.live) || String(a.alias).localeCompare(String(b.alias))),

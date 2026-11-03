@@ -202,4 +202,15 @@ describe("a GPU runner in the feed", () => {
     const open = { window: { enabled: true, open: true, until: next } };
     expect((await lease(w, 1, { policy: open })).body.jobs.map((j: { job_id: string }) => j.job_id)).toEqual([id]);
   });
+
+  it("one worker with lanes: a closed GPU lane holds only its backends, and the feed shows the lanes", async () => {
+    const w = await makeWorker("lanes", { ...GPU_CAPS, os: "windows", backends: ["unity", "dummy"] });
+    const [gpuJob, cpuJob] = await addJobs([{ backend: "unity", seeds: [1] }, { backend: "dummy", seeds: [1] }]);
+    const policy = { window: { enabled: true, open: false, backends: ["unity"] },
+      lanes: [{ name: "cpu", backends: ["dummy"] }, { name: "gpu", backends: ["unity"], paused: "outside the GPU window" }] };
+    expect((await lease(w, 2, { policy })).body.jobs.map((j: { job_id: string }) => j.job_id)).toEqual([cpuJob]);
+    const feed = (await callJson("GET", "/v1/feed")).body;
+    expect(feed.workers.find((x: { alias: string }) => x.alias === "lanes").lanes).toEqual(policy.lanes);
+    expect(feed.jobs.find((j: { id: string }) => j.id === gpuJob).state).toBe("queued");
+  });
 });

@@ -66,4 +66,12 @@ describe("a GPU runner's window", () => {
     expect(p.window).toEqual({ enabled: true, open: false, next_at: "2026-11-03T01:00-06:00", waiting: "x".repeat(80) });
     expect(sanitizePolicy({ window: { next_at: "2026-11-03T01:00-06:00" } }).window).toBeUndefined();
   });
+
+  it("gates only its lane's backends on a worker with lanes", () => {
+    const closed = sanitizePolicy({ window: { open: false, backends: ["render"] },
+      lanes: [{ name: "cpu", backends: ["dummy"], paused: "user active" }, { name: "gpu", backends: ["render"] }, { bad: 1 }] });
+    expect(mismatch("render", {}, gpu, closed)).toBe("policy: outside its GPU window");
+    expect(mismatch("dummy", {}, gpu, closed)).toBeNull();
+    expect(closed.lanes).toEqual([{ name: "cpu", backends: ["dummy"], paused: "user active" }, { name: "gpu", backends: ["render"] }]);
+  });
 });
