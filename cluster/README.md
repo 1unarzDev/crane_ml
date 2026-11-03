@@ -1,7 +1,9 @@
 # crane cluster
 
 A small, domain-agnostic job cluster for simulation experiments. One coordinator
-(a Cloudflare Worker with D1 and R2) hands out jobs. Worker daemons run on whatever
+(written as a Cloudflare Worker with D1 and R2) hands out jobs. Since 2026-11-03 it runs self-hosted on creation
+(`server/`: the same source on Node, SQLite and a disk store, behind creation's tunnel at `crane.lunarz.dev`); the
+Worker, D1 and R2 stay as the rollback (`server/README.md`, Cutover). Worker daemons run on whatever
 machines are available: Linux GPU and CPU boxes, Windows and macOS desktops, shared
 lab machines. Hypotheses move through staged promotion, decided by paired tests
 against a baseline on identical seeds.

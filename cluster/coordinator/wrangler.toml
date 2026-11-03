@@ -2,7 +2,9 @@
 name = "crane-cluster"
 main = "src/index.ts"
 compatibility_date = "2026-10-01"
-routes = [{ pattern = "crane.lunarz.dev", custom_domain = true }]
+# crane.lunarz.dev is served by the self-hosted coordinator on creation since 2026-11-03 (../server/README.md).
+# Rollback only: restore this line (or the custom domain in the dashboard) after removing the tunnel hostname.
+# routes = [{ pattern = "crane.lunarz.dev", custom_domain = true }]
 
 [vars]
 MIN_CLIENT_VERSION = "0.1.0"   # fallback until PUT /v1/admin/client_release sets one

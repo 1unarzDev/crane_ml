@@ -62,14 +62,30 @@ deploy/migrate-d1.sh --pull-r2  # every R2 object into the disk store (21k objec
 2. Switch at a quiet moment (feed shows nothing leased, so no run report lands on the old side): run
    `deploy/migrate-d1.sh` again (final export), then `--pull-r2` again (only new objects). Remove the Worker's custom
    domain (`routes` in `../coordinator/wrangler.toml`, then `wrangler deploy`, or the dashboard), and add the public
-   hostname `crane.lunarz.dev -> http://localhost:8787` on creation's tunnel. Workers ride out the minute in between:
+   hostname `crane.lunarz.dev -> http://127.0.0.1:8787` on creation's tunnel (not `localhost`: it resolves to ::1 there,
+   where nothing listens, and the edge answers 522). Workers ride out the minute in between:
    the client waits out an unreachable coordinator (5 s doubling to 5 min).
 3. Rollback: remove the tunnel hostname and restore the Worker's custom domain; D1 and R2 still hold the state of the
    switch (anything done on the server since is not copied back). Keep D1 and R2 for at least three weeks.
 
+Done 2026-11-03: Worker domain removed 00:07:48 UTC, final export/import 00:07:49-00:08:05, tunnel hostname and a
+proxied CNAME to creation's tunnel at 00:08:07, serving from 00:09:52 (the gap was 2 min; workers rode it out).
+`wrangler.toml` keeps the route commented out so a `wrangler deploy` can't take the hostname back. Until the first
+R2 pull completes the server reads missing objects through the Cloudflare API (`R2_FALLBACK=api` in `.env.extra` on
+creation, with a token limited to R2 read, expiring 2026-11-24); remove those three lines from `.env.extra` and
+`.env` and `docker compose up -d` once `--pull-r2` reports nothing left to copy. The Worker's cron still runs on
+the frozen D1 (reclaims, tiering only of objects the archive confirmed).
+
+Rollback, in order: delete the CNAME `crane.lunarz.dev -> <tunnel>.cfargotunnel.com`, remove the `crane.lunarz.dev`
+ingress rule from creation's tunnel (remotely managed: API `cfd_tunnel/<id>/configurations` or the dashboard), then
+attach the custom domain again (`PUT /accounts/<id>/workers/domains {hostname, service: crane-cluster, environment:
+production, zone_id}` or the dashboard). Workers back off and come back on their own. `deploy/creation.sh --rollback`
+is a different thing: it restarts the server on its previous image.
+
 ## LiteLLM
 
-`litellm/`: the proxy (one OpenAI-compatible endpoint on 127.0.0.1:4000) with Postgres (keys, per-key budgets,
+`litellm/`: the proxy (one OpenAI-compatible endpoint on 127.0.0.1:4000 and on the host's WARP mesh address,
+`http://100.96.0.23:4000` on creation; no public hostname: it spends provider keys, so it stays mesh-only) with Postgres (keys, per-key budgets,
 usage log) and Redis (24 h response cache). Routes: `local/*` to Ollama on innovation and simwin over the mesh
 (spread over whichever is up; off while the ALD Ollama workers are paused), and `openrouter/*`, `groq/*`, `gemini/*`
 passed through with `OPEN_ROUTER_API_KEY`, `GROQ_API_KEY`, `GOOGLE_AI_STUDIO_KEY`. New keys default to $5 per 30
