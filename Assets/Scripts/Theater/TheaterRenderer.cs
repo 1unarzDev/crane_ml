@@ -63,6 +63,10 @@ namespace Crane.Theater {
         float densityLogMax = 1f, failMax = 1f;
         bool heatOn;
         public readonly Dictionary<string, int> Stats = new Dictionary<string, int>();
+        public float TrailGain = 1f, CometGain = 0.9f;   // ribbon opacity (a look may calm them)
+        public int GhostCount => ghostCount;
+        public Mesh GhostMesh => ghostMesh;
+        public MaterialPropertyBlock GhostProps => ghostProps;
 
         public TheaterRenderer(TheaterState state, ITheaterRobot robot) {
             st = state; this.robot = robot;
@@ -166,7 +170,7 @@ namespace Crane.Theater {
             comets.Clear();
             comets.SetVertices(cv); comets.SetColors(cc); comets.SetUVs(0, cu); comets.SetTriangles(ci, 0, false);
             comets.bounds = new Bounds(Vector3.zero, Vector3.one * 1e5f);
-            cometProps.SetFloat("_Now", 0f); cometProps.SetFloat("_Tail", tail); cometProps.SetFloat("_Floor", 0f); cometProps.SetFloat("_Gain", 0.9f);
+            cometProps.SetFloat("_Now", 0f); cometProps.SetFloat("_Tail", tail); cometProps.SetFloat("_Floor", 0f); cometProps.SetFloat("_Gain", CometGain);
             Stats["comet_vertices"] = cv.Count;
         }
 
@@ -198,7 +202,7 @@ namespace Crane.Theater {
             trails = new Mesh { name = "theater trails", indexFormat = IndexFormat.UInt32 };
             trails.SetVertices(cv); trails.SetColors(cc); trails.SetUVs(0, cu); trails.SetTriangles(ci, 0, false);
             trails.bounds = new Bounds(Vector3.zero, Vector3.one * 1e5f);
-            trailProps.SetFloat("_Tail", 0f); trailProps.SetFloat("_Floor", 1f); trailProps.SetFloat("_Gain", 1f);
+            trailProps.SetFloat("_Tail", 0f); trailProps.SetFloat("_Floor", 1f); trailProps.SetFloat("_Gain", TrailGain);
             Stats["trail_vertices"] = cv.Count;
         }
 

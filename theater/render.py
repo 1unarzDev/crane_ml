@@ -1,6 +1,8 @@
 """Render a ghost-theater video: locally (a player on this machine) or on the cluster, then assemble and check.
 
-    python3 -m theater.render script DIR [--seconds 15] [--fps 60]       # write the standard cut into DIR/manifest.json
+    python3 -m theater.render script DIR [--seconds 15] [--fps 60] [--look theater|plain] [--iterations-planned N]
+                                                                          # write the standard cut into DIR/manifest.json
+    python3 -m theater.render metrics DIR --from STATE.json               # add each run's logged metrics (by run id)
     python3 -m theater.render local DIR --player CRANE.x86_64 --out OUT [--frames A:B] [--size WxH] [--display :1]
     python3 -m theater.render pack SELECT.json --trajs DIR --truth course_truth.json --out DIR   # from select + fetch
     python3 -m theater.render submit DIR --purpose '...' [--chunk-s 10] [--worker NAME] [--render-id R]   # job id
@@ -30,7 +32,10 @@ CONFIG = Path(os.environ.get('XDG_CONFIG_HOME', Path.home() / '.config')) / 'cra
 
 # ---------------------------------------------------------------------- the standard cut
 
-def default_script(manifest, seconds=15.0, fps=60, size=(1920, 1080)):
+LOOKS = ('theater', 'plain')
+
+
+def default_script(manifest, seconds=15.0, fps=60, size=(1920, 1080), look='theater'):
     """Establishing fleet coloured by iteration, the evolution (an evenly spaced subset of iterations when the
     cut is short), where runs went and failed, best vs previous best. Speeds follow the runs' typical length."""
     runs = manifest['runs']
@@ -58,7 +63,8 @@ def default_script(manifest, seconds=15.0, fps=60, size=(1920, 1080)):
          'tail_s': round(max(2.5, typical * 0.75 / per * 0.2), 2),
          'caption': 'evolution: each iteration’s fleet', 'camera': {'shot': 'top', 'pitch': 64}},
         {'type': 'heat', 'duration_s': heat, 'speed': round(typical * 1.2 / heat, 3), 'colour': 'outcome', 'trails': 'none',
-         'heat': True, 'caption': 'where runs went, and where they failed', 'camera': {'shot': 'top', 'pitch': 80, 'push': 0.05}},
+         'heat': True, 'caption': 'where runs went, and where they failed',
+         'camera': {'shot': 'tactical'} if look == 'theater' else {'shot': 'top', 'pitch': 80, 'push': 0.05}},
         {'type': 'compare', 'duration_s': cmp, 'speed': round(max(1.0, gold * 0.95 / cmp), 3), 'trails': 'top', 'trail_k': 8,
          'colour': 'progress', 'caption': 'best (gold) vs previous best (silver)',
          'camera': {'shot': 'follow', 'height': 6, 'back': 8, 'lead': 5}},
@@ -77,9 +83,38 @@ def frame_count(script):
 def cmd_script(a):
     d = Path(a.dir)
     m = json.loads((d / 'manifest.json').read_text())
-    m['script'] = default_script(m, a.seconds, a.fps, tuple(int(x) for x in a.size.split('x')))
+    m['script'] = default_script(m, a.seconds, a.fps, tuple(int(x) for x in a.size.split('x')), a.look)
+    m['look_preset'] = a.look
+    if a.iterations_planned:
+        m['iterations_planned'] = a.iterations_planned
     (d / 'manifest.json').write_text(json.dumps(m, indent=1, sort_keys=True) + '\n')
     print(f"{d / 'manifest.json'}: {len(m['script']['acts'])} acts, {frame_count(m['script'])} frames")
+
+
+# run metrics a tuner logged per run (score.json / state.json rows), shown by the theater look's panels
+METRIC_SKIP = {'iteration', 'score', 'progress', 'duration_s', 'start_s', 'outcome', 'run_id', 'params', 'valid'}
+
+
+def look_name(m):
+    """The manifest's look preset name (a name or {"name": ...}); demos default to the theater look."""
+    lp = m.get('look_preset')
+    return (lp.get('name') if isinstance(lp, dict) else lp) or 'theater'
+
+
+def cmd_metrics(a):
+    d = Path(a.dir)
+    m = json.loads((d / 'manifest.json').read_text())
+    src = json.loads(Path(a.source).read_text())
+    rows = {r.get('run_id') or r.get('id'): r for r in (src.get('runs') if isinstance(src, dict) else src) or []}
+    n = 0
+    for r in m['runs']:
+        row = rows.get(r['id'])
+        if not row:
+            continue
+        r['metrics'] = {k: v for k, v in row.items() if k not in METRIC_SKIP and isinstance(v, (int, float)) and not isinstance(v, bool)}
+        n += 1
+    (d / 'manifest.json').write_text(json.dumps(m, indent=1, sort_keys=True) + '\n')
+    print(f"{d / 'manifest.json'}: metrics for {n} of {len(m['runs'])} runs")
 
 
 # ---------------------------------------------------------------------- local
@@ -100,7 +135,7 @@ def cmd_local(a):
     m = json.loads((d / 'manifest.json').read_text())
     extra = ['--crane-theater-ffmpeg', a.ffmpeg or shutil.which('ffmpeg') or 'none']
     for flag, v in (('--crane-theater-size', a.size), ('--crane-theater-fps', a.fps), ('--crane-theater-stills', a.stills),
-                    ('--crane-theater-preset', a.preset)):
+                    ('--crane-theater-preset', a.preset), ('--crane-theater-look', a.look)):
         if v:
             extra += [flag, str(v)]
     extra += a.args or []
@@ -181,6 +216,7 @@ def cmd_submit(a):
            'purpose': a.purpose, 'est_seconds': max(60.0, a.chunk_s * 12), 'submitter': a.submitter,
            **({'campaign': a.campaign} if a.campaign else {}),
            'spec': {'inputs': inputs, 'chunk_frames': chunk, 'total_frames': total, 'study': m.get('study'),
+                    'look': a.look or look_name(m),
                     **({'stills': a.stills} if a.stills else {})},
            'needs': {'gpu': True, 'tags': tags, 'est_minutes': max(5, round(a.chunk_s * 2))}}
     r = http('POST', '/v1/admin/jobs', token, body={'jobs': [job]})
@@ -345,15 +381,20 @@ def main(argv=None):
     sub = ap.add_subparsers(dest='cmd', required=True)
     p = sub.add_parser('script'); p.add_argument('dir'); p.add_argument('--seconds', type=float, default=15)
     p.add_argument('--fps', type=int, default=60); p.add_argument('--size', default='1920x1080')
+    p.add_argument('--look', choices=LOOKS, default='theater', help='the look preset (default theater; plain: the scene as simulated)')
+    p.add_argument('--iterations-planned', type=int, help="the campaign's planned iterations (the panels' 'N / M')")
+    p = sub.add_parser('metrics'); p.add_argument('dir'); p.add_argument('--from', dest='source', required=True)
     p = sub.add_parser('local'); p.add_argument('dir'); p.add_argument('--player', required=True); p.add_argument('--out', required=True)
     p.add_argument('--frames'); p.add_argument('--size'); p.add_argument('--fps'); p.add_argument('--stills', type=int)
     p.add_argument('--preset'); p.add_argument('--ffmpeg'); p.add_argument('--display'); p.add_argument('--timeout', type=float, default=7200)
+    p.add_argument('--look', choices=LOOKS, help="override the manifest's look_preset")
     p.add_argument('args', nargs='*')
     p = sub.add_parser('submit'); p.add_argument('dir'); p.add_argument('--chunk-s', type=float, default=10)
     p.add_argument('--tag', default='theater-render'); p.add_argument('--worker'); p.add_argument('--priority', type=int, default=0)
     p.add_argument('--stills', type=int); p.add_argument('--render-id', help='the dashboard render request this answers')
     p.add_argument('--purpose', required=True, help='1-2 sentences: what this render is for (public feed)')
     p.add_argument('--submitter', default='theater-render'); p.add_argument('--campaign')
+    p.add_argument('--look', choices=LOOKS, help="the look preset (default: the manifest's look_preset, else theater)")
     p = sub.add_parser('assemble'); p.add_argument('job'); p.add_argument('--out', required=True); p.add_argument('--ffmpeg')
     p.add_argument('--render-id', help='upload the final video to this dashboard render request')
     p = sub.add_parser('pack', help='a theater manifest and pack from `python3 -m theater select` and `fetch`')
@@ -363,7 +404,7 @@ def main(argv=None):
     p = sub.add_parser('inspect'); p.add_argument('out')
     a = ap.parse_args(argv)
     return {'script': cmd_script, 'local': cmd_local, 'submit': cmd_submit, 'assemble': cmd_assemble, 'inspect': cmd_inspect,
-            'pack': cmd_pack}[a.cmd](a) or 0
+            'pack': cmd_pack, 'metrics': cmd_metrics}[a.cmd](a) or 0
 
 
 if __name__ == '__main__':

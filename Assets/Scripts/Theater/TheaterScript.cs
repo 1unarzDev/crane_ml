@@ -37,6 +37,7 @@ namespace Crane.Theater {
         public float Fps = 60f;
         public int Width = 1920, Height = 1080;
         public string Title = "";
+        public bool CameraRig;                 // the theater look's rig (TheaterCameraRig) rewrites the camera paths
         public readonly List<TheaterAct> Acts = new List<TheaterAct>();
         public float Duration { get { float d = 0; foreach (var a in Acts) d += a.duration; return d; } }
         public int FrameCount => Mathf.RoundToInt(Duration * Fps);

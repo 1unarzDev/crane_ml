@@ -230,7 +230,8 @@ def from_select(select, trajs, world, out, hz=10.0, truth_file='course_truth.jso
                       'progress': r.get('progress') if r.get('progress') is not None else prog[-1] if prog else 0.0,
                       'valid': bool(r.get('valid', True)) and 'invalid' not in (r.get('flags') or []),
                       'duration_s': (len(res) - 1) / hz, 'params': r.get('params') or {}, 'events': evs,
-                      'flags': r.get('flags') or [], 'insight': r.get('insight')})
+                      'flags': r.get('flags') or [], 'insight': r.get('insight'),
+                      **({'metrics': r['metrics']} if isinstance(r.get('metrics'), dict) else {})})
     if not runs:
         raise ValueError('no trajectories: fetch them first (python3 -m theater fetch MANIFEST --dir DIR)')
     (out / truth_file).write_text(json.dumps(world.truth, indent=1) + '\n')
