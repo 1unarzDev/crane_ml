@@ -22,9 +22,10 @@ namespace Sim.Course {
         /// from world-ROS x).</summary>
         (float speed, float toward) Current();
 
-        /// <summary>Builds a course spec that names no family (a format of the robot's own);
-        /// false while the scene has no robot yet.</summary>
-        bool BuildSpec(string path, string[] args);
+        /// <summary>Builds a course spec that names no family (a format of the robot's own),
+        /// writing its truth to <paramref name="truthPath"/> when not null; false while the
+        /// scene has no robot yet.</summary>
+        bool BuildSpec(string path, string truthPath, string[] args);
 
         /// <summary>The course is built (and its READY line logged) from this start pose.</summary>
         void Built(Transform root, JObj truth, Vector2 start, float yaw, string truthPath);

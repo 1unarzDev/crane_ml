@@ -658,8 +658,8 @@ With `--crane-roboboat-contract` the boat carries the real platform's numbers
 
 | Flag | Effect |
 | --- | --- |
-| `--crane-roboboat-course <json>` | Builds a course from a spec (course frame = boat start, x ahead, y to port) by cloning the scene's buoys, docks and vessels; hides the legacy task groups; registers every element with the detection sensor; adds banners to dock bays |
-| `--crane-roboboat-course-truth <json>` | Writes what was placed (world frame of `/crane/odom`, each element tagged with its task, dock bays with banners and occupancy) for the referee |
+| `--crane-course-spec <json>` (alias `--crane-roboboat-course`) | Builds a course from a spec (course frame = boat start, x ahead, y to port) by cloning the scene's buoys, docks and vessels; hides the legacy task groups; registers every element with the detection sensor; adds banners to dock bays |
+| `--crane-course-truth <json>` (alias `--crane-roboboat-course-truth`) | Writes what was placed (world frame of `/crane/odom`, each element tagged with its task, dock bays with banners and occupancy) for the referee |
 | `--crane-water-current speed,toward_deg` | Sets the water current (toward, counter-clockwise from world +x) |
 | `--crane-wind speed,toward_deg` | World-fixed wind: drag on the hull's above-water area (0.30 m^2 ahead, 0.40 m^2 abeam, Cd 1) with Ornstein-Uhlenbeck gusts (25 %, 8 s) and veer (10 deg, 30 s), seeded by `--crane-seed` |
 | `--crane-disturbance-after s` | Wind and current start after `s` seconds and ramp in over 10 s, so runs begin where the boat was placed |

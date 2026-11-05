@@ -102,8 +102,9 @@ namespace Sim.Course.RoboBoat {
         static float RosYawOfUnityDirection(Vector3 direction) => RosFrame.YawOf(direction);
         static (float, float) CurrentNow() => RoboBoatCourse.CurrentNow();
 
-        /// <summary>Builds a 2025-style element-list course (the JsonSpec source).</summary>
-        public static void Build(string path, string[] args) {
+        /// <summary>Builds a 2025-style element-list course (the JsonSpec source), writing its
+        /// truth to <paramref name="truthPath"/> when not null.</summary>
+        public static void Build(string path, string truthPath, string[] args) {
             RoboBoatCourseSpec spec = Parse(File.ReadAllText(path));
             if (!RoboBoatCourse.BoatStart(out Vector2 start, out float startYaw)) return;  // a bootstrap scene
 
@@ -167,7 +168,6 @@ namespace Sim.Course.RoboBoat {
                          FindObjectsSortMode.None))
                 sensor.ReplaceTargets(targets);
 
-            string truthPath = ReadString(args, "--crane-roboboat-course-truth", null);
             if (truthPath != null) File.WriteAllText(truthPath, JsonUtility.ToJson(truth, true));
             Debug.Log($"CRANE_ROBOBOAT_COURSE_READY name={spec.name} elements={truth.elements.Count} " +
                       $"bays={truth.bays.Count} start=({start.x:R},{start.y:R},{startYaw:R}) " +

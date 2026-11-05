@@ -41,11 +41,11 @@ namespace Sim.Course {
         }
 
         /// <summary>False when the loaded scene has no robot yet (a bootstrap scene).</summary>
-        static bool Run(string[] args) {
-            string specPath = Flag(args, "--crane-course-spec");
+        internal static bool Run(string[] args) {
+            string specPath = Flag(args, "--crane-course-spec"), truthPath = Flag(args, "--crane-course-truth");
             JObj spec = specPath != null ? (JObj)Json.Parse(File.ReadAllText(specPath)) : null;
             if (spec != null && !spec.Has("family") && Flag(args, "--crane-course-family") == null)
-                return Host?.BuildSpec(specPath, args) ?? throw new ArgumentException($"course spec {specPath} names no family");
+                return Host?.BuildSpec(specPath, truthPath, args) ?? throw new ArgumentException($"course spec {specPath} names no family");
             Vector2 start = Vector2.zero;
             float startYaw = 0f;
             if (Host != null && !Host.Start(out start, out startYaw)) return false;
@@ -80,7 +80,6 @@ namespace Sim.Course {
             foreach (var sensor in UnityEngine.Object.FindObjectsByType<BoundingBox3D>(FindObjectsSortMode.None))
                 sensor.ReplaceTargets(built.Targets);
 
-            string truthPath = Flag(args, "--crane-course-truth");
             var host = new GameObject("Course State");
             host.transform.SetParent(built.Root, false);
             var registry = host.AddComponent<CourseStateRegistry>();

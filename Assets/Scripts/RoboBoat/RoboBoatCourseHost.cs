@@ -26,10 +26,10 @@ namespace Sim.Course.RoboBoat {
             return RoboBoatCourse.CurrentNow();
         }
 
-        public bool BuildSpec(string path, string[] args) {
+        public bool BuildSpec(string path, string truthPath, string[] args) {
             RoboBoatCourse.ApplyCurrentFromArgs();
             if (!Start(out Vector2 start, out float yaw)) return false;
-            JsonCourseSource.Build(path, args);  // laid out from this same start
+            JsonCourseSource.Build(path, truthPath, args);  // laid out from this same start
             AddStartReset(null, start, yaw);
             return true;
         }
