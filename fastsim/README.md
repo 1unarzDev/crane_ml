@@ -19,7 +19,7 @@ CPU. It uses a kinematic vehicle, truth-in-cone perception and no planner. `fide
 
 A domain plugs in through one YAML (`adapter`, `scenarios`, `limits` or the adapter's
 `limits()`, `vehicle`, `perception`, `tracker`). See `tests/toy.yaml` and `tests/toy.py` for
-the smallest complete domain, and `MIGRATION.md` for the RoboBoat adapter. The cluster runs
+the smallest complete domain; a domain's adapter lives in that domain's own repo. The cluster runs
 this core as backend `fastsim` (`crane_backends/fastsim.py`).
 
 Tests (from the crane root): `python3 -m pytest fastsim/tests`.
