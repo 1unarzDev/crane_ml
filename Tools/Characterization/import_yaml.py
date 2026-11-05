@@ -13,9 +13,10 @@ per-parameter status and reason, input sha256 values, the summary, kind "charact
 gate report path. --provenance, --run and --config-snapshot may be omitted; the gate then abstains
 on what they would have provided (PROVENANCE_MISSING, no holds), so nothing is overwritten.
 
-A team's own record format comes in through its adapter, loaded by ``module:function`` (no default):
+A team's own record format comes in through its adapter (no default), a fastsim plugin reference
+``module:function`` or ``path/to/file.py:function`` (the file form also works under ``python3 -I``):
 
-    python3 -I Tools/Characterization/import_yaml.py --adapter team_pkg.physics:adapt --yaml RECORD \
+    python3 -I Tools/Characterization/import_yaml.py --adapter TEAM_REPO/physics_import.py:adapt --yaml RECORD \
         [--history DIR] --out-profile OUT.json --out-report REPORT.json
 
 ``adapt(record_path, history_dir)`` returns the gate's four inputs ``(yaml_doc, provenance, run,
@@ -23,20 +24,22 @@ snapshot)``: yaml_doc ``{"characterization": {version 2, speed_curves, wave_floo
 provenance ``{schema, software, directions: {<axis><sign>: {fit, hardware, gate, battery_v,
 conditions}}}``, run ``{procedure, holds, coastdowns, neutral, conditions, directions, settings}``
 and the config-history hardware snapshot or None (see gate.py for every field). A record that names
-a ``samples_file`` gets that file's sha256 in the provenance inputs too.
+a ``samples_file`` gets that file's sha256 in the provenance inputs too. A record (a doc with a
+``schema`` key) without --adapter is refused.
 """
 from __future__ import annotations
 
 import argparse
 import copy
-import importlib
 import json
 import os
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # python3 -I drops the script dir
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path[:0] = [HERE, os.path.dirname(os.path.dirname(HERE))]  # python3 -I drops the script dir; crane root for fastsim
 import gate as G  # noqa: E402
 import plant as P  # noqa: E402
+from fastsim import plugin  # noqa: E402
 
 TAKEN = (G.IDENTIFIED, G.PROVISIONAL)
 ADDED_MASS_KEY = {"surge": "a11", "sway": "a22", "yaw": "a66"}
@@ -110,13 +113,15 @@ def main(argv=None):
              ("base", a.base)]
     inputs = [{"path": p, "sha256": G.sha256_file(p)} for _, p in paths if p]
     gate_in = (a.yaml, a.provenance, a.run, a.config_snapshot)
+    doc = G.load_doc(a.yaml)
     if a.adapter:
-        module, _, fn = a.adapter.partition(":")
-        gate_in = getattr(importlib.import_module(module), fn)(a.yaml, a.history)
-        sf = G.load_doc(a.yaml).get("samples_file")
+        gate_in = plugin.load(a.adapter)(a.yaml, a.history)
+        sf = doc.get("samples_file")
         if sf:
             sp = os.path.join(os.path.dirname(a.yaml), sf["path"])
             inputs.append({"path": sp, "sha256": G.sha256_file(sp)})
+    elif isinstance(doc, dict) and "schema" in doc:
+        ap.error(f"{a.yaml} is a {doc['schema']} record: pass its team's --adapter MODULE:FUNC or FILE.py:FUNC")
     report = G.run_gate(*gate_in, yaml_path=a.yaml, base_profile=base, tau_est=a.tau_est)
     report["inputs"] = inputs
     prof = build_profile(base, report, inputs, a.out_report)

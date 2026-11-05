@@ -2,7 +2,8 @@
 
 Pure Python (no numpy needed) so the stdlib-only cluster side can vendor or import it. Golden
 parity tests (``tests/test_stats.py`` here; downstream parity tests pin these formulas from their
-side) keep a promote decision and a non-inferiority verdict from disagreeing on one data set. The unit of analysis is the caller's: scenario blocks or sessions, never samples.
+side) keep a promote decision and a non-inferiority verdict from disagreeing on one data set. The
+unit of analysis is the caller's: scenario blocks or sessions, never samples.
 """
 
 from __future__ import annotations

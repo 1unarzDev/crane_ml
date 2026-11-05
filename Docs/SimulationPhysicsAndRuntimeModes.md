@@ -391,9 +391,11 @@ The RoboBoat plant (hull, added mass, damping, thrusters) comes from one profile
   `config/sim/hardware_crane.yaml`, which the gate rejects as `SIM_DERIVED`
   (`Tools/Characterization/profiles/characterized.gate.json` has the reasons).
 
-To refresh `characterized` from a field survey (mhseals_testing characterization-v2), run:
+To refresh `characterized` from a field survey, pass the team's record adapter (a `FILE.py:FUNC` or
+`MODULE:FUNC` plugin reference; the file form works under `-I`; a record without `--adapter` is refused):
 
-    python3 -I Tools/Characterization/import_yaml.py --yaml <data>/characterization/<fit>-survey.yaml \
+    python3 -I Tools/Characterization/import_yaml.py --adapter <team repo>/<adapter>.py:adapt \
+        --yaml <data>/characterization/<fit>-survey.yaml [--history <config-history dir>] \
         --out-profile Tools/Characterization/profiles/characterized.json \
         --out-report Tools/Characterization/profiles/characterized.gate.json
     <Unity> -batchmode -quit -projectPath . -executeMethod \

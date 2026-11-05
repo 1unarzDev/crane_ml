@@ -146,7 +146,7 @@ def survey(tmp_path_factory):
 
 def _import(path, tmp_path):
     out, rep = str(tmp_path / "profile.json"), str(tmp_path / "report.json")
-    assert I.main(["--adapter", "mhseals_physics:adapt", "--yaml", path, "--out-profile", out,
+    assert I.main(["--adapter", MP.__file__ + ":adapt", "--yaml", path, "--out-profile", out,
                    "--out-report", rep]) == 0
     with open(out) as f, open(rep) as g:
         return json.load(f), json.load(g)
