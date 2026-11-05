@@ -132,7 +132,7 @@ namespace Sim.Course.Cli {
                 .FirstOrDefault(f => Fields(f).TryGetValue("familyName", out var n) && n == name)
                 ?? throw new ArgumentException($"no course family '{name}' under {Dir}");
             var f = Fields(familyPath);
-            Known(familyPath, f, "familyName", "tasks", "catalog", "boundary", "handbookId", "handbookSha256", "constraintSpec", "hideSceneGroups");
+            Known(familyPath, f, "familyName", "tasks", "catalog", "boundary", "handbookId", "handbookSha256", "constraintSpec", "vessel", "hideSceneGroups");
 
             var tasks = new List<CourseTaskDefinition>();
             foreach (string reference in List(familyPath, "tasks")) {
@@ -147,11 +147,28 @@ namespace Sim.Course.Cli {
             }
             var family = (CourseFamilyDefinition)RuntimeHelpers.GetUninitializedObject(typeof(CourseFamilyDefinition));
             family.Configure(f["familyName"], tasks, Catalog(guids[Guid(f["catalog"])]),
-                File.ReadAllText(guids[Guid(f["constraintSpec"])]), f["handbookId"], f["handbookSha256"]);
+                File.ReadAllText(guids[Guid(f["constraintSpec"])]), Vessel(familyPath), f["handbookId"], f["handbookSha256"]);
             var b = Inline(f["boundary"]);
             typeof(CourseFamilyDefinition).GetField("boundary", BindingFlags.NonPublic | BindingFlags.Instance)
                 .SetValue(family, new Vector3(Float(b["x"]), Float(b["y"]), Float(b["z"])));
             return family;
+        }
+
+        /// <summary>The family's serialized vessel block (four-space keys under "  vessel:").</summary>
+        static VesselProfile Vessel(string path) {
+            var v = new Dictionary<string, string>();
+            bool on = false;
+            foreach (string raw in File.ReadAllLines(path)) {
+                if (raw == "  vessel:") { on = true; continue; }
+                if (!on) continue;
+                if (!raw.StartsWith("    ", StringComparison.Ordinal)) break;
+                int colon = raw.IndexOf(':');
+                v[raw.Substring(4, colon - 4)] = Scalar(raw.Substring(colon + 1));
+            }
+            if (v.Count == 0) throw new ArgumentException($"{path}: no vessel");
+            return new VesselProfile {
+                Beam = Double(v["Beam"]), Length = Double(v["Length"]), TurnRadius = Double(v["TurnRadius"]), Source = v["Source"]
+            };
         }
 
         static CourseObjectCatalog Catalog(string path) {
@@ -216,6 +233,8 @@ namespace Sim.Course.Cli {
             if (v.Length >= 2 && v[0] == '"') throw new ArgumentException($"double-quoted YAML scalar {v} is not supported");
             return v;
         }
+
+        static double Double(string v) => double.Parse(v, NumberStyles.Float, CultureInfo.InvariantCulture);
 
         static float Float(string v) => float.Parse(v, NumberStyles.Float, CultureInfo.InvariantCulture);
     }

@@ -17,6 +17,8 @@ namespace Sim.Course {
         [SerializeField] string handbookSha256 = "";
         [SerializeField, Tooltip("Tools/RoboBoat/constraints/<family>.json (a link to this asset).")]
         TextAsset constraintSpec;
+        [SerializeField, Tooltip("The boat this family's courses are sized for (beam, length, turn radius in metres).")]
+        VesselProfile vessel;
         [SerializeField, Tooltip("Hand-placed scene groups a generated course replaces.")]
         List<string> hideSceneGroups = new List<string> { "SpeedChallenge", "NavigationChannel", "GateTraversal", "Marina", "DeliveryBoats" };
 
@@ -27,6 +29,7 @@ namespace Sim.Course {
         public string Name => familyName;
         public IReadOnlyList<CourseTaskDefinition> Tasks => tasks;
         public CourseObjectCatalog Catalog => catalog;
+        public VesselProfile Vessel => vessel;
         public string HandbookId => handbookId;
         public string HandbookSha256 => handbookSha256;
         public string ConstraintSpecText => specText ?? (constraintSpec != null ? constraintSpec.text : null);
@@ -34,8 +37,10 @@ namespace Sim.Course {
 
         /// <summary>Fills a family outside the asset pipeline (tests and the headless CLI).</summary>
         public void Configure(string name, IEnumerable<CourseTaskDefinition> taskList,
-            CourseObjectCatalog objectCatalog, string spec, string handbook = null, string handbookSha = null) {
+            CourseObjectCatalog objectCatalog, string spec, VesselProfile vesselProfile,
+            string handbook = null, string handbookSha = null) {
             familyName = name;
+            vessel = vesselProfile;
             tasks = new List<CourseTaskDefinition>(taskList);
             catalog = objectCatalog;
             specText = spec;

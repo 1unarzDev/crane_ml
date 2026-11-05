@@ -108,12 +108,15 @@ namespace Sim.Course.Tests {
         }
 
         [Test]
-        public void AVesselOtherThanTheDefaultIsPartOfTheIdentity() {
+        public void AVesselOtherThanTheFamilysIsPartOfTheIdentity() {
+            var family = CourseBootstrap.FindFamily("roboboat_2026");
             var request = new CourseRequest { Seed = 7, Mode = SampleMode.CornerHi };
-            var plain = CourseIdentity.Options("roboboat_2026", request);
+            var plain = CourseIdentity.Options(family, request);
             Assert.That(plain.Has("vessel"), Is.False);
-            request.Vessel = new VesselProfile { Beam = 1.2, Source = "test" };
-            var sized = CourseIdentity.Options("roboboat_2026", request);
+            request.Vessel = VesselProfile.FromJson(family.Vessel.ToJson());
+            Assert.That(CourseIdentity.Options(family, request).Has("vessel"), Is.False, "the family's own vessel stays implicit");
+            request.Vessel = new VesselProfile { Beam = 1.2, Length = 1, TurnRadius = 1, Source = "test" };
+            var sized = CourseIdentity.Options(family, request);
             Assert.That(Json.Write(sized.Obj("vessel")), Is.EqualTo(Json.Write(request.Vessel.ToJson())));
             string sha = CourseIdentity.Current.SourceSha256;
             Assert.That(CourseIdentity.PairKey(7, sized, sha), Is.Not.EqualTo(CourseIdentity.PairKey(7, plain, sha)));

@@ -91,13 +91,13 @@ namespace Sim.Course {
             catch (Exception) { return null; }
         }
 
-        public static JObj Options(string family, CourseRequest request) {
+        public static JObj Options(CourseFamilyDefinition family, CourseRequest request) {
             var set = new JObj();
             foreach (var kv in request.Overrides) set[kv.Key] = kv.Value;
-            var options = new JObj().Set("family", family).Set("mode", CourseRequest.ModeName(request.Mode)).Set("set", set);
-            // The vessel sizes the course; the default one stays implicit so its identities keep their pair keys.
-            var vessel = request.Vessel.ToJson();
-            if (Json.Write(vessel) != Json.Write(new VesselProfile().ToJson())) options.Set("vessel", vessel);
+            var options = new JObj().Set("family", family.Name).Set("mode", CourseRequest.ModeName(request.Mode)).Set("set", set);
+            // The vessel sizes the course; the family's own stays implicit so its identities keep their pair keys.
+            var vessel = CourseGenerator.Vessel(family, request).ToJson();
+            if (family.Vessel == null || Json.Write(vessel) != Json.Write(family.Vessel.ToJson())) options.Set("vessel", vessel);
             return options;
         }
 
@@ -106,9 +106,9 @@ namespace Sim.Course {
                 .Set("source_sha256", sourceSha256)));
 
         /// <summary>Writes generator.identity (and generator.crane_commit) from <see cref="Current"/>.</summary>
-        public static void Stamp(JObj truth, string family, CourseRequest request) => Stamp(truth, family, request, Current);
+        public static void Stamp(JObj truth, CourseFamilyDefinition family, CourseRequest request) => Stamp(truth, family, request, Current);
 
-        public static void Stamp(JObj truth, string family, CourseRequest request, GeneratorVersion version) {
+        public static void Stamp(JObj truth, CourseFamilyDefinition family, CourseRequest request, GeneratorVersion version) {
             var generator = (JObj)truth["generator"];
             var options = Options(family, request);
             generator.Set("crane_commit", version.CraneCommit);

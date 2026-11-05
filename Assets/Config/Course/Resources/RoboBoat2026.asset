@@ -25,3 +25,8 @@ MonoBehaviour:
   handbookId: RoboBoat-2026-Team-Handbook_111125
   handbookSha256: ee93f4b9775a646657cde91b442f4ed2daedc6f68e3db54e04316bea8e3b2d69
   constraintSpec: {fileID: 4900000, guid: 54ef7629c610409aa907677b44d718b1, type: 3}
+  vessel:
+    Beam: 0.895
+    Length: 1.063
+    TurnRadius: 1
+    Source: blastoise-bounds
