@@ -35,14 +35,15 @@ namespace Sim.Tests.Physics {
 
         [Test]
         public void BoatFrameBowIsHullLocalMinusX() {
+            var prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/Robot Descriptions/blastoise/Blastoise.prefab");
             var go = new GameObject("hull");
             try {
                 go.transform.rotation = Quaternion.Euler(0, 90, 0);  // the scene's base rotation
-                var f = new BodyFrame(go.transform, RoboBoatPhysics.BodyFromFlu);
+                // The body frame comes from the prefab's RobotDescription (rootYawDeg 90).
+                var f = new BodyFrame(go.transform, RobotDescription.BodyFromFlu(prefab.transform));
                 Vector3 bow = go.transform.TransformDirection(Vector3.left);
                 Assert.That((f.BodyLinear(bow) - Vector3.right).magnitude, Is.LessThan(1e-5f));
-                Assert.That(RoboBoatPhysics.BodyFromFlu, Is.EqualTo(Quaternion.Euler(0, -90, 0)),
-                    "must equal the controllers' RoboBoatRosFrame offset");
             }
             finally {
                 UnityEngine.Object.DestroyImmediate(go);
@@ -73,7 +74,7 @@ namespace Sim.Tests.Physics {
             Thruster[] thrusters = scene.GetRootGameObjects().SelectMany(g => g.GetComponentsInChildren<Thruster>()).ToArray();
             Assert.That(thrusters.Length, Is.EqualTo(4));
             ArticulationBody root = RoboBoatPhysics.Root(thrusters[0]);
-            var frame = new BodyFrame(root.transform, RoboBoatPhysics.BodyFromFlu);
+            var frame = new BodyFrame(root.transform, RobotDescription.BodyFromFlu(root));
             var config = UnityEditor.AssetDatabase.LoadAssetAtPath<ThrusterConfig>("Assets/Config/OmniThrusterConfig.asset");
             Vector3 centre = thrusters.Aggregate(Vector3.zero, (sum, t) => sum + t.transform.position) / 4;
             foreach (ThrusterSpec spec in Kit.Ideal().thrusters) {

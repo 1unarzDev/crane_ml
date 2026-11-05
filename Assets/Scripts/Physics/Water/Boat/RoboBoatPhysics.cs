@@ -22,12 +22,6 @@ namespace Sim.Physics.Water.Boat {
     /// </summary>
     public static class RoboBoatPhysics {
         public const string LegacyFlag = "--crane-roboboat-legacy-physics";
-        /// <summary>Visible bow is hull-local −X: the same offset as the controllers' RoboBoatRosFrame.
-        /// A robot with a <see cref="RobotDescription"/> uses its own (<see cref="BodyFromFluOf"/>).</summary>
-        public static readonly Quaternion BodyFromFlu = RobotDescription.BodyFromFlu(RobotDescription.LegacyRootYawDeg);
-
-        public static Quaternion BodyFromFluOf(ArticulationBody root) => RobotDescription.BodyFromFlu(root);
-
         /// <summary>How much of the wind and current is on: 0 until
         /// ``--crane-disturbance-after`` seconds of the scene, then ramping to 1 over 10 s,
         /// so a run can start from a boat sitting where it was placed.</summary>
@@ -113,7 +107,7 @@ namespace Sim.Physics.Water.Boat {
             float rigidMass = all.Sum(link => link.mass);
             Vector3 inertia = Composite(root, all);
             Plant = root.gameObject.GetComponent<MarineSurfacePlant>() ?? root.gameObject.AddComponent<MarineSurfacePlant>();
-            Plant.Configure(p, root, new BodyFrame(root.transform, BodyFromFluOf(root)), medium, thrusters,
+            Plant.Configure(p, root, new BodyFrame(root.transform, RobotDescription.BodyFromFlu(root)), medium, thrusters,
                 root.GetComponentInChildren<Buoyancy>(), new[] { errors?.DragModel(p.PlanarModel(rigidMass, inertia.z)) },
                 rigidMass, inertia.z);
             Debug.Log($"CRANE_ROBOBOAT_PHYSICS mass={rigidMass:R} inertia_rpy=({inertia.x:F3},{inertia.y:F3},{inertia.z:F3}) " +
@@ -146,7 +140,7 @@ namespace Sim.Physics.Water.Boat {
             Vector3 inertia = Composite(root, all);
             (p.ixx, p.iyy, p.izz) = (inertia.x, inertia.y, inertia.z);
             p.comBow = p.comPort = 0f;
-            var frame = new BodyFrame(root.transform, BodyFromFluOf(root));
+            var frame = new BodyFrame(root.transform, RobotDescription.BodyFromFlu(root));
             Vector3 cg = CentreOfMass(all);
             ThrusterSpec curve = basis.Parameters.thrusters.FirstOrDefault() ?? new ThrusterSpec();
             p.thrusters = thrusters.Select(t => {
@@ -204,7 +198,7 @@ namespace Sim.Physics.Water.Boat {
 
         /// <summary>Body axes (bow, port, up) of the hull in world space.</summary>
         private static (Vector3, Vector3, Vector3) Axes(ArticulationBody root) {
-            Quaternion frame = root.transform.rotation * BodyFromFluOf(root);
+            Quaternion frame = root.transform.rotation * RobotDescription.BodyFromFlu(root);
             return (frame * Vector3.forward, Vector3.Cross(frame * Vector3.forward, frame * Vector3.up),
                 frame * Vector3.up);
         }

@@ -235,7 +235,7 @@ namespace Crane.Urdf
             return File.Exists(sidecar) ? JsonUtility.FromJson<Hashes>(File.ReadAllText(sidecar)).ToDict() : d;
         }
 
-        // The runtime reads the robot's body frame (RoboBoatPhysics, RobotSelection) from this, not from the URDF.
+        // The runtime reads the robot's body frame (RobotDescription.BodyFromFlu) from this, not from the URDF.
         static void Describe(GameObject robot, string urdfPath, float rootYawDeg, Dictionary<string, string> geomHash, Report r)
         {
             var d = robot.GetComponent<Sim.Physics.Core.RobotDescription>();
