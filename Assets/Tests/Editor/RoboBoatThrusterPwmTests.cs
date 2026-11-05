@@ -1,6 +1,7 @@
 using NUnit.Framework;
 using Sim.Actuators.Motors;
 using Sim.Controllers;
+using Sim.Physics.Core;
 using UnityEditor;
 using UnityEngine;
 
@@ -69,6 +70,9 @@ namespace Sim.Tests.Editor {
             // simulator's own velocity path does, or tuned boat allocation would be tested wrong.
             OmniXController controller = Controller();
             float maximum = controller.config.GetMaxCommand();
+            // The mixer below is the Blastoise boat's, so take its hull frame from its description.
+            Quaternion bodyFromFlu = RobotDescription.BodyFromFlu(AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/Robot Descriptions/blastoise/Blastoise.prefab").transform);
             Thruster[] byOutput = ROSThrusterPwmCommand.ThrustersByOutput(
                 controller, new[] { 1, 2, 3, 4 });
             float[][] commands = {
@@ -76,7 +80,7 @@ namespace Sim.Tests.Editor {
                 new[] { 0.2f, -0.1f, 0.15f }
             };
             foreach (float[] command in commands) {
-                ROSOmniXCommand.ToControllerMotion(command[0], command[1], command[2],
+                ROSOmniXCommand.ToControllerMotion(bodyFromFlu, command[0], command[1], command[2],
                     out Vector3 linear, out Vector3 angular);
                 controller.SetMotion(linear, angular);
                 float[] simulator = Commands(controller);

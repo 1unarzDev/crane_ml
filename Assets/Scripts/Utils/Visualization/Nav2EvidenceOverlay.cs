@@ -158,7 +158,7 @@ namespace Sim.Visualization
             var layout = panel.GetComponent<UnityEngine.UI.VerticalLayoutGroup>();
             layout.padding = new RectOffset(20, 20, 16, 16); layout.spacing = 6;
             layout.childControlWidth = true; layout.childControlHeight = true; layout.childForceExpandWidth = true; layout.childForceExpandHeight = false;
-            AddHudText(panel.transform, "ROBOBOAT / NAV2", 20, Color.white, 28);
+            AddHudText(panel.transform, "NAV2", 20, Color.white, 28);
             AddHudText(panel.transform, "LIVE NAVIGATION", 11, new Color(.57f, .70f, .74f), 18);
             AddHudText(panel.transform, "<color=#45DDE8>—</color>  Planned route", 15, Color.white, 21);
             AddHudText(panel.transform, "<color=#F4D45F>—</color>  Observed motion", 15, Color.white, 21);

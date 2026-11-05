@@ -169,7 +169,7 @@ namespace Sim.Controllers {
                     linearFeedForward, linearProportionalGain) + lateralIntegralEffort, -1f, 1f),
                 CalculateNormalizedYawEffort(desiredVelocity.Yaw, measuredYaw, yawScale,
                     yawFeedForward, yawProportionalGain));
-            ToControllerMotion(effort.Forward, effort.Lateral, effort.Yaw,
+            ToControllerMotion(bodyFromFlu, effort.Forward, effort.Lateral, effort.Yaw,
                 out Vector3 linear, out Vector3 angular);
             controller.SetMotion(linear, angular);
         }
@@ -220,13 +220,15 @@ namespace Sim.Controllers {
             previousDesired = desired;
         }
 
-        internal static void ToControllerMotion(float forward, float lateral, float yaw,
-            out Vector3 linear, out Vector3 angular) {
-            // The imported catamaran's visible bow is body-local -X (the chase camera is aft at
-            // +X), while OmniX controller X realizes body-local +Z and controller Y realizes
-            // body-local -X. Keep this correction at the ROS boundary so manual input, the mixer,
-            // and the physical model retain their established contract.
-            linear = new Vector3(-lateral, forward, 0f);
+        /// <summary>
+        /// Maps a ROS FLU command onto the OmniX controller's axes through the robot's
+        /// <see cref="RobotDescription.BodyFromFlu(Component)"/>, the same frame the velocity
+        /// feedback reads: controller X realizes body-local +Z, controller Y body-local -X.
+        /// </summary>
+        internal static void ToControllerMotion(Quaternion bodyFromFlu, float forward,
+            float lateral, float yaw, out Vector3 linear, out Vector3 angular) {
+            Vector3 local = bodyFromFlu * new Vector3(-lateral, 0f, forward);
+            linear = new Vector3(local.z, -local.x, 0f);
             angular = new Vector3(0f, 0f, -yaw);
         }
     }
