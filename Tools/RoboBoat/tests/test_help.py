@@ -7,8 +7,11 @@
 """
 
 import argparse
+import os
 import re
+import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -108,6 +111,19 @@ class Docs(unittest.TestCase):
         named = {f for m in re.findall(r'generate\.sh[^\n]*(?:\n  [^\n-][^\n]*)*', COURSE_MD) for f in re.findall(FLAG, m)}
         self.assertTrue(named)
         self.assertLessEqual(named, arms)
+
+    def test_generate_sh_default_editor_is_project_version(self):
+        """Without UNITY_EDITOR, generate.sh runs the Hub editor ProjectVersion.txt names (stub editor, no Unity)."""
+        version = re.search(r'^m_EditorVersion: (\S+)', (ROOT / 'ProjectSettings' / 'ProjectVersion.txt').read_text(), re.M).group(1)
+        with tempfile.TemporaryDirectory() as home:
+            editor = Path(home, 'Unity', 'Hub', 'Editor', version, 'Editor', 'Unity')
+            editor.parent.mkdir(parents=True)
+            editor.write_text(f'#!/bin/sh\necho ran > "{home}/ran"\n')
+            editor.chmod(0o755)
+            env = {k: v for k, v in os.environ.items() if k != 'UNITY_EDITOR'} | {'HOME': home}
+            subprocess.run(['bash', str(TOOLS / 'generate.sh'), '--family', 'f', '--seed', '0', '--out', f'{home}/t.json'],
+                           env=env, capture_output=True, check=True)
+            self.assertTrue(Path(home, 'ran').exists())
 
     def test_player_options_in_course_md_exist(self):
         code = ''.join(p.read_text() for p in (ROOT / 'Assets' / 'Scripts').rglob('*.cs'))

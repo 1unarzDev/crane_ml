@@ -49,6 +49,7 @@ class UnityBackendTest(unittest.TestCase):
 
     def backend(self, spec, job=None, **options):
         b = unity.ClusterBackend('unity', {'player': str(self.player), **options})
+        spec = {'family': 'fam', 'scene': 'Scene', **spec}
         b.prepare(JobContext(job={'job_id': 'j', 'spec': spec, 'seeds': [7], **(job or {})}, work_dir=self.tmp / 'job'))
         return b
 
@@ -57,7 +58,8 @@ class UnityBackendTest(unittest.TestCase):
         run_dir = b.run(7)
         argv = (run_dir / 'player.log').read_text().split()
         self.assertIn('-batchmode', argv)
-        self.assertEqual(argv[argv.index('--crane-course-family') + 1], 'roboboat_2026')
+        self.assertEqual(argv[argv.index('--crane-course-family') + 1], 'fam')
+        self.assertEqual(argv[argv.index('--crane-scene') + 1], 'Scene')
         self.assertEqual(argv[argv.index('--crane-course-set') + 1], 'nav.gates=3')
         self.assertIn('--crane-disable-ros', argv)
         m = b.metrics(run_dir)
@@ -86,6 +88,13 @@ class UnityBackendTest(unittest.TestCase):
         self.assertEqual((lod['parent_sha256'], lod['outcome'], lod['hz']), (m['traj_sha256'], 'finished', 2.0))
         self.assertNotIn('params', lod)
         self.assertIn(('run.lod.ctraj', 'summary'), [(n, r) for _, n, r in b.artifacts(run_dir)])
+
+    def test_a_spec_without_family_or_scene_is_refused(self):
+        for missing in ('family', 'scene'):
+            b = unity.ClusterBackend('unity', {'player': str(self.player)})
+            spec = {k: v for k, v in {'family': 'fam', 'scene': 'Scene'}.items() if k != missing}
+            with self.assertRaisesRegex(RuntimeError, r'job needs family and scene \(spec or backend options\)'):
+                b.prepare(JobContext(job={'job_id': 'j', 'spec': spec, 'seeds': [7]}, work_dir=self.tmp / 'job'))
 
     def test_no_trajectory_when_turned_off(self):
         b = self.backend({'traj': False})

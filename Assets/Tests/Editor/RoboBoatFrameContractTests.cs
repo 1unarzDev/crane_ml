@@ -1,6 +1,7 @@
 using NUnit.Framework;
 using Sim.Actuators.Motors;
 using Sim.Controllers;
+using Sim.Physics.Core;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -19,33 +20,62 @@ namespace Sim.Tests.Editor {
 
         [Test]
         public void RosFluCommandMapsToMeasuredControllerAxes() {
-            ROSOmniXCommand.ToControllerMotion(0.25f, -0.5f, 0.75f,
+            ROSOmniXCommand.ToControllerMotion(RobotDescription.BodyFromFlu(90f), 0.25f, -0.5f, 0.75f,
                 out Vector3 linear, out Vector3 angular);
-
-            Assert.That(linear.x, Is.EqualTo(0.5f).Within(1e-6f),
-                "ROS left sway must negate the controller axis that realizes body-local +Z");
-            Assert.That(linear.y, Is.EqualTo(0.25f).Within(1e-6f),
-                "ROS surge must drive the controller axis that realizes visible-bow local -X");
+            Assert.That(linear.x, Is.EqualTo(0.5f).Within(1e-6f), "rootYawDeg 90 keeps (-lateral, forward)");
+            Assert.That(linear.y, Is.EqualTo(0.25f).Within(1e-6f));
             Assert.That(linear.z, Is.Zero.Within(1e-6f));
-            Assert.That(angular.x, Is.Zero.Within(1e-6f));
-            Assert.That(angular.y, Is.Zero.Within(1e-6f));
-            Assert.That(angular.z, Is.EqualTo(-0.75f).Within(1e-6f),
+            Assert.That(angular, Is.EqualTo(new Vector3(0f, 0f, -0.75f)),
                 "positive ROS yaw must negate the controller axis measured as negative ROS yaw");
+
+            ROSOmniXCommand.ToControllerMotion(RobotDescription.BodyFromFlu(0f), 0.25f, -0.5f, 0f,
+                out linear, out _);
+            Assert.That(linear.x, Is.EqualTo(0.25f).Within(1e-6f), "rootYawDeg 0 (REP-103) is identity");
+            Assert.That(linear.y, Is.EqualTo(-0.5f).Within(1e-6f));
+        }
+
+        [TestCase(0f), TestCase(90f), TestCase(37f), TestCase(-120f)]
+        public void CommandAxesAreTheFeedbackAxes(float rootYawDeg) {
+            Quaternion bodyFromFlu = RobotDescription.BodyFromFlu(rootYawDeg);
+            ROSOmniXCommand.ToControllerMotion(bodyFromFlu, 0.3f, -0.7f, 0f, out Vector3 linear, out _);
+            // OmniX controller X realizes body-local +Z, controller Y body-local -X; read the
+            // realized body velocity back the way ApplyVelocityControl measures it.
+            Vector3 flu = Quaternion.Inverse(bodyFromFlu) * new Vector3(-linear.y, 0f, linear.x);
+            Assert.That(flu.z, Is.EqualTo(0.3f).Within(1e-5f), "measured forward");
+            Assert.That(-flu.x, Is.EqualTo(-0.7f).Within(1e-5f), "measured lateral");
         }
 
         [Test]
         public void SceneBaseRotationPublishesVisibleBowAsRosForward() {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/Robot Descriptions/blastoise/Blastoise.prefab");
+            Assert.That(prefab, Is.Not.Null);
+            Quaternion bodyFromFlu = RobotDescription.BodyFromFlu(prefab.transform);
+            Assert.That(Quaternion.Angle(bodyFromFlu, Quaternion.Euler(0f, -90f, 0f)),
+                Is.LessThan(1e-3f), "Blastoise's description gives the 90 deg hull yaw");
+
             Quaternion sceneBaseRotation = Quaternion.Euler(0f, 90f, 0f);
-            Quaternion rosFrameRotation = RoboBoatRosFrame.Rotation(sceneBaseRotation);
-            Vector3 worldForward = rosFrameRotation * Vector3.forward;
+            Vector3 worldForward = sceneBaseRotation * bodyFromFlu * Vector3.forward;
 
             Assert.That(worldForward.x, Is.Zero.Within(1e-5f));
             Assert.That(worldForward.z, Is.EqualTo(1f).Within(1e-5f));
 
-            Vector3 logicalVelocity = RoboBoatRosFrame.ToRosLocalUnity(Vector3.left);
+            Vector3 logicalVelocity = Quaternion.Inverse(bodyFromFlu) * Vector3.left;
             var rosVelocity = CraneROSNavigationState.ToRosVector(logicalVelocity);
             Assert.That(rosVelocity.x, Is.EqualTo(1f).Within(1e-5f));
             Assert.That(rosVelocity.y, Is.Zero.Within(1e-5f));
+        }
+
+        [Test]
+        public void BodyWithoutDescriptionIsRep103() {
+            var body = new GameObject("no-description");
+            try {
+                Assert.That(RobotDescription.BodyFromFlu(body.transform), Is.EqualTo(Quaternion.identity));
+                Assert.That(RobotDescription.BodyFromFlu(null), Is.EqualTo(Quaternion.identity));
+            }
+            finally {
+                Object.DestroyImmediate(body);
+            }
         }
 
         [Test]
@@ -65,7 +95,7 @@ namespace Sim.Tests.Editor {
             cameraOffset.y = 0f;
             Vector3 visibleBow = -cameraOffset.normalized;
 
-            ROSOmniXCommand.ToControllerMotion(1f, 0f, 0f,
+            ROSOmniXCommand.ToControllerMotion(RobotDescription.BodyFromFlu(baseLink), 1f, 0f, 0f,
                 out Vector3 controllerLinear, out _);
             // OmniX controller X produces base-local +Z; controller Y produces base-local -X.
             Vector3 commandedBaseDirection = new(
@@ -74,6 +104,25 @@ namespace Sim.Tests.Editor {
             Assert.That(Vector3.Dot(commandedBaseDirection.normalized, visibleBow),
                 Is.GreaterThan(0.999f),
                 "positive ROS surge must move from the behind-camera toward the visible bow");
+        }
+
+        [Test]
+        public void OdomHeadingIsTheVisibleBowInRoboboatScene() {
+            Scene scene = EditorSceneManager.OpenScene(
+                "Assets/Scenes/Roboboat Course.unity", OpenSceneMode.Single);
+            GameObject root = System.Array.Find(scene.GetRootGameObjects(),
+                candidate => candidate.name == "Blastoise");
+            Transform baseLink = root.transform.Find("base_link");
+            var body = baseLink.GetComponent<ArticulationBody>();
+            Vector3 cameraOffset = baseLink.position - baseLink.Find("Camera").position;
+            // The nav state's published orientation: body rotation * the description's frame.
+            Vector3 odomForward = body.transform.rotation * RobotDescription.BodyFromFlu(body) * Vector3.forward;
+            var odom = CraneROSNavigationState.ToRosVector(odomForward);
+            var bow = CraneROSNavigationState.ToRosVector(cameraOffset);
+            double odomYaw = System.Math.Atan2(odom.y, odom.x) * Mathf.Rad2Deg;
+            double bowYaw = System.Math.Atan2(bow.y, bow.x) * Mathf.Rad2Deg;
+            Debug.Log($"BLASTOISE_ODOM_BOW odom_yaw_deg={odomYaw:F3} bow_yaw_deg={bowYaw:F3}");
+            Assert.That(Mathf.Abs(Mathf.DeltaAngle((float)odomYaw, (float)bowYaw)), Is.LessThan(0.5f));
         }
 
         [Test]

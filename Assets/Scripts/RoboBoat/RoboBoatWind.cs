@@ -1,4 +1,5 @@
 using System;
+using Sim.Physics.Core;
 using Sim.Physics.Water.Boat;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -44,7 +45,7 @@ namespace Sim.Controllers {
                           $"elevation_deg={rings[0]:F2}..{rings[^1]:F2} azimuth_steps=1800");
                 lidar.SetFrameCorrection(Quaternion.Inverse(
                     Quaternion.Inverse(lidar.transform.rotation) *
-                    RoboBoatRosFrame.Rotation(root.transform.rotation)));
+                    root.transform.rotation * Sim.Physics.Core.RobotDescription.BodyFromFlu(root)));
             }
         }
     }
@@ -115,13 +116,12 @@ namespace Sim.Controllers {
                           RoboBoatPhysics.Disturbance(Time.timeSinceLevelLoad);
             float toward = meanToward + veer;
             var air = new Vector2(speed * Mathf.Cos(toward), speed * Mathf.Sin(toward));
-            Vector2 boat = RoboBoatCourse.UnityToRos(body.linearVelocity);
-            float heading = RoboBoatCourse.RosYawOfUnityDirection(
-                RoboBoatRosFrame.Rotation(body.transform.rotation) * Vector3.forward);
+            Vector2 boat = RosFrame.ToRos(body.linearVelocity);
+            Vector3 bow = body.transform.rotation * Sim.Physics.Core.RobotDescription.BodyFromFlu(body) * Vector3.forward;
+            float heading = RosFrame.YawOf(bow);
             Vector2 force = Force(air - boat, heading);
-            Vector3 bow = RoboBoatRosFrame.Rotation(body.transform.rotation) * Vector3.forward;
             Vector3 at = body.worldCenterOfMass + PressureCentre + bow * 0.05f;
-            body.AddForceAtPosition(RoboBoatCourse.RosToUnity(force, 0f), at);
+            body.AddForceAtPosition(RosFrame.ToUnity(force, 0f), at);
         }
     }
 }

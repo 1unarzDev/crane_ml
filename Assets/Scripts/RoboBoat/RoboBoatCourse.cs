@@ -6,9 +6,9 @@ using UnityEngine.Rendering.HighDefinition;
 
 namespace Sim.Controllers {
     /// <summary>
-    /// World-ROS frame and water-current helpers for the RoboBoat scene, and the boat's start
-    /// pose. The course itself is built by Sim.Course (Assets/Scripts/Course), which depends on
-    /// this assembly, not the other way round.
+    /// Water-current helpers for the RoboBoat scene, and the boat's start pose. The course itself
+    /// is built by Sim.Course (Assets/Scripts/Course), which reaches these through
+    /// <see cref="RoboBoatCourseHost"/>, not the other way round.
     /// </summary>
     public static class RoboBoatCourse {
         public const string CurrentFlag = "--crane-water-current";
@@ -68,15 +68,15 @@ namespace Sim.Controllers {
             Transform body = RoboBoatStartReset.FindBoatBody();
             if (body != null) {
                 startAt = body.position;
-                bow = RoboBoatRosFrame.Rotation(body.rotation) * Vector3.forward;
+                bow = body.rotation * Sim.Physics.Core.RobotDescription.BodyFromFlu(body) * Vector3.forward;
             }
             else if (Sim.Physics.Core.RobotSelection.StartPose != null) {
                 startAt = Sim.Physics.Core.RobotSelection.StartPose.position;
                 bow = Sim.Physics.Core.RobotSelection.StartPose.forward;
             }
             else return false;
-            start = UnityToRos(startAt);
-            yaw = RosYawOfUnityDirection(bow);
+            start = Sim.Physics.Core.RosFrame.ToRos(startAt);
+            yaw = Sim.Physics.Core.RosFrame.YawOf(bow);
             return true;
         }
 
@@ -86,12 +86,5 @@ namespace Sim.Controllers {
             float c = Mathf.Cos(startYaw), s = Mathf.Sin(startYaw);
             return new Vector2(start.x + c * x - s * y, start.y + s * x + c * y);
         }
-
-        public static Vector3 RosToUnity(Vector2 ros, float height) => new(-ros.y, height, ros.x);
-
-        public static Vector2 UnityToRos(Vector3 unity) => new(unity.z, -unity.x);
-
-        // A ROS yaw (counter-clockwise from x) as a Unity heading (clockwise about +y).
-        public static float RosYawOfUnityDirection(Vector3 direction) => Mathf.Atan2(-direction.x, direction.z);
     }
 }

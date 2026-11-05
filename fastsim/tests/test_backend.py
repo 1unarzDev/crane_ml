@@ -1,7 +1,7 @@
 """The cluster's fastsim backend: prepare a job, run seeds, read metrics."""
 
 from crane_backends.fastsim import ClusterBackend, FastsimBackend
-from test_core import HERE
+from test_fastsim_core import HERE
 import toy
 
 
@@ -30,7 +30,7 @@ def test_a_run_writes_its_track_as_crane_traj(tmp_path):
     t = traj.read(run_dir / 'run.ctraj')
     track = [json.loads(line) for line in (run_dir / 'track.jsonl').read_text().splitlines()]
     assert t.ticks == len(track) and t.header['pose_dims'] == 'planar' and t.header['outcome'] == 'finished'
-    assert all(abs(t.columns['robot.x'][i] - r['x']) <= 0.005 + 1e-9 and abs(t.columns['robot.yaw'][i] - r['yaw']) < 1e-4
+    assert all(abs(t.columns['robot.x'][i] - r['x']) <= 0.005 + 1e-9 and abs(t.columns['robot.yaw'][i] - r['yaw']) <= traj.SCALES['yaw'] / 2 + 1e-9
                for i, r in enumerate(track))
     assert t.header['course']['pair_key'] == 'toy-4' and t.header['build']['recorder'] == 'fastsim'
     assert [e['kind'] for e in t.events].count('visited') == 4

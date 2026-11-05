@@ -5,8 +5,10 @@ Courses are generated at runtime from a family of task assets; no scene edits.
 ## Run
 - Player: `--crane-course-family roboboat_2026 --crane-course-seed N [--crane-course-mode iid|corner=lo|hi|mixed]
   [--crane-course-set task.param=value]... --crane-course-truth DIR/course_truth.json [--crane-detection-labels oracle|camera]
-  [--crane-ros-course-truth]`. A `--crane-roboboat-course FILE.json` whose JSON names `family` (and `seed`, `mode`, `set`) does
-  the same, so the rig needs no change; a 2025 element list still goes to the legacy builder. `--crane-course-replay truth.json`
+  [--crane-ros-course-truth]`. A `--crane-course-spec FILE.json` whose JSON names `family` (and `seed`, `mode`, `set`) does
+  the same; a spec naming no family (a 2025 element list) goes to the robot's course host, which supplies the start pose and
+  current and writes the same `--crane-course-truth`. The robot host may alias the flags (RoboBoat:
+  `--crane-roboboat-course`, `--crane-roboboat-course-truth`), so its rig needs no change. `--crane-course-replay truth.json`
   rebuilds a recorded course. Ready line: `CRANE_COURSE_READY name= seed= sha256= pair_key= source_sha256=` (plus the legacy
   `CRANE_ROBOBOAT_COURSE_READY`).
 - Without Unity: `coursegen` (`Tools/RoboBoat/cli`, README there), the same generator files and the same truth byte for byte.

@@ -10,7 +10,8 @@ namespace Sim.Course {
         public long Seed;
         public SampleMode Mode = SampleMode.Iid;
         public SortedDictionary<string, string> Overrides = new SortedDictionary<string, string>(StringComparer.Ordinal);
-        public VesselProfile Vessel = new VesselProfile();
+        /// <summary>The boat to size the course for; null takes the family's.</summary>
+        public VesselProfile Vessel;
 
         public static SampleMode ParseMode(string text) {
             switch ((text ?? "iid").Trim()) {
@@ -39,7 +40,13 @@ namespace Sim.Course {
         public const int TaskRetries = 50, LayoutRetries = 10;
         public const double FootprintMargin = 1.5;  // D: room around a task's objects
 
+        /// <summary>The boat the course is sized for: the request's, else the family's. Unity
+        /// deserializes a missing vessel block as an all-zero profile, so that is refused too.</summary>
+        public static VesselProfile Vessel(CourseFamilyDefinition family, CourseRequest request) =>
+            VesselProfile.Check(request.Vessel ?? family.Vessel, $"course family '{family.Name}'");
+
         public static JObj Generate(CourseFamilyDefinition family, CourseRequest request) {
+            Vessel(family, request);
             var spec = ConstraintSpec.Parse(family.ConstraintSpecText);
             var root = new CourseRng(unchecked((ulong)request.Seed));
             CheckOverrides(family, request);
@@ -73,13 +80,13 @@ namespace Sim.Course {
                     Pose2 anchor = task.Place(pc);
                     var layout = task.Generate(new TaskContext {
                         TaskId = task.TaskId, Rng = rng, Anchor = anchor, Side = side, Params = values,
-                        Occupancy = occupancy, Catalog = family.Catalog, Vessel = request.Vessel, Placement = pc
+                        Occupancy = occupancy, Catalog = family.Catalog, Vessel = Vessel(family, request), Placement = pc
                     });
                     if (layout.Footprint.Count == 0 && layout.Objects.Count > 0 && !layout.Scattered)
                         layout.Footprint = Geometry.Hull(layout.Objects.Select(o => o.At), FootprintMargin);
                     var candidate = new GeneratedTask { Definition = task, Params = values, Layout = layout, Attempts = k + 1 };
                     var trial = new List<GeneratedTask>(done) { candidate };
-                    var core = CourseTruth.Core(family.Name, side, boundary, request.Vessel, trial, family.Catalog);
+                    var core = CourseTruth.Core(family.Name, side, boundary, Vessel(family, request), trial, family.Catalog);
                     // This task's rows and those of every task already placed: a later task may
                     // not break an earlier one (e.g. block its aisle), and is re-forked if it does.
                     var rows = trial.SelectMany(t => t.Definition.Constraints(spec).Concat(t.Definition.PathChecks(spec, t.Layout)))
@@ -93,7 +100,7 @@ namespace Sim.Course {
                 placed[task.TaskId] = accepted.Layout;
                 occupancy.Add(accepted.Layout, family.Catalog);
             }
-            var full = CourseTruth.Core(family.Name, side, boundary, request.Vessel, done, family.Catalog);
+            var full = CourseTruth.Core(family.Name, side, boundary, Vessel(family, request), done, family.Catalog);
             var finalBad = ConstraintEvaluator.Evaluate(spec, full).Where(r => !r.Pass).Select(r => r.Id).ToList();
             foreach (string id in finalBad) Count(failed, $"course:{id}");
             return finalBad.Count == 0 ? done : null;
@@ -101,7 +108,7 @@ namespace Sim.Course {
 
         static JObj Finish(CourseFamilyDefinition family, CourseRequest request, ConstraintSpec spec,
             List<GeneratedTask> tasks, double side, int layoutAttempts, SortedDictionary<string, int> rejected) {
-            var core = CourseTruth.Core(family.Name, side, family.Boundary, request.Vessel, tasks, family.Catalog);
+            var core = CourseTruth.Core(family.Name, side, family.Boundary, Vessel(family, request), tasks, family.Catalog);
             var results = ConstraintEvaluator.Evaluate(spec, core).Select(r => (object)r.ToJson()).ToList();
             var overrides = new JObj();
             foreach (var kv in request.Overrides) overrides[kv.Key] = kv.Value;
@@ -114,7 +121,7 @@ namespace Sim.Course {
             generator.Set("rejected", rejections);
             string name = $"{family.Name}-s{request.Seed.ToString(CultureInfo.InvariantCulture)}";
             var truth = CourseTruth.Assemble(core, name, family.Name, family.HandbookId, family.HandbookSha256, generator, results);
-            CourseIdentity.Stamp(truth, family.Name, request);
+            CourseIdentity.Stamp(truth, family, request);
             return truth;
         }
 

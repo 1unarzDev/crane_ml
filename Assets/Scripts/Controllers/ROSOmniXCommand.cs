@@ -2,6 +2,7 @@ using System;
 using System.Globalization;
 using System.Threading;
 using RosMessageTypes.Geometry;
+using Sim.Physics.Core;
 using Sim.Utils;
 using Sim.Utils.Performance;
 using Sim.Utils.ROS;
@@ -32,6 +33,7 @@ namespace Sim.Controllers {
             }));
         private OmniXController controller;
         private IPhysicsBody body;
+        private Quaternion bodyFromFlu;
         private string topic;
         private float linearScale;
         private float yawScale;
@@ -68,6 +70,7 @@ namespace Sim.Controllers {
                    rigidbody != null ? new RigidbodyAdapter(rigidbody) :
                    throw new MissingComponentException(
                        $"{controller.name} requires a physics body for velocity feedback");
+            bodyFromFlu = RobotDescription.BodyFromFlu(controller);
             topic = commandTopic;
             linearScale = Mathf.Max(0.0001f, maximumLinearVelocity);
             yawScale = Mathf.Max(0.0001f, maximumYawRate);
@@ -145,10 +148,9 @@ namespace Sim.Controllers {
         }
 
         private void ApplyVelocityControl() {
-            Vector3 localLinear = RoboBoatRosFrame.ToRosLocalUnity(
-                body.transform.InverseTransformDirection(body.linearVelocity));
-            Vector3 localAngular = RoboBoatRosFrame.ToRosLocalUnity(
-                body.transform.InverseTransformDirection(body.angularVelocity));
+            Quaternion fromWorld = Quaternion.Inverse(body.rotation * bodyFromFlu);
+            Vector3 localLinear = fromWorld * body.linearVelocity;
+            Vector3 localAngular = fromWorld * body.angularVelocity;
             float measuredForward = localLinear.z;
             float measuredLateral = -localLinear.x;
             float measuredYaw = -localAngular.y;
@@ -167,7 +169,7 @@ namespace Sim.Controllers {
                     linearFeedForward, linearProportionalGain) + lateralIntegralEffort, -1f, 1f),
                 CalculateNormalizedYawEffort(desiredVelocity.Yaw, measuredYaw, yawScale,
                     yawFeedForward, yawProportionalGain));
-            ToControllerMotion(effort.Forward, effort.Lateral, effort.Yaw,
+            ToControllerMotion(bodyFromFlu, effort.Forward, effort.Lateral, effort.Yaw,
                 out Vector3 linear, out Vector3 angular);
             controller.SetMotion(linear, angular);
         }
@@ -218,35 +220,17 @@ namespace Sim.Controllers {
             previousDesired = desired;
         }
 
-        internal static void ToControllerMotion(float forward, float lateral, float yaw,
-            out Vector3 linear, out Vector3 angular) {
-            // The imported catamaran's visible bow is body-local -X (the chase camera is aft at
-            // +X), while OmniX controller X realizes body-local +Z and controller Y realizes
-            // body-local -X. Keep this correction at the ROS boundary so manual input, the mixer,
-            // and the physical model retain their established contract.
-            linear = new Vector3(-lateral, forward, 0f);
+        /// <summary>
+        /// Maps a ROS FLU command onto the OmniX controller's axes through the robot's
+        /// <see cref="RobotDescription.BodyFromFlu(Component)"/>, the same frame the velocity
+        /// feedback reads: controller X realizes body-local +Z, controller Y body-local -X.
+        /// </summary>
+        internal static void ToControllerMotion(Quaternion bodyFromFlu, float forward,
+            float lateral, float yaw, out Vector3 linear, out Vector3 angular) {
+            Vector3 local = bodyFromFlu * new Vector3(-lateral, 0f, forward);
+            linear = new Vector3(local.z, -local.x, 0f);
             angular = new Vector3(0f, 0f, -yaw);
         }
-    }
-
-    /// <summary>
-    /// Defines the ROS FLU body frame from the imported RoboBoat physics transform. The model's
-    /// visible bow is physics-local -X, so the ROS-frame Unity-forward axis is rotated -90 degrees
-    /// about Unity up relative to the ArticulationBody transform.
-    /// </summary>
-    internal static class RoboBoatRosFrame {
-        private static readonly Quaternion BodyFromRos = Quaternion.Euler(0f, -90f, 0f);
-        private static readonly Quaternion RosFromBody = Quaternion.Inverse(BodyFromRos);
-
-        internal static Quaternion Rotation(Quaternion bodyRotation) =>
-            bodyRotation * BodyFromRos;
-
-        internal static Vector3 ToRosLocalUnity(Vector3 bodyLocal) =>
-            RosFromBody * bodyLocal;
-
-        internal static Vector3 WorldPointToRosLocal(Vector3 bodyPosition,
-            Quaternion bodyRotation, Vector3 worldPoint) =>
-            Quaternion.Inverse(Rotation(bodyRotation)) * (worldPoint - bodyPosition);
     }
 
     internal static class ROSOmniXCommandBootstrap {

@@ -3,6 +3,7 @@ using System.Globalization;
 using RosMessageTypes.Geometry;
 using RosMessageTypes.Nav;
 using RosMessageTypes.Sensor;
+using Sim.Physics.Core;
 using Sim.Utils;
 using Sim.Utils.Performance;
 using Sim.Utils.ROS;
@@ -14,8 +15,8 @@ using UnityEngine.SceneManagement;
 
 namespace Sim.Controllers {
     /// <summary>
-    /// Publishes what the boat's flight controller provides through MAVROS, so mhseals_nav's
-    /// localization runs unchanged with no ArduPilot or MAVROS (odom.launch.py fcu:=false):
+    /// Publishes what the boat's flight controller provides through MAVROS, so a localization
+    /// stack that reads MAVROS runs unchanged with no ArduPilot or MAVROS (its FCU-less mode):
     /// /odom/mavros (body-frame velocity), /imu/raw (attitude, body rates, specific force) and
     /// /gps/fix. Frames follow REP 103 (world ENU, body FLU). As on the boat, /gps/fix is the
     /// antenna's position labelled gps_link (mavros_odometry relabels it) and /imu/raw is labelled
@@ -32,7 +33,7 @@ namespace Sim.Controllers {
             public string BaseFrame = "base_link";
             public string GpsLink = "gps_link";        // frame_id of /gps/fix and the antenna's link
             public string ImuLink = "imu_link";        // the accelerometer's point
-            // The rates odom.launch.py requests from the real flight controller.
+            // The stream rates a localization stack requests from the real flight controller.
             public float OdometryHz = 20f;
             public float ImuHz = 20f;
             public float GpsHz = 5f;
@@ -50,6 +51,7 @@ namespace Sim.Controllers {
         private const double AttitudeVariance = 1e-4;
 
         private IPhysicsBody body;
+        private Quaternion bodyFromFlu;
         private Transform gpsLink, imuLink;
         private bool linksResolved;
         private ROSConnection ros;
@@ -103,6 +105,7 @@ namespace Sim.Controllers {
                 _ => throw new ArgumentException("The sensor contract requires a PhysX body.",
                     nameof(target))
             };
+            bodyFromFlu = RobotDescription.BodyFromFlu(target);
         }
 
         /// <summary>World specific force of the last physics tick (the IMU's linear acceleration
@@ -193,9 +196,9 @@ namespace Sim.Controllers {
         }
 
         private Vector3 BodyVector(Vector3 world) =>
-            RoboBoatRosFrame.ToRosLocalUnity(body.transform.InverseTransformDirection(world));
+            Quaternion.Inverse(body.rotation * bodyFromFlu) * world;
 
-        private QuaternionMsg Orientation() => RoboBoatRosFrame.Rotation(body.rotation).To<FLU>();
+        private QuaternionMsg Orientation() => (body.rotation * bodyFromFlu).To<FLU>();
 
         private double Gaussian(double sigma) {
             if (sigma <= 0) return 0;
@@ -276,6 +279,12 @@ namespace Sim.Controllers {
         };
         private static CraneRoboBoatSensorContract.Settings settings;
         private static bool enabled;
+
+        // The contract feeds the real estimator, so the nav state keeps ground truth on
+        // /crane/odom for scoring, without TF. Before its BeforeSceneLoad install reads it.
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterAssembliesLoaded)]
+        private static void ClaimTf() =>
+            CraneROSNavigationState.GroundTruthOnly = Array.IndexOf(Environment.GetCommandLineArgs(), Flag) >= 0;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Install() {

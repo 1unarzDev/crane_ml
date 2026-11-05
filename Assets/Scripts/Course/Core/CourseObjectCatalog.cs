@@ -65,16 +65,22 @@ namespace Sim.Course {
     }
 
     /// <summary>The boat the course is sized for (§1): clearances and path checks use it, and
-    /// it is written to truth.</summary>
+    /// it is written to truth. The family asset carries it; a request may replace it.</summary>
+    [Serializable]
     public sealed class VesselProfile {
-        public double Beam = 0.895, Length = 1.063, TurnRadius = 1.0;
-        public string Source = "blastoise-bounds";
+        public double Beam, Length, TurnRadius;
+        public string Source;
 
         public JObj ToJson() => new JObj().Set("beam", Beam).Set("length", Length)
             .Set("turn_radius", TurnRadius).Set("source", Source);
 
-        public static VesselProfile FromJson(JObj o) => o == null ? new VesselProfile() : new VesselProfile {
+        public static VesselProfile FromJson(JObj o) => Check(o == null ? null : new VesselProfile {
             Beam = o.Num("beam"), Length = o.Num("length"), TurnRadius = o.Num("turn_radius"), Source = o.Str("source")
-        };
+        }, "truth");
+
+        /// <summary>v when it is a real boat (beam, length and turn radius all positive).</summary>
+        public static VesselProfile Check(VesselProfile v, string owner) =>
+            v != null && v.Beam > 0 && v.Length > 0 && v.TurnRadius > 0 ? v
+                : throw new ArgumentException($"{owner} has no vessel (beam, length and turn_radius must be > 0)");
     }
 }

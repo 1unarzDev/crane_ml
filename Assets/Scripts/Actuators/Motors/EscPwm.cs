@@ -6,7 +6,7 @@ namespace Sim.Actuators.Motors {
     /// thruster PWM input): a pulse width maps linearly onto a motor command range.
     /// </summary>
     public static class EscPwm {
-        /// <summary>Boat ESC convention used by mhseals_hardware: 1500 us neutral, +/-400 us.</summary>
+        /// <summary>Common hobby ESC convention: 1500 us neutral, +/-400 us.</summary>
         public const float BoatMinimumPulse = 1100f;
         public const float BoatMaximumPulse = 1900f;
 

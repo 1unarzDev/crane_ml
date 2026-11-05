@@ -1,9 +1,9 @@
 """plantcard CLI.
 
-    python3 -m plantcard show   [REF]                 summary of a card (default roboboat/blastoise@HEAD)
-    python3 -m plantcard export VIEW [REF] [--particle K] [--n N] [--out FILE]
+    python3 -m plantcard show   REF                   summary of a card (REF: robot[@name], sha or dir)
+    python3 -m plantcard export VIEW REF [--particle K] [--n N] [--out FILE]
                                                       VIEW: unity | nlc | control | fastsim
-    python3 -m plantcard.marine.build [--repo]        refit the RoboBoat card from the field trials
+    python3 -m plantcard.marine.build --robot R [--repo]   refit a marine card from field trials
 """
 
 import argparse
@@ -32,10 +32,10 @@ def main(argv=None):
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest='cmd', required=True)
     s = sub.add_parser('show')
-    s.add_argument('ref', nargs='?', default='roboboat/blastoise@HEAD')
+    s.add_argument('ref')
     e = sub.add_parser('export')
     e.add_argument('view')
-    e.add_argument('ref', nargs='?', default='roboboat/blastoise@HEAD')
+    e.add_argument('ref')
     e.add_argument('--particle', type=int, default=None)
     e.add_argument('--n', type=int, default=None)
     e.add_argument('--out', default=None)

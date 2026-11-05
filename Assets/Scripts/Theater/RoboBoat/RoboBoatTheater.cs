@@ -82,13 +82,13 @@ namespace Crane.Theater.RoboBoat {
     }
 
     public sealed class RoboBoatTheaterRobot : ITheaterRobot {
-        static readonly Quaternion BodyFromPose = Quaternion.Euler(0f, 90f, 0f);   // RoboBoatRosFrame: ros = body * Euler(0,-90,0)
         Mesh ghost;
 
         public Mesh GhostMesh() => ghost ??= MeshKit.Catamaran(1.06f, 0.9f, 0.26f, 0.32f);
         public float Length => 1.06f;
         public string Surface => "water";
-        public Quaternion HeroRotation(Quaternion pose) => pose * BodyFromPose;
+        public Quaternion HeroRotation(Quaternion pose) =>
+            pose * Quaternion.Inverse(Sim.Physics.Core.RobotDescription.BodyFromFlu(RoboBoatTheaterPlugins.Body));
 
         public GameObject CreateHero(string name) {
             var body = RoboBoatTheaterPlugins.Body;
