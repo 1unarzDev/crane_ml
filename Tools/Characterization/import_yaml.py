@@ -1,4 +1,4 @@
-"""Import an mhseals_testing characterization into a crane boat profile JSON through the gate.
+"""Import a characterization into a crane boat profile JSON through the gate.
 
     python3 -I Tools/Characterization/import_yaml.py --yaml Y --provenance P --run R \
         --config-snapshot C --out-profile OUT.json --out-report REPORT.json [--base profiles/ideal.json]
@@ -13,24 +13,29 @@ per-parameter status and reason, input sha256 values, the summary, kind "charact
 gate report path. --provenance, --run and --config-snapshot may be omitted; the gate then abstains
 on what they would have provided (PROVENANCE_MISSING, no holds), so nothing is overwritten.
 
-An mhseals.physics/1 survey record (characterization-v2) is the whole input:
+A team's own record format comes in through its adapter, loaded by ``module:function`` (no default):
 
-    python3 -I Tools/Characterization/import_yaml.py --yaml <root>/characterization/<fit>-survey.yaml \
-        [--history <root>/config-history] --out-profile OUT.json --out-report REPORT.json
+    python3 -I Tools/Characterization/import_yaml.py --adapter team_pkg.physics:adapt --yaml RECORD \
+        [--history DIR] --out-profile OUT.json --out-report REPORT.json
 
-mhseals_physics.adapt turns it, its samples file and the config-history snapshot into the gate inputs.
+``adapt(record_path, history_dir)`` returns the gate's four inputs ``(yaml_doc, provenance, run,
+snapshot)``: yaml_doc ``{"characterization": {version 2, speed_curves, wave_floor, ...}}``,
+provenance ``{schema, software, directions: {<axis><sign>: {fit, hardware, gate, battery_v,
+conditions}}}``, run ``{procedure, holds, coastdowns, neutral, conditions, directions, settings}``
+and the config-history hardware snapshot or None (see gate.py for every field). A record that names
+a ``samples_file`` gets that file's sha256 in the provenance inputs too.
 """
 from __future__ import annotations
 
 import argparse
 import copy
+import importlib
 import json
 import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # python3 -I drops the script dir
 import gate as G  # noqa: E402
-import mhseals_physics as MP  # noqa: E402
 import plant as P  # noqa: E402
 
 TAKEN = (G.IDENTIFIED, G.PROVISIONAL)
@@ -93,8 +98,8 @@ def main(argv=None):
     ap.add_argument("--provenance")
     ap.add_argument("--run")
     ap.add_argument("--config-snapshot")
-    ap.add_argument("--history", help="config-history dir for an mhseals.physics/1 record "
-                                      "[<record>/../../config-history]")
+    ap.add_argument("--adapter", help="module:function that turns --yaml (a team record) into the gate inputs")
+    ap.add_argument("--history", help="config-history dir passed to the adapter (its default when omitted)")
     ap.add_argument("--out-profile", required=True)
     ap.add_argument("--out-report", required=True)
     ap.add_argument("--base", default=P.IDEAL_PATH)
@@ -105,8 +110,9 @@ def main(argv=None):
              ("base", a.base)]
     inputs = [{"path": p, "sha256": G.sha256_file(p)} for _, p in paths if p]
     gate_in = (a.yaml, a.provenance, a.run, a.config_snapshot)
-    if MP.is_record(G.load_doc(a.yaml)):  # characterization-v2 survey: samples file, config-history
-        gate_in = MP.adapt(a.yaml, a.history)
+    if a.adapter:
+        module, _, fn = a.adapter.partition(":")
+        gate_in = getattr(importlib.import_module(module), fn)(a.yaml, a.history)
         sf = G.load_doc(a.yaml).get("samples_file")
         if sf:
             sp = os.path.join(os.path.dirname(a.yaml), sf["path"])
