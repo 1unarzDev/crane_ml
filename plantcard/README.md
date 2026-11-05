@@ -42,8 +42,9 @@ card.rollout(x0, t, u, n=64, seed=0)   # [n, T, 6], one particle per rollout
 card.predict_set(x0, t, u, horizon_s=5.0, alpha=0.1)   # conformal radius from the card's validation record
 ```
 
-CLI: `python3 -m plantcard show [REF]`, `python3 -m plantcard export unity|nlc|control|fastsim [REF]`,
-`python3 -m plantcard.marine.build --repo` (refit; ~2 min on one core).
+CLI: `python3 -m plantcard show REF`, `python3 -m plantcard export unity|nlc|control|fastsim REF`,
+`python3 -m plantcard.marine.build --robot roboboat/blastoise --repo` (refit; ~2 min on one core). The ref is
+always given: plantcard has no default robot.
 
 Fast tier: a vehicle spec `{ref: plantcard.marine.fastsim_plant:CardPlant, gain: 1.5, card: roboboat/blastoise@candidate, seed: 3}`.
 

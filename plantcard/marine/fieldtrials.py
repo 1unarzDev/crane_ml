@@ -1,6 +1,6 @@
 """RoboBoat field-trial evidence: the 10-18 open-loop pulse trials -> plant-card Segments.
 
-Each ``agent_*.json`` in a field-trials folder (``mhseals_testing`` characterization procedure) has
+Each ``agent_*.json`` in a field-trials folder (the team's characterization procedure) has
 its own bag (``<trial>.files/bag/bag_0.mcap``) with the executed PWM pulse
 (``/thruster_pwm_node/test_pulses``, order [fl, rr, fr, rl]), ``/gps/fix`` (5 Hz), ``/imu/raw``
 (20 Hz gyro) and ``/odom/local``. The pulse is open loop, so the executed commands are exact.

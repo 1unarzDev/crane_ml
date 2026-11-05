@@ -143,7 +143,7 @@ def main(argv=None):
     tracks, metas, insights = fleet(world, a.runs, a.iterations, a.seed)
     sx, sy, _ = world.start()
     pack.write_pack(out / 'tracks.pack', tracks, HZ, origin=(round(sx), round(sy), 0.0))
-    pack.write_manifest(out / 'manifest.json', world=world.manifest_world(), robot={'plugin': 'roboboat', 'model': 'blastoise'},
+    pack.write_manifest(out / 'manifest.json', world=world.manifest_world(), robot={'plugin': 'roboboat'},
                         runs=metas, study=f'synthetic-{a.seed}', iterations=insights,
                         water={'mode': 'still'}, extra={'synthetic': {'seed': a.seed, 'runs': a.runs, 'iterations': a.iterations}})
     print(f'{len(tracks)} runs, {sum(len(t) for t in tracks)} samples -> {out}')
