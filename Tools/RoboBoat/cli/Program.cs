@@ -146,11 +146,11 @@ namespace Sim.Course.Cli {
                 tasks.Add(task);
             }
             var family = (CourseFamilyDefinition)RuntimeHelpers.GetUninitializedObject(typeof(CourseFamilyDefinition));
-            family.Configure(f["familyName"], tasks, Catalog(guids[Guid(f["catalog"])]),
-                File.ReadAllText(guids[Guid(f["constraintSpec"])]), Vessel(familyPath), f["handbookId"], f["handbookSha256"]);
             var b = Inline(f["boundary"]);
-            typeof(CourseFamilyDefinition).GetField("boundary", BindingFlags.NonPublic | BindingFlags.Instance)
-                .SetValue(family, new Vector3(Float(b["x"]), Float(b["y"]), Float(b["z"])));
+            family.Configure(f["familyName"], tasks, Catalog(guids[Guid(f["catalog"])]),
+                File.ReadAllText(guids[Guid(f["constraintSpec"])]), Vessel(familyPath),
+                new CourseBoundary { Back = Float(b["x"]), Length = Float(b["y"]), HalfWidth = Float(b["z"]) },
+                f["handbookId"], f["handbookSha256"]);
             return family;
         }
 

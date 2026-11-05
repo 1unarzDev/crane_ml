@@ -8,19 +8,19 @@ namespace Sim.Course {
     /// the catalog, the handbook it follows and its constraint spec. No layout logic.</summary>
     [CreateAssetMenu(menuName = "Course/Family")]
     public sealed class CourseFamilyDefinition : ScriptableObject {
-        [SerializeField] string familyName = "roboboat_2026";
+        [SerializeField] string familyName;
         [SerializeField] List<CourseTaskDefinition> tasks = new List<CourseTaskDefinition>();
         [SerializeField] CourseObjectCatalog catalog;
         [SerializeField, Tooltip("Course area (D): metres behind the start (the shore), length, half width.")]
-        Vector3 boundary = new Vector3(10, 130, 65);
-        [SerializeField] string handbookId = "RoboBoat-2026-Team-Handbook_111125";
+        Vector3 boundary;
+        [SerializeField] string handbookId;
         [SerializeField] string handbookSha256 = "";
         [SerializeField, Tooltip("Tools/RoboBoat/constraints/<family>.json (a link to this asset).")]
         TextAsset constraintSpec;
         [SerializeField, Tooltip("The boat this family's courses are sized for (beam, length, turn radius in metres).")]
         VesselProfile vessel;
         [SerializeField, Tooltip("Hand-placed scene groups a generated course replaces.")]
-        List<string> hideSceneGroups = new List<string> { "SpeedChallenge", "NavigationChannel", "GateTraversal", "Marina", "DeliveryBoats" };
+        List<string> hideSceneGroups;
 
         string specText;
 
@@ -37,14 +37,14 @@ namespace Sim.Course {
 
         /// <summary>Fills a family outside the asset pipeline (tests and the headless CLI).</summary>
         public void Configure(string name, IEnumerable<CourseTaskDefinition> taskList,
-            CourseObjectCatalog objectCatalog, string spec, VesselProfile vesselProfile,
+            CourseObjectCatalog objectCatalog, string spec, VesselProfile vesselProfile, CourseBoundary area,
             string handbook = null, string handbookSha = null) {
             familyName = name;
             vessel = vesselProfile;
             tasks = new List<CourseTaskDefinition>(taskList);
             catalog = objectCatalog;
             specText = spec;
-            boundary = new Vector3(10, 130, 65);
+            boundary = new Vector3((float)area.Back, (float)area.Length, (float)area.HalfWidth);
             if (handbook != null) handbookId = handbook;
             if (handbookSha != null) handbookSha256 = handbookSha;
         }

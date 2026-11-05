@@ -29,7 +29,7 @@ namespace Sim.Course.Tests {
             // Unity deserializes a family asset without a vessel block as an all-zero profile.
             foreach (var vessel in new[] { null, new VesselProfile(), new VesselProfile { Beam = 1, Length = 1, Source = "x" } }) {
                 var family = ScriptableObject.CreateInstance<CourseFamilyDefinition>();
-                family.Configure("no_vessel", Family.Tasks, Family.Catalog, Family.ConstraintSpecText, vessel);
+                family.Configure("no_vessel", Family.Tasks, Family.Catalog, Family.ConstraintSpecText, vessel, Family.Boundary);
                 Assert.Throws<ArgumentException>(() => CourseGenerator.Generate(family, new CourseRequest { Seed = 1 }));
                 UnityEngine.Object.DestroyImmediate(family);
             }

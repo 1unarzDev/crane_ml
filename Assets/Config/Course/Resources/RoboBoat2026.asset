@@ -30,3 +30,9 @@ MonoBehaviour:
     Length: 1.063
     TurnRadius: 1
     Source: blastoise-bounds
+  hideSceneGroups:
+  - SpeedChallenge
+  - NavigationChannel
+  - GateTraversal
+  - Marina
+  - DeliveryBoats
