@@ -74,8 +74,13 @@ namespace Sim.Course {
         public JObj ToJson() => new JObj().Set("beam", Beam).Set("length", Length)
             .Set("turn_radius", TurnRadius).Set("source", Source);
 
-        public static VesselProfile FromJson(JObj o) => o == null ? throw new ArgumentException("truth has no vessel") : new VesselProfile {
+        public static VesselProfile FromJson(JObj o) => Check(o == null ? null : new VesselProfile {
             Beam = o.Num("beam"), Length = o.Num("length"), TurnRadius = o.Num("turn_radius"), Source = o.Str("source")
-        };
+        }, "truth");
+
+        /// <summary>v when it is a real boat (beam, length and turn radius all positive).</summary>
+        public static VesselProfile Check(VesselProfile v, string owner) =>
+            v != null && v.Beam > 0 && v.Length > 0 && v.TurnRadius > 0 ? v
+                : throw new ArgumentException($"{owner} has no vessel (beam, length and turn_radius must be > 0)");
     }
 }

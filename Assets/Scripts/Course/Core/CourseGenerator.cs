@@ -40,11 +40,13 @@ namespace Sim.Course {
         public const int TaskRetries = 50, LayoutRetries = 10;
         public const double FootprintMargin = 1.5;  // D: room around a task's objects
 
-        /// <summary>The boat the course is sized for: the request's, else the family's.</summary>
+        /// <summary>The boat the course is sized for: the request's, else the family's. Unity
+        /// deserializes a missing vessel block as an all-zero profile, so that is refused too.</summary>
         public static VesselProfile Vessel(CourseFamilyDefinition family, CourseRequest request) =>
-            request.Vessel ?? family.Vessel ?? throw new ArgumentException($"course family '{family.Name}' has no vessel");
+            VesselProfile.Check(request.Vessel ?? family.Vessel, $"course family '{family.Name}'");
 
         public static JObj Generate(CourseFamilyDefinition family, CourseRequest request) {
+            Vessel(family, request);
             var spec = ConstraintSpec.Parse(family.ConstraintSpecText);
             var root = new CourseRng(unchecked((ulong)request.Seed));
             CheckOverrides(family, request);
