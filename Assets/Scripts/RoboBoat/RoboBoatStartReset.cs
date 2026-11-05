@@ -42,8 +42,8 @@ namespace Sim.Controllers {
             startYaw = courseStartYaw;
             body = boatBody;
             if (body == null) return;
-            startPosition = RoboBoatCourse.RosToUnity(start, body.position.y);
-            float yaw = RoboBoatCourse.RosYawOfUnityDirection(
+            startPosition = RosFrame.ToUnity(start, body.position.y);
+            float yaw = RosFrame.YawOf(
                 body.rotation * RobotDescription.BodyFromFlu(body) * Vector3.forward);
             // ROS yaw is counter-clockwise; a Unity turn about +y is clockwise.
             startRotation = Quaternion.AngleAxis(-(startYaw - yaw) * Mathf.Rad2Deg, Vector3.up) *
@@ -136,8 +136,8 @@ namespace Sim.Controllers {
         /// <summary>"x=.. y=.. yaw=.." in the world-ROS frame of /crane/odom (metres, radians).
         /// </summary>
         internal static string DescribeRosPose(Vector3 position, Quaternion fluRotation) {
-            Vector2 ros = RoboBoatCourse.UnityToRos(position);
-            float yaw = RoboBoatCourse.RosYawOfUnityDirection(fluRotation * Vector3.forward);
+            Vector2 ros = RosFrame.ToRos(position);
+            float yaw = RosFrame.YawOf(fluRotation * Vector3.forward);
             return string.Format(CultureInfo.InvariantCulture, "x={0:R} y={1:R} yaw={2:R}",
                 ros.x, ros.y, yaw);
         }

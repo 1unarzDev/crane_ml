@@ -20,6 +20,12 @@ namespace Sim.Controllers {
     /// This component is opt-in so existing scene-owned odometry publishers are not duplicated.
     /// </summary>
     public sealed class CraneROSNavigationState : MonoBehaviour, ICraneEpisodeResettable {
+        /// <summary>Set before the scene loads (AfterAssembliesLoaded) by a sensor contract that
+        /// feeds a real estimator: the nav state then runs without <c>--crane-ros-nav-state</c> and
+        /// keeps ground truth on the odom topic for scoring, but publishes no TF (the estimator owns
+        /// odom -> base_link).</summary>
+        public static bool GroundTruthOnly;
+
         private IPhysicsBody body;
         private Component bodyComponent;
         private ROSConnection ros;
@@ -53,7 +59,7 @@ namespace Sim.Controllers {
             publishPeriod = 1.0 / Math.Max(0.1f, publishRateHz);
             nextPublishTime = 0;
             bodyFromFlu = Sim.Physics.Core.RobotDescription.BodyFromFlu(target);
-            // Ground truth beside a real estimator (the boat contract) must not publish the
+            // Ground truth beside a real estimator (GroundTruthOnly) must not publish the
             // odom -> base_link transform the EKF owns.
             publishTransforms = publishTf;
             requestedChildFrameNames = requestedChildFrames == null
@@ -176,18 +182,18 @@ namespace Sim.Controllers {
             ros.Publish(transformTopic, new TFMessageMsg(transforms));
         }
 
-        internal static PointMsg ToRosPoint(Vector3 unity) =>
+        public static PointMsg ToRosPoint(Vector3 unity) =>
             new(unity.z, -unity.x, unity.y);
 
-        internal static Vector3Msg ToRosVector(Vector3 unity) =>
+        public static Vector3Msg ToRosVector(Vector3 unity) =>
             new(unity.z, -unity.x, unity.y);
 
         // Unity-to-FLU is a handedness-changing reflection. Angular velocity is an axial vector,
         // so it gains the determinant sign that polar position/linear-velocity vectors do not.
-        internal static Vector3Msg ToRosAngularVector(Vector3 unity) =>
+        public static Vector3Msg ToRosAngularVector(Vector3 unity) =>
             new(-unity.z, unity.x, -unity.y);
 
-        internal static HeaderMsg CreateHeader(double seconds, string frame) {
+        public static HeaderMsg CreateHeader(double seconds, string frame) {
             double integral = Math.Floor(Math.Max(0, seconds));
             uint nanoseconds = (uint)Math.Round((Math.Max(0, seconds) - integral) * 1e9);
             if (nanoseconds >= 1_000_000_000) {
@@ -211,8 +217,7 @@ namespace Sim.Controllers {
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Install() {
             string[] args = Environment.GetCommandLineArgs();
-            // The boat sensor contract keeps ground truth on /crane/odom for scoring, without TF.
-            contract = Array.IndexOf(args, CraneRoboBoatSensorContractBootstrap.Flag) >= 0;
+            contract = CraneROSNavigationState.GroundTruthOnly;
             enabled = (Array.IndexOf(args, "--crane-ros-nav-state") >= 0 || contract) &&
                       !ROSPublisher.TransportSuppressed;
             if (!enabled) return;

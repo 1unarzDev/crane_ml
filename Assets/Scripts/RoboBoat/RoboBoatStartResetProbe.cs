@@ -113,8 +113,8 @@ namespace Sim.Controllers {
                     maxSpeed = float.NaN;
                     break;
                 }
-                Vector2 at = RoboBoatCourse.UnityToRos(p);
-                float yaw = RoboBoatCourse.RosYawOfUnityDirection(
+                Vector2 at = RosFrame.ToRos(p);
+                float yaw = RosFrame.YawOf(
                     root.transform.rotation * RobotDescription.BodyFromFlu(root) * Vector3.forward);
                 float error = Vector2.Distance(at, reset.StartPosition);
                 maxSpeed = Mathf.Max(maxSpeed, new Vector2(v.x, v.z).magnitude);

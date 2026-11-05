@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using Sim.Controllers;
+using Sim.Physics.Core;
 using Sim.Sensors.Vision;
 using Sim.Utils.ROS;
 using Sim.Utils.Viewer;
@@ -96,9 +97,9 @@ namespace Sim.Course.RoboBoat {
 
         static Vector2 ToWorld(Vector2 start, float startYaw, float x, float y) =>
             RoboBoatCourse.ToWorld(start, startYaw, x, y);
-        static Vector3 RosToUnity(Vector2 ros, float height) => RoboBoatCourse.RosToUnity(ros, height);
-        static Vector2 UnityToRos(Vector3 unity) => RoboBoatCourse.UnityToRos(unity);
-        static float RosYawOfUnityDirection(Vector3 direction) => RoboBoatCourse.RosYawOfUnityDirection(direction);
+        static Vector3 RosToUnity(Vector2 ros, float height) => RosFrame.ToUnity(ros, height);
+        static Vector2 UnityToRos(Vector3 unity) => RosFrame.ToRos(unity);
+        static float RosYawOfUnityDirection(Vector3 direction) => RosFrame.YawOf(direction);
         static (float, float) CurrentNow() => RoboBoatCourse.CurrentNow();
 
         /// <summary>Builds a 2025-style element-list course (the JsonSpec source).</summary>

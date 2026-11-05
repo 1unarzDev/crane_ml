@@ -1,4 +1,5 @@
 using System;
+using Sim.Physics.Core;
 using Sim.Physics.Water.Boat;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -115,12 +116,12 @@ namespace Sim.Controllers {
                           RoboBoatPhysics.Disturbance(Time.timeSinceLevelLoad);
             float toward = meanToward + veer;
             var air = new Vector2(speed * Mathf.Cos(toward), speed * Mathf.Sin(toward));
-            Vector2 boat = RoboBoatCourse.UnityToRos(body.linearVelocity);
+            Vector2 boat = RosFrame.ToRos(body.linearVelocity);
             Vector3 bow = body.transform.rotation * Sim.Physics.Core.RobotDescription.BodyFromFlu(body) * Vector3.forward;
-            float heading = RoboBoatCourse.RosYawOfUnityDirection(bow);
+            float heading = RosFrame.YawOf(bow);
             Vector2 force = Force(air - boat, heading);
             Vector3 at = body.worldCenterOfMass + PressureCentre + bow * 0.05f;
-            body.AddForceAtPosition(RoboBoatCourse.RosToUnity(force, 0f), at);
+            body.AddForceAtPosition(RosFrame.ToUnity(force, 0f), at);
         }
     }
 }

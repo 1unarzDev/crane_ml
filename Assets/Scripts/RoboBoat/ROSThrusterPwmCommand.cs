@@ -10,9 +10,9 @@ using UnityEngine.SceneManagement;
 
 namespace Sim.Controllers {
     /// <summary>
-    /// Drives the four RoboBoat thrusters from per-output ESC pulse widths, the same signal the
-    /// boat's ODROID puts on its PWM pins. mhseals_hardware's thruster_pwm_node (output_backend
-    /// topic) publishes it after its mixer, channel map and calibration, so the simulator tests
+    /// Drives the four RoboBoat thrusters from per-output ESC pulse widths (one pulse per PWM
+    /// pin, in output order), the same signal the boat's computer puts on its PWM pins. A thruster
+    /// node publishes it after its own mixer, channel map and calibration, so the simulator tests
     /// the boat's real allocation instead of the simulator's own mixer. Transport callbacks only
     /// enqueue; thrusters change in FixedUpdate.
     /// </summary>
