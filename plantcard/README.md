@@ -59,5 +59,5 @@ parent's, CRPS <= the parent's) and the owner accepts it (`provenance.accepted_b
 sessions on >= 2 days. Posterior spread is never coverage: raw particle quantiles are labelled
 `uncalibrated`; `predict_set` scales them by the conformal multiplier of the validation record.
 
-Tests: `python3 -I -m pytest plantcard/tests -q` from the crane root (numpy and PyYAML only; the NLC
+Tests: `python3 -m pytest` from the crane root runs every crane Python suite (this one is `plantcard/tests`; numpy and PyYAML only; the NLC
 parity test runs when `~/nl-constraints-bench` exists).

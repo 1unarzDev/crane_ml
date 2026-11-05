@@ -54,5 +54,5 @@ of at least 50%) or the controller-plant interaction.
 
 ## Tests
 
-`python3 -m pytest judge/tests` from the crane root. Every insight generator has a seeded-fault test
+`python3 -m pytest` from the crane root runs every crane Python suite (this one is `judge/tests`). Every insight generator has a seeded-fault test
 (plant fault, decision fault, clean control, invalid runs, cluster stability, dependency walk).

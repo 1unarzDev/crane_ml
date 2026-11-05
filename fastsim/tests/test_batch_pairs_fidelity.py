@@ -13,7 +13,7 @@ from fastsim.identity import tree_sha
 from fastsim.plant import Goal, vehicle
 from fastsim.run import simulate
 from fastsim.scenario import JsonScenarioFormat
-from test_core import HERE, limits
+from test_fastsim_core import HERE, limits
 import toy
 
 

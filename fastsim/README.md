@@ -22,4 +22,4 @@ A domain plugs in through one YAML (`adapter`, `scenarios`, `limits` or the adap
 the smallest complete domain; a domain's adapter lives in that domain's own repo. The cluster runs
 this core as backend `fastsim` (`crane_backends/fastsim.py`).
 
-Tests (from the crane root): `python3 -m pytest fastsim/tests`.
+Tests: `python3 -m pytest` from the crane root runs every crane Python suite (this one is `fastsim/tests`).
