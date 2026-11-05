@@ -9,7 +9,8 @@
         "PerformanceAssembly",
         "UtilsAssembly",
         "Unity.InputSystem",
-        "Unity.Robotics.ROSTCPConnector.Messages"
+        "Unity.Robotics.ROSTCPConnector.Messages",
+        "Crane.RoboBoat"
     ],
     "includePlatforms": [
         "Editor"
