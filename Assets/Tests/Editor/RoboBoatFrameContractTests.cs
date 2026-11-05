@@ -1,6 +1,7 @@
 using NUnit.Framework;
 using Sim.Actuators.Motors;
 using Sim.Controllers;
+using Sim.Physics.Core;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -35,17 +36,35 @@ namespace Sim.Tests.Editor {
 
         [Test]
         public void SceneBaseRotationPublishesVisibleBowAsRosForward() {
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/Robot Descriptions/blastoise/Blastoise.prefab");
+            Assert.That(prefab, Is.Not.Null);
+            Quaternion bodyFromFlu = RobotDescription.BodyFromFlu(prefab.transform);
+            Assert.That(Quaternion.Angle(bodyFromFlu, Quaternion.Euler(0f, -90f, 0f)),
+                Is.LessThan(1e-3f), "Blastoise's description gives the 90 deg hull yaw");
+
             Quaternion sceneBaseRotation = Quaternion.Euler(0f, 90f, 0f);
-            Quaternion rosFrameRotation = RoboBoatRosFrame.Rotation(sceneBaseRotation);
-            Vector3 worldForward = rosFrameRotation * Vector3.forward;
+            Vector3 worldForward = sceneBaseRotation * bodyFromFlu * Vector3.forward;
 
             Assert.That(worldForward.x, Is.Zero.Within(1e-5f));
             Assert.That(worldForward.z, Is.EqualTo(1f).Within(1e-5f));
 
-            Vector3 logicalVelocity = RoboBoatRosFrame.ToRosLocalUnity(Vector3.left);
+            Vector3 logicalVelocity = Quaternion.Inverse(bodyFromFlu) * Vector3.left;
             var rosVelocity = CraneROSNavigationState.ToRosVector(logicalVelocity);
             Assert.That(rosVelocity.x, Is.EqualTo(1f).Within(1e-5f));
             Assert.That(rosVelocity.y, Is.Zero.Within(1e-5f));
+        }
+
+        [Test]
+        public void BodyWithoutDescriptionIsRep103() {
+            var body = new GameObject("no-description");
+            try {
+                Assert.That(RobotDescription.BodyFromFlu(body.transform), Is.EqualTo(Quaternion.identity));
+                Assert.That(RobotDescription.BodyFromFlu(null), Is.EqualTo(Quaternion.identity));
+            }
+            finally {
+                Object.DestroyImmediate(body);
+            }
         }
 
         [Test]

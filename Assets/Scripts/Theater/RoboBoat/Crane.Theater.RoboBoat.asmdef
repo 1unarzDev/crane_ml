@@ -4,6 +4,7 @@
     "references": [
         "Crane.Theater",
         "ControllerAssembly",
+        "PhysicsCoreAssembly",
         "Crane.Course",
         "Unity.RenderPipelines.Core.Runtime",
         "Unity.RenderPipelines.HighDefinition.Runtime"

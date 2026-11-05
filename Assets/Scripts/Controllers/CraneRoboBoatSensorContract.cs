@@ -3,6 +3,7 @@ using System.Globalization;
 using RosMessageTypes.Geometry;
 using RosMessageTypes.Nav;
 using RosMessageTypes.Sensor;
+using Sim.Physics.Core;
 using Sim.Utils;
 using Sim.Utils.Performance;
 using Sim.Utils.ROS;
@@ -50,6 +51,7 @@ namespace Sim.Controllers {
         private const double AttitudeVariance = 1e-4;
 
         private IPhysicsBody body;
+        private Quaternion bodyFromFlu;
         private Transform gpsLink, imuLink;
         private bool linksResolved;
         private ROSConnection ros;
@@ -103,6 +105,7 @@ namespace Sim.Controllers {
                 _ => throw new ArgumentException("The sensor contract requires a PhysX body.",
                     nameof(target))
             };
+            bodyFromFlu = RobotDescription.BodyFromFlu(target);
         }
 
         /// <summary>World specific force of the last physics tick (the IMU's linear acceleration
@@ -193,9 +196,9 @@ namespace Sim.Controllers {
         }
 
         private Vector3 BodyVector(Vector3 world) =>
-            RoboBoatRosFrame.ToRosLocalUnity(body.transform.InverseTransformDirection(world));
+            Quaternion.Inverse(body.rotation * bodyFromFlu) * world;
 
-        private QuaternionMsg Orientation() => RoboBoatRosFrame.Rotation(body.rotation).To<FLU>();
+        private QuaternionMsg Orientation() => (body.rotation * bodyFromFlu).To<FLU>();
 
         private double Gaussian(double sigma) {
             if (sigma <= 0) return 0;

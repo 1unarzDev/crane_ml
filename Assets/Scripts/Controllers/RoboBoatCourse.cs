@@ -68,7 +68,7 @@ namespace Sim.Controllers {
             Transform body = RoboBoatStartReset.FindBoatBody();
             if (body != null) {
                 startAt = body.position;
-                bow = RoboBoatRosFrame.Rotation(body.rotation) * Vector3.forward;
+                bow = body.rotation * Sim.Physics.Core.RobotDescription.BodyFromFlu(body) * Vector3.forward;
             }
             else if (Sim.Physics.Core.RobotSelection.StartPose != null) {
                 startAt = Sim.Physics.Core.RobotSelection.StartPose.position;

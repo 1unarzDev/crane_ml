@@ -70,7 +70,7 @@ namespace Sim.Controllers {
         /// <paramref name="yawRate"/> [rad/s, ROS counter-clockwise] for <paramref name="seconds"/>.</summary>
         private IEnumerator Drive(float seconds, float surge, float yawRate) {
             for (float t = 0f; t < seconds; t += Time.fixedDeltaTime) {
-                Vector3 bow = RoboBoatRosFrame.Rotation(root.transform.rotation) * Vector3.forward;
+                Vector3 bow = root.transform.rotation * RobotDescription.BodyFromFlu(root) * Vector3.forward;
                 root.linearVelocity = new Vector3(bow.x, 0f, bow.z).normalized * surge;
                 root.angularVelocity = new Vector3(0f, -yawRate, 0f);
                 yield return new WaitForFixedUpdate();
@@ -115,7 +115,7 @@ namespace Sim.Controllers {
                 }
                 Vector2 at = RoboBoatCourse.UnityToRos(p);
                 float yaw = RoboBoatCourse.RosYawOfUnityDirection(
-                    RoboBoatRosFrame.Rotation(root.transform.rotation) * Vector3.forward);
+                    root.transform.rotation * RobotDescription.BodyFromFlu(root) * Vector3.forward);
                 float error = Vector2.Distance(at, reset.StartPosition);
                 maxSpeed = Mathf.Max(maxSpeed, new Vector2(v.x, v.z).magnitude);
                 maxRate = Mathf.Max(maxRate, w.magnitude);

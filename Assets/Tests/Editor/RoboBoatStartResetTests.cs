@@ -165,10 +165,9 @@ namespace Sim.Tests.Editor {
 
         [Test]
         public void PoseIsReportedInTheOdomFrame() {
-            // Unity (x, z) = (-2, 5) is world-ROS (5, 2); the ROS frame is the body turned -90 deg.
-            Quaternion bodyFacingRosX = Quaternion.Inverse(Quaternion.Euler(0f, -90f, 0f));
+            // Unity (x, z) = (-2, 5) is world-ROS (5, 2); an FLU frame facing Unity +z faces ROS +x.
             string pose = RoboBoatStartReset.DescribeRosPose(new Vector3(-2f, 0f, 5f),
-                bodyFacingRosX);
+                Quaternion.identity);
             Assert.That(pose, Does.StartWith("x=5 y=2 yaw="));
             float yaw = float.Parse(pose.Substring(pose.IndexOf("yaw=") + 4),
                 System.Globalization.CultureInfo.InvariantCulture);

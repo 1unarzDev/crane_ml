@@ -5,6 +5,7 @@
         "SensorsAssembly",
         "MotorsAssembly",
         "PhysicsAssembly",
+        "PhysicsCoreAssembly",
         "PerformanceAssembly",
         "UtilsAssembly",
         "Unity.InputSystem",
