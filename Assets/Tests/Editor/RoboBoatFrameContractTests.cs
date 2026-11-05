@@ -96,6 +96,25 @@ namespace Sim.Tests.Editor {
         }
 
         [Test]
+        public void OdomHeadingIsTheVisibleBowInRoboboatScene() {
+            Scene scene = EditorSceneManager.OpenScene(
+                "Assets/Scenes/Roboboat Course.unity", OpenSceneMode.Single);
+            GameObject root = System.Array.Find(scene.GetRootGameObjects(),
+                candidate => candidate.name == "Blastoise");
+            Transform baseLink = root.transform.Find("base_link");
+            var body = baseLink.GetComponent<ArticulationBody>();
+            Vector3 cameraOffset = baseLink.position - baseLink.Find("Camera").position;
+            // The nav state's published orientation: body rotation * the description's frame.
+            Vector3 odomForward = body.transform.rotation * RobotDescription.BodyFromFlu(body) * Vector3.forward;
+            var odom = CraneROSNavigationState.ToRosVector(odomForward);
+            var bow = CraneROSNavigationState.ToRosVector(cameraOffset);
+            double odomYaw = System.Math.Atan2(odom.y, odom.x) * Mathf.Rad2Deg;
+            double bowYaw = System.Math.Atan2(bow.y, bow.x) * Mathf.Rad2Deg;
+            Debug.Log($"BLASTOISE_ODOM_BOW odom_yaw_deg={odomYaw:F3} bow_yaw_deg={bowYaw:F3}");
+            Assert.That(Mathf.Abs(Mathf.DeltaAngle((float)odomYaw, (float)bowYaw)), Is.LessThan(0.5f));
+        }
+
+        [Test]
         public void OmniThrusterUsesProportionalShaftVelocityCommands() {
             var config = AssetDatabase.LoadAssetAtPath<ThrusterConfig>(
                 "Assets/Config/OmniThrusterConfig.asset");

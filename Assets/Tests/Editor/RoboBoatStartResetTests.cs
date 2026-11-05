@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using Sim.Controllers;
+using Sim.Physics.Core;
 using UnityEngine;
 
 namespace Sim.Tests.Editor {
@@ -18,6 +19,7 @@ namespace Sim.Tests.Editor {
             boat = new GameObject("Boat");
             var body = boat.AddComponent<Rigidbody>();
             body.useGravity = false;
+            boat.AddComponent<RobotDescription>().rootYawDeg = 90f;   // bow = hull-local -X
             Vector3 start = new(3f, 0.1f, 7f);
             Quaternion heading = Quaternion.Euler(0f, 30f, 0f);
             boat.transform.SetPositionAndRotation(start, heading);
@@ -79,6 +81,7 @@ namespace Sim.Tests.Editor {
             boat = new GameObject("Boat");
             boat.SetActive(false);
             boat.AddComponent<ArticulationBody>().useGravity = false;
+            boat.AddComponent<RobotDescription>().rootYawDeg = 90f;
             var hull = new GameObject("Hull");
             hull.transform.SetParent(boat.transform, false);
             hull.transform.localPosition = new Vector3(0f, 0f, 1f);
