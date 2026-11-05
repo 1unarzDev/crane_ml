@@ -21,4 +21,6 @@ include = ["crane_backends*", "fastsim*", "theater*"]
 
 # `python3 -m pytest` from the crane root runs every Python suite, the domain guard included.
 [tool.pytest.ini_options]
-testpaths = ["tests", "judge/tests", "plantcard/tests", "theater/tests", "fastsim/tests", "crane_backends/tests"]
+testpaths = ["tests", "judge/tests", "plantcard/tests", "theater/tests", "fastsim/tests", "crane_backends/tests",
+             "Tools/Characterization", "Tools/Performance", "Tools/Rig/tests", "Tools/RoboBoat/tests", "Tools/Tuning",
+             "viewer/tests"]
