@@ -1,10 +1,8 @@
 """One statistics module for the judge, the referee and the cluster's promotion.
 
 Pure Python (no numpy needed) so the stdlib-only cluster side can vendor or import it. Golden
-parity tests (``tests/test_stats.py`` here, ``judge_pack/tests`` in mhseals_testing) pin these to
-research-cluster ``crane_cluster/promotion.py`` and mhseals_testing ``analysis/reliability.py`` so the
-cluster's promote decision and the referee's non-inferiority verdict cannot disagree on one data
-set. The unit of analysis is the caller's: scenario blocks or sessions, never samples.
+parity tests (``tests/test_stats.py`` here; downstream parity tests pin these formulas from their
+side) keep a promote decision and a non-inferiority verdict from disagreeing on one data set. The unit of analysis is the caller's: scenario blocks or sessions, never samples.
 """
 
 from __future__ import annotations
