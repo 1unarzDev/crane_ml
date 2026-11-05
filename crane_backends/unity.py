@@ -25,8 +25,8 @@ water-derived number are wrong) fails its seed with the counts, unless ``require
 false``; then it is scored with ``water_valid`` 0 so analyses can censor it. ``water_valid`` is
 in every run's metrics.
 
-Job spec keys (override the options): ``family`` (default roboboat_2026), ``mode`` (iid,
-corner=lo|hi|mixed), ``set`` (list of task.param=value), ``scene``, ``scenario``, ``sim_profile``
+Job spec keys (override the options): ``family`` and ``scene`` (required, no default), ``mode`` (iid,
+corner=lo|hi|mixed), ``set`` (list of task.param=value), ``scenario``, ``sim_profile``
 (default full), ``duration``, ``warmup``, ``time_scale``, ``args`` (list, appended), ``traj``
 (default true: ``--crane-traj`` records ``run.ctraj``, crane-traj/1, at ``traj_hz``), ``params``,
 ``theater`` (study, iteration, insight, score_metric: see ``theater/meta.py``).
@@ -46,7 +46,7 @@ from pathlib import Path
 
 from .gpu import hidden_desktop, player_gpu_args, start_player
 
-DEFAULTS = {'family': 'roboboat_2026', 'scene': 'Roboboat Course', 'scenario': 'cluster',
+DEFAULTS = {'scenario': 'cluster',
             'sim_profile': 'full', 'duration': 30, 'warmup': 5, 'time_scale': 1, 'batchmode': True,
             'timeout_s': 900, 'width': 640, 'height': 360, 'traj': True, 'traj_hz': 20,
             'require_valid_water': True}
@@ -115,6 +115,8 @@ class ClusterBackend:
     def prepare(self, ctx):
         self.ctx = ctx
         self.job = {**DEFAULTS, **self.options, **ctx.spec}
+        if not self.job.get('family') or not self.job.get('scene'):
+            raise RuntimeError('unity backend: job spec needs family and scene')
         if not self.job.get('player'):
             raise RuntimeError('unity backend: no player configured')
         self.player = Path(os.path.expandvars(str(self.job['player']))).expanduser()

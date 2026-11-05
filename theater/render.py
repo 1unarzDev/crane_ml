@@ -2,7 +2,7 @@
 
     python3 -m theater.render script DIR [--seconds 15] [--fps 60]       # write the standard cut into DIR/manifest.json
     python3 -m theater.render local DIR --player CRANE.x86_64 --out OUT [--frames A:B] [--size WxH] [--display :1]
-    python3 -m theater.render pack SELECT.json --trajs DIR --truth course_truth.json --out DIR   # from select + fetch
+    python3 -m theater.render pack SELECT.json --trajs DIR --truth course_truth.json --world NAME --out DIR   # from select + fetch
     python3 -m theater.render submit DIR --purpose '...' [--chunk-s 10] [--worker NAME] [--render-id R]   # job id
     python3 -m theater.render assemble JOB --out OUT [--render-id R]   # chunks -> video.mp4, final_h265.mp4, gif, sheets
     python3 -m theater.render inspect OUT                # the render report's checks; exit 1 when one fails
@@ -24,6 +24,8 @@ import sys
 import tempfile
 import urllib.request
 from pathlib import Path
+
+from .worlds import WORLDS
 
 CONFIG = Path(os.environ.get('XDG_CONFIG_HOME', Path.home() / '.config')) / 'crane-cluster'
 
@@ -300,11 +302,11 @@ def merge_reports(reports):
 
 def cmd_pack(a):
     from . import pack
-    from .worlds import RoboBoatWorld
+    world = WORLDS[a.world]
     truth = json.loads(Path(a.truth).read_text())
     if a.tasks:
-        truth = RoboBoatWorld.only_tasks(truth, a.tasks.split(','))
-    doc = pack.from_select(a.select, a.trajs, RoboBoatWorld(truth), a.out, hz=a.hz)
+        truth = world.only_tasks(truth, a.tasks.split(','))
+    doc = pack.from_select(a.select, a.trajs, world(truth), a.out, hz=a.hz)
     print(f"{len(doc['runs'])} runs -> {a.out} (skipped {len(doc['source']['skipped'])} without a trajectory)")
 
 
@@ -358,7 +360,8 @@ def main(argv=None):
     p.add_argument('--render-id', help='upload the final video to this dashboard render request')
     p = sub.add_parser('pack', help='a theater manifest and pack from `python3 -m theater select` and `fetch`')
     p.add_argument('select'); p.add_argument('--trajs', required=True); p.add_argument('--truth', required=True)
-    p.add_argument('--tasks', help='keep only these tasks of the truth, e.g. entry_gates,debris_clearance')
+    p.add_argument('--world', required=True, choices=sorted(WORLDS), help='the world plug-in (theater/worlds.py)')
+    p.add_argument('--tasks', help="keep only these tasks of the truth (ids, comma-separated)")
     p.add_argument('--hz', type=float, default=10); p.add_argument('--out', required=True)
     p = sub.add_parser('inspect'); p.add_argument('out')
     a = ap.parse_args(argv)

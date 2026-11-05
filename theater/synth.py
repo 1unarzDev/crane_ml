@@ -1,7 +1,7 @@
 """Synthetic fleets for tests and render spikes: ghosts that follow a world's centre line with seeded
 lateral wander, a speed that grows with the iteration, and failures (a stop at a hit) that get rarer.
 
-    python3 -m theater.synth --truth course_truth.json --tasks entry_gates,debris_clearance \
+    python3 -m theater.synth --truth course_truth.json --world NAME [--tasks ID,ID] \
         --runs 500 --iterations 20 --seed 1 --out DIR
 
 writes DIR/manifest.json, DIR/tracks.pack and DIR/course_truth.json (the world's input).
@@ -14,7 +14,7 @@ import random
 from pathlib import Path
 
 from . import pack
-from .worlds import RoboBoatWorld
+from .worlds import WORLDS
 
 HZ = 10
 
@@ -127,7 +127,8 @@ def fleet(world, runs, iterations, seed):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--truth', required=True)
-    ap.add_argument('--tasks', default='entry_gates,debris_clearance')
+    ap.add_argument('--world', required=True, choices=sorted(WORLDS), help='the world plug-in (theater/worlds.py)')
+    ap.add_argument('--tasks', help='keep only these tasks of the truth (ids, comma-separated)')
     ap.add_argument('--runs', type=int, default=500)
     ap.add_argument('--iterations', type=int, default=20)
     ap.add_argument('--seed', type=int, default=1)
@@ -136,14 +137,15 @@ def main(argv=None):
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     truth = json.loads(Path(a.truth).read_text())
+    World = WORLDS[a.world]
     if a.tasks:
-        truth = RoboBoatWorld.only_tasks(truth, a.tasks.split(','))
+        truth = World.only_tasks(truth, a.tasks.split(','))
     (out / 'course_truth.json').write_text(json.dumps(truth, indent=1) + '\n')
-    world = RoboBoatWorld(truth)
+    world = World(truth)
     tracks, metas, insights = fleet(world, a.runs, a.iterations, a.seed)
     sx, sy, _ = world.start()
     pack.write_pack(out / 'tracks.pack', tracks, HZ, origin=(round(sx), round(sy), 0.0))
-    pack.write_manifest(out / 'manifest.json', world=world.manifest_world(), robot={'plugin': 'roboboat'},
+    pack.write_manifest(out / 'manifest.json', world=world.manifest_world(), robot={'plugin': world.name},
                         runs=metas, study=f'synthetic-{a.seed}', iterations=insights,
                         water={'mode': 'still'}, extra={'synthetic': {'seed': a.seed, 'runs': a.runs, 'iterations': a.iterations}})
     print(f'{len(tracks)} runs, {sum(len(t) for t in tracks)} samples -> {out}')
