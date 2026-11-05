@@ -93,7 +93,7 @@ class UnityBackendTest(unittest.TestCase):
         for missing in ('family', 'scene'):
             b = unity.ClusterBackend('unity', {'player': str(self.player)})
             spec = {k: v for k, v in {'family': 'fam', 'scene': 'Scene'}.items() if k != missing}
-            with self.assertRaisesRegex(RuntimeError, 'job spec needs family and scene'):
+            with self.assertRaisesRegex(RuntimeError, r'job needs family and scene \(spec or backend options\)'):
                 b.prepare(JobContext(job={'job_id': 'j', 'spec': spec, 'seeds': [7]}, work_dir=self.tmp / 'job'))
 
     def test_no_trajectory_when_turned_off(self):

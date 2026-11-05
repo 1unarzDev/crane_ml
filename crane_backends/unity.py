@@ -116,7 +116,7 @@ class ClusterBackend:
         self.ctx = ctx
         self.job = {**DEFAULTS, **self.options, **ctx.spec}
         if not self.job.get('family') or not self.job.get('scene'):
-            raise RuntimeError('unity backend: job spec needs family and scene')
+            raise RuntimeError('unity backend: job needs family and scene (spec or backend options)')
         if not self.job.get('player'):
             raise RuntimeError('unity backend: no player configured')
         self.player = Path(os.path.expandvars(str(self.job['player']))).expanduser()
