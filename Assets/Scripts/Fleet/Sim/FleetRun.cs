@@ -37,6 +37,9 @@ namespace Crane.Fleet.Sim {
         public bool SourceDirty;
         public string Launcher = "unknown";
         public IFleetMission Mission;
+        /// <summary>Injected failures: "rover:target:mode@t;..." with target wheel_fl|wheel_fr|wheel_rl|wheel_rr (dead_free, dead_locked, weak, ok),
+        /// camera (lost), encoders (lost). Applied when run time reaches t; each is logged as a failure_injected event.</summary>
+        public string Failures = "";
     }
 
     /// <summary>
@@ -157,6 +160,7 @@ namespace Crane.Fleet.Sim {
         /// <summary>Advance one fixed physics step. Returns false when the run has ended.</summary>
         public bool Advance() {
             if (Done) return false;
+            ApplyFailures();
             M?.PreStep(this);
             foreach (var r in Rovers) {
                 RoverTruth t = r.Truth();
@@ -209,6 +213,36 @@ namespace Crane.Fleet.Sim {
             WriteTraj();
             WriteManifest(true);
             Physics.simulationMode = previousMode;
+        }
+
+        List<(double t, string rover, string target, string mode)> failures;
+
+        void ApplyFailures() {
+            if (failures == null) {
+                failures = new List<(double, string, string, string)>();
+                foreach (string item in (Opt.Failures ?? "").Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries)) {
+                    var at = item.Split('@');
+                    var p = at[0].Split(':');
+                    if (p.Length != 3) throw new FormatException("failure spec " + item);
+                    failures.Add((at.Length > 1 ? double.Parse(at[1], CultureInfo.InvariantCulture) : 0, p[0], p[1], p[2]));
+                }
+            }
+            for (int i = failures.Count - 1; i >= 0; i--) {
+                var f = failures[i];
+                if (T < f.t - 1e-9) continue;
+                failures.RemoveAt(i);
+                var r = Rover(f.rover);
+                string[] wheels = { "wheel_fl", "wheel_fr", "wheel_rl", "wheel_rr" };
+                int wi = Array.IndexOf(wheels, f.target);
+                if (wi >= 0) {
+                    r.Plant.Health[wi] = f.mode switch { "dead_free" => WheelHealth.DeadFree, "dead_locked" => WheelHealth.DeadLocked, "weak" => WheelHealth.Weak,
+                        "ok" => WheelHealth.Ok, _ => throw new FormatException("wheel failure mode " + f.mode) };
+                }
+                else if (f.target == "camera") r.CameraLost = f.mode == "lost";
+                else if (f.target == "encoders") r.EncodersLost = f.mode == "lost";
+                else throw new FormatException("failure target " + f.target);
+                Event("failure_injected", f.rover, new Dictionary<string, object> { ["target"] = f.target, ["mode"] = f.mode, ["scheduled_t"] = f.t });
+            }
         }
 
         string StepOf(RoverRig r) => M != null ? M.StepOf(r.D.Id) : r.Script.CurrentStep;
@@ -401,6 +435,7 @@ namespace Crane.Fleet.Sim {
                     ["doorway_width"] = World != null ? World.DoorwayWidth : double.NaN, ["floor"] = Spec.S["arena.floor"].String,
                     ["controller_input"] = M != null ? M.ControllerInput : "evaluator_truth (qualification script only)",
                     ["mission"] = M != null ? M.GetType().Name : "qualification",
+                    ["failures"] = Opt.Failures ?? "",
                     ["physics_scene"] = Phys != null ? Phys.Describe : "default",
                     ["estimate_source"] = "wheel encoders (ideal kinematics) + gyro heading; initialised from truth at t=0",
                     ["physics"] = "Unity PhysX Rigidbody, simulationMode=Script, frictionless wheel spheres, plant force at CoM"

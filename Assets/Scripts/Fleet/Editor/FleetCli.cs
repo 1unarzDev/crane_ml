@@ -88,6 +88,19 @@ namespace Crane.Fleet.EditorTools {
             Exit(code);
         }
 
+        /// <summary>Paired-run harness (headless): --crane-fleet-jobs JOBS.json (see FleetHarness).</summary>
+        public static void Jobs() {
+            int code = 0;
+            try {
+                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                var (commit, dirty) = Git();
+                var res = FleetHarness.RunHeadless(FleetArgs.SpecDir(DefaultSpec), FleetArgs.Get("--crane-fleet-jobs"), "editor", commit, dirty);
+                Debug.Log($"CRANE_FLEET_JOBS n={res.Count} failed={res.FindAll(r => !r.Success).Count}");
+            }
+            catch (Exception e) { Debug.LogError("CRANE_FLEET_FAILED " + e); code = 3; }
+            Exit(code);
+        }
+
         public static void Check() {
             int code = 0;
             try {

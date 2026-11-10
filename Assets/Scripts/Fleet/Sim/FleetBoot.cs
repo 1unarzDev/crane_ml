@@ -30,6 +30,7 @@ namespace Crane.Fleet.Sim {
             string dur = Get("--crane-fleet-duration");
             if (dur != null) o.MaxDuration = double.Parse(dur, CultureInfo.InvariantCulture);
             o.SourceCommit = Get("--crane-source-commit", "");
+            o.Failures = Get("--crane-fleet-failures", "");
             o.SourceDirty = string.Equals(Get("--crane-source-dirty", "false"), "true", StringComparison.OrdinalIgnoreCase);
             if (spec != null && Get("--crane-fleet-mission", "qual") == "demo") {
                 o.Mission = new DemoMission(spec);
@@ -47,7 +48,8 @@ namespace Crane.Fleet.Sim {
     public sealed class FleetBoot : MonoBehaviour {
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void Install() {
-            if (!FleetArgs.Has("--crane-fleet-run") && FleetArgs.Get("--crane-fleet-check") == null && FleetArgs.Get("--crane-fleet-still") == null) return;
+            if (!FleetArgs.Has("--crane-fleet-run") && FleetArgs.Get("--crane-fleet-check") == null && FleetArgs.Get("--crane-fleet-still") == null
+                && FleetArgs.Get("--crane-fleet-jobs") == null) return;
             var go = new GameObject("CRANE fleet boot");
             DontDestroyOnLoad(go);
             go.AddComponent<FleetBoot>();
@@ -83,6 +85,22 @@ namespace Crane.Fleet.Sim {
                 Debug.Log($"CRANE_FLEET_CHECK pass={r.Pass} report={check} failures={r.Failures.Count}");
                 foreach (string f in r.Failures) Debug.Log("CRANE_FLEET_CHECK_FAIL " + f);
                 exit(r.Pass ? 0 : 1);
+                yield break;
+            }
+            string jobs = FleetArgs.Get("--crane-fleet-jobs");
+            if (jobs != null) {
+                string specDir = FleetArgs.SpecDir(Path.Combine(Application.streamingAssetsPath, "Fleet"));
+                string commit = FleetArgs.Get("--crane-source-commit", "");
+                bool dirty = FleetArgs.Get("--crane-source-dirty", "false") == "true";
+                var res = FleetHarness.RunHeadless(specDir, jobs, "player", commit, dirty);
+                if (SystemInfo.graphicsDeviceType != UnityEngine.Rendering.GraphicsDeviceType.Null) {
+                    var root = JsonNode.FromText(File.ReadAllText(jobs));
+                    var byId = new Dictionary<string, JsonNode>();
+                    foreach (var j in root["jobs"].Items) byId[j["id"].String] = j;
+                    foreach (var r in res)
+                        if (!r.Success) yield return FleetHarness.RenderReplay(specDir, byId[r.Id], r, Path.GetFullPath(root["out"].String), "player", commit, dirty);
+                }
+                exit(0);
                 yield break;
             }
             string still = FleetArgs.Get("--crane-fleet-still");
@@ -130,10 +148,11 @@ namespace Crane.Fleet.Sim {
         readonly bool look;
         readonly bool clips;
 
-        public FleetShots(FleetSpec spec, FleetRun run, string dir, string section) {
+        public FleetShots(FleetSpec spec, FleetRun run, string dir, string section) : this(spec, run, dir, spec.O[section]) { }
+
+        public FleetShots(FleetSpec spec, FleetRun run, string dir, JsonNode S) {
             this.spec = spec; this.run = run; this.dir = dir;
             Directory.CreateDirectory(dir);
-            JsonNode S = spec.O[section];
             double[] size = S["size"].Doubles;
             double scale = double.Parse(FleetArgs.Get("--crane-fleet-still-scale", "1"), CultureInfo.InvariantCulture);
             w = (int)(size[0] * scale); h = (int)(size[1] * scale);
@@ -235,12 +254,15 @@ namespace Crane.Fleet.Sim {
                 ["profile"] = s.Camera.Has("sensor") ? "sensor" : "cinematic", ["camera"] = new[] { (double)p.x, p.z, p.y }, ["look_at"] = new[] { (double)l.x, l.z, l.y },
                 ["fov"] = s.Fov, ["size"] = new[] { w, h } };
             if (run.Opt.Mission is DemoMission dm) {
-                rec["connector"] = Crane.Fleet.Docking.ConnectorStateNames.ToProfileName(dm.Machine.State);
-                rec["hook_pos"] = new[] { dm.Machine.HookPosA, dm.Machine.HookPosB };
+                rec["connector"] = dm.ConnectorState;
+                rec["hook_pos"] = dm.HookPos;
                 rec["payload_mode"] = dm.PayloadMode;
                 var steps = new Dictionary<string, object>();
                 foreach (var r in run.Rovers) steps[r.D.Id] = dm.StepOf(r.D.Id);
                 rec["steps"] = steps;
+                var ctl = new Dictionary<string, object>();
+                foreach (var r in run.Rovers) ctl[r.D.Id] = dm.ControllerOf(r.D.Id);
+                rec["controllers"] = ctl;
             }
             if (s.Camera.Has("sensor")) rec["sensor_profile_violations"] = FleetLook.Sensor != null ? FleetLook.SensorProfileViolations(FleetLook.Sensor) : new List<string> { "no sensor profile (look off)" };
             index.WriteLine(FleetJson.Write(rec));

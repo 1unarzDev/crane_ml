@@ -1,0 +1,12 @@
+{
+  "note": "Paired runs of the demo mission (seed 1): nominal vs injected failures; plus a second seed. Outputs under out/.",
+  "out": "/home/lunarz/.cache/crane-fleet/jobs/demo_failures_v0",
+  "divergence_tol": 0.001,
+  "jobs": [
+    {"id": "nominal_s1", "mission": "demo", "seed": 1, "variant": "demo_nominal"},
+    {"id": "cargo2_fr_dead_locked_at30_s1", "mission": "demo", "seed": 1, "variant": "demo_cargo2_fr_dead_locked", "failures": "cargo_2:wheel_fr:dead_locked@30", "pair_of": "nominal_s1"},
+    {"id": "cargo2_fl_dead_free_at0_s1", "mission": "demo", "seed": 1, "variant": "demo_cargo2_fl_dead_free", "failures": "cargo_2:wheel_fl:dead_free@0", "pair_of": "nominal_s1"},
+    {"id": "cargo2_camera_lost_at0_s1", "mission": "demo", "seed": 1, "variant": "demo_cargo2_camera_lost", "failures": "cargo_2:camera:lost@0", "pair_of": "nominal_s1", "max_duration_s": 120},
+    {"id": "nominal_s2", "mission": "demo", "seed": 2, "variant": "demo_nominal"}
+  ]
+}

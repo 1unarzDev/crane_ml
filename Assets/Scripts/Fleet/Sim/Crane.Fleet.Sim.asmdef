@@ -3,6 +3,9 @@
     "rootNamespace": "Crane.Fleet.Sim",
     "references": [
         "Crane.Fleet.Core",
+        "Crane.Fleet.Perception",
+        "Crane.Fleet.Perception.Evaluator",
+        "Crane.Fleet.AutonomyApi",
         "PerformanceAssembly",
         "Unity.RenderPipelines.Core.Runtime",
         "Unity.RenderPipelines.HighDefinition.Runtime"

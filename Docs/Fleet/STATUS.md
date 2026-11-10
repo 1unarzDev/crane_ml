@@ -108,3 +108,42 @@ What is wrong with the current stills:
 - No rover-rover avoidance; routes are staggered in time by hand.
 - Unity rewrites `ProjectSettings/ProjectSettings.asset` (drops a define) and `.vscode/settings.json` on import;
   these are reverted, not committed.
+
+---
+
+# Phase 2 (2026-11-10)
+
+Coordinator accepted the chassis-origin decision: `base_link` = centre of the body underside, kept in the CRANE-only overlay
+(`frame_convention.origin = body_underside`), matching the asset pipeline.
+
+Unity launch rule (operator, 2026-11-10): `Tools/Fleet/fleet.sh` waits until no `unity.*` heavy slot is held by anyone and at least
+12 GB is available before every launch (then `flock` + `heavy unity`). Much of phase 2's wall time was spent waiting on this.
+
+## What exists (phase 2)
+
+| Item | Where | Evidence |
+|---|---|---|
+| Docking core imported into `Crane.Fleet.Core` (namespaces `Crane.Fleet.Docking/Graph/Profile`); its `ProfileLoader` (System.Text.Json) and `DeterministicRng` removed; single loader = `FleetSpec`, single RNG = `FleetRng`; `DockingProfileBuilder` fills the core's typed profile from the spec and runs its `Validate()`; one `Pose2` (the core's) | `Assets/Scripts/Fleet/Core/Docking/` (`SOURCE_SHA256.txt` = hashes of the imported sources) | FIXTURE_VALIDATED (EditMode: latch on an ideal approach; profile from spec) and LIVE_SIM_VALIDATED (demo run) |
+| Asset manifests (crane.fleet_asset_manifest/v0) and OBJ meshes, provisional, copied with provenance and sha256 | `Tools/Fleet/assets_provisional_v0/` (`PROVENANCE.md`, `SHA256SUMS`), mirrored to `Assets/StreamingAssets/Fleet/assets_provisional_v0/` | LIVE_SIM_VALIDATED |
+| Asset visuals: one transform per part, origin under parent, joints driven from state (wheels from plant wheel angles, hooks from the connector machine, lift carriage and fingers from the lifter state, state LED per face), materials from the manifest slots, role colour override, tag textures (+10 ids for cargo_2) | `Sim/FleetAssets.cs`, `Sim/RoverRig.cs` | LIVE_SIM_VALIDATED (built in runs; render see stills) |
+| With a manifest present: sensor frames come from the manifest (overlay placeholders dropped), chassis/deck collision boxes from the manifest; wheel contact spheres, mass and docking faces from the profile | `Core/FleetSpec.cs` | LIVE_SIM_VALIDATED |
+| CAD-swap check extended to the imported assets: render-wheel bottom on the floor, manifest wheel origins = profile axles, manifest face origins = profile faces | `Sim/CadSwapCheck.cs` | see results |
+| Per-run physics scene (player: `CreateScene` with `LocalPhysicsMode.Physics3D`; editor: preview scene) | `Sim/FleetPhysicsScene.cs` | FIXTURE_VALIDATED (EditMode `RunIsIndependentOfWhatRanBeforeInTheProcess`) |
+| Demo mission (scripted, steers from truth; logged in the manifest as `controller_input`) | `Sim/DemoMission.cs`, overlay `demo` | LIVE_SIM_VALIDATED |
+| Indoor look (LOOK.md): tiled floor texture, matte walls, yellow door jambs and door tape, shelf/pallet dressing, tinted zones with tape, ceiling + south wall on cut-away layer 28, rect-light grid + fill + door practicals, cinematic (layer 30) and neutral sensor (layer 31) volumes, sensor camera with look frame-settings off and no AA | `Sim/FleetLook.cs`, overlay `look` | see stills |
+| Event-triggered shots (time or logged event + offset; absolute, rover/payload-relative, onboard sensor cameras), `stills.jsonl` per still with the logged state, optional clip (PNG frames + ffmpeg) | `Sim/FleetBoot.cs` (`FleetShots`), overlay `demo_shots` | see stills |
+
+## Demo mission (overlay `demo`)
+
+Scout drives behind the shelf to a viewpoint and "finds" the long payload (camera `cam_left`: within hfov/2, within 4 m, ray reaches
+the payload first). Lifter waits, then grips it off a 0.10 m stand (staging: the 0.15 m lift travel cannot otherwise clear the 0.152 m
+deck surface), lifts 0.07 m more and carries it **kinematically** (rigid grip; lifter load and tipping not simulated; a static check is
+logged: 6 kg > 5 kg profile lift capacity, combined CoM 0.28 m ahead of the 0.14 m front axle, i.e. the lifter would tip). cargo_1 parks in
+the assembly zone; cargo_2 drives to a pre-dock pose and creeps in at 0.03 m/s while the docking core's `ConnectorMachine` is stepped
+every physics step with the live face-to-face pose (gap, lateral, yaw, height, closing speed): APPROACH -> MAGNET_CAPTURED ->
+EngageHooks -> hooks sensed -> Verify -> LATCHED_VERIFIED, at which a `FixedJoint` (follower -> leader, collision between them off) is
+created at the current relative pose. FixedJoint rather than an ArticulationBody parent: both rovers are Rigidbodies driven by the same
+force-level plant; re-parenting into an articulation would replace the plant's body and its validated behaviour mid-run, while a fixed
+joint between two 6.8 kg bodies at 200 Hz is well-conditioned (equal masses, no long lever). The lifter lowers the payload onto the
+coupled decks by opening the gripper (payload becomes dynamic, drops about 1.8 cm, rests by physics), backs off and clears. The pair
+drives through the doorway (follower command = leader twist plus w x r) to delivery; the scout watches from the east hall.

@@ -824,7 +824,49 @@
         8.96,
         3.5,
         0.0
-      ]
+      ],
+      "rendezvous_distance": {
+        "value": 0.7,
+        "provenance": "provisional"
+      },
+      "tag_docking": {
+        "standoff": {
+          "value": 0.25,
+          "provenance": "provisional"
+        },
+        "speed": {
+          "value": 0.1,
+          "provenance": "provisional"
+        },
+        "approach_speed": {
+          "value": 0.03,
+          "provenance": "provisional"
+        },
+        "kp_pos": {
+          "value": 1.5,
+          "provenance": "provisional"
+        },
+        "kp_yaw": {
+          "value": 2.0,
+          "provenance": "provisional"
+        },
+        "max_yaw_rate": {
+          "value": 0.75,
+          "provenance": "provisional"
+        },
+        "pos_tolerance": {
+          "value": 0.01,
+          "provenance": "provisional"
+        },
+        "yaw_tolerance": {
+          "value": 0.01,
+          "provenance": "provisional"
+        },
+        "min_observations": {
+          "value": 15,
+          "provenance": "provisional"
+        }
+      }
     }
   },
   "look": {

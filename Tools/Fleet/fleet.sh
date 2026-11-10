@@ -111,5 +111,17 @@ case "$cmd" in
             --crane-disable-ros --crane-disable-sitl --crane-fleet-spec "$spec" --crane-fleet-still "$dir" --crane-fleet-mission demo \
             --crane-seed "$seed" --crane-source-commit "$commit" --crane-source-dirty "$dirty" "$@" ) || true
         grep -h "CRANE_FLEET_STILL \|CRANE_FLEET_EXIT\|CRANE_FLEET_FAILED\|CRANE_FLEET_CLIP\|CRANE_FLEET_RUN_END" "$dir/player.log" ;;
+    jobs)    # jobs JOBS.json: paired-run harness in the editor (headless)
+        ed "$cache/logs/jobs-$stamp.log" -quit -executeMethod Crane.Fleet.EditorTools.FleetCli.Jobs --crane-fleet-jobs "$(realpath "${1:?jobs}")" || true
+        grep -h "CRANE_FLEET_JOB\|CRANE_FLEET_FAILED\|CRANE_FLEET_EXIT" "$cache/logs/jobs-$stamp.log" ;;
+    jobs-player)   # jobs-player JOBS.json: same in the player with a GPU (adds rendered replay frames for failed jobs)
+        jf=$(realpath "${1:?jobs}")
+        memwait
+        ( unset WAYLAND_DISPLAY
+          flock "$cache/unity.lock" xvfb-run -a -s "-screen 0 1280x720x24" "$heavy" unity "$player" -batchmode \
+            -screen-fullscreen 0 -screen-width 320 -screen-height 180 -logFile "$cache/logs/pjobs-$stamp.log" \
+            --crane-disable-ros --crane-disable-sitl --crane-fleet-spec "$spec" --crane-fleet-jobs "$jf" \
+            --crane-source-commit "$commit" --crane-source-dirty "$dirty" ) || true
+        grep -h "CRANE_FLEET_JOB\|CRANE_FLEET_STILL \|CRANE_FLEET_FAILED\|CRANE_FLEET_EXIT" "$cache/logs/pjobs-$stamp.log" ;;
     *) echo "unknown command $cmd" >&2; exit 2 ;;
 esac

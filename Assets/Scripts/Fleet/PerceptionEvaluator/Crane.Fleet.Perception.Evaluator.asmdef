@@ -1,0 +1,14 @@
+{
+    "name": "Crane.Fleet.Perception.Evaluator",
+    "rootNamespace": "Crane.Fleet.Perception.Evaluator",
+    "references": ["Crane.Fleet.Perception"],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}

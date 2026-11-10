@@ -30,7 +30,8 @@ namespace Crane.Fleet.Sim {
         public readonly List<SphereCollider> WheelColliders = new List<SphereCollider>();
         public readonly string RenderSource;
         public readonly AssetVisual Visual;   // null for primitives
-        public double Lift, GripperOpening = double.NaN;   // lifter state (m), render and payload carry
+        public double Lift, GripperOpening = double.NaN;
+        public bool CameraLost, EncodersLost;   // injected sensor failures (rover side sees no tags / frozen encoders)   // lifter state (m), render and payload carry
 
         readonly int imuEvery, encEvery;
         readonly double dt;
@@ -150,7 +151,7 @@ namespace Crane.Fleet.Sim {
                 double rate = Gyro.Sample(Truth().Body.Wz, imuEvery * dt);
                 Odometry?.IntegrateGyro(rate, imuEvery * dt);
             }
-            if (step % encEvery == 0) {
+            if (step % encEvery == 0 && !EncodersLost) {
                 Encoders.Sample(Plant.WheelAngle);
                 Odometry?.IntegrateEncoders(encEvery * dt);
             }

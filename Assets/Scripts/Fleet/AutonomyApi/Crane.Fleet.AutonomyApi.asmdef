@@ -1,0 +1,14 @@
+{
+    "name": "Crane.Fleet.AutonomyApi",
+    "rootNamespace": "Crane.Fleet.Autonomy",
+    "references": ["Crane.Fleet.Core", "Crane.Fleet.Perception"],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}

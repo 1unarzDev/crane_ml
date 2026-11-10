@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using Crane.Fleet.Autonomy;
 using Crane.Fleet.Docking;
 using UnityEngine;
 
@@ -18,6 +19,7 @@ namespace Crane.Fleet.Sim {
         // ---------------------------------------------------------------- steps
         abstract class Step {
             public string Name;
+            public string Controller = "scripted_truth";   // scripted_truth | closed_loop_odometry | closed_loop_tag_docking | coupled
             public virtual void Begin(DemoMission m, RoverRig r) { }
             /// <summary>Set r.Command (or leave it); return true when done.</summary>
             public abstract bool Tick(DemoMission m, RoverRig r);
@@ -34,6 +36,21 @@ namespace Crane.Fleet.Sim {
                 double tol = double.IsNaN(Tol) ? m.posTol : Tol;
                 if (dist < tol && Math.Abs(ey) < m.yawTol) { r.Command = new Twist(); return true; }
                 if (m.run.T - t0 > m.timeout) { m.Log("step_timeout", r.D.Id, new Dictionary<string, object> { ["step"] = Name, ["dist"] = dist, ["yaw_err"] = ey }); return true; }
+                return false;
+            }
+        }
+
+        /// <summary>Closed-loop go-to on the rover's own odometry estimate (encoders + gyro), no truth.</summary>
+        sealed class OdoGoTo : Step {
+            public double X, Y, Yaw, Speed;
+            double t0;
+            public OdoGoTo() { Controller = "closed_loop_odometry"; }
+            public override void Begin(DemoMission m, RoverRig r) { t0 = m.run.T; }
+            public override bool Tick(DemoMission m, RoverRig r) {
+                var o = r.Odometry;
+                r.Command = GoToController.Command(new Pose2(o.X, o.Y, o.Yaw), X, Y, Yaw, m.kp, m.kyaw, Speed, m.wmax, out double dist, out double ey);
+                if (dist < m.posTol && Math.Abs(ey) < m.yawTol) { r.Command = new Twist(); return true; }
+                if (m.run.T - t0 > m.timeout) { m.Log("step_timeout", r.D.Id, new Dictionary<string, object> { ["step"] = Name, ["dist_est"] = dist }); return true; }
                 return false;
             }
         }
@@ -62,21 +79,24 @@ namespace Crane.Fleet.Sim {
         string payloadMode = "static";
         Vector3 carryPos; Quaternion carryRot; double carryLift0;
         double liftTarget, gripTarget, gripMin, gripMax, liftSpeed, gripRate;
-        ConnectorMachine machine;
-        DockingCommand dockCmd = DockingCommand.None;
-        FacePose facePose;
-        double prevGap = double.NaN;
-        FixedJoint coupling;
+        CouplingManager couplings;
+        FleetPerceptionHost perception;
+        readonly Dictionary<string, SimRoverIO> io = new Dictionary<string, SimRoverIO>();
+        TagDockingController dockCtl;
         Pose2 placedRel; bool placed;
+        bool hooksClosingLogged;
         double maxSlip;
         double deliveredAt = double.NaN;
         readonly Dictionary<string, object> results = new Dictionary<string, object>();
 
         public string Variant => "demo";
-        public string ControllerInput => "evaluator_truth (scripted demo controllers; docking machine fed from truth face poses)";
+        public string ControllerInput => "mixed: cargo_2 closed-loop (own odometry + perception-core tag observations); scout, lifter, leader parking and coupled transport scripted_truth fallback; connector machine fed by the evaluator with the truth face pose (it models the mechanism)";
         public bool Done { get; private set; }
-        public ConnectorMachine Machine => machine;
-        public bool Coupled => coupling != null;
+        CouplingManager.Coupling Pair => couplings?.Of(follower, followerFace);
+        public string ConnectorState => Pair != null ? ConnectorStateNames.ToProfileName(Pair.Machine.State) : "FREE";
+        public double[] HookPos => Pair != null ? new[] { Pair.Machine.HookPosA, Pair.Machine.HookPosB } : new double[2];
+        public bool Coupled => Pair != null && Pair.Joint != null;
+        public string ControllerOf(string id) => current.TryGetValue(id, out var s) && s != null ? s.Controller : "hold (scripted_truth)";
         public string PayloadMode => payloadMode;
 
         public DemoMission(FleetSpec spec) {
@@ -94,7 +114,6 @@ namespace Crane.Fleet.Sim {
         // ---------------------------------------------------------------- build
         public IEnumerable<GameObject> Build(FleetRun r) {
             run = r;
-            r.IgnoreContact = (a, b) => Coupled && ((a == leader && b == follower) || (a == follower && b == leader));
             JsonNode c = D["controller"];
             kp = c["kp_pos"].Double; kyaw = c["kp_yaw"].Double; posTol = c["pos_tolerance"].Double; yawTol = c["yaw_tolerance"].Double;
             scout = r.Rover("scout_1"); lifter = r.Rover("lifter_1");
@@ -133,10 +152,15 @@ namespace Crane.Fleet.Sim {
                 new Color(0.35f, 0.38f, 0.42f), r.World.FloorMaterial);
             stand.transform.rotation = FleetFrames.WorldYaw(pp[2]);
 
-            // the coupling's connector machine (one per coupling), seeded from the run seed
-            var profile = DockingProfileBuilder.Build(spec);
-            machine = new ConnectorMachine(new ContactModel(profile, new DockingAssumptions()), FleetRng.For(r.Opt.Seed, "coupling").NextU64(),
-                $"{leader.D.Id}.{leaderFace}-{follower.D.Id}.{followerFace}");
+            // couplings (docking core per face pair) and the perception core (evaluator side; rovers get providers only)
+            couplings = new CouplingManager(r, spec);
+            couplings.OnLatched = cp => {
+                var f = new Dictionary<string, object> { ["coupling"] = cp.Id, ["lateral"] = cp.Pose.Lateral, ["yaw"] = cp.Pose.Yaw, ["gap"] = cp.Pose.Gap,
+                    ["settled_lateral"] = cp.Machine.Settled.Lateral, ["settled_yaw"] = cp.Machine.Settled.Yaw, ["attempts"] = dockCtl != null ? dockCtl.Attempts : 0 };
+                results["coupling"] = f;
+                Flag("coupled", cp.A.D.Id);
+            };
+            perception = new FleetPerceptionHost(spec, r.Rovers, r.Opt.Seed);
 
             // lifter actuators (profile values)
             JsonNode lr = spec.P["roles.lifter"];
@@ -151,6 +175,8 @@ namespace Crane.Fleet.Sim {
 
         // ---------------------------------------------------------------- script
         public void Start(FleetRun r) {
+            perception.Record(r.T, r.Rovers);
+            foreach (var rv in r.Rovers) io[rv.D.Id] = new SimRoverIO(rv, perception, couplings, r);
             foreach (var rv in r.Rovers) {
                 queues[rv.D.Id] = new Queue<Step>();
                 var t = Truth(rv);
@@ -158,7 +184,8 @@ namespace Crane.Fleet.Sim {
                 if (rv.Visual != null) foreach (var f in rv.D.Faces) { rv.Visual.SetFaceHooks(f.Name, 0, 0); rv.Visual.SetLed(f.Name, Color.black, 0); }
             }
             BuildScout(); BuildLifter(); BuildCargo();
-            Log("mission_start", "", new Dictionary<string, object> { ["payload"] = D["payload.type"].String, ["coupling"] = machine.Id });
+            Log("mission_start", "", new Dictionary<string, object> { ["payload"] = D["payload.type"].String, ["closed_loop"] = follower.D.Id + " (odometry navigation + tag docking)",
+                ["scripted_truth"] = "scout, lifter, leader parking and coupled transport (fallback until the autonomy library lands)" });
         }
 
         static (double, double, double) P3(double[] a, double yaw) => (a[0], a[1], yaw);
@@ -283,18 +310,23 @@ namespace Crane.Fleet.Sim {
             Q(leader, WaitFlag("payload_placed"));
             Q(leader, WaitFlag("lifter_clear"));
             Q(leader, WaitFlag("scout_watching"));
-            foreach (var w in C["pair_route"].Items) { var p = w.Doubles; Q(leader, Pair("pair_route", p[0], p[1], 0)); }
+            foreach (var w in C["pair_route"].Items) { var p = w.Doubles; Q(leader, PairGo("pair_route", p[0], p[1], 0)); }
             double[] del = C["delivery_leader"].Doubles;
-            Q(leader, Pair("to_delivery", del[0], del[1], del[2]));
+            Q(leader, PairGo("to_delivery", del[0], del[1], del[2]));
             Q(leader, Do("arrived", (m, r) => m.Flag("pair_arrived", r.D.Id)));
 
             Q(follower, WaitFlag("leader_on_lane"));
-            foreach (var w in C["route"].Items) { var p = w.Doubles; Q(follower, Go("route", p[0], p[1], 0, cruise)); }
+            foreach (var w in C["route"].Items) { var p = w.Doubles; Q(follower, new OdoGoTo { Name = "route", X = p[0], Y = p[1], Yaw = 0, Speed = cruise }); }
             Q(follower, WaitFlag("leader_parked"));
-            double pre = C["dock_pre_gap"].Double;
-            Q(follower, new GoTo { Name = "pre_dock", Target = m => m.DockTarget(-pre), Speed = cruise, Tol = posTol });
-            Q(follower, Dock(C));
-            Q(follower, new Lambda { Name = "coupled_slave", F = (m, r) => false });   // the leader commands both bodies from now on
+            // rendezvous from the PLAN (where the leader is supposed to park), not from truth: behind it, inside tag range
+            double look = C["rendezvous_distance"].Double;
+            var planned = new Pose2(asm[0], asm[1], asm[2]);
+            Pose2 mate = CadSwapCheck.MatingPose(planned, leader.D.Face(leaderFace).Pose, follower.D.Face(followerFace).Pose);
+            Q(follower, new OdoGoTo { Name = "to_rendezvous", X = mate.X - Math.Cos(mate.Yaw) * look, Y = mate.Y - Math.Sin(mate.Yaw) * look, Yaw = mate.Yaw, Speed = cruise });
+            Q(follower, new Lambda { Name = "tag_docking", Controller = "closed_loop_tag_docking",
+                OnBegin = (m, r) => m.dockCtl = new TagDockingController(m.io[r.D.Id], m.leader.D.Id, m.leader.D, m.followerFace, m.leaderFace, m.D["cargo.tag_docking"]),
+                F = (m, r) => m.dockCtl.Step(m.run.T) });
+            Q(follower, new Lambda { Name = "coupled_slave", Controller = "coupled (commanded through the leader)", F = (m, r) => false });
         }
 
         /// <summary>Follower pose that mates its face with the leader's face, shifted by <paramref name="along"/> along its heading.</summary>
@@ -304,42 +336,7 @@ namespace Crane.Fleet.Sim {
             return (t.X + Math.Cos(t.Yaw) * along, t.Y + Math.Sin(t.Yaw) * along, t.Yaw);
         }
 
-        Step Dock(JsonNode C) {
-            double v = C["dock_speed"].Double, vf = C["dock_final_speed"].Double, contact = C["dock_contact_gap"].Double;
-            double capturedAt = double.NaN;
-            bool retreating = false;
-            return new Lambda { Name = "dock", OnBegin = (m, r) => m.dockCmd = DockingCommand.Approach, F = (m, r) => {
-                var st = m.machine.State;
-                bool captured = st == ConnectorState.MagnetCaptured || st == ConnectorState.HookAEngaged || st == ConnectorState.HookBEngaged || st == ConnectorState.Partial;
-                if (st == ConnectorState.Approach || captured || st == ConnectorState.LatchedVerified) {
-                    // creep onto the mating pose (2 mm past it, so the faces press together and the leader holds)
-                    var (x, y, yaw) = m.DockTarget(0.002);
-                    r.Command = GoToController.Command(m.Truth(r), x, y, yaw, m.kp, m.kyaw, captured ? vf : v, m.wmax, out _, out _);
-                }
-                else r.Command = m.HoldCommand(r);
-                if (captured && double.IsNaN(capturedAt)) capturedAt = m.run.T;
-                if (st == ConnectorState.MagnetCaptured && m.dockCmd != DockingCommand.EngageHooks && (m.facePose.Gap <= contact || m.run.T - capturedAt > 1.5)) {
-                    m.dockCmd = DockingCommand.EngageHooks;
-                    m.Log("hooks_closing", r.D.Id, new Dictionary<string, object> { ["gap"] = m.facePose.Gap, ["lateral"] = m.facePose.Lateral, ["yaw"] = m.facePose.Yaw });
-                }
-                if ((st == ConnectorState.HookAEngaged || st == ConnectorState.HookBEngaged) && m.machine.SensedA && m.machine.SensedB) m.dockCmd = DockingCommand.Verify;
-                if (st == ConnectorState.LatchedVerified && m.coupling == null) { m.Couple(); return true; }
-                // failed attempt: release (if needed), back off to the pre-dock pose, approach again (machine counts retries)
-                if (st == ConnectorState.Partial || st == ConnectorState.FalseEngagement) m.dockCmd = DockingCommand.Release;
-                if ((st == ConnectorState.Free || st == ConnectorState.Released) && m.run.T > 0) {
-                    if (m.machine.RetriesExhausted) { m.Log("dock_abandoned", r.D.Id, new Dictionary<string, object> { ["attempts"] = m.machine.FailedAttempts }); return true; }
-                    if (!retreating && m.machine.FailedAttempts > 0) { retreating = true; m.dockCmd = DockingCommand.None; m.Log("dock_retry", r.D.Id, new Dictionary<string, object> { ["attempt"] = m.machine.FailedAttempts }); }
-                    if (retreating) {
-                        var (x, y, yaw) = m.DockTarget(-C["dock_pre_gap"].Double);
-                        r.Command = GoToController.Command(m.Truth(r), x, y, yaw, m.kp, m.kyaw, v * 2, m.wmax, out double d, out _);
-                        if (d < m.posTol) { retreating = false; m.dockCmd = DockingCommand.Approach; capturedAt = double.NaN; }
-                    }
-                }
-                return false;
-            } };
-        }
-
-        Step Pair(string name, double x, double y, double yaw) {
+        Step PairGo(string name, double x, double y, double yaw) {
             return new Lambda { Name = name, F = (m, r) => {
                 var c = GoToController.Command(m.Truth(r), x, y, yaw, m.kp, m.kyaw, m.carry, m.wmax * 0.5, out double dist, out double ey);
                 bool done = dist < m.posTol && Math.Abs(ey) < m.yawTol;
@@ -356,22 +353,12 @@ namespace Crane.Fleet.Sim {
 
         // ---------------------------------------------------------------- per step
         public void PreStep(FleetRun r) {
-            // connector machine from the live relative pose of the two faces
-            facePose = FaceRelative(leader.Frames["face_" + leaderFace], follower.Frames["face_" + followerFace]);
-            double closing = double.IsNaN(prevGap) ? 0 : (prevGap - facePose.Gap) / r.Dt;
-            prevGap = facePose.Gap;
-            var res = machine.Step(r.Dt, new ConnectorInputs { Pose = facePose, ClosingSpeed = closing, Command = dockCmd, ReleaseAuthorized = false });
-            foreach (var e in res.Events)
-                Log("connector", follower.D.Id, new Dictionary<string, object> { ["coupling"] = machine.Id, ["event"] = e.Kind.ToString(), ["from"] = ConnectorStateNames.ToProfileName(e.From),
-                    ["to"] = ConnectorStateNames.ToProfileName(e.To), ["trigger"] = e.Trigger?.ToString(), ["detail"] = e.Detail, ["gap"] = facePose.Gap, ["lateral"] = facePose.Lateral, ["yaw"] = facePose.Yaw });
-            if (res.Action != RequestedAction.None) Log("connector_action", follower.D.Id, new Dictionary<string, object> { ["action"] = res.Action.ToString() });
-
             foreach (var rv in r.Rovers) {
                 string id = rv.D.Id;
                 if (!current.TryGetValue(id, out var s) || s == null) {
                     if (queues[id].Count > 0) {
                         s = current[id] = queues[id].Dequeue();
-                        Log("step_start", id, new Dictionary<string, object> { ["step"] = s.Name });
+                        Log("step_start", id, new Dictionary<string, object> { ["step"] = s.Name, ["controller"] = s.Controller });
                         s.Begin(this, rv);
                     }
                 }
@@ -384,6 +371,12 @@ namespace Crane.Fleet.Sim {
                     }
                 }
                 else if (!(Coupled && rv == follower)) rv.Command = HoldCommand(rv);
+            }
+            couplings.Step(r.Dt);
+            var pc = Pair;
+            if (pc != null && pc.Cmd == DockingCommand.EngageHooks && !hooksClosingLogged) {
+                hooksClosingLogged = true;
+                Log("hooks_closing", follower.D.Id, new Dictionary<string, object> { ["gap"] = pc.Pose.Gap, ["lateral"] = pc.Pose.Lateral, ["yaw"] = pc.Pose.Yaw });
             }
             if (Coupled) {
                 // the coupled follower moves rigidly with the leader: v_f = v_l + w x r_f (shared body frame; same heading)
@@ -407,14 +400,7 @@ namespace Crane.Fleet.Sim {
         static double Toward(double v, double target, double step) => v < target ? Math.Min(target, v + step) : Math.Max(target, v - step);
 
         public void PostStep(FleetRun r) {
-            // hooks and LEDs from the machine (both mated faces show the coupling's hook positions)
-            Color led = LedColor(machine.State);
-            float nits = (float)spec.O["visual.led_nits"].Double;
-            foreach (var (rv, face) in new[] { (leader, leaderFace), (follower, followerFace) }) {
-                if (rv.Visual == null) continue;
-                rv.Visual.SetFaceHooks(face, machine.HookPosA, machine.HookPosB);
-                rv.Visual.SetLed(face, led, nits);
-            }
+            perception.Record(r.T, r.Rovers);
             if (placed) {
                 Pose2 rel = Relative(Truth(leader), PayloadPlanar());
                 maxSlip = Math.Max(maxSlip, Math.Sqrt(Sq(rel.X - placedRel.X) + Sq(rel.Y - placedRel.Y)));
@@ -432,27 +418,6 @@ namespace Crane.Fleet.Sim {
         }
 
         static double Sq(double v) => v * v;
-
-        static Color LedColor(ConnectorState s) {
-            switch (s) {
-                case ConnectorState.Approach: return new Color(0.6f, 0.75f, 1f);
-                case ConnectorState.MagnetCaptured: return Color.white;
-                case ConnectorState.HookAEngaged: case ConnectorState.HookBEngaged: return new Color(1f, 0.65f, 0.1f);
-                case ConnectorState.LatchedVerified: return new Color(0.1f, 1f, 0.2f);
-                case ConnectorState.LoadValidated: return new Color(0.1f, 0.9f, 0.8f);
-                case ConnectorState.ReleaseRequested: return new Color(0.95f, 0.1f, 0.6f);
-                case ConnectorState.Free: case ConnectorState.Released: return Color.black;
-                default: return Color.red;
-            }
-        }
-
-        /// <summary>Face B relative to face A (A's frame: +x outward normal): gap along A's normal, lateral, height, yaw error from mating.</summary>
-        static FacePose FaceRelative(Transform a, Transform b) {
-            Vector3 l = Quaternion.Inverse(a.rotation) * (b.position - a.position);
-            FleetFrames.Attitude(a.rotation, out double ya, out _, out _);
-            FleetFrames.Attitude(b.rotation, out double yb, out _, out _);
-            return new FacePose(-l.x, l.z, Angles.Wrap(yb - ya - Math.PI), l.y);
-        }
 
         bool Visible(RoverRig r, string frame, double hfov, double maxRange, out double dist, out double offAxis) {
             dist = double.NaN; offAxis = double.NaN;
@@ -489,18 +454,6 @@ namespace Crane.Fleet.Sim {
             Log("payload_released", lifter.D.Id, new Dictionary<string, object> { ["height_bottom"] = Payload.position.y });
         }
 
-        void Couple() {
-            coupling = follower.Root.AddComponent<FixedJoint>();
-            coupling.connectedBody = leader.Body;
-            coupling.enableCollision = false;
-            var f = new Dictionary<string, object> { ["coupling"] = machine.Id, ["joint"] = "FixedJoint (follower -> leader), created at the current relative pose",
-                ["gap"] = facePose.Gap, ["lateral"] = facePose.Lateral, ["yaw"] = facePose.Yaw, ["height"] = facePose.Height,
-                ["settled_lateral"] = machine.Settled.Lateral, ["settled_yaw"] = machine.Settled.Yaw };
-            results["coupling"] = f;
-            Log("coupled", follower.D.Id, f);
-            Flag("coupled", follower.D.Id);
-        }
-
         Pose2 PayloadPlanar() => FleetFrames.Planar(Payload.transform);
 
         static Pose2 Relative(Pose2 a, Pose2 b) {
@@ -531,11 +484,28 @@ namespace Crane.Fleet.Sim {
         // ---------------------------------------------------------------- logs
         public void LogState(StringBuilder b) {
             string N(double v) => FleetJson.Num(v);
-            b.Append("\"connector\":{\"state\":").Append(FleetJson.Quote(ConnectorStateNames.ToProfileName(machine.State)))
-                .Append(",\"hook_a\":").Append(N(machine.HookPosA)).Append(",\"hook_b\":").Append(N(machine.HookPosB))
-                .Append(",\"sensed\":[").Append(machine.SensedA ? "true" : "false").Append(',').Append(machine.SensedB ? "true" : "false").Append(']')
-                .Append(",\"gap\":").Append(N(facePose.Gap)).Append(",\"lateral\":").Append(N(facePose.Lateral)).Append(",\"yaw\":").Append(N(facePose.Yaw))
-                .Append(",\"height\":").Append(N(facePose.Height)).Append(",\"joint\":").Append(coupling != null ? "true" : "false").Append('}');
+            var pc = Pair;
+            b.Append("\"connector\":{\"state\":").Append(FleetJson.Quote(ConnectorState));
+            if (pc != null)
+                b.Append(",\"hook_a\":").Append(N(pc.Machine.HookPosA)).Append(",\"hook_b\":").Append(N(pc.Machine.HookPosB))
+                    .Append(",\"sensed\":[").Append(pc.Machine.SensedA ? "true" : "false").Append(',').Append(pc.Machine.SensedB ? "true" : "false").Append(']')
+                    .Append(",\"gap\":").Append(N(pc.Pose.Gap)).Append(",\"lateral\":").Append(N(pc.Pose.Lateral)).Append(",\"yaw\":").Append(N(pc.Pose.Yaw))
+                    .Append(",\"height\":").Append(N(pc.Pose.Height)).Append(",\"joint\":").Append(pc.Joint != null ? "true" : "false");
+            b.Append('}');
+            b.Append(",\"controllers\":{");
+            bool first = true;
+            foreach (var rv in run.Rovers) { if (!first) b.Append(','); first = false; b.Append(FleetJson.Quote(rv.D.Id)).Append(':').Append(FleetJson.Quote(ControllerOf(rv.D.Id))); }
+            b.Append('}');
+            if (dockCtl != null) {
+                // rover-side estimate of the target (odometry frame) next to the evaluator's truth of the same quantity
+                var est = dockCtl.TargetEstimate; var lt = Truth(leader); var fo = follower.Odometry; var ft = Truth(follower);
+                b.Append(",\"tag_docking\":{\"phase\":").Append(FleetJson.Quote(dockCtl.State.ToString())).Append(",\"observations\":").Append(dockCtl.ObservationsUsed)
+                    .Append(",\"rejected\":").Append(dockCtl.ObservationsRejected).Append(",\"last_range\":").Append(N(dockCtl.LastObservationRange))
+                    .Append(",\"estimate\":{\"target_x\":").Append(N(est.X)).Append(",\"target_y\":").Append(N(est.Y)).Append(",\"target_yaw\":").Append(N(est.Yaw))
+                    .Append(",\"self_x\":").Append(N(fo.X)).Append(",\"self_y\":").Append(N(fo.Y)).Append(",\"self_yaw\":").Append(N(fo.Yaw)).Append('}')
+                    .Append(",\"truth\":{\"target_x\":").Append(N(lt.X)).Append(",\"target_y\":").Append(N(lt.Y)).Append(",\"target_yaw\":").Append(N(lt.Yaw))
+                    .Append(",\"self_x\":").Append(N(ft.X)).Append(",\"self_y\":").Append(N(ft.Y)).Append(",\"self_yaw\":").Append(N(ft.Yaw)).Append("}}");
+            }
             b.Append(",\"lifter\":{\"lift\":").Append(N(lifter.Lift)).Append(",\"gripper_opening\":").Append(N(lifter.GripperOpening)).Append('}');
             Vector3 p = Payload.position;
             FleetFrames.ToEnu(p, out double x, out double y, out double z);
@@ -545,8 +515,10 @@ namespace Crane.Fleet.Sim {
         }
 
         public void Finish(FleetRun r, Dictionary<string, object> res) {
-            results["connector_final_state"] = ConnectorStateNames.ToProfileName(machine.State);
-            results["connector_failed_attempts"] = machine.FailedAttempts;
+            results["connector_final_state"] = ConnectorState;
+            results["connector_failed_attempts"] = Pair != null ? Pair.Machine.FailedAttempts : 0;
+            if (dockCtl != null) results["tag_docking"] = new Dictionary<string, object> { ["final_phase"] = dockCtl.State.ToString(), ["attempts"] = dockCtl.Attempts,
+                ["observations_used_last_window"] = dockCtl.ObservationsUsed, ["observations_rejected_ambiguous"] = dockCtl.ObservationsRejected };
             results["flags"] = new List<string>(flags);
             results["max_slip_on_decks"] = maxSlip;
             res["demo"] = results;

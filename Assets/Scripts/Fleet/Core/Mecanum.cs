@@ -73,6 +73,27 @@ namespace Crane.Fleet {
             return new Twist(r * (w[0] + w[1] + w[2] + w[3]), r * (-w[0] + w[1] + w[2] - w[3]), r / K * (-w[0] + w[1] - w[2] + w[3]));
         }
 
+        /// <summary>Weighted least-squares forward kinematics (weights 0 drop a wheel); with three or four weighted wheels the twist is determined.</summary>
+        public Twist ForwardWeighted(double[] w, double[] weight) {
+            double k = K, r = Radius;
+            double[,] J = { { 1, -1, -k }, { 1, 1, k }, { 1, 1, -k }, { 1, -1, k } };   // w_i = J_i . twist / r
+            var A = new double[3, 3]; var b = new double[3];
+            for (int i = 0; i < 4; i++)
+                for (int p = 0; p < 3; p++) {
+                    b[p] += weight[i] * J[i, p] * w[i] * r;
+                    for (int q = 0; q < 3; q++) A[p, q] += weight[i] * J[i, p] * J[i, q];
+                }
+            // 3x3 solve (Cramer); a singular system (fewer than three wheels) gives zero motion
+            double det = A[0, 0] * (A[1, 1] * A[2, 2] - A[1, 2] * A[2, 1]) - A[0, 1] * (A[1, 0] * A[2, 2] - A[1, 2] * A[2, 0]) + A[0, 2] * (A[1, 0] * A[2, 1] - A[1, 1] * A[2, 0]);
+            if (Math.Abs(det) < 1e-12) return new Twist();
+            double D(int col) {
+                var m = (double[,])A.Clone();
+                for (int i = 0; i < 3; i++) m[i, col] = b[i];
+                return m[0, 0] * (m[1, 1] * m[2, 2] - m[1, 2] * m[2, 1]) - m[0, 1] * (m[1, 0] * m[2, 2] - m[1, 2] * m[2, 0]) + m[0, 2] * (m[1, 0] * m[2, 1] - m[1, 1] * m[2, 0]);
+            }
+            return new Twist(D(0) / det, D(1) / det, D(2) / det);
+        }
+
         /// <summary>Clamp a command to the body limits, then scale all four wheels together if one exceeds its limit
         /// (preserves the direction of motion). Returns the scale applied (1 = unsaturated).</summary>
         public double Saturate(ref Twist t, double[] w) {
@@ -88,6 +109,10 @@ namespace Crane.Fleet {
             return s;
         }
     }
+
+    /// <summary>Per-wheel actuator health (CONFIG_SPACE.md A9): ok, dead_free (motor off, wheel rolls freely), dead_locked (wheel cannot turn),
+    /// weak (torque and speed limits scaled by <see cref="MecanumPlant.WeakFraction"/>).</summary>
+    public enum WheelHealth { Ok, DeadFree, DeadLocked, Weak }
 
     /// <summary>Plant parameters that are not geometry: floor, motor lag, tracking compliance, mass properties.</summary>
     public sealed class PlantParams {
@@ -128,6 +153,9 @@ namespace Crane.Fleet {
         public Twist Target;                                     // wheel-implied twist after slip and lateral efficiency
         public double Ax, Ay, Alpha;                             // body-frame acceleration to apply
         public double TractionScale = 1;                         // 1 = no traction or torque limit hit
+        public readonly WheelHealth[] Health = { WheelHealth.Ok, WheelHealth.Ok, WheelHealth.Ok, WheelHealth.Ok };
+        public double WeakFraction = 0.3;
+        public bool Healthy => Health[0] == WheelHealth.Ok && Health[1] == WheelHealth.Ok && Health[2] == WheelHealth.Ok && Health[3] == WheelHealth.Ok;
         public double SpeedScale = 1;                            // 1 = no wheel-speed limit hit
         double lastAx, lastAy;
 
@@ -141,13 +169,28 @@ namespace Crane.Fleet {
             double a = 1 - Math.Exp(-dt / P.MotorTimeConstant);
             double rho = Math.Exp(-dt / P.SlipCorrelationTime), q = P.SlipSigma * Math.Sqrt(1 - rho * rho);
             var ground = new double[4];
+            var measuredWheel = new double[4];
+            G.Inverse(measured, measuredWheel);
             for (int i = 0; i < 4; i++) {
-                WheelSpeed[i] += (WheelCommand[i] - WheelSpeed[i]) * a;
+                double cmd = WheelCommand[i];
+                if (Health[i] == WheelHealth.Weak) cmd = Math.Max(-G.MaxWheelSpeed * WeakFraction, Math.Min(G.MaxWheelSpeed * WeakFraction, cmd));
+                switch (Health[i]) {
+                    case WheelHealth.DeadLocked: WheelSpeed[i] = 0; break;
+                    case WheelHealth.DeadFree: WheelSpeed[i] = measuredWheel[i]; break;   // rolls with the ground
+                    default: WheelSpeed[i] += (cmd - WheelSpeed[i]) * a; break;
+                }
                 WheelAngle[i] += WheelSpeed[i] * dt;
                 if (P.SlipSigma > 0) SlipFactor[i] = 1 + (SlipFactor[i] - 1) * rho + q * rng.Gaussian();
                 ground[i] = WheelSpeed[i] * SlipFactor[i];
             }
-            Twist t = G.Forward(ground);
+            // wheel-implied twist: least squares over the wheels that constrain the body (a dead-free wheel does not)
+            Twist t;
+            if (Healthy) t = G.Forward(ground);
+            else {
+                var w = new double[4];
+                for (int i = 0; i < 4; i++) w[i] = Health[i] == WheelHealth.DeadFree ? 0 : 1;
+                t = G.ForwardWeighted(ground, w);
+            }
             t.Vy *= P.LateralEfficiency;
             Target = t;
 
@@ -164,14 +207,19 @@ namespace Crane.Fleet {
             NormalLoad[2] = mg * (1 - fx) * fy;       // rl
             NormalLoad[3] = mg * (1 - fx) * (1 - fy); // rr
 
-            // per-wheel share of the required body force and yaw moment; one common scale keeps the direction
+            // share of the required body force and yaw moment among the wheels that can push (all but dead-free);
+            // one common scale keeps the direction
+            int active = 0;
+            for (int i = 0; i < 4; i++) if (Health[i] != WheelHealth.DeadFree) active++;
             double Fx = P.Mass * ax, Fy = P.Mass * ay, Mz = P.Izz * al, R2 = G.Lx * G.Lx + G.Ly * G.Ly;
-            double torqueLimit = G.MaxWheelTorque / G.Radius, k = 1;
+            double torqueLimit = G.MaxWheelTorque / G.Radius, k = active == 0 ? 0 : 1;
             for (int i = 0; i < 4; i++) {
+                WheelForce[i] = 0;
+                if (Health[i] == WheelHealth.DeadFree || active == 0) continue;
                 double rx = i < 2 ? G.Lx : -G.Lx, ry = (i % 2 == 0) ? G.Ly : -G.Ly;
-                double fxi = Fx / 4 - Mz * ry / (4 * R2), fyi = Fy / 4 + Mz * rx / (4 * R2);
+                double fxi = Fx / active - Mz * ry / (active * R2), fyi = Fy / active + Mz * rx / (active * R2);
                 double f = Math.Sqrt(fxi * fxi + fyi * fyi);
-                double limit = Math.Min(P.Mu * NormalLoad[i], torqueLimit);
+                double limit = Math.Min(P.Mu * NormalLoad[i], torqueLimit * (Health[i] == WheelHealth.Weak ? WeakFraction : 1));
                 WheelForce[i] = f;
                 if (f > limit && f > 0) k = Math.Min(k, limit / f);
             }

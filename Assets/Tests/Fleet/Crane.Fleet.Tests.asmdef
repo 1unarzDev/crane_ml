@@ -2,7 +2,9 @@
     "name": "Crane.Fleet.Tests",
     "references": [
         "Crane.Fleet.Core",
-        "Crane.Fleet.Sim"
+        "Crane.Fleet.Sim",
+        "Crane.Fleet.Perception",
+        "Crane.Fleet.AutonomyApi"
     ],
     "includePlatforms": [
         "Editor"
