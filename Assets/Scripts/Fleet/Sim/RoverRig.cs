@@ -150,7 +150,7 @@ namespace Crane.Fleet.Sim {
 
         /// <summary>Convex cylinder (24 sides) with its axis along Unity local x (= the FLU y axle of a wheel at yaw 0).</summary>
         static Mesh CylinderMesh(double radius, double width) {
-            if (cylinders.TryGetValue((radius, width), out var m)) return m;
+            if (cylinders.TryGetValue((radius, width), out var m) && m != null) return m;   // a scene reload can destroy unreferenced meshes
             const int n = 24;
             var v = new Vector3[2 * n]; var tri = new List<int>();
             for (int k = 0; k < n; k++) {
@@ -163,7 +163,7 @@ namespace Crane.Fleet.Sim {
                 tri.AddRange(new[] { k, n + k, k1, k1, n + k, n + k1 });
                 if (k > 0 && k < n - 1) { tri.AddRange(new[] { 0, k1, k }); tri.AddRange(new[] { n, n + k, n + k1 }); }
             }
-            m = new Mesh { name = $"wheel_cylinder_{radius:0.####}_{width:0.####}", vertices = v, triangles = tri.ToArray() };
+            m = new Mesh { name = $"wheel_cylinder_{radius:0.####}_{width:0.####}", vertices = v, triangles = tri.ToArray(), hideFlags = HideFlags.DontUnloadUnusedAsset };
             m.RecalculateNormals(); m.RecalculateBounds();
             cylinders[(radius, width)] = m;
             return m;
