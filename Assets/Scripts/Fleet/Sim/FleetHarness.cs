@@ -65,8 +65,13 @@ namespace Crane.Fleet.Sim {
                 Failures = j.Has("failures") ? j["failures"].String : "", Launcher = launcher + " (harness)", SourceCommit = commit, SourceDirty = dirty
             };
             string mission = j.Has("mission") ? j["mission"].String : "qual";
-            if (j.Has("mission_file")) mission = JsonNode.FromText(File.ReadAllText(j["mission_file"].String))["mission"].String;
+            JsonNode mf = j.Has("mission_file") ? JsonNode.FromText(File.ReadAllText(j["mission_file"].String)) : null;
+            if (mf != null) mission = mf.Has("schema") && mf["schema"].String.StartsWith("crane.fleet_mission/") ? "autonomy" : mf["mission"].String;
             if (mission == "demo") { o.Mission = new DemoMission(spec); o.MaxDuration = spec.O["demo.max_duration_s"].Double; }
+            else if (mission == "autonomy") {
+                o.Mission = new AutonomyMission(spec, j["mission_file"].String);
+                o.MaxDuration = mf.Has("crane_max_duration_s") ? mf["crane_max_duration_s"].Double : 300.0;
+            }
             else if (mission != "qual") throw new ArgumentException("unknown mission " + mission);
             if (j.Has("labels")) foreach (var kv in j["labels"].Members) o.Labels[kv.Key] = kv.Value.Raw;
             o.Labels["harness_job"] = j["id"].String;
@@ -92,7 +97,15 @@ namespace Crane.Fleet.Sim {
             var res = new JobResult { Id = j["id"].String, Dir = run.Dir, PairOf = j.Has("pair_of") ? j["pair_of"].String : null };
             var m = JsonNode.FromText(File.ReadAllText(Path.Combine(run.Dir, "manifest.json")));
             var results = m["results"];
-            if (run.Opt.Mission is DemoMission) {
+            if (run.Opt.Mission is AutonomyMission) {
+                var a = results.TryGet("autonomy");
+                bool ok = a != null && a["succeeded"].Bool;
+                bool inZone = a != null && a.Has("payload_final") && a["payload_final.in_delivery_zone"].Bool;
+                res.Success = ok;
+                res.Outcome = ok ? (inZone ? "mission_succeeded_payload_delivered" : "mission_succeeded") : "mission_failed";
+                res.Reason = a != null ? $"end={run.EndReason} first_failure_class={a["first_failure_class"].String} first_failure={(a["first_failure"].Unwrapped as string ?? "")}" : "end=" + run.EndReason;
+            }
+            else if (run.Opt.Mission is DemoMission) {
                 var demo = results.TryGet("demo");
                 bool delivered = demo != null && demo.Has("delivered") && demo["delivered.payload_in_delivery_zone"].Bool;
                 res.Success = delivered;

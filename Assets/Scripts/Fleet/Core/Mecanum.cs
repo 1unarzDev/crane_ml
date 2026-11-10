@@ -155,6 +155,9 @@ namespace Crane.Fleet {
         public double TractionScale = 1;                         // 1 = no traction or torque limit hit
         public readonly WheelHealth[] Health = { WheelHealth.Ok, WheelHealth.Ok, WheelHealth.Ok, WheelHealth.Ok };
         public double WeakFraction = 0.3;
+        /// <summary>Wheel-speed set-points (rad/s, fl fr rl rr) from an autonomy layer; when set they replace the body-twist command
+        /// (no inverse kinematics or body limits; each wheel still clamped to its limit).</summary>
+        public double[] WheelCommandOverride;
         public bool Healthy => Health[0] == WheelHealth.Ok && Health[1] == WheelHealth.Ok && Health[2] == WheelHealth.Ok && Health[3] == WheelHealth.Ok;
         public double SpeedScale = 1;                            // 1 = no wheel-speed limit hit
         double lastAx, lastAy;
@@ -165,7 +168,11 @@ namespace Crane.Fleet {
         }
 
         public void Step(Twist command, Twist measured, double dt) {
-            SpeedScale = G.Saturate(ref command, WheelCommand);
+            if (WheelCommandOverride != null) {
+                SpeedScale = 1;
+                for (int i = 0; i < 4; i++) WheelCommand[i] = Math.Max(-G.MaxWheelSpeed, Math.Min(G.MaxWheelSpeed, WheelCommandOverride[i]));
+            }
+            else SpeedScale = G.Saturate(ref command, WheelCommand);
             double a = 1 - Math.Exp(-dt / P.MotorTimeConstant);
             double rho = Math.Exp(-dt / P.SlipCorrelationTime), q = P.SlipSigma * Math.Sqrt(1 - rho * rho);
             var ground = new double[4];

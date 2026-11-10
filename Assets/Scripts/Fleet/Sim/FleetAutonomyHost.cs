@@ -21,18 +21,28 @@ namespace Crane.Fleet.Sim {
             new Dictionary<string, List<(double, double, double, double, double, double, double, double, double)>>();
         readonly Dictionary<string, IObservationProvider> providers = new Dictionary<string, IObservationProvider>();
         readonly Dictionary<string, RoverRig> rigs = new Dictionary<string, RoverRig>();
+        readonly EvaluatorTruth truth;
+        readonly Scenario scene;
+        readonly ulong seed;
+        // tagged objects (payloads): pose history of the object's base_link and its tag; observations generated with the core's TagObserver
+        readonly Dictionary<string, (TagSpec tag, List<(double t, double x, double y, double yaw)> hist)> objects =
+            new Dictionary<string, (TagSpec, List<(double, double, double, double)>)>();
+        readonly Dictionary<string, long> objCursor = new Dictionary<string, long>();
+        readonly Dictionary<string, List<RelPoseObservation>> objQueue = new Dictionary<string, List<RelPoseObservation>>();
         public bool CameraLost(string id) => rigs.TryGetValue(id, out var r) && r.CameraLost;
 
         public FleetPerceptionHost(FleetSpec spec, IEnumerable<RoverRig> rovers, long seed) {
             var profile = FleetProfile.Parse(System.IO.File.ReadAllText(spec.Profile.Source));
             var scene = Scenario.Parse(System.IO.File.ReadAllText(spec.Scenario.Source));
-            var truth = new EvaluatorTruth();
+            truth = new EvaluatorTruth();
+            this.scene = scene;
             foreach (var r in rovers) {
                 string id = r.D.Id;
                 var h = hist[id] = new List<(double, double, double, double, double, double, double, double, double)>();
                 truth.SetTrajectory(id, t => State(h, t));
             }
-            Sim = new FleetSimulator(profile, scene, truth, FleetRng.For(seed, "perception").NextU64());
+            this.seed = FleetRng.For(seed, "perception").NextU64();
+            Sim = new FleetSimulator(profile, scene, truth, this.seed);
             foreach (var r in rovers) { providers[r.D.Id] = new LossyProvider(Sim.ProviderFor(r.D.Id), this); rigs[r.D.Id] = r; }
         }
 
@@ -57,6 +67,59 @@ namespace Crane.Fleet.Sim {
         }
 
         public IObservationProvider Provider(string id) => providers[id];
+
+        public void RecordObject(double t, string id, Pose2 basePose, TagSpec tag) {
+            if (!objects.TryGetValue(id, out var o)) objects[id] = o = (tag, new List<(double, double, double, double)>());
+            o.hist.Add((t, basePose.X, basePose.Y, basePose.Yaw));
+            if (o.hist.Count > 4000) o.hist.RemoveRange(0, 1000);
+        }
+
+        static (double x, double y, double yaw) At(List<(double t, double x, double y, double yaw)> h, double t) {
+            var s = h[0];
+            for (int i = h.Count - 1; i >= 0; i--) if (h[i].t <= t + 1e-12) { s = h[i]; break; }
+            return (s.x, s.y, s.yaw);
+        }
+
+        /// <summary>Own-camera observations of tagged objects (child "&lt;object&gt;/base_link"), generated at each camera frame with the perception
+        /// core's TagObserver (noise, dropout, latency, ambiguity, occlusion by the scene and other rover bodies), delivered by StampDelivered.</summary>
+        public IReadOnlyList<RelPoseObservation> PollObjectObservations(string roverId, double now) {
+            if (!objQueue.TryGetValue(roverId, out var q)) objQueue[roverId] = q = new List<RelPoseObservation>();
+            var result = new List<RelPoseObservation>();
+            if (objects.Count == 0 || CameraLost(roverId)) { q.Clear(); return result; }
+            foreach (var cam in Sim.SuiteOf(roverId).Cameras) {
+                string key = roverId + "/" + cam.Name;
+                long next = objCursor.TryGetValue(key, out var c) ? c : 1, last = (long)Math.Floor(now * cam.RateHz + 1e-9);
+                for (long k = next; k <= last; k++) {
+                    double t = k / cam.RateHz;
+                    var obs = truth.At(roverId, t);
+                    PPose camWorld = obs.Pose.Compose(cam.OpticalInRover);
+                    var camMotion = new BodyMotion(obs.LinVelWorld, obs.AngVelWorld);
+                    var occ = new List<Obb>(scene.Boxes);
+                    foreach (var id in truth.RoverIds) if (id != roverId) occ.Add(Sim.GeometryOf(id).BodyBox(truth.At(id, t).Pose, id + "/body"));
+                    foreach (var kv in objects) {
+                        if (kv.Value.hist.Count == 0) continue;
+                        var (x, y, yaw) = At(kv.Value.hist, t);
+                        var tag = kv.Value.tag;
+                        var rng = Rng.ForStream(seed, $"objdet/{roverId}/{cam.Name}/{k}/{tag.Id}");
+                        var det = TagObserver.Detect(camWorld, camMotion, cam.K, PPose.FromYaw(x, y, 0, yaw).Compose(tag.MountInOwner), BodyMotion.Still, tag, occ,
+                            Sim.Config.Visibility, Sim.Config.Noise, cam.LatencyS, t, rng);
+                        if (!det.Detected) continue;
+                        PPose baseTag = cam.OpticalInRover.Compose(det.CamTag);
+                        Matrix covBaseTag = PoseUncertainty.RotateInto(cam.OpticalInRover.R, det.CovarianceCam);
+                        PPose mInv = tag.MountInOwner.Inverse();
+                        q.Add(new RelPoseObservation { StampAcquired = t, StampDelivered = det.StampDelivered, SourceId = key, SourceKind = ObservationSourceKind.OwnCamera,
+                            TagId = tag.Id, AmbiguousPose = det.Pnp.Ambiguous, FrameParent = roverId + "/base_link", FrameChild = kv.Key + "/base_link",
+                            Pose = baseTag.Compose(mInv), Covariance = PoseUncertainty.RigidShift(baseTag, mInv, covBaseTag) });
+                    }
+                }
+                objCursor[key] = last + 1;
+            }
+            q.Sort((a, b) => a.StampDelivered.CompareTo(b.StampDelivered));
+            int n = 0; while (n < q.Count && q[n].StampDelivered <= now) n++;
+            for (int i = 0; i < n; i++) { var o = q[i].Clone(); o.Age = now - o.StampAcquired; result.Add(o); }
+            q.RemoveRange(0, n);
+            return result;
+        }
 
         /// <summary>Failure injection on the rover side of the firewall: a lost camera delivers no tag observations.</summary>
         sealed class LossyProvider : IObservationProvider {
@@ -92,6 +155,7 @@ namespace Crane.Fleet.Sim {
             public FacePose Pose;
             public double PrevGap = double.NaN, Closing;
             public FixedJoint Joint;
+            public RequestedAction LastAction;
         }
 
         readonly FleetRun run;
@@ -160,6 +224,7 @@ namespace Crane.Fleet.Sim {
                 foreach (var e in res.Events)
                     run.Event("connector", c.A.D.Id, new Dictionary<string, object> { ["coupling"] = c.Id, ["event"] = e.Kind.ToString(), ["from"] = ConnectorStateNames.ToProfileName(e.From),
                         ["to"] = ConnectorStateNames.ToProfileName(e.To), ["trigger"] = e.Trigger?.ToString(), ["detail"] = e.Detail, ["gap"] = c.Pose.Gap, ["lateral"] = c.Pose.Lateral, ["yaw"] = c.Pose.Yaw });
+                c.LastAction = res.Action;
                 if (res.Action != RequestedAction.None) run.Event("connector_action", c.A.D.Id, new Dictionary<string, object> { ["coupling"] = c.Id, ["action"] = res.Action.ToString() });
                 var st = c.Machine.State;
                 if (ConnectorStateNames.IsVerified(st) && c.Joint == null) {

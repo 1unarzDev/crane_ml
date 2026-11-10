@@ -32,9 +32,16 @@ namespace Crane.Fleet.Sim {
             o.SourceCommit = Get("--crane-source-commit", "");
             o.Failures = Get("--crane-fleet-failures", "");
             o.SourceDirty = string.Equals(Get("--crane-source-dirty", "false"), "true", StringComparison.OrdinalIgnoreCase);
-            if (spec != null && Get("--crane-fleet-mission", "qual") == "demo") {
+            string mission = Get("--crane-fleet-mission", "qual");
+            if (spec != null && mission == "demo") {
                 o.Mission = new DemoMission(spec);
                 if (dur == null) o.MaxDuration = spec.O["demo.max_duration_s"].Double;
+            }
+            if (spec != null && mission == "autonomy") {
+                string mf = Get("--crane-fleet-mission-file") ?? throw new ArgumentException("--crane-fleet-mission autonomy needs --crane-fleet-mission-file");
+                o.Mission = new AutonomyMission(spec, mf);
+                var root = JsonNode.FromText(System.IO.File.ReadAllText(mf));
+                if (dur == null) o.MaxDuration = root.Has("crane_max_duration_s") ? root["crane_max_duration_s"].Double : 300.0;
             }
             return o;
         }
@@ -107,7 +114,7 @@ namespace Crane.Fleet.Sim {
             var opt = FleetArgs.RunOptions("player", spec);
             if (still != null && opt.OutDir == null) opt.OutDir = Path.Combine(still, "run");
             var run = new FleetRun(spec, opt);
-            var shots = still != null ? new FleetShots(spec, run, still, opt.Mission != null ? "demo_shots" : "stills") : null;
+            var shots = still != null ? new FleetShots(spec, run, still, opt.Mission is AutonomyMission ? "autonomy_shots" : opt.Mission != null ? "demo_shots" : "stills") : null;
             run.Setup();
             if (shots != null) shots.Begin();
             Debug.Log($"CRANE_FLEET_RUN_START id={run.RunId} dir={run.Dir} physics={run.Phys.Describe}");
@@ -264,6 +271,15 @@ namespace Crane.Fleet.Sim {
                 foreach (var r in run.Rovers) ctl[r.D.Id] = dm.ControllerOf(r.D.Id);
                 rec["controllers"] = ctl;
             }
+            if (run.Opt.Mission is AutonomyMission au) {
+                rec["controller"] = "closed_loop (Crane.Fleet.Autonomy)";
+                var steps = new Dictionary<string, object>();
+                foreach (var r in run.Rovers) steps[r.D.Id] = au.StepOf(r.D.Id);
+                rec["tasks"] = steps;
+                rec["payload_mode"] = au.PayloadMode;
+                var c0 = au.Couplings.All.Count > 0 ? au.Couplings.All[0] : null;
+                rec["connector"] = c0 != null ? Crane.Fleet.Docking.ConnectorStateNames.ToProfileName(c0.Machine.State) : "FREE";
+            }
             if (s.Camera.Has("sensor")) rec["sensor_profile_violations"] = FleetLook.Sensor != null ? FleetLook.SensorProfileViolations(FleetLook.Sensor) : new List<string> { "no sensor profile (look off)" };
             index.WriteLine(FleetJson.Write(rec));
             index.Flush();
@@ -277,6 +293,7 @@ namespace Crane.Fleet.Sim {
         Vector3 Target(string t) {
             var parts = t.Split(':');
             if (parts[0] == "payload" && run.Opt.Mission is DemoMission dm) return dm.Payload.worldCenterOfMass;
+            if (parts[0] == "payload" && run.Opt.Mission is AutonomyMission am && am.Payload != null) return am.Payload.worldCenterOfMass;
             if (parts[0] == "rover") {
                 var r = run.Rover(parts[1]);
                 return parts.Length > 2 ? r.Frames[parts[2]].position : r.Body.position;

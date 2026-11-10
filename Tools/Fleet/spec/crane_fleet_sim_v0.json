@@ -1257,5 +1257,271 @@
         "fov": 55.0
       }
     ]
+  },
+  "autonomy_shots": {
+    "note": "Closed-loop (Crane.Fleet.Autonomy) mission shots; triggers are logged events (+offset s).",
+    "size": [
+      1600,
+      900
+    ],
+    "look": true,
+    "shots": [
+      {
+        "name": "00_establish",
+        "t": 1.0,
+        "camera": {
+          "position": [
+            3.4,
+            -1.6,
+            3.8
+          ],
+          "look_at": [
+            3.6,
+            3.0,
+            0.0
+          ]
+        },
+        "fov": 50.0
+      },
+      {
+        "name": "01_scout_finds_payload_onboard",
+        "event": "autonomy",
+        "field": "event",
+        "value": "found",
+        "offset": 0.0,
+        "profile": "sensor",
+        "camera": {
+          "sensor": "scout_1:cam_left"
+        }
+      },
+      {
+        "name": "01b_scout_finds_payload_wide",
+        "event": "autonomy",
+        "field": "event",
+        "value": "found",
+        "offset": 0.0,
+        "camera": {
+          "position": [
+            5.6,
+            4.0,
+            2.2
+          ],
+          "look_at": [
+            4.2,
+            5.8,
+            0.1
+          ]
+        },
+        "fov": 45.0
+      },
+      {
+        "name": "02_lift",
+        "event": "payload_gripped",
+        "offset": 2.5,
+        "camera": {
+          "target": "rover:lifter_1",
+          "position": [
+            0.5,
+            -1.2,
+            0.7
+          ],
+          "look_at": [
+            -0.35,
+            0.0,
+            0.15
+          ]
+        },
+        "fov": 38.0,
+        "aperture": 5.6
+      },
+      {
+        "name": "03a_wide_formation_capture",
+        "event": "connector",
+        "field": "to",
+        "value": "MAGNET_CAPTURED",
+        "offset": 0.2,
+        "camera": {
+          "position": [
+            3.2,
+            1.0,
+            3.2
+          ],
+          "look_at": [
+            4.9,
+            3.6,
+            0.1
+          ]
+        },
+        "fov": 45.0
+      },
+      {
+        "name": "03b_dock_hooks_closing",
+        "event": "connector",
+        "field": "to",
+        "value": "MAGNET_CAPTURED",
+        "offset": 0.9,
+        "camera": {
+          "target": "rover:cargo_1:face_rear",
+          "position": [
+            0.12,
+            0.55,
+            0.3
+          ],
+          "look_at": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "fov": 32.0,
+        "aperture": 4.0
+      },
+      {
+        "name": "03c_dock_latched",
+        "event": "coupled",
+        "offset": 0.2,
+        "camera": {
+          "target": "rover:cargo_1:face_rear",
+          "position": [
+            0.12,
+            0.55,
+            0.3
+          ],
+          "look_at": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "fov": 32.0,
+        "aperture": 4.0
+      },
+      {
+        "name": "04a_wide_handoff",
+        "event": "payload_released",
+        "offset": 0.0,
+        "camera": {
+          "position": [
+            3.6,
+            1.2,
+            2.6
+          ],
+          "look_at": [
+            5.0,
+            3.6,
+            0.15
+          ]
+        },
+        "fov": 42.0
+      },
+      {
+        "name": "04b_payload_on_decks",
+        "event": "payload_released",
+        "offset": 1.5,
+        "camera": {
+          "target": "payload",
+          "position": [
+            -0.75,
+            -1.05,
+            0.7
+          ],
+          "look_at": [
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "fov": 34.0,
+        "aperture": 5.6
+      },
+      {
+        "name": "05_through_doorway",
+        "event": "autonomy",
+        "field": "task",
+        "value": "deliver",
+        "offset": 9.0,
+        "camera": {
+          "position": [
+            5.0,
+            1.6,
+            2.4
+          ],
+          "look_at": [
+            6.4,
+            3.6,
+            0.2
+          ]
+        },
+        "fov": 45.0
+      },
+      {
+        "name": "06_scout_watches_onboard",
+        "event": "autonomy",
+        "field": "task",
+        "value": "deliver",
+        "offset": 12.0,
+        "profile": "sensor",
+        "camera": {
+          "sensor": "scout_1:cam_left"
+        }
+      },
+      {
+        "name": "07_done",
+        "event": "mission_succeeded",
+        "offset": 0.3,
+        "camera": {
+          "position": [
+            7.2,
+            1.4,
+            2.4
+          ],
+          "look_at": [
+            8.7,
+            3.6,
+            0.1
+          ]
+        },
+        "fov": 42.0
+      },
+      {
+        "name": "07b_failed",
+        "event": "mission_failed",
+        "offset": 0.0,
+        "camera": {
+          "position": [
+            3.4,
+            -1.6,
+            4.6
+          ],
+          "look_at": [
+            5.0,
+            3.4,
+            0.0
+          ]
+        },
+        "fov": 55.0
+      },
+      {
+        "name": "clip_wide",
+        "t": 0.0,
+        "clip": {
+          "duration_s": 320.0,
+          "fps": 4.0
+        },
+        "camera": {
+          "position": [
+            3.4,
+            -1.8,
+            4.6
+          ],
+          "look_at": [
+            5.0,
+            3.4,
+            0.0
+          ]
+        },
+        "fov": 55.0
+      }
+    ]
   }
 }

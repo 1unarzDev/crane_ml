@@ -1,0 +1,377 @@
+using System;
+using System.Collections.Generic;
+using System.Text;
+using Crane.Fleet.Docking;
+using Crane.Fleet.Perception;
+using UnityEngine;
+using PPose = Crane.Fleet.Perception.Pose;
+
+namespace Crane.Fleet.Sim {
+    /// <summary>
+    /// The mission run CLOSED LOOP by the autonomy library (crane_ml Tools/Fleet/core_cs/Crane.Fleet.Autonomy, imported as assembly
+    /// Crane.Fleet.Autonomy): CRANE provides one IObservationSource and one IActuatorSink per rover and calls FleetAutonomy.Step(dt) every
+    /// physics step. Sources deliver only what the rover could measure: its own quantised encoders and raw gyro (from the plant), tag
+    /// observations from the perception core (rover tags, plus payload tags generated here with the core's TagObserver), connector
+    /// reports from the simulator-side ConnectorMachine, lift/gripper driver state. Sinks take wheel-speed set-points straight into the
+    /// plant (no truth-steered controller), connector pulses, lift and gripper targets. No truth reaches the library.
+    /// Simulator conventions the library relies on: the payload's base_link is its tagged end-face centre (so the library's fixed grasp
+    /// offsets work for a long box); the payload sits on a 3 cm pallet so a gripper at lift 0 holds it and full lift clears the decks.
+    /// </summary>
+    public sealed class AutonomyMission : IFleetMission {
+        readonly FleetSpec spec;
+        readonly JsonNode missionJson;
+        readonly string missionText;
+        FleetRun run;
+        CouplingManager couplings;
+        FleetPerceptionHost perception;
+        FleetAutonomy fleet;
+        readonly Clock clock = new Clock();
+        readonly Dictionary<string, Source> sources = new Dictionary<string, Source>();
+        readonly Dictionary<string, Sink> sinks = new Dictionary<string, Sink>();
+        // payload (one object for now, from the mission's "crane_payload" block)
+        string payloadId, payloadType;
+        double[] payloadSize;
+        public Rigidbody Payload;
+        BoxCollider payloadCol;
+        TagSpec payloadTag;
+        string payloadMode = "static";
+        RoverRig carrier;
+        Vector3 carryPos; Quaternion carryRot; double carryLift0;
+        double liftSpeed, gripRate, gripMax, gripMin;
+        int autonomyEventIndex;
+        double doneAt = double.NaN;
+        readonly Dictionary<string, object> results = new Dictionary<string, object>();
+
+        sealed class Clock : IClock { public double Now { get; set; } }
+
+        public AutonomyMission(FleetSpec spec, string missionPath) {
+            this.spec = spec;
+            missionText = System.IO.File.ReadAllText(missionPath);
+            missionJson = JsonNode.FromText(missionText);
+        }
+
+        public string Variant => "autonomy";
+        public string ControllerInput => "estimate (Crane.Fleet.Autonomy: own encoders, gyro, perception-core tag observations; wheel-speed commands into the plant)";
+        public bool Done { get; private set; }
+        public IDictionary<string, object> Labels => new Dictionary<string, object> {
+            ["mission_id"] = missionJson.Has("mission_id") ? missionJson["mission_id"].String : "", ["mission_sha256"] = Sha(missionText),
+            ["autonomy"] = "Crane.Fleet.Autonomy (closed loop)", ["payload_class"] = payloadType ?? "none",
+            ["interface_pair_types"] = "hermaphroditic_hook2_magnet+hermaphroditic_hook2_magnet" };
+        public string PayloadMode => payloadMode;
+        public FleetAutonomy Fleet => fleet;
+        public CouplingManager Couplings => couplings;
+
+        static string Sha(string s) {
+            using var h = System.Security.Cryptography.SHA256.Create();
+            var b = h.ComputeHash(Encoding.UTF8.GetBytes(s)); var sb = new StringBuilder();
+            foreach (byte x in b) sb.Append(x.ToString("x2"));
+            return sb.ToString();
+        }
+
+        public Pose2 StartPose(string id) {
+            // the start slot the rover believes in (the mission's initial_estimates, else the demo start slots)
+            JsonNode ie = missionJson.TryGet("crane_start." + id) ?? spec.O["demo.rovers." + id + ".start"];
+            double[] s = ie.Doubles;
+            return new Pose2(s[0], s[1], s[2]);
+        }
+
+        public string StepOf(string id) {
+            if (fleet == null) return "init";
+            foreach (var r in fleet.Executive.Records)
+                if (r.State == TaskState.Running && r.Behavior != null)
+                    foreach (var rv in r.Behavior.Rovers()) if (fleet.AgentOf(rv) != null && fleet.AgentOf(rv).Has(id) || rv == id) return r.Spec.Id + ":" + r.Behavior.Phase;
+            return "idle";
+        }
+
+        // ------------------------------------------------------------------ build
+        public IEnumerable<GameObject> Build(FleetRun r) {
+            run = r;
+            couplings = new CouplingManager(r, spec);
+            couplings.OnLatched = c => results["coupling_" + c.Id] = new Dictionary<string, object> { ["t"] = r.T, ["lateral"] = c.Pose.Lateral, ["yaw"] = c.Pose.Yaw, ["gap"] = c.Pose.Gap };
+            perception = new FleetPerceptionHost(spec, r.Rovers, r.Opt.Seed);
+            var roots = new List<GameObject>();
+            JsonNode p = missionJson.TryGet("crane_payload");
+            if (p != null) {
+                payloadId = p["id"].String; payloadType = p["type"].String;
+                payloadSize = spec.P["payloads." + payloadType + ".size_lwh"].Doubles;
+                double[] pose = p["pose"].Doubles;   // centre of the payload footprint, yaw
+                double pallet = p["pallet_height"].Double;
+                var root = new GameObject(payloadId);
+                root.transform.SetPositionAndRotation(FleetFrames.World(pose[0], pose[1], pallet + spec.O["physics.spawn_lift"].Double), FleetFrames.WorldYaw(pose[2]));
+                Payload = root.AddComponent<Rigidbody>();
+                Payload.mass = (float)spec.P["payloads." + payloadType + ".mass"].Double;
+                Payload.solverIterations = (int)spec.O["physics.solver_iterations"].Double;
+                var cg = new GameObject("collision_payload"); cg.transform.SetParent(root.transform, false);
+                cg.transform.localPosition = FleetFrames.Local(0, 0, payloadSize[2] / 2);
+                payloadCol = cg.AddComponent<BoxCollider>();
+                payloadCol.size = FleetFrames.LocalScale(payloadSize[0], payloadSize[1], payloadSize[2]);
+                double bf = spec.O["physics.body_friction"].Double;
+                payloadCol.sharedMaterial = new PhysicsMaterial("payload") { dynamicFriction = (float)bf, staticFriction = (float)bf };
+                payloadCol.providesContacts = true;
+                string pm = System.IO.Path.Combine(spec.Directory, spec.O["visual.payload_manifest"].String);
+                if (System.IO.File.Exists(pm)) AssetVisual.BuildPayload(AssetManifest.Load(pm), "payload_" + payloadType, root.transform);
+                roots.Add(root);
+                var pal = FleetGeometry.SolidBox("pallet", null, FleetFrames.World(pose[0], pose[1], pallet / 2), FleetFrames.WorldScale(payloadSize[0] * 0.9, payloadSize[1] * 0.9, pallet),
+                    new Color(0.45f, 0.30f, 0.18f), r.World.FloorMaterial);
+                pal.transform.rotation = FleetFrames.WorldYaw(pose[2]);
+                roots.Add(pal);
+                // the payload's tag on its -x end face (autonomy harness convention), base_link = that face's centre
+                double tagSize = spec.P["sensors.apriltag.top_tag_size"].Double;
+                double tagZ = Math.Min(payloadSize[2] - tagSize / 2, payloadSize[2] / 2) + pallet;
+                payloadTag = new TagSpec { Id = 900, OwnerId = payloadId, Name = "payload_end", Size = Math.Min(tagSize, payloadSize[2] * 0.9),
+                    MountInOwner = TagSpec.OnVerticalFace(new Vec3(-0.002, 0, tagZ), Math.PI) };
+            }
+            JsonNode lr = spec.P["roles.lifter"];
+            liftSpeed = lr["lift_speed"].Double; gripMax = lr["gripper_opening"].Double;
+            foreach (var rv in r.Rovers) if (rv.D.Role == "lifter") { rv.Lift = 0; rv.GripperOpening = gripMax; gripMin = rv.Visual?.Manifest.GripperOpeningRange?[0] ?? 0.04; }
+            gripRate = (gripMax - gripMin) / lr["gripper_close_time"].Double;
+            return roots;
+        }
+
+        /// <summary>The payload's base_link (tagged end-face centre) in the world, planar.</summary>
+        Pose2 PayloadBase() {
+            var c = FleetFrames.Planar(Payload.transform);
+            return new Pose2(c.X - Math.Cos(c.Yaw) * payloadSize[0] / 2, c.Y - Math.Sin(c.Yaw) * payloadSize[0] / 2, c.Yaw);
+        }
+
+        public void Start(FleetRun r) {
+            perception.Record(r.T, r.Rovers);
+            var cfg = new FleetConfig {
+                Map = BuildMap(),
+                DockingProfile = DockingProfileBuilder.Build(spec)
+            };
+            var profile = FleetProfile.Parse(System.IO.File.ReadAllText(spec.Profile.Source));
+            string floor = spec.S["arena.floor"].String;
+            var srcList = new List<IObservationSource>(); var sinkList = new List<IActuatorSink>();
+            foreach (var rv in r.Rovers) {
+                cfg.Rovers.Add(RoverSpec.FromProfile(profile, rv.D.Id, rv.D.Role, floor));
+                cfg.InitialPoses[rv.D.Id] = StartPose(rv.D.Id);   // believed start slot, never the per-seed truth
+                var s = sources[rv.D.Id] = new Source(this, rv); var k = sinks[rv.D.Id] = new Sink(this, rv);
+                srcList.Add(s); sinkList.Add(k);
+                rv.SampleSink = s;
+                if (rv.Visual != null) foreach (var f in rv.D.Faces) { rv.Visual.SetFaceHooks(f.Name, 0, 0); rv.Visual.SetLed(f.Name, Color.black, 0); }
+            }
+            if (missionJson.Has("crane_initial_sigma")) { double[] sg = missionJson["crane_initial_sigma"].Doubles; cfg.InitialPosSigma = sg[0]; cfg.InitialYawSigma = sg[1]; }
+            clock.Now = r.T;
+            fleet = new FleetAutonomy(cfg, clock, srcList, sinkList);
+            fleet.LoadMission(MissionSpec.Parse(missionText));
+            run.Event("autonomy_start", "", new Dictionary<string, object> { ["mission"] = Labels["mission_id"], ["rovers"] = r.Rovers.Count, ["map_boxes"] = cfg.Map.Obstacles.Count });
+        }
+
+        PlanMap BuildMap() {
+            double[] size = spec.S["arena.size_xy"].Doubles;
+            var map = new PlanMap(0, 0, size[0], size[1]);
+            foreach (var o in spec.S["obstacles"].Items) {
+                double[] c = o["centre"].Doubles, sz = o["size"].Doubles;
+                if (c[2] - sz[2] / 2 > 0.3) continue;   // elevated (gantry beam): does not block driving
+                map.AddBox(o["id"].String, c[0], c[1], sz[0], sz[1]);
+            }
+            JsonNode door = spec.S.TryGet("doorway");
+            foreach (var w in spec.S["walls"].Items) {
+                double[] a = w["from"].Doubles;
+                if (door != null && door["in_wall"].String == w["id"].String)
+                    map.AddWallWithDoor(w["id"].String, a[0], w["thickness"].Double, door["centre_y"].Double, run.World.DoorwayWidth);
+            }
+            if (Payload != null) {
+                var c = FleetFrames.Planar(Payload.transform);
+                map.AddBox(payloadId, c.X, c.Y, payloadSize[0], payloadSize[1], c.Yaw);
+            }
+            return map;
+        }
+
+        // ------------------------------------------------------------------ step
+        public void PreStep(FleetRun r) {
+            clock.Now = r.T;
+            fleet.Step(r.Dt);
+            foreach (var rv in r.Rovers) {
+                var k = sinks[rv.D.Id];
+                rv.Plant.WheelCommandOverride = k.Wheels;
+                if (rv.D.Role == "lifter") Actuate(rv, k, r.Dt);
+            }
+            couplings.Step(r.Dt);
+            if (payloadMode == "carried" && carrier != null) {
+                Payload.MovePosition(carrier.Body.position + carrier.Body.rotation * carryPos + Vector3.up * (float)(carrier.Lift - carryLift0));
+                Payload.MoveRotation(carrier.Body.rotation * carryRot);
+            }
+            // mirror the library's events and task records into the run log
+            for (; autonomyEventIndex < fleet.Events.Count; autonomyEventIndex++) {
+                var e = fleet.Events[autonomyEventIndex];
+                run.Event("autonomy", e.Agent ?? "", new Dictionary<string, object> { ["event"] = e.Kind, ["task"] = e.Task, ["detail"] = e.Detail, ["t_autonomy"] = e.T });
+            }
+            if (fleet.Executive.Done && double.IsNaN(doneAt)) {
+                doneAt = r.T;
+                run.Event(fleet.Executive.Succeeded ? "mission_succeeded" : "mission_failed", "", new Dictionary<string, object> {
+                    ["first_failure_class"] = fleet.Executive.FirstFailureClass.ToString(), ["first_failure"] = fleet.Executive.FirstFailure });
+            }
+            if (!double.IsNaN(doneAt) && r.T > doneAt + 2.0) Done = true;
+        }
+
+        void Actuate(RoverRig rv, Sink k, double dt) {
+            double travel = rv.Visual?.Manifest.LiftRange?[1] ?? spec.P["roles.lifter.lift_travel"].Double;
+            double target = Math.Max(0, Math.Min(travel, k.LiftTarget));
+            rv.Lift = Toward(rv.Lift, target, liftSpeed * dt);
+            bool canHold = Payload != null && payloadMode != "carried" && GripWindow(rv);
+            double gripTarget = k.GripperClosed ? (canHold ? Math.Max(gripMin, payloadSize[1]) : gripMin) : gripMax;
+            rv.GripperOpening = Toward(rv.GripperOpening, gripTarget, gripRate * dt);
+            bool closedReached = k.GripperClosed && Math.Abs(rv.GripperOpening - gripTarget) < 1e-9;
+            if (closedReached && canHold && payloadMode != "carried") Attach(rv);
+            if (!k.GripperClosed && payloadMode == "carried" && carrier == rv) Release();
+            sources[rv.D.Id].GripperClosed = closedReached;
+        }
+
+        static double Toward(double v, double t, double s) => v < t ? Math.Min(t, v + s) : Math.Max(t, v - s);
+
+        /// <summary>Gripper geometry check: finger line inside the payload's length near its end, payload between the open fingers,
+        /// finger height within the payload side. Truth geometry on the simulator side (the gripper's physics), not robot knowledge.</summary>
+        bool GripWindow(RoverRig rv) {
+            var m = rv.Visual?.Manifest;
+            double fingerX = m != null ? m.FindPart(m.LiftPart).Origin.Xyz[0] + m.FindPart(m.Fingers[0].part).Origin.Xyz[0] : 0.297;
+            double fingerZ0 = m != null ? m.FindPart(m.LiftPart).Origin.Xyz[2] + m.FindPart(m.Fingers[0].part).Origin.Xyz[2] : 0.0;
+            var t = rv.Truth();
+            var c = FleetFrames.Planar(Payload.transform);
+            double fx = t.X + Math.Cos(t.Yaw) * fingerX, fy = t.Y + Math.Sin(t.Yaw) * fingerX;
+            double ca = Math.Cos(c.Yaw), sa = Math.Sin(c.Yaw), dx = fx - c.X, dy = fy - c.Y;
+            double along = ca * dx + sa * dy, across = -sa * dx + ca * dy;
+            double yawErr = Math.Abs(Angles.Wrap(t.Yaw - c.Yaw));
+            double fingerZ = rv.D.OriginHeight + fingerZ0 + rv.Lift, bottom = Payload.position.y;
+            bool inLength = Math.Abs(along) <= payloadSize[0] / 2 - 0.01, centred = Math.Abs(across) <= (gripMax - payloadSize[1]) / 2;
+            bool height = fingerZ >= bottom - 0.01 && fingerZ <= bottom + payloadSize[2];
+            return inLength && centred && height && (yawErr < 0.2 || Math.Abs(yawErr - Math.PI) < 0.2);
+        }
+
+        void Attach(RoverRig rv) {
+            payloadMode = "carried"; carrier = rv;
+            Payload.isKinematic = true;
+            carryPos = Quaternion.Inverse(rv.Body.rotation) * (Payload.position - rv.Body.position);
+            carryRot = Quaternion.Inverse(rv.Body.rotation) * Payload.rotation;
+            carryLift0 = rv.Lift;
+            double cap = spec.P["roles.lifter.lift_capacity"].Double, pm = Payload.mass, comX = (pm * carryPos.z + rv.D.Mass * rv.D.ComOffset[0]) / (pm + rv.D.Mass);
+            var f = new Dictionary<string, object> { ["payload"] = payloadId, ["payload_kg"] = pm, ["capacity_kg"] = cap, ["over_capacity"] = pm > cap,
+                ["combined_com_x"] = comX, ["front_axle_x"] = rv.D.Wheels[0].Axle.X, ["would_tip_forward"] = comX > rv.D.Wheels[0].Axle.X,
+                ["note"] = "carry is kinematic: lifter load and tipping are not simulated" };
+            results["lift_static_check"] = f;
+            run.Event("payload_gripped", rv.D.Id, f);
+        }
+
+        void Release() {
+            payloadMode = "dynamic"; carrier = null;
+            Payload.isKinematic = false;
+            Payload.linearVelocity = Vector3.zero; Payload.angularVelocity = Vector3.zero;
+            run.Event("payload_released", "", new Dictionary<string, object> { ["bottom_height"] = (double)Payload.position.y });
+        }
+
+        public void PostStep(FleetRun r) {
+            perception.Record(r.T, r.Rovers);
+            if (Payload != null) perception.RecordObject(r.T, payloadId, PayloadBase(), payloadTag);
+        }
+
+        // ------------------------------------------------------------------ logs
+        public void LogState(StringBuilder b) {
+            string N(double v) => FleetJson.Num(v);
+            b.Append("\"autonomy\":{\"tasks\":{");
+            bool first = true;
+            foreach (var rec in fleet.Executive.Records) {
+                if (!first) b.Append(','); first = false;
+                b.Append(FleetJson.Quote(rec.Spec.Id)).Append(":{\"state\":").Append(FleetJson.Quote(rec.State.ToString())).Append(",\"attempts\":").Append(rec.Attempts)
+                    .Append(",\"phase\":").Append(FleetJson.Quote(rec.Behavior?.Phase ?? "")).Append('}');
+            }
+            b.Append("},\"estimates\":{");
+            first = true;
+            foreach (var rv in run.Rovers) {
+                var ag = fleet.AgentOf(rv.D.Id);
+                if (ag == null) continue;
+                if (!first) b.Append(','); first = false;
+                var e = ag.MemberPose(rv.D.Id);
+                var cov = sinks[rv.D.Id].LastCov ?? new double[9];
+                b.Append(FleetJson.Quote(rv.D.Id)).Append(":{\"x\":").Append(N(e.X)).Append(",\"y\":").Append(N(e.Y)).Append(",\"yaw\":").Append(N(e.Yaw))
+                    .Append(",\"agent\":").Append(FleetJson.Quote(ag.Id)).Append(",\"cov3\":[");
+                for (int i = 0; i < cov.Length; i++) { if (i > 0) b.Append(','); b.Append(N(cov[i])); }
+                b.Append("]}");
+            }
+            b.Append("}}");
+            var c0 = couplings.All.Count > 0 ? couplings.All[0] : null;
+            b.Append(",\"connector\":{\"state\":").Append(FleetJson.Quote(c0 != null ? ConnectorStateNames.ToProfileName(c0.Machine.State) : "FREE"));
+            if (c0 != null) b.Append(",\"coupling\":").Append(FleetJson.Quote(c0.Id)).Append(",\"gap\":").Append(N(c0.Pose.Gap)).Append(",\"lateral\":").Append(N(c0.Pose.Lateral)).Append(",\"yaw\":").Append(N(c0.Pose.Yaw))
+                .Append(",\"joint\":").Append(c0.Joint != null ? "true" : "false");
+            b.Append('}');
+            if (Payload != null) {
+                FleetFrames.ToEnu(Payload.position, out double x, out double y, out double z);
+                b.Append(",\"payload\":{\"mode\":").Append(FleetJson.Quote(payloadMode)).Append(",\"x\":").Append(N(x)).Append(",\"y\":").Append(N(y)).Append(",\"z\":").Append(N(z)).Append('}');
+            }
+        }
+
+        public void Finish(FleetRun r, Dictionary<string, object> res) {
+            var tasks = new List<object>();
+            foreach (var rec in fleet.Executive.Records)
+                tasks.Add(new Dictionary<string, object> { ["id"] = rec.Spec.Id, ["type"] = rec.Spec.Type, ["state"] = rec.State.ToString(), ["attempts"] = rec.Attempts,
+                    ["started"] = rec.Started, ["ended"] = rec.Ended, ["class"] = rec.Class.ToString(), ["reason"] = rec.Reason });
+            results["tasks"] = tasks;
+            results["done"] = fleet.Executive.Done;
+            results["succeeded"] = fleet.Executive.Succeeded;
+            results["first_failure_class"] = fleet.Executive.FirstFailureClass.ToString();
+            results["first_failure"] = fleet.Executive.FirstFailure;
+            if (Payload != null) {
+                var c = FleetFrames.Planar(Payload.transform);
+                double[] z = spec.S["zones.delivery.rect"].Doubles;
+                results["payload_final"] = new Dictionary<string, object> { ["x"] = c.X, ["y"] = c.Y, ["bottom_height"] = (double)Payload.position.y, ["mode"] = payloadMode,
+                    ["in_delivery_zone"] = c.X >= z[0] && c.X <= z[2] && c.Y >= z[1] && c.Y <= z[3] };
+            }
+            res["autonomy"] = results;
+        }
+
+        // ------------------------------------------------------------------ I/O
+        sealed class Source : IObservationSource, IRoverSampleSink {
+            readonly AutonomyMission m; readonly RoverRig rig;
+            readonly List<EncoderSample> enc = new List<EncoderSample>();
+            readonly List<GyroSample> gyro = new List<GyroSample>();
+            public bool GripperClosed;
+            public Source(AutonomyMission m, RoverRig rig) { this.m = m; this.rig = rig; }
+            public string RoverId => rig.D.Id;
+            public void OnEncoder(double t, long[] ticks) => enc.Add(new EncoderSample(t, ticks[0], ticks[1], ticks[2], ticks[3]));
+            public void OnGyro(double t, double rate) => gyro.Add(new GyroSample(t, rate));
+            public void ReadEncoders(List<EncoderSample> into) { into.Clear(); into.AddRange(enc); enc.Clear(); }
+            public void ReadGyro(List<GyroSample> into) { into.Clear(); into.AddRange(gyro); gyro.Clear(); }
+            public void ReadTagObservations(List<RelPoseObservation> into) {
+                into.Clear();
+                into.AddRange(m.perception.Provider(rig.D.Id).PollTagObservations(m.run.T));
+                into.AddRange(m.perception.PollObjectObservations(rig.D.Id, m.run.T));
+            }
+            public ConnectorReport ReadConnector(string face) {
+                var c = m.couplings.Of(rig, face);
+                if (c == null) return new ConnectorReport { Present = false, State = ConnectorState.Free };
+                bool isA = c.A == rig;
+                return new ConnectorReport { Present = true, State = c.Machine.State, SensedA = c.Machine.SensedA, SensedB = c.Machine.SensedB, Action = c.LastAction,
+                    FailedAttempts = c.Machine.FailedAttempts, RetriesExhausted = c.Machine.RetriesExhausted,
+                    PartnerRover = c.Machine.Captured || ConnectorStateNames.IsVerified(c.Machine.State) ? (isA ? c.B.D.Id : c.A.D.Id) : null,
+                    PartnerFace = c.Machine.Captured || ConnectorStateNames.IsVerified(c.Machine.State) ? (isA ? c.FaceB : c.FaceA) : null };
+            }
+            public LiftReport ReadLift() => rig.D.Role != "lifter" ? new LiftReport { Present = false }
+                : new LiftReport { Present = true, Height = rig.Lift, GripperClosed = GripperClosed, HoldingObject = m.payloadMode == "carried" && m.carrier == rig };
+        }
+
+        sealed class Sink : IActuatorSink, IEstimatePublisher {
+            readonly AutonomyMission m; readonly RoverRig rig;
+            public double[] Wheels = new double[4];
+            public double LiftTarget; public bool GripperClosed;
+            public double[] LastCov;
+            public Sink(AutonomyMission m, RoverRig rig) { this.m = m; this.rig = rig; }
+            public string RoverId => rig.D.Id;
+            public void SetWheelSpeeds(double fl, double fr, double rl, double rr) { Wheels[0] = fl; Wheels[1] = fr; Wheels[2] = rl; Wheels[3] = rr; }
+            public void CommandConnector(string face, DockingCommand command) => m.couplings.Command(rig, face, command);
+            public void SetLift(double heightTarget, bool gripperClosed) { LiftTarget = heightTarget; GripperClosed = gripperClosed; }
+            public void PublishEstimate(double stamp, Pose2 pose, double[] cov3) {
+                LastCov = (double[])cov3.Clone();
+                var c6 = new Matrix(6, 6);
+                c6[0, 0] = cov3[0]; c6[0, 1] = cov3[1]; c6[1, 0] = cov3[3]; c6[1, 1] = cov3[4]; c6[0, 5] = cov3[2]; c6[5, 0] = cov3[6]; c6[1, 5] = cov3[5]; c6[5, 1] = cov3[7]; c6[5, 5] = cov3[8];
+                c6[2, 2] = 1e-4; c6[3, 3] = 1e-4; c6[4, 4] = 1e-4;
+                m.perception.Provider(rig.D.Id).ReportSelfEstimate(stamp, PPose.FromYaw(pose.X, pose.Y, 0, pose.Yaw), c6);
+            }
+        }
+    }
+
+    /// <summary>Receives a rover's own sensor samples as the rig produces them (encoders at the encoder rate, gyro at the IMU rate).</summary>
+    public interface IRoverSampleSink {
+        void OnEncoder(double t, long[] ticks);
+        void OnGyro(double t, double rate);
+    }
+}

@@ -31,7 +31,8 @@ namespace Crane.Fleet.Sim {
         public readonly string RenderSource;
         public readonly AssetVisual Visual;   // null for primitives
         public double Lift, GripperOpening = double.NaN;
-        public bool CameraLost, EncodersLost;   // injected sensor failures (rover side sees no tags / frozen encoders)   // lifter state (m), render and payload carry
+        public bool CameraLost, EncodersLost;
+        public IRoverSampleSink SampleSink;   // the autonomy source receives the rover's own samples as they are produced   // injected sensor failures (rover side sees no tags / frozen encoders)   // lifter state (m), render and payload carry
 
         readonly int imuEvery, encEvery;
         readonly double dt;
@@ -150,10 +151,12 @@ namespace Crane.Fleet.Sim {
             if (step % imuEvery == 0) {
                 double rate = Gyro.Sample(Truth().Body.Wz, imuEvery * dt);
                 Odometry?.IntegrateGyro(rate, imuEvery * dt);
+                SampleSink?.OnGyro(step * dt, rate);
             }
             if (step % encEvery == 0 && !EncodersLost) {
                 Encoders.Sample(Plant.WheelAngle);
                 Odometry?.IntegrateEncoders(encEvery * dt);
+                SampleSink?.OnEncoder(step * dt, (long[])Encoders.Ticks.Clone());
             }
         }
 

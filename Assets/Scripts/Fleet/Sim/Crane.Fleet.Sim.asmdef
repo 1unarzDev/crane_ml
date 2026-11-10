@@ -6,6 +6,8 @@
         "Crane.Fleet.Perception",
         "Crane.Fleet.Perception.Evaluator",
         "Crane.Fleet.AutonomyApi",
+        "Crane.Fleet.Capability",
+        "Crane.Fleet.Autonomy",
         "PerformanceAssembly",
         "Unity.RenderPipelines.Core.Runtime",
         "Unity.RenderPipelines.HighDefinition.Runtime"

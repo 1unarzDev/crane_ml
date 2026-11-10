@@ -1,0 +1,40 @@
+{
+  "note": "Closed-loop demo (Crane.Fleet.Autonomy) seed 1 and 2, plus a locked wheel on cargo_2 before docking (paired with seed 1).",
+  "out": "/home/lunarz/.cache/crane-fleet/jobs/autonomy_demo_v0",
+  "divergence_tol": 0.001,
+  "jobs": [
+    {
+      "id": "auto_s1",
+      "seed": 1,
+      "variant": "autonomy",
+      "mission_file": "/home/lunarz/worktrees/crane-fleet/Tools/Fleet/missions/autonomy_demo_v0.json"
+    },
+    {
+      "id": "auto_s1_repeat",
+      "seed": 1,
+      "variant": "autonomy",
+      "mission_file": "/home/lunarz/worktrees/crane-fleet/Tools/Fleet/missions/autonomy_demo_v0.json",
+      "pair_of": "auto_s1"
+    },
+    {
+      "id": "auto_s2",
+      "seed": 2,
+      "variant": "autonomy",
+      "mission_file": "/home/lunarz/worktrees/crane-fleet/Tools/Fleet/missions/autonomy_demo_v0.json"
+    },
+    {
+      "id": "auto_s1_cargo2_rl_weak",
+      "seed": 1,
+      "variant": "autonomy_cargo2_rl_weak",
+      "failures": "cargo_2:wheel_rl:weak@5",
+      "mission_file": "/home/lunarz/worktrees/crane-fleet/Tools/Fleet/missions/autonomy_demo_v0.json",
+      "pair_of": "auto_s1"
+    },
+    {
+      "id": "scripted_demo_s1",
+      "mission": "demo",
+      "seed": 1,
+      "variant": "demo_scripted"
+    }
+  ]
+}
