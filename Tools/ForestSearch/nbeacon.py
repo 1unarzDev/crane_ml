@@ -415,7 +415,7 @@ def pooled_table(D, protos, L, B=2000, title=""):
             res[(N, a, b)] = (m, float(lo), float(hi))
             row.append(f"{m:+.3f} [{lo:+.3f},{hi:+.3f}]{'*' if lo > 0 or hi < 0 else ''}")
         o = res[(N, "ORACLE", "IMPLICIT")][0]
-        rec = [f"{res[(N, p, 'IMPLICIT')][0]/o:.2f}" if abs(o) > 1e-9 else "n/a" for p in part[:1]]
+        rec = [f"{res[(N, p, 'IMPLICIT')][0]/o:.2f}" if abs(o) > 0.01 else "n/a (ORACLE gain ~0)" for p in part[:1]]
         row += rec
         L.append("| " + " | ".join(row) + " |")
     L.append("")
@@ -516,6 +516,29 @@ def cmd_fresh(a):
     os.replace(outd + ".part", outd)
 
 
+def cmd_tune(a):
+    """Frozen dev rule: per family, the rule with the highest mean (X - IMPLICIT) over the perm1 dev
+    cells at N in {5, 10} (travel x link, equal weight).  Writes results/nbeacon_frozen.json."""
+    D = load([a.main])
+    cells = [(N, float(tr), 1.0, "greedy", "perm1", ln) for N in (5, 10) for tr in TRAVELS for ln in CELL_LINKS]
+    L = ["| variant | " + " | ".join(f"N={N}" for N in NS) + " | score (N=5,10 mean) |", "|---|---|---|---|---|"]
+    best = {}
+    for p in sorted({k[6] for k in D if k[6].startswith("HEALTH")}):
+        per = {N: np.mean([ctr(D, (N, float(tr), 1.0, "greedy", "perm1", ln), p, "IMPLICIT").mean()
+                           for tr in TRAVELS for ln in CELL_LINKS]) for N in NS}
+        sc = float(np.mean([ctr(D, c, p, "IMPLICIT").mean() for c in cells]))
+        L.append(f"| {p} | " + " | ".join(f"{per[N]:+.4f}" for N in NS) + f" | {sc:+.4f} |")
+        fam = "part" if p.startswith("HEALTH_PART") else "one" if p.startswith("HEALTH_ONE") else None
+        if fam and (fam not in best or sc > best[fam][1]):
+            best[fam] = (p.split(":")[1], sc)
+    print("\n".join(L))
+    out = {"part": best["part"][0], "one": best["one"][0], "dev_scores": {k: v[1] for k, v in best.items()},
+           "rule": "highest mean (X-IMPLICIT) over dev perm1 cells, N in {5,10}, travel x link, equal weight",
+           "dev_seeds": "1000-1015", "main_sha256": sha(a.main)}
+    json.dump(out, open(os.path.join(RES, "nbeacon_frozen.json"), "w"), indent=1)
+    print(json.dumps(out, indent=1))
+
+
 def cmd_analyze(a):
     L = [f"# {a.title}", ""]
     D = analyze_main(a.main, a.protos.split(","), L, title=a.title)
@@ -538,6 +561,8 @@ def main():
     f = sub.add_parser("fresh")
     f.add_argument("--E", type=int, default=60)
     f.add_argument("--Ed", type=int, default=10)
+    t = sub.add_parser("tune")
+    t.add_argument("--main", required=True)
     z = sub.add_parser("analyze")
     z.add_argument("--main", required=True)
     z.add_argument("--diag", default=None)
@@ -546,7 +571,7 @@ def main():
     z.add_argument("--title", default="nbeacon")
     z.add_argument("--out", required=True)
     a = ap.parse_args()
-    {"dev": cmd_dev, "fresh": cmd_fresh, "analyze": cmd_analyze}[a.cmd](a)
+    {"dev": cmd_dev, "fresh": cmd_fresh, "analyze": cmd_analyze, "tune": cmd_tune}[a.cmd](a)
 
 
 if __name__ == "__main__":

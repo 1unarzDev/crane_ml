@@ -1,0 +1,11 @@
+{
+ "part": "near",
+ "one": "low",
+ "dev_scores": {
+  "one": 0.011067708333333334,
+  "part": 0.013020833333333334
+ },
+ "rule": "highest mean (X-IMPLICIT) over dev perm1 cells, N in {5,10}, travel x link, equal weight",
+ "dev_seeds": "1000-1015",
+ "main_sha256": "9bcb36808ca783d4014633a6fe12e8e78623f7bcee593caca5e7aa4a702df3a4"
+}
