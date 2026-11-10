@@ -665,7 +665,7 @@
         ]
       ],
       "view": [
-        3.7,
+        3.45,
         4.6
       ],
       "find_camera": "cam_left",
@@ -711,6 +711,10 @@
       },
       "route": [
         [
+          1.1,
+          2.4
+        ],
+        [
           2.2,
           2.6
         ],
@@ -721,7 +725,7 @@
       ],
       "wait": [
         4.9,
-        5.2
+        5.4
       ],
       "grip_lift": {
         "value": 0.08,
@@ -732,7 +736,7 @@
         "provenance": "provisional"
       },
       "grip_inset": {
-        "value": 0.1,
+        "value": 0.06,
         "provenance": "provisional"
       },
       "pre_grip_gap": {

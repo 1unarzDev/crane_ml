@@ -94,6 +94,7 @@ namespace Crane.Fleet.Sim {
         // ---------------------------------------------------------------- build
         public IEnumerable<GameObject> Build(FleetRun r) {
             run = r;
+            r.IgnoreContact = (a, b) => Coupled && ((a == leader && b == follower) || (a == follower && b == leader));
             JsonNode c = D["controller"];
             kp = c["kp_pos"].Double; kyaw = c["kp_yaw"].Double; posTol = c["pos_tolerance"].Double; yawTol = c["yaw_tolerance"].Double;
             scout = r.Rover("scout_1"); lifter = r.Rover("lifter_1");
@@ -195,6 +196,7 @@ namespace Crane.Fleet.Sim {
                 return false;
             } });
             Q(scout, WaitFor(s["linger_s"].Double));
+            Q(scout, WaitFlag("lifter_waiting"));
             double[] watch = s["watch"].Doubles, look = s["watch_look"].Doubles;
             double wy = Bearing(watch, look);
             foreach (var w in s["watch_route"].Items) { var p = w.Doubles; Q(scout, Go("to_watch", p[0], p[1], wy, cruise)); }
@@ -215,6 +217,7 @@ namespace Crane.Fleet.Sim {
             foreach (var w in L["route"].Items) { var p = w.Doubles; Q(lifter, Go("route", p[0], p[1], 0, cruise)); }
             double[] wait = L["wait"].Doubles;
             Q(lifter, Go("to_wait", wait[0], wait[1], Math.PI, cruise));
+            Q(lifter, Do("waiting", (m, r) => m.Flag("lifter_waiting", r.D.Id)));
             Q(lifter, WaitFlag("payload_found"));
             // grip geometry from the asset: finger x in the base frame (carriage origin + finger origin)
             double fingerX = FingerX();

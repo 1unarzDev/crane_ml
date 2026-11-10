@@ -262,24 +262,35 @@ namespace Crane.Fleet.Sim {
             return d;
         }
 
+        /// <summary>Contacts are logged once per collider pair when the pair first carries impulse (> threshold), not on mere proximity
+        /// (PhysX reports pairs inside the summed contact offsets with zero impulse); the pair re-arms when it separates.</summary>
         void OnContacts(PhysicsScene scene, NativeArray<ContactPairHeader>.ReadOnly headers) {
             for (int h = 0; h < headers.Length; h++) {
                 var header = headers[h];
                 for (int i = 0; i < header.pairCount; i++) {
                     ContactPair pair = header.GetContactPair(i);
-                    if (!pair.isCollisionEnter) continue;
                     Collider a = pair.collider, b = pair.otherCollider;
                     if (a == null || b == null) continue;
+                    var key = (a, b);
+                    if (pair.isCollisionExit) { loggedPairs.Remove(key); continue; }
+                    double impulse = pair.impulseSum.magnitude;
+                    if (impulse <= contactImpulseThreshold || loggedPairs.Contains(key)) continue;
                     byCollider.TryGetValue(a, out RoverRig ra);
                     byCollider.TryGetValue(b, out RoverRig rb);
-                    if (ra == null && rb == null) continue;
-                    string na = ra != null ? ra.D.Id + ":" + a.name : a.name, nb = rb != null ? rb.D.Id + ":" + b.name : b.name;
                     if ((a.name == "floor" || b.name == "floor") && (a is SphereCollider || b is SphereCollider)) continue;  // wheel-floor
-                    pendingContacts.Add(EventLine("contact", ra != null ? ra.D.Id : rb.D.Id, new Dictionary<string, object> {
-                        ["a"] = na, ["b"] = nb, ["impulse"] = (double)pair.impulseSum.magnitude }));
+                    if (ra != null && rb != null && IgnoreContact != null && IgnoreContact(ra, rb)) continue;
+                    loggedPairs.Add(key);
+                    string na = ra != null ? ra.D.Id + ":" + a.name : a.name, nb = rb != null ? rb.D.Id + ":" + b.name : b.name;
+                    pendingContacts.Add(EventLine("contact", ra != null ? ra.D.Id : rb != null ? rb.D.Id : "", new Dictionary<string, object> {
+                        ["a"] = na, ["b"] = nb, ["impulse"] = impulse }));
                 }
             }
         }
+
+        readonly HashSet<(Collider, Collider)> loggedPairs = new HashSet<(Collider, Collider)>();
+        const double contactImpulseThreshold = 1e-4;
+        /// <summary>Pairs a mission declares as expected (e.g. a coupled pair's mated faces).</summary>
+        public Func<RoverRig, RoverRig, bool> IgnoreContact;
 
         // ---- logging ----
 

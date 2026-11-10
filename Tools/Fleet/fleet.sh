@@ -24,17 +24,17 @@ dirty=$([[ -n "$(git -C "$root" status --porcelain --untracked-files=no)" ]] && 
 
 # Memory guard (coordinator, 2026-11-10): never launch Unity with less than CRANE_FLEET_MIN_MEM_GB available.
 memwait() {
-    local need=${CRANE_FLEET_MIN_MEM_GB:-12} avail
+    local need=${CRANE_FLEET_MIN_MEM_GB:-12} avail held=0
     while true; do
         avail=$(awk '/MemAvailable/ {printf "%d", $2/1048576}' /proc/meminfo)
         # operator rule: at most one Unity process on the machine across all sessions
         if "$heavy" status 2>/dev/null | grep -E '^unity\.[0-9]+ ' | grep -vq ' free'; then
-            echo "fleet.sh: waiting: a unity slot is held ($(date +%T))" >&2
-            sleep 30; continue
+            (( ++held % 12 == 1 )) && echo "fleet.sh: waiting: a unity slot is held ($(date +%T))" >&2
+            sleep 5; continue
         fi
         (( avail >= need )) && return 0
-        echo "fleet.sh: waiting for memory (${avail} GB available < ${need} GB)" >&2
-        sleep 30
+        (( ++held % 12 == 1 )) && echo "fleet.sh: waiting for memory (${avail} GB available < ${need} GB)" >&2
+        sleep 5
     done
 }
 
@@ -91,5 +91,25 @@ case "$cmd" in
             --crane-disable-ros --crane-disable-sitl --crane-fleet-spec "$spec" --crane-fleet-still "$dir" --crane-seed "$seed" \
             --crane-source-commit "$commit" --crane-source-dirty "$dirty" ) || true
         grep -h "CRANE_FLEET_STILL\|CRANE_FLEET_EXIT\|CRANE_FLEET_FAILED\|CRANE_FLEET_SPEC" "$dir/player.log" ;;
+    demo)    # demo SEED [OUT_DIR]: demo mission in the editor (batchmode, -nographics), own physics scene
+        seed=${1:?seed}; out=${2:-$cache/runs/fleet_warehouse_a_v0_demo_$seed}
+        ed "$cache/logs/demo-$seed-$stamp.log" -quit -executeMethod Crane.Fleet.EditorTools.FleetCli.Batch --crane-fleet-mission demo \
+            --crane-fleet-batch "run=$seed:$out" --crane-source-commit "$commit" --crane-source-dirty "$dirty" || true
+        grep -h "CRANE_FLEET_RUN_END\|CRANE_FLEET_FAILED\|CRANE_FLEET_EXIT" "$cache/logs/demo-$seed-$stamp.log" ;;
+    demo-player)   # demo-player SEED [OUT_DIR]: demo mission in the player, -nographics
+        seed=${1:?seed}; out=${2:-$cache/runs-player/fleet_warehouse_a_v0_demo_$seed}
+        pl "$cache/logs/pdemo-$seed-$stamp.log" --crane-disable-ros --crane-disable-sitl --crane-fleet-run --crane-fleet-mission demo --crane-seed "$seed" \
+            --crane-source-commit "$commit" --crane-source-dirty "$dirty" --crane-fleet-out "$out" || true
+        grep -h "CRANE_FLEET_RUN_END\|CRANE_FLEET_FAILED\|CRANE_FLEET_EXIT" "$cache/logs/pdemo-$seed-$stamp.log" ;;
+    demo-still)    # demo-still SEED [DIR] [extra player args, e.g. --crane-fleet-clip --crane-fleet-still-scale 0.6]
+        seed=${1:?seed}; dir=${2:-$cache/stills/demo_seed$seed}; shift 2 || shift $#
+        mkdir -p "$dir"
+        memwait
+        ( unset WAYLAND_DISPLAY
+          flock "$cache/unity.lock" xvfb-run -a -s "-screen 0 1280x720x24" "$heavy" unity "$player" -batchmode \
+            -screen-fullscreen 0 -screen-width 320 -screen-height 180 -logFile "$dir/player.log" \
+            --crane-disable-ros --crane-disable-sitl --crane-fleet-spec "$spec" --crane-fleet-still "$dir" --crane-fleet-mission demo \
+            --crane-seed "$seed" --crane-source-commit "$commit" --crane-source-dirty "$dirty" "$@" ) || true
+        grep -h "CRANE_FLEET_STILL \|CRANE_FLEET_EXIT\|CRANE_FLEET_FAILED\|CRANE_FLEET_CLIP\|CRANE_FLEET_RUN_END" "$dir/player.log" ;;
     *) echo "unknown command $cmd" >&2; exit 2 ;;
 esac
