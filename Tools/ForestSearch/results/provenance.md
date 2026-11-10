@@ -8,7 +8,8 @@
 | View alternation recovers a median of 0.57 of the gap (range −2.58 to 0.79) | alternation.md | exact |
 | Exact value of communication, proof and counterexample | exact_dec.md (../exact_dec.py) | exact |
 | Mechanism controls (in-flight oracle, phantom looks, lease tie rule) | phantom.md, leasefix.md, controls.md (HYBRID_O there is a buggy control, superseded by PH_orc) | exploratory |
-| Collision counts 5.46/5.81 (HYBRID) and 0.86/1.16 (HYBRID_P); decision probe 84–94% / ~90%; H3 reproduction on seeds 302–309 | reviews/REVIEW_fresh.md (independent reviewer runs) | exploratory, independent |
+| Collision counts quoted in the paper: 5.42/6.00 (HYBRID) and 0.90/1.10 (HYBRID_P) | controls.md (seeds 600–603) | exploratory |
+| Independent-reviewer collision counts 5.46/5.81 and 0.86/1.16 (seeds 300/301); decision probe 84–94% / ~90%; H3 reproduction on seeds 302–309 | reviews/REVIEW_fresh.md | exploratory, independent |
 | Delay-only lockstep figures (0.820 → 0.757, 6.45 redundant looks); SECTOR vs greedy | reviews/REVIEW_skeptic.md | exploratory, independent |
 | Agent-loss counterexample | falsify.md; loss_baselines.md (INDEP, HEALTH) | exploratory; screened over 21 regimes, then replicated |
 | Agent-loss reproduction on seeds 700/701 | reviews/REVIEW_PDF.md | exploratory, independent |

@@ -14,46 +14,75 @@ matplotlib.rcParams["ps.fonttype"] = 42
 # Type 1 fonts via LaTeX text rendering (AAAI font check); needs pdflatex on PATH.
 matplotlib.rcParams["text.usetex"] = True
 matplotlib.rcParams["font.family"] = "serif"
-matplotlib.rcParams["font.size"] = 9
+matplotlib.rcParams["font.size"] = 8
 import matplotlib.pyplot as plt  # noqa: E402
 
 from .analyze_curve import load, paired  # noqa: E402
 
-PANELS = [("6x6", "0", "d0_loss0", "no delay, no loss"),
-          ("6x6", "0", "d1_loss0", "delay 1 step, no loss"),
-          ("6x6", "0", "d1_burst30", r"delay 1 step, 30\% bursty loss"),
-          ("6x6", "1", "d1_loss0", "with travel, delay 1 step")]
-COL = dict(ORACLE=("#222222", "centralized"), FULL=("#d62728", "FULL (replaces plan)"),
-           HYBRID=("#1f77b4", "HYBRID (plan + messages)"),
-           HYBRID_P=("#17becf", "HYBRID + role tie-break"),
-           INDEP=("#999999", "no plan, no messages"))
+PANELS = [("6x6", "0", "d0_loss0", "(a) no delay, no loss"),
+          ("6x6", "0", "d1_loss0", "(b) delay 1, no loss"),
+          ("6x6", "0", "d1_burst30", r"(c) delay 1, 30\% burst loss"),
+          ("6x6", "1", "d1_loss0", "(d) travel, delay 1")]
+# Okabe-Ito palette; distinct markers/linestyles so it survives greyscale.
+# strategy: (colour, marker, linestyle, label, label dy)
+SER = {"FULL": ("#D55E00", "s", "-", "FULL", -0.012),
+       "HYBRID": ("#0072B2", "o", "-", "HYBRID", 0.0),
+       "HYBRID_P": ("#009E73", "^", "-", "HYBRID-P", 0.012),
+       "ORACLE": ("#000000", "D", "--", "ORACLE", 0.0)}
+YLIM = (-0.15, 0.055)
 
 
 def main(rdir, out):
-    fig, ax = plt.subplots(1, 4, figsize=(7.0, 2.3), sharey=True)
+    fig = plt.figure(figsize=(7.0, 2.2))
+    gs = fig.add_gridspec(1, 5, width_ratios=[1, 1, 1, 0.42, 1], wspace=0.1,
+                          left=0.075, right=0.995, bottom=0.2, top=0.9)
+    ax = [fig.add_subplot(gs[0, 0])]
+    ax += [fig.add_subplot(gs[0, k], sharey=ax[0]) for k in (1, 2)]
+    ax.append(fig.add_subplot(gs[0, 4], sharey=ax[0]))
+    for a in ax[1:]:
+        plt.setp(a.get_yticklabels(), visible=False)
     cache = {}
+    ends = {}
     for j, (g, t, ln, title) in enumerate(PANELS):
         if (g, t) not in cache:
             cache[(g, t)] = load(f"{rdir}/confirm_{g}_t{t}.csv")[0]
         D = cache[(g, t)]
         rng = np.random.default_rng(0)
         a = ax[j]
-        a.axhline(0, color="k", lw=.8)
-        for s, (c, lab) in COL.items():
-            xs = [0, 1, 2, 3]
+        a.axhline(0, color="0.35", lw=.8, zorder=1)
+        xs = [0, 1, 2, 3]
+        for s in ("ORACLE", "FULL", "HYBRID", "HYBRID_P"):
+            c, m, ls, lab, dy = SER[s]
             r = [paired(D, float(lam), ln, s, rng=rng, B=1000) for lam in xs]
-            a.plot(xs, [x[0] for x in r], "-o", ms=3, color=c, label=lab)
-            a.fill_between(xs, [x[1] for x in r], [x[2] for x in r], color=c, alpha=.15)
-        a.set_title(title, fontsize=8)
-        a.set_xlabel(r"private-event scale $\lambda$", fontsize=8)
-        a.set_xticks([0, 1, 2, 3])
-    ax[0].set_ylabel(r"$\Delta P$ vs.\ IMPLICIT", fontsize=8)
-    h, lab = ax[0].get_legend_handles_labels()
-    fig.legend(h, lab, loc="upper center", ncol=5, fontsize=7, frameon=False,
-               bbox_to_anchor=(0.5, 1.0), handlelength=1.6, columnspacing=1.0)
-    for a in ax:
-        a.tick_params(labelsize=7)
-    fig.tight_layout(rect=(0, 0, 1, 0.88))
+            y = [x[0] for x in r]
+            if s != "ORACLE":
+                a.fill_between(xs, [x[1] for x in r], [x[2] for x in r], color=c, alpha=.14, lw=0)
+            a.plot(xs, y, ls, marker=m, ms=3.2, lw=1.2, color=c, zorder=3)
+            if j == 3:
+                ends[s] = y[-1]
+        a.set_title(title, fontsize=7.5, pad=3)
+        a.set_xlabel(r"private-event scale $\lambda$", fontsize=7.5)
+        a.set_xticks(xs)
+        a.set_ylim(*YLIM)
+        a.set_yticks([-.15, -.1, -.05, 0, .05])
+        a.tick_params(labelsize=7, length=2.5)
+        a.grid(axis="y", lw=.3, alpha=.5)
+        for sp in ("top", "right"):
+            a.spines[sp].set_visible(False)
+    ax[0].set_ylabel(r"$\Delta P$ vs.\ IMPLICIT", fontsize=7.5)
+    ax[0].annotate("0 = silent common plan", (0.0, 0.0), (-0.1, 0.04), fontsize=7, ha="left", va="center",
+                   color="0.2", arrowprops=dict(arrowstyle="-", lw=.5, color="0.4"))
+    # direct labels, panel (b) right edge (clearest separation), nudged to avoid overlap
+    a = ax[2]
+    rng = np.random.default_rng(0)
+    D = cache[("6x6", "0")]
+    ys = {s: paired(D, 3.0, "d1_burst30", s, rng=rng, B=200)[0] for s in SER}
+    place = {"ORACLE": ys["ORACLE"] + 0.012, "HYBRID_P": ys["HYBRID_P"] - 0.004,
+             "HYBRID": ys["HYBRID"] - 0.002, "FULL": ys["FULL"] - 0.004}
+    for s, yy in place.items():
+        c, m, ls, lab, dy = SER[s]
+        a.text(3.12, yy, lab, color=c, fontsize=7, va="center", ha="left",
+               clip_on=False, bbox=None)
     fig.savefig(out)
     fig.savefig(out.replace(".pdf", ".png"), dpi=200)
 
