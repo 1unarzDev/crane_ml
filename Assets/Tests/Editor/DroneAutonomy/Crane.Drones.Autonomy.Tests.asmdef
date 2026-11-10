@@ -1,0 +1,11 @@
+{
+    "name": "Crane.Drones.Autonomy.Tests",
+    "rootNamespace": "Crane.Drones.Autonomy.Tests",
+    "references": [
+        "Crane.Drones.Autonomy",
+        "Crane.Aerial.Physics"
+    ],
+    "includePlatforms": [ "Editor" ],
+    "excludePlatforms": [],
+    "optionalUnityReferences": [ "TestAssemblies" ]
+}

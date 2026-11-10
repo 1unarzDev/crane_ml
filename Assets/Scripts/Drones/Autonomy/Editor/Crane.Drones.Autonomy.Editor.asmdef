@@ -1,0 +1,25 @@
+{
+    "name": "Crane.Drones.Autonomy.Editor",
+    "rootNamespace": "Crane.Drones.Autonomy",
+    "references": [
+        "Crane.Drones.Autonomy",
+        "Crane.Drones.Autonomy.Unity",
+        "Crane.Aerial.Physics",
+        "Crane.Drones.Logging",
+        "Crane.Drones.Integration",
+        "Crane.Theater",
+        "Crane.Theater.Aerial",
+        "Crane.Drones.Environment",
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.RenderPipelines.HighDefinition.Runtime"
+    ],
+    "includePlatforms": [ "Editor" ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

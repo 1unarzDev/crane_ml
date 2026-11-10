@@ -1,0 +1,16 @@
+{
+    "name": "Crane.Drones.Autonomy",
+    "rootNamespace": "Crane.Drones.Autonomy",
+    "references": [
+        "Crane.Aerial.Physics"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": true
+}
