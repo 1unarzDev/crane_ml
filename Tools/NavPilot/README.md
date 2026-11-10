@@ -42,3 +42,11 @@ $F $PY Tools/DroneData/drone_log.py /tmp/np_run
   `fsrun python Tools/NavPilot/experiments/worker.py --queue ~/.cache/navpilot_e3 --name w1`. Its job files resume
   from `pending/`. A job file interrupted mid-run must be moved from `running/` back to `pending/`. Duplicate rows
   are deduplicated by the report.
+
+## D3: compute-aware high-speed navigation (DEV only; direction D3 of the 2026-11 frontier plan)
+- Report: `results/D3_dev.md` (diagnosis by counterfactual, adaptive-compute policies, isotonic v*, multi-rate test).
+  Draft prereg `PREREG_E4.md` (NOT FROZEN); .NET multi-rate spec `results/MULTIRATE_NET_SPEC.md` (not run).
+- Code (new files only; E2/E3 modules untouched): `stacks/compute_gov.py` (compute levels, CCStack: clear_only, cc_opt, cc_pas,
+  lp_pas, rr_pas, fix_l*, p99_nb, cc_nb), `experiments/d3_episode.py` (e3_episode copy with counterfactual hooks, plant-rate
+  decoupling, per-cycle compute levels, brake_infeasible label), `experiments/d3.py` (plan/run/report), `experiments/test_d3.py` (parity).
+- `PY experiments/d3.py run diag|tune|train|eval|multirate` under fsrun (resumable), then `PY experiments/d3.py report`.
