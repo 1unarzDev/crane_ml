@@ -33,6 +33,7 @@ namespace Crane.Theater.Aerial {
         }
 
         static bool RunInner() {
+            Crane.Drones.Logging.DroneSplitGuard.EnforceFromCommandLine(Environment.GetCommandLineArgs());   // split guard before the scene is built (needs --drone-seed)
             string project = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
             string seqPath = Path.GetFullPath(Path.Combine(project, Arg("-demoSequence", DefaultSequence)));
             var spec = DemoSpec.Parse(File.ReadAllText(seqPath));

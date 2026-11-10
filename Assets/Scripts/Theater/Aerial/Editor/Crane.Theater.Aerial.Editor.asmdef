@@ -2,6 +2,7 @@
     "name": "Crane.Theater.Aerial.Editor",
     "rootNamespace": "Crane.Theater.Aerial",
     "references": [
+        "Crane.Drones.Logging",
         "Crane.Theater",
         "Crane.Theater.Aerial",
         "Unity.RenderPipelines.Core.Runtime",

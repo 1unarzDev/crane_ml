@@ -1,0 +1,16 @@
+{
+  "source_run": "/home/lunarz/.cache/research/drone-flights/seed1337_run1",
+  "camera_hz": 2.5,
+  "scale": 2,
+  "cameras": {
+    "oakd_depth": {
+      "fullrate_frames": 1000,
+      "kept_frames": 100
+    },
+    "oakd_rgb": {
+      "fullrate_frames": 1000,
+      "kept_frames": 100
+    }
+  },
+  "note": "camera frames subsampled by acquisition stamp and downscaled; stamps unchanged; full-rate stamps in camera_fullrate/<name>.csv"
+}

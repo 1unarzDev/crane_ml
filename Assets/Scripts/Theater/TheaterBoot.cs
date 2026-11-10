@@ -15,7 +15,7 @@ namespace Crane.Theater {
     ///     --crane-theater MANIFEST --crane-theater-out DIR [--crane-theater-script ACTS.json]
     ///     [--crane-theater-frames A:B] [--crane-theater-seconds S] [--crane-theater-fps F] [--crane-theater-size WxH]
     ///     [--crane-theater-ffmpeg PATH|none] [--crane-theater-crf 18] [--crane-theater-preset medium]
-    ///     [--crane-theater-preroll-s 2] [--crane-theater-quality N] [--crane-theater-stills N]
+    ///     [--crane-theater-preroll-s 2] [--crane-theater-quality N] [--crane-theater-stills N] [--crane-theater-nohud]
     /// Writes DIR/video.mp4 (frames A..B-1), DIR/frames.jsonl (per frame: act, state digest, pixel sha256,
     /// camera), DIR/render_report.json (checks for the inspectors) and, with --crane-theater-stills N, a PNG
     /// every N frames in DIR/stills. Every time source is the frame index: frame f is at f / fps; the world's
@@ -98,6 +98,7 @@ namespace Crane.Theater {
             string worldName = TJson.Str(manifest.World, "plugin", "plane"), robotName = TJson.Str(manifest.Robot, "plugin", "arrow");
             ITheaterWorld world = TheaterPlugins.Worlds.TryGetValue(worldName, out var wf) ? wf() : new PlaneWorld();
             ITheaterRobot robot = TheaterPlugins.Robots.TryGetValue(robotName, out var rf) ? rf() : new ArrowRobot();
+            if (worldName == "aerial-forest") Crane.Drones.Logging.DroneSplitGuard.EnforceFromCommandLine(Args);   // drone split guard before the world is built; RoboBoat worlds unaffected
             yield return world.Prepare(manifest);
 
             TheaterScript script;
@@ -160,6 +161,7 @@ namespace Crane.Theater {
             cpv.injectionPoint = CustomPassInjectionPoint.AfterPostProcess;
             cpv.customPasses.Add(new TheaterPass { R = renderer, name = "ghost theater" });
             var hud = new HudRenderer(script.Width, script.Height);
+            bool noHud = Array.IndexOf(Args, "--crane-theater-nohud") >= 0;   // clean frames for stills and reference video
 
             GameObject gold = null, silver = null;
             bool heroes = false;
@@ -191,7 +193,7 @@ namespace Crane.Theater {
                 cam.fieldOfView = fs.fov;
                 renderer.Prepare(fs);
                 cam.Render();
-                hud.Draw(rt, fs.hud);
+                if (!noHud) hud.Draw(rt, fs.hud);
                 if (f >= a) {
                     string pix = capture.Write(rt, f);
                     if (stills > 0 && (f - a) % stills == 0) capture.WritePng(Path.Combine(outDir, "stills", $"frame_{f:D6}.png"));

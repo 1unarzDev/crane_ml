@@ -1,0 +1,139 @@
+{
+  "schema": "crane-drone-log/1",
+  "run_id": "seed1337_run1",
+  "crane_git_sha": "6728637418cf46ad1eefc9a6c47675ef9f98eb65",
+  "scene": "Assets/Scenes/Drone Forest.unity",
+  "scene_seed": 1337,
+  "split": "dev",
+  "forest_manifest_sha256": "8f816be065b32e59ca54f50825ecc980d5f41ede272f1cb627db96569d64c381",
+  "physics_profile": "aos7-v5-f90-1300kv-6s",
+  "physics_params_sha256": "3c48373fbd642745eb5c750b17d11fdcfcde9d050ed30f5e4850cf44072d4e7a",
+  "controller": "CraneMultirotorController (cascaded P/PI, 500 Hz) + CraneTrajectoryFollower",
+  "trajectory_spec": {
+    "kind": "corridor_waypoints_follower_v1",
+    "source": "DroneForestMarker CorridorWaypoint markers in the scene (sorted by name)",
+    "waypoints_enu": [
+      [-49.600002288818359,-43.399997711181641,0.49557042121887207],
+      [-34.367958068847656,-33.929801940917969,0.83726239204406738],
+      [-33.306251525878906,-29.0438232421875,0.76314854621887207],
+      [-33.697113037109375,-24.059123992919922,0.6532127857208252],
+      [-35.202701568603516,-19.291189193725586,0.72330021858215332],
+      [-36.1292724609375,-14.377792358398438,1.1914970874786377],
+      [-37.234691619873047,-9.5015182495117188,0.92931866645812988],
+      [-39.505344390869141,-5.046842098236084,0.63979077339172363],
+      [-41.108009338378906,-0.31065511703491211,-0.66918826103210449],
+      [-41.4854850769043,4.6750760078430176,-1.5555484294891357],
+      [-43.109424591064453,9.4040107727050781,-1.1463305950164795],
+      [-45.930679321289063,13.532027244567871,-1.416579008102417],
+      [-49.8682746887207,16.613479614257813,-1.8811423778533936],
+      [-53.267807006835938,20.279972076416016,-3.012587308883667],
+      [-55.231925964355469,24.878040313720703,-4.8619241714477539],
+      [-56.251510620117188,29.772981643676758,-7.1567373275756836],
+      [-56.843074798583984,34.737861633300781,-8.0828390121459961],
+      [-58.358219146728516,39.502769470214844,-8.097661018371582],
+      [-58.5687255859375,44.498336791992188,-7.8453702926635742],
+      [-58.131465911865234,49.479179382324219,-7.7400846481323242],
+      [-56.742259979248047,54.282314300537109,-7.1785211563110352],
+      [-55.020626068115234,58.9765625,-6.6198949813842773]],
+    "speed_mps": 3.5,
+    "max_accel_mps2": 2.5,
+    "face_along_track": true,
+    "initial_yaw_enu_rad": 0.55624330515194542,
+    "duration_s": 40,
+    "seed": 1337
+  },
+  "disturbance": {
+    "wind": "calm",
+    "lighting": "GoldenHour"
+  },
+  "unity_version": "6000.5.10f1",
+  "wall_clock_start_utc": "2026-11-10T05:31:52.6810610Z",
+  "clock": {
+    "unit": "ns",
+    "fixed_dt_ns": 5000000,
+    "substeps": 5,
+    "substep_dt_ns": 1000000,
+    "substep_hz": 1000,
+    "state_every_substeps": 1,
+    "state_hz": 1000
+  },
+  "frames": {
+    "world": "ENU",
+    "body": "FLU",
+    "quat": "wxyz world_from_body"
+  },
+  "rotor_count": 4,
+  "imu": {
+    "rate_hz": 500,
+    "noise": {
+      "gyro_noise_density": 0,
+      "accel_noise_density": 0,
+      "gyro_bias_walk": 0,
+      "accel_bias_walk": 0,
+      "source": "CraneAerialImu (plant, integrated over the sample interval)"
+    }
+  },
+  "cameras": [
+    {
+      "name": "oakd_rgb",
+      "kind": "Rgb",
+      "width": 640,
+      "height": 360,
+      "rate_hz": 25,
+      "profile": "RenderProfiles onboard: volume layer 31 only, no cinematic effects, AA off, instant auto-exposure, neutral tonemap",
+      "hfov_deg": 69,
+      "mount": "DroneVisualRig.cameraMount (OAK-D S2 RGB)",
+      "shutter": "instantaneous render at acq_ns (rolling shutter NOT modeled)",
+      "complete_ns": "== acq_ns (no readback latency modeled)"
+    },
+    {
+      "name": "oakd_depth",
+      "kind": "Depth",
+      "width": 640,
+      "height": 400,
+      "rate_hz": 25,
+      "profile": "RenderProfiles onboard: volume layer 31 only, no cinematic effects, AA off, instant auto-exposure, neutral tonemap",
+      "hfov_deg": 80,
+      "mount": "left OV9282 pose (cameraMount - baseline/2)",
+      "range_gate_m": [0.20000000298023224,35],
+      "source": "hdrp_aov_depthstencil_zbuffer",
+      "note": "rendered ground-truth Z-depth, NOT stereo-matched (no disparity noise, no SGBM artefacts)"
+    }],
+  "lidars": [],
+  "extra": {
+    "physics_params_canonical": "profile_sha256=24641b03a4db3e986bef3dd8d443abb2d252b5169a6fbd1e48ef4fd923ade807;battery=1;ground_effect=1;ground_height=-1000;substep_hz=1000;control_every=2;contact=1;mean_wind=0,0,0;turbulence=none;imu_hz=500;imu_noise=0,0,0,0;gain.PositionP=1.2;gain.VelocityP=3;gain.VelocityI=0.8;gain.AttitudeP=9;gain.YawP=3;gain.RateP=22;gain.RateI=8;gain.YawRateP=8;gain.MaxSpeedXY=10;gain.MaxSpeedUp=4;gain.MaxSpeedDown=2.5;gain.MaxAccelXY=8;gain.MaxTilt=0.7;gain.MaxRateRP=7;gain.MaxRateYaw=3;gain.IntegratorLimit=3",
+    "frames_note": "world ENU = (Unity x, Unity z, Unity y) as CraneAerialFrames; body FLU",
+    "forest_manifest_path": "Assets/Drones/Environment/Manifests/forest_seed1337_manifest.json",
+    "git_dirty_paths": "76",
+    "plant_ground_plane": "disabled (GroundHeight -1000, as CranePlantAdapter); the plant has no tree or terrain contact",
+    "collision_events": "NOT_AVAILABLE: the aerial plant has no contact with trees/terrain (PHYSICS.md known gap); near_miss uses manifest trunk geometry",
+    "lidar": "NOT_AVAILABLE: no LiDAR is mounted on the aerial demo rig (the only Lidar3D is the ROS boat sensor, not part of the drone onboard set)",
+    "detection_events": "NOT_AVAILABLE: no DroneDetectableTarget in the Drone Forest scene",
+    "clearance_model": "horizontal distance to trunk axis - dbh/2 - 0.248 m (max rotor hub radius + prop radius); trunks only (no branches/foliage)",
+    "depth_check": {
+      "raycast_hits": 236,
+      "median_rel_err_flip": 0.011444114685256978,
+      "median_rel_err_keep": 1.9406694210157571,
+      "flip_rows": true,
+      "at_t_ns": 40000000
+    },
+    "tracking_error_m": {
+      "rms": 0.2085459642970364,
+      "max": 0.76803325656293375,
+      "note": "|plant position - follower setpoint| per tick"
+    },
+    "trajectory_finished": true,
+    "imu_dropped": 0
+  },
+  "end": {
+    "end_tick": 8000,
+    "end_t_ns": 40000000000,
+    "counts": {
+      "events": 3,
+      "state": 40000,
+      "imu": 20000,
+      "camera/oakd_rgb": 1000,
+      "camera/oakd_depth": 1000
+    }
+  }
+}

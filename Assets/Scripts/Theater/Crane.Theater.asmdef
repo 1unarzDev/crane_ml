@@ -2,6 +2,7 @@
     "name": "Crane.Theater",
     "rootNamespace": "Crane.Theater",
     "references": [
+        "Crane.Drones.Logging",
         "Unity.RenderPipelines.Core.Runtime",
         "Unity.RenderPipelines.HighDefinition.Runtime"
     ],

@@ -1,0 +1,57 @@
+{
+  "a": "/home/lunarz/.cache/research/drone-flights/seed1337_run1",
+  "b": "/home/lunarz/.cache/research/drone-flights/seed1337_run2",
+  "problems": [
+    "manifest differs in: ['extra', 'forest_manifest_sha256']"
+  ],
+  "groups": {
+    "pos": {
+      "max_abs": 0.0,
+      "at_t_ns": null,
+      "tol": 1e-06,
+      "ok": true
+    },
+    "quat": {
+      "max_abs": 0.0,
+      "at_t_ns": null,
+      "tol": 1e-06,
+      "ok": true
+    },
+    "vel": {
+      "max_abs": 0.0,
+      "at_t_ns": null,
+      "tol": 1e-06,
+      "ok": true
+    },
+    "rate": {
+      "max_abs": 0.0,
+      "at_t_ns": null,
+      "tol": 1e-05,
+      "ok": true
+    },
+    "acc": {
+      "max_abs": 0.0,
+      "at_t_ns": null,
+      "tol": 0.01,
+      "ok": true
+    },
+    "rotor": {
+      "max_abs": 0.0,
+      "at_t_ns": null,
+      "tol": 0.001,
+      "ok": true
+    },
+    "batt": {
+      "max_abs": 0.0,
+      "at_t_ns": null,
+      "tol": 1e-06,
+      "ok": true
+    }
+  },
+  "bitwise_state_equal": true,
+  "first_divergence_ns": null,
+  "events_equal": true,
+  "camera_oakd_depth_payload_identical": "0/1000",
+  "camera_oakd_rgb_payload_identical": "0/1000"
+}
+NOT REPRODUCIBLE

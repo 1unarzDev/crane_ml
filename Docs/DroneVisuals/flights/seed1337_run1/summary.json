@@ -1,0 +1,34 @@
+{
+  "run_id": "seed1337_run1",
+  "seed": 1337,
+  "split": "dev",
+  "duration_s": 39.999,
+  "state_rows": 40000,
+  "state_hz": 999.9999999999999,
+  "imu_rows": 20000,
+  "cameras": {
+    "oakd_depth": 100,
+    "oakd_rgb": 100
+  },
+  "lidars": {},
+  "events": {
+    "marker": 3
+  },
+  "min_near_miss_m": null,
+  "path_length_m": 120.62477287593815,
+  "final_soc": 0.9505146296103311,
+  "problems": [],
+  "valid": true,
+  "max_speed_mps": 3.768546111758203,
+  "camera_alignment": {
+    "oakd_depth": {
+      "frames": 100,
+      "first_acq_ns": 400000000
+    },
+    "oakd_rgb": {
+      "frames": 100,
+      "first_acq_ns": 400000000
+    }
+  },
+  "min_trunk_axis_clearance_minus_r_m": 1.4791609925219558
+}

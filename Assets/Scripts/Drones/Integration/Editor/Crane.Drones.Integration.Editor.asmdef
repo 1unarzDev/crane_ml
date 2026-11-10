@@ -1,0 +1,23 @@
+{
+    "name": "Crane.Drones.Integration.Editor",
+    "rootNamespace": "Crane.Drones.Integration",
+    "references": [
+        "Crane.Drones.Integration",
+        "Crane.Drones.Logging",
+        "Crane.Aerial.Physics",
+        "Crane.Theater",
+        "Crane.Theater.Aerial",
+        "Crane.Drones.Environment",
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.RenderPipelines.HighDefinition.Runtime"
+    ],
+    "includePlatforms": [ "Editor" ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
