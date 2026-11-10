@@ -1,0 +1,543 @@
+{
+  "schema": "crane.fleet_sim_overlay/v0",
+  "note": "CRANE-local values the shared fleet profile does not define (yet). Every entry is provisional and owned by CRANE; when the shared profile gains a field, delete it here and read the profile. Nothing in C# repeats a value from this file or the profile.",
+  "frame_convention": {
+    "chassis": "FLU (x forward, y left, z up); origin on the floor plane, below the centre of the wheel rectangle, with the rover resting on level floor",
+    "world": "scenario ENU (x east, y north, z up); Unity = (x, z, y), Unity yaw deg = 90 - ENU yaw deg",
+    "provenance": "provisional",
+    "open_question": "the shared profile does not state its chassis origin; face z=0.06 and com z=0.05 are read as heights above the floor"
+  },
+  "physics": {
+    "dt": {
+      "value": 0.005,
+      "provenance": "provisional"
+    },
+    "solver_iterations": {
+      "value": 12,
+      "provenance": "provisional"
+    },
+    "solver_velocity_iterations": {
+      "value": 4,
+      "provenance": "provisional"
+    },
+    "settle_s": {
+      "value": 1.0,
+      "provenance": "provisional"
+    },
+    "gravity": {
+      "value": 9.81,
+      "provenance": "provisional"
+    },
+    "wheel_contact": "sphere",
+    "wheel_friction": {
+      "value": 0.0,
+      "provenance": "provisional",
+      "note": "frictionless wheel spheres: the plant supplies every horizontal force"
+    },
+    "body_friction": {
+      "value": 0.4,
+      "provenance": "provisional"
+    },
+    "spawn_lift": {
+      "value": 0.002,
+      "provenance": "provisional"
+    }
+  },
+  "plant": {
+    "motor_time_constant": {
+      "value": 0.05,
+      "provenance": "provisional"
+    },
+    "contact_tracking_time": {
+      "value": 0.04,
+      "provenance": "provisional",
+      "note": "time constant with which the body velocity follows the wheel-implied velocity (tyre/roller compliance proxy)"
+    },
+    "slip_noise_correlation_time": {
+      "value": 0.2,
+      "provenance": "provisional"
+    },
+    "imu_initial_bias_sigma": {
+      "value": 0.002,
+      "provenance": "provisional"
+    }
+  },
+  "logging": {
+    "state_hz": {
+      "value": 20,
+      "provenance": "provisional"
+    },
+    "traj_hz": {
+      "value": 20,
+      "provenance": "provisional"
+    }
+  },
+  "check": {
+    "contact_tolerance": {
+      "value": 0.004,
+      "provenance": "provisional"
+    },
+    "frame_tolerance": {
+      "value": 0.005,
+      "provenance": "provisional"
+    },
+    "yaw_tolerance": {
+      "value": 0.01,
+      "provenance": "provisional"
+    },
+    "spacing": {
+      "value": 1.2,
+      "provenance": "provisional"
+    }
+  },
+  "visual": {
+    "role_colors": {
+      "scout": [
+        0.95,
+        0.45,
+        0.05
+      ],
+      "lifter": [
+        0.1,
+        0.35,
+        0.9
+      ],
+      "cargo": [
+        0.15,
+        0.7,
+        0.2
+      ]
+    },
+    "instance_shade_step": {
+      "value": 0.18,
+      "provenance": "provisional"
+    },
+    "wheel_color": [
+      0.08,
+      0.08,
+      0.08
+    ],
+    "face_marker_color": [
+      0.95,
+      0.1,
+      0.6
+    ],
+    "mesh_manifest": "meshes/{role}/manifest.json",
+    "mast_radius": {
+      "value": 0.015,
+      "provenance": "provisional"
+    },
+    "lift_fork_thickness": {
+      "value": 0.01,
+      "provenance": "provisional"
+    },
+    "deck_thickness": {
+      "value": 0.01,
+      "provenance": "provisional"
+    },
+    "zone_colors": {
+      "start_staging": [
+        0.3,
+        0.6,
+        1.0
+      ],
+      "loading_area": [
+        1.0,
+        0.8,
+        0.2
+      ],
+      "assembly_staging": [
+        0.6,
+        0.3,
+        1.0
+      ],
+      "delivery": [
+        0.2,
+        0.9,
+        0.4
+      ],
+      "charging_bay_proxy": [
+        0.9,
+        0.2,
+        0.2
+      ]
+    },
+    "floor_color": [
+      0.55,
+      0.55,
+      0.52
+    ],
+    "wall_color": [
+      0.82,
+      0.8,
+      0.76
+    ],
+    "obstacle_color": [
+      0.45,
+      0.3,
+      0.18
+    ],
+    "zone_patch_thickness": {
+      "value": 0.002,
+      "provenance": "provisional"
+    }
+  },
+  "sensor_mounts": {
+    "note": "Placeholder mounting poses [x, y, z, yaw, pitch] in the chassis frame; the shared profile lists sensors but not their poses. Stereo pairs are split by the profile's stereo_baseline.",
+    "scout": [
+      {
+        "id": "imu",
+        "sensor": "imu",
+        "pose": [
+          0.0,
+          0.0,
+          0.08,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "id": "lidar",
+        "sensor": "lidar_2d",
+        "pose": [
+          0.0,
+          0.0,
+          "mast_height",
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "id": "stereo",
+        "sensor": "mono_camera_ov9281",
+        "pair_baseline": "stereo_baseline",
+        "pose": [
+          0.2,
+          0.0,
+          0.12,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "id": "cam_rear",
+        "sensor": "mono_camera_ov9281",
+        "pose": [
+          -0.2,
+          0.0,
+          0.12,
+          3.14159265,
+          0.0
+        ]
+      }
+    ],
+    "lifter": [
+      {
+        "id": "imu",
+        "sensor": "imu",
+        "pose": [
+          0.0,
+          0.0,
+          0.08,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "id": "cam_front",
+        "sensor": "mono_camera_ov9281",
+        "pose": [
+          0.2,
+          0.0,
+          0.12,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "id": "tof_front",
+        "sensor": "range_tof",
+        "pose": [
+          0.21,
+          0.0,
+          0.05,
+          0.0,
+          0.0
+        ]
+      }
+    ],
+    "cargo": [
+      {
+        "id": "imu",
+        "sensor": "imu",
+        "pose": [
+          0.0,
+          0.0,
+          0.08,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "id": "cam_front",
+        "sensor": "mono_camera_ov9281",
+        "pose": [
+          0.2,
+          0.0,
+          0.11,
+          0.0,
+          0.0
+        ]
+      },
+      {
+        "id": "tof_front",
+        "sensor": "range_tof",
+        "pose": [
+          0.21,
+          0.0,
+          0.05,
+          0.0,
+          0.0
+        ]
+      }
+    ]
+  },
+  "role_options": {
+    "scout": {
+      "arm_fitted": false
+    }
+  },
+  "qualification": {
+    "variant": "qual",
+    "note": "Scripted drive for qualification only (not autonomy). The controller reads evaluator truth.",
+    "controller": {
+      "kp_pos": {
+        "value": 1.5,
+        "provenance": "provisional"
+      },
+      "kp_yaw": {
+        "value": 2.0,
+        "provenance": "provisional"
+      },
+      "speed_fraction": {
+        "value": 0.6,
+        "provenance": "provisional"
+      },
+      "yaw_fraction": {
+        "value": 0.5,
+        "provenance": "provisional"
+      },
+      "pos_tolerance": {
+        "value": 0.03,
+        "provenance": "provisional"
+      },
+      "yaw_tolerance": {
+        "value": 0.03,
+        "provenance": "provisional"
+      },
+      "step_timeout_s": {
+        "value": 40.0,
+        "provenance": "provisional"
+      }
+    },
+    "start_jitter_xy": {
+      "value": 0.02,
+      "provenance": "provisional"
+    },
+    "start_jitter_yaw": {
+      "value": 0.02,
+      "provenance": "provisional"
+    },
+    "depart_jitter_s": {
+      "value": 0.5,
+      "provenance": "provisional"
+    },
+    "max_duration_s": {
+      "value": 150.0,
+      "provenance": "provisional"
+    },
+    "strafe_test": {
+      "speed": 0.2,
+      "duration_s": 1.5
+    },
+    "rotate_test": {
+      "yaw_rate": 0.75,
+      "duration_s": 8.37758041
+    },
+    "rovers": {
+      "scout_1": {
+        "start": [
+          1.0,
+          1.6,
+          0.0
+        ],
+        "depart_s": 0.0,
+        "route": [
+          [
+            1.8,
+            3.2
+          ],
+          [
+            3.4,
+            3.2
+          ],
+          [
+            4.25,
+            5.4
+          ]
+        ]
+      },
+      "cargo_2": {
+        "start": [
+          2.0,
+          1.6,
+          0.0
+        ],
+        "depart_s": 8.0,
+        "route": [
+          [
+            2.2,
+            2.6
+          ],
+          [
+            3.3,
+            3.75
+          ],
+          [
+            5.15,
+            3.75
+          ]
+        ]
+      },
+      "cargo_1": {
+        "start": [
+          2.0,
+          0.9,
+          0.0
+        ],
+        "depart_s": 14.0,
+        "route": [
+          [
+            2.2,
+            2.6
+          ],
+          [
+            3.3,
+            3.75
+          ],
+          [
+            4.5,
+            3.75
+          ]
+        ]
+      },
+      "lifter_1": {
+        "start": [
+          1.0,
+          0.9,
+          0.0
+        ],
+        "depart_s": 20.0,
+        "route": [
+          [
+            2.2,
+            2.6
+          ],
+          [
+            3.3,
+            3.75
+          ],
+          [
+            3.85,
+            3.75
+          ]
+        ]
+      }
+    }
+  },
+  "scene": {
+    "outer_wall_thickness": {
+      "value": 0.15,
+      "provenance": "provisional"
+    },
+    "floor_thickness": {
+      "value": 0.1,
+      "provenance": "provisional"
+    },
+    "floor_margin": {
+      "value": 0.5,
+      "provenance": "provisional"
+    },
+    "sun_lux": {
+      "value": 20000.0,
+      "provenance": "provisional"
+    },
+    "sun_euler_deg": [
+      55.0,
+      -30.0,
+      0.0
+    ],
+    "exposure_ev100": {
+      "value": 12.5,
+      "provenance": "provisional"
+    },
+    "overhead_marker_size": {
+      "value": 0.12,
+      "provenance": "provisional"
+    }
+  },
+  "stills": {
+    "note": "Render-only cameras (ENU). t is run time after settling; the still run replays the same seeded run with graphics.",
+    "size": [
+      1600,
+      900
+    ],
+    "shots": [
+      {
+        "name": "wide_start",
+        "t": 0.0,
+        "position": [
+          5.0,
+          -1.0,
+          12.0
+        ],
+        "look_at": [
+          5.0,
+          3.2,
+          0.0
+        ],
+        "fov": 60.0
+      },
+      {
+        "name": "close_start",
+        "t": 0.0,
+        "position": [
+          3.3,
+          0.25,
+          1.3
+        ],
+        "look_at": [
+          1.5,
+          1.25,
+          0.1
+        ],
+        "fov": 55.0
+      },
+      {
+        "name": "wide_assembly",
+        "t": 40.0,
+        "position": [
+          5.0,
+          -1.0,
+          12.0
+        ],
+        "look_at": [
+          5.0,
+          3.2,
+          0.0
+        ],
+        "fov": 60.0
+      }
+    ]
+  }
+}

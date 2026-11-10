@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Copy the shared fleet contracts into this worktree: Tools/Fleet/spec (reviewable copy) and
+# Assets/StreamingAssets/Fleet (what the editor and the player read at runtime).
+# Usage: Tools/Fleet/sync_spec.sh [SOURCE_SPEC_DIR]   (default /home/lunarz/crane_ml/Tools/Fleet/spec)
+# The CRANE-local overlay (crane_fleet_sim_v0.json) lives only here and is copied to StreamingAssets too.
+set -euo pipefail
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+src="${1:-/home/lunarz/crane_ml/Tools/Fleet/spec}"
+for dst in "$root/Tools/Fleet/spec" "$root/Assets/StreamingAssets/Fleet"; do
+    mkdir -p "$dst/scenarios"
+    if [[ "$dst" != "$root/Tools/Fleet/spec" ]]; then
+        cp "$root/Tools/Fleet/spec/crane_fleet_sim_v0.json" "$dst/"
+    fi
+    cp "$src/fleet_profile_v0.json" "$dst/"
+    cp "$src/scenarios/"*.json "$dst/scenarios/"
+done
+( cd "$root/Assets/StreamingAssets/Fleet" && sha256sum fleet_profile_v0.json scenarios/*.json crane_fleet_sim_v0.json )
