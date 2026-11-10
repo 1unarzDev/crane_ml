@@ -6,7 +6,7 @@ namespace Sim.Course {
     /// <summary>ROS transport (§4, behind <c>--crane-ros-course-truth</c>): /crane/truth/course
     /// (std_msgs/String JSON) on build and every 2 s with the same sha; /crane/truth/states on
     /// each change plus a 1 Hz snapshot. For the referee, rosbag, agent tools and rviz only;
-    /// the rig fails a run whose subscribers are not on Tools/RoboBoat/truth_allowlist.yaml.</summary>
+    /// the rig fails a run whose subscribers are not on its truth allowlist.</summary>
     public sealed class CourseTruthPublisher : MonoBehaviour {
         public const string CourseTopic = "/crane/truth/course", StatesTopic = "/crane/truth/states";
         string courseJson;
@@ -19,7 +19,7 @@ namespace Sim.Course {
             registry = states;
         }
 
-        // Start runs after the message registry is ready (see CraneRoboBoatSensorContract).
+        // Start runs after the message registry is ready (as the sensor publishers do).
         void Start() {
             ros = ROSConnection.GetOrCreateInstance();
             ros.RegisterPublisher<StringMsg>(CourseTopic);

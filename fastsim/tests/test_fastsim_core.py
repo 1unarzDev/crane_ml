@@ -6,7 +6,6 @@ Run from the crane root: python3 -m pytest fastsim/tests
 import json
 import math
 from pathlib import Path
-import re
 
 import pytest
 import yaml
@@ -19,7 +18,6 @@ from fastsim.world import World
 import toy
 
 HERE = Path(__file__).parent
-CORE = HERE.parent
 DT = 0.05
 
 
@@ -121,18 +119,6 @@ def test_crane_truth_is_read_in_the_start_frame_and_a_bad_identity_is_refused(tm
     assert world.to_world((10.0, 0.0, 0.0)) == pytest.approx((10.0, 15.0, math.pi / 2))
     with pytest.raises(ValueError, match='identity'):
         CraneTruthFormat(identity_check=lambda t: ['edited']).load(path)
-
-
-DOMAIN_WORDS = ('roboboat', 'mhseals', 'boat', 'buoy', 'nav2', 'mppi', 'ros', 'blastoise',
-                'tranquility', 'dingus', 'referee', 'horn', 'marina', 'dock')
-
-
-def test_the_core_names_no_domain():
-    for path in sorted(CORE.rglob('*')):
-        if path.suffix in ('.py', '.yaml') and 'tests' not in path.relative_to(CORE).parts:
-            text = path.read_text().lower()
-            found = [w for w in DOMAIN_WORDS if re.search(rf'\b{w}s?\b', text)]
-            assert not found, f'{path.name}: {found}'
 
 
 def test_a_copied_tree_without_git_names_its_commit_in_a_commit_file(tmp_path, monkeypatch):

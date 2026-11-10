@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using Sim.Controllers;
+using Sim.Physics.Core;
 using Sim.Sensors.Vision;
 using UnityEngine;
 
@@ -12,11 +13,11 @@ namespace Sim.Tests.Editor {
             Vector2 world = RoboBoatCourse.ToWorld(new Vector2(10f, 5f), Mathf.PI / 2, 2f, 1f);
             Assert.That(world.x, Is.EqualTo(9f).Within(1e-5f));
             Assert.That(world.y, Is.EqualTo(7f).Within(1e-5f));
-            Vector3 unity = RoboBoatCourse.RosToUnity(world, 0.1f);
-            Assert.That(RoboBoatCourse.UnityToRos(unity), Is.EqualTo(world));
-            Assert.That(RoboBoatCourse.RosYawOfUnityDirection(Vector3.forward),
+            Vector3 unity = RosFrame.ToUnity(world, 0.1f);
+            Assert.That(RosFrame.ToRos(unity), Is.EqualTo(world));
+            Assert.That(RosFrame.YawOf(Vector3.forward),
                 Is.EqualTo(0f).Within(1e-6f), "Unity +z is world-ROS +x");
-            Assert.That(RoboBoatCourse.RosYawOfUnityDirection(Vector3.left),
+            Assert.That(RosFrame.YawOf(Vector3.left),
                 Is.EqualTo(Mathf.PI / 2).Within(1e-6f), "Unity -x is world-ROS +y");
         }
 

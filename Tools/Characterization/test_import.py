@@ -159,3 +159,26 @@ def test_cli_runs_isolated_from_the_worktree_root(tmp_path):
     assert r.stdout.startswith("partial")
     prof = json.loads(out.read_text())
     assert {e["status"] for e in prof["provenance"]["parameters"] if e["name"] in G.DIRECTIONS} == {"provisional"}
+
+
+def test_a_record_needs_an_adapter_and_a_file_adapter_loads_under_isolation(tmp_path):
+    """A schema-tagged record without --adapter is refused by name; --adapter FILE.py:FUNC works under -I."""
+    inp = S.analytic_inputs(amplitudes=(0.75, 0.25))
+    paths = write_inputs(tmp_path, inp)
+    record = tmp_path / "record.json"
+    record.write_text(json.dumps({"schema": "team.physics/1", "paths": paths}))
+    adapter = tmp_path / "team_adapter.py"
+    adapter.write_text("import json\n"
+                       "def adapt(path, history):\n"
+                       "    p = json.load(open(path))['paths']\n"
+                       "    return p['yaml'], p['provenance'], p['run'], p['snapshot']\n")
+    root = os.path.dirname(os.path.dirname(HERE))
+    base = [sys.executable, "-I", "Tools/Characterization/import_yaml.py", "--yaml", str(record),
+            "--out-profile", str(tmp_path / "p.json"), "--out-report", str(tmp_path / "r.json")]
+    r = subprocess.run(base, cwd=root, capture_output=True, text=True, timeout=120)
+    assert r.returncode == 2 and "team.physics/1 record" in r.stderr and "--adapter" in r.stderr
+    r = subprocess.run(base + ["--adapter", "nofunction"], cwd=root, capture_output=True, text=True, timeout=120)
+    assert r.returncode != 0 and "expected MODULE:ATTR or FILE.py:ATTR" in r.stderr
+    r = subprocess.run(base + ["--adapter", f"{adapter}:adapt"], cwd=root, capture_output=True, text=True, timeout=120)
+    assert r.returncode == 0, r.stderr
+    assert r.stdout.startswith("partial")

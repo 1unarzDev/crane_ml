@@ -2,7 +2,7 @@
 reference, its blocks (conjugate NIG states, grids, disturbance), a particle set (the uncertainty
 interchange every consumer reads), an envelope of the evidence's regime and validation records.
 
-    card = plantcard.load('roboboat/blastoise@HEAD')
+    card = plantcard.load('<family>/<robot>@HEAD')
     card.nominal(); card.sample(64, seed=0); card.rollout(x0, t, u, n=64, seed=0)
     card.view('unity'); card.view('nlc', n=256); card.view('fastsim')
 

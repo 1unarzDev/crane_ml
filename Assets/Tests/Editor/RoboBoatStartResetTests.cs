@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using Sim.Controllers;
+using Sim.Physics.Core;
 using UnityEngine;
 
 namespace Sim.Tests.Editor {
@@ -18,6 +19,7 @@ namespace Sim.Tests.Editor {
             boat = new GameObject("Boat");
             var body = boat.AddComponent<Rigidbody>();
             body.useGravity = false;
+            boat.AddComponent<RobotDescription>().rootYawDeg = 90f;   // bow = hull-local -X
             Vector3 start = new(3f, 0.1f, 7f);
             Quaternion heading = Quaternion.Euler(0f, 30f, 0f);
             boat.transform.SetPositionAndRotation(start, heading);
@@ -64,7 +66,7 @@ namespace Sim.Tests.Editor {
 
             Assert.That(response.success, Is.True, response.message);
             Assert.That(boat.transform.position.y, Is.EqualTo(0.2f).Within(1e-5f));
-            Vector2 ros = RoboBoatCourse.UnityToRos(boat.transform.position);
+            Vector2 ros = RosFrame.ToRos(boat.transform.position);
             Assert.That(Vector2.Distance(ros, new Vector2(10f, 4f)), Is.LessThan(1e-4f));
             float yaw = float.Parse(response.message.Substring(response.message.IndexOf("yaw=") + 4),
                 System.Globalization.CultureInfo.InvariantCulture);
@@ -79,6 +81,7 @@ namespace Sim.Tests.Editor {
             boat = new GameObject("Boat");
             boat.SetActive(false);
             boat.AddComponent<ArticulationBody>().useGravity = false;
+            boat.AddComponent<RobotDescription>().rootYawDeg = 90f;
             var hull = new GameObject("Hull");
             hull.transform.SetParent(boat.transform, false);
             hull.transform.localPosition = new Vector3(0f, 0f, 1f);
@@ -102,7 +105,7 @@ namespace Sim.Tests.Editor {
             var response = reply.Result;
 
             Assert.That(response.success, Is.True, response.message);
-            Vector3 start = RoboBoatCourse.RosToUnity(truthStart, 0.1f);
+            Vector3 start = RosFrame.ToUnity(truthStart, 0.1f);
             Assert.That(Vector3.Distance(boat.transform.position, start), Is.LessThan(1e-4f));
             Assert.That(Quaternion.Angle(boat.transform.rotation, heading), Is.LessThan(0.01f));
             Assert.That(Vector3.Distance(hull.transform.position, start + heading * Vector3.forward), Is.LessThan(1e-4f));
@@ -165,10 +168,9 @@ namespace Sim.Tests.Editor {
 
         [Test]
         public void PoseIsReportedInTheOdomFrame() {
-            // Unity (x, z) = (-2, 5) is world-ROS (5, 2); the ROS frame is the body turned -90 deg.
-            Quaternion bodyFacingRosX = Quaternion.Inverse(Quaternion.Euler(0f, -90f, 0f));
+            // Unity (x, z) = (-2, 5) is world-ROS (5, 2); an FLU frame facing Unity +z faces ROS +x.
             string pose = RoboBoatStartReset.DescribeRosPose(new Vector3(-2f, 0f, 5f),
-                bodyFacingRosX);
+                Quaternion.identity);
             Assert.That(pose, Does.StartWith("x=5 y=2 yaw="));
             float yaw = float.Parse(pose.Substring(pose.IndexOf("yaw=") + 4),
                 System.Globalization.CultureInfo.InvariantCulture);

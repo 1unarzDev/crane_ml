@@ -127,7 +127,7 @@ namespace Sim.Course {
     /// <summary>The course area (D): a rectangle in the course frame; its rear edge, behind
     /// the start, is the shore.</summary>
     public sealed class CourseBoundary {
-        public double Back = 10, Length = 130, HalfWidth = 65;
+        public double Back, Length, HalfWidth;
         public double ShoreX => -Back;
         public List<P2> Polygon => new List<P2> {
             new P2(-Back, -HalfWidth), new P2(Length - Back, -HalfWidth),

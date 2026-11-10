@@ -26,7 +26,7 @@ REV_GRID = [round(0.5 + 0.05 * i, 3) for i in range(11)]       # 0.50 .. 1.00
 REL_STD, NOISE_STD = 0.5, 2.0
 
 
-def prior_doc(profile_path=CHARACTERIZED, robot='roboboat/blastoise', n_particles=512, seed=7):
+def prior_doc(profile_path=CHARACTERIZED, *, robot, n_particles=512, seed=7):
     profile_path = Path(profile_path)
     raw = profile_path.read_bytes()
     profile = json.loads(raw)

@@ -1,0 +1,30 @@
+{
+    "name": "Crane.RoboBoat",
+    "rootNamespace": "Sim",
+    "references": [
+        "ControllerAssembly",
+        "Crane.Course",
+        "PhysicsCoreAssembly",
+        "PhysicsAssembly",
+        "BoatPhysicsAssembly",
+        "MotorsAssembly",
+        "SensorsAssembly",
+        "UtilsAssembly",
+        "RosMessagesAssembly",
+        "Unity.Robotics.ROSTCPConnector",
+        "Unity.Robotics.ROSTCPConnector.MessageGeneration",
+        "Unity.Robotics.ROSTCPConnector.Messages",
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.RenderPipelines.HighDefinition.Runtime",
+        "Unity.Mathematics"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

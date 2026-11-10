@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using RosMessageTypes.Std;
+using Sim.Physics.Core;
 using Sim.Utils;
 using Sim.Utils.Performance;
 using Sim.Utils.ROS;
@@ -39,6 +40,7 @@ namespace Sim.Controllers {
     /// </summary>
     public sealed class RoboBoatDockingEvaluator : MonoBehaviour, ICraneEpisodeResettable {
         private IPhysicsBody body;
+        private Quaternion bodyFromFlu;
         private float goalX;
         private float goalY;
         private float goalYaw;
@@ -69,6 +71,7 @@ namespace Sim.Controllers {
             body = articulation != null ? new ArticulationBodyAdapter(articulation) :
                    rigidbody != null ? new RigidbodyAdapter(rigidbody) :
                    throw new MissingComponentException("Dock evaluator requires a physics body");
+            bodyFromFlu = RobotDescription.BodyFromFlu(controller);
             goalX = targetX;
             goalY = targetY;
             goalYaw = targetYaw;
@@ -120,15 +123,14 @@ namespace Sim.Controllers {
 
         private StringMsg CreateMessage() {
             Vector3 position = body.position;
-            Quaternion frameRotation = RoboBoatRosFrame.Rotation(body.rotation);
+            Quaternion frameRotation = body.rotation * bodyFromFlu;
             Vector3 worldForward = frameRotation * Vector3.forward;
             float x = position.z;
             float y = -position.x;
             float yaw = Mathf.Atan2(-worldForward.x, worldForward.z);
-            Vector3 localLinear = RoboBoatRosFrame.ToRosLocalUnity(
-                body.transform.InverseTransformDirection(body.linearVelocity));
-            Vector3 localAngular = RoboBoatRosFrame.ToRosLocalUnity(
-                body.transform.InverseTransformDirection(body.angularVelocity));
+            Quaternion fromWorld = Quaternion.Inverse(frameRotation);
+            Vector3 localLinear = fromWorld * body.linearVelocity;
+            Vector3 localAngular = fromWorld * body.angularVelocity;
             float surge = localLinear.z;
             float sway = -localLinear.x;
             float yawRate = -localAngular.y;
