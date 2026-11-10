@@ -79,6 +79,20 @@ namespace Crane.Fleet.Sim {
                 Vx = s.vx, Vy = s.vy, Wz = s.wz };
         }
 
+        readonly Dictionary<string, TagSpec> coveredTop = new Dictionary<string, TagSpec>();
+
+        /// <summary>A payload resting on (or held over) a rover covers that rover's top tag (CAD v1: the cargo flag tag sits under the box): the
+        /// tag is removed from the perception geometry while covered and restored after, so acquisition of a loaded cargo uses its bevel dock tags.</summary>
+        public void SetTopTagCovered(string roverId, bool covered) {
+            var tags = Sim.GeometryOf(roverId).Tags;
+            if (covered && !coveredTop.ContainsKey(roverId)) {
+                var top = tags.Find(x => x.Name == "top");
+                if (top != null) { tags.Remove(top); coveredTop[roverId] = top; }
+            }
+            else if (!covered && coveredTop.TryGetValue(roverId, out var top)) { tags.Add(top); coveredTop.Remove(roverId); }
+        }
+        public bool TopTagCovered(string roverId) => coveredTop.ContainsKey(roverId);
+
         public void Record(double t, IEnumerable<RoverRig> rovers) {
             foreach (var r in rovers) {
                 var tr = r.Truth();

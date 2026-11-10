@@ -692,10 +692,10 @@
   "lifter": {
    "description": "Low-lift front gripper (twin vertical rails, carriage, two L-shaped fork/jaw arms) for box_small (option b, user decision 2026-11-10; tag_box optional); Arducam OV9281 on a short mast, AprilTag on top, Orange Pi 4 Pro. No front dock (the gripper occupies it): docks rear/left/right.",
    "added_mass": {
-    "value": 1.8502,
+    "value": 1.992,
     "provenance": "concept",
     "source": "Tools/Fleet/assets/cad_v1/build_v1.py (solids x densities + datasheet COTS masses)",
-    "estimate": "role total 6.074 kg minus base chassis 4.223 kg"
+    "estimate": "role total 6.216 kg minus base chassis 4.223 kg"
    },
    "sensors": [
     "wheel_encoder",
@@ -725,21 +725,21 @@
     "source": "http://www.orangepi.org/html/hardWare/computerAndMicrocontrollers/details/Orange-Pi-4-Pro.html"
    },
    "lift_travel": {
-    "value": 0.045,
-    "provenance": "concept",
-    "source": "modular2.png (lifter concept)",
-    "estimate": "rails ~67 mm minus carriage and stops"
+    "value": 0.17,
+    "provenance": "provisional",
+    "source": "user decision D89 2026-11-10 (taller lift)",
+    "note": "box underside 0.148 m above base / 0.170 m above ground at full stroke = deck top (0.150) + 20 mm; 165 mm is the minimum for the 15 mm requirement"
    },
    "lift_speed": {
-    "value": 0.02,
+    "value": 0.03,
     "provenance": "provisional",
-    "note": "lead screw on a micro gearmotor; v0 0.05"
+    "note": "lead screw; 170 mm in ~6 s"
    },
    "gripper_opening": {
-    "value": 0.21,
+    "value": 0.24,
     "provenance": "provisional",
-    "source": "user decision 2026-11-10 (option b)",
-    "note": "clear opening for box_small gripped across its 0.20 m width; min 0.06"
+    "source": "user decision D89",
+    "note": "clear opening 0.06-0.24 m (20 mm per side on box_small's 0.20 m); jaw outer width 0.258 m < body 0.26 m"
    },
    "gripper_close_time": {
     "value": 1.0,

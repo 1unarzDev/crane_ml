@@ -1,7 +1,7 @@
 {
   "schema": "crane.fleet_mission/v0",
   "mission_id": "warehouse_a_closed_loop_cad_v1_lifter_carry",
-  "note": "CAD v1 closed-loop mission (run with job \"profile\": \"v1\"). The v1 lifter lifts 45 mm and its jaws open 0.06-0.21 m; the v1 cargo deck is at 0.150 m, so a lifter-to-deck handoff is geometrically impossible (open design question, see the fleet handoff). This mission therefore: the scout finds box_small, the lifter picks it (grasp_offset 0.126 = v1 finger line 0.186 m - 0.06 m, lift 0.04 m) and carries it into the delivery zone; in parallel the cargo pair rendezvous and dock front-to-rear with the reciprocal v1 faces (bevel tags). Truth goal: crane_truth_goal = carried_in_zone (payload lifted, held by the lifter, centre inside the delivery zone). Pallet 10 mm so the v1 finger line (16 mm above the floor at lift 0) is inside the box side. Jaw clearance on the 0.20 m box is 5 mm per side.",
+  "note": "CAD v1 closed-loop mission (run with job \"profile\": \"v1\"). FALLBACK (since CAD v1 iteration 7 the deck handoff is possible: autonomy_cad_v1_handoff_*.json): the scout finds box_small, the lifter picks it (grasp_offset 0.126 = v1 finger line 0.186 m - 0.06 m, lift 0.17 m) and carries it into the delivery zone; in parallel the cargo pair rendezvous and dock front-to-rear with the reciprocal v1 faces (bevel tags). Truth goal: crane_truth_goal = carried_in_zone (payload lifted, held by the lifter, centre inside the delivery zone). Pallet 10 mm so the v1 finger line (16 mm above the floor at lift 0) is inside the box side. Jaws 0.06-0.24 m (20 mm per side on box_small).",
   "crane_payload": {
     "id": "payload_box_small",
     "type": "box_small",
@@ -70,7 +70,7 @@
       "agent": "lifter_1",
       "object": "payload_box_small",
       "grasp_offset": 0.126,
-      "height": 0.04,
+      "height": 0.17,
       "after": [
         "find"
       ],

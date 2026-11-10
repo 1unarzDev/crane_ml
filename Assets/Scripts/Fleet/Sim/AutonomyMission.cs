@@ -148,6 +148,8 @@ namespace Crane.Fleet.Sim {
             loadModel = spec.O["lift_load.model"].String;
             liftForceMax = lr["lift_capacity"].Double * spec.Gravity * spec.O["lift_load.force_margin"].Double;
             liftOffHeight = spec.O["lift_load.lift_off_height"].Double; tipLimit = spec.O["lift_load.tip_limit_rad"].Double;
+            if (spec.O.TryGet("lift_load.carry_accel_cap") != null) carryAccelCap = spec.O["lift_load.carry_accel_cap"].Double;
+            coverTopTags = spec.O.TryGet("profiles." + spec.ProfileKey + ".payload_covers_top_tag")?.Bool == true;
             liftSpeed = lr["lift_speed"].Double; gripMax = lr["gripper_opening"].Double;
             foreach (var rv in r.Rovers) if (rv.D.Role == "lifter") { rv.Lift = 0; rv.GripperOpening = gripMax; gripMin = rv.Visual?.Manifest.GripperOpeningRange?[0] ?? 0.04; }
             gripRate = (gripMax - gripMin) / lr["gripper_close_time"].Double;
@@ -376,6 +378,22 @@ namespace Crane.Fleet.Sim {
         }
 
         /// <summary>Evaluator tip check on the lifter: |pitch| or |roll| above lift_load.tip_limit_rad. A tipped lifter drops what it carries.</summary>
+        /// <summary>Evaluator check of the lifter's horizontal acceleration while it holds a lifted payload against lift_load.carry_accel_cap
+        /// (CAD v1 assumption 2.0 m/s^2; braking limit 2.45 m/s^2 at full stroke). Logged per episode; counted in results.lift_load.</summary>
+        void CheckCarryAccel(FleetRun r) {
+            if (!Lifted || double.IsNaN(carryAccelCap)) { haveCarryVel = false; carryOver = false; return; }
+            Vector3 v = carrier.Body.linearVelocity; v.y = 0;
+            if (haveCarryVel) {
+                double acc = ((v - prevCarryVel) / (float)r.Dt).magnitude;
+                maxCarryAccel = Math.Max(maxCarryAccel, acc);
+                bool over = acc > carryAccelCap;
+                if (over && !carryOver) { carryAccelEvents++; run.Event("carry_accel_exceeded", carrier.D.Id, new Dictionary<string, object> { ["accel"] = acc, ["cap"] = carryAccelCap, ["evaluator_only"] = true }); }
+                carryOver = over;
+            }
+            prevCarryVel = v; haveCarryVel = true;
+        }
+        double carryAccelCap = double.NaN, maxCarryAccel; int carryAccelEvents; bool haveCarryVel, carryOver, coverTopTags; Vector3 prevCarryVel;
+
         void CheckTip(FleetRun r) {
             foreach (var rv in r.Rovers) {
                 if (rv.D.Role != "lifter") continue;
@@ -400,6 +418,19 @@ namespace Crane.Fleet.Sim {
         }
 
         public void PostStep(FleetRun r) {
+            // payload covering top tags (every 10 steps; truth support from the overlap probe): decks it rests on, or the carrier while lifted
+            if (Payload != null && coverTopTags && run.Step % 10 == 0) {
+                var pt = PayloadTruth();
+                var sup = pt != null ? (List<object>)pt["supporters"] : new List<object>();
+                foreach (var rv in r.Rovers) {
+                    bool covered = sup.Contains(rv.D.Id) || (Lifted && carrier == rv);
+                    if (covered != perception.TopTagCovered(rv.D.Id)) {
+                        perception.SetTopTagCovered(rv.D.Id, covered);
+                        run.Event(covered ? "top_tag_covered" : "top_tag_uncovered", rv.D.Id, new Dictionary<string, object> { ["by"] = payloadId, ["evaluator_only"] = true });
+                    }
+                }
+            }
+            if (loadModel == "physical") CheckCarryAccel(r);
             perception.Record(r.T, r.Rovers);
             if (Payload != null) perception.RecordObject(r.T, payloadId, PayloadBase(), payloadTag);
         }
@@ -536,7 +567,8 @@ namespace Crane.Fleet.Sim {
             results["first_failure"] = fleet.Executive.FirstFailure;
             results["lift_load"] = new Dictionary<string, object> { ["model"] = loadModel, ["payload_kg"] = Payload != null ? (object)(double)Payload.mass : null,
                 ["payload_mass_source"] = payloadMassSource, ["lift_force_max_n"] = liftForceMax, ["lift_stalled"] = liftStalled, ["load_applied"] = loadEverApplied, ["load_model"] = "composite rigid body while lifted",
-                ["lifter_tipped"] = lifterTipped, ["max_lifter_tilt_rad"] = maxCarrierTilt };
+                ["lifter_tipped"] = lifterTipped, ["max_lifter_tilt_rad"] = maxCarrierTilt,
+                ["carry_accel_cap"] = double.IsNaN(carryAccelCap) ? null : (object)carryAccelCap, ["max_carry_accel"] = maxCarryAccel, ["carry_accel_events"] = carryAccelEvents };
             if (Payload != null) {
                 var c = FleetFrames.Planar(Payload.transform);
                 double[] z = spec.S["zones.delivery.rect"].Doubles;

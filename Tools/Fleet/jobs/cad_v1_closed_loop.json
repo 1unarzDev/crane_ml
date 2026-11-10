@@ -1,23 +1,65 @@
 {
- "note": "CAD v1 (profile v1): closed-loop lifter carry + reciprocal docking, seeds 1-3 (after the scripted v1 stills). UNITY-PENDING.",
+ "note": "CAD v1 iteration 7 (profile v1) closed loop, seeds 1-3 each: handoff onto a single deck, handoff onto the coupled inline pair, and the lifter-only carry fallback. UNITY-PENDING.",
  "out": "/home/lunarz/.cache/crane-fleet/jobs/cad_v1_closed_loop",
  "jobs": [
   {
-   "id": "cad_v1_s1",
+   "id": "cad_v1_single_s1",
+   "seed": 1,
+   "variant": "cad_v1_single",
+   "profile": "v1",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet/Tools/Fleet/missions/autonomy_cad_v1_handoff_single.json"
+  },
+  {
+   "id": "cad_v1_single_s2",
+   "seed": 2,
+   "variant": "cad_v1_single",
+   "profile": "v1",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet/Tools/Fleet/missions/autonomy_cad_v1_handoff_single.json"
+  },
+  {
+   "id": "cad_v1_single_s3",
+   "seed": 3,
+   "variant": "cad_v1_single",
+   "profile": "v1",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet/Tools/Fleet/missions/autonomy_cad_v1_handoff_single.json"
+  },
+  {
+   "id": "cad_v1_pair_s1",
+   "seed": 1,
+   "variant": "cad_v1_pair",
+   "profile": "v1",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet/Tools/Fleet/missions/autonomy_cad_v1_handoff_pair.json"
+  },
+  {
+   "id": "cad_v1_pair_s2",
+   "seed": 2,
+   "variant": "cad_v1_pair",
+   "profile": "v1",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet/Tools/Fleet/missions/autonomy_cad_v1_handoff_pair.json"
+  },
+  {
+   "id": "cad_v1_pair_s3",
+   "seed": 3,
+   "variant": "cad_v1_pair",
+   "profile": "v1",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet/Tools/Fleet/missions/autonomy_cad_v1_handoff_pair.json"
+  },
+  {
+   "id": "cad_v1_carry_s1",
    "seed": 1,
    "variant": "cad_v1_carry",
    "profile": "v1",
    "mission_file": "/home/lunarz/worktrees/crane-fleet/Tools/Fleet/missions/autonomy_cad_v1_lifter_carry.json"
   },
   {
-   "id": "cad_v1_s2",
+   "id": "cad_v1_carry_s2",
    "seed": 2,
    "variant": "cad_v1_carry",
    "profile": "v1",
    "mission_file": "/home/lunarz/worktrees/crane-fleet/Tools/Fleet/missions/autonomy_cad_v1_lifter_carry.json"
   },
   {
-   "id": "cad_v1_s3",
+   "id": "cad_v1_carry_s3",
    "seed": 3,
    "variant": "cad_v1_carry",
    "profile": "v1",

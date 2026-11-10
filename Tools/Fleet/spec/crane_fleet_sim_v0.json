@@ -1695,6 +1695,11 @@
       "value": 0.35,
       "provenance": "provisional",
       "note": "evaluator tip threshold"
+    },
+    "carry_accel_cap": {
+      "value": 2.0,
+      "provenance": "provisional",
+      "note": "evaluator check while the lifter holds a lifted payload (CAD v1 D90 assumption; braking limit 2.45 m/s^2 at full stroke)"
     }
   },
   "profiles": {
@@ -1704,7 +1709,8 @@
       "profile_file": "fleet_profile_v0.json",
       "mesh_manifest": "assets_provisional_v0/{role}/{role}.manifest.json",
       "payload_manifest": "assets_provisional_v0/payloads/payloads.manifest.json",
-      "manifest_tags": false
+      "manifest_tags": false,
+      "payload_covers_top_tag": false
     },
     "v1": {
       "profile_file": "fleet_profile_v1.json",
@@ -1715,7 +1721,8 @@
       "manifest_tags": true,
       "motor_curve": "linear_dc",
       "plant_model": "tractive",
-      "plant_model_note": "v1 profile rovers run the per-wheel TractivePlant (datasheet motor curve); NOT_RUN in CRANE until validated"
+      "plant_model_note": "v1 profile rovers run the per-wheel TractivePlant (datasheet motor curve); NOT_RUN in CRANE until validated",
+      "payload_covers_top_tag": true
     }
   }
 }
