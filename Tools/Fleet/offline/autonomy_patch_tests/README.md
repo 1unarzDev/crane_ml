@@ -1,7 +1,7 @@
 # CRANE local patches to the imported autonomy library
 
-The imported copy (`Assets/Scripts/Fleet/Autonomy`) differs from upstream (`crane_ml/Tools/Fleet/core_cs/Crane.Fleet.Autonomy`) by
-`crane_local_patches.diff`. That diff is for the library owner to apply upstream; the next import replaces the copy.
+**Applied upstream (2026-11-10):** the library owner applied `crane_local_patches.diff` upstream, where dotnet passes 97/97. CRANE's copy
+now matches upstream byte for byte, and `SOURCE_SHA256.txt` has been regenerated. The diff is kept as a record.
 
 ## The patches
 - **Handoff carry keeps the receivers as obstacles** when tag alignment is on. The carry goes to the pre-place pose, using goal search.
