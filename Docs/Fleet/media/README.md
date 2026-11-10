@@ -2,6 +2,19 @@
 
 These frames were rendered by the CRANE Unity player: Unity 6000.5.10f1, Vulkan, Linux, warehouse scene `fleet/warehouse_a/v0`. They are converted to JPEG to keep the repo small; the full-resolution PNGs are in `~/.cache/crane-fleet/`. **Simulation only. Nothing here is measured on hardware, and every rover dimension is provisional (pre-CAD).**
 
+## 0. CURRENT design: CAD v1 from the user's concept pictures (`cad_v1/`, 2026-11-10)
+**Current frames for the CAD row:** `cad_v1/compare_scout.jpg`, `cad_v1/compare_lifter.jpg`, `cad_v1/compare_cargo.jpg`. Each puts the concept on the left and the v1 parametric CAD (build123d) on the right.
+- **Shared chassis:** 342 × 260 × 85 mm, with 97 mm mecanum wheels (9 rollers, X pattern) and Pololu 25D 47:1 gearmotors.
+- **Docks:** a reciprocal J-hook + pin dock on every face, plus a 30 mm AprilTag on a 45° bevel above it.
+- **Role kits:**
+  - scout: RPLIDAR C1, RealSense D435 and a proxy arm;
+  - lifter: 0.21 m jaws and a counterweight, rated 2.0 kg at safety factor 1.5;
+  - cargo: raised deck on standoffs.
+- **User decisions (D87):** width 0.26 m, so the electronics look smaller than in the concept by design; the lifter carries the 2 kg box_small; bevel dock tags.
+- **Caveats:** this is concept/datasheet level, not measured. The arm is a proxy. The CRANE scene still uses the v0 rovers in sections 1–4 until v1 is imported.
+- **Sources:** code, URDFs and the design log are on branch `research/fleet-orchestration` under `Tools/Fleet/assets/cad_v1/`.
+- **Superseded:** section 4 (`assets_v0/`) is the previous provisional design.
+
 ## 1. Closed-loop mission, seed 1 (`demo_seed1_v3/`, player at commit aae01b90, clean tree)
 The fleet runs the autonomy library: EKF, capability-conditioned planner, docking controller, mission executive. Simulator truth issues the verdict (D77: 10/10 seeds delivered on this library). Run manifest: `demo_seed1_v3/run_manifest.json`.
 
