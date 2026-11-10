@@ -135,7 +135,7 @@ def main(md, out):
         c.bar(k, v.mean(), .6, color=col, lw=0)
         c.errorbar(k, v.mean(), yerr=[[v.mean() - v.min()], [v.max() - v.mean()]], color="0.2", lw=.7, capsize=1.5)
         txt = r"%.1f--%.1f kB" % (v.min() / 1000, v.max() / 1000) if v.min() >= 500 else r"%d--%d B" % (
-            round(v.min()), round(v.max()))
+            round(v.min()), np.ceil(v.max()))
         c.text(k, v.max() * 1.5, txt, ha="center", va="bottom", fontsize=7, color=col)
     c.set_yscale("log")
     c.set_ylim(1, 1e5)
