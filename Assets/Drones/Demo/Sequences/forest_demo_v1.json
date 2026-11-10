@@ -1,0 +1,43 @@
+{
+  "schema": "crane-aerial-demo/1",
+  "title": "CRANE Aerial: forest search",
+  "subtitle": "AOS 7 V5 quad, OAK-D S2 onboard perception",
+  "fps": 30,
+  "size": [1920, 1080],
+  "seed": 7,
+  "scene": "Assets/Scenes/Drone Forest.unity",
+  "prefab": "Assets/Drones/Models/AOS7Quad.prefab",
+  "light_preset": "GoldenHour",
+  "canopy_top_m": 18,
+  "person_offset": [0, 0, 40],
+  "flight": {
+    "kind": "scripted",
+    "top_altitude_m": 30, "cruise_height_m": 2.2, "hover_height_m": 1.7, "standoff_m": 3.2, "hover_s": 40,
+    "through_plant": true
+  },
+  "shots": [
+    { "id": "s1_establishing", "type": "establishing", "duration_s": 12, "t0_mark": "top", "look": "drone", "space": "drone_start",
+      "path": [[-16, 9, -34], [-10, 5, -20], [6, 3, -4], [14, 6, 12]], "fov": 42, "fov_end": 34, "damping_s": 0.5,
+      "transition": { "type": "fade", "duration_s": 1.2 },
+      "title": { "text": "CRANE AERIAL", "sub": "autonomous search under the canopy", "at_s": 0.8, "duration_s": 4.5 }, "stills": [0.15, 0.7] },
+    { "id": "s2_descent", "type": "descent", "duration_s": 10, "t0_mark": "descent", "time_scale": 1.0, "look": "drone", "space": "drone_start",
+      "path": [[9, 7, -12], [6, 3.5, -9], [4, 0.8, -7], [3.5, -2.2, -5.5]], "fov": 55, "damping_s": 0.4, "aperture_f": 4.0, "focus_bias_m": 0,
+      "transition": { "type": "dip", "duration_s": 0.8 },
+      "lower_third": { "text": "Descent through the canopy gap", "sub": "GPS-denied from here: visual navigation only", "at_s": 1.5, "duration_s": 4 }, "stills": [0.5] },
+    { "id": "s3_chase", "type": "chase", "duration_s": 14, "t0_mark": "corridor", "look": "drone", "back_m": 3.6, "up_m": 1.1, "side_m": 0.6,
+      "fov": 62, "damping_s": 0.28, "aperture_f": 2.8, "avoid_trees": true,
+      "transition": { "type": "cut", "duration_s": 0 },
+      "lower_third": { "text": "Threading trunks and thin branches", "sub": "LiDAR + stereo depth, 4.5 m/s", "at_s": 1.0, "duration_s": 4 }, "stills": [0.3, 0.8] },
+    { "id": "s4_fpv_split", "type": "fpv_split", "duration_s": 10, "t0_mark": "corridor", "t0_offset_s": 15, "look": "drone", "inset": "split",
+      "back_m": 3.0, "up_m": 0.9, "side_m": 0.0, "fov": 68, "damping_s": 0.25, "detection": true, "avoid_trees": true,
+      "transition": { "type": "cut", "duration_s": 0 },
+      "lower_third": { "text": "Third person vs onboard OAK-D S2", "sub": "69 deg HFOV, no cinematic post on the right", "at_s": 0.8, "duration_s": 4 }, "stills": [0.5] },
+    { "id": "s5_orbit", "type": "orbit", "duration_s": 14, "t0_mark": "hover", "t0_offset_s": 1, "time_scale": 0.6, "look": "mid", "radius_m": 5.0, "height_m": 2.4,
+      "start_deg": 20, "sweep_deg": 260, "fov": 48, "damping_s": 0.3, "aperture_f": 2.4, "detection": true,
+      "transition": { "type": "dip", "duration_s": 0.8 },
+      "lower_third": { "text": "Person found", "sub": "hover at 3 m stand-off, detection overlay", "at_s": 1.0, "duration_s": 5 }, "stills": [0.25, 0.75] },
+    { "id": "s6_pullout", "type": "pullout", "duration_s": 9, "t0_mark": "hover", "t0_offset_s": 12, "time_scale": 0.6, "look": "drone", "space": "drone_start",
+      "path": [[3, 1.2, -4], [8, 5, -14], [14, 14, -34], [20, 30, -62]], "fov": 45, "fov_end": 34, "damping_s": 0.5,
+      "transition": { "type": "cut", "duration_s": 0 }, "stills": [0.1, 0.9] }
+  ]
+}

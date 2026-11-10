@@ -1,0 +1,17 @@
+{
+    "name": "Crane.Theater.Aerial",
+    "rootNamespace": "Crane.Theater.Aerial",
+    "references": [
+        "Crane.Theater",
+        "Crane.Drones.Environment",
+        "Crane.Aerial.Physics",
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.RenderPipelines.HighDefinition.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "autoReferenced": true,
+    "noEngineReferences": false
+}
