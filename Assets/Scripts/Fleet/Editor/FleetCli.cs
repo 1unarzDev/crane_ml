@@ -43,6 +43,40 @@ namespace Crane.Fleet.EditorTools {
             Exit(code);
         }
 
+        /// <summary>Several jobs in one editor launch: --crane-fleet-batch "check=REPORT;run=SEED:DIR;run=SEED:DIR".
+        /// Each run starts from a fresh empty scene. Exit code 0 only if every job succeeded and checks passed.</summary>
+        public static void Batch() {
+            int code = 0;
+            var (commit, dirty) = Git();
+            foreach (string job in FleetArgs.Get("--crane-fleet-batch", "").Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries)) {
+                try {
+                    EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                    int eq = job.IndexOf('=');
+                    string kind = job.Substring(0, eq), arg = job.Substring(eq + 1);
+                    if (kind == "check") {
+                        var r = CadSwapCheck.Run(Spec(), arg);
+                        Debug.Log($"CRANE_FLEET_CHECK pass={r.Pass} report={arg} failures={r.Failures.Count}");
+                        foreach (string f in r.Failures) Debug.Log("CRANE_FLEET_CHECK_FAIL " + f);
+                        if (!r.Pass) code = 1;
+                    }
+                    else if (kind == "run") {
+                        int colon = arg.IndexOf(':');
+                        var opt = FleetArgs.RunOptions("editor");
+                        opt.Seed = long.Parse(arg.Substring(0, colon));
+                        opt.OutDir = arg.Substring(colon + 1);
+                        if (string.IsNullOrEmpty(opt.SourceCommit)) { opt.SourceCommit = commit; opt.SourceDirty = dirty; }
+                        var run = new FleetRun(Spec(), opt);
+                        run.RunToEnd();
+                        Debug.Log($"CRANE_FLEET_RUN_END id={run.RunId} reason={run.EndReason} t={run.T} steps={run.Step} dir={run.Dir}");
+                        run.Dispose();
+                    }
+                    else throw new ArgumentException("unknown batch job " + kind);
+                }
+                catch (Exception e) { Debug.LogError("CRANE_FLEET_FAILED " + job + " " + e); code = 3; }
+            }
+            Exit(code);
+        }
+
         public static void Check() {
             int code = 0;
             try {

@@ -108,7 +108,7 @@ namespace Crane.Fleet.Sim {
             Color floorC = FleetFrames.Rgb(o["visual.floor_color"].Doubles), wallC = FleetFrames.Rgb(o["visual.wall_color"].Doubles);
             var t = Root.transform;
             FleetGeometry.SolidBox("floor", t, FleetFrames.World(size[0] / 2, size[1] / 2, -ft / 2),
-                FleetFrames.LocalScale(size[0] + 2 * margin, size[1] + 2 * margin, ft), floorC, FloorMaterial);
+                FleetFrames.WorldScale(size[0] + 2 * margin, size[1] + 2 * margin, ft), floorC, FloorMaterial);
             if (!scenario) { DoorwayWidth = double.NaN; Light(); return; }
 
             // outer walls, outside the arena rectangle
@@ -152,13 +152,13 @@ namespace Crane.Fleet.Sim {
                 Box(ob["id"].String, c[0], c[1], c[2], sz[0], sz[1], sz[2], obstacleC);
             }
 
-            double patch = o["scene.zone_patch_thickness"].Double;
+            double patch = o["visual.zone_patch_thickness"].Double;
             var zoneColors = o["visual.zone_colors"];
             foreach (var kv in s["zones"].Members) {
                 double[] r = kv.Value["rect"].Doubles;  // x0, y0, x1, y1
                 double[] col = zoneColors.Has(kv.Key) ? zoneColors[kv.Key].Doubles : o["visual.floor_color"].Doubles;
                 FleetGeometry.Visual(PrimitiveType.Cube, "zone_" + kv.Key, t, FleetFrames.World((r[0] + r[2]) / 2, (r[1] + r[3]) / 2, patch / 2),
-                    Quaternion.identity, FleetFrames.LocalScale(r[2] - r[0], r[3] - r[1], patch), FleetFrames.Rgb(col));
+                    Quaternion.identity, FleetFrames.WorldScale(r[2] - r[0], r[3] - r[1], patch), FleetFrames.Rgb(col));
             }
 
             double marker = o["scene.overhead_marker_size"].Double;
@@ -175,7 +175,7 @@ namespace Crane.Fleet.Sim {
         }
 
         void Box(string name, double x, double y, double z, double sx, double sy, double sz, Color c) =>
-            FleetGeometry.SolidBox(name, Root.transform, FleetFrames.World(x, y, z), FleetFrames.LocalScale(sx, sy, sz), c, WallMaterial);
+            FleetGeometry.SolidBox(name, Root.transform, FleetFrames.World(x, y, z), FleetFrames.WorldScale(sx, sy, sz), c, WallMaterial);
 
         void Light() {
             JsonNode o = Spec.O;

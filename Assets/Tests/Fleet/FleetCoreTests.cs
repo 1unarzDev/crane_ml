@@ -214,6 +214,30 @@ namespace Crane.Fleet.Tests {
         const string SpecDir = "Assets/StreamingAssets/Fleet";
 
         [Test]
+        public void WarehouseGeometryMatchesScenario() {
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var spec = FleetSpec.LoadDirectory(SpecDir);
+            var world = new FleetWorld(spec);
+            UnityEngine.Physics.SyncTransforms();
+            try {
+                double[] size = spec.S["arena.size_xy"].Doubles;
+                double margin = spec.O["scene.floor_margin"].Double;
+                var floor = world.Root.transform.Find("floor").GetComponent<UnityEngine.Collider>().bounds;
+                Assert.AreEqual(-margin, floor.min.x, 1e-4); Assert.AreEqual(size[0] + margin, floor.max.x, 1e-4);   // east = Unity x
+                Assert.AreEqual(-margin, floor.min.z, 1e-4); Assert.AreEqual(size[1] + margin, floor.max.z, 1e-4);   // north = Unity z
+                Assert.AreEqual(0.0, floor.max.y, 1e-6);
+                var divider = world.Root.transform.Find("divider_0").GetComponent<UnityEngine.Collider>().bounds;
+                double th = spec.S["walls"].Items[0]["thickness"].Double;
+                Assert.AreEqual(6.0 - th / 2, divider.min.x, 1e-4);
+                double door = spec.S["doorway.width.default"].Double, cy = spec.S["doorway.centre_y"].Double;
+                Assert.AreEqual(cy - door / 2, divider.max.z, 1e-4);
+                var shelf = world.Root.transform.Find("shelf_a").GetComponent<UnityEngine.Collider>().bounds;
+                Assert.AreEqual(0.5, shelf.size.x, 1e-4); Assert.AreEqual(2.4, shelf.size.z, 1e-4); Assert.AreEqual(2.0, shelf.size.y, 1e-4);
+            }
+            finally { world.Destroy(); }
+        }
+
+        [Test]
         public void CadSwapCheckPasses() {
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             var r = CadSwapCheck.Run(FleetSpec.LoadDirectory(SpecDir), null);

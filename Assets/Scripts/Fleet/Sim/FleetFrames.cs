@@ -12,7 +12,10 @@ namespace Crane.Fleet.Sim {
         public static Vector3 World(double x, double y, double z) => new Vector3((float)x, (float)z, (float)y);
         public static Vector3 Local(double f, double l, double u) => new Vector3((float)-l, (float)u, (float)f);
         public static Vector3 Local(double[] flu) => Local(flu[0], flu[1], flu[2]);
+        /// <summary>Unity scale of a chassis-frame box with extents (length along x forward, width along y left, height).</summary>
         public static Vector3 LocalScale(double l, double w, double h) => new Vector3((float)w, (float)h, (float)l);
+        /// <summary>Unity scale of a world box with ENU extents (east, north, up).</summary>
+        public static Vector3 WorldScale(double east, double north, double up) => new Vector3((float)east, (float)up, (float)north);
 
         public static Quaternion WorldYaw(double yawRad) => Quaternion.Euler(0f, (float)(90.0 - yawRad * 180.0 / Math.PI), 0f);
         public static Quaternion LocalYawPitch(double yawRad, double pitchRad) =>

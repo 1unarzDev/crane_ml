@@ -3,6 +3,7 @@
 #   Tools/Fleet/fleet.sh test                         EditMode tests (Crane.Fleet.Tests)
 #   Tools/Fleet/fleet.sh run SEED [OUT_DIR]           seeded run in the editor (batchmode, -nographics)
 #   Tools/Fleet/fleet.sh check [REPORT.json]          CAD-swap check in the editor
+#   Tools/Fleet/fleet.sh batch "check=R.json;run=1:DIR;run=2:DIR"   several jobs in one editor launch
 #   Tools/Fleet/fleet.sh build                        fleet player -> Builds/CRANE-Fleet/CRANE.x86_64
 #   Tools/Fleet/fleet.sh player-run SEED [OUT_DIR]    seeded run in the player (-batchmode -nographics)
 #   Tools/Fleet/fleet.sh player-check [REPORT.json]   CAD-swap check in the player
@@ -40,6 +41,10 @@ case "$cmd" in
         ed "$cache/logs/run-$seed-$stamp.log" -quit -executeMethod Crane.Fleet.EditorTools.FleetCli.Run --crane-seed "$seed" \
             --crane-source-commit "$commit" --crane-source-dirty "$dirty" ${out:+--crane-fleet-out "$out"}
         grep -h "CRANE_FLEET_RUN_END\|CRANE_FLEET_FAILED" "$cache/logs/run-$seed-$stamp.log" ;;
+    batch)   # batch "check=REPORT;run=SEED:DIR;..."
+        ed "$cache/logs/batch-$stamp.log" -quit -executeMethod Crane.Fleet.EditorTools.FleetCli.Batch --crane-fleet-batch "${1:?jobs}" \
+            --crane-source-commit "$commit" --crane-source-dirty "$dirty" || true
+        grep -h "CRANE_FLEET_RUN_END\|CRANE_FLEET_CHECK\|CRANE_FLEET_FAILED\|CRANE_FLEET_EXIT" "$cache/logs/batch-$stamp.log" ;;
     check)
         rep=${1:-$cache/check/cad_swap_check.json}
         ed "$cache/logs/check-$stamp.log" -quit -executeMethod Crane.Fleet.EditorTools.FleetCli.Check --crane-fleet-check "$rep" || true
