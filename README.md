@@ -50,7 +50,7 @@ More frames, with run identifiers and render notes, live on the research branche
 
 ## Modular fleet (CRANE)
 
-These figures cover the modular ground fleet: CAD v1 rovers, physical-load runs in CRANE, findings and test scenes. **Simulation only.** CAD is at concept/datasheet level. Frame notes and critiques are in [`Docs/Fleet/media/README.md`](../../tree/research/fleet/Docs/Fleet/media) on `research/fleet`.
+These figures cover the modular ground fleet: CAD v1 rovers, physical-load runs in CRANE, and test scenes. **Simulation only.** CAD is at concept/datasheet level. Frame notes and critiques are in [`Docs/Fleet/media/README.md`](../../tree/research/fleet/Docs/Fleet/media) on `research/fleet`.
 
 <table>
   <tr>
@@ -59,8 +59,7 @@ These figures cover the modular ground fleet: CAD v1 rovers, physical-load runs 
     <td width="33%"><img src="Docs/Fleet/media/runs/box_long6kg_seed1_t68.8_capacity_crop.jpg" alt="Lifter refusing an over-capacity box"><br><sub><b>Run.</b> 6 kg box over the 5 kg rating: the lift stalls, the library refuses with Capacity and returns the box (seed 1).</sub></td>
   </tr>
   <tr>
-    <td><img src="Docs/Fleet/media/findings/crane_load_batches.jpg" alt="CRANE physical-load batch outcomes"><br><sub><b>Finding.</b> Physical load: box_small 8/10 delivered; 6 kg refused 10/10; 5 kg end-gripped tips 3/3.</sub></td>
-    <td><img src="Docs/Fleet/media/findings/robust_feasibility_info.jpg" alt="Effect of feasibility information"><br><sub><b>Finding.</b> Feasibility information helps larger held-out fleets once the action set is fixed.</sub></td>
+    <td><img src="Docs/Fleet/media/runs/box_small_seed1_t104.7_perception.jpg" alt="Lifter carrying a box toward two coupled cargo rovers"><br><sub><b>Run.</b> Physical lift: the lifter carries a 2 kg box toward two coupled cargo rovers (seed 1; this run ended in a perception failure before handoff).</sub></td>
     <td><img src="Docs/Fleet/media/scenes/scenes_v1_index.jpg" alt="Nine modular-robotics test scene families"><br><sub><b>Scenes.</b> Scenes v1: nine test families (narrow door, lateral slot, wheel failure, ...), fastsim top-down previews.</sub></td>
   </tr>
 </table>
