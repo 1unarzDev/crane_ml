@@ -1,0 +1,72 @@
+[     24s] train N=2 travel=1 ideal perm1 labels=2839 rollouts=5998
+[     31s] train N=2 travel=1 ideal none labels=4089 rollouts=8818
+[     57s] train N=2 travel=1 burst30_d1 perm1 labels=6930 rollouts=14820
+[     64s] train N=2 travel=1 burst30_d1 none labels=8180 rollouts=17640
+[     80s] train N=2 travel=0 ideal perm1 labels=10828 rollouts=23256
+[     87s] train N=2 travel=0 ideal none labels=12059 rollouts=26038
+[    104s] train N=2 travel=0 burst30_d1 perm1 labels=14714 rollouts=31668
+[    112s] train N=2 travel=0 burst30_d1 none labels=15945 rollouts=34450
+labels=15945 rollouts=34450 wall=112s cpu=100s
+[      3s] val N=2 travel=1 ideal perm1 labels=319 rollouts=678
+[      4s] val N=2 travel=1 ideal none labels=473 rollouts=1026
+[      6s] val N=2 travel=1 burst30_d1 perm1 labels=792 rollouts=1704
+[      7s] val N=2 travel=1 burst30_d1 none labels=946 rollouts=2052
+[     10s] val N=2 travel=0 ideal perm1 labels=1259 rollouts=2718
+[     11s] val N=2 travel=0 ideal none labels=1414 rollouts=3068
+[     13s] val N=2 travel=0 burst30_d1 perm1 labels=1730 rollouts=3740
+[     15s] val N=2 travel=0 burst30_d1 none labels=1885 rollouts=4090
+labels=1885 rollouts=4090 wall=15s cpu=13s
+[     31s] train N=3 travel=1 ideal perm1 labels=2797 rollouts=5914
+[     45s] train N=3 travel=1 ideal none labels=4057 rollouts=8754
+[     73s] train N=3 travel=1 burst30_d1 perm1 labels=6858 rollouts=14676
+[     82s] train N=3 travel=1 burst30_d1 none labels=8118 rollouts=17516
+[    106s] train N=3 travel=0 ideal perm1 labels=10794 rollouts=23188
+[    115s] train N=3 travel=0 ideal none labels=12042 rollouts=26004
+[    140s] train N=3 travel=0 burst30_d1 perm1 labels=14717 rollouts=31674
+[    150s] train N=3 travel=0 burst30_d1 none labels=15965 rollouts=34490
+labels=15965 rollouts=34490 wall=150s cpu=144s
+[      3s] val N=3 travel=1 ideal perm1 labels=323 rollouts=686
+[      5s] val N=3 travel=1 ideal none labels=476 rollouts=1032
+[      9s] val N=3 travel=1 burst30_d1 perm1 labels=797 rollouts=1714
+[     10s] val N=3 travel=1 burst30_d1 none labels=950 rollouts=2060
+[     13s] val N=3 travel=0 ideal perm1 labels=1264 rollouts=2728
+[     14s] val N=3 travel=0 ideal none labels=1422 rollouts=3084
+[     17s] val N=3 travel=0 burst30_d1 perm1 labels=1723 rollouts=3726
+[     18s] val N=3 travel=0 burst30_d1 none labels=1881 rollouts=4082
+labels=1881 rollouts=4082 wall=18s cpu=18s
+[     59s] train N=5 travel=1 ideal perm1 labels=2849 rollouts=6018
+[     79s] train N=5 travel=1 ideal none labels=4126 rollouts=8892
+[    132s] train N=5 travel=1 burst30_d1 perm1 labels=6975 rollouts=14910
+[    154s] train N=5 travel=1 burst30_d1 none labels=8252 rollouts=17784
+[    202s] train N=5 travel=0 ideal perm1 labels=10905 rollouts=23410
+[    224s] train N=5 travel=0 ideal none labels=12167 rollouts=26254
+[    273s] train N=5 travel=0 burst30_d1 perm1 labels=14801 rollouts=31842
+[    294s] train N=5 travel=0 burst30_d1 none labels=16063 rollouts=34686
+labels=16063 rollouts=34686 wall=294s cpu=285s
+[      6s] val N=5 travel=1 ideal perm1 labels=333 rollouts=706
+[      9s] val N=5 travel=1 ideal none labels=489 rollouts=1058
+[     15s] val N=5 travel=1 burst30_d1 perm1 labels=816 rollouts=1752
+[     17s] val N=5 travel=1 burst30_d1 none labels=972 rollouts=2104
+[     21s] val N=5 travel=0 ideal perm1 labels=1302 rollouts=2804
+[     24s] val N=5 travel=0 ideal none labels=1461 rollouts=3162
+[     29s] val N=5 travel=0 burst30_d1 perm1 labels=1784 rollouts=3848
+[     31s] val N=5 travel=0 burst30_d1 none labels=1943 rollouts=4206
+labels=1943 rollouts=4206 wall=31s cpu=31s
+[    176s] train N=10 travel=1 ideal perm1 labels=1585 rollouts=3362
+[    233s] train N=10 travel=1 ideal none labels=2353 rollouts=5090
+[    359s] train N=10 travel=1 burst30_d1 perm1 labels=3938 rollouts=8452
+[    408s] train N=10 travel=1 burst30_d1 none labels=4706 rollouts=10180
+[    547s] train N=10 travel=0 ideal perm1 labels=6240 rollouts=13440
+[    606s] train N=10 travel=0 ideal none labels=7003 rollouts=15158
+[    725s] train N=10 travel=0 burst30_d1 perm1 labels=8529 rollouts=18402
+[    776s] train N=10 travel=0 burst30_d1 none labels=9292 rollouts=20120
+labels=9292 rollouts=20120 wall=777s cpu=731s
+[     24s] val N=10 travel=1 ideal perm1 labels=358 rollouts=756
+[     34s] val N=10 travel=1 ideal none labels=518 rollouts=1116
+[     62s] val N=10 travel=1 burst30_d1 perm1 labels=877 rollouts=1874
+[     74s] val N=10 travel=1 burst30_d1 none labels=1037 rollouts=2234
+[    107s] val N=10 travel=0 ideal perm1 labels=1370 rollouts=2940
+[    119s] val N=10 travel=0 ideal none labels=1529 rollouts=3298
+[    146s] val N=10 travel=0 burst30_d1 perm1 labels=1862 rollouts=4004
+[    157s] val N=10 travel=0 burst30_d1 none labels=2021 rollouts=4362
+labels=2021 rollouts=4362 wall=157s cpu=156s
