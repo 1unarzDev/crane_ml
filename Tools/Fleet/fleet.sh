@@ -114,6 +114,16 @@ case "$cmd" in
             --crane-disable-ros --crane-disable-sitl --crane-fleet-spec "$spec" --crane-fleet-still "$dir" --crane-fleet-mission demo \
             --crane-seed "$seed" --crane-source-commit "$commit" --crane-source-dirty "$dirty" "$@" ) || true
         grep -h "CRANE_FLEET_STILL \|CRANE_FLEET_EXIT\|CRANE_FLEET_FAILED\|CRANE_FLEET_CLIP\|CRANE_FLEET_RUN_END" "$dir/player.log" ;;
+    autonomy-still)   # autonomy-still SEED [DIR] [MISSION.json] [extra player args]: closed-loop mission stills (GPU player)
+        seed=${1:?seed}; dir=${2:-$cache/stills/autonomy_seed$seed}; mf=$(realpath "${3:-$root/Tools/Fleet/missions/autonomy_demo_v0.json}"); shift 3 || shift $#
+        mkdir -p "$dir"
+        memwait
+        ( unset WAYLAND_DISPLAY
+          flock "$cache/unity.lock" xvfb-run -a -s "-screen 0 1280x720x24" "$heavy" unity "$player" -batchmode \
+            -screen-fullscreen 0 -screen-width 320 -screen-height 180 -logFile "$dir/player.log" \
+            --crane-disable-ros --crane-disable-sitl --crane-fleet-spec "$spec" --crane-fleet-still "$dir" --crane-fleet-mission autonomy \
+            --crane-fleet-mission-file "$mf" --crane-seed "$seed" --crane-source-commit "$commit" --crane-source-dirty "$dirty" "$@" ) || true
+        grep -h "CRANE_FLEET_STILL \|CRANE_FLEET_EXIT\|CRANE_FLEET_FAILED\|CRANE_FLEET_CLIP\|CRANE_FLEET_RUN_END" "$dir/player.log" ;;
     request-run)   # request-run --scenario F --config profile|GRAPH.json --mission M.json --seed N --variant V [--failures X] [--out DIR] [--labels J.json]
         scen=""; cfg="profile"; mis=""; seed=""; var=""; fail=""; out=""; lab=""
         while [[ $# -gt 0 ]]; do case "$1" in
