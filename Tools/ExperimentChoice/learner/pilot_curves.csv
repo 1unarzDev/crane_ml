@@ -1,0 +1,855 @@
+pair,arm,kind,n,metric,mean,ci_lo,ci_hi,n_repeats
+constructed,rule_2rho,rule,20,R,12.08033,12.08033,12.08033,0
+constructed,rule_2rho,rule,30,R,12.08033,12.08033,12.08033,0
+constructed,rule_2rho,rule,50,R,12.08033,12.08033,12.08033,0
+constructed,rule_2rho,rule,75,R,12.08033,12.08033,12.08033,0
+constructed,rule_2rho,rule,100,R,12.08033,12.08033,12.08033,0
+constructed,rule_2rho,rule,150,R,12.08033,12.08033,12.08033,0
+constructed,rule_2rho,rule,200,R,12.08033,12.08033,12.08033,0
+constructed,rule_stretch,rule,20,R,12.08033,12.08033,12.08033,0
+constructed,rule_stretch,rule,30,R,12.08033,12.08033,12.08033,0
+constructed,rule_stretch,rule,50,R,12.08033,12.08033,12.08033,0
+constructed,rule_stretch,rule,75,R,12.08033,12.08033,12.08033,0
+constructed,rule_stretch,rule,100,R,12.08033,12.08033,12.08033,0
+constructed,rule_stretch,rule,150,R,12.08033,12.08033,12.08033,0
+constructed,rule_stretch,rule,200,R,12.08033,12.08033,12.08033,0
+constructed,always_A,rule,20,R,13.22575,13.22575,13.22575,0
+constructed,always_A,rule,30,R,13.22575,13.22575,13.22575,0
+constructed,always_A,rule,50,R,13.22575,13.22575,13.22575,0
+constructed,always_A,rule,75,R,13.22575,13.22575,13.22575,0
+constructed,always_A,rule,100,R,13.22575,13.22575,13.22575,0
+constructed,always_A,rule,150,R,13.22575,13.22575,13.22575,0
+constructed,always_A,rule,200,R,13.22575,13.22575,13.22575,0
+constructed,always_B,rule,20,R,9.78629,9.78629,9.78629,0
+constructed,always_B,rule,30,R,9.78629,9.78629,9.78629,0
+constructed,always_B,rule,50,R,9.78629,9.78629,9.78629,0
+constructed,always_B,rule,75,R,9.78629,9.78629,9.78629,0
+constructed,always_B,rule,100,R,9.78629,9.78629,9.78629,0
+constructed,always_B,rule,150,R,9.78629,9.78629,9.78629,0
+constructed,always_B,rule,200,R,9.78629,9.78629,9.78629,0
+constructed,sobol-raw,learner,20,R,8.59028,7.34888,9.79386,20
+constructed,sobol-raw,learner,30,R,9.11479,7.99686,10.13827,20
+constructed,sobol-raw,learner,50,R,8.01546,6.87856,9.09376,20
+constructed,sobol-raw,learner,75,R,6.96815,5.95249,7.97626,20
+constructed,sobol-raw,learner,100,R,5.62683,4.69314,6.56175,20
+constructed,sobol-raw,learner,150,R,4.10427,3.41067,4.83715,20
+constructed,sobol-raw,learner,200,R,3.45583,2.92734,3.93028,20
+constructed,sobol-mech,learner,20,R,8.17068,6.88974,9.42737,20
+constructed,sobol-mech,learner,30,R,8.98827,7.63272,10.23768,20
+constructed,sobol-mech,learner,50,R,7.81643,6.78919,8.83155,20
+constructed,sobol-mech,learner,75,R,6.66999,5.51722,7.76179,20
+constructed,sobol-mech,learner,100,R,6.17980,5.37168,6.99442,20
+constructed,sobol-mech,learner,150,R,4.70242,4.06045,5.35674,20
+constructed,sobol-mech,learner,200,R,3.96155,3.41955,4.51099,20
+constructed,sobol-barn,learner,20,R,9.47891,8.08531,10.82519,20
+constructed,sobol-barn,learner,30,R,9.67301,8.31944,10.89844,20
+constructed,sobol-barn,learner,50,R,8.84359,7.65291,10.10213,20
+constructed,sobol-barn,learner,75,R,7.77777,6.66733,8.86171,20
+constructed,sobol-barn,learner,100,R,7.22783,6.02854,8.51977,20
+constructed,sobol-barn,learner,150,R,5.13566,4.31399,6.03537,20
+constructed,sobol-barn,learner,200,R,4.13805,3.50203,4.80093,20
+constructed,random-raw,learner,20,R,9.98575,8.73682,11.18128,20
+constructed,random-raw,learner,30,R,9.55123,8.58777,10.55492,20
+constructed,random-raw,learner,50,R,7.70453,6.57938,8.88354,20
+constructed,random-raw,learner,75,R,6.52758,5.47831,7.60765,20
+constructed,random-raw,learner,100,R,5.92209,4.80821,7.04270,20
+constructed,random-raw,learner,150,R,5.48807,4.50410,6.48980,20
+constructed,random-raw,learner,200,R,4.62022,3.81824,5.43716,20
+constructed,random-mech,learner,20,R,11.23310,10.04482,12.43663,20
+constructed,random-mech,learner,30,R,9.63898,8.64720,10.59859,20
+constructed,random-mech,learner,50,R,8.40183,7.18431,9.59750,20
+constructed,random-mech,learner,75,R,7.49827,6.46370,8.53442,20
+constructed,random-mech,learner,100,R,6.28570,5.30325,7.30172,20
+constructed,random-mech,learner,150,R,5.82481,4.96144,6.72349,20
+constructed,random-mech,learner,200,R,4.98774,4.16088,5.86713,20
+constructed,straddle-raw,learner,20,R,10.41431,9.22226,11.56772,20
+constructed,straddle-raw,learner,30,R,9.59647,8.50634,10.71379,20
+constructed,straddle-raw,learner,50,R,8.46819,7.39682,9.50621,20
+constructed,straddle-raw,learner,75,R,7.04480,5.90268,8.17690,20
+constructed,straddle-raw,learner,100,R,5.30177,4.39310,6.20663,20
+constructed,straddle-raw,learner,150,R,5.02837,4.26049,5.83615,20
+constructed,straddle-raw,learner,200,R,4.20812,3.44120,5.01524,20
+constructed,straddle-mech,learner,20,R,9.71367,8.39689,10.92262,20
+constructed,straddle-mech,learner,30,R,9.07279,7.83296,10.26973,20
+constructed,straddle-mech,learner,50,R,7.92617,6.71189,9.10002,20
+constructed,straddle-mech,learner,75,R,6.10429,5.09940,7.06555,20
+constructed,straddle-mech,learner,100,R,5.51944,4.49607,6.56601,20
+constructed,straddle-mech,learner,150,R,5.42225,4.54188,6.39594,20
+constructed,straddle-mech,learner,200,R,4.56863,3.72474,5.47793,20
+constructed,sur-raw,learner,20,R,8.39451,7.21690,9.49889,20
+constructed,sur-raw,learner,30,R,7.83853,6.82209,8.88259,20
+constructed,sur-raw,learner,50,R,7.30774,6.19477,8.35996,20
+constructed,sur-raw,learner,75,R,6.68521,5.78346,7.58520,20
+constructed,sur-raw,learner,100,R,6.52654,5.49821,7.51494,20
+constructed,sur-raw,learner,150,R,4.96571,4.08544,5.85213,20
+constructed,sur-raw,learner,200,R,4.11106,3.34032,4.94869,20
+constructed,sur-mech,learner,20,R,9.19838,8.04573,10.32081,20
+constructed,sur-mech,learner,30,R,8.60544,7.52716,9.71023,20
+constructed,sur-mech,learner,50,R,6.94248,5.77969,8.22678,20
+constructed,sur-mech,learner,75,R,6.29673,5.29718,7.36374,20
+constructed,sur-mech,learner,100,R,6.30358,5.20983,7.44223,20
+constructed,sur-mech,learner,150,R,6.03664,4.93806,7.16239,20
+constructed,sur-mech,learner,200,R,4.96781,4.02044,6.02563,20
+constructed,sobol-raw,learner,20,acc_near,0.59474,0.54737,0.64211,20
+constructed,sobol-raw,learner,30,acc_near,0.63684,0.59211,0.67895,20
+constructed,sobol-raw,learner,50,acc_near,0.57105,0.53947,0.60263,20
+constructed,sobol-raw,learner,75,acc_near,0.58158,0.54737,0.61579,20
+constructed,sobol-raw,learner,100,acc_near,0.61316,0.58947,0.63947,20
+constructed,sobol-raw,learner,150,acc_near,0.63158,0.59474,0.66842,20
+constructed,sobol-raw,learner,200,acc_near,0.64474,0.60789,0.68158,20
+constructed,sobol-mech,learner,20,acc_near,0.59474,0.54474,0.64474,20
+constructed,sobol-mech,learner,30,acc_near,0.64737,0.61579,0.67895,20
+constructed,sobol-mech,learner,50,acc_near,0.61579,0.57105,0.65789,20
+constructed,sobol-mech,learner,75,acc_near,0.62368,0.58421,0.66322,20
+constructed,sobol-mech,learner,100,acc_near,0.62105,0.59474,0.64474,20
+constructed,sobol-mech,learner,150,acc_near,0.64474,0.62632,0.66579,20
+constructed,sobol-mech,learner,200,acc_near,0.64737,0.62368,0.67632,20
+constructed,sobol-barn,learner,20,acc_near,0.58421,0.53421,0.63684,20
+constructed,sobol-barn,learner,30,acc_near,0.57632,0.52632,0.62368,20
+constructed,sobol-barn,learner,50,acc_near,0.59211,0.53684,0.64743,20
+constructed,sobol-barn,learner,75,acc_near,0.60263,0.55263,0.65789,20
+constructed,sobol-barn,learner,100,acc_near,0.57632,0.52632,0.62632,20
+constructed,sobol-barn,learner,150,acc_near,0.59211,0.55526,0.63158,20
+constructed,sobol-barn,learner,200,acc_near,0.60263,0.57895,0.62632,20
+constructed,random-raw,learner,20,acc_near,0.59737,0.55789,0.63684,20
+constructed,random-raw,learner,30,acc_near,0.60263,0.56316,0.64211,20
+constructed,random-raw,learner,50,acc_near,0.60263,0.56053,0.64474,20
+constructed,random-raw,learner,75,acc_near,0.61842,0.58421,0.65263,20
+constructed,random-raw,learner,100,acc_near,0.61579,0.58158,0.65270,20
+constructed,random-raw,learner,150,acc_near,0.59737,0.56053,0.63684,20
+constructed,random-raw,learner,200,acc_near,0.55789,0.51842,0.60000,20
+constructed,random-mech,learner,20,acc_near,0.57895,0.53158,0.62105,20
+constructed,random-mech,learner,30,acc_near,0.59211,0.55000,0.63684,20
+constructed,random-mech,learner,50,acc_near,0.59737,0.55526,0.64474,20
+constructed,random-mech,learner,75,acc_near,0.62895,0.59211,0.66579,20
+constructed,random-mech,learner,100,acc_near,0.61579,0.58421,0.64480,20
+constructed,random-mech,learner,150,acc_near,0.58684,0.55526,0.62105,20
+constructed,random-mech,learner,200,acc_near,0.58947,0.55263,0.62895,20
+constructed,straddle-raw,learner,20,acc_near,0.57895,0.53947,0.61842,20
+constructed,straddle-raw,learner,30,acc_near,0.57895,0.55000,0.60526,20
+constructed,straddle-raw,learner,50,acc_near,0.53947,0.50000,0.57368,20
+constructed,straddle-raw,learner,75,acc_near,0.53947,0.48684,0.59211,20
+constructed,straddle-raw,learner,100,acc_near,0.55000,0.51842,0.58421,20
+constructed,straddle-raw,learner,150,acc_near,0.55789,0.51316,0.60526,20
+constructed,straddle-raw,learner,200,acc_near,0.58684,0.54730,0.62632,20
+constructed,straddle-mech,learner,20,acc_near,0.57368,0.52632,0.62105,20
+constructed,straddle-mech,learner,30,acc_near,0.54474,0.50526,0.58158,20
+constructed,straddle-mech,learner,50,acc_near,0.53947,0.49467,0.58158,20
+constructed,straddle-mech,learner,75,acc_near,0.55526,0.52368,0.58947,20
+constructed,straddle-mech,learner,100,acc_near,0.57895,0.55000,0.60789,20
+constructed,straddle-mech,learner,150,acc_near,0.58421,0.55789,0.61053,20
+constructed,straddle-mech,learner,200,acc_near,0.60526,0.57368,0.63421,20
+constructed,sur-raw,learner,20,acc_near,0.56842,0.52895,0.60789,20
+constructed,sur-raw,learner,30,acc_near,0.59211,0.56053,0.62368,20
+constructed,sur-raw,learner,50,acc_near,0.58684,0.53678,0.63684,20
+constructed,sur-raw,learner,75,acc_near,0.59474,0.55263,0.63684,20
+constructed,sur-raw,learner,100,acc_near,0.62105,0.57368,0.66316,20
+constructed,sur-raw,learner,150,acc_near,0.60526,0.56842,0.64480,20
+constructed,sur-raw,learner,200,acc_near,0.60000,0.56316,0.63421,20
+constructed,sur-mech,learner,20,acc_near,0.57895,0.53947,0.61316,20
+constructed,sur-mech,learner,30,acc_near,0.55789,0.52105,0.59211,20
+constructed,sur-mech,learner,50,acc_near,0.55526,0.51842,0.58947,20
+constructed,sur-mech,learner,75,acc_near,0.57895,0.53947,0.61842,20
+constructed,sur-mech,learner,100,acc_near,0.54211,0.51579,0.56842,20
+constructed,sur-mech,learner,150,acc_near,0.55263,0.52632,0.58158,20
+constructed,sur-mech,learner,200,acc_near,0.57368,0.54474,0.60526,20
+constructed,sobol-raw/raw,transfer,20,R,8.95477,7.62387,10.10632,20
+constructed,sobol-raw/raw,transfer,30,R,10.04361,9.46223,10.47965,20
+constructed,sobol-raw/raw,transfer,50,R,10.47968,10.18903,10.62500,20
+constructed,sobol-raw/raw,transfer,75,R,10.62500,10.62500,10.62500,20
+constructed,sobol-raw/raw,transfer,100,R,10.62500,10.62500,10.62500,20
+constructed,sobol-raw/raw,transfer,150,R,10.62500,10.62500,10.62500,20
+constructed,sobol-raw/raw,transfer,200,R,10.62500,10.62500,10.62500,20
+constructed,sobol-raw/slack,transfer,20,R,7.51390,6.26231,8.72049,20
+constructed,sobol-raw/slack,transfer,30,R,8.43841,7.21006,9.61272,20
+constructed,sobol-raw/slack,transfer,50,R,7.73883,6.73403,8.67169,20
+constructed,sobol-raw/slack,transfer,75,R,6.24672,4.84360,7.71375,20
+constructed,sobol-raw/slack,transfer,100,R,5.10052,4.11552,6.17561,20
+constructed,sobol-raw/slack,transfer,150,R,4.09860,3.16655,5.06733,20
+constructed,sobol-raw/slack,transfer,200,R,3.24051,2.54274,3.90847,20
+constructed,sobol-raw/rawdim,transfer,20,R,8.95808,7.49022,10.19288,20
+constructed,sobol-raw/rawdim,transfer,30,R,10.33432,9.89829,10.62500,20
+constructed,sobol-raw/rawdim,transfer,50,R,10.62500,10.62500,10.62500,20
+constructed,sobol-raw/rawdim,transfer,75,R,10.62500,10.62500,10.62500,20
+constructed,sobol-raw/rawdim,transfer,100,R,10.62500,10.62500,10.62500,20
+constructed,sobol-raw/rawdim,transfer,150,R,10.62500,10.62500,10.62500,20
+constructed,sobol-raw/rawdim,transfer,200,R,10.62500,10.62500,10.62500,20
+constructed,sobol-raw/rawdim_ls3.2,transfer,20,R,8.95477,7.62387,10.10632,20
+constructed,sobol-raw/rawdim_ls3.2,transfer,30,R,10.04361,9.46223,10.47965,20
+constructed,sobol-raw/rawdim_ls3.2,transfer,50,R,10.53644,10.35931,10.62500,20
+constructed,sobol-raw/rawdim_ls3.2,transfer,75,R,10.62500,10.62500,10.62500,20
+constructed,sobol-raw/rawdim_ls3.2,transfer,100,R,10.62500,10.62500,10.62500,20
+constructed,sobol-raw/rawdim_ls3.2,transfer,150,R,10.62500,10.62500,10.62500,20
+constructed,sobol-raw/rawdim_ls3.2,transfer,200,R,10.62500,10.62500,10.62500,20
+constructed,sobol-mech/mech,transfer,20,R,9.35027,8.54465,10.11009,20
+constructed,sobol-mech/mech,transfer,30,R,9.92558,9.36995,10.39749,20
+constructed,sobol-mech/mech,transfer,50,R,9.72944,9.26993,10.13427,20
+constructed,sobol-mech/mech,transfer,75,R,9.33892,8.56759,10.04045,20
+constructed,sobol-mech/mech,transfer,100,R,9.22049,8.56150,9.86870,20
+constructed,sobol-mech/mech,transfer,150,R,8.78666,8.25554,9.33575,20
+constructed,sobol-mech/mech,transfer,200,R,8.52740,7.75581,9.20383,20
+constructed,sobol-barn/barn,transfer,20,R,9.14066,7.94163,10.19599,20
+constructed,sobol-barn/barn,transfer,30,R,10.13227,9.60774,10.51290,20
+constructed,sobol-barn/barn,transfer,50,R,9.95515,9.37385,10.47968,20
+constructed,sobol-barn/barn,transfer,75,R,9.46242,8.85617,10.04433,20
+constructed,sobol-barn/barn,transfer,100,R,9.46242,8.88113,10.04371,20
+constructed,sobol-barn/barn,transfer,150,R,8.93789,8.35659,9.57673,20
+constructed,sobol-barn/barn,transfer,200,R,8.79256,8.21127,9.46242,20
+constructed,random-raw/raw,transfer,20,R,9.09649,7.76543,10.18668,20
+constructed,random-raw/raw,transfer,30,R,9.71018,8.58790,10.56620,20
+constructed,random-raw/raw,transfer,50,R,9.85754,8.82176,10.62500,20
+constructed,random-raw/raw,transfer,75,R,10.09815,9.18976,10.62500,20
+constructed,random-raw/raw,transfer,100,R,10.62500,10.62500,10.62500,20
+constructed,random-raw/raw,transfer,150,R,10.62500,10.62500,10.62500,20
+constructed,random-raw/raw,transfer,200,R,10.62500,10.62500,10.62500,20
+constructed,random-raw/slack,transfer,20,R,7.19896,5.74638,8.55202,20
+constructed,random-raw/slack,transfer,30,R,6.69349,5.25167,8.16654,20
+constructed,random-raw/slack,transfer,50,R,6.27531,5.02338,7.59628,20
+constructed,random-raw/slack,transfer,75,R,4.67933,3.15960,6.38005,20
+constructed,random-raw/slack,transfer,100,R,4.28496,3.13377,5.50321,20
+constructed,random-raw/slack,transfer,150,R,3.45952,2.40492,4.66540,20
+constructed,random-raw/slack,transfer,200,R,2.10767,1.61290,2.66125,20
+constructed,random-raw/rawdim,transfer,20,R,9.09448,7.67706,10.24347,20
+constructed,random-raw/rawdim,transfer,30,R,9.85754,8.70855,10.62500,20
+constructed,random-raw/rawdim,transfer,50,R,10.24347,9.48041,10.62500,20
+constructed,random-raw/rawdim,transfer,75,R,10.24347,9.48041,10.62500,20
+constructed,random-raw/rawdim,transfer,100,R,10.62500,10.62500,10.62500,20
+constructed,random-raw/rawdim,transfer,150,R,10.62500,10.62500,10.62500,20
+constructed,random-raw/rawdim,transfer,200,R,10.62500,10.62500,10.62500,20
+constructed,random-raw/rawdim_ls3.2,transfer,20,R,9.09649,7.76543,10.18668,20
+constructed,random-raw/rawdim_ls3.2,transfer,30,R,9.79874,8.64975,10.62500,20
+constructed,random-raw/rawdim_ls3.2,transfer,50,R,9.85754,8.82176,10.62500,20
+constructed,random-raw/rawdim_ls3.2,transfer,75,R,10.15491,9.30328,10.62500,20
+constructed,random-raw/rawdim_ls3.2,transfer,100,R,10.62500,10.62500,10.62500,20
+constructed,random-raw/rawdim_ls3.2,transfer,150,R,10.62500,10.62500,10.62500,20
+constructed,random-raw/rawdim_ls3.2,transfer,200,R,10.62500,10.62500,10.62500,20
+constructed,random-mech/mech,transfer,20,R,9.51385,8.76013,10.13297,20
+constructed,random-mech/mech,transfer,30,R,9.33662,8.59641,9.96264,20
+constructed,random-mech/mech,transfer,50,R,9.34675,8.73842,9.92937,20
+constructed,random-mech/mech,transfer,75,R,9.21003,8.64189,9.74624,20
+constructed,random-mech/mech,transfer,100,R,8.79641,7.97413,9.51541,20
+constructed,random-mech/mech,transfer,150,R,8.78049,8.15464,9.38087,20
+constructed,random-mech/mech,transfer,200,R,8.59061,7.94611,9.24748,20
+constructed,straddle-raw/raw,transfer,20,R,9.09750,7.80732,10.19510,20
+constructed,straddle-raw/raw,transfer,30,R,9.80463,8.90026,10.47965,20
+constructed,straddle-raw/raw,transfer,50,R,10.07760,9.43589,10.57400,20
+constructed,straddle-raw/raw,transfer,75,R,9.54150,8.39691,10.44989,20
+constructed,straddle-raw/raw,transfer,100,R,10.09815,9.18976,10.62500,20
+constructed,straddle-raw/raw,transfer,150,R,10.62500,10.62500,10.62500,20
+constructed,straddle-raw/raw,transfer,200,R,10.62500,10.62500,10.62500,20
+constructed,straddle-raw/slack,transfer,20,R,8.43558,7.10731,9.55869,20
+constructed,straddle-raw/slack,transfer,30,R,7.36479,6.16158,8.52545,20
+constructed,straddle-raw/slack,transfer,50,R,6.52052,5.09439,7.83750,20
+constructed,straddle-raw/slack,transfer,75,R,5.01690,3.76630,6.35999,20
+constructed,straddle-raw/slack,transfer,100,R,3.41553,2.32267,4.57348,20
+constructed,straddle-raw/slack,transfer,150,R,2.79230,1.96167,3.65060,20
+constructed,straddle-raw/slack,transfer,200,R,1.93527,1.44173,2.51743,20
+constructed,straddle-raw/rawdim,transfer,20,R,9.38946,8.29048,10.33429,20
+constructed,straddle-raw/rawdim,transfer,30,R,10.09946,9.19239,10.62500,20
+constructed,straddle-raw/rawdim,transfer,50,R,10.07515,9.43936,10.62500,20
+constructed,straddle-raw/rawdim,transfer,75,R,9.77539,8.63079,10.62500,20
+constructed,straddle-raw/rawdim,transfer,100,R,10.24347,9.48041,10.62500,20
+constructed,straddle-raw/rawdim,transfer,150,R,10.62500,10.62500,10.62500,20
+constructed,straddle-raw/rawdim,transfer,200,R,10.62500,10.62500,10.62500,20
+constructed,straddle-raw/rawdim_ls3.2,transfer,20,R,9.09750,7.80732,10.19510,20
+constructed,straddle-raw/rawdim_ls3.2,transfer,30,R,9.89118,9.01210,10.50740,20
+constructed,straddle-raw/rawdim_ls3.2,transfer,50,R,10.07760,9.43589,10.57400,20
+constructed,straddle-raw/rawdim_ls3.2,transfer,75,R,9.54150,8.39691,10.44989,20
+constructed,straddle-raw/rawdim_ls3.2,transfer,100,R,10.09815,9.18976,10.62500,20
+constructed,straddle-raw/rawdim_ls3.2,transfer,150,R,10.62500,10.62500,10.62500,20
+constructed,straddle-raw/rawdim_ls3.2,transfer,200,R,10.62500,10.62500,10.62500,20
+constructed,straddle-mech/mech,transfer,20,R,8.21247,7.10617,9.22402,20
+constructed,straddle-mech/mech,transfer,30,R,8.20952,7.46384,8.91399,20
+constructed,straddle-mech/mech,transfer,50,R,8.11529,7.16495,8.86256,20
+constructed,straddle-mech/mech,transfer,75,R,7.63347,6.77175,8.47578,20
+constructed,straddle-mech/mech,transfer,100,R,7.77889,6.88735,8.58844,20
+constructed,straddle-mech/mech,transfer,150,R,7.45300,6.62994,8.28039,20
+constructed,straddle-mech/mech,transfer,200,R,7.73127,7.09843,8.33848,20
+constructed,sur-raw/raw,transfer,20,R,7.58447,6.23990,8.90661,20
+constructed,sur-raw/raw,transfer,30,R,7.41711,5.98618,8.74799,20
+constructed,sur-raw/raw,transfer,50,R,8.58137,7.05525,9.86194,20
+constructed,sur-raw/raw,transfer,75,R,9.01031,7.57275,10.24347,20
+constructed,sur-raw/raw,transfer,100,R,9.33508,7.95428,10.33435,20
+constructed,sur-raw/raw,transfer,150,R,10.47968,10.18903,10.62500,20
+constructed,sur-raw/raw,transfer,200,R,10.62500,10.62500,10.62500,20
+constructed,sur-raw/slack,transfer,20,R,5.70142,4.48192,6.89960,20
+constructed,sur-raw/slack,transfer,30,R,5.28977,4.05534,6.56686,20
+constructed,sur-raw/slack,transfer,50,R,5.39769,4.35519,6.54896,20
+constructed,sur-raw/slack,transfer,75,R,5.03503,4.03900,6.10095,20
+constructed,sur-raw/slack,transfer,100,R,4.14786,3.18581,5.25843,20
+constructed,sur-raw/slack,transfer,150,R,3.16565,2.29161,4.21949,20
+constructed,sur-raw/slack,transfer,200,R,2.07456,1.52622,2.68364,20
+constructed,sur-raw/rawdim,transfer,20,R,7.69334,6.15544,9.13292,20
+constructed,sur-raw/rawdim,transfer,30,R,7.39528,5.68732,9.01232,20
+constructed,sur-raw/rawdim,transfer,50,R,8.42801,6.90057,9.80753,20
+constructed,sur-raw/rawdim,transfer,75,R,9.09888,7.57275,10.24347,20
+constructed,sur-raw/rawdim,transfer,100,R,9.33508,7.95428,10.33435,20
+constructed,sur-raw/rawdim,transfer,150,R,10.62500,10.62500,10.62500,20
+constructed,sur-raw/rawdim,transfer,200,R,10.62500,10.62500,10.62500,20
+constructed,sur-raw/rawdim_ls3.2,transfer,20,R,7.58447,6.23990,8.90661,20
+constructed,sur-raw/rawdim_ls3.2,transfer,30,R,7.47592,6.08403,8.80033,20
+constructed,sur-raw/rawdim_ls3.2,transfer,50,R,8.58137,7.05525,9.86194,20
+constructed,sur-raw/rawdim_ls3.2,transfer,75,R,9.01031,7.57275,10.24347,20
+constructed,sur-raw/rawdim_ls3.2,transfer,100,R,9.33508,7.95428,10.33435,20
+constructed,sur-raw/rawdim_ls3.2,transfer,150,R,10.53644,10.35931,10.62500,20
+constructed,sur-raw/rawdim_ls3.2,transfer,200,R,10.62500,10.62500,10.62500,20
+constructed,sur-mech/mech,transfer,20,R,8.96747,8.17359,9.67464,20
+constructed,sur-mech/mech,transfer,30,R,9.32409,8.73765,9.90037,20
+constructed,sur-mech/mech,transfer,50,R,8.67552,8.10140,9.25613,20
+constructed,sur-mech/mech,transfer,75,R,7.94970,7.54154,8.35787,20
+constructed,sur-mech/mech,transfer,100,R,7.98065,7.72243,8.32545,20
+constructed,sur-mech/mech,transfer,150,R,8.26186,7.83986,8.73580,20
+constructed,sur-mech/mech,transfer,200,R,8.11681,7.61092,8.64725,20
+constructed,1 footprint|raw only,headline_in,20,R,8.59028,7.34888,9.79386,20
+constructed,1 footprint|raw only,headline_in,30,R,9.11479,7.99686,10.13827,20
+constructed,1 footprint|raw only,headline_in,50,R,8.01546,6.87856,9.09376,20
+constructed,1 footprint|raw only,headline_in,75,R,6.96815,5.95249,7.97626,20
+constructed,1 footprint|raw only,headline_in,100,R,5.62683,4.69314,6.56175,20
+constructed,1 footprint|raw only,headline_in,150,R,4.10427,3.41067,4.83715,20
+constructed,1 footprint|raw only,headline_in,200,R,3.45583,2.92734,3.93028,20
+constructed,1 footprint|raw + dims (ls 0.8),headline_in,20,R,8.59028,7.34888,9.79386,20
+constructed,1 footprint|raw + dims (ls 0.8),headline_in,30,R,9.11479,7.99686,10.13827,20
+constructed,1 footprint|raw + dims (ls 0.8),headline_in,50,R,8.01546,6.87856,9.09376,20
+constructed,1 footprint|raw + dims (ls 0.8),headline_in,75,R,6.96815,5.95249,7.97626,20
+constructed,1 footprint|raw + dims (ls 0.8),headline_in,100,R,5.62683,4.69314,6.56175,20
+constructed,1 footprint|raw + dims (ls 0.8),headline_in,150,R,4.10427,3.41067,4.83715,20
+constructed,1 footprint|raw + dims (ls 0.8),headline_in,200,R,3.45583,2.92734,3.93028,20
+constructed,1 footprint|raw + dims (ls 3.2),headline_in,20,R,8.59028,7.34888,9.79386,20
+constructed,1 footprint|raw + dims (ls 3.2),headline_in,30,R,9.11479,7.99686,10.13827,20
+constructed,1 footprint|raw + dims (ls 3.2),headline_in,50,R,8.01546,6.87856,9.09376,20
+constructed,1 footprint|raw + dims (ls 3.2),headline_in,75,R,6.96815,5.95249,7.97626,20
+constructed,1 footprint|raw + dims (ls 3.2),headline_in,100,R,5.62683,4.69314,6.56175,20
+constructed,1 footprint|raw + dims (ls 3.2),headline_in,150,R,4.10427,3.41067,4.83715,20
+constructed,1 footprint|raw + dims (ls 3.2),headline_in,200,R,3.45583,2.92734,3.93028,20
+constructed,1 footprint|slack,headline_in,20,R,8.59028,7.34888,9.79386,20
+constructed,1 footprint|slack,headline_in,30,R,9.11479,7.99686,10.13827,20
+constructed,1 footprint|slack,headline_in,50,R,8.01546,6.87856,9.09376,20
+constructed,1 footprint|slack,headline_in,75,R,6.96815,5.95249,7.97626,20
+constructed,1 footprint|slack,headline_in,100,R,5.62683,4.69314,6.56175,20
+constructed,1 footprint|slack,headline_in,150,R,4.10427,3.41067,4.83715,20
+constructed,1 footprint|slack,headline_in,200,R,3.45583,2.92734,3.93028,20
+constructed,1 footprint|mechanics,headline_in,20,R,8.17068,6.88974,9.42737,20
+constructed,1 footprint|mechanics,headline_in,30,R,8.98827,7.63272,10.23768,20
+constructed,1 footprint|mechanics,headline_in,50,R,7.81643,6.78919,8.83155,20
+constructed,1 footprint|mechanics,headline_in,75,R,6.66999,5.51722,7.76179,20
+constructed,1 footprint|mechanics,headline_in,100,R,6.17980,5.37168,6.99442,20
+constructed,1 footprint|mechanics,headline_in,150,R,4.70242,4.06045,5.35674,20
+constructed,1 footprint|mechanics,headline_in,200,R,3.96155,3.41955,4.51099,20
+constructed,3 footprints|raw only,headline_in,20,R,10.26075,9.27580,11.16927,20
+constructed,3 footprints|raw only,headline_in,30,R,10.09475,8.56424,11.51623,20
+constructed,3 footprints|raw only,headline_in,50,R,8.87781,7.42064,10.28766,20
+constructed,3 footprints|raw only,headline_in,75,R,8.16723,6.88339,9.41676,20
+constructed,3 footprints|raw only,headline_in,100,R,7.56037,6.30106,8.75506,20
+constructed,3 footprints|raw only,headline_in,150,R,6.96078,5.79500,8.11573,20
+constructed,3 footprints|raw only,headline_in,200,R,5.48880,4.73720,6.27291,20
+constructed,3 footprints|raw + dims,headline_in,20,R,10.06679,8.82784,11.22994,20
+constructed,3 footprints|raw + dims,headline_in,30,R,9.77767,8.18974,11.26062,20
+constructed,3 footprints|raw + dims,headline_in,50,R,8.30530,6.85080,9.72052,20
+constructed,3 footprints|raw + dims,headline_in,75,R,7.77687,6.42102,9.09922,20
+constructed,3 footprints|raw + dims,headline_in,100,R,7.22272,6.02217,8.47545,20
+constructed,3 footprints|raw + dims,headline_in,150,R,6.73532,5.56518,7.92086,20
+constructed,3 footprints|raw + dims,headline_in,200,R,5.09184,4.35269,5.84967,20
+constructed,3 footprints|slack,headline_in,20,R,10.42841,9.49446,11.36250,20
+constructed,3 footprints|slack,headline_in,30,R,9.07150,7.88987,10.30449,20
+constructed,3 footprints|slack,headline_in,50,R,8.27231,7.02402,9.47036,20
+constructed,3 footprints|slack,headline_in,75,R,7.83247,6.74331,8.98009,20
+constructed,3 footprints|slack,headline_in,100,R,6.45939,5.33989,7.59928,20
+constructed,3 footprints|slack,headline_in,150,R,6.16779,5.41408,6.94958,20
+constructed,3 footprints|slack,headline_in,200,R,5.00206,4.32156,5.67543,20
+constructed,3 footprints|mechanics,headline_in,20,R,9.59170,8.13517,10.99131,20
+constructed,3 footprints|mechanics,headline_in,30,R,8.13472,6.82893,9.72743,20
+constructed,3 footprints|mechanics,headline_in,50,R,6.82870,5.86157,7.80566,20
+constructed,3 footprints|mechanics,headline_in,75,R,6.07437,5.01272,7.12477,20
+constructed,3 footprints|mechanics,headline_in,100,R,4.76144,3.89949,5.61962,20
+constructed,3 footprints|mechanics,headline_in,150,R,4.93741,4.00134,5.94719,20
+constructed,3 footprints|mechanics,headline_in,200,R,3.84316,3.14720,4.63182,20
+constructed,1 footprint|raw only,headline_out,20,R,8.95477,7.62387,10.10632,20
+constructed,1 footprint|raw only,headline_out,30,R,10.04361,9.46223,10.47965,20
+constructed,1 footprint|raw only,headline_out,50,R,10.47968,10.18903,10.62500,20
+constructed,1 footprint|raw only,headline_out,75,R,10.62500,10.62500,10.62500,20
+constructed,1 footprint|raw only,headline_out,100,R,10.62500,10.62500,10.62500,20
+constructed,1 footprint|raw only,headline_out,150,R,10.62500,10.62500,10.62500,20
+constructed,1 footprint|raw only,headline_out,200,R,10.62500,10.62500,10.62500,20
+constructed,1 footprint|raw + dims (ls 0.8),headline_out,20,R,8.95808,7.49022,10.19288,20
+constructed,1 footprint|raw + dims (ls 0.8),headline_out,30,R,10.33432,9.89829,10.62500,20
+constructed,1 footprint|raw + dims (ls 0.8),headline_out,50,R,10.62500,10.62500,10.62500,20
+constructed,1 footprint|raw + dims (ls 0.8),headline_out,75,R,10.62500,10.62500,10.62500,20
+constructed,1 footprint|raw + dims (ls 0.8),headline_out,100,R,10.62500,10.62500,10.62500,20
+constructed,1 footprint|raw + dims (ls 0.8),headline_out,150,R,10.62500,10.62500,10.62500,20
+constructed,1 footprint|raw + dims (ls 0.8),headline_out,200,R,10.62500,10.62500,10.62500,20
+constructed,1 footprint|raw + dims (ls 3.2),headline_out,20,R,8.95477,7.62387,10.10632,20
+constructed,1 footprint|raw + dims (ls 3.2),headline_out,30,R,10.04361,9.46223,10.47965,20
+constructed,1 footprint|raw + dims (ls 3.2),headline_out,50,R,10.53644,10.35931,10.62500,20
+constructed,1 footprint|raw + dims (ls 3.2),headline_out,75,R,10.62500,10.62500,10.62500,20
+constructed,1 footprint|raw + dims (ls 3.2),headline_out,100,R,10.62500,10.62500,10.62500,20
+constructed,1 footprint|raw + dims (ls 3.2),headline_out,150,R,10.62500,10.62500,10.62500,20
+constructed,1 footprint|raw + dims (ls 3.2),headline_out,200,R,10.62500,10.62500,10.62500,20
+constructed,1 footprint|slack,headline_out,20,R,7.51390,6.26231,8.72049,20
+constructed,1 footprint|slack,headline_out,30,R,8.43841,7.21006,9.61272,20
+constructed,1 footprint|slack,headline_out,50,R,7.73883,6.73403,8.67169,20
+constructed,1 footprint|slack,headline_out,75,R,6.24672,4.84360,7.71375,20
+constructed,1 footprint|slack,headline_out,100,R,5.10052,4.11552,6.17561,20
+constructed,1 footprint|slack,headline_out,150,R,4.09860,3.16655,5.06733,20
+constructed,1 footprint|slack,headline_out,200,R,3.24051,2.54274,3.90847,20
+constructed,1 footprint|mechanics,headline_out,20,R,9.35027,8.54465,10.11009,20
+constructed,1 footprint|mechanics,headline_out,30,R,9.92558,9.36995,10.39749,20
+constructed,1 footprint|mechanics,headline_out,50,R,9.72944,9.26993,10.13427,20
+constructed,1 footprint|mechanics,headline_out,75,R,9.33892,8.56759,10.04045,20
+constructed,1 footprint|mechanics,headline_out,100,R,9.22049,8.56150,9.86870,20
+constructed,1 footprint|mechanics,headline_out,150,R,8.78666,8.25554,9.33575,20
+constructed,1 footprint|mechanics,headline_out,200,R,8.52740,7.75581,9.20383,20
+constructed,3 footprints|raw only,headline_out,20,R,8.07996,6.33483,9.72627,20
+constructed,3 footprints|raw only,headline_out,30,R,7.20816,5.51163,8.98128,20
+constructed,3 footprints|raw only,headline_out,50,R,8.14320,6.77612,9.42699,20
+constructed,3 footprints|raw only,headline_out,75,R,8.85564,7.47137,10.05639,20
+constructed,3 footprints|raw only,headline_out,100,R,9.28217,8.03012,10.42723,20
+constructed,3 footprints|raw only,headline_out,150,R,8.42810,7.26877,9.48570,20
+constructed,3 footprints|raw only,headline_out,200,R,7.80725,7.37046,8.27106,20
+constructed,3 footprints|raw + dims,headline_out,20,R,7.41553,5.77391,8.97249,20
+constructed,3 footprints|raw + dims,headline_out,30,R,6.83818,5.08049,8.66765,20
+constructed,3 footprints|raw + dims,headline_out,50,R,7.54606,5.90383,9.04472,20
+constructed,3 footprints|raw + dims,headline_out,75,R,8.15335,6.64505,9.55696,20
+constructed,3 footprints|raw + dims,headline_out,100,R,8.30586,6.85936,9.66657,20
+constructed,3 footprints|raw + dims,headline_out,150,R,8.12069,6.94045,9.22920,20
+constructed,3 footprints|raw + dims,headline_out,200,R,7.79836,6.92569,8.55637,20
+constructed,3 footprints|slack,headline_out,20,R,8.01698,6.55381,9.31505,20
+constructed,3 footprints|slack,headline_out,30,R,8.26722,6.84657,9.71073,20
+constructed,3 footprints|slack,headline_out,50,R,9.23231,8.11986,10.42941,20
+constructed,3 footprints|slack,headline_out,75,R,7.54302,6.26605,8.81972,20
+constructed,3 footprints|slack,headline_out,100,R,6.51416,5.39855,7.56515,20
+constructed,3 footprints|slack,headline_out,150,R,4.70482,4.00582,5.46871,20
+constructed,3 footprints|slack,headline_out,200,R,3.85375,3.32976,4.45760,20
+constructed,3 footprints|mechanics,headline_out,20,R,7.29718,5.78136,8.73570,20
+constructed,3 footprints|mechanics,headline_out,30,R,7.49154,6.00109,8.97084,20
+constructed,3 footprints|mechanics,headline_out,50,R,8.58226,7.09638,9.99657,20
+constructed,3 footprints|mechanics,headline_out,75,R,7.64157,6.45547,8.79503,20
+constructed,3 footprints|mechanics,headline_out,100,R,7.15788,6.15520,8.03949,20
+constructed,3 footprints|mechanics,headline_out,150,R,7.70554,6.93019,8.48695,20
+constructed,3 footprints|mechanics,headline_out,200,R,6.64130,5.62920,7.58585,20
+independent,rule_2rho,rule,20,R,2.52073,2.52073,2.52073,0
+independent,rule_2rho,rule,30,R,2.52073,2.52073,2.52073,0
+independent,rule_2rho,rule,50,R,2.52073,2.52073,2.52073,0
+independent,rule_2rho,rule,75,R,2.52073,2.52073,2.52073,0
+independent,rule_2rho,rule,100,R,2.52073,2.52073,2.52073,0
+independent,rule_2rho,rule,150,R,2.52073,2.52073,2.52073,0
+independent,rule_2rho,rule,200,R,2.52073,2.52073,2.52073,0
+independent,rule_stretch,rule,20,R,2.52073,2.52073,2.52073,0
+independent,rule_stretch,rule,30,R,2.52073,2.52073,2.52073,0
+independent,rule_stretch,rule,50,R,2.52073,2.52073,2.52073,0
+independent,rule_stretch,rule,75,R,2.52073,2.52073,2.52073,0
+independent,rule_stretch,rule,100,R,2.52073,2.52073,2.52073,0
+independent,rule_stretch,rule,150,R,2.52073,2.52073,2.52073,0
+independent,rule_stretch,rule,200,R,2.52073,2.52073,2.52073,0
+independent,always_A,rule,20,R,2.52073,2.52073,2.52073,0
+independent,always_A,rule,30,R,2.52073,2.52073,2.52073,0
+independent,always_A,rule,50,R,2.52073,2.52073,2.52073,0
+independent,always_A,rule,75,R,2.52073,2.52073,2.52073,0
+independent,always_A,rule,100,R,2.52073,2.52073,2.52073,0
+independent,always_A,rule,150,R,2.52073,2.52073,2.52073,0
+independent,always_A,rule,200,R,2.52073,2.52073,2.52073,0
+independent,always_B,rule,20,R,0.00000,0.00000,0.00000,0
+independent,always_B,rule,30,R,0.00000,0.00000,0.00000,0
+independent,always_B,rule,50,R,0.00000,0.00000,0.00000,0
+independent,always_B,rule,75,R,0.00000,0.00000,0.00000,0
+independent,always_B,rule,100,R,0.00000,0.00000,0.00000,0
+independent,always_B,rule,150,R,0.00000,0.00000,0.00000,0
+independent,always_B,rule,200,R,0.00000,0.00000,0.00000,0
+independent,sobol-raw,learner,20,R,0.72600,0.30741,1.18307,20
+independent,sobol-raw,learner,30,R,0.43290,0.10950,0.82288,20
+independent,sobol-raw,learner,50,R,0.49025,0.21649,0.80700,20
+independent,sobol-raw,learner,75,R,0.31416,0.12487,0.52250,20
+independent,sobol-raw,learner,100,R,0.07613,0.00887,0.17457,20
+independent,sobol-raw,learner,150,R,0.09274,0.01182,0.21868,20
+independent,sobol-raw,learner,200,R,0.04518,0.00921,0.11151,20
+independent,sobol-mech,learner,20,R,0.88154,0.41177,1.38444,20
+independent,sobol-mech,learner,30,R,0.46596,0.14386,0.85519,20
+independent,sobol-mech,learner,50,R,0.49042,0.22167,0.81571,20
+independent,sobol-mech,learner,75,R,0.34708,0.16602,0.55607,20
+independent,sobol-mech,learner,100,R,0.12283,0.00992,0.31404,20
+independent,sobol-mech,learner,150,R,0.09274,0.01182,0.21868,20
+independent,sobol-mech,learner,200,R,0.04518,0.00921,0.11151,20
+independent,sobol-barn,learner,20,R,0.74306,0.38990,1.14534,20
+independent,sobol-barn,learner,30,R,0.84507,0.45847,1.26353,20
+independent,sobol-barn,learner,50,R,0.56850,0.27630,0.89720,20
+independent,sobol-barn,learner,75,R,0.36707,0.12994,0.66185,20
+independent,sobol-barn,learner,100,R,0.39890,0.13653,0.72061,20
+independent,sobol-barn,learner,150,R,0.34509,0.17296,0.53160,20
+independent,sobol-barn,learner,200,R,0.27178,0.09962,0.47396,20
+independent,random-raw,learner,20,R,1.05189,0.64567,1.50713,20
+independent,random-raw,learner,30,R,0.56063,0.30022,0.84643,20
+independent,random-raw,learner,50,R,0.52682,0.28374,0.81351,20
+independent,random-raw,learner,75,R,0.59948,0.29396,0.95748,20
+independent,random-raw,learner,100,R,0.31124,0.13452,0.51825,20
+independent,random-raw,learner,150,R,0.34455,0.14050,0.57504,20
+independent,random-raw,learner,200,R,0.25307,0.05252,0.49841,20
+independent,random-mech,learner,20,R,0.83576,0.43853,1.28629,20
+independent,random-mech,learner,30,R,0.42642,0.17945,0.68624,20
+independent,random-mech,learner,50,R,0.41518,0.16191,0.73819,20
+independent,random-mech,learner,75,R,0.50756,0.20346,0.87920,20
+independent,random-mech,learner,100,R,0.30965,0.13649,0.51599,20
+independent,random-mech,learner,150,R,0.37445,0.17048,0.60445,20
+independent,random-mech,learner,200,R,0.23985,0.05642,0.45342,20
+independent,straddle-raw,learner,20,R,1.33768,0.89250,1.76229,20
+independent,straddle-raw,learner,30,R,0.88900,0.54547,1.25934,20
+independent,straddle-raw,learner,50,R,0.94854,0.62256,1.31577,20
+independent,straddle-raw,learner,75,R,0.83918,0.46105,1.26852,20
+independent,straddle-raw,learner,100,R,0.63780,0.28825,1.05417,20
+independent,straddle-raw,learner,150,R,0.49385,0.20280,0.83910,20
+independent,straddle-raw,learner,200,R,0.58637,0.28171,0.93011,20
+independent,straddle-mech,learner,20,R,1.61340,1.14804,2.03816,20
+independent,straddle-mech,learner,30,R,1.60002,1.17874,1.99770,20
+independent,straddle-mech,learner,50,R,0.75308,0.42947,1.08467,20
+independent,straddle-mech,learner,75,R,0.58191,0.33211,0.89195,20
+independent,straddle-mech,learner,100,R,0.67365,0.39298,1.00101,20
+independent,straddle-mech,learner,150,R,0.60732,0.31282,0.94494,20
+independent,straddle-mech,learner,200,R,0.40702,0.15708,0.71576,20
+independent,sur-raw,learner,20,R,0.83400,0.47843,1.22034,20
+independent,sur-raw,learner,30,R,1.06415,0.67757,1.46808,20
+independent,sur-raw,learner,50,R,0.64930,0.37843,0.95528,20
+independent,sur-raw,learner,75,R,0.63166,0.38024,0.92392,20
+independent,sur-raw,learner,100,R,0.47616,0.24087,0.74834,20
+independent,sur-raw,learner,150,R,0.36249,0.19338,0.54157,20
+independent,sur-raw,learner,200,R,0.37299,0.18493,0.57811,20
+independent,sur-mech,learner,20,R,1.10282,0.68611,1.52968,20
+independent,sur-mech,learner,30,R,0.77470,0.48093,1.07160,20
+independent,sur-mech,learner,50,R,0.94813,0.59592,1.33638,20
+independent,sur-mech,learner,75,R,0.92902,0.58104,1.30025,20
+independent,sur-mech,learner,100,R,0.66890,0.37252,1.00956,20
+independent,sur-mech,learner,150,R,0.70398,0.37894,1.09434,20
+independent,sur-mech,learner,200,R,0.44214,0.22449,0.69176,20
+independent,sobol-raw,learner,20,acc_near,0.65833,0.49167,0.80833,20
+independent,sobol-raw,learner,30,acc_near,0.71667,0.58333,0.82521,20
+independent,sobol-raw,learner,50,acc_near,0.79167,0.69167,0.89167,20
+independent,sobol-raw,learner,75,acc_near,0.74167,0.66667,0.81667,20
+independent,sobol-raw,learner,100,acc_near,0.80833,0.74167,0.87500,20
+independent,sobol-raw,learner,150,acc_near,0.79167,0.70833,0.86667,20
+independent,sobol-raw,learner,200,acc_near,0.81667,0.75000,0.88333,20
+independent,sobol-mech,learner,20,acc_near,0.61667,0.45833,0.77500,20
+independent,sobol-mech,learner,30,acc_near,0.70000,0.58333,0.80833,20
+independent,sobol-mech,learner,50,acc_near,0.80000,0.70833,0.89167,20
+independent,sobol-mech,learner,75,acc_near,0.72500,0.65833,0.80000,20
+independent,sobol-mech,learner,100,acc_near,0.78333,0.69167,0.86667,20
+independent,sobol-mech,learner,150,acc_near,0.79167,0.70833,0.86667,20
+independent,sobol-mech,learner,200,acc_near,0.81667,0.75000,0.88333,20
+independent,sobol-barn,learner,20,acc_near,0.69167,0.55000,0.81667,20
+independent,sobol-barn,learner,30,acc_near,0.69167,0.55000,0.81667,20
+independent,sobol-barn,learner,50,acc_near,0.76667,0.65000,0.87500,20
+independent,sobol-barn,learner,75,acc_near,0.80000,0.69167,0.89167,20
+independent,sobol-barn,learner,100,acc_near,0.74167,0.65000,0.83333,20
+independent,sobol-barn,learner,150,acc_near,0.70000,0.62500,0.76667,20
+independent,sobol-barn,learner,200,acc_near,0.78333,0.70833,0.85000,20
+independent,random-raw,learner,20,acc_near,0.63333,0.45000,0.79167,20
+independent,random-raw,learner,30,acc_near,0.84167,0.76667,0.91667,20
+independent,random-raw,learner,50,acc_near,0.74167,0.65833,0.82500,20
+independent,random-raw,learner,75,acc_near,0.75833,0.69167,0.83333,20
+independent,random-raw,learner,100,acc_near,0.80000,0.73333,0.86667,20
+independent,random-raw,learner,150,acc_near,0.71667,0.63333,0.80000,20
+independent,random-raw,learner,200,acc_near,0.73333,0.65833,0.80833,20
+independent,random-mech,learner,20,acc_near,0.66667,0.49167,0.81667,20
+independent,random-mech,learner,30,acc_near,0.81667,0.74167,0.88333,20
+independent,random-mech,learner,50,acc_near,0.79167,0.70833,0.87500,20
+independent,random-mech,learner,75,acc_near,0.78333,0.71667,0.85000,20
+independent,random-mech,learner,100,acc_near,0.81667,0.74167,0.88333,20
+independent,random-mech,learner,150,acc_near,0.71667,0.62500,0.80833,20
+independent,random-mech,learner,200,acc_near,0.71667,0.64167,0.79167,20
+independent,straddle-raw,learner,20,acc_near,0.50000,0.34167,0.65854,20
+independent,straddle-raw,learner,30,acc_near,0.73333,0.61667,0.83333,20
+independent,straddle-raw,learner,50,acc_near,0.65833,0.53333,0.76667,20
+independent,straddle-raw,learner,75,acc_near,0.66667,0.54167,0.77500,20
+independent,straddle-raw,learner,100,acc_near,0.67500,0.55833,0.78333,20
+independent,straddle-raw,learner,150,acc_near,0.71667,0.60833,0.80833,20
+independent,straddle-raw,learner,200,acc_near,0.70833,0.61667,0.79167,20
+independent,straddle-mech,learner,20,acc_near,0.41667,0.24167,0.59167,20
+independent,straddle-mech,learner,30,acc_near,0.41667,0.25000,0.57500,20
+independent,straddle-mech,learner,50,acc_near,0.69167,0.58333,0.79167,20
+independent,straddle-mech,learner,75,acc_near,0.65000,0.52500,0.75833,20
+independent,straddle-mech,learner,100,acc_near,0.61667,0.50833,0.71667,20
+independent,straddle-mech,learner,150,acc_near,0.67500,0.55833,0.78333,20
+independent,straddle-mech,learner,200,acc_near,0.70000,0.61667,0.77500,20
+independent,sur-raw,learner,20,acc_near,0.69167,0.56667,0.80833,20
+independent,sur-raw,learner,30,acc_near,0.64167,0.52500,0.75000,20
+independent,sur-raw,learner,50,acc_near,0.72500,0.63333,0.81667,20
+independent,sur-raw,learner,75,acc_near,0.73333,0.65000,0.80833,20
+independent,sur-raw,learner,100,acc_near,0.76667,0.69167,0.84167,20
+independent,sur-raw,learner,150,acc_near,0.75000,0.67500,0.81667,20
+independent,sur-raw,learner,200,acc_near,0.78333,0.70833,0.85000,20
+independent,sur-mech,learner,20,acc_near,0.53333,0.35833,0.70000,20
+independent,sur-mech,learner,30,acc_near,0.65833,0.52500,0.79167,20
+independent,sur-mech,learner,50,acc_near,0.60833,0.49167,0.72500,20
+independent,sur-mech,learner,75,acc_near,0.63333,0.54167,0.72500,20
+independent,sur-mech,learner,100,acc_near,0.65000,0.55000,0.74167,20
+independent,sur-mech,learner,150,acc_near,0.63333,0.52500,0.74187,20
+independent,sur-mech,learner,200,acc_near,0.65833,0.55833,0.75833,20
+independent,sobol-raw/raw,transfer,20,R,0.00000,0.00000,0.00000,20
+independent,sobol-raw/raw,transfer,30,R,0.00000,0.00000,0.00000,20
+independent,sobol-raw/raw,transfer,50,R,0.00000,0.00000,0.00000,20
+independent,sobol-raw/raw,transfer,75,R,0.00000,0.00000,0.00000,20
+independent,sobol-raw/raw,transfer,100,R,0.00000,0.00000,0.00000,20
+independent,sobol-raw/raw,transfer,150,R,0.00000,0.00000,0.00000,20
+independent,sobol-raw/raw,transfer,200,R,0.00000,0.00000,0.00000,20
+independent,sobol-raw/slack,transfer,20,R,0.00000,0.00000,0.00000,20
+independent,sobol-raw/slack,transfer,30,R,0.00000,0.00000,0.00000,20
+independent,sobol-raw/slack,transfer,50,R,0.00000,0.00000,0.00000,20
+independent,sobol-raw/slack,transfer,75,R,0.00000,0.00000,0.00000,20
+independent,sobol-raw/slack,transfer,100,R,0.00000,0.00000,0.00000,20
+independent,sobol-raw/slack,transfer,150,R,0.00000,0.00000,0.00000,20
+independent,sobol-raw/slack,transfer,200,R,0.00000,0.00000,0.00000,20
+independent,sobol-raw/rawdim,transfer,20,R,0.00000,0.00000,0.00000,20
+independent,sobol-raw/rawdim,transfer,30,R,0.00000,0.00000,0.00000,20
+independent,sobol-raw/rawdim,transfer,50,R,0.00000,0.00000,0.00000,20
+independent,sobol-raw/rawdim,transfer,75,R,0.00000,0.00000,0.00000,20
+independent,sobol-raw/rawdim,transfer,100,R,0.00000,0.00000,0.00000,20
+independent,sobol-raw/rawdim,transfer,150,R,0.00000,0.00000,0.00000,20
+independent,sobol-raw/rawdim,transfer,200,R,0.00000,0.00000,0.00000,20
+independent,sobol-raw/rawdim_ls3.2,transfer,20,R,0.00000,0.00000,0.00000,20
+independent,sobol-raw/rawdim_ls3.2,transfer,30,R,0.00000,0.00000,0.00000,20
+independent,sobol-raw/rawdim_ls3.2,transfer,50,R,0.00000,0.00000,0.00000,20
+independent,sobol-raw/rawdim_ls3.2,transfer,75,R,0.00000,0.00000,0.00000,20
+independent,sobol-raw/rawdim_ls3.2,transfer,100,R,0.00000,0.00000,0.00000,20
+independent,sobol-raw/rawdim_ls3.2,transfer,150,R,0.00000,0.00000,0.00000,20
+independent,sobol-raw/rawdim_ls3.2,transfer,200,R,0.00000,0.00000,0.00000,20
+independent,sobol-mech/mech,transfer,20,R,0.00000,0.00000,0.00000,20
+independent,sobol-mech/mech,transfer,30,R,0.00000,0.00000,0.00000,20
+independent,sobol-mech/mech,transfer,50,R,0.00000,0.00000,0.00000,20
+independent,sobol-mech/mech,transfer,75,R,0.00000,0.00000,0.00000,20
+independent,sobol-mech/mech,transfer,100,R,0.00000,0.00000,0.00000,20
+independent,sobol-mech/mech,transfer,150,R,0.00000,0.00000,0.00000,20
+independent,sobol-mech/mech,transfer,200,R,0.00000,0.00000,0.00000,20
+independent,sobol-barn/barn,transfer,20,R,0.00000,0.00000,0.00000,20
+independent,sobol-barn/barn,transfer,30,R,0.00000,0.00000,0.00000,20
+independent,sobol-barn/barn,transfer,50,R,0.00000,0.00000,0.00000,20
+independent,sobol-barn/barn,transfer,75,R,0.00000,0.00000,0.00000,20
+independent,sobol-barn/barn,transfer,100,R,0.00000,0.00000,0.00000,20
+independent,sobol-barn/barn,transfer,150,R,0.00000,0.00000,0.00000,20
+independent,sobol-barn/barn,transfer,200,R,0.00000,0.00000,0.00000,20
+independent,random-raw/raw,transfer,20,R,0.00000,0.00000,0.00000,20
+independent,random-raw/raw,transfer,30,R,0.00000,0.00000,0.00000,20
+independent,random-raw/raw,transfer,50,R,0.00000,0.00000,0.00000,20
+independent,random-raw/raw,transfer,75,R,0.00000,0.00000,0.00000,20
+independent,random-raw/raw,transfer,100,R,0.00000,0.00000,0.00000,20
+independent,random-raw/raw,transfer,150,R,0.00000,0.00000,0.00000,20
+independent,random-raw/raw,transfer,200,R,0.00000,0.00000,0.00000,20
+independent,random-raw/slack,transfer,20,R,0.00000,0.00000,0.00000,20
+independent,random-raw/slack,transfer,30,R,0.00000,0.00000,0.00000,20
+independent,random-raw/slack,transfer,50,R,0.00000,0.00000,0.00000,20
+independent,random-raw/slack,transfer,75,R,0.00000,0.00000,0.00000,20
+independent,random-raw/slack,transfer,100,R,0.00000,0.00000,0.00000,20
+independent,random-raw/slack,transfer,150,R,0.00000,0.00000,0.00000,20
+independent,random-raw/slack,transfer,200,R,0.00000,0.00000,0.00000,20
+independent,random-raw/rawdim,transfer,20,R,0.00000,0.00000,0.00000,20
+independent,random-raw/rawdim,transfer,30,R,0.00000,0.00000,0.00000,20
+independent,random-raw/rawdim,transfer,50,R,0.00000,0.00000,0.00000,20
+independent,random-raw/rawdim,transfer,75,R,0.00000,0.00000,0.00000,20
+independent,random-raw/rawdim,transfer,100,R,0.00000,0.00000,0.00000,20
+independent,random-raw/rawdim,transfer,150,R,0.00000,0.00000,0.00000,20
+independent,random-raw/rawdim,transfer,200,R,0.00000,0.00000,0.00000,20
+independent,random-raw/rawdim_ls3.2,transfer,20,R,0.00000,0.00000,0.00000,20
+independent,random-raw/rawdim_ls3.2,transfer,30,R,0.00000,0.00000,0.00000,20
+independent,random-raw/rawdim_ls3.2,transfer,50,R,0.00000,0.00000,0.00000,20
+independent,random-raw/rawdim_ls3.2,transfer,75,R,0.00000,0.00000,0.00000,20
+independent,random-raw/rawdim_ls3.2,transfer,100,R,0.00000,0.00000,0.00000,20
+independent,random-raw/rawdim_ls3.2,transfer,150,R,0.00000,0.00000,0.00000,20
+independent,random-raw/rawdim_ls3.2,transfer,200,R,0.00000,0.00000,0.00000,20
+independent,random-mech/mech,transfer,20,R,0.00000,0.00000,0.00000,20
+independent,random-mech/mech,transfer,30,R,0.00000,0.00000,0.00000,20
+independent,random-mech/mech,transfer,50,R,0.00000,0.00000,0.00000,20
+independent,random-mech/mech,transfer,75,R,0.00000,0.00000,0.00000,20
+independent,random-mech/mech,transfer,100,R,0.00000,0.00000,0.00000,20
+independent,random-mech/mech,transfer,150,R,0.00000,0.00000,0.00000,20
+independent,random-mech/mech,transfer,200,R,0.00000,0.00000,0.00000,20
+independent,straddle-raw/raw,transfer,20,R,0.00000,0.00000,0.00000,20
+independent,straddle-raw/raw,transfer,30,R,0.00000,0.00000,0.00000,20
+independent,straddle-raw/raw,transfer,50,R,0.00000,0.00000,0.00000,20
+independent,straddle-raw/raw,transfer,75,R,0.00000,0.00000,0.00000,20
+independent,straddle-raw/raw,transfer,100,R,0.00000,0.00000,0.00000,20
+independent,straddle-raw/raw,transfer,150,R,0.00000,0.00000,0.00000,20
+independent,straddle-raw/raw,transfer,200,R,0.00000,0.00000,0.00000,20
+independent,straddle-raw/slack,transfer,20,R,0.00000,0.00000,0.00000,20
+independent,straddle-raw/slack,transfer,30,R,0.00000,0.00000,0.00000,20
+independent,straddle-raw/slack,transfer,50,R,0.00000,0.00000,0.00000,20
+independent,straddle-raw/slack,transfer,75,R,0.00000,0.00000,0.00000,20
+independent,straddle-raw/slack,transfer,100,R,0.00000,0.00000,0.00000,20
+independent,straddle-raw/slack,transfer,150,R,0.00000,0.00000,0.00000,20
+independent,straddle-raw/slack,transfer,200,R,0.00000,0.00000,0.00000,20
+independent,straddle-raw/rawdim,transfer,20,R,0.00000,0.00000,0.00000,20
+independent,straddle-raw/rawdim,transfer,30,R,0.00000,0.00000,0.00000,20
+independent,straddle-raw/rawdim,transfer,50,R,0.00000,0.00000,0.00000,20
+independent,straddle-raw/rawdim,transfer,75,R,0.00000,0.00000,0.00000,20
+independent,straddle-raw/rawdim,transfer,100,R,0.00000,0.00000,0.00000,20
+independent,straddle-raw/rawdim,transfer,150,R,0.00000,0.00000,0.00000,20
+independent,straddle-raw/rawdim,transfer,200,R,0.00000,0.00000,0.00000,20
+independent,straddle-raw/rawdim_ls3.2,transfer,20,R,0.00000,0.00000,0.00000,20
+independent,straddle-raw/rawdim_ls3.2,transfer,30,R,0.00000,0.00000,0.00000,20
+independent,straddle-raw/rawdim_ls3.2,transfer,50,R,0.00000,0.00000,0.00000,20
+independent,straddle-raw/rawdim_ls3.2,transfer,75,R,0.00000,0.00000,0.00000,20
+independent,straddle-raw/rawdim_ls3.2,transfer,100,R,0.00000,0.00000,0.00000,20
+independent,straddle-raw/rawdim_ls3.2,transfer,150,R,0.00000,0.00000,0.00000,20
+independent,straddle-raw/rawdim_ls3.2,transfer,200,R,0.00000,0.00000,0.00000,20
+independent,straddle-mech/mech,transfer,20,R,0.00000,0.00000,0.00000,20
+independent,straddle-mech/mech,transfer,30,R,0.00000,0.00000,0.00000,20
+independent,straddle-mech/mech,transfer,50,R,0.00000,0.00000,0.00000,20
+independent,straddle-mech/mech,transfer,75,R,0.00000,0.00000,0.00000,20
+independent,straddle-mech/mech,transfer,100,R,0.00000,0.00000,0.00000,20
+independent,straddle-mech/mech,transfer,150,R,0.00000,0.00000,0.00000,20
+independent,straddle-mech/mech,transfer,200,R,0.00000,0.00000,0.00000,20
+independent,sur-raw/raw,transfer,20,R,0.00000,0.00000,0.00000,20
+independent,sur-raw/raw,transfer,30,R,0.00000,0.00000,0.00000,20
+independent,sur-raw/raw,transfer,50,R,0.00000,0.00000,0.00000,20
+independent,sur-raw/raw,transfer,75,R,0.00000,0.00000,0.00000,20
+independent,sur-raw/raw,transfer,100,R,0.00000,0.00000,0.00000,20
+independent,sur-raw/raw,transfer,150,R,0.00000,0.00000,0.00000,20
+independent,sur-raw/raw,transfer,200,R,0.00000,0.00000,0.00000,20
+independent,sur-raw/slack,transfer,20,R,0.00000,0.00000,0.00000,20
+independent,sur-raw/slack,transfer,30,R,0.00000,0.00000,0.00000,20
+independent,sur-raw/slack,transfer,50,R,0.00000,0.00000,0.00000,20
+independent,sur-raw/slack,transfer,75,R,0.00000,0.00000,0.00000,20
+independent,sur-raw/slack,transfer,100,R,0.00000,0.00000,0.00000,20
+independent,sur-raw/slack,transfer,150,R,0.00000,0.00000,0.00000,20
+independent,sur-raw/slack,transfer,200,R,0.00000,0.00000,0.00000,20
+independent,sur-raw/rawdim,transfer,20,R,0.00000,0.00000,0.00000,20
+independent,sur-raw/rawdim,transfer,30,R,0.00000,0.00000,0.00000,20
+independent,sur-raw/rawdim,transfer,50,R,0.00000,0.00000,0.00000,20
+independent,sur-raw/rawdim,transfer,75,R,0.00000,0.00000,0.00000,20
+independent,sur-raw/rawdim,transfer,100,R,0.00000,0.00000,0.00000,20
+independent,sur-raw/rawdim,transfer,150,R,0.00000,0.00000,0.00000,20
+independent,sur-raw/rawdim,transfer,200,R,0.00000,0.00000,0.00000,20
+independent,sur-raw/rawdim_ls3.2,transfer,20,R,0.00000,0.00000,0.00000,20
+independent,sur-raw/rawdim_ls3.2,transfer,30,R,0.00000,0.00000,0.00000,20
+independent,sur-raw/rawdim_ls3.2,transfer,50,R,0.00000,0.00000,0.00000,20
+independent,sur-raw/rawdim_ls3.2,transfer,75,R,0.00000,0.00000,0.00000,20
+independent,sur-raw/rawdim_ls3.2,transfer,100,R,0.00000,0.00000,0.00000,20
+independent,sur-raw/rawdim_ls3.2,transfer,150,R,0.00000,0.00000,0.00000,20
+independent,sur-raw/rawdim_ls3.2,transfer,200,R,0.00000,0.00000,0.00000,20
+independent,sur-mech/mech,transfer,20,R,0.00000,0.00000,0.00000,20
+independent,sur-mech/mech,transfer,30,R,0.00000,0.00000,0.00000,20
+independent,sur-mech/mech,transfer,50,R,0.00000,0.00000,0.00000,20
+independent,sur-mech/mech,transfer,75,R,0.00000,0.00000,0.00000,20
+independent,sur-mech/mech,transfer,100,R,0.00000,0.00000,0.00000,20
+independent,sur-mech/mech,transfer,150,R,0.00000,0.00000,0.00000,20
+independent,sur-mech/mech,transfer,200,R,0.00000,0.00000,0.00000,20
+independent,1 footprint|raw only,headline_in,20,R,0.72600,0.30741,1.18307,20
+independent,1 footprint|raw only,headline_in,30,R,0.43290,0.10950,0.82288,20
+independent,1 footprint|raw only,headline_in,50,R,0.49025,0.21649,0.80700,20
+independent,1 footprint|raw only,headline_in,75,R,0.31416,0.12487,0.52250,20
+independent,1 footprint|raw only,headline_in,100,R,0.07613,0.00887,0.17457,20
+independent,1 footprint|raw only,headline_in,150,R,0.09274,0.01182,0.21868,20
+independent,1 footprint|raw only,headline_in,200,R,0.04518,0.00921,0.11151,20
+independent,1 footprint|raw + dims (ls 0.8),headline_in,20,R,0.72600,0.30741,1.18307,20
+independent,1 footprint|raw + dims (ls 0.8),headline_in,30,R,0.43290,0.10950,0.82288,20
+independent,1 footprint|raw + dims (ls 0.8),headline_in,50,R,0.49025,0.21649,0.80700,20
+independent,1 footprint|raw + dims (ls 0.8),headline_in,75,R,0.31416,0.12487,0.52250,20
+independent,1 footprint|raw + dims (ls 0.8),headline_in,100,R,0.07613,0.00887,0.17457,20
+independent,1 footprint|raw + dims (ls 0.8),headline_in,150,R,0.09274,0.01182,0.21868,20
+independent,1 footprint|raw + dims (ls 0.8),headline_in,200,R,0.04518,0.00921,0.11151,20
+independent,1 footprint|raw + dims (ls 3.2),headline_in,20,R,0.72600,0.30741,1.18307,20
+independent,1 footprint|raw + dims (ls 3.2),headline_in,30,R,0.43290,0.10950,0.82288,20
+independent,1 footprint|raw + dims (ls 3.2),headline_in,50,R,0.49025,0.21649,0.80700,20
+independent,1 footprint|raw + dims (ls 3.2),headline_in,75,R,0.31416,0.12487,0.52250,20
+independent,1 footprint|raw + dims (ls 3.2),headline_in,100,R,0.07613,0.00887,0.17457,20
+independent,1 footprint|raw + dims (ls 3.2),headline_in,150,R,0.09274,0.01182,0.21868,20
+independent,1 footprint|raw + dims (ls 3.2),headline_in,200,R,0.04518,0.00921,0.11151,20
+independent,1 footprint|slack,headline_in,20,R,0.72600,0.30741,1.18307,20
+independent,1 footprint|slack,headline_in,30,R,0.43290,0.10950,0.82288,20
+independent,1 footprint|slack,headline_in,50,R,0.49025,0.21649,0.80700,20
+independent,1 footprint|slack,headline_in,75,R,0.31416,0.12487,0.52250,20
+independent,1 footprint|slack,headline_in,100,R,0.07613,0.00887,0.17457,20
+independent,1 footprint|slack,headline_in,150,R,0.09274,0.01182,0.21868,20
+independent,1 footprint|slack,headline_in,200,R,0.04518,0.00921,0.11151,20
+independent,1 footprint|mechanics,headline_in,20,R,0.88154,0.41177,1.38444,20
+independent,1 footprint|mechanics,headline_in,30,R,0.46596,0.14386,0.85519,20
+independent,1 footprint|mechanics,headline_in,50,R,0.49042,0.22167,0.81571,20
+independent,1 footprint|mechanics,headline_in,75,R,0.34708,0.16602,0.55607,20
+independent,1 footprint|mechanics,headline_in,100,R,0.12283,0.00992,0.31404,20
+independent,1 footprint|mechanics,headline_in,150,R,0.09274,0.01182,0.21868,20
+independent,1 footprint|mechanics,headline_in,200,R,0.04518,0.00921,0.11151,20
+independent,3 footprints|raw only,headline_in,20,R,0.96073,0.56855,1.35229,20
+independent,3 footprints|raw only,headline_in,30,R,0.83728,0.47163,1.20717,20
+independent,3 footprints|raw only,headline_in,50,R,0.54330,0.26425,0.90961,20
+independent,3 footprints|raw only,headline_in,75,R,0.85238,0.48835,1.23632,20
+independent,3 footprints|raw only,headline_in,100,R,0.90039,0.51685,1.32890,20
+independent,3 footprints|raw only,headline_in,150,R,0.77868,0.47348,1.12667,20
+independent,3 footprints|raw only,headline_in,200,R,0.82529,0.51418,1.14152,20
+independent,3 footprints|raw + dims,headline_in,20,R,1.02925,0.53427,1.51532,20
+independent,3 footprints|raw + dims,headline_in,30,R,0.82679,0.47993,1.21883,20
+independent,3 footprints|raw + dims,headline_in,50,R,0.71367,0.45353,0.96449,20
+independent,3 footprints|raw + dims,headline_in,75,R,0.79463,0.45764,1.15521,20
+independent,3 footprints|raw + dims,headline_in,100,R,0.76361,0.39773,1.20228,20
+independent,3 footprints|raw + dims,headline_in,150,R,0.70034,0.37396,1.07521,20
+independent,3 footprints|raw + dims,headline_in,200,R,0.79121,0.47332,1.13597,20
+independent,3 footprints|slack,headline_in,20,R,0.90557,0.49085,1.30786,20
+independent,3 footprints|slack,headline_in,30,R,0.55784,0.28032,0.86280,20
+independent,3 footprints|slack,headline_in,50,R,0.53927,0.26668,0.83288,20
+independent,3 footprints|slack,headline_in,75,R,0.63781,0.31641,0.98692,20
+independent,3 footprints|slack,headline_in,100,R,0.63440,0.35743,0.94469,20
+independent,3 footprints|slack,headline_in,150,R,0.65056,0.33012,1.01137,20
+independent,3 footprints|slack,headline_in,200,R,0.65083,0.33350,0.96798,20
+independent,3 footprints|mechanics,headline_in,20,R,0.57066,0.23893,0.92256,20
+independent,3 footprints|mechanics,headline_in,30,R,0.69084,0.34858,1.06643,20
+independent,3 footprints|mechanics,headline_in,50,R,0.47506,0.23186,0.72129,20
+independent,3 footprints|mechanics,headline_in,75,R,0.36988,0.15263,0.61225,20
+independent,3 footprints|mechanics,headline_in,100,R,0.64169,0.39876,0.89227,20
+independent,3 footprints|mechanics,headline_in,150,R,0.67380,0.44070,0.90749,20
+independent,3 footprints|mechanics,headline_in,200,R,0.85549,0.59945,1.14121,20
+independent,1 footprint|raw only,headline_out,20,R,0.00000,0.00000,0.00000,20
+independent,1 footprint|raw only,headline_out,30,R,0.00000,0.00000,0.00000,20
+independent,1 footprint|raw only,headline_out,50,R,0.00000,0.00000,0.00000,20
+independent,1 footprint|raw only,headline_out,75,R,0.00000,0.00000,0.00000,20
+independent,1 footprint|raw only,headline_out,100,R,0.00000,0.00000,0.00000,20
+independent,1 footprint|raw only,headline_out,150,R,0.00000,0.00000,0.00000,20
+independent,1 footprint|raw only,headline_out,200,R,0.00000,0.00000,0.00000,20
+independent,1 footprint|raw + dims (ls 0.8),headline_out,20,R,0.00000,0.00000,0.00000,20
+independent,1 footprint|raw + dims (ls 0.8),headline_out,30,R,0.00000,0.00000,0.00000,20
+independent,1 footprint|raw + dims (ls 0.8),headline_out,50,R,0.00000,0.00000,0.00000,20
+independent,1 footprint|raw + dims (ls 0.8),headline_out,75,R,0.00000,0.00000,0.00000,20
+independent,1 footprint|raw + dims (ls 0.8),headline_out,100,R,0.00000,0.00000,0.00000,20
+independent,1 footprint|raw + dims (ls 0.8),headline_out,150,R,0.00000,0.00000,0.00000,20
+independent,1 footprint|raw + dims (ls 0.8),headline_out,200,R,0.00000,0.00000,0.00000,20
+independent,1 footprint|raw + dims (ls 3.2),headline_out,20,R,0.00000,0.00000,0.00000,20
+independent,1 footprint|raw + dims (ls 3.2),headline_out,30,R,0.00000,0.00000,0.00000,20
+independent,1 footprint|raw + dims (ls 3.2),headline_out,50,R,0.00000,0.00000,0.00000,20
+independent,1 footprint|raw + dims (ls 3.2),headline_out,75,R,0.00000,0.00000,0.00000,20
+independent,1 footprint|raw + dims (ls 3.2),headline_out,100,R,0.00000,0.00000,0.00000,20
+independent,1 footprint|raw + dims (ls 3.2),headline_out,150,R,0.00000,0.00000,0.00000,20
+independent,1 footprint|raw + dims (ls 3.2),headline_out,200,R,0.00000,0.00000,0.00000,20
+independent,1 footprint|slack,headline_out,20,R,0.00000,0.00000,0.00000,20
+independent,1 footprint|slack,headline_out,30,R,0.00000,0.00000,0.00000,20
+independent,1 footprint|slack,headline_out,50,R,0.00000,0.00000,0.00000,20
+independent,1 footprint|slack,headline_out,75,R,0.00000,0.00000,0.00000,20
+independent,1 footprint|slack,headline_out,100,R,0.00000,0.00000,0.00000,20
+independent,1 footprint|slack,headline_out,150,R,0.00000,0.00000,0.00000,20
+independent,1 footprint|slack,headline_out,200,R,0.00000,0.00000,0.00000,20
+independent,1 footprint|mechanics,headline_out,20,R,0.00000,0.00000,0.00000,20
+independent,1 footprint|mechanics,headline_out,30,R,0.00000,0.00000,0.00000,20
+independent,1 footprint|mechanics,headline_out,50,R,0.00000,0.00000,0.00000,20
+independent,1 footprint|mechanics,headline_out,75,R,0.00000,0.00000,0.00000,20
+independent,1 footprint|mechanics,headline_out,100,R,0.00000,0.00000,0.00000,20
+independent,1 footprint|mechanics,headline_out,150,R,0.00000,0.00000,0.00000,20
+independent,1 footprint|mechanics,headline_out,200,R,0.00000,0.00000,0.00000,20
+independent,3 footprints|raw only,headline_out,20,R,0.00000,0.00000,0.00000,20
+independent,3 footprints|raw only,headline_out,30,R,0.00000,0.00000,0.00000,20
+independent,3 footprints|raw only,headline_out,50,R,0.00000,0.00000,0.00000,20
+independent,3 footprints|raw only,headline_out,75,R,0.00000,0.00000,0.00000,20
+independent,3 footprints|raw only,headline_out,100,R,0.00000,0.00000,0.00000,20
+independent,3 footprints|raw only,headline_out,150,R,0.00000,0.00000,0.00000,20
+independent,3 footprints|raw only,headline_out,200,R,0.00000,0.00000,0.00000,20
+independent,3 footprints|raw + dims,headline_out,20,R,0.00000,0.00000,0.00000,20
+independent,3 footprints|raw + dims,headline_out,30,R,0.00000,0.00000,0.00000,20
+independent,3 footprints|raw + dims,headline_out,50,R,0.00000,0.00000,0.00000,20
+independent,3 footprints|raw + dims,headline_out,75,R,0.00000,0.00000,0.00000,20
+independent,3 footprints|raw + dims,headline_out,100,R,0.00000,0.00000,0.00000,20
+independent,3 footprints|raw + dims,headline_out,150,R,0.00000,0.00000,0.00000,20
+independent,3 footprints|raw + dims,headline_out,200,R,0.00000,0.00000,0.00000,20
+independent,3 footprints|slack,headline_out,20,R,0.00000,0.00000,0.00000,20
+independent,3 footprints|slack,headline_out,30,R,0.00000,0.00000,0.00000,20
+independent,3 footprints|slack,headline_out,50,R,0.00000,0.00000,0.00000,20
+independent,3 footprints|slack,headline_out,75,R,0.00000,0.00000,0.00000,20
+independent,3 footprints|slack,headline_out,100,R,0.00000,0.00000,0.00000,20
+independent,3 footprints|slack,headline_out,150,R,0.00000,0.00000,0.00000,20
+independent,3 footprints|slack,headline_out,200,R,0.00000,0.00000,0.00000,20
+independent,3 footprints|mechanics,headline_out,20,R,0.00000,0.00000,0.00000,20
+independent,3 footprints|mechanics,headline_out,30,R,0.00000,0.00000,0.00000,20
+independent,3 footprints|mechanics,headline_out,50,R,0.00000,0.00000,0.00000,20
+independent,3 footprints|mechanics,headline_out,75,R,0.00000,0.00000,0.00000,20
+independent,3 footprints|mechanics,headline_out,100,R,0.00000,0.00000,0.00000,20
+independent,3 footprints|mechanics,headline_out,150,R,0.00000,0.00000,0.00000,20
+independent,3 footprints|mechanics,headline_out,200,R,0.00000,0.00000,0.00000,20

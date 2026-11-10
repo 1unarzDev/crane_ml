@@ -13,7 +13,7 @@ namespace Sim.Performance {
     /// </summary>
     internal sealed class CraneEvidenceCaptureBootstrap : MonoBehaviour {
         private static bool enabledByArgs, firstDockCheckpoint;
-        private static string capturePath;
+        private static string capturePath, captureScene;
         private static float captureDelay, captureDelay2, captureDelay3;
         private static string capturePath2, capturePath3;
         private Camera spectator;
@@ -30,7 +30,14 @@ namespace Sim.Performance {
             enabledByArgs = Array.IndexOf(args, "--crane-evidence-overlay") >= 0;
             firstDockCheckpoint = Array.IndexOf(args, "--crane-evidence-first-dock") >= 0;
             if (!enabledByArgs) return;
-            capturePath = ReadString(args, "--crane-evidence-capture", "artifacts/roboboat-player-capture.png");
+            // Capture in the scene the run asked for; there is no default scene.
+            captureScene = ReadString(args, "--crane-scene", null);
+            if (string.IsNullOrEmpty(captureScene)) {
+                Debug.LogError("CRANE_EVIDENCE_CAPTURE_SCENE_REQUIRED --crane-evidence-overlay needs --crane-scene NAME");
+                enabledByArgs = false;
+                return;
+            }
+            capturePath = ReadString(args, "--crane-evidence-capture", "artifacts/evidence-capture.png");
             capturePath2 = ReadString(args, "--crane-evidence-capture-2", "");
             capturePath3 = ReadString(args, "--crane-evidence-capture-3", "");
             captureDelay = Mathf.Max(2f, ReadFloat(args, "--crane-evidence-capture-delay", 12f));
@@ -44,7 +51,7 @@ namespace Sim.Performance {
         private void Awake() { SceneManager.sceneLoaded += OnSceneLoaded; }
 
         private void OnSceneLoaded(Scene scene, LoadSceneMode mode) {
-            if (!enabledByArgs || !scene.name.Equals("Roboboat Course", StringComparison.OrdinalIgnoreCase)) return;
+            if (!enabledByArgs || !scene.name.Equals(captureScene, StringComparison.OrdinalIgnoreCase)) return;
             StartCoroutine(ConfigureAfterSceneReady());
         }
 

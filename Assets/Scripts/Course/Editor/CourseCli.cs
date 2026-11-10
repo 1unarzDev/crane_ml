@@ -14,7 +14,7 @@ namespace Sim.Course.Editor {
     public static class CourseCli {
         public static void Generate() => Exit(() => {
             string[] args = Environment.GetCommandLineArgs();
-            var family = CourseBootstrap.FindFamily(Arg(args, "--crane-course-family") ?? "roboboat_2026");
+            var family = CourseBootstrap.FindFamily(Arg(args, "--crane-course-family") ?? throw new ArgumentException("--crane-course-family F"));
             string output = Arg(args, "--out") ?? throw new ArgumentException("--out FILE|DIR");
             string range = Arg(args, "--seeds");
             if (range == null) {
@@ -48,7 +48,7 @@ namespace Sim.Course.Editor {
             var verdicts = new JObj();
             foreach (string file in Directory.GetFiles(input, "*.json").OrderBy(f => f, StringComparer.Ordinal)) {
                 var truth = (JObj)Json.Parse(File.ReadAllText(file));
-                var family = CourseBootstrap.FindFamily(truth.Str("family") ?? "roboboat_2026");
+                var family = CourseBootstrap.FindFamily(truth.Str("family") ?? throw new ArgumentException($"{file}: truth has no family"));
                 var spec = ConstraintSpec.Parse(family.ConstraintSpecText);
                 verdicts[Path.GetFileName(file)] = ConstraintEvaluator.Evaluate(spec, truth).Select(r => (object)r.ToJson()).ToList();
             }

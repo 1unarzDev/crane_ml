@@ -15,6 +15,7 @@ from plantcard.marine import seed, views
 from plantcard.marine.fossen3 import Fossen3, profile_config, profile_params
 
 PROFILE = json.loads(seed.CHARACTERIZED.read_text())
+ROBOT = 'roboboat/blastoise'      # the card in plantcard/refs.json
 
 
 def _family():
@@ -46,7 +47,7 @@ def test_thrust_is_the_profile_thruster():
 
 
 def test_unity_view_round_trips_the_profile():
-    c0 = seed.prior_card()
+    c0 = seed.prior_card(robot=ROBOT)
     prof = views.unity_profile(c0)
     charz.validate_profile(prof)
     for k in ('mass', 'izz', 'addedMass', 'surge', 'sway', 'yaw', 'envelope', 'fixedDeltaTime'):
@@ -57,7 +58,7 @@ def test_unity_view_round_trips_the_profile():
 
 
 def test_nlc_view_shapes():
-    c0 = seed.prior_card()
+    c0 = seed.prior_card(robot=ROBOT)
     one, many = views.nlc_params(c0), views.nlc_params(c0, n=16)
     assert isinstance(one['mass'], float) and len(one['d1']) == 3
     assert many['d1'][0].shape == (16,) and many['dead_time'].shape == (16,)
@@ -83,7 +84,7 @@ def _synthetic(fam, truth, n_seg=8, seed_=0, noise=0.02):
 
 
 def test_recovers_a_synthetic_boat():
-    c0 = seed.prior_card()
+    c0 = seed.prior_card(robot=ROBOT)
     fam = c0.family
     truth = profile_params(PROFILE)
     truth.update({'m11': 60.0, 'd1_u': 5.0, 'd2_u': 80.0, 'm22': 55.0, 'd2_v': 120.0, 'm66': 3.0, 'd2_r': 9.0,
@@ -102,7 +103,7 @@ def test_recovers_a_synthetic_boat():
 
 
 def test_store_round_trip_and_fastsim_plant(tmp_path):
-    doc, parts = seed.prior_doc(n_particles=64)
+    doc, parts = seed.prior_doc(robot=ROBOT, n_particles=64)
     saved = C.save(doc, parts, None, tmp_path)
     C.set_ref(saved.robot, saved.sha, tmp_path)
     again = plantcard.load('roboboat/blastoise@HEAD', store=tmp_path)
@@ -116,7 +117,7 @@ def test_store_round_trip_and_fastsim_plant(tmp_path):
                          decel=(-0.5, -0.5, -0.5), goal_tol=(0.5, 0.2), precise_tol=(0.2, 0.1), rotate_above=1.0,
                          rotate_wz=0.5, progress_radius=0.3, progress_s=10.0, pass_radius=1.0,
                          footprint=((0.5, 0.35), (-0.5, -0.35)))
-    plant = CardPlant(lim, card=seed.prior_card(), seed=3)
+    plant = CardPlant(lim, card=seed.prior_card(robot=ROBOT), seed=3)
     for _ in range(50):
         plant.step((1.0, 0.0, 0.0), 0.1)
     assert 0.3 < plant.vel[0] < 2.5 and plant.pose[0] > 1.0

@@ -81,6 +81,18 @@ class SynthTest(unittest.TestCase):
         self.assertGreater(sum(m['score'] for m in last) / len(last), sum(m['score'] for m in first) / len(first))
         self.assertEqual(len(a[2]), 4)
 
+    def test_the_cli_takes_its_world_from_the_registry(self):
+        with tempfile.TemporaryDirectory() as d:
+            (Path(d) / 't.json').write_text(json.dumps(self.TRUTH))
+            with self.assertRaises(SystemExit):   # no --world: no domain is assumed
+                synth.main(['--truth', f'{d}/t.json', '--out', f'{d}/o'])
+            synth.main(['--truth', f'{d}/t.json', '--world', 'roboboat', '--tasks', 'entry_gates',
+                        '--runs', '4', '--iterations', '2', '--out', f'{d}/o'])
+            doc = json.loads((Path(d) / 'o' / 'manifest.json').read_text())
+            self.assertEqual((doc['world']['plugin'], doc['robot']['plugin']), ('roboboat', 'roboboat'))
+            self.assertEqual({e['task'] for e in json.loads((Path(d) / 'o' / 'course_truth.json').read_text())['elements']},
+                             {'entry_gates'})
+
 
 if __name__ == '__main__':
     unittest.main()

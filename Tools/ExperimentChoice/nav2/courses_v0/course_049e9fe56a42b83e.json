@@ -1,0 +1,149 @@
+{
+ "admissible_box": {
+  "name": "offset_doorway_box_v0",
+  "sha256": "df195609eb57477147189b19d8c3419b724cfabe99bfc1c3a0d7c75d79357873"
+ },
+ "certificate": {
+  "drive": "differential",
+  "four_flow_cycles": 84,
+  "margin": 0.0,
+  "min_reversals": 40,
+  "reason": "tight bay (L < d < 2 rho): shimmy; at least 40 reversals, 84 four-flow cycles",
+  "verdict": "fits"
+ },
+ "certificates_by_drive": {
+  "differential": {
+   "drive": "differential",
+   "four_flow_cycles": 84,
+   "margin": 0.0,
+   "min_reversals": 40,
+   "reason": "tight bay (L < d < 2 rho): shimmy; at least 40 reversals, 84 four-flow cycles",
+   "verdict": "fits"
+  },
+  "mecanum": {
+   "drive": "mecanum",
+   "margin": 0.0,
+   "reason": "translate sideways at heading 0 (needs d >= L and w > W), then drive through",
+   "verdict": "fits"
+  }
+ },
+ "course_id": "049e9fe56a42b83e",
+ "family": "offset_doorway",
+ "frame": "x along bay depth (back wall inner face x=0, door wall x in [d, d+t]); y lateral; heading from +x",
+ "goal": {
+  "tolerance": 0.25,
+  "x": 2.35,
+  "y": 0.7
+ },
+ "label": "exploratory",
+ "parameters": {
+  "B_cm": 500,
+  "d_cm": 95,
+  "e_cm": 70,
+  "exit_depth_cm": 250,
+  "family": "offset_doorway",
+  "goal_cm": [
+   235,
+   70
+  ],
+  "schema": "expchoice.course/v0",
+  "start_cm_mrad": [
+   47,
+   0,
+   0
+  ],
+  "t_cm": 20,
+  "w_cm": 90,
+  "wall_cm": 20
+ },
+ "parameters_m": {
+  "B": 5.0,
+  "d": 0.95,
+  "e": 0.7,
+  "t": 0.2,
+  "w": 0.9
+ },
+ "robot": {
+  "L": 0.8,
+  "W": 0.72,
+  "acc": 1.2,
+  "axle_offset": 0.0,
+  "drive": "differential",
+  "lidar": {
+   "max_range": 12.0,
+   "n_beams": 720,
+   "noise_sigma": 0.01,
+   "rate_hz": 10.0
+  },
+  "name": "compact_diff",
+  "omega_max": 1.6,
+  "v_max": 0.9,
+  "vy_max": 0.0
+ },
+ "robot_provenance": {
+  "assumptions": "angular acceleration = omega_max*acc/v_max; lidar from fleet provisional lidar_2d, sigma assumed",
+  "fields": "morphologies.compact_diff.footprint (half-extents 0.40 x 0.36) and limits",
+  "file_last_commit": "02151691a0535e8fecc92e2c3b0cb263359f5ee8",
+  "file_sha256_when_transcribed": "c0d2931da13ba6124e901e2890aee302d46b6a8de0f8f33863f61347e14ff696",
+  "repo_head": "00ac590e077ad92ddf2d2b0ada2967d18c95d7cd",
+  "source": "/home/lunarz/mrmn-main/src/modular_robot_description/config/morphologies.yaml"
+ },
+ "schema": "expchoice.course/v0",
+ "sources": {
+  "fleet_profile_path": "/home/lunarz/crane_ml/Tools/Fleet/spec/fleet_profile_v0.json",
+  "fleet_profile_sha256": "7674dd0e7ef6b678f04d7b2e9af97990390632650149e2519b90c26ecf96ce31",
+  "fleet_profile_value_status": "provisional",
+  "morphologies_file_last_commit": "02151691a0535e8fecc92e2c3b0cb263359f5ee8",
+  "morphologies_repo_head": "00ac590e077ad92ddf2d2b0ada2967d18c95d7cd",
+  "morphologies_sha256_when_transcribed": "c0d2931da13ba6124e901e2890aee302d46b6a8de0f8f33863f61347e14ff696"
+ },
+ "start": {
+  "theta": 0.0,
+  "x": 0.47,
+  "y": 0.0
+ },
+ "walls": [
+  {
+   "name": "back_wall",
+   "xmax": 0.0,
+   "xmin": -0.2,
+   "ymax": 2.7,
+   "ymin": -2.7
+  },
+  {
+   "name": "side_wall_neg",
+   "xmax": 3.85,
+   "xmin": -0.2,
+   "ymax": -2.5,
+   "ymin": -2.7
+  },
+  {
+   "name": "side_wall_pos",
+   "xmax": 3.85,
+   "xmin": -0.2,
+   "ymax": 2.7,
+   "ymin": 2.5
+  },
+  {
+   "name": "end_wall",
+   "xmax": 3.85,
+   "xmin": 3.65,
+   "ymax": 2.7,
+   "ymin": -2.7
+  },
+  {
+   "name": "door_wall_neg",
+   "xmax": 1.15,
+   "xmin": 0.95,
+   "ymax": 0.25,
+   "ymin": -2.5
+  },
+  {
+   "name": "door_wall_pos",
+   "xmax": 1.15,
+   "xmin": 0.95,
+   "ymax": 2.5,
+   "ymin": 1.15
+  }
+ ]
+}

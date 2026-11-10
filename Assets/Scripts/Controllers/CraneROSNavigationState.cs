@@ -20,6 +20,12 @@ namespace Sim.Controllers {
     /// This component is opt-in so existing scene-owned odometry publishers are not duplicated.
     /// </summary>
     public sealed class CraneROSNavigationState : MonoBehaviour, ICraneEpisodeResettable {
+        /// <summary>Set before the scene loads (AfterAssembliesLoaded) by a sensor contract that
+        /// feeds a real estimator: the nav state then runs without <c>--crane-ros-nav-state</c> and
+        /// keeps ground truth on the odom topic for scoring, but publishes no TF (the estimator owns
+        /// odom -> base_link).</summary>
+        public static bool GroundTruthOnly;
+
         private IPhysicsBody body;
         private Component bodyComponent;
         private ROSConnection ros;
@@ -29,7 +35,7 @@ namespace Sim.Controllers {
         private string baseFrame;
         private double publishPeriod;
         private double nextPublishTime;
-        private bool useRoboBoatFrame;
+        private Quaternion bodyFromFlu = Quaternion.identity;
         private bool publishTransforms = true;
         private readonly List<Transform> childFrames = new();
         private string[] requestedChildFrameNames = Array.Empty<string>();
@@ -38,8 +44,7 @@ namespace Sim.Controllers {
 
         public void Initialize(Component target, string odomTopic, string tfTopic,
             string parentFrame, string childFrame, float publishRateHz,
-            IReadOnlyList<string> requestedChildFrames, bool correctRoboBoatBow = false,
-            bool publishTf = true) {
+            IReadOnlyList<string> requestedChildFrames, bool publishTf = true) {
             bodyComponent = target != null ? target : throw new ArgumentNullException(nameof(target));
             body = target switch {
                 Rigidbody rigidbody => new RigidbodyAdapter(rigidbody),
@@ -53,8 +58,8 @@ namespace Sim.Controllers {
             baseFrame = childFrame;
             publishPeriod = 1.0 / Math.Max(0.1f, publishRateHz);
             nextPublishTime = 0;
-            useRoboBoatFrame = correctRoboBoatBow;
-            // Ground truth beside a real estimator (the boat contract) must not publish the
+            bodyFromFlu = Sim.Physics.Core.RobotDescription.BodyFromFlu(target);
+            // Ground truth beside a real estimator (GroundTruthOnly) must not publish the
             // odom -> base_link transform the EKF owns.
             publishTransforms = publishTf;
             requestedChildFrameNames = requestedChildFrames == null
@@ -130,16 +135,11 @@ namespace Sim.Controllers {
                 CacheChildFrames(requestedChildFrameNames);
             HeaderMsg header = CreateHeader(simulationTime, odometryFrame);
             PointMsg position = ToRosPoint(body.position);
-            Quaternion frameRotation = useRoboBoatFrame
-                ? RoboBoatRosFrame.Rotation(body.rotation)
-                : body.rotation;
+            Quaternion frameRotation = body.rotation * bodyFromFlu;
             QuaternionMsg orientation = frameRotation.To<FLU>();
-            Vector3 localLinear = body.transform.InverseTransformDirection(body.linearVelocity);
-            Vector3 localAngular = body.transform.InverseTransformDirection(body.angularVelocity);
-            if (useRoboBoatFrame) {
-                localLinear = RoboBoatRosFrame.ToRosLocalUnity(localLinear);
-                localAngular = RoboBoatRosFrame.ToRosLocalUnity(localAngular);
-            }
+            Quaternion fromWorld = Quaternion.Inverse(frameRotation);
+            Vector3 localLinear = fromWorld * body.linearVelocity;
+            Vector3 localAngular = fromWorld * body.angularVelocity;
             Vector3Msg linear = ToRosVector(localLinear);
             Vector3Msg angular = ToRosAngularVector(localAngular);
 
@@ -167,11 +167,8 @@ namespace Sim.Controllers {
             transforms[0] = rootTransform;
             for (int i = 0; i < childFrames.Count; i++) {
                 Transform child = childFrames[i];
-                Vector3 localPosition = useRoboBoatFrame
-                    ? RoboBoatRosFrame.WorldPointToRosLocal(
-                        body.position, body.rotation, child.position)
-                    : body.transform.InverseTransformPoint(child.position);
-                Quaternion localRotation = Quaternion.Inverse(frameRotation) * child.rotation;
+                Vector3 localPosition = fromWorld * (child.position - body.position);
+                Quaternion localRotation = fromWorld * child.rotation;
                 var childTransform = new TransformStampedMsg {
                     header = CreateHeader(simulationTime, baseFrame),
                     child_frame_id = child.name
@@ -185,18 +182,18 @@ namespace Sim.Controllers {
             ros.Publish(transformTopic, new TFMessageMsg(transforms));
         }
 
-        internal static PointMsg ToRosPoint(Vector3 unity) =>
+        public static PointMsg ToRosPoint(Vector3 unity) =>
             new(unity.z, -unity.x, unity.y);
 
-        internal static Vector3Msg ToRosVector(Vector3 unity) =>
+        public static Vector3Msg ToRosVector(Vector3 unity) =>
             new(unity.z, -unity.x, unity.y);
 
         // Unity-to-FLU is a handedness-changing reflection. Angular velocity is an axial vector,
         // so it gains the determinant sign that polar position/linear-velocity vectors do not.
-        internal static Vector3Msg ToRosAngularVector(Vector3 unity) =>
+        public static Vector3Msg ToRosAngularVector(Vector3 unity) =>
             new(-unity.z, unity.x, -unity.y);
 
-        internal static HeaderMsg CreateHeader(double seconds, string frame) {
+        public static HeaderMsg CreateHeader(double seconds, string frame) {
             double integral = Math.Floor(Math.Max(0, seconds));
             uint nanoseconds = (uint)Math.Round((Math.Max(0, seconds) - integral) * 1e9);
             if (nanoseconds >= 1_000_000_000) {
@@ -220,8 +217,7 @@ namespace Sim.Controllers {
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Install() {
             string[] args = Environment.GetCommandLineArgs();
-            // The boat sensor contract keeps ground truth on /crane/odom for scoring, without TF.
-            contract = Array.IndexOf(args, CraneRoboBoatSensorContractBootstrap.Flag) >= 0;
+            contract = CraneROSNavigationState.GroundTruthOnly;
             enabled = (Array.IndexOf(args, "--crane-ros-nav-state") >= 0 || contract) &&
                       !ROSPublisher.TransportSuppressed;
             if (!enabled) return;
@@ -258,8 +254,7 @@ namespace Sim.Controllers {
             var state = body.GetComponent<CraneROSNavigationState>() ??
                         body.gameObject.AddComponent<CraneROSNavigationState>();
             state.Initialize(body, odometryTopic, transformTopic, odometryFrame, baseFrame,
-                publishRate, childFrames, correctRoboBoatBow: controller != null,
-                publishTf: !contract);
+                publishRate, childFrames, publishTf: !contract);
         }
 
         private static string ReadString(string[] args, string key, string fallback) {

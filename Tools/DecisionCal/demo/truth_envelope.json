@@ -1,0 +1,53 @@
+{
+ "schema": "crane-roboboat-course-truth-v1",
+ "schema_version": 2,
+ "frame": "world",
+ "geodetic_origin": null,
+ "label_mode": "oracle",
+ "family": "roboboat_2026",
+ "handbook": {
+  "id": "RoboBoat-2026-Team-Handbook_111125",
+  "sha256": "ee93f4b9775a646657cde91b442f4ed2daedc6f68e3db54e04316bea8e3b2d69"
+ },
+ "boundary": [
+  [
+   -12.275,
+   -69.753
+  ],
+  [
+   117.725,
+   -69.753
+  ],
+  [
+   117.725,
+   60.247
+  ],
+  [
+   -12.275,
+   60.247
+  ]
+ ],
+ "shore": [
+  [
+   -12.275,
+   -69.753
+  ],
+  [
+   -12.275,
+   60.247
+  ]
+ ],
+ "side": "port",
+ "vessel": {
+  "beam": 0.895,
+  "length": 1.063,
+  "turn_radius": 1,
+  "source": "blastoise-bounds"
+ },
+ "currentSpeed": 0.15,
+ "currentToward": -1.5708,
+ "generator": {
+  "crane_commit": "e27629bdc255b114a9ff7bb7ec8d164628f49c4d"
+ },
+ "envelope_source": "player e27629b, course seed 1 (x1-steady-c08/course_truth.json): schema/family/handbook/boundary/shore/vessel only"
+}

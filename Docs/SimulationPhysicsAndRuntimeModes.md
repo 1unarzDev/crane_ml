@@ -391,9 +391,11 @@ The RoboBoat plant (hull, added mass, damping, thrusters) comes from one profile
   `config/sim/hardware_crane.yaml`, which the gate rejects as `SIM_DERIVED`
   (`Tools/Characterization/profiles/characterized.gate.json` has the reasons).
 
-To refresh `characterized` from a field survey (mhseals_testing characterization-v2), run:
+To refresh `characterized` from a field survey, pass the team's record adapter (a `FILE.py:FUNC` or
+`MODULE:FUNC` plugin reference; the file form works under `-I`; a record without `--adapter` is refused):
 
-    python3 -I Tools/Characterization/import_yaml.py --yaml <data>/characterization/<fit>-survey.yaml \
+    python3 -I Tools/Characterization/import_yaml.py --adapter <team repo>/<adapter>.py:adapt \
+        --yaml <data>/characterization/<fit>-survey.yaml [--history <config-history dir>] \
         --out-profile Tools/Characterization/profiles/characterized.json \
         --out-report Tools/Characterization/profiles/characterized.gate.json
     <Unity> -batchmode -quit -projectPath . -executeMethod \
@@ -656,8 +658,8 @@ With `--crane-roboboat-contract` the boat carries the real platform's numbers
 
 | Flag | Effect |
 | --- | --- |
-| `--crane-roboboat-course <json>` | Builds a course from a spec (course frame = boat start, x ahead, y to port) by cloning the scene's buoys, docks and vessels; hides the legacy task groups; registers every element with the detection sensor; adds banners to dock bays |
-| `--crane-roboboat-course-truth <json>` | Writes what was placed (world frame of `/crane/odom`, each element tagged with its task, dock bays with banners and occupancy) for the referee |
+| `--crane-course-spec <json>` (alias `--crane-roboboat-course`) | Builds a course from a spec (course frame = boat start, x ahead, y to port) by cloning the scene's buoys, docks and vessels; hides the legacy task groups; registers every element with the detection sensor; adds banners to dock bays |
+| `--crane-course-truth <json>` (alias `--crane-roboboat-course-truth`) | Writes what was placed (world frame of `/crane/odom`, each element tagged with its task, dock bays with banners and occupancy) for the referee |
 | `--crane-water-current speed,toward_deg` | Sets the water current (toward, counter-clockwise from world +x) |
 | `--crane-wind speed,toward_deg` | World-fixed wind: drag on the hull's above-water area (0.30 m^2 ahead, 0.40 m^2 abeam, Cd 1) with Ornstein-Uhlenbeck gusts (25 %, 8 s) and veer (10 deg, 30 s), seeded by `--crane-seed` |
 | `--crane-disturbance-after s` | Wind and current start after `s` seconds and ramp in over 10 s, so runs begin where the boat was placed |

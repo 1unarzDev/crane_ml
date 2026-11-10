@@ -1,0 +1,162 @@
+{
+ "box": {
+  "B_cm": [
+   500,
+   500
+  ],
+  "d_cm": [
+   84,
+   160
+  ],
+  "e_cm": [
+   0,
+   150
+  ],
+  "name": "offset_doorway_box_v0_t20",
+  "side_clearance_cm": 60,
+  "t_cm": [
+   20,
+   20
+  ],
+  "w_cm": [
+   80,
+   120
+  ]
+ },
+ "box_sha256": "6071494ba068ca31a09a75f49e5c77bba366d9f368d1866d4e60ddc578b3d906",
+ "frozen_box_on_narrow_tandem": {
+  "does_not_fit": 560
+ },
+ "label": "exploratory",
+ "lattice_cfg": {
+  "backup_dist": 0.15,
+  "backup_speed": 0.15,
+  "goal_tol": 0.1,
+  "k_cross": 1.5,
+  "k_heading": 2.0,
+  "max_corr_rate": 0.5,
+  "max_expansions": 40000,
+  "max_plans": 60,
+  "max_recoveries": 6,
+  "max_steer": 0.15,
+  "off_path": 0.12,
+  "pad": 0.025,
+  "res": 0.05,
+  "reverse_penalty": 2.0
+ },
+ "lattice_version": 1,
+ "pairs": {
+  "constructed": [
+   "rotate_then_follow",
+   "stroke_shimmy"
+  ],
+  "independent": [
+   "lattice_forward",
+   "lattice_reverse"
+  ]
+ },
+ "sets": {
+  "heldout": {
+   "certificate_counts": {
+    "fits": 150
+   },
+   "course_ids_sha256": "0216d68ef8a822e859dfc64ceb265dade4d0a35fdbc151451c5d2d8617d59870",
+   "n": 150,
+   "n_inside_side_clearance": 150,
+   "robot": "compact_diff",
+   "sampler_seed": 20261110,
+   "seeds": [
+    5000,
+    5001,
+    5002,
+    5003
+   ],
+   "topup_seeds": [
+    [
+     5004,
+     5005,
+     5006
+    ],
+    [
+     5007,
+     5008,
+     5009
+    ]
+   ]
+  },
+  "mf_small": {
+   "certificate_counts": {
+    "fits": 88
+   },
+   "course_ids_sha256": "f1165e0dcfe8863288884f6eb3c5aac394caece882edcf2eacc349ec244fc3e0",
+   "n": 88,
+   "n_inside_side_clearance": 88,
+   "robot": "synth_small",
+   "seeds": [
+    1000,
+    1001,
+    1002
+   ]
+  },
+  "mf_xl": {
+   "certificate_counts": {
+    "fits": 72
+   },
+   "course_ids_sha256": "3c8e429995883d6e043e83e1e35a0ed597a87f35ac0d9d891c902e2f168d498f",
+   "n": 72,
+   "n_inside_side_clearance": 72,
+   "robot": "synth_xl",
+   "seeds": [
+    1000,
+    1001,
+    1002
+   ]
+  },
+  "pool": {
+   "certificate_counts": {
+    "fits": 560
+   },
+   "course_ids_sha256": "d584b9592245c141857e5a1de5614ac77b518d3ea3873c1a9528e8500105ec83",
+   "n": 560,
+   "n_inside_side_clearance": 504,
+   "robot": "compact_diff",
+   "seeds": [
+    1000,
+    1001,
+    1002
+   ]
+  },
+  "transfer": {
+   "certificate_counts": {
+    "fits": 96
+   },
+   "course_ids_sha256": "467e138e3f4a96eee2ffac97c095d60a693d8147d5da4da5e75faef0b5498f27",
+   "n": 96,
+   "n_inside_side_clearance": 80,
+   "robot": "narrow_tandem",
+   "seeds": [
+    7000,
+    7001,
+    7002
+   ]
+  }
+ },
+ "surrogate_version": 2,
+ "synthetic_training_footprints": {
+  "synth_small": {
+   "L": 0.6,
+   "W": 0.5,
+   "acc": 1.3,
+   "omega_max": 1.8,
+   "v_max": 1.0
+  },
+  "synth_xl": {
+   "L": 2.2,
+   "W": 0.8,
+   "acc": 0.45,
+   "omega_max": 0.6,
+   "v_max": 0.55
+  }
+ },
+ "truth_version": 1
+}

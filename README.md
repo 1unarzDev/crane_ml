@@ -5,6 +5,65 @@ simulation platform for developing navigation systems that can be reused across 
 underwater, ground, and surface vehicles. Unity supplies environment physics and simulated
 sensors; ROS 2 supplies the planning, navigation, estimation, and control stack.
 
+## Screenshots
+
+All frames are rendered by CRANE (Unity HDRP) from recorded or live simulation runs. Simulation only;
+nothing here is measured on hardware.
+
+<table>
+  <tr>
+    <td width="33%"><img src="Docs/media/readme/roboboat_route_wide.jpg" alt="RoboBoat route from above"><br><sub><b>Surface.</b> Gate, U-turn and slip dock: one recorded run replayed with HDRP water.</sub></td>
+    <td width="33%"><img src="Docs/media/readme/roboboat_dock_close.jpg" alt="Boat entering the slip"><br><sub><b>Surface.</b> Final approach into the slip, close view.</sub></td>
+    <td width="33%"><img src="Docs/media/readme/roboboat_unity_vs_numpy.jpg" alt="Unity and NumPy plants overlaid"><br><sub><b>Surface.</b> Unity plant (gold) against the fast NumPy plant (silver), same controller and seed.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="Docs/media/readme/fleet_warehouse_start.jpg" alt="Four rovers in a warehouse"><br><sub><b>Ground.</b> Four-rover mecanum fleet at the start of a warehouse mission.</sub></td>
+    <td><img src="Docs/media/readme/fleet_dock_latched.jpg" alt="Docking hooks latched"><br><sub><b>Ground.</b> Rover-to-rover docking: hooks latched.</sub></td>
+    <td><img src="Docs/media/readme/fleet_payload_on_decks.jpg" alt="Payload across two coupled rovers"><br><sub><b>Ground.</b> Payload supported across two coupled decks (deck carry; the earlier lifter step was kinematic).</sub></td>
+  </tr>
+  <tr>
+    <td><img src="Docs/media/readme/forest_aerial_wide.jpg" alt="Procedural forest from the air"><br><sub><b>Aerial.</b> Procedural forest, wide aerial view.</sub></td>
+    <td><img src="Docs/media/readme/forest_search_orbit.jpg" alt="Drone search orbit with a detection"><br><sub><b>Aerial.</b> Forest search: orbit around a detected person.</sub></td>
+    <td><img src="Docs/media/readme/forest_onboard_rgb.jpg" alt="Onboard camera view under the canopy"><br><sub><b>Aerial.</b> Onboard RGB camera under the canopy.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="Docs/media/readme/forest_tod_0900.jpg" alt="Procedural forest at 09:00"><br><sub><b>Environment.</b> One procedural forest at three simulated times of day: 09:00, crisp morning sun.</sub></td>
+    <td><img src="Docs/media/readme/forest_tod_1600.jpg" alt="Procedural forest at 16:00 with light shafts"><br><sub><b>Environment.</b> 16:00, same camera and seed: sun glare and light shafts through the canopy.</sub></td>
+    <td><img src="Docs/media/readme/forest_tod_1830.jpg" alt="Procedural forest at 18:30 golden hour"><br><sub><b>Environment.</b> 18:30, golden hour. Simulation renders; only sky, sun, fog and grade change.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="Docs/media/readme/rover_cad_scout.jpg" alt="Scout rover: concept beside parametric CAD"><br><sub><b>Design.</b> Modular rover CAD v1, scout: concept (left) and parametric CAD (right). Concept and datasheet level, not measured.</sub></td>
+    <td><img src="Docs/media/readme/rover_cad_lifter.jpg" alt="Lifter rover: concept beside parametric CAD"><br><sub><b>Design.</b> Modular rover CAD v1, lifter, with reciprocal hook-and-pin docks.</sub></td>
+    <td><img src="Docs/media/readme/rover_cad_cargo.jpg" alt="Cargo rover: concept beside parametric CAD"><br><sub><b>Design.</b> Modular rover CAD v1, cargo deck.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="Docs/media/readme/drone_cad_vs_reference.jpg" alt="Reference concept beside the CAD model"><br><sub><b>Design.</b> AOS 7 V5 search drone: reference layout (left) and our CAD model (right).</sub></td>
+    <td><img src="Docs/media/readme/drone_cad_iso.jpg" alt="CAD model iso view"><br><sub><b>Design.</b> CAD model: 1.784 kg, two decks, L2, Orin, OAK-D S2, Cube Orange; exported to URDF for simulation.</sub></td>
+    <td><img src="Docs/media/readme/drone_cad_top.jpg" alt="CAD model stack close-up"><br><sub><b>Design.</b> Stack close-up: L2, Jetson deck on M3 standoffs, Cube Mini carrier, radio and antennas.</sub></td>
+  </tr>
+</table>
+
+More frames, with run identifiers and render notes, live on the research branches:
+[`research/decisioncal`](../../tree/research/decisioncal/Tools/DecisionCal/sprint/images) (surface),
+[`research/fleet`](../../tree/research/fleet/Docs/Fleet/media) (ground) and
+[`research/drone-sim`](../../tree/research/drone-sim/Docs/DroneVisuals) (aerial).
+
+## Modular fleet (CRANE)
+
+These figures cover the modular ground fleet: CAD v1 rovers, physical-load runs in CRANE, and test scenes. **Simulation only.** CAD is at concept/datasheet level. Frame notes and critiques are in [`Docs/Fleet/media/README.md`](../../tree/research/fleet/Docs/Fleet/media) on `research/fleet`.
+
+<table>
+  <tr>
+    <td width="33%"><img src="Docs/Fleet/media/cad_v1/compare_lifter.jpg" alt="Lifter concept beside CAD v1"><br><sub><b>Design.</b> CAD v1 lifter: concept (left) and parametric CAD (right). 342 × 260 mm chassis, mecanum wheels, reciprocal docks.</sub></td>
+    <td width="33%"><img src="Docs/Fleet/media/cad_v1/lifter_places_box_small_on_cargo.jpg" alt="Lifter placing box_small on a cargo deck"><br><sub><b>Design.</b> 170 mm lift sets the 2 kg box side-on onto a cargo deck. Static CAD check; rating 2.0 kg at SF 1.51.</sub></td>
+    <td width="33%"><img src="Docs/Fleet/media/runs/box_long6kg_seed1_t68.8_capacity_crop.jpg" alt="Lifter refusing an over-capacity box"><br><sub><b>Run.</b> 6 kg box over the 5 kg rating: the lift stalls, the library refuses with Capacity and returns the box (seed 1).</sub></td>
+  </tr>
+  <tr>
+    <td><img src="Docs/Fleet/media/runs/box_small_seed1_t104.7_perception.jpg" alt="Lifter carrying a box toward two coupled cargo rovers"><br><sub><b>Run.</b> Physical lift: the lifter carries a 2 kg box toward two coupled cargo rovers (seed 1; this run ended in a perception failure before handoff).</sub></td>
+    <td><img src="Docs/Fleet/media/scenes/scenes_v1_index.jpg" alt="Nine modular-robotics test scene families"><br><sub><b>Scenes.</b> Scenes v1: nine test families (narrow door, lateral slot, wheel failure, ...), fastsim top-down previews.</sub></td>
+  </tr>
+</table>
+
 The project is currently strongest in aquatic simulation. Its production scenes use Unity
 HDRP water for both the rendered environment and physical water queries used by buoyancy and
 hydrodynamics. The same component model also supports land and aerial robots through reusable

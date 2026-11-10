@@ -151,8 +151,8 @@ namespace Crane.Urdf.Tests
 
                 float dt = Time.fixedDeltaTime; double time = 0;
                 void Drive(float l, float r) { for (int i = 0; i < 150; i++) { left.SetCommand(l); right.SetCommand(r); plant.Step(dt, time); UnityEngine.Physics.Simulate(dt); time += dt; } }
-                Quaternion bowFrame = root.transform.rotation * RoboBoatPhysics.BodyFromFluOf(root);   // +z = bow at the start
-                float Heading() { var b = root.transform.rotation * RoboBoatPhysics.BodyFromFluOf(root) * Vector3.forward; return Mathf.Atan2(b.x, b.z) * Mathf.Rad2Deg; }
+                Quaternion bowFrame = root.transform.rotation * RobotDescription.BodyFromFlu(root);   // +z = bow at the start
+                float Heading() { var b = root.transform.rotation * RobotDescription.BodyFromFlu(root) * Vector3.forward; return Mathf.Atan2(b.x, b.z) * Mathf.Rad2Deg; }
 
                 Vector3 p0 = root.transform.position; float yaw0 = Heading();
                 float cmd = 0.6f * left.GetMaxCommand();

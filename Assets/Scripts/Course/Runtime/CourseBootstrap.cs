@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using Sim.Controllers;
-using Sim.Course.RoboBoat;
 using Sim.Sensors.Vision;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -12,59 +10,61 @@ using UnityEngine.SceneManagement;
 namespace Sim.Course {
     /// <summary>
     /// Builds the course when the scene loads, from CLI flags only (no scene edits):
-    /// <c>--crane-course-family NAME</c> (or a <c>--crane-roboboat-course</c> JSON naming a
-    /// family and seed; a 2025 element list goes to the legacy builder), <c>--crane-course-seed N</c>
+    /// <c>--crane-course-family NAME</c> (or a <c>--crane-course-spec</c> JSON naming a
+    /// family and seed; a spec naming no family goes to the robot's <see cref="ICourseHost"/>), <c>--crane-course-seed N</c>
     /// (defaults to <c>--crane-seed</c>), <c>--crane-course-mode iid|corner=lo|hi|mixed</c>,
     /// repeated <c>--crane-course-set task.param=value</c>, <c>--crane-course-replay truth.json</c>,
-    /// <c>--crane-course-truth PATH</c> (alias <c>--crane-roboboat-course-truth</c>),
+    /// <c>--crane-course-truth PATH</c>,
     /// <c>--crane-detection-labels oracle|camera</c>, <c>--crane-ros-course-truth</c>.
-    /// Logs <c>CRANE_COURSE_READY name= seed= sha256=</c> (and the legacy READY line the rig waits for).
+    /// Each of these flags may also be spelled as the host's <see cref="ICourseHost.Alias"/>.
+    /// Logs <c>CRANE_COURSE_READY name= seed= sha256=</c>.
     /// </summary>
     public static class CourseBootstrap {
+        /// <summary>The robot's side of the course, set by the robot's assembly before the scene loads.</summary>
+        public static ICourseHost Host;
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         static void Install() {
             string[] args = Environment.GetCommandLineArgs();
-            if (Arg(args, "--crane-course-family") == null && Arg(args, "--crane-course-replay") == null &&
-                Arg(args, JsonCourseSource.Flag) == null) return;
+            if (Flag(args, "--crane-course-family") == null && Flag(args, "--crane-course-replay") == null &&
+                Flag(args, "--crane-course-spec") == null) return;
             bool done = false;
             SceneManager.sceneLoaded += (_, _) => {
                 if (done) return;
                 try { done = Run(args); }
                 catch (Exception error) {
-                    Debug.LogError($"CRANE_COURSE_FAILED {error.Message}\nCRANE_ROBOBOAT_COURSE_FAILED {error}");
+                    Debug.LogError($"CRANE_COURSE_FAILED {error}");
+                    Host?.Failed(error);
                     done = true;
                 }
             };
         }
 
-        /// <summary>False when the loaded scene has no boat yet (a bootstrap scene).</summary>
-        static bool Run(string[] args) {
-            RoboBoatCourse.ApplyCurrentFromArgs();
-            string legacy = Arg(args, JsonCourseSource.Flag);
-            JObj spec = legacy != null ? (JObj)Json.Parse(File.ReadAllText(legacy)) : null;
-            if (spec != null && !spec.Has("family") && Arg(args, "--crane-course-family") == null) {
-                if (!RoboBoatCourse.BoatStart(out Vector2 legacyStart, out float legacyYaw)) return false;
-                JsonCourseSource.Build(legacy, args);  // laid out from this same start
-                AddStartReset(null, legacyStart, legacyYaw);
-                return true;
-            }
-            if (!RoboBoatCourse.BoatStart(out Vector2 start, out float startYaw)) return false;
+        /// <summary>False when the loaded scene has no robot yet (a bootstrap scene).</summary>
+        internal static bool Run(string[] args) {
+            string specPath = Flag(args, "--crane-course-spec"), truthPath = Flag(args, "--crane-course-truth");
+            JObj spec = specPath != null ? (JObj)Json.Parse(File.ReadAllText(specPath)) : null;
+            if (spec != null && !spec.Has("family") && Flag(args, "--crane-course-family") == null)
+                return Host?.BuildSpec(specPath, truthPath, args) ?? throw new ArgumentException($"course spec {specPath} names no family");
+            Vector2 start = Vector2.zero;
+            float startYaw = 0f;
+            if (Host != null && !Host.Start(out start, out startYaw)) return false;
 
             ICourseSource source;
             CourseFamilyDefinition family;
-            string replay = Arg(args, "--crane-course-replay");
+            string replay = Flag(args, "--crane-course-replay");
             if (replay != null) {
                 source = new ReplayCourseSource(replay);
                 family = FindFamily(((JObj)Json.Parse(File.ReadAllText(replay))).Str("family"));
             }
             else {
-                family = FindFamily(Arg(args, "--crane-course-family") ?? spec.Str("family"));
+                family = FindFamily(Flag(args, "--crane-course-family") ?? spec.Str("family"));
                 source = new GeneratedCourseSource(family, Request(args, spec));
             }
 
             JObj truth = source.Truth();
             if (!source.InWorldFrame) CourseTruth.ToWorld(truth, new Pose2(start.x, start.y, startYaw));
-            var (speed, toward) = RoboBoatCourse.CurrentNow();
+            var (speed, toward) = Host?.Current() ?? (0f, 0f);
             var mode = Arg(args, "--crane-detection-labels") == "camera" ? LabelMode.Camera : LabelMode.Oracle;
             truth.Set("currentSpeed", (double)speed).Set("currentToward", CourseFrame.Rad(toward))
                 .Set("label_mode", mode == LabelMode.Camera ? "camera" : "oracle");
@@ -80,7 +80,6 @@ namespace Sim.Course {
             foreach (var sensor in UnityEngine.Object.FindObjectsByType<BoundingBox3D>(FindObjectsSortMode.None))
                 sensor.ReplaceTargets(built.Targets);
 
-            string truthPath = Arg(args, "--crane-course-truth") ?? Arg(args, "--crane-roboboat-course-truth");
             var host = new GameObject("Course State");
             host.transform.SetParent(built.Root, false);
             var registry = host.AddComponent<CourseStateRegistry>();
@@ -90,23 +89,13 @@ namespace Sim.Course {
             if (Array.IndexOf(args, "--crane-ros-course-truth") >= 0)
                 host.AddComponent<CourseTruthPublisher>().Init(truth, registry);
 
-            AddStartReset(built.Root, start, startYaw);
-
             string name = truth.Str("name"), sha = CourseTruth.Sha(truth);
             Debug.Log($"CRANE_COURSE_READY name={name} seed={seed} sha256={sha} " +
                       $"pair_key={Json.Path(truth, "generator.identity.pair_key") ?? "none"} " +
                       $"source_sha256={Json.Path(truth, "generator.identity.generator.source_sha256") ?? "none"} placeholders={built.Placeholders} " +
                       $"labels={mode.ToString().ToLowerInvariant()} truth={truthPath ?? "none"}");
-            Debug.Log($"CRANE_ROBOBOAT_COURSE_READY name={name} elements={truth.Arr("elements").Count} " +
-                      $"bays={truth.Arr("bays").Count} start=({start.x:R},{start.y:R},{startYaw:R}) truth={truthPath ?? "none"}");
+            Host?.Built(built.Root, truth, start, startYaw, truthPath);
             return true;
-        }
-
-        /// <summary>The sim-only /crane/reset_to_start, on the course truth start pose.</summary>
-        static void AddStartReset(Transform root, Vector2 start, float startYaw) {
-            var host = new GameObject("Course Start Reset");
-            if (root != null) host.transform.SetParent(root, false);
-            host.AddComponent<RoboBoatStartReset>().Capture(RoboBoatStartReset.FindBoatBody(), start, startYaw);
         }
 
         public static CourseRequest Request(string[] args, JObj spec) {
@@ -129,6 +118,10 @@ namespace Sim.Course {
                 if (f.Name == name) return f;
             throw new ArgumentException($"no course family '{name}' under Resources");
         }
+
+        /// <summary>A course flag's value, under its own name or the host's alias for it.</summary>
+        static string Flag(string[] args, string key) =>
+            Arg(args, key) ?? (Host?.Alias(key) is string alias ? Arg(args, alias) : null);
 
         static string Arg(string[] args, string key) {
             int i = Array.IndexOf(args, key);

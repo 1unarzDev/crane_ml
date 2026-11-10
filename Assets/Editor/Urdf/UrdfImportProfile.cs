@@ -23,7 +23,7 @@ namespace Crane.Urdf
     public class UrdfImportProfile : ScriptableObject
     {
         [field: SerializeField, Tooltip("Prefab to create or sync. Empty = <URDF folder>/<robot name>.prefab.")] public string prefabPath { get; set; } = "";
-        [field: SerializeField, Tooltip("deg. ROS yaw from the URDF body frame to the frame crane's runtime expects for every link. 0 for REP-103 consumers; 90 for RoboBoat (bow = local -X, RoboBoatPhysics.BodyFromFlu).")] public float rootYawDeg { get; set; }
+        [field: SerializeField, Tooltip("deg. ROS yaw from the URDF body frame to the frame crane's runtime expects for every link. 0 for REP-103; 90 for a hull whose bow is local -X. Written to RobotDescription.rootYawDeg.")] public float rootYawDeg { get; set; }
         [field: SerializeField, Tooltip("Delete prefab links the URDF no longer has.")] public bool removeMissingLinks { get; set; } = true;
         [field: SerializeField] public List<UrdfRule> rules { get; set; } = new List<UrdfRule>();
 

@@ -152,7 +152,7 @@ For requested normalized effort `(f, s, r)`, `OmniXController` computes:
 
 All four values are divided by `max(1, max(abs(value)))`, preserving the requested vector while
 saturating. The matrix has rank 3, symmetric pure-surge/pure-sway/pure-yaw columns, and no algebraic
-coupling. `ROSOmniXCommand.ToControllerMotion` supplies the sign conversion needed for ROS FLU.
+coupling. `ROSOmniXCommand.ToControllerMotion` maps ROS FLU through the robot description's `BodyFromFlu`, the frame the feedback reads.
 Axis-response tests verified surge, sway, and yaw signs independently. The manual input path still
 calls `OmniXController.SetMotion` directly and was not modified.
 
