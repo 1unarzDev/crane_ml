@@ -254,9 +254,15 @@ namespace Crane.Fleet
             }
             if (Phase == "lift")
             {
+                // CRANE local patch: a lifter that tips (IMU tilt above TipTiltLimit) fails as Tipping, not Geometry, and is not retried
+                _maxTilt = Math.Max(_maxTilt, ch.Lift.TiltRad);
+                if (ch.Lift.TiltRad > F.A.TipTiltLimit)
+                { ch.SetLift(0, false); return Fail(FailureClass.Tipping, $"{rover} tipped while lifting (tilt {ch.Lift.TiltRad:0.00} rad > {F.A.TipTiltLimit:0.00})"); }
                 if (ch.Lift.Height >= S.Num("height", 0.12) - 0.01)
                 {
-                    if (!ch.Lift.HoldingObject) return Fail(FailureClass.Geometry, "object lost while lifting");
+                    if (!ch.Lift.HoldingObject)
+                        return _maxTilt > F.A.TipTiltLimit ? Fail(FailureClass.Tipping, $"{rover} tipped while lifting (max tilt {_maxTilt:0.00} rad)")
+                            : Fail(FailureClass.Geometry, "object lost while lifting");
                     // held: the object now travels with the carrier (its map box leaves the map, the carrier's footprint grows)
                     var rel = new Pose2(S.Num("grasp_offset", 0.30), 0, Se2.Wrap(_graspObj.Yaw - F.AgentOf(rover).MemberPose(rover).Yaw));
                     F.ObjectPicked(obj, rover, rel, S.Str("payload_type"));
@@ -273,7 +279,7 @@ namespace Crane.Fleet
             return TaskState.Running;
         }
 
-        private double _forceT;
+        private double _forceT, _maxTilt;
 
         /// <summary>An unconfirmed lift leaves the object where it is: open the gripper and lower before any retry moves the lifter.</summary>
         public override void Abort()
@@ -329,7 +335,11 @@ namespace Crane.Fleet
                 var sw = F.AgentOf(PlaceOn).MemberPose(PlaceOn);
                 var goal = F.Config.HandoffTagAlignment ? Se2.Compose(sw, Se2.Compose(_q, new Pose2(-F.A.HandoffPrePlaceBack, 0, 0))) : Se2.Compose(sw, _q);
                 if (!F.Config.HandoffTagAlignment && S.Nums("place_pose") != null) goal = S.PoseOf("place_pose");
-                _nav = new Navigator(F, from, goal, F.A.CruiseFraction * 0.5, S.Id) { PosTol = 0.03, YawTol = 0.05, Ignore = S.Strs("supporters") };
+                // CRANE local patch (2026-11-10, box_small seeds 1 and 5): with tag alignment the carry goes to a pre-place pose HandoffPrePlaceBack
+                // behind the place pose, so the receivers stay obstacles on the carry leg (ignoring them let the route sweep across cargo_1's corner);
+                // only the legacy direct place pose (no tag alignment) is adjacent to them and still ignores them.
+                _nav = new Navigator(F, from, goal, F.A.CruiseFraction * 0.5, S.Id) { PosTol = 0.03, YawTol = 0.05,
+                    Ignore = F.Config.HandoffTagAlignment ? null : S.Strs("supporters"), GoalSearch = F.Config.HandoffTagAlignment };
                 // relative estimate: state = T(lifter base -> receiver base) (face frames identity / pi)
                 _rel = new RelativePoseEstimator(Pose2.Identity, new Pose2(0, 0, Math.PI), F.A);
                 SetPhase("carry");

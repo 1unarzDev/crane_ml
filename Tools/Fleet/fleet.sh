@@ -14,6 +14,8 @@
 # Outputs default under ~/.cache/crane-fleet/. Logs in ~/.cache/crane-fleet/logs/.
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# every Unity editor/player run at nice >= 10 (orchestrator compute rule, 2026-11-10): re-exec under nice when started at a lower niceness
+if [[ "$(nice)" -lt "${CRANE_FLEET_NICE:-10}" ]]; then exec nice -n "$(( ${CRANE_FLEET_NICE:-10} - $(nice) ))" bash "${BASH_SOURCE[0]}" "$@"; fi
 cache="${CRANE_FLEET_CACHE:-$HOME/.cache/crane-fleet}"
 heavy=/home/lunarz/astro_dock/src/mhseals_agents/tools/heavy
 editor=/home/lunarz/Unity/Hub/Editor/6000.5.10f1/Editor/Unity

@@ -329,6 +329,9 @@ namespace Crane.Fleet.Sim {
         /// carrier's centre line, so they are small). A first version applied m (g - a) explicitly at the payload CoM; that is unstable when the
         /// payload outweighs the carrier's effective mass at that point (box_small at 0.41 m: about 0.7 kg) and was replaced (2026-11-10).
         /// </summary>
+        /// <summary>The carried payload is off its support (lift raised it at least lift_off_height above the grip height).</summary>
+        bool Lifted => payloadMode == "carried" && carrier != null && carrier.Lift - carryLift0 >= liftOffHeight;
+
         void ApplyLoad(FleetRun r, Vector3 payloadPos) {
             if (loadApplied || carrier.Lift - carryLift0 < liftOffHeight) return;
             loadApplied = true; loadEverApplied = true;
@@ -398,7 +401,7 @@ namespace Crane.Fleet.Sim {
         public Dictionary<string, object> PayloadTruth() {
             if (Payload == null) return null;
             var sup = new List<object>();
-            bool floor = false;
+            bool floor = false, pallet = false;
             Vector3 probe = payloadCol.transform.position + Vector3.down * 0.005f;
             var hits = new Collider[64];
             int n = run.Phys.Physics.OverlapBox(probe, payloadCol.size / 2, hits, payloadCol.transform.rotation, ~0, QueryTriggerInteraction.Ignore);
@@ -406,6 +409,7 @@ namespace Crane.Fleet.Sim {
                 var col = hits[i];
                 if (col == payloadCol) continue;
                 if (col.name == "floor") floor = true;
+                if (col.name == "pallet") pallet = true;
                 foreach (var r in run.Rovers) if (col.transform.IsChildOf(r.Root.transform) && col.name.Contains("deck") && !sup.Contains(r.D.Id)) sup.Add(r.D.Id);
             }
             FleetFrames.Attitude(Payload.rotation, out _, out double pitch, out double roll);
@@ -414,8 +418,10 @@ namespace Crane.Fleet.Sim {
             bool inZone = c.X >= z[0] && c.X <= z[2] && c.Y >= z[1] && c.Y <= z[3];
             double tilt = Math.Max(Math.Abs(pitch), Math.Abs(roll));
             bool onDecks = payloadMode != "carried" && sup.Count > 0 && !floor && tilt < 0.1;
-            string state = payloadMode == "carried" ? "carried" : onDecks ? "on_decks" : floor ? "on_floor" : "unsupported_or_tilted";
-            return new Dictionary<string, object> { ["state"] = state, ["supporters"] = sup, ["touches_floor"] = floor, ["x"] = c.X, ["y"] = c.Y,
+            // "carried" only once the lift has raised it off its support; gripped but still resting reports where it rests (gripped = true)
+            bool gripped = payloadMode == "carried", lifted = gripped && Lifted;
+            string state = lifted ? "carried" : onDecks ? "on_decks" : floor ? "on_floor" : pallet && tilt < 0.1 ? "on_pallet" : "unsupported_or_tilted";
+            return new Dictionary<string, object> { ["state"] = state, ["gripped"] = gripped, ["supporters"] = sup, ["touches_floor"] = floor, ["x"] = c.X, ["y"] = c.Y,
                 ["bottom_height"] = (double)Payload.position.y, ["tilt"] = tilt, ["speed"] = (double)Payload.linearVelocity.magnitude,
                 ["in_delivery_zone"] = inZone, ["delivered"] = inZone && onDecks && Payload.linearVelocity.magnitude < 0.01 };
         }
@@ -447,8 +453,8 @@ namespace Crane.Fleet.Sim {
                     break;
                 }
                 case "lift": {
-                    agree = payloadMode == "carried";
-                    truthSays = "payload " + payloadMode;
+                    agree = payloadMode == "carried" && Lifted;
+                    truthSays = "payload " + (payloadMode == "carried" ? (Lifted ? "carried, lifted off" : "gripped, not lifted") : payloadMode);
                     break;
                 }
                 case "handoff": {
@@ -572,10 +578,12 @@ namespace Crane.Fleet.Sim {
                     PartnerRover = c.Machine.Captured || ConnectorStateNames.IsVerified(c.Machine.State) ? (isA ? c.B.D.Id : c.A.D.Id) : null,
                     PartnerFace = c.Machine.Captured || ConnectorStateNames.IsVerified(c.Machine.State) ? (isA ? c.FaceB : c.FaceA) : null };
             }
+            /// <summary>IMU attitude tilt max(|pitch|, |roll|): taken from the rigid body (IMU attitude error not modelled; labelled).</summary>
+            static double Tilt(RoverRig rig) { var t = rig.Truth(); return Math.Max(Math.Abs(t.Pitch), Math.Abs(t.Roll)); }
             public LiftReport ReadLift() {
                 if (rig.D.Role == "lifter")
                     return new LiftReport { Present = true, Height = rig.Lift, GripperClosed = GripperClosed, HoldingObject = m.payloadMode == "carried" && m.carrier == rig,
-                        ForceLimited = m.forceLimitedNow };
+                        ForceLimited = m.forceLimitedNow, TiltRad = Tilt(rig) };
                 // deck load cell (cargo decks): the payload's weight shared over the decks it rests on (simulated sensor from contact geometry)
                 bool deck = rig.D.Payload.ContainsKey("deck_capacity");
                 double kg = 0;

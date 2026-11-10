@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net10.0</TargetFramework><Nullable>disable</Nullable><IsPackable>false</IsPackable><IsTestProject>true</IsTestProject><LangVersion>9.0</LangVersion>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems><NoWarn>CS0618;CS0414;CS0162</NoWarn><AssemblyName>Crane.Fleet.Autonomy.Tests</AssemblyName></PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" /><PackageReference Include="xunit" Version="2.9.2" /><PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="/home/lunarz/crane_ml/Tools/Fleet/core_cs/Crane.Fleet.Docking/**/*.cs" Exclude="/home/lunarz/crane_ml/Tools/Fleet/core_cs/Crane.Fleet.Docking/obj/**;/home/lunarz/crane_ml/Tools/Fleet/core_cs/Crane.Fleet.Docking/bin/**" /><Compile Include="/home/lunarz/crane_ml/Tools/Fleet/core_cs/Crane.Fleet.Perception/**/*.cs" Exclude="/home/lunarz/crane_ml/Tools/Fleet/core_cs/Crane.Fleet.Perception/obj/**;/home/lunarz/crane_ml/Tools/Fleet/core_cs/Crane.Fleet.Perception/bin/**" /><Compile Include="/home/lunarz/worktrees/crane-fleet/Assets/Scripts/Fleet/Capability/**/*.cs" /><Compile Include="/home/lunarz/worktrees/crane-fleet/Assets/Scripts/Fleet/Autonomy/**/*.cs" />
+    <Compile Include="/home/lunarz/crane_ml/Tools/Fleet/core_cs/Crane.Fleet.Autonomy.Tests/*.cs" /><Compile Include="/home/lunarz/crane_ml/Tools/Fleet/core_cs/Crane.Fleet.Autonomy.Tests/Harness/*.cs" />
+    <Compile Include="/home/lunarz/worktrees/crane-fleet/Tools/Fleet/offline/autonomy_patch_tests/*.cs" />
+  </ItemGroup>
+</Project>

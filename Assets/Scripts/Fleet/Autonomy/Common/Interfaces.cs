@@ -56,6 +56,8 @@ namespace Crane.Fleet
         public double DeckLoadKg;
         /// <summary>The lift actuator is at its force/current limit while short of its height target (load heavier than it can raise).</summary>
         public bool ForceLimited;
+        /// <summary>CRANE local patch: IMU tilt magnitude max(|pitch|, |roll|) in rad (0 when unknown); a lift that tips fails as Tipping.</summary>
+        public double TiltRad;
     }
 
     /// <summary>Body-frame specific force in the plane (m/s^2, gravity removed, x forward, y left) from the rover's IMU accelerometer.</summary>

@@ -137,6 +137,7 @@ namespace Crane.Fleet
         public double PlanCell = 0.10, PlanStep = 0.15;  // m
         public int PlanHeadings = 16;
         public double PlanMargin = 0.03;                 // m clearance kept from every obstacle
+        public double TipTiltLimit = 0.30;               // rad: IMU tilt beyond which a lifting rover has tipped (CRANE local patch)
         public double PlanGoalPosTol = 0.06, PlanGoalYawTol = 0.10;
         public int PlanMaxExpansions = 60000;
         public int PlanMaxExpansionsReduced = 25000;   // reduced-mobility searches are greedier (heuristic weight 2) and bounded tighter
@@ -184,6 +185,7 @@ namespace Crane.Fleet
             new Entry("RelativeProcessPosPerMeter / YawPerRad", "3 % / 3 %", "odometry drift per metre on each floor (marked-floor course)"),
             new Entry("PlanCell / PlanStep / PlanHeadings", "0.10 m / 0.15 m / 16", "planner tuning; doorway sweep in CRANE"),
             new Entry("PlanMargin", "0.03 m", "measured localisation error at doorways + CAD collision envelope"),
+            new Entry("TipTiltLimit", "0.30 rad", "static tip angle of the lifter with its rated load (CAD statics); CRANE evaluator uses 0.35 rad"),
             new Entry("CruiseFraction / TransportCruiseFraction", "0.6 / 0.35", "tracking error vs speed in CRANE; payload slide test"),
             new Entry("Track gains, accel limits", "1.5 / 2.0, 0.5 m/s^2, 1.5 rad/s^2", "closed-loop tuning in CRANE; traction-limited acceleration"),
             new Entry("PreDockStandoff / BackoffStandoff", "0.50 / 0.30 m", "operations policy; wave-3 start range"),

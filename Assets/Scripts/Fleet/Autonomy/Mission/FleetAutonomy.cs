@@ -7,7 +7,7 @@ using DockProfile = Crane.Fleet.Profile.DockingProfile;
 
 namespace Crane.Fleet
 {
-    public enum FailureClass { None, Geometry, Docking, Traction, Perception, Planner, Support, Timeout, Configuration, HostRejected, Capacity }
+    public enum FailureClass { None, Geometry, Docking, Traction, Perception, Planner, Support, Timeout, Configuration, HostRejected, Capacity, Tipping }
 
     public sealed class AutonomyEvent
     {
