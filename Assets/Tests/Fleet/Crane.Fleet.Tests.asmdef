@@ -4,6 +4,7 @@
         "Crane.Fleet.Core",
         "Crane.Fleet.Sim",
         "Crane.Fleet.Perception",
+        "Crane.Fleet.Perception.Evaluator",
         "Crane.Fleet.AutonomyApi"
     ],
     "includePlatforms": [
