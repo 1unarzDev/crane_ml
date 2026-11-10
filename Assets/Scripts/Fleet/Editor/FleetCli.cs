@@ -101,10 +101,22 @@ namespace Crane.Fleet.EditorTools {
             AssetDatabase.Refresh();
         }
 
+        /// <summary>A Lit material in Resources: the runtime colour template, and what makes a build keep Lit variants.</summary>
+        public static void EnsureMaterial() {
+            string path = "Assets/Resources/" + FleetGeometry.TemplateResource + ".mat";
+            if (File.Exists(path)) return;
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            var shader = Shader.Find("HDRP/Lit") ?? throw new Exception("HDRP/Lit shader not found");
+            AssetDatabase.CreateAsset(new Material(shader) { name = "FleetLit" }, path);
+            AssetDatabase.SaveAssets();
+            Debug.Log("CRANE_FLEET_MATERIAL created " + path);
+        }
+
         public static void BuildPlayer() {
             int code = 0;
             try {
                 EnsureScene();
+                EnsureMaterial();
                 string output = FleetArgs.Get("--crane-build-output", "Builds/CRANE-Fleet/CRANE.x86_64");
                 Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output)) ?? ".");
                 var options = new BuildPlayerOptions {

@@ -140,6 +140,12 @@ namespace Crane.Fleet.Sim {
             Vector3 p = FleetFrames.World(shot.Position[0], shot.Position[1], shot.Position[2]);
             Vector3 l = FleetFrames.World(shot.LookAt[0], shot.LookAt[1], shot.LookAt[2]);
             go.transform.SetPositionAndRotation(p, Quaternion.LookRotation(l - p, Vector3.up));
+            var renderers = UnityEngine.Object.FindObjectsByType<Renderer>(FindObjectsInactive.Exclude);
+            Material sample = renderers.Length > 0 ? renderers[0].sharedMaterial : null;
+            Debug.Log($"CRANE_FLEET_STILL_DIAG renderers={renderers.Length} template={FleetGeometry.Template?.name} " +
+                      $"shader={(sample != null ? sample.shader.name : "none")} supported={(sample != null && sample.shader.isSupported)} " +
+                      $"passes={(sample != null ? sample.passCount : 0)} pipeline={UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline?.name} " +
+                      $"quality={QualitySettings.names[QualitySettings.GetQualityLevel()]} cam={p} look={l}");
             for (int i = 0; i < 12; i++) { cam.Render(); yield return null; }  // sky, shadows and history warm-up
             cam.Render();
             var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);

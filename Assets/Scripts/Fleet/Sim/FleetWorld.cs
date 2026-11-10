@@ -10,13 +10,25 @@ namespace Crane.Fleet.Sim {
         static Material s_Template;
 
         /// <summary>A coloured copy of the pipeline's default Lit material (works in editor and player, no Shader.Find).</summary>
-        public static Material Material(Color c) {
-            if (s_Template == null) {
-                var probe = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                s_Template = probe.GetComponent<MeshRenderer>().sharedMaterial;
-                UnityEngine.Object.DestroyImmediate(probe);
+        public const string TemplateResource = "Fleet/FleetLit";
+
+        /// <summary>The template: a Lit material shipped in Resources (so a build keeps its shader variants),
+        /// else the pipeline's default material.</summary>
+        public static Material Template {
+            get {
+                if (s_Template != null) return s_Template;
+                s_Template = Resources.Load<Material>(TemplateResource);
+                if (s_Template == null) {
+                    var probe = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    s_Template = probe.GetComponent<MeshRenderer>().sharedMaterial;
+                    UnityEngine.Object.DestroyImmediate(probe);
+                }
+                return s_Template;
             }
-            var m = new Material(s_Template) { name = "fleet " + ColorUtility.ToHtmlStringRGB(c) };
+        }
+
+        public static Material Material(Color c) {
+            var m = new Material(Template) { name = "fleet " + ColorUtility.ToHtmlStringRGB(c) };
             if (m.HasProperty("_BaseColor")) m.SetColor("_BaseColor", c);
             if (m.HasProperty("_Color")) m.SetColor("_Color", c);
             return m;
