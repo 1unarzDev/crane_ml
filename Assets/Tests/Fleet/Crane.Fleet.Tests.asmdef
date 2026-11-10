@@ -1,0 +1,13 @@
+{
+    "name": "Crane.Fleet.Tests",
+    "references": [
+        "Crane.Fleet.Core",
+        "Crane.Fleet.Sim"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ]
+}

@@ -1,0 +1,183 @@
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+
+namespace Crane.Fleet.Sim {
+    /// <summary>Evaluator truth of one rover (never shown to the rover's own estimators).</summary>
+    public struct RoverTruth {
+        public double X, Y, Z, Yaw, Pitch, Roll;
+        public Twist Body;
+        public double Speed;
+    }
+
+    /// <summary>
+    /// One rover in Unity: a single Rigidbody built from its <see cref="RoverDescription"/> (render, collision,
+    /// mass, frames each from their own field) plus the thin adapter that feeds the Core plant with the measured
+    /// twist and applies its acceleration. Sensors (encoders, gyro) and the odometry estimate live here too,
+    /// keyed by the rover's own id; nothing is global.
+    /// </summary>
+    public sealed class RoverRig {
+        public readonly RoverDescription D;
+        public readonly GameObject Root;
+        public readonly Rigidbody Body;
+        public readonly MecanumPlant Plant;
+        public readonly WheelEncoders Encoders;
+        public readonly YawGyro Gyro;
+        public WheelOdometry Odometry;
+        public QualificationScript Script;
+        public Twist Command;
+        public readonly Dictionary<string, Transform> Frames = new Dictionary<string, Transform>();
+        public readonly List<SphereCollider> WheelColliders = new List<SphereCollider>();
+        public readonly string RenderSource;
+
+        readonly int imuEvery, encEvery;
+        readonly double dt;
+
+        public RoverRig(FleetSpec spec, RoverDescription d, FloorProperties floor, long seed, Transform parent, Pose2 pose) {
+            D = d;
+            dt = spec.Dt;
+            JsonNode o = spec.O, p = spec.P;
+            Root = new GameObject(d.Id);
+            Root.transform.SetParent(parent, false);
+            double lift = o["physics.spawn_lift"].Double;
+            Root.transform.SetPositionAndRotation(FleetFrames.World(pose.X, pose.Y, lift), FleetFrames.WorldYaw(pose.Yaw));
+
+            // mass properties
+            Body = Root.AddComponent<Rigidbody>();
+            Body.mass = (float)d.Mass;
+            Body.automaticCenterOfMass = false;
+            Body.automaticInertiaTensor = false;
+            Body.centerOfMass = FleetFrames.Local(d.ComOffset);
+            // FLU diag (Ixx, Iyy, Izz) -> Unity local axes (x = -y_flu, y = z_flu, z = x_flu)
+            Body.inertiaTensor = new Vector3((float)d.InertiaDiag[1], (float)d.InertiaDiag[2], (float)d.InertiaDiag[0]);
+            Body.inertiaTensorRotation = Quaternion.identity;
+            Body.linearDamping = 0f;
+            Body.angularDamping = 0f;
+            Body.interpolation = RigidbodyInterpolation.None;
+            Body.collisionDetectionMode = CollisionDetectionMode.Discrete;
+            Body.solverIterations = (int)o["physics.solver_iterations"].Double;
+            Body.solverVelocityIterations = (int)o["physics.solver_velocity_iterations"].Double;
+
+            // collision geometry: chassis envelope and wheel contact spheres (separate from render)
+            var collision = new GameObject("collision").transform;
+            collision.SetParent(Root.transform, false);
+            double bf = o["physics.body_friction"].Double, wf = o["physics.wheel_friction"].Double;
+            var bodyMat = new PhysicsMaterial("fleet body") { dynamicFriction = (float)bf, staticFriction = (float)bf };
+            var wheelMat = new PhysicsMaterial("fleet wheel") { dynamicFriction = (float)wf, staticFriction = (float)wf,
+                frictionCombine = PhysicsMaterialCombine.Minimum, bounceCombine = PhysicsMaterialCombine.Minimum };
+            MeshManifest manifest = d.MeshManifestPresent ? MeshManifest.Load(d.MeshManifestPath) : null;
+            if (manifest != null && manifest.Collision.Count > 0) {
+                foreach (var e in manifest.Collision) {
+                    var go = new GameObject("collision_" + e.Obj);
+                    go.transform.SetParent(collision, false);
+                    var mc = go.AddComponent<MeshCollider>();
+                    mc.convex = true;
+                    mc.sharedMesh = FleetGeometry.ToMesh(e.Mesh, e.Obj);
+                    mc.sharedMaterial = bodyMat;
+                    mc.providesContacts = true;
+                }
+            }
+            else {
+                foreach (var part in d.CollisionParts) {
+                    var go = new GameObject("collision_" + part.Name);
+                    go.transform.SetParent(collision, false);
+                    go.transform.localPosition = FleetFrames.Local(part.Centre);
+                    var bc = go.AddComponent<BoxCollider>();
+                    bc.size = FleetFrames.LocalScale(part.Size[0], part.Size[1], part.Size[2]);
+                    bc.sharedMaterial = bodyMat;
+                    bc.providesContacts = true;
+                }
+            }
+            if (d.WheelContact != "sphere") throw new NotSupportedException("wheel contact " + d.WheelContact);
+            foreach (var w in d.Wheels) {
+                var go = new GameObject("contact_" + w.Name);
+                go.transform.SetParent(collision, false);
+                go.transform.localPosition = FleetFrames.LocalPosition(w.Axle);
+                var sc = go.AddComponent<SphereCollider>();
+                sc.radius = (float)w.Radius;
+                sc.sharedMaterial = wheelMat;
+                WheelColliders.Add(sc);
+            }
+
+            // render geometry: mesh manifest when present, else primitives
+            var render = new GameObject("render").transform;
+            render.SetParent(Root.transform, false);
+            if (manifest != null) {
+                foreach (var e in manifest.Render) {
+                    var go = new GameObject("render_" + e.Obj);
+                    go.transform.SetParent(render, false);
+                    go.AddComponent<MeshFilter>().sharedMesh = FleetGeometry.ToMesh(e.Mesh, e.Obj);
+                    go.AddComponent<MeshRenderer>().sharedMaterial = FleetGeometry.Material(FleetFrames.Rgb(e.Color ?? d.Color));
+                }
+                RenderSource = manifest.Path;
+            }
+            else {
+                foreach (var part in d.RenderPrimitives) FleetGeometry.Part(part, render);
+                RenderSource = "primitives";
+            }
+
+            // frames: wheels, docking faces (attachment points), sensors, CoM
+            var frames = new GameObject("frames").transform;
+            frames.SetParent(Root.transform, false);
+            foreach (var w in d.Wheels) AddFrame(frames, "wheel_" + w.Name, w.Axle);
+            foreach (var f in d.Faces) AddFrame(frames, "face_" + f.Name, f.Pose);
+            foreach (var s in d.Sensors) AddFrame(frames, "sensor_" + s.Id, s.Pose);
+            AddFrame(frames, "com", new FramePose(d.ComOffset[0], d.ComOffset[1], d.ComOffset[2]));
+
+            // plant and the rover's own sensors (independent seeded streams per rover)
+            Plant = new MecanumPlant(d.Geometry, PlantParams.From(spec, d, floor), FleetRng.For(seed, d.Id + "/slip"));
+            Encoders = new WheelEncoders(d.Geometry.CountsPerRev);
+            Gyro = new YawGyro(FleetRng.For(seed, d.Id + "/imu"), p["sensors.imu.gyro_noise_density"].Double,
+                p["sensors.imu.gyro_bias_instability"].Double, o["plant.imu_initial_bias_sigma"].Double);
+            imuEvery = Math.Max(1, (int)Math.Round(1.0 / (p["sensors.imu.rate_hz"].Double * dt)));
+            encEvery = Math.Max(1, (int)Math.Round(1.0 / (p["sensors.wheel_encoder.rate_hz"].Double * dt)));
+        }
+
+        void AddFrame(Transform parent, string name, FramePose pose) {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = FleetFrames.LocalPosition(pose);
+            go.transform.localRotation = FleetFrames.Local(pose);
+            Frames[name] = go.transform;
+        }
+
+        public RoverTruth Truth() {
+            var t = new RoverTruth();
+            FleetFrames.ToEnu(Body.position, out t.X, out t.Y, out t.Z);
+            FleetFrames.Attitude(Body.rotation, out t.Yaw, out t.Pitch, out t.Roll);
+            t.Body = FleetFrames.BodyTwist(Body);
+            Vector3 v = Body.linearVelocity;
+            t.Speed = Math.Sqrt(v.x * v.x + v.z * v.z);
+            return t;
+        }
+
+        /// <summary>Plant step with the current command; applies the planar force and yaw torque at the CoM.</summary>
+        public void ApplyPlant() {
+            Twist measured = FleetFrames.BodyTwist(Body);
+            Plant.Step(Command, measured, dt);
+            float m = Body.mass;
+            Body.AddRelativeForce(new Vector3((float)(-Plant.Ay * m), 0f, (float)(Plant.Ax * m)), ForceMode.Force);
+            Body.AddRelativeTorque(new Vector3(0f, (float)(-Plant.Alpha * Plant.P.Izz), 0f), ForceMode.Force);
+        }
+
+        /// <summary>Sensors after the physics step <paramref name="step"/> (0-based count of steps since t = 0).</summary>
+        public void Sense(long step) {
+            if (step % imuEvery == 0) {
+                double rate = Gyro.Sample(Truth().Body.Wz, imuEvery * dt);
+                Odometry?.IntegrateGyro(rate, imuEvery * dt);
+            }
+            if (step % encEvery == 0) {
+                Encoders.Sample(Plant.WheelAngle);
+                Odometry?.IntegrateEncoders(encEvery * dt);
+            }
+        }
+
+        public void StartOdometry() {
+            RoverTruth t = Truth();
+            Encoders.Sample(Plant.WheelAngle);
+            Odometry = new WheelOdometry(D.Geometry, Encoders, t.X, t.Y, t.Yaw);
+            Odometry.IntegrateEncoders(dt);  // absorb ticks accumulated during settling
+            Odometry.X = t.X; Odometry.Y = t.Y;
+        }
+    }
+}

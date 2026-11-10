@@ -1,0 +1,19 @@
+{
+    "name": "Crane.Fleet.Sim",
+    "rootNamespace": "Crane.Fleet.Sim",
+    "references": [
+        "Crane.Fleet.Core",
+        "PerformanceAssembly",
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.RenderPipelines.HighDefinition.Runtime"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -1,0 +1,19 @@
+{
+    "name": "Crane.Fleet.Editor",
+    "rootNamespace": "Crane.Fleet.EditorTools",
+    "references": [
+        "Crane.Fleet.Core",
+        "Crane.Fleet.Sim"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
