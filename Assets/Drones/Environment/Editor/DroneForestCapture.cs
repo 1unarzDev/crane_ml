@@ -15,6 +15,9 @@ namespace Crane.Drones.Environment.Editor
     {
         struct Shot { public string rig, preset, file; public bool dof, aerial; public float fov; public float focus; }
 
+        /// <summary>One Unity process: rebuild the forest (same args as BuildDroneForest.BuildFromCommandLine), then render all stills.</summary>
+        public static void BuildAndRun() { BuildDroneForest.BuildFromCommandLine(); Run(); }
+
         public static void Run()
         {
             var a = System.Environment.GetCommandLineArgs(); string scenePath = "Assets/Scenes/Drone Forest.unity", outDir = "Docs/DroneVisuals/environment"; int W = 1600, H = 900; string only = null;
@@ -32,6 +35,7 @@ namespace Crane.Drones.Environment.Editor
                 new Shot{ rig="CameraRig_Orbit_Target02", preset="Overcast", file="07_target2_overcast.png", fov=45, dof=true, focus=6.5f },
                 new Shot{ rig="CameraRig_Orbit_Target03", preset="GoldenHour", file="08_target3_golden.png", fov=45, dof=true, focus=6.5f },
                 new Shot{ rig="CameraRig_Aerial_Wide", preset="GoldenHour", file="09_aerial_wide_golden.png", fov=62, aerial=true },
+                new Shot{ rig="CameraRig_Aerial_Oblique", preset="GoldenHour", file="10_aerial_oblique_golden.png", fov=62, aerial=true },
             };
             // instant exposure adaptation for stills
             foreach (var v in UnityEngine.Object.FindObjectsByType<Volume>(FindObjectsSortMode.None))

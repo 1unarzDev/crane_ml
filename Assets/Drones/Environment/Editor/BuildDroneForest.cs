@@ -80,12 +80,42 @@ namespace Crane.Drones.Environment.Editor
         }
         static string Arg(string[] a, string k) { for (int i = 0; i < a.Length - 1; i++) if (a[i] == k) return a[i + 1]; return null; }
 
+        /// <summary>Headless ground-truth export: runs the same seeded layout, terrain height field, tree/mid-story/target placement and visibility checks as Build, but writes ONLY the manifest JSON.
+        /// It never saves the scene, lighting profiles, volumes or the seed's Generated folder (scratch assets go to a temporary folder that is deleted afterwards; the open scene is replaced in memory only).
+        ///   Unity -batchmode -nographics -quit -executeMethod Crane.Drones.Environment.Editor.BuildDroneForest.BuildManifestOnly -forestSeed N [-forestSpec path.json|asset] -out &lt;dir&gt;
+        /// Writes &lt;dir&gt;/forest_seed&lt;N&gt;_manifest.json (same content as the full build's manifest for that seed; "scene" is empty).</summary>
+        public static void BuildManifestOnly()
+        {
+            var args = System.Environment.GetCommandLineArgs(); string specPath = Arg(args, "-forestSpec"), seedS = Arg(args, "-forestSeed"), outDir = Arg(args, "-out");
+            if (string.IsNullOrEmpty(outDir) || string.IsNullOrEmpty(seedS)) throw new ArgumentException("BuildManifestOnly needs -forestSeed N and -out <dir>");
+            ForestSpec spec;
+            if (!string.IsNullOrEmpty(specPath) && specPath.EndsWith(".json")) spec = ForestSpec.FromJson(File.ReadAllText(specPath));
+            else if (!string.IsNullOrEmpty(specPath)) spec = UnityEngine.Object.Instantiate(AssetDatabase.LoadAssetAtPath<ForestSpec>(specPath));
+            else spec = UnityEngine.Object.Instantiate(AssetDatabase.LoadAssetAtPath<ForestSpec>(Root + "/Specs/ForestSpec_Default.asset")); // in-memory copy: the asset is never modified
+            if (spec == null) throw new InvalidOperationException("forest spec not found");
+            spec.seed = int.Parse(seedS);
+            string scratch = Root + "/Generated/_manifest_tmp_" + spec.seed + "_" + System.Diagnostics.Process.GetCurrentProcess().Id;
+            try
+            {
+                var c = new Ctx { spec = spec, rng = new System.Random(spec.seed) }; CurrentSeed = spec.seed; c.genDir = scratch; CurrentGenDir = scratch;
+                Directory.CreateDirectory(scratch); AssetDatabase.Refresh();
+                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                var root = new GameObject("DroneForest").transform;
+                ImportTextures(); var diff = MakeDiffusionProfile(c); MakeMaterials(c, diff);
+                Layout(c); BuildTerrain(c, root); PlaceTrees(c, root); PlaceUndergrowth(c, root); PlaceTargets(c, root); PlaceMidstory(c, root);
+                PostChecks(c);
+                WriteManifest(c, "", outDir);
+                Debug.Log("[DroneForest] manifest-only seed=" + spec.seed + " trees=" + c.trees.Count + " mid=" + c.mids.Count + " targets=" + c.targets.Count + " -> " + outDir);
+            }
+            finally { AssetDatabase.DeleteAsset(scratch); if (Directory.Exists(scratch)) Directory.Delete(scratch, true); AssetDatabase.Refresh(); }
+        }
+
         // ---------- main ----------
         public static void Build(ForestSpec spec, string scenePath)
         {
             var t0 = DateTime.Now;
             var c = new Ctx { spec = spec, rng = new System.Random(spec.seed) }; CurrentSeed = spec.seed;
-            c.genDir = Root + "/Generated/seed_" + spec.seed;
+            c.genDir = Root + "/Generated/seed_" + spec.seed; CurrentGenDir = c.genDir;
             if (AssetDatabase.IsValidFolder(c.genDir)) AssetDatabase.DeleteAsset(c.genDir);
             Directory.CreateDirectory(c.genDir); AssetDatabase.Refresh();
             ImportTextures();
@@ -181,6 +211,17 @@ namespace Crane.Drones.Environment.Editor
             EditorUtility.SetDirty(m); return m;
         }
 
+        /// <summary>Distant-forest proxy: unlit flat colour (no sun glare or specular on the far tiles; fog still applies).</summary>
+        static Material UnlitMat(string path, Color col)
+        {
+            AssetDatabase.DeleteAsset(path);
+            var m = new Material(Shader.Find("HDRP/Unlit")); m.name = Path.GetFileNameWithoutExtension(path);
+            m.SetColor("_UnlitColor", col); m.SetColor("_BaseColor", col); m.SetFloat("_CullMode", 0f); m.SetFloat("_DoubleSidedEnable", 1f);
+            AssetDatabase.CreateAsset(m, path);
+            try { UnityEditor.Rendering.HighDefinition.HDShaderUtils.ResetMaterialKeywords(m); } catch (Exception e) { Debug.LogWarning("UnlitMat: " + e.Message); }
+            EditorUtility.SetDirty(m); return m;
+        }
+
         static void MakeMaterials(Ctx c, DiffusionProfileSettings diff)
         {
             string d = c.genDir; string tex = d + "/Tex"; Directory.CreateDirectory(tex);
@@ -228,8 +269,9 @@ namespace Crane.Drones.Environment.Editor
             // distant-forest proxies (visual only)
             TexGen.GroundTile("canopyB", c.spec.seed + 41, out td, out tn); var cb = SavePng(td, tex + "/canopy_broad.png", false); var cbn = SavePng(tn, tex + "/canopy_broad_n.png", false, 1);
             TexGen.GroundTile("canopyC", c.spec.seed + 42, out td, out tn); var cc = SavePng(td, tex + "/canopy_conifer.png", false); var ccn = SavePng(tn, tex + "/canopy_conifer_n.png", false, 1);
-            c.farBroad = Mat(d + "/Far_Broadleaf.mat", cb, cbn, new Color(1.05f, 1.05f, 0.9f), 0.08f, 0.8f, false, true); c.farConifer = Mat(d + "/Far_Conifer.mat", cc, ccn, new Color(1f, 1f, 1f), 0.08f, 0.8f, false, true);
-            c.farGround = Mat(d + "/Far_Ground.mat", cb, cbn, new Color(0.8f, 0.85f, 0.75f), 0.05f, 0.8f, false, true);
+            c.farBroad = Mat(d + "/Far_Broadleaf.mat", null, null, new Color(0.17f, 0.27f, 0.09f), 0.0f, 0.5f, false, true); c.farConifer = Mat(d + "/Far_Conifer.mat", null, null, new Color(0.08f, 0.17f, 0.09f), 0.0f, 0.5f, false, true);
+            c.farBroad = UnlitMat(d + "/Far_Broadleaf.mat", new Color(0.20f, 0.30f, 0.11f)); c.farConifer = UnlitMat(d + "/Far_Conifer.mat", new Color(0.09f, 0.19f, 0.11f));
+            c.farGround = Mat(d + "/Far_Ground.mat", cb, cbn, new Color(0.62f, 0.70f, 0.50f), 0.02f, 0.8f, false, true);
             c.litter = Mat(d + "/Litter_Cards.mat", leafD, leafN, new Color(0.9f, 0.7f, 0.5f), 0.12f, 1f, false, true, null);
             c.rock = Mat(d + "/Rock.mat", rockD, rockN, new Color(0.7f, 0.7f, 0.68f), 0.18f, 1.2f);
             c.moss = Mat(d + "/Moss.mat", mudD, mudN, new Color(0.30f, 0.46f, 0.12f), 0.05f, 1.5f);
@@ -362,12 +404,12 @@ namespace Crane.Drones.Environment.Editor
         /// <summary>Darkened/tinted copy of a PolyHaven diffuse (the originals are very pale under bright light); saved next to the other generated textures.</summary>
         static Texture2D Tinted(string rel, string name, Color mul)
         {
-            string src = Root + "/Textures/PolyHaven/" + rel; string dst = Root + "/Generated/seed_" + CurrentSeed + "/Tex/" + name + ".png";
+            string src = Root + "/Textures/PolyHaven/" + rel; string dst = CurrentGenDir + "/Tex/" + name + ".png";
             var t = new Texture2D(2, 2, TextureFormat.RGBA32, false); t.LoadImage(File.ReadAllBytes(src)); var px = t.GetPixels32();
             for (int i = 0; i < px.Length; i++) px[i] = new Color32((byte)(px[i].r * mul.r), (byte)(px[i].g * mul.g), (byte)(px[i].b * mul.b), 255);
             t.SetPixels32(px); t.Apply(); return SavePng(t, dst, false);
         }
-        static int CurrentSeed;
+        static int CurrentSeed; static string CurrentGenDir;
 
         static Vector3 Normal(Ctx c, float x, float z)
         {
@@ -766,7 +808,7 @@ namespace Crane.Drones.Environment.Editor
             Func<float, float, MB> tileOf = (x, z) => { int tx = Mathf.FloorToInt((x + E + reach) / tileSz), tz = Mathf.FloorToInt((z + E + reach) / tileSz); int k = tz * tilesPerSide + tx; MB m; if (!tiles.TryGetValue(k, out m)) { m = new MB(3); tiles[k] = m; } return m; };
             for (int pass = 0; pass < 3; pass++)
             {
-                float cs = pass == 0 ? 6.0f : (pass == 1 ? 9.5f : 14f), d0 = pass == 0 ? 0f : (pass == 1 ? 150f : 400f), d1 = pass == 0 ? 150f : (pass == 1 ? 400f : reach), crScale = pass == 0 ? 1f : (pass == 1 ? 1.45f : 2.1f); float lim = E + reach;
+                float cs = pass == 0 ? 6.0f : (pass == 1 ? 9.5f : 14f), d0 = pass == 0 ? 0f : (pass == 1 ? 150f : 400f), d1 = pass == 0 ? 150f : (pass == 1 ? 400f : reach), crScale = pass == 0 ? 1f : (pass == 1 ? 1.2f : 1.6f); float lim = E + reach;
                 for (float gz = -lim; gz < lim; gz += cs) for (float gx = -lim; gx < lim; gx += cs)
                     {
                         float x = gx + Geo.R(rng, 0, cs), z = gz + Geo.R(rng, 0, cs); float d = dEdge(x, z); if (d < d0 + 1.5f * (pass == 0 ? 1 : 0) || d >= d1 || d <= 1.5f) continue;
@@ -791,7 +833,7 @@ namespace Crane.Drones.Environment.Editor
                         }
                         else
                         {
-                            float chh = (hgt - th) * 0.5f; Vector3 cc = new Vector3(x, y + th + chh, z); var ico = Geo.Icosphere(1); int i0 = mb.Count; float nph = Geo.R(rng, 0, 50);
+                            float chh = (hgt - th) * 0.4f; Vector3 cc = new Vector3(x, y + th + chh, z); var ico = Geo.Icosphere(1); int i0 = mb.Count; float nph = Geo.R(rng, 0, 50);
                             foreach (var dv in ico.Item1)
                             {
                                 float lump = 0.75f + 0.5f * Mathf.PerlinNoise(nph + dv.x * 2.2f + dv.z * 1.3f, nph + dv.y * 2.6f + dv.z * 0.9f); Vector3 pv = new Vector3(dv.x * cr * lump, dv.y * chh * lump, dv.z * cr * lump);
@@ -850,55 +892,46 @@ namespace Crane.Drones.Environment.Editor
             }
         }
 
-        /// <summary>World-space centroids of every alpha-cutout (foliage) triangle within radius of a point: all trees, saplings, legacy shrubs, mid-story, cover shrubs and ferns. Thinned to maxPts.</summary>
-        static List<Vector3> FoliagePoints(Vector3 around, float radius, int maxPts)
+        const int TempFoliageLayer = 31;
+        /// <summary>Temporary opaque MeshColliders (layer 31) copied from every alpha-cutout (foliage) renderer near a point: trees, saplings, legacy shrubs, mid-story, cover shrubs and ferns. Destroyed after camera picking; never saved, never in the manifest. Treats cards as opaque, so visibility is conservative.</summary>
+        static List<GameObject> TempFoliageColliders(Vector3 around, float radius)
         {
-            var pts = new List<Vector3>(); var cache = new Dictionary<Mesh, Dictionary<int, Vector3[]>>();
+            var list = new List<GameObject>();
             foreach (var mr in UnityEngine.Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None))
             {
-                if (mr.gameObject.layer == FarLayer) continue; var b = mr.bounds; if ((b.ClosestPoint(around) - around).sqrMagnitude > radius * radius) continue;
-                var mf = mr.GetComponent<MeshFilter>(); if (mf == null || mf.sharedMesh == null) continue; var mats = mr.sharedMaterials; var mesh = mf.sharedMesh;
-                for (int mi = 0; mi < mats.Length && mi < mesh.subMeshCount; mi++)
-                {
-                    var m = mats[mi]; if (m == null || !m.HasProperty("_AlphaCutoffEnable") || m.GetFloat("_AlphaCutoffEnable") < 0.5f || m.name.StartsWith("Understory_Grass")) continue;
-                    Dictionary<int, Vector3[]> per; if (!cache.TryGetValue(mesh, out per)) { per = new Dictionary<int, Vector3[]>(); cache[mesh] = per; }
-                    Vector3[] loc;
-                    if (!per.TryGetValue(mi, out loc))
-                    {
-                        var tr = mesh.GetTriangles(mi); var vv = mesh.vertices; loc = new Vector3[tr.Length / 3];
-                        for (int t = 0; t < loc.Length; t++) loc[t] = (vv[tr[t * 3]] + vv[tr[t * 3 + 1]] + vv[tr[t * 3 + 2]]) / 3f; per[mi] = loc;
-                    }
-                    var l2w = mr.transform.localToWorldMatrix;
-                    foreach (var q in loc) { var w = l2w.MultiplyPoint3x4(q); if ((w - around).sqrMagnitude <= radius * radius) pts.Add(w); }
-                }
+                if (mr.gameObject.layer == FarLayer || mr.gameObject.layer == TempFoliageLayer) continue; var b = mr.bounds; if ((b.ClosestPoint(around) - around).sqrMagnitude > radius * radius) continue;
+                var mf = mr.GetComponent<MeshFilter>(); if (mf == null || mf.sharedMesh == null) continue; var mats = mr.sharedMaterials; bool foliage = false;
+                for (int mi = 0; mi < mats.Length; mi++) { var m = mats[mi]; if (m != null && m.HasProperty("_AlphaCutoffEnable") && m.GetFloat("_AlphaCutoffEnable") > 0.5f && !m.name.StartsWith("Understory_Grass")) foliage = true; }
+                if (!foliage) continue;
+                var g = new GameObject("TempFoliageCollider"); g.layer = TempFoliageLayer; g.transform.SetPositionAndRotation(mr.transform.position, mr.transform.rotation); g.transform.localScale = mr.transform.lossyScale;
+                g.AddComponent<MeshCollider>().sharedMesh = mf.sharedMesh; list.Add(g);
             }
-            if (pts.Count > maxPts) { int stride = Mathf.CeilToInt(pts.Count / (float)maxPts); var th = new List<Vector3>(); for (int i = 0; i < pts.Count; i += stride) th.Add(pts[i]); pts = th; }
-            return pts;
+            Physics.SyncTransforms(); return list;
         }
 
-        /// <summary>Chooses a camera pose around a target: the body must be partially occluded by colliders and by ALL vegetation (foliage cards of trees, saplings, shrubs, mid-story, cover shrubs and ferns; 0.35-0.8 visible), the camera must not sit in or near geometry or leaf cards, and the target is centred.</summary>
+        /// <summary>Chooses a camera pose around a target: the body must be partially occluded by colliders and by ALL vegetation (foliage cards of trees, saplings, shrubs, mid-story, cover shrubs and ferns, tested as opaque; 0.3-0.8 visible), the camera must not sit in or near geometry or leaf cards, and the target centre must stay visible.</summary>
         static Vector3 PickOrbitCam(Ctx c, TargetRec t, out Vector3 look)
         {
             Physics.SyncTransforms(); var go = GameObject.Find(t.name); var mf = go.GetComponent<MeshFilter>().sharedMesh; var vs = mf.vertices; var r = new System.Random(c.spec.seed + 777 + t.id);
             var samples = new List<Vector3>(); for (int i = 0; i < 48; i++) samples.Add(go.transform.TransformPoint(vs[r.Next(vs.Length)]));
-            var foliage = FoliagePoints(go.transform.position + Vector3.up, 12f, 5000); float lineR = 0.3f + 0.1f * Mathf.Max(0f, Mathf.Log(Mathf.Max(1, foliage.Count) / 1500f + 1f, 2f));
-            Func<Vector3, Vector3, bool> soft = (a, b) => { Vector3 ab = b - a; float inv = 1f / Mathf.Max(1e-4f, ab.sqrMagnitude); float r2 = lineR * lineR; foreach (var pnt in foliage) { float tt = Mathf.Clamp01(Vector3.Dot(pnt - a, ab) * inv); if (tt > 0.97f) continue; if ((a + ab * tt - pnt).sqrMagnitude < r2) return true; } return false; };
-            Func<Vector3, bool> nearLeaf = cp => { foreach (var pnt in foliage) if ((pnt - cp).sqrMagnitude < 0.8f * 0.8f) return true; return false; };
+            var temps = TempFoliageColliders(go.transform.position + Vector3.up, 13f); int fmask = (1 << TempFoliageLayer) | (1 << EnvLayer);
             look = go.GetComponent<MeshRenderer>().bounds.center; Vector3 tp = t.pos; Vector3 back = (new Vector3(c.spawn.x, 0, c.spawn.y) - new Vector3(tp.x, 0, tp.z)).normalized; float baseAng = Mathf.Atan2(back.z, back.x);
             Vector3 best = tp + back * 5f + Vector3.up * 2f; float bestScore = -1e9f; int mask = 1 << EnvLayer; Vector3 bestSafe = best; float bestSafeScore = -1e9f;
-            foreach (float dist in new[] { 3.4f, 4.0f, 4.8f, 5.6f, 6.6f }) foreach (float hh in new[] { 1.3f, 1.9f, 2.5f, 3.1f }) for (int k = 0; k < 36; k++)
+            foreach (float dist in new[] { 3.0f, 3.6f, 4.2f, 5.0f, 5.8f, 6.8f }) foreach (float hh in new[] { 1.3f, 1.9f, 2.5f, 3.1f, 3.8f }) for (int k = 0; k < 36; k++)
                     {
                         float ang = k * 10f * Mathf.Deg2Rad; Vector3 cp = tp + new Vector3(Mathf.Cos(ang), 0, Mathf.Sin(ang)) * dist; cp.y = c.H(cp.x, cp.z) + hh;
                         if (Mathf.Abs(cp.x) > c.spec.areaSize * 0.5f - 3f || Mathf.Abs(cp.z) > c.spec.areaSize * 0.5f - 3f) continue;
-                        if (Physics.CheckSphere(cp, 0.7f, mask) || nearLeaf(cp)) continue;
-                        int vis = 0; foreach (var sp in samples) { RaycastHit hit; if (!Physics.Linecast(cp, sp + (cp - sp).normalized * 0.02f, out hit, mask) || hit.collider.transform == go.transform) { if (!soft(cp, sp)) vis++; } }
+                        if (Physics.CheckSphere(cp, 0.9f, fmask)) continue;
+                        RaycastHit h0; bool centreHidden = Physics.Linecast(cp, look, out h0, fmask) && h0.collider.transform != go.transform; // centre of the body should be visible (score penalty)
+                        int vis = 0; foreach (var sp in samples) { RaycastHit hit; if (!Physics.Linecast(cp, sp + (cp - sp).normalized * 0.02f, out hit, fmask) || hit.collider.transform == go.transform) vis++; }
                         float vf = vis / (float)samples.Count; float d = Mathf.Abs(Mathf.DeltaAngle(ang * Mathf.Rad2Deg, baseAng * Mathf.Rad2Deg)) / 180f;
-                        float score = -Mathf.Abs(vf - 0.6f) * 3f - d * 0.4f - Mathf.Abs(dist - 4.4f) * 0.05f - (soft(cp, look) ? 1.5f : 0f);
-                        if (vf >= 0.2f && score > bestSafeScore) { bestSafeScore = score; bestSafe = cp; }
-                        if (vf < 0.35f || vf > 0.85f) continue;
+                        float score = -Mathf.Abs(vf - 0.5f) * 3f - d * 0.4f - Mathf.Abs(dist - 4.2f) * 0.05f - (centreHidden ? 0.8f : 0f);
+                        if (vf >= 0.08f && score > bestSafeScore) { bestSafeScore = score; bestSafe = cp; }
+                        if (vf < 0.3f || vf > 0.8f) continue;
                         if (score > bestScore) { bestScore = score; best = cp; }
                     }
-            if (bestScore < -1e8f) { Debug.LogWarning("[DroneForest] orbit pose for " + t.name + ": no pose in the 0.35-0.85 window, using best clear pose"); best = bestSafe; }
+            foreach (var g in temps) UnityEngine.Object.DestroyImmediate(g);
+            if (bestScore < -1e8f) { Debug.LogWarning("[DroneForest] orbit pose for " + t.name + ": no pose in the 0.3-0.8 window, using best clear pose"); best = bestSafe; }
             return best;
         }
 
@@ -929,7 +962,7 @@ namespace Crane.Drones.Environment.Editor
 
         // ---------- manifest ----------
         static string V3(Vector3 v) { return string.Format(CI, "[{0:F3},{1:F3},{2:F3}]", v.x, v.y, v.z); }
-        static void WriteManifest(Ctx c, string scenePath)
+        static void WriteManifest(Ctx c, string scenePath, string outDir = null)
         {
             var s = c.spec; var sb = new StringBuilder();
             sb.Append("{\n\"schema\":\"crane.drone_forest.manifest/1\",\n\"seed\":" + s.seed + ",\n\"scene\":\"" + scenePath + "\",\n\"spec\":" + JsonUtility.ToJson(s) + ",\n");
@@ -945,7 +978,7 @@ namespace Crane.Drones.Environment.Editor
             sb.Append("\"midstory\":{\"note\":\"shrubs and young conifers 1.5-4 m, stems have MeshColliders on layer Environment; leaf/needle cards have none. segments are capsules [ax,ay,az,bx,by,bz,radius_m] (mid-height 0.3-5.5 m, radius>=4 mm); crown_radius_m is the visual foliage extent\",\"count\":" + c.mids.Count + ",\"items\":[\n" + string.Join(",\n", c.mids.Select(m => string.Format(CI, "{{\"id\":{0},\"kind\":\"{1}\",\"pos\":{2},\"yaw_deg\":{3:F1},\"scale\":{4:F3},\"height_m\":{5:F2},\"crown_radius_m\":{6:F2},\"segment_count\":{7},\"segments\":[{8}]}}", m.id, m.kind, V3(m.pos), m.yaw, m.scale, m.height, m.crownR, m.segCount, m.segs))) + "\n]},\n");
             sb.Append("\"targets\":[\n" + string.Join(",\n", c.targets.Select(t => string.Format(CI, "{{\"id\":{0},\"name\":\"{1}\",\"pose\":\"{2}\",\"pos\":{3},\"yaw_deg\":{4:F1},\"occlusion_param\":{5:F2},\"cover_sticks\":{6},\"cover_mounds\":{7},\"cover_ferns\":{8},\"cover_log\":{9},\"geometric_visible_fraction\":{10:F3},\"visible_fraction_note\":\"fraction of 480 view-ray/body-point pairs (viewpoints 5-14 m away, 1.5-3.5 m above ground) not blocked by colliders; foliage cards have no colliders\"}}", t.id, t.name, t.pose, V3(t.pos), t.yaw, t.occlusion, t.coverSticks, t.coverMounds, t.coverFerns, t.log ? "true" : "false", t.visibleFraction))) + "\n],\n");
             sb.Append("\"flight_band_branches\":{\"note\":\"capsule segments [ax,ay,az,bx,by,bz,radius_m] with mid-height 0.3-5.5 m above local ground and radius>=3 mm\",\"per_tree\":[\n" + string.Join(",\n", c.branchLines) + "\n]}\n}\n");
-            string mp = Root + "/Manifests/forest_seed" + s.seed + "_manifest.json"; Directory.CreateDirectory(Path.GetDirectoryName(mp)); File.WriteAllText(mp, sb.ToString());
+            string mp = (outDir ?? (Root + "/Manifests")) + "/forest_seed" + s.seed + "_manifest.json"; Directory.CreateDirectory(Path.GetDirectoryName(mp)); File.WriteAllText(mp, sb.ToString());
         }
     }
 }

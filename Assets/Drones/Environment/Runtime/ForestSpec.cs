@@ -50,13 +50,13 @@ namespace Crane.Drones.Environment
         [Tooltip("Fallen-branch scatter (no colliders, ground level) per hectare.")]
         public float fallenBranchPerHa = 420f;
         [Tooltip("Grass tufts per hectare in grass patches.")]
-        public float grassTuftsPerHa = 900f;
+        public float grassTuftsPerHa = 450f;
 
         [Header("Surrounding landscape (visual only)")]
         public bool surroundingLandscape = true;
         public float landscapeRadius = 3500f;
         [Tooltip("Distant low-LOD forest ring reaches this far beyond the patch edge (m).")]
-        public float distantForestReach = 420f;
+        public float distantForestReach = 800f;
 
         [Header("Ground layers")]
         [Range(0, 3)] public float undergrowthDensity = 1f;

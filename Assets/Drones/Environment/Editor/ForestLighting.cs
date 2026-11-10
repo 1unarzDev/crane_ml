@@ -72,9 +72,9 @@ namespace Crane.Drones.Environment.Editor
                 new PresetDef{ name="Overcast", sunEuler=new Vector3(52f,160f,0), sunLux=14000, sunKelvin=6800, shadowStrength=0.16f, volDimmer=0.35f, expComp=0.8f,
                     meanFreePath=100, aniso=0.2f, aerosol=0.35f, satSky=0.35f, cloudsPreset=2, fogAlbedo=new Color(0.78f,0.82f,0.84f), airTint=new Color(0.8f,0.85f,0.9f), filter=Color.white, haze=new Color(0.64f,0.68f,0.72f),
                     shadowTone=new Color(0.45f,0.55f,0.6f), highlightTone=new Color(0.8f,0.85f,0.85f), groundTint=new Color(0.15f,0.14f,0.12f), wbTemp=-4, wbTint=-3, saturation=-6, contrast=4 },
-                new PresetDef{ name="Dusk", sunEuler=new Vector3(4.5f,250f,0), sunLux=7000, sunKelvin=5600, shadowStrength=0.9f, volDimmer=0.8f, expComp=1.5f,
+                new PresetDef{ name="Dusk", sunEuler=new Vector3(4.5f,250f,0), sunLux=7000, sunKelvin=6600, shadowStrength=0.9f, volDimmer=0.8f, expComp=1.5f,
                     meanFreePath=55, aniso=0.62f, aerosol=0.10f, satSky=1f, cloudsPreset=1, fogAlbedo=new Color(0.62f,0.62f,0.72f), airTint=new Color(0.85f,0.85f,1f), filter=Color.white, haze=new Color(0.50f,0.50f,0.60f),
-                    shadowTone=new Color(0.3f,0.4f,0.7f), highlightTone=new Color(0.9f,0.65f,0.52f), groundTint=new Color(0.08f,0.07f,0.07f), wbTemp=-6, wbTint=3, saturation=0, contrast=8 },
+                    shadowTone=new Color(0.3f,0.4f,0.7f), highlightTone=new Color(0.86f,0.76f,0.7f), groundTint=new Color(0.08f,0.07f,0.07f), wbTemp=-14, wbTint=2, saturation=-8, contrast=8 },
             };
         }
 

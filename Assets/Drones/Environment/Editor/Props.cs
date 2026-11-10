@@ -105,11 +105,11 @@ namespace Crane.Drones.Environment.Editor
         /// <summary>Grass tuft: crossed vertical cards sampling the blade atlas, plus leaning outer cards.</summary>
         public static MB GrassTuft(System.Random rng, float size)
         {
-            var mb = new MB(1); int cards = rng.Next(5, 8);
+            var mb = new MB(1); int cards = rng.Next(3, 6);
             for (int i = 0; i < cards; i++)
             {
                 float yaw = (i + Geo.R(rng, -0.2f, 0.2f)) / cards * 3.1416f; Vector3 right = new Vector3(Mathf.Cos(yaw), 0, Mathf.Sin(yaw));
-                Vector3 c = new Vector3(Geo.R(rng, -0.12f, 0.12f), size * 0.4f, Geo.R(rng, -0.12f, 0.12f)); float w = size * Geo.R(rng, 0.8f, 1.2f), h = size * Geo.R(rng, 0.7f, 1f);
+                Vector3 c = new Vector3(Geo.R(rng, -0.12f, 0.12f), size * 0.4f, Geo.R(rng, -0.12f, 0.12f)); float w = size * Geo.R(rng, 0.55f, 0.95f), h = size * Geo.R(rng, 0.6f, 1.1f);
                 Vector3 up = Vector3.up + new Vector3(Geo.R(rng, -0.25f, 0.25f), 0, Geo.R(rng, -0.25f, 0.25f));
                 Geo.Card(mb, 0, c + Vector3.up * (h * 0.1f), right, up.normalized, w, h, Vector3.up);
             }

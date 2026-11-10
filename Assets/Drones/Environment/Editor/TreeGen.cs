@@ -280,13 +280,13 @@ namespace Crane.Drones.Environment.Editor
             if (sp.conifer)
             {
                 Vector3 side = Vector3.Cross(dir, Vector3.up); if (side.sqrMagnitude < 1e-3f) side = Vector3.right; side.Normalize();
-                Geo.Card(mb, 1, pos + dir * 0.2f * scale, dir, side, 0.7f * scale, 0.6f * scale, outN);
+                Geo.Card(mb, 1, pos + dir * 0.2f * scale, dir, side, 0.95f * scale, 0.8f * scale, outN);
                 return;
             }
-            int count = 4 + rng.Next(0, 3);
+            int count = 5 + rng.Next(0, 3);
             for (int k = 0; k < count; k++)
             {
-                float s = F(0.32f, 0.85f) * scale * (k == 0 ? 1.15f : 1f); float win = 0.65f, u0 = F(0f, 0.35f);
+                float s = F(0.5f, 1.1f) * scale * (k == 0 ? 1.15f : 1f); float win = 0.65f, u0 = F(0f, 0.35f);
                 Vector3 a = (Geo.RandUnit(rng) * 0.6f + Vector3.up * 0.4f).normalized; Vector3 r = Vector3.Cross(a, Vector3.up); if (r.sqrMagnitude < 0.01f) r = Vector3.right; r.Normalize();
                 Vector3 u = Vector3.Cross(r, a).normalized;
                 Vector3 off = Geo.RandUnit(rng) * (0.1f + 0.14f * scale) * (k == 0 ? 0f : 1f);

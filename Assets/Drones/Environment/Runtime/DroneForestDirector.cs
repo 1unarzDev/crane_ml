@@ -79,6 +79,7 @@ namespace Crane.Drones.Environment
         {
             var hd = cam.GetComponent<HDAdditionalCameraData>();
             if (hd == null) hd = cam.gameObject.AddComponent<HDAdditionalCameraData>();
+            cam.farClipPlane = Mathf.Max(cam.farClipPlane, 3600f); // covers the 3.5 km surrounding landscape
             hd.customRenderingSettings = true;
             Enable(hd, FrameSettingsField.SSGI);
             Enable(hd, FrameSettingsField.SSAO);
