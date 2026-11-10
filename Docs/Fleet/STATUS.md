@@ -292,3 +292,42 @@ verdict are reported next to it. The tables are produced by `Tools/Fleet/summari
   - box_long is 6 kg; the lifter's profile `lift_capacity` is 5 kg.
   - The combined CoM is ahead of the front axle.
   - The carry is kinematic, so lifter load and tipping are not simulated. These deliveries therefore assume a lifter that can hold 6 kg at the end of a 0.8 m box. That is a design question for the CAD/profile owners.
+
+### General wheel model and capplan module graphs (CRANE_MODULAR_PLAN P1 slice + M1 slice)
+
+| Item | Where | Evidence |
+|---|---|---|
+| `TractivePlant` (per-wheel tractive plant for N wheels of any kind; engine-free, Core). Wheel kinds: mecanum (roller axle (1, hand)/sqrt 2), conventional (anisotropic combined-slip friction ellipse), omni, caster (quasi-static, rolling resistance). Wheels are massless, and each wheel speed is solved from motor torque = r c F_a. Motor: lagged set-point, P loop clamped to tau_max. Health: dead_free (Coulomb back-drive), dead_locked (w = 0), weak(g) (tau and speed x g). Normal loads: minimum-norm static split with load transfer. Forces are linearly implicit (per-wheel Jacobian) and applied per wheel at the floor contact (`AddForceAtPosition`) | `Core/TractivePlant.cs` | T0 FIXTURE_VALIDATED: `Tools/Fleet/offline/tractive_t0` 10/10 (see below) |
+| `IWheelPlant`: one interface for the body-level `MecanumPlant` and the tractive plant. `RoverRig`, encoders, odometry, failure injection (`wheel_<name>:weak=0.4`), logging and jam detection work for any wheel array | `Core/Mecanum.cs`, `Sim/RoverRig.cs`, `Sim/FleetRun.cs` | LIVE_SIM_VALIDATED: the mecanum path is byte-identical (batch 1 vs 2, seed 1, 1423 rows) |
+| Module types from capplan: `ModuleDescription.Resolve`, from the type spec embedded in a `capplan.module_graph/v0`. Covers geometry, mass, wheels, decks, faces and sensor kinds, mapped to profile models by the overlay `module_sensor_models`. Inertia and CoM are derived from a uniform box (labelled). Exported registry: `Tools/Fleet/spec/module_types_v0.json` (`Tools/Fleet/capplan_types/export_types.py`, with the library sha256 and the type hashes) | `Core/ModuleDescription.cs` | FIXTURE_VALIDATED (EditMode `EveryProbeGraphTypeResolves`) |
+| Harness `config: {"graph": capplan.module_graph/v0, "origin": [x, y, yaw]}` with an open-loop probe mission (`crane.fleet_probe/v0`). Initial health comes from `act_health` / `act_gain`. Graphs with couplings are refused (`unsupported_configuration`: needs M2 group control), as are intermittent health and unembedded types | `Sim/ModuleProbeMission.cs`, `Sim/FleetHarness.cs` | LIVE_SIM_VALIDATED (editor, `Tools/Fleet/jobs/module_probe_v0.json`) |
+| Profile rovers on the tractive plant (overlay `plant.model = "tractive"`) | `RoverRig` | IMPLEMENTED, NOT_RUN (the default stays `mecanum_body`, the validated path) |
+| `fleet.sh request-run --config GRAPH.json` still writes a string config, which the harness now refuses with a message. Use a jobs file for module graphs | `Tools/Fleet/fleet.sh` | known gap |
+
+EditMode tests: 27/27 pass (23 earlier + 4 module tests: tractive-vs-profile kinematics, every probe type resolves, coupled graph refused,
+probe kinematic constraints).
+
+**Open-loop probe** (`~/.cache/crane-fleet/jobs/module_probe_v0/runs/probe_ol_s1/`; graph `Tools/Fleet/probes/probe_graph_v0.json` built by
+capplan's own `ModuleGraph`; segments: fwd 0.2 m/s 3 s, strafe 0.15 m/s 3 s, spin 1 rad/s 3 s, arc (0.15, 0, 0.5) 3 s; each value below is
+the truth displacement in the segment-start body frame):
+
+| Module | fwd (cmd 0.60 m) | strafe (cmd 0.45 m) | spin (cmd 3.0 rad) | Reading |
+|---|---|---|---|---|
+| diff_carrier ok | 0.582 m | 0.000 | 2.911 rad | no lateral motion; casters free |
+| diff_carrier, left drive dead_free | 0.174 m, y 0.19, yaw 1.67 rad | 0 | 1.458 rad | pivots about the free wheel |
+| lifter (mecanum) ok | 0.577 m | 0.435 m | 2.939 rad | tracks within ~4 % (motor lag) |
+| lifter, fl dead_locked | 0.345 m, yaw 0.53 rad | 0.276 m, x 0.18, yaw -0.40 | 2.099 rad | locked wheel drags and yaws |
+| mecanum_pod, fl dead_free | 0.538 m, yaw 0.12 | 0.403 m, yaw -0.10 | 2.851 rad | free wheel costs much less than locked |
+| sensor_mast (no wheels) | 0 | 0 | 0 | immobile; it needs carrying (coupling) |
+
+The encoder/gyro estimates match truth within about 1-2 cm here, because the slip noise is not in the tractive plant (a gap: the
+Gauss-Markov slip of the body plant is not ported). All parameters are ASSUMED (overlay `plant.tractive`, ranges from capplan/truth).
+**Not done:**
+- cross-validation against Gazebo (OL1-OL5) and the engine-free P2 reference;
+- coupled assemblies (M2);
+- sensors on modules beyond frames;
+- autonomy on module types.
+
+### Stills with the verdict-timing fix: `~/.cache/crane-fleet/stills/demo_seed1_v3/` (mission v2, seed 1, player built 06:50)
+`07_done` is rendered at `mission_succeeded + 0.3 s` (t 134.2 s), after the accepted host verdict at 133.9 s. It shows the payload delivered
+on the coupled pair in the delivery zone, with the scout watching. The h24 stills (`stills/demo_seed1/`) are unchanged.
