@@ -19,7 +19,7 @@ nothing here is measured on hardware.
   <tr>
     <td><img src="Docs/media/readme/fleet_warehouse_start.jpg" alt="Four rovers in a warehouse"><br><sub><b>Ground.</b> Four-rover mecanum fleet at the start of a warehouse mission.</sub></td>
     <td><img src="Docs/media/readme/fleet_dock_latched.jpg" alt="Docking hooks latched"><br><sub><b>Ground.</b> Rover-to-rover docking: hooks latched.</sub></td>
-    <td><img src="Docs/media/readme/fleet_payload_on_decks.jpg" alt="Payload across two coupled rovers"><br><sub><b>Ground.</b> Payload carried across two coupled decks.</sub></td>
+    <td><img src="Docs/media/readme/fleet_payload_on_decks.jpg" alt="Payload across two coupled rovers"><br><sub><b>Ground.</b> Payload supported across two coupled decks (deck carry; the earlier lifter step was kinematic).</sub></td>
   </tr>
   <tr>
     <td><img src="Docs/media/readme/forest_aerial_wide.jpg" alt="Procedural forest from the air"><br><sub><b>Aerial.</b> Procedural forest, wide aerial view.</sub></td>
