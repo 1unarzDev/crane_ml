@@ -1,0 +1,28 @@
++ date
+Mon Nov  9 11:21:16 PM CST 2026
++ python3 -u -m ForestSearch.deviation_comm b --episodes 100 --names ORACLE IMPLICIT HEALTH HYBRID_P DEV DEV_TASK DEV_INFO DEV_SD DEV_SD_B12 --only0 DEV_TASK DEV_INFO --out /home/lunarz/crane_ml/Docs/ResearchOrchestration/AGENT_HANDOFFS/deviation_comm_raw/dev_b.json
+[   183s] B R7a
+[   485s] B R7b
+[   703s] B R7c
+[  1126s] B R7d
++ date
+Mon Nov  9 11:40:03 PM CST 2026
++ python3 -u -m ForestSearch.deviation_comm a --episodes 100 --names ORACLE IMPLICIT DEV --out /home/lunarz/crane_ml/Docs/ResearchOrchestration/AGENT_HANDOFFS/deviation_comm_raw/dev_a.json
+[    30s] A 5x5|t0|lam1
+[    73s] A 5x5|t0|lam3
+[   115s] A 5x5|t1|lam1
+[   157s] A 5x5|t1|lam3
+[   194s] A 6x6|t0|lam1
+[   225s] A 6x6|t0|lam3
+[   268s] A 6x6|t1|lam1
+[   303s] A 6x6|t1|lam3
++ date
+Mon Nov  9 11:45:07 PM CST 2026
++ python3 -u -m ForestSearch.deviation_comm c --episodes 100 --links d0_loss0 --names IMPLICIT HEALTH HB_TO DEV DEV_SD DEV_SD_B12 --out /home/lunarz/crane_ml/Docs/ResearchOrchestration/AGENT_HANDOFFS/deviation_comm_raw/dev_c.json
+[    32s] C trans_m
+[    65s] C intermit
+[   104s] C total
+[   137s] C beacon_lost
+[   169s] C perm_late
++ date
+Mon Nov  9 11:47:57 PM CST 2026
