@@ -129,6 +129,8 @@ namespace Crane.Drones.Autonomy {
         public Vec3 Velocity, Acceleration;
         public double Yaw = double.NaN, YawRate;
         public string Source = "planner";
+        /// <summary>Hold the current position (PX4 Hold/Loiter semantics) instead of tracking Velocity.</summary>
+        public bool Hold;
         public long SensorAcqNs = -1;   // newest sensor acquisition that influenced it (for perception-to-command age)
     }
 
@@ -145,6 +147,11 @@ namespace Crane.Drones.Autonomy {
         public double Heading, Climb, VCmd, DFree, StopDist, TauAge, Progress;
         public Vec3 VelocityCmd;
         public string Note = "";
+        /// <summary>Heading change of the chosen primitive vs the current velocity [rad], committed arc [m] and the arc
+        /// [m] before which a stop along Path is validated (d_free - margin).</summary>
+        public double DHeading, CommitArc, SafeArc;
+        /// <summary>The validated path (local frame) and its cumulative arc length; null when no primitive was feasible.</summary>
+        public Vec3[] Path; public double[] PathArc;
     }
 
     // ------------------------------------------------------------------ module interfaces

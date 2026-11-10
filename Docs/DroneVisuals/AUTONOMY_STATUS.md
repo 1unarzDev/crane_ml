@@ -114,8 +114,9 @@ namespace `Crane.Drones.Autonomy`.
 | M3 | Map: sparse log-odds voxels, raycast clearing with conservative miss, window ESDF; prior from the manifest (stale/incomplete options) | IMPLEMENTED, FIXTURE_VALIDATED |
 | M4 | Local planning: MAP_RHP 3D primitives, NavPilot safety layer (p99 age plus simulated brake table), REACTIVE fallback, corridor route plus wavefront cost-to-go | IMPLEMENTED; closed loop validated in M5 |
 | M4b | Safety recovery: stall watchdog, brake-to-hover, "no safe maneuver" stop, recovery and replan after a near miss | IMPLEMENTED, FIXTURE_VALIDATED (arbiter test); exercised in every M5 run |
-| M5 | End-to-end validation, ≥ 20 DEV flights at 2–3 m/s, then a speed sweep | DONE in .NET (24 flights at 2.5 m/s: 22/24 success, 0 collisions; 84-flight sweep). Unity collider world LIVE_SIM_VALIDATED partial (7/7 at report time, batch still running) |
-| M6 | One rendered autonomous flight (onboard plus third-person stills) | PENDING (last step of the running Unity batch) |
+| M4c | Recursive feasibility, path-following brake, direction-dependent brake table (after the harness attribution) | IMPLEMENTED, FIXTURE_VALIDATED; flags default OFF pending the paired sweep (`recfeas_sweep*.json`) |
+| M5 | End-to-end validation, ≥ 20 DEV flights at 2–3 m/s, then a speed sweep | DONE. .NET: 22/24 at 2.5 m/s, 0 collisions, plus an 84-flight sweep. Unity: 21/24 at 2.5 m/s, 0 collisions, plus a 24-flight sweep at 4 and 6 m/s (LIVE_SIM_VALIDATED ≤ 4 m/s) |
+| M6 | One rendered autonomous flight (onboard plus third-person stills) | DONE (corridor_fwd, success, 3 still pairs) |
 | next | Reliable low speed → high-speed operation → two-drone missions (independent stacks, `ICommsLink` events) | planned |
 
 ## Implementation notes per milestone
@@ -225,6 +226,52 @@ Compute time is sampled per cycle from NavPilot's "nominal" tail (median 25 ms, 
 - **Belief near miss:** ESDF at the estimate below `r_body + 0.15` → recovery, at 0.4 x speed for 1 s with an immediate cost-to-go recompute.
 - Each action is recorded as an `autonomy_arbiter` event.
 
+### M4c Recursive feasibility and path-following brake: IMPLEMENTED, FIXTURE_VALIDATED; flags default OFF
+
+Why: the harness attribution (Docs/DroneVisuals/HARNESS.md, `brake_infeasible`, 9/11 of the ≥ 5 m/s collisions) found a gap.
+- The planner flipped from "a safe path exists" to "none" in one cycle, 0.25–0.56 s before contact.
+- The arbiter then braked **straight**, but the planner had validated **curved** paths.
+
+What changed in Core:
+1. **Recursive feasibility** (`RecursiveFeasibility`, FASTER-style). A primitive is feasible iff `d_free >= v_rule (tau_p99 + plan period) + D_turn(v_rule, dheading) + margin`.
+   - `d_free` is measured in known-free space only (unknown counts as blocked).
+   - The tube is widened by `Lateral(v, dheading)`.
+   - So the vehicle is committed until the next command can act, and from that commit point a full stop **along the same path** is guaranteed.
+   - The chosen path is stored in `PlanDecision.Path`/`PathArc`, together with `SafeArc = d_free - margin`.
+2. **Path-following fallback** (`BrakeAlongPath`). On a no-safe-maneuver decision or a stall-watchdog trip, the arbiter flies the last validated path (≤ 2 s old). It brakes along it until it stops before `SafeArc`, then latches a position hold (PX4 Hold semantics, `TrajectorySetpoint.Hold`).
+   - Velocity: tangent x `min(v0 - a t, sqrt(2 a (SafeArc - s)))`, using pure pursuit on a lookahead of one velocity-loop tau.
+   - Plus centripetal acceleration feed-forward `v^2 kappa` and bounded cross-track correction.
+   - `a = BrakeDecel = 7 m/s^2`. There is no tangential feed-forward, because it winds up the velocity integrator.
+   - If no recent path exists, it falls back to the straight brake.
+3. **Direction-dependent brake table** (`TurnBrakeTable`, `StopRule.SimulateTurnBrakeTable`). On the real plant and controller, from cruise at v, it flies the arbiter's actual path brake along the planner's own rollout of a primitive turning by dheading. It records D = stop arc and Lat = worst cross-track distance from the path.
+
+Brake table values (AOS7, default config):
+
+| v [m/s] | D at 0 / 30 / 60 / 90 deg [m] | Lat at 0 / 30 / 60 / 90 deg [m] |
+|---|---|---|
+| 2 | 0.96 / 0.93 / 0.83 / 0.69 | 0.00 / 0.10 / 0.24 / 0.34 |
+| 4 | 2.57 / 2.51 / 2.34 / 2.16 | 0.00 / 0.13 / 0.33 / 0.51 |
+| 6 | 5.04 / 4.88 / 4.61 / 4.42 | 0.00 / 0.20 / 0.42 / 0.60 |
+| 8 | 7.51 / 7.34 / 7.14 / 7.01 | 0.00 / 0.22 / 0.37 / 0.49 |
+
+The path brake's D is longer than the straight step brake's (6 m/s: 5.04 m vs 3.05 m). The new rule is therefore deliberately more conservative at speed.
+
+Tests: 14 in total, all passing in the .NET shim. They include:
+- the turn table (direction dependence, cache);
+- recursive feasibility (strictly fewer feasible primitives than legacy, with a stored path);
+- the path brake on the real plant along a 60-degree planner rollout from 6 m/s: worst deviation 0.50 m vs 0.86 m for the straight brake, inside the reserved band of 0.42 + 0.1 m, stopping before SafeArc and ending in a hold;
+- the closed-loop fixture with all three flags on.
+
+Smoke runs (.NET, NOT a sweep and selection-biased, because they are only the former collisions):
+- With the flags off, `cross_4` at 8 m/s reproduces the M5 sweep row exactly (collision at 5.6 s, `tree_590/seg394939`, 19/266 margin violations).
+- With all three flags on, **11/11 of the former ≥ 5 m/s collisions succeed** (min hard clearance 0.12–0.50 m, mean speed 4.2–5.5 m/s).
+
+Low-speed regressions (stuck rate) and the collision rate over all missions are UNKNOWN until the paired sweep runs:
+- `Tools/CraneHarness/specs/recfeas_sweep.json` vs `recfeas_sweep_legacy.json`;
+- 12 missions x 7 speeds x 2 seeds = 168 runs each.
+
+**The flags default OFF** so the queued harness batch keeps bit-identity with the M5 rows. Flip all three after the paired sweep confirms them.
+
 ## M5 End-to-end validation (2026-11-10)
 
 ### Setup
@@ -235,7 +282,7 @@ Compute time is sampled per cycle from NavPilot's "nominal" tail (median 25 ms, 
   - `cross_0..9`: seeded straight routes of at least 35 m between interior points, cutting through uncleared forest at 2.2 m AGL. These are the hard cases.
 - **Stack:** MAP_RHP, `PriorUse = route` (the prior is used only for the global cost-to-go), depth and LiDAR, nominal compute tail, calm wind.
 - **Success:** within 1.5 m (xy) of the goal.
-- **Collision:** ground-truth manifest clearance below the body radius (0.268 m, max rotor hub plus prop) against any capsule with r ≥ 1 cm. Thinner twigs count as twig contacts and are not terminal (as NavPilot).
+- **Collision:** ground-truth manifest clearance below the body radius (**0.2479 m** = rotor hub radius 0.1590 m (√2 x 0.11243 m) + prop radius 0.0889 m, computed by the stack from the AOS7 profile; an earlier draft of this doc said 0.268 m, which was a doc error, not a code value) against any capsule with r ≥ 1 cm. Thinner twigs count as twig contacts and are not terminal (as NavPilot).
 - **Stuck:** less than 1 m of along-route progress in 12 s.
 
 There are two harnesses with the same stack and missions:
@@ -256,37 +303,25 @@ Both failures are `stuck` (local minimum):
 
 Cause: the 0.5 m cost-to-go grid treats raw occupancy as blocked **without body inflation**. It routes through gaps narrower than the 0.84 m the vehicle needs, and the local planner then cannot follow. Fix (not applied, so results stay consistent): inflate or penalize cost-to-go cells by `r_body + 0.15`, and add a route-level escape (backtrack along the travelled path).
 
-**(B) Unity collider world (in progress at report time; partial):**
-
-At report time **7 of 24 flights were complete: 7/7 success, 0 collisions** (seed 1 corridor_fwd, corridor_rev, cross_0..4).
-
-Run status:
-- The batch (one `--render` invocation) is still running.
-- It continues with the remaining 17 flights at 2.5 m/s, then the sweep at 4 and 6 m/s (12 missions each), then M6.
-- Results append to `/tmp/autonomy_unity/m5/summary.jsonl`. Each run's log is in `/tmp/autonomy_unity/m5/auto_s1337_<mission>_map_rhp_v<v>_r<seed>/`.
-- Re-summarize with `python3 Assets/Scripts/Drones/Autonomy/Harness~/summarize.py /tmp/autonomy_unity/m5/summary.jsonl --runs`.
-
-The Unity world runs about 2.8x slower than real time (113–178 s of wall time per 40–57 s flight).
-
-`cross_k` in Unity is not necessarily the same route as `cross_k` in .NET. The start and goal acceptance test uses the terrain model: Unity terrain versus the interpolated one.
+**(B) Unity collider world: complete, 49 flights in one `--render` invocation** (24 at 2.5 m/s, a 12-mission sweep at 4 and 6 m/s with seed 1, and the M6 render flight):
 
 | VLimit | n | success | 95% CI | collisions | stuck/timeout | progress mean | min hard clearance (min / p10) [m] | twig contacts / run | mean speed [m/s] | age p50 / p99 / max [ms] | no-safe stops / run | watchdog / run | margin viol. [%] |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 2.5 | 8 | 8/8 | 0.68-1.00 | 0 | 0 | 1.00 | 0.21 / 0.24 | 0.1 | 2.18 | 99 / 138 / 212 | 4.2 | 0.8 | 0.01 |
+| 2.5 | 24 | 21/24 | 0.69-0.96 | 0 | 3 | 0.94 | 0.21 / 0.26 | 0.0 | 2.14 | 96 / 139 / 234 | 3.7 | 0.4 | 0.05 |
+| 4 | 12 | 11/12 | 0.65-0.99 | 0 | 1 | 0.99 | 0.01 / 0.18 | 0.5 | 3.13 | 99 / 140 / 212 | 5.9 | 0.8 | 0.14 |
+| 6 | 12 | 9/12 | 0.47-0.91 | 2 | 1 | 0.86 | -0.02 / -0.01 | 2.9 | 4.32 | 100 / 141 / 212 | 4.8 | 0.2 | 0.61 |
 
-| mission | v_lim | seed | outcome | time [s] | progress | min hard clr [m] | mean v | age p99 [ms] | no-safe | wd | recov | note |
-|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| corridor_fwd | 2.5 | 1 | success | 43.9 | 1.00 | 0.45 | 2.40 | 137 | 2 | 1 | 0 |  |
-| corridor_rev | 2.5 | 1 | success | 50.0 | 1.00 | 0.46 | 2.27 | 137 | 3 | 1 | 1 |  |
-| cross_0 | 2.5 | 1 | success | 57.0 | 1.00 | 0.26 | 1.88 | 137 | 4 | 1 | 2 |  |
-| cross_1 | 2.5 | 1 | success | 46.0 | 1.00 | 0.31 | 2.01 | 137 | 5 | 1 | 1 |  |
-| cross_2 | 2.5 | 1 | success | 52.4 | 1.00 | 0.36 | 2.18 | 137 | 7 | 1 | 1 |  |
-| cross_3 | 2.5 | 1 | success | 20.6 | 1.00 | 0.47 | 2.35 | 138 | 0 | 0 | 0 |  |
-| cross_4 | 2.5 | 1 | success | 41.9 | 1.00 | 0.21 | 1.96 | 138 | 11 | 1 | 3 |  |
-| cross_5 | 2.5 | 1 | success | 21.9 | 1.00 | 0.55 | 2.38 | 137 | 2 | 0 | 0 |  |
+- **2.5 m/s: 21/24 success, 0 collisions.** The 3 failures are all `stuck` (local minimum): `cross_9` with seeds 1 and 2, and `cross_6` with seed 2. This is the same failure class as in (A).
+- **4 m/s: 11/12, 0 collisions** (one stuck: `cross_7`). The minimum hard clearance fell to 0.01 m.
+- **6 m/s: 9/12, 2 collisions:**
+  - `cross_2` with `mid_437_young_conifer`;
+  - `cross_4` with `tree_758`.
+- The Unity and .NET worlds agree on the picture. Low speed is collision-free and limited by local minima; collisions begin at 5–6 m/s.
+- `cross_k` in Unity is not necessarily the same route as in .NET, because the start/goal acceptance uses the terrain model.
 
-Label: **LIVE_SIM_VALIDATED (partial, n = 7)** for low-speed flight in the Unity collider world.
+Logs: `/tmp/autonomy_unity/m5/auto_s1337_<mission>_map_rhp_v<v>_r<seed>/` (crane-drone-log/1) and `/tmp/autonomy_unity/m5/summary.jsonl`. These runs used the M5 stack, i.e. M4c off.
 
+Label: **LIVE_SIM_VALIDATED** for low-speed flight (≤ 4 m/s) in the Unity collider world on DEV forest 1337.
 
 ### Speed sweep (A, .NET manifest world, 12 missions x run seed 1 per speed)
 
@@ -320,25 +355,16 @@ The 2.5 m/s row is seed 1 only.
 **Conservative operating point for the shared infrastructure, on this forest: v_lim ≤ 4 m/s** (0/48 collisions, 95 % upper bound about 7.4 %).
 
 
-## M6 Rendered flight
+## M6 Rendered flight: DONE (LIVE_SIM_VALIDATED render; one flight)
 
-NOT YET PRODUCED at report time. The render pass is the **last** step of the running Unity batch.
+- Flight: `corridor_fwd` at 2.5 m/s, run seed 1, rendered in the same Unity batch. Outcome: **success**.
+- Hero AOS7 posed from the plant, with its colliders disabled.
+- Onboard OAK-D RGB through the onboard volume only (the leak check passed).
+- Third-person chase camera through the cinematic volume only.
+- Still pairs at t = 6, 18 and 32 s: `/tmp/autonomy_unity/m5/render_corridor_fwd/{onboard_rgb,third_person}_t{006.0,018.0,032.0}s.png`.
+- Log: `.../auto_s1337_corridor_fwd_map_rhp_v2.5_r1_render/`.
 
-What it renders:
-- the hero AOS7 quad posed from the plant, with its colliders disabled so it never blocks sensor rays;
-- the onboard OAK-D RGB through `RenderProfiles` onboard only (leak check enforced);
-- a third-person chase camera through the cinematic volume only;
-- still pairs at t = 6, 18 and 32 s of `corridor_fwd` at 2.5 m/s.
-
-Output path: `/tmp/autonomy_unity/m5/render_corridor_fwd/{onboard_rgb,third_person}_t*.png`. The run is also logged as `auto_s1337_corridor_fwd_map_rhp_v2.5_r1_render/`.
-
-If the batch is stopped first, run the render only (one invocation):
-
-```
-unity-drones --render LOG -executeMethod Crane.Drones.Autonomy.AutonomyBatchCli.Run --drone-seed 1337 \
-  --autonomy-out DIR --autonomy-render-only --autonomy-render-mission corridor_fwd --autonomy-render-speed 2.5
-```
-
+Observation: a propeller disk is visible at the top left of the onboard RGB frame. This needs checking against the real OAK-D mount and FOV; it may be a mount-pose issue in the prefab.
 
 ## Tests
 
@@ -369,6 +395,7 @@ Status:
 - **Terrain:** in the .NET world it is interpolated from manifest anchors. Branches above 5.5 m AGL and foliage are not in the manifest, so they are neither obstacles nor ground truth.
 - **Not exercised in M5:** `PriorUse = belief`, a stale or shifted prior, REACTIVE, and multi-drone (`ICommsLink` is only `LocalCommsBus`).
 - **Speed:** the Unity collider world runs about 2.6–2.9x slower than real time, and .NET about 1.5x.
+- `MissionResult` gained `PathBrakes`/`StraightBrakes` (M4c). With the flags off, simulation is unchanged, but a harness bit-identity check that compares *every* result field will see `StraightBrakes` > 0 in new rows.
 
 ## Next steps (ordered)
 

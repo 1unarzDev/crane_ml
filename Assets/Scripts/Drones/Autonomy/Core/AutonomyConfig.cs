@@ -58,6 +58,15 @@ namespace Crane.Drones.Autonomy {
         // ---- compute-time model (lognormal + Pareto stall; NavPilot LATENCY_TAILS "nominal")
         public double PlanMedianS = 0.025, PlanSigma = 0.25, PlanPStall = 0.003, PlanStallMinS = 0.04, PlanStallAlpha = 2.5;
         public double MapInsertMedianS = 0.010;
+        // ---- recursive feasibility and path-following brake (2026-11-10, after the harness attribution of >= 5 m/s collisions)
+        // DEFAULT OFF until the paired harness sweep (Tools/CraneHarness/specs/recfeas_sweep*.json) confirms them: the queued
+        // harness batch relies on bit-identity with the M5 rows. Enable all three together.
+        public bool RecursiveFeasibility = false;        // feasible iff d_free >= v (tau + plan period) + D_turn(v, dheading) + margin, lateral band added
+        public bool TurnBrakeTable = false;             // D_turn(v, dheading) and lateral excursion simulated on the real plant
+        public bool BrakeAlongPath = false;             // fallback brake follows the last validated path instead of braking straight
+        public double BrakeDecel = 7.0;                 // [m/s^2] commanded speed ramp of the path-following brake (controller MaxAccelXY 8)
+        public double PathTrackGain = 1.5, PathTrackMaxLat = 1.0;   // [1/s], [m/s] cross-track correction while braking along the path
+        public double SafePathMaxAgeS = 2.0;            // last validated path usable for this long
         // ---- arbiter / safety
         public double WatchdogS = 0.15;                 // no fresh planner command -> brake (NavPilot WD_S)
         public double EstimateStaleS = 0.10;            // estimator input age above this -> brake

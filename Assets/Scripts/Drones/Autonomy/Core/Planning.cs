@@ -39,6 +39,95 @@ namespace Crane.Drones.Autonomy {
 
         public double Dist(double v, double extraMargin = 0) => v * Tau + Brake(v) + Margin + extraMargin;
 
+        // ---- direction-dependent braking (turn table)
+        /// <summary>Heading changes [rad] of the turn table columns; null = no table (Brake(v) is used for every direction).</summary>
+        public double[] Thetas; public double[,] DTurn, LatTurn;
+
+        public void AttachTurnTable((double[] vs, double[] thetas, double[,] d, double[,] lat) t) {
+            if (t.vs.Length != Vs.Length) throw new ArgumentException("turn table speeds must match the straight brake table");
+            Thetas = t.thetas; DTurn = t.d; LatTurn = t.lat;
+        }
+
+        double Bilinear(double[,] tab, double v, double th) {
+            th = Math.Min(Math.Abs(th), Thetas[Thetas.Length - 1]);
+            int j = 0; while (j + 2 < Thetas.Length && th > Thetas[j + 1]) j++;
+            double u = (th - Thetas[j]) / (Thetas[j + 1] - Thetas[j]); u = Math.Max(0, Math.Min(1, u));
+            int n = Vs.Length; double vv = Math.Max(0, v);
+            int i = 0; while (i + 2 < n && vv > Vs[i + 1]) i++;
+            double w = (vv - Vs[i]) / (Vs[i + 1] - Vs[i]);   // linear extrapolation above the last speed
+            double a = tab[i, j] + w * (tab[i + 1, j] - tab[i, j]), b = tab[i, j + 1] + w * (tab[i + 1, j + 1] - tab[i, j + 1]);
+            return Math.Max(0, a + u * (b - a));
+        }
+
+        /// <summary>Path length to stop when the brake begins with a heading change dheading [rad] (turning brake); falls back to Brake(v).</summary>
+        public double BrakeTurn(double v, double dheading) => DTurn == null ? Brake(v) : Math.Max(Brake(v), Bilinear(DTurn, v, dheading));
+        /// <summary>Worst lateral excursion [m] of the real plant from the planner's first-order rollout during that manoeuvre (0 without a table).</summary>
+        public double Lateral(double v, double dheading) => LatTurn == null ? 0.0 : Bilinear(LatTurn, v, dheading);
+
+        private static readonly Dictionary<string, (double[] vs, double[] thetas, double[,] d, double[,] lat)> turnCache = new Dictionary<string, (double[], double[], double[,], double[,])>();
+
+        /// <summary>
+        /// Direction-dependent braking on the REAL plant and controller, using the SAME fallback the arbiter flies. From
+        /// steady cruise at v along +x, the planner's path for a primitive turning by theta is built with the planner's
+        /// first-order rollout (TrackTau, aMax, then straight); the arbiter immediately brakes ALONG that path
+        /// (SetpointArbiter path brake: pure pursuit, centripetal feed-forward, speed ramp BrakeDecel) and ends in a hold.
+        /// D = arc length along the path at which the vehicle stops; Lat = worst cross-track distance of the plant from the
+        /// path. Kinematic commands only; the controller's force conversion is untouched. Cached per config.
+        /// </summary>
+        public static (double[] vs, double[] thetas, double[,] d, double[,] lat) SimulateTurnBrakeTable(VehicleSpecV2 spec, AutonomyConfig cfg, double aMax,
+                double vmax = 12.0, double dv = 0.5, double[] thetasDeg = null) {
+            thetasDeg = thetasDeg ?? new[] { 0.0, 30.0, 60.0, 90.0 };
+            string key = $"{spec.GetHashCode()}|{spec.Mass}|{cfg.BrakeDecel}|{cfg.TrackTau}|{cfg.PathTrackGain}|{cfg.PathTrackMaxLat}|{aMax}|{vmax}|{dv}|{string.Join(",", thetasDeg)}";
+            lock (turnCache) if (turnCache.TryGetValue(key, out var hit)) return hit;
+            int n = (int)Math.Round(vmax / dv) + 1, m = thetasDeg.Length;
+            var vs = new double[n]; var th = new double[m]; var D = new double[n, m]; var L = new double[n, m];
+            for (int j = 0; j < m; j++) th[j] = thetasDeg[j] * Math.PI / 180;
+            var bc = cfg.Clone(); bc.BrakeAlongPath = true; bc.SafePathMaxAgeS = 10;
+            for (int k = 0; k < n; k++) {
+                double v0 = k * dv; vs[k] = v0; if (v0 <= 0) continue;
+                for (int j = 0; j < m; j++) {
+                    var plant = new CraneAerialPlantCore(spec, 1000.0, 500.0);
+                    var ctl = new CraneMultirotorController(spec, plant.ControlDt); plant.CommandSource = ctl;
+                    plant.Reset(CraneAerialPlantCore.HoverState(spec, new[] { 0.0, 0.0, 50.0 }, 0.0), 1); ctl.ResetIntegrators();
+                    ctl.SetVelocity(new[] { v0, 0.0, 0.0 }, 0.0);
+                    for (int i = 0; i < 600; i++) plant.Advance(0.005);
+                    var p0 = Vec3.FromArray(plant.State.P);
+                    // planner path: first-order rollout of the turning primitive, then straight (as PrimitivePlanner.BuildPath)
+                    var pts = new List<Vec3> { p0 }; var arcs = new List<double> { 0 };
+                    var cmd = new Vec3(v0 * Math.Cos(th[j]), v0 * Math.Sin(th[j]), 0); var u = new Vec3(v0, 0, 0); var q = p0; double arc = 0; Vec3 dir = new Vec3(1, 0, 0);
+                    for (int i = 0; i < 400 && arc < 40; i++) {
+                        var a = (cmd - u) * (1.0 / bc.TrackTau); double an = a.Norm; if (an > aMax) a = a * (aMax / an);
+                        u = u + a * 0.02; var dq = u * 0.02; q = q + dq; arc += dq.Norm; dir = dq.Normalized; pts.Add(q); arcs.Add(arc);
+                    }
+                    while (arc < 40) { q = q + dir * 0.25; arc += 0.25; pts.Add(q); arcs.Add(arc); }
+                    var P = pts.ToArray();
+                    var link = new InProcessControllerLink(ctl, () => plant.State.P);
+                    var arb = new SetpointArbiter(bc, link, NullRecorder.Instance);
+                    StateEstimate Est() { var s = plant.State; return new StateEstimate { P = Vec3.FromArray(s.P), V = Vec3.FromArray(s.V), Pose = Pose.FromQuat(Vec3.FromArray(s.P), s.Q) }; }
+                    arb.ApplyPlanner(0, new PlanDecision { FeasibleAny = true, VCmd = v0, Heading = th[j], VelocityCmd = cmd, Path = P, PathArc = arcs.ToArray(), SafeArc = 1e9 }, 0);
+                    arb.Tick(0, Est(), 0.005);
+                    arb.ApplyPlanner(0, new PlanDecision { FeasibleAny = false, Heading = th[j] }, 0);
+                    double lat = 0, sStop = 0; int seg = 0;
+                    for (long t = 0; t < 8_000_000_000L; t += 5_000_000) {
+                        arb.Tick(t, Est(), 0.005); plant.Advance(0.005);
+                        var pp = Vec3.FromArray(plant.State.P); double bestD = double.MaxValue;
+                        for (int qi = Math.Max(0, seg - 5); qi < Math.Min(P.Length - 1, seg + 80); qi++) {
+                            var ab = P[qi + 1] - P[qi]; double L2 = ab.X * ab.X + ab.Y * ab.Y; if (L2 < 1e-12) continue;
+                            double uu = Math.Max(0, Math.Min(1, ((pp.X - P[qi].X) * ab.X + (pp.Y - P[qi].Y) * ab.Y) / L2));
+                            double dx = pp.X - (P[qi].X + uu * ab.X), dy = pp.Y - (P[qi].Y + uu * ab.Y), dd = Math.Sqrt(dx * dx + dy * dy);
+                            if (dd < bestD) { bestD = dd; seg = qi; sStop = arcs[qi] + uu * (arcs[qi + 1] - arcs[qi]); }
+                        }
+                        lat = Math.Max(lat, bestD);
+                        var V = plant.State.V; if (t > 200_000_000 && Math.Sqrt(V[0] * V[0] + V[1] * V[1]) < 0.05 && link.Last != null && link.Last.Hold) break;
+                    }
+                    D[k, j] = sStop; L[k, j] = lat;
+                }
+            }
+            var r = (vs, th, D, L);
+            lock (turnCache) turnCache[key] = r;
+            return r;
+        }
+
         /// <summary>Brake table from the real plant: hover, track v along +x for 3 s, then command zero velocity; distance
         /// until |v| &lt; 0.05 m/s. Kinematic controller gains are used as-is (no force gain is touched).</summary>
         public static (double[] vs, double[] ds) SimulateBrakeTable(VehicleSpecV2 spec, double vmax = 12.0, double dv = 0.5) {
@@ -225,8 +314,10 @@ namespace Crane.Drones.Autonomy {
             var dec = new PlanDecision { TNs = tNs, Planner = Name, Candidates = nH * nC * nS };
             double bestScore = double.NegativeInfinity, bestFallback = double.NegativeInfinity;
             int feasCount = 0;
-            double bTh = gth, bClimb = 0, bV = 0, bD = 0, bG = 0, fTh = gth, fClimb = 0, fD = 0;
+            double bTh = gth, bClimb = 0, bV = 0, bD = 0, bG = 0, fTh = gth, fClimb = 0, fD = 0, bDh = 0, bNeed = 0; double bT = 2.0;
             const int steps = 60;
+            bool rec = c.RecursiveFeasibility;
+            double period = 1.0 / c.PlanRateHz, vNow = Math.Sqrt(v.X * v.X + v.Y * v.Y + v.Z * v.Z);
             for (int hi = 0; hi < nH; hi++) {
                 double th = gth - Math.PI + 2 * Math.PI * hi / nH;
                 for (int ci = 0; ci < nC; ci++) {
@@ -238,12 +329,17 @@ namespace Crane.Drones.Autonomy {
                         // altitude hold toward the route altitude on top of the primitive's climb (both kinematic, m/s)
                         cmd.Z = Math.Max(-1.5, Math.Min(1.5, cmd.Z + 0.8 * (zTarget - p.Z)));
                         double T = Math.Max(2.0, Math.Min(8.0, H / Math.Max(spd, 0.5))), dt = T / steps;
+                        double vRule = Math.Max(spd, vNow);
+                        double dHead = sp > 0.5 ? Math.Abs(Wrap(th - vth)) : 0.0;
+                        // recursive feasibility: the real plant may leave the first-order rollout by Lateral(v, dheading) while
+                        // turning/braking, so the swept tube is widened by that excursion (0 without a turn table)
+                        double rIP = rec ? rInfl + rule.Lateral(vRule, dHead) : rInfl;
                         var q = p; var u = v; double arc = 0, dfree = -1, sEvalArc = -1; Vec3 qEval = p; Vec3 last = p; Vec3 lastDir = cmd.Normalized;
                         for (int k = 0; k < steps; k++) {
                             var a = (cmd - u) * (1.0 / c.TrackTau); double an = a.Norm;
                             if (an > aMax) a = a * (aMax / an);
                             u = u + a * dt; var dq = u * dt; q = q + dq; arc += dq.Norm;
-                            if (dfree < 0 && Blocked(q, rInfl, startDist, arc < 0.6, startUnknown, zTarget, band)) dfree = Math.Max(0, arc - dq.Norm);
+                            if (dfree < 0 && Blocked(q, rIP, startDist, arc < 0.6, startUnknown, zTarget, band)) dfree = Math.Max(0, arc - dq.Norm);
                             if (sEvalArc < 0 && arc >= Math.Min(c.SEval, H)) { sEvalArc = arc; qEval = q; }
                             last = q; if (dq.Norm > 1e-6) lastDir = dq.Normalized;
                             if (arc >= H) break;
@@ -252,7 +348,7 @@ namespace Crane.Drones.Autonomy {
                             dfree = Math.Min(arc, H);
                             for (double e = 0.2; arc + e <= H + 1e-9; e += 0.2) {
                                 var qq = last + lastDir * e;
-                                if (Blocked(qq, rInfl, startDist, false, startUnknown, zTarget, band)) { dfree = arc + e - 0.2; break; }
+                                if (Blocked(qq, rIP, startDist, false, startUnknown, zTarget, band)) { dfree = arc + e - 0.2; break; }
                                 dfree = arc + e;
                             }
                             dfree = Math.Min(dfree, H);
@@ -265,19 +361,41 @@ namespace Crane.Drones.Autonomy {
                         double dv = Math.Abs(Wrap(th - vth));
                         double dzEnd = Math.Abs(last.Z - zTarget);
                         double score = spd * g + 0.15 * vCap * g - c.WTurn * dv * sp + c.WFree * Math.Min(dfree, H) / H - (reactive ? 0 : c.WAlt * dzEnd / 2.0);
-                        double vRule = Math.Max(spd, Math.Sqrt(v.X * v.X + v.Y * v.Y + v.Z * v.Z));
-                        bool feas = rule.Dist(vRule) <= dfree;
-                        if (feas) { feasCount++; if (score > bestScore) { bestScore = score; bTh = th; bClimb = climb; bV = spd; bD = dfree; bG = g; dec.VelocityCmd = cmd; } }
+                        // FASTER-style recursive feasibility: the vehicle is committed to this primitive until the next command can
+                        // take effect (age p99 + one planning period); from that commit point a full stop ALONG THE SAME PATH
+                        // (turning brake table) must end inside known-free, inflated space. Legacy rule: v tau + D(v) + margin.
+                        double need = rec ? vRule * (rule.Tau + period) + rule.BrakeTurn(vRule, dHead) + rule.Margin : rule.Dist(vRule);
+                        bool feas = need <= dfree;
+                        if (feas) { feasCount++; if (score > bestScore) { bestScore = score; bTh = th; bClimb = climb; bV = spd; bD = dfree; bG = g; dec.VelocityCmd = cmd; bDh = dHead; bNeed = need; bT = T; } }
                         double fb = Math.Min(dfree, 3.0) + 0.5 * g;
                         if (fb > bestFallback) { bestFallback = fb; fTh = th; fClimb = climb; fD = dfree; }
                     }
                 }
             }
             dec.FeasibleAny = feasCount > 0; dec.FeasibleCount = feasCount;
-            if (dec.FeasibleAny) { dec.Heading = bTh; dec.Climb = bClimb; dec.VCmd = bV; dec.DFree = bD; dec.Progress = bG; dec.StopDist = rule.Dist(Math.Max(bV, sp)); }
+            if (dec.FeasibleAny) {
+                dec.Heading = bTh; dec.Climb = bClimb; dec.VCmd = bV; dec.DFree = bD; dec.Progress = bG; dec.StopDist = rec ? bNeed : rule.Dist(Math.Max(bV, sp));
+                dec.DHeading = bDh; dec.CommitArc = Math.Max(bV, vNow) * (rule.Tau + period);
+                // the validated path (local frame): the fallback brake follows it and must stop before SafeArc
+                BuildPath(dec, p, v, dec.VelocityCmd, bT, steps, bD);
+                dec.SafeArc = Math.Max(0, bD - rule.Margin);
+            }
             else { dec.Heading = fTh; dec.Climb = fClimb; dec.VCmd = 0; dec.DFree = fD; dec.VelocityCmd = new Vec3(); dec.Note = "no_feasible_primitive"; }
             dec.TauAge = rule.Tau;
             return dec;
+        }
+
+        /// <summary>Samples of the chosen primitive (first-order rollout, then straight) up to arc length sMax.</summary>
+        void BuildPath(PlanDecision dec, Vec3 p, Vec3 v, Vec3 cmd, double T, int steps, double sMax) {
+            var pts = new List<Vec3> { p }; var arcs = new List<double> { 0 };
+            double dt = T / steps, arc = 0; var q = p; var u = v; Vec3 dir = cmd.Normalized;
+            for (int k = 0; k < steps && arc < sMax; k++) {
+                var a = (cmd - u) * (1.0 / c.TrackTau); double an = a.Norm; if (an > aMax) a = a * (aMax / an);
+                u = u + a * dt; var dq = u * dt; if (dq.Norm < 1e-9) continue;
+                q = q + dq; arc += dq.Norm; dir = dq.Normalized; pts.Add(q); arcs.Add(arc);
+            }
+            while (arc + 0.25 <= sMax) { q = q + dir * 0.25; arc += 0.25; pts.Add(q); arcs.Add(arc); }
+            dec.Path = pts.ToArray(); dec.PathArc = arcs.ToArray();
         }
 
         Vec3 Interp(Vec3 p, Vec3 v, Vec3 cmd, double sTarget, int steps, double T) {

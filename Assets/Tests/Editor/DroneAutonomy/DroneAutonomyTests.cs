@@ -118,7 +118,12 @@ namespace Crane.Drones.Autonomy.Tests {
         }
 
         [Test]
-        public void ClosedLoopMissionReachesGoalThroughTrunksWithoutCollision() {
+        public void ClosedLoopMissionReachesGoalThroughTrunksWithoutCollision() => FixtureMission(false);
+
+        [Test]
+        public void ClosedLoopMissionWithRecursiveFeasibilityAndPathBrake() => FixtureMission(true);
+
+        static void FixtureMission(bool recursive) {
             var caps = new List<(Vec3, Vec3, double)>();
             var rng = new Rng(5, 1);
             for (int i = 0; i < 14; i++) {
@@ -127,7 +132,8 @@ namespace Crane.Drones.Autonomy.Tests {
                 caps.Add((new Vec3(x, y, 0), new Vec3(x, y, 8), 0.12 + 0.15 * rng.Uniform()));
             }
             var w = ForestManifestWorld.FromCapsules(caps, 0.0, 40);
-            var c = new AutonomyConfig { VLimit = 2.0, RunSeed = 3, PriorUse = "none", LidarPointsPerS = 32000 };
+            var c = new AutonomyConfig { VLimit = 2.0, RunSeed = 3, PriorUse = "none", LidarPointsPerS = 32000,
+                RecursiveFeasibility = recursive, BrakeAlongPath = recursive, TurnBrakeTable = recursive };
             var spec = Spec();
             var bt = StopRule.SimulateBrakeTable(spec, 6.0, 0.5);
             var ms = new MissionSpec { Name = "fixture", Start = new Vec3(0, 0, 2.2), StartYaw = 0 };
@@ -183,6 +189,102 @@ namespace Crane.Drones.Autonomy.Tests {
             var d2 = pl.Plan(0, still, new Vec3(20, 0, 2), 1.0, map, router, new StopRule(bt.vs, bt.ds, 0.12, 0.5), 2.0);
             Assert.IsTrue(d2.FeasibleAny, "hovering, slow sideways/back primitives are feasible");
             Assert.Less(Math.Cos(d2.Heading), 0.9, "it does not choose to fly into the wall");
+        }
+
+        [Test]
+        public void TurnBrakeTableIsDirectionDependentAndCached() {
+            var spec = Spec();
+            var t = StopRule.SimulateTurnBrakeTable(spec, new AutonomyConfig(), 6.4, 8.0, 1.0);
+            int i6 = 6;   // 6 m/s
+            for (int i = 2; i < t.vs.Length; i++) Assert.Greater(t.d[i, 0], t.d[i - 1, 0], "straight stop distance grows with speed");
+            Assert.Greater(t.lat[i6, 3], t.lat[i6, 0] + 0.05, "braking along a 90 deg turn leaves the path by more than braking straight");
+            Assert.Greater(t.d[i6, 0], 2.0); Assert.Less(t.d[i6, 0], 8.0);
+            var bt = StopRule.SimulateBrakeTable(spec, 8.0, 1.0);
+            var r = new StopRule(bt.vs, bt.ds, 0.12, 0.5); r.AttachTurnTable(t);
+            Assert.GreaterOrEqual(r.BrakeTurn(6.0, 1.2), r.Brake(6.0));
+            Assert.AreEqual(t.lat[i6, 2], r.Lateral(6.0, Math.PI / 3), 1e-9);
+            var again = StopRule.SimulateTurnBrakeTable(spec, new AutonomyConfig(), 6.4, 8.0, 1.0);
+            Assert.IsTrue(ReferenceEquals(t.d, again.d), "cached");
+        }
+
+        [Test]
+        public void RecursiveFeasibilityIsStricterThanTheLegacyRuleAndStoresThePath() {
+            var w = Wall(7.0, 0.3); var spec = Spec();
+            int Feasible(bool recursive, out PlanDecision dec) {
+                var c = new AutonomyConfig { InvalidP = 0, DispSigmaPx = 0, Headings = 24, RecursiveFeasibility = recursive, BodyRadius = 0.2479 };
+                var map = new SparseVoxelMap(c); var cam = new DepthRaycastSensor(c, w, 1); var lidar = new LidarL2Sensor(c, w, 1, 0);
+                var body = Pose.FromYaw(new Vec3(0, 0, 2), 0);
+                for (int k = 0; k < 4; k++) { var f = cam.Tick(k * 70_000_000L, body, new Vec3(), new Vec3()); map.InsertDepth(f, DepthRaycastSensor.Compose(body, f.MountInBody), 0); }
+                LidarScan s = null; for (long t = 0; s == null; t += c.TickNs) s = lidar.Tick(t, c.TickNs, body);
+                map.InsertLidar(s, t => body, 0);
+                var win = new PlanningWindow(); win.Build(map, body.P, c.MapWindowXY, c.MapWindowZDown, c.MapWindowZUp);
+                var router = new CorridorRouter(c, new List<Vec3> { body.P, new Vec3(20, 0, 2) }, null) { Window = win };
+                var est = new StateEstimate { P = body.P, V = new Vec3(5, 0, 0), Pose = body };
+                router.Update(0, est, new MapAlignment(), map);
+                var bt = StopRule.SimulateBrakeTable(spec, 8.0, 1.0);
+                var rule = new StopRule(bt.vs, bt.ds, 0.12, 0.5);
+                if (recursive) rule.AttachTurnTable(StopRule.SimulateTurnBrakeTable(spec, c, 6.4, 8.0, 1.0));
+                var pl = new PrimitivePlanner(c, false, 6.4) { Window = win, Router = router };
+                dec = pl.Plan(0, est, new Vec3(20, 0, 2), 5.0, map, router, rule, 2.0);
+                return dec.FeasibleCount;
+            }
+            int legacy = Feasible(false, out _), recursive = Feasible(true, out var d);
+            Assert.Less(recursive, legacy, "commit (tau + period), turning brake and lateral band remove primitives");
+            if (d.FeasibleAny) {
+                Assert.NotNull(d.Path); Assert.AreEqual(d.Path.Length, d.PathArc.Length);
+                Assert.Greater(d.SafeArc, d.CommitArc);
+                Assert.GreaterOrEqual(d.DFree, d.StopDist);
+            }
+        }
+
+        static double DistToPolyline(Vec3[] P, Vec3 p) {
+            double best = double.MaxValue;
+            for (int i = 0; i + 1 < P.Length; i++) { var ab = P[i + 1] - P[i]; double u = Math.Max(0, Math.Min(1, (p - P[i]).Dot(ab) / ab.Dot(ab))); best = Math.Min(best, (p - (P[i] + ab * u)).NormXY); }
+            return best;
+        }
+
+        static (double dev, double speed, double overshoot) BrakeOnArc(bool alongPath, double v0 = 6.0, double turnDeg = 60.0) {
+            var spec = Spec();
+            var c = new AutonomyConfig { BrakeAlongPath = alongPath };
+            var plant = new CraneAerialPlantCore(spec, 1000.0, 500.0); var ctl = new CraneMultirotorController(spec, plant.ControlDt); plant.CommandSource = ctl;
+            plant.Reset(CraneAerialPlantCore.HoverState(spec, new[] { 0.0, 0.0, 50.0 }, 0.0), 1); ctl.ResetIntegrators();
+            ctl.SetVelocity(new[] { v0, 0.0, 0.0 }, 0.0);
+            for (int i = 0; i < 600; i++) plant.Advance(0.005);
+            var st = plant.State; var p0 = Vec3.FromArray(st.P);
+            // validated path = what the planner validates: first-order rollout (tau 0.33 s, |a| <= 6.4) of a primitive turning by
+            // turnDeg from the current velocity, then straight; a stop is validated before 9 m of arc
+            var pts = new List<Vec3> { p0 }; var arcs = new List<double> { 0 };
+            var cmd = new Vec3(v0 * Math.Cos(turnDeg * Math.PI / 180), v0 * Math.Sin(turnDeg * Math.PI / 180), 0); var u = new Vec3(v0, 0, 0); var q = p0; double arcS = 0;
+            for (int k = 0; k < 300 && arcS < 14; k++) {
+                var acc = (cmd - u) * (1 / 0.33); if (acc.Norm > 6.4) acc = acc * (6.4 / acc.Norm);
+                u = u + acc * 0.01; var dq = u * 0.01; q = q + dq; arcS += dq.Norm; pts.Add(q); arcs.Add(arcS);
+            }
+            var link = new InProcessControllerLink(ctl, () => plant.State.P); var arb = new SetpointArbiter(c, link, new MemoryRecorder());
+            StateEstimate Est() { var s = plant.State; return new StateEstimate { P = Vec3.FromArray(s.P), V = Vec3.FromArray(s.V), Pose = Pose.FromQuat(Vec3.FromArray(s.P), s.Q), InputAgeNs = 0 }; }
+            arb.ApplyPlanner(0, new PlanDecision { FeasibleAny = true, VCmd = v0, Heading = 0, VelocityCmd = new Vec3(v0, 0, 0), Path = pts.ToArray(), PathArc = arcs.ToArray(), SafeArc = 9.0 }, 0);
+            arb.Tick(0, Est(), 0.005);
+            arb.ApplyPlanner(5_000_000, new PlanDecision { FeasibleAny = false, Heading = 0 }, 0);
+            double dev = 0;
+            for (long t = 5_000_000; t < 4_000_000_000L; t += 5_000_000) {
+                arb.Tick(t, Est(), 0.005); plant.Advance(0.005);
+                dev = Math.Max(dev, DistToPolyline(pts.ToArray(), Vec3.FromArray(plant.State.P)));
+            }
+            var pf = Vec3.FromArray(plant.State.P);
+            double sEnd = 0, bd = double.MaxValue; for (int i = 0; i < pts.Count; i++) { double d = (pts[i] - pf).NormXY; if (d < bd) { bd = d; sEnd = arcs[i]; } }
+            return (dev, Vec3.FromArray(plant.State.V).Norm, sEnd - 9.0);
+        }
+
+        [Test]
+        public void FallbackBrakeFollowsTheValidatedPathOnTheRealPlant() {
+            var along = BrakeOnArc(true); var straight = BrakeOnArc(false);
+            Console.WriteLine($"along dev={along.dev:0.000} v={along.speed:0.000} over={along.overshoot:0.000}; straight dev={straight.dev:0.000} v={straight.speed:0.000}");
+            Assert.Less(along.speed, 0.1, "stopped");
+            var tt = StopRule.SimulateTurnBrakeTable(Spec(), new AutonomyConfig(), 6.4, 8.0, 1.0);
+            double reserved = tt.lat[6, 2];   // lateral band the planner reserves at 6 m/s, 60 deg
+            Console.WriteLine($"reserved lateral band {reserved:0.000} m");
+            Assert.Less(along.dev, reserved + 0.1, $"path-following brake stays inside the band the planner reserved (dev {along.dev:0.00} m)");
+            Assert.Less(along.overshoot, 0.1, "stops before the validated safe arc");
+            Assert.Less(along.dev, 0.6 * straight.dev, $"a straight brake leaves the arc further (dev {straight.dev:0.00} m)");
         }
 
         [Test]

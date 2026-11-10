@@ -23,6 +23,7 @@ namespace Crane.Drones.Autonomy {
         public int TwigContacts;
         public double CollisionSpeed; public string CollisionObject = ""; public double CollisionTimeS;
         public double AgeP50S, AgeP99S, AgeMaxS, ComputeP99S, TauFinalS;
+        public int PathBrakes, StraightBrakes;
         public int Cycles, DeadlineMisses, AgeGateMisses, WatchdogTrips, NoSafeStops, EstimateStops, Recoveries, MarginViolations, MarginTicks;
         public double FinalLocalErrorM, FinalGoalErrorM;
         public long DepthFrames, LidarScans, LidarPoints;
@@ -99,7 +100,9 @@ namespace Crane.Drones.Autonomy {
             double aMax = 0.8 * Math.Min(Ctl.G.MaxAccelXY, vehicle.Gravity * Math.Tan(Ctl.G.MaxTilt));
             Planner = new PrimitivePlanner(cfg, cfg.Planner == "reactive", aMax) { Window = Window, Router = Router };
             Rule = rule;
-            Link = new InProcessControllerLink(Ctl);
+            if (cfg.TurnBrakeTable && rule.DTurn == null && rule.Vs.Length >= 2)
+                rule.AttachTurnTable(StopRule.SimulateTurnBrakeTable(vehicle, cfg, aMax, rule.Vs[rule.Vs.Length - 1], rule.Vs[1] - rule.Vs[0]));
+            Link = new InProcessControllerLink(Ctl, () => Plant.State.P);
             Arbiter = new SetpointArbiter(cfg, Link, Rec);
             Depth = cfg.UseDepth ? new DepthRaycastSensor(cfg, sensorWorld, cfg.RunSeed, 0) : null;
             Lidar = cfg.UseLidar ? new LidarL2Sensor(cfg, sensorWorld, cfg.RunSeed) : null;
@@ -112,7 +115,12 @@ namespace Crane.Drones.Autonomy {
             Rec.Event(0, "autonomy_start", new Dictionary<string, object> {
                 ["mission"] = spec.Name, ["forest_seed"] = spec.ForestSeed, ["run_seed"] = (double)cfg.RunSeed, ["planner"] = Planner.Name, ["v_limit"] = cfg.VLimit,
                 ["body_radius_m"] = BodyRadius, ["route_length_m"] = Result.RouteLengthM, ["start"] = spec.Start.ToArray(), ["goal"] = spec.Goal.ToArray(),
-                ["brake_table_v"] = rule.Vs, ["brake_table_d"] = rule.Ds, ["config"] = cfg.Canonical(), ["prior"] = prior?.Describe ?? "none" });
+                ["brake_table_v"] = rule.Vs, ["brake_table_d"] = rule.Ds, ["turn_table_thetas"] = rule.Thetas, ["turn_table_d"] = Flatten(rule.DTurn), ["turn_table_lat"] = Flatten(rule.LatTurn), ["config"] = cfg.Canonical(), ["prior"] = prior?.Describe ?? "none" });
+        }
+
+        static double[] Flatten(double[,] a) {
+            if (a == null) return null; var o = new double[a.Length]; int k = 0;
+            foreach (var x in a) o[k++] = x; return o;
         }
 
         static Pose TruthPose(StateV2 s) => Pose.FromQuat(Vec3.FromArray(s.P), s.Q);
@@ -197,7 +205,7 @@ namespace Crane.Drones.Autonomy {
                     ["planner"] = dec.Planner, ["apply_ns"] = apply, ["feasible"] = dec.FeasibleCount, ["candidates"] = dec.Candidates, ["v_cmd"] = dec.VCmd,
                     ["heading"] = dec.Heading, ["climb"] = dec.Climb, ["d_free"] = dec.DFree, ["stop_dist"] = dec.StopDist, ["tau_age"] = dec.TauAge,
                     ["progress_g"] = dec.Progress, ["esdf_here"] = double.IsInfinity(beliefDist) ? -1 : beliefDist, ["est_p"] = est.P.ToArray(), ["z_target"] = zT,
-                    ["newest_acq_ns"] = newestAcqNs, ["compute_s"] = cS, ["note"] = dec.Note, ["recovery"] = Arbiter.InRecovery(t) });
+                    ["newest_acq_ns"] = newestAcqNs, ["compute_s"] = cS, ["dheading"] = dec.DHeading, ["commit_arc"] = dec.CommitArc, ["safe_arc"] = dec.SafeArc, ["note"] = dec.Note, ["recovery"] = Arbiter.InRecovery(t) });
         }
 
         /// <summary>Latest ground-truth hard clearance (body radius subtracted), refreshed every 4 ticks (ClearanceUpdated).</summary>
@@ -249,6 +257,7 @@ namespace Crane.Drones.Autonomy {
             r.MeanSpeed = speedN > 0 ? speedSum / speedN : 0;
             r.AgeP50S = Q(ages, 0.5); r.AgeP99S = Q(ages, 0.99); r.AgeMaxS = ages.Count > 0 ? Max(ages) : double.NaN; r.ComputeP99S = Q(comps, 0.99); r.TauFinalS = Rule.Tau;
             r.WatchdogTrips = Arbiter.WatchdogTrips; r.NoSafeStops = Arbiter.NoSafeStops; r.EstimateStops = Arbiter.EstimateStops; r.Recoveries = Arbiter.Recoveries;
+            r.PathBrakes = Arbiter.PathBrakes; r.StraightBrakes = Arbiter.StraightBrakes;
             r.FinalLocalErrorM = Estimator.LocalError.Norm;
             var p = Vec3.FromArray(Plant.State.P); r.FinalGoalErrorM = (p - Spec.Goal).NormXY;
             r.WallS = wall.Elapsed.TotalSeconds;

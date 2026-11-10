@@ -1,0 +1,40 @@
+{
+ "schema": "crane-experiment/1",
+ "split": "dev",
+ "forests": [
+  {
+   "seed": 1337,
+   "manifest": "Assets/Drones/Environment/Manifests/forest_seed1337_manifest.json"
+  }
+ ],
+ "missions": {
+  "cross": 10,
+  "corridor": true
+ },
+ "speeds": [
+  2,
+  2.5,
+  3,
+  4,
+  5,
+  6,
+  8
+ ],
+ "run_seeds": [
+  1,
+  2
+ ],
+ "planner": "map_rhp",
+ "wind": "calm",
+ "lighting": "GoldenHour",
+ "logs": "events",
+ "label_failures": true,
+ "bundle_failures": true,
+ "name": "recfeas_sweep",
+ "_note": "Lead (autonomy) 2026-11-10: re-run of the M5 speed sweep with recursive feasibility (commit tau_p99 + plan period, turning brake table, lateral band, known-free), the path-following fallback brake ending in a hold, and the direction-dependent brake table simulated on the real plant with that same brake. Pair with recfeas_sweep_legacy (same seeds/missions; pair_key is condition-independent). Primary: collision rate vs v_lim and min hard clearance; secondary: stuck/timeout rate and mean speed (the new rule is more conservative at speed: D_turn(6 m/s, 0 deg) = 5.0 m vs the straight step brake 3.05 m), no-safe stops, PathBrakes. 168 runs, ~1.5 h single-core.",
+ "config": {
+  "RecursiveFeasibility": true,
+  "BrakeAlongPath": true,
+  "TurnBrakeTable": true
+ }
+}

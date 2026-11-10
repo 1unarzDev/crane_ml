@@ -1,0 +1,40 @@
+{
+ "schema": "crane-experiment/1",
+ "split": "dev",
+ "forests": [
+  {
+   "seed": 1337,
+   "manifest": "Assets/Drones/Environment/Manifests/forest_seed1337_manifest.json"
+  }
+ ],
+ "missions": {
+  "cross": 10,
+  "corridor": true
+ },
+ "speeds": [
+  2,
+  2.5,
+  3,
+  4,
+  5,
+  6,
+  8
+ ],
+ "run_seeds": [
+  1,
+  2
+ ],
+ "planner": "map_rhp",
+ "wind": "calm",
+ "lighting": "GoldenHour",
+ "logs": "events",
+ "label_failures": true,
+ "bundle_failures": true,
+ "name": "recfeas_sweep_legacy",
+ "_note": "Paired control for recfeas_sweep: the M5 stack exactly (flags explicitly off; reproduces the lead's /tmp/ah_sw* rows for seed 1). 168 runs.",
+ "config": {
+  "RecursiveFeasibility": false,
+  "BrakeAlongPath": false,
+  "TurnBrakeTable": false
+ }
+}
