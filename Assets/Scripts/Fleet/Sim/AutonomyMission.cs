@@ -45,6 +45,7 @@ namespace Crane.Fleet.Sim {
         readonly List<object> beliefVsTruth = new List<object>();
         int disagreements;
         bool hostVerdictGiven;
+        double believedAt = double.NaN;
 
         sealed class Clock : IClock { public double Now { get; set; } }
 
@@ -227,16 +228,21 @@ namespace Crane.Fleet.Sim {
                 lastState[rec.Spec.Id] = rec.State;
             }
             if (fleet.Executive.BelievedComplete && !hostVerdictGiven) {
-                // host verdict (library contract): only the evaluator's truth delivery check makes the mission a success
-                hostVerdictGiven = true;
+                // host verdict (library contract): only the evaluator's truth delivery check makes the mission a success.
+                // "At rest" is part of the check, so wait (up to 3 s) for the payload to settle after the last motion.
+                if (double.IsNaN(believedAt)) believedAt = r.T;
                 var pt = PayloadTruth();
-                bool ok = pt == null || (bool)pt["delivered"];
-                string reason = pt == null ? "no payload" : $"payload {pt["state"]} at ({pt["x"]:0.00}, {pt["y"]:0.00}), in delivery zone {pt["in_delivery_zone"]}";
-                fleet.Executive.ConfirmByHost(ok, reason);
-                results["host_verdict"] = new Dictionary<string, object> { ["t"] = r.T, ["ok"] = ok, ["reason"] = reason };
-                run.Event("host_verdict", "", new Dictionary<string, object> { ["ok"] = ok, ["reason"] = reason });
+                bool settled = pt == null || (double)pt["speed"] < 0.01 && (string)pt["state"] != "carried";
+                if (settled || r.T - believedAt > 3.0) {
+                    hostVerdictGiven = true;
+                    bool ok = pt == null || (bool)pt["delivered"];
+                    string reason = pt == null ? "no payload" : $"payload {pt["state"]} at ({pt["x"]:0.00}, {pt["y"]:0.00}), in delivery zone {pt["in_delivery_zone"]}, speed {pt["speed"]:0.000} m/s, judged {r.T - believedAt:0.00} s after believed-complete";
+                    fleet.Executive.ConfirmByHost(ok, reason);
+                    results["host_verdict"] = new Dictionary<string, object> { ["t"] = r.T, ["ok"] = ok, ["reason"] = reason };
+                    run.Event("host_verdict", "", new Dictionary<string, object> { ["ok"] = ok, ["reason"] = reason });
+                }
             }
-            if (fleet.Executive.Done && double.IsNaN(doneAt)) {
+            if (fleet.Executive.Done && double.IsNaN(doneAt) && (hostVerdictGiven || !fleet.Executive.BelievedComplete)) {
                 doneAt = r.T;
                 run.Event(fleet.Executive.Succeeded ? "mission_succeeded" : "mission_failed", "", new Dictionary<string, object> {
                     ["first_failure_class"] = fleet.Executive.FirstFailureClass.ToString(), ["first_failure"] = fleet.Executive.FirstFailure });
@@ -346,7 +352,7 @@ namespace Crane.Fleet.Sim {
                     truthSays = $"{r.D.Id} truth ({tr.X:0.00}, {tr.Y:0.00}) is {d:0.00} m from the goal ({g[0]:0.00}, {g[1]:0.00})" + (run.IsJammed(r) ? ", jammed" : "");
                     if (type == "transport" && t.Has("payload")) {
                         var p = PayloadTruth();
-                        bool del = p != null && (bool)p["delivered"];
+                        bool del = p != null && (bool)p["in_delivery_zone"] && (string)p["state"] == "on_decks";   // at rest is checked by the host verdict
                         agree &= del;
                         truthSays += $"; payload {p?["state"]} at ({p?["x"]:0.00}, {p?["y"]:0.00}), delivered={del}";
                     }
