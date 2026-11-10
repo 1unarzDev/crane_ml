@@ -1,0 +1,1363 @@
+{
+ "schema": "crane.fleet_scene_catalog/v1",
+ "note": "The unit catalogue: which capplan module graphs scenes may put in a fleet, with their resolved capability summary.",
+ "capplan_root": "/home/lunarz/crane_ml/Tools/Fleet",
+ "units": {
+  "carrier": {
+   "config_hash": "d0b9ad389bac696b",
+   "mobility_class": "omnidirectional",
+   "lateral": true,
+   "vmax": {
+    "fwd": 0.5,
+    "back": 0.5,
+    "left": 0.5,
+    "right": 0.5,
+    "ccw": 1.5,
+    "cw": 1.5
+   },
+   "min_width": 0.4,
+   "payloads": [
+    "box_small"
+   ],
+   "tools": [],
+   "mass": 6.8,
+   "n_modules": 1,
+   "modules": [
+    {
+     "id": "m0",
+     "type": "carrier",
+     "x": 0.0,
+     "y": 0.0,
+     "yaw": 0.0,
+     "size": [
+      0.42,
+      0.4
+     ],
+     "height": 0.14,
+     "faces": {
+      "front": {
+       "x": 0.21,
+       "y": 0.0,
+       "yaw": 0.0,
+       "type": "A",
+       "approach_len": 0.1,
+       "free": true
+      },
+      "rear": {
+       "x": -0.21,
+       "y": 0.0,
+       "yaw": 3.1416,
+       "type": "B",
+       "approach_len": 0.1,
+       "free": true
+      },
+      "left": {
+       "x": 0.0,
+       "y": 0.2,
+       "yaw": 1.5708,
+       "type": "A",
+       "approach_len": 0.1,
+       "free": true
+      },
+      "right": {
+       "x": 0.0,
+       "y": -0.2,
+       "yaw": -1.5708,
+       "type": "B",
+       "approach_len": 0.1,
+       "free": true
+      }
+     },
+     "camera": [
+      0.15,
+      70.0,
+      4.0
+     ]
+    }
+   ],
+   "couplings": [],
+   "half_extent": [
+    0.21,
+    0.2
+   ],
+   "aabb": [
+    -0.21,
+    -0.2,
+    0.21,
+    0.2
+   ],
+   "circumradius": 0.29,
+   "descriptor_version": "capability_descriptor_v0@c31d61aeee5e",
+   "key": "carrier",
+   "ref": {
+    "manifest": "train_v1",
+    "config_hash": "d0b9ad389bac696b"
+   },
+   "provenance": {
+    "manifest_hash": "70109eebdf8d5ccd",
+    "split": "train"
+   },
+   "crane_role": "cargo",
+   "health_variants": {
+    "fl_dead_locked": {
+     "config_hash": "2a4972fb737d01bc",
+     "mobility_class": "differential_like",
+     "lateral": false,
+     "vmax": {
+      "fwd": 0.0,
+      "back": 0.0,
+      "left": 0.0,
+      "right": 0.0,
+      "ccw": 0.0,
+      "cw": 0.0
+     },
+     "min_width": 0.4,
+     "payloads": [
+      "box_small"
+     ]
+    },
+    "fl_dead_free": {
+     "config_hash": "6c1c8fea123aedff",
+     "mobility_class": "omnidirectional",
+     "lateral": true,
+     "vmax": {
+      "fwd": 0.5,
+      "back": 0.5,
+      "left": 0.5,
+      "right": 0.5,
+      "ccw": 1.5,
+      "cw": 1.5
+     },
+     "min_width": 0.4,
+     "payloads": [
+      "box_small"
+     ]
+    },
+    "fl_weak": {
+     "config_hash": "9bbf468e0569234a",
+     "mobility_class": "omnidirectional",
+     "lateral": true,
+     "vmax": {
+      "fwd": 0.291,
+      "back": 0.291,
+      "left": 0.291,
+      "right": 0.291,
+      "ccw": 0.9238,
+      "cw": 0.9238
+     },
+     "min_width": 0.4,
+     "payloads": [
+      "box_small"
+     ]
+    },
+    "all_weak": {
+     "config_hash": "e3f26e4e2ee1afc4",
+     "mobility_class": "omnidirectional",
+     "lateral": true,
+     "vmax": {
+      "fwd": 0.291,
+      "back": 0.291,
+      "left": 0.291,
+      "right": 0.291,
+      "ccw": 0.9238,
+      "cw": 0.9238
+     },
+     "min_width": 0.4,
+     "payloads": [
+      "box_small"
+     ]
+    }
+   }
+  },
+  "carrier_v3": {
+   "config_hash": "f39a546b111760ea",
+   "mobility_class": "omnidirectional",
+   "lateral": true,
+   "vmax": {
+    "fwd": 0.5,
+    "back": 0.5,
+    "left": 0.5,
+    "right": 0.5,
+    "ccw": 1.5,
+    "cw": 1.5
+   },
+   "min_width": 0.439,
+   "payloads": [
+    "box_small"
+   ],
+   "tools": [],
+   "mass": 8.11,
+   "n_modules": 1,
+   "modules": [
+    {
+     "id": "m0",
+     "type": "carrier.v3",
+     "x": 0.0,
+     "y": 0.0,
+     "yaw": 0.0,
+     "size": [
+      0.439,
+      0.4418
+     ],
+     "height": 0.14,
+     "faces": {
+      "front": {
+       "x": 0.2195,
+       "y": 0.0,
+       "yaw": 0.0,
+       "type": "A",
+       "approach_len": 0.1,
+       "free": true
+      },
+      "rear": {
+       "x": -0.2195,
+       "y": 0.0,
+       "yaw": 3.1416,
+       "type": "B",
+       "approach_len": 0.1,
+       "free": true
+      },
+      "left": {
+       "x": 0.0,
+       "y": 0.2209,
+       "yaw": 1.5708,
+       "type": "A",
+       "approach_len": 0.1,
+       "free": true
+      },
+      "right": {
+       "x": 0.0,
+       "y": -0.2209,
+       "yaw": -1.5708,
+       "type": "B",
+       "approach_len": 0.1,
+       "free": true
+      }
+     },
+     "camera": [
+      0.15,
+      70.0,
+      4.0
+     ]
+    }
+   ],
+   "couplings": [],
+   "half_extent": [
+    0.2195,
+    0.2209
+   ],
+   "aabb": [
+    -0.2195,
+    -0.2209,
+    0.2195,
+    0.2209
+   ],
+   "circumradius": 0.3114,
+   "descriptor_version": "capability_descriptor_v0@c31d61aeee5e",
+   "key": "carrier_v3",
+   "ref": {
+    "manifest": "train_v1",
+    "config_hash": "f39a546b111760ea"
+   },
+   "provenance": {
+    "manifest_hash": "70109eebdf8d5ccd",
+    "split": "train"
+   },
+   "crane_role": null,
+   "health_variants": {
+    "fl_dead_locked": {
+     "config_hash": "84e5e8467b6b3ec0",
+     "mobility_class": "differential_like",
+     "lateral": false,
+     "vmax": {
+      "fwd": 0.0,
+      "back": 0.0,
+      "left": 0.0,
+      "right": 0.0,
+      "ccw": 0.0,
+      "cw": 0.0
+     },
+     "min_width": 0.439,
+     "payloads": [
+      "box_small"
+     ]
+    },
+    "fl_dead_free": {
+     "config_hash": "923965bcd629b998",
+     "mobility_class": "omnidirectional",
+     "lateral": true,
+     "vmax": {
+      "fwd": 0.5,
+      "back": 0.5,
+      "left": 0.5,
+      "right": 0.5,
+      "ccw": 1.5,
+      "cw": 1.5
+     },
+     "min_width": 0.439,
+     "payloads": [
+      "box_small"
+     ]
+    },
+    "fl_weak": {
+     "config_hash": "298dd6d90462d66d",
+     "mobility_class": "omnidirectional",
+     "lateral": true,
+     "vmax": {
+      "fwd": 0.3479,
+      "back": 0.3479,
+      "left": 0.3479,
+      "right": 0.3479,
+      "ccw": 1.0245,
+      "cw": 1.0245
+     },
+     "min_width": 0.439,
+     "payloads": [
+      "box_small"
+     ]
+    },
+    "all_weak": {
+     "config_hash": "b6d7d73f2069f005",
+     "mobility_class": "omnidirectional",
+     "lateral": true,
+     "vmax": {
+      "fwd": 0.3479,
+      "back": 0.3479,
+      "left": 0.3479,
+      "right": 0.3479,
+      "ccw": 1.0245,
+      "cw": 1.0245
+     },
+     "min_width": 0.439,
+     "payloads": [
+      "box_small"
+     ]
+    }
+   }
+  },
+  "diff_carrier": {
+   "config_hash": "dd124db40db92d29",
+   "mobility_class": "differential_like",
+   "lateral": false,
+   "vmax": {
+    "fwd": 0.5,
+    "back": 0.5,
+    "left": 0.0,
+    "right": 0.0,
+    "ccw": 1.5,
+    "cw": 1.5
+   },
+   "min_width": 0.388,
+   "payloads": [
+    "box_small"
+   ],
+   "tools": [],
+   "mass": 5.22,
+   "n_modules": 1,
+   "modules": [
+    {
+     "id": "m0",
+     "type": "diff_carrier.v1",
+     "x": 0.0,
+     "y": 0.0,
+     "yaw": 0.0,
+     "size": [
+      0.3998,
+      0.388
+     ],
+     "height": 0.14,
+     "faces": {
+      "front": {
+       "x": 0.1999,
+       "y": 0.0,
+       "yaw": 0.0,
+       "type": "A",
+       "approach_len": 0.1,
+       "free": true
+      },
+      "rear": {
+       "x": -0.1999,
+       "y": 0.0,
+       "yaw": 3.1416,
+       "type": "B",
+       "approach_len": 0.1,
+       "free": true
+      },
+      "left": {
+       "x": 0.0,
+       "y": 0.194,
+       "yaw": 1.5708,
+       "type": "A",
+       "approach_len": 0.1,
+       "free": true
+      },
+      "right": {
+       "x": 0.0,
+       "y": -0.194,
+       "yaw": -1.5708,
+       "type": "B",
+       "approach_len": 0.1,
+       "free": true
+      }
+     },
+     "camera": [
+      0.15,
+      70.0,
+      3.0
+     ]
+    }
+   ],
+   "couplings": [],
+   "half_extent": [
+    0.1999,
+    0.194
+   ],
+   "aabb": [
+    -0.1999,
+    -0.194,
+    0.1999,
+    0.194
+   ],
+   "circumradius": 0.2786,
+   "descriptor_version": "capability_descriptor_v0@c31d61aeee5e",
+   "key": "diff_carrier",
+   "ref": {
+    "manifest": "train_v1",
+    "config_hash": "dd124db40db92d29"
+   },
+   "provenance": {
+    "manifest_hash": "70109eebdf8d5ccd",
+    "split": "train"
+   },
+   "crane_role": null,
+   "health_variants": {
+    "fl_dead_locked": {
+     "config_hash": "fb874501b1ad89fa",
+     "mobility_class": "fixed_icr",
+     "lateral": false,
+     "vmax": {
+      "fwd": 0.0,
+      "back": 0.0,
+      "left": 0.0,
+      "right": 0.0,
+      "ccw": 0.0,
+      "cw": 0.0
+     },
+     "min_width": 0.388,
+     "payloads": [
+      "box_small"
+     ]
+    },
+    "fl_dead_free": {
+     "config_hash": "36b721a60429d804",
+     "mobility_class": "fixed_icr",
+     "lateral": false,
+     "vmax": {
+      "fwd": 0.0,
+      "back": 0.0,
+      "left": 0.0,
+      "right": 0.0,
+      "ccw": 0.0,
+      "cw": 0.0
+     },
+     "min_width": 0.388,
+     "payloads": [
+      "box_small"
+     ]
+    },
+    "fl_weak": {
+     "config_hash": "4b1ec683ec0a283e",
+     "mobility_class": "differential_like",
+     "lateral": false,
+     "vmax": {
+      "fwd": 0.2581,
+      "back": 0.2581,
+      "left": 0.0,
+      "right": 0.0,
+      "ccw": 1.5,
+      "cw": 1.5
+     },
+     "min_width": 0.388,
+     "payloads": [
+      "box_small"
+     ]
+    },
+    "all_weak": {
+     "config_hash": "aca69adf68d19c44",
+     "mobility_class": "differential_like",
+     "lateral": false,
+     "vmax": {
+      "fwd": 0.2581,
+      "back": 0.2581,
+      "left": 0.0,
+      "right": 0.0,
+      "ccw": 1.5,
+      "cw": 1.5
+     },
+     "min_width": 0.388,
+     "payloads": [
+      "box_small"
+     ]
+    }
+   }
+  },
+  "lifter": {
+   "config_hash": "ae7a9c321cbf8b21",
+   "mobility_class": "omnidirectional",
+   "lateral": true,
+   "vmax": {
+    "fwd": 0.5,
+    "back": 0.5,
+    "left": 0.5,
+    "right": 0.5,
+    "ccw": 1.5,
+    "cw": 1.5
+   },
+   "min_width": 0.4,
+   "payloads": [],
+   "tools": [
+    "gripper",
+    "lift"
+   ],
+   "mass": 8.0,
+   "n_modules": 1,
+   "modules": [
+    {
+     "id": "m0",
+     "type": "lifter",
+     "x": 0.0,
+     "y": 0.0,
+     "yaw": 0.0,
+     "size": [
+      0.42,
+      0.4
+     ],
+     "height": 0.2,
+     "faces": {
+      "front": {
+       "x": 0.21,
+       "y": 0.0,
+       "yaw": 0.0,
+       "type": "A",
+       "approach_len": 0.1,
+       "free": true
+      },
+      "rear": {
+       "x": -0.21,
+       "y": 0.0,
+       "yaw": 3.1416,
+       "type": "B",
+       "approach_len": 0.1,
+       "free": true
+      },
+      "left": {
+       "x": 0.0,
+       "y": 0.2,
+       "yaw": 1.5708,
+       "type": "A",
+       "approach_len": 0.1,
+       "free": true
+      },
+      "right": {
+       "x": 0.0,
+       "y": -0.2,
+       "yaw": -1.5708,
+       "type": "B",
+       "approach_len": 0.1,
+       "free": true
+      }
+     },
+     "camera": [
+      0.15,
+      70.0,
+      4.0
+     ]
+    }
+   ],
+   "couplings": [],
+   "half_extent": [
+    0.21,
+    0.2
+   ],
+   "aabb": [
+    -0.21,
+    -0.2,
+    0.21,
+    0.2
+   ],
+   "circumradius": 0.29,
+   "descriptor_version": "capability_descriptor_v0@c31d61aeee5e",
+   "key": "lifter",
+   "ref": {
+    "manifest": "train_v1",
+    "config_hash": "ae7a9c321cbf8b21"
+   },
+   "provenance": {
+    "manifest_hash": "70109eebdf8d5ccd",
+    "split": "train"
+   },
+   "crane_role": "lifter",
+   "health_variants": {
+    "fl_dead_locked": {
+     "config_hash": "5d0a5044ccf83034",
+     "mobility_class": "differential_like",
+     "lateral": false,
+     "vmax": {
+      "fwd": 0.0,
+      "back": 0.0,
+      "left": 0.0,
+      "right": 0.0,
+      "ccw": 0.0,
+      "cw": 0.0
+     },
+     "min_width": 0.4,
+     "payloads": []
+    },
+    "fl_dead_free": {
+     "config_hash": "d28c1749176a9307",
+     "mobility_class": "omnidirectional",
+     "lateral": true,
+     "vmax": {
+      "fwd": 0.5,
+      "back": 0.5,
+      "left": 0.5,
+      "right": 0.5,
+      "ccw": 1.5,
+      "cw": 1.5
+     },
+     "min_width": 0.4,
+     "payloads": []
+    },
+    "fl_weak": {
+     "config_hash": "e86e2e8faf73cd57",
+     "mobility_class": "omnidirectional",
+     "lateral": true,
+     "vmax": {
+      "fwd": 0.291,
+      "back": 0.291,
+      "left": 0.291,
+      "right": 0.291,
+      "ccw": 0.9238,
+      "cw": 0.9238
+     },
+     "min_width": 0.4,
+     "payloads": []
+    },
+    "all_weak": {
+     "config_hash": "cadaf3b67d4480fa",
+     "mobility_class": "omnidirectional",
+     "lateral": true,
+     "vmax": {
+      "fwd": 0.291,
+      "back": 0.291,
+      "left": 0.291,
+      "right": 0.291,
+      "ccw": 0.9238,
+      "cw": 0.9238
+     },
+     "min_width": 0.4,
+     "payloads": []
+    }
+   }
+  },
+  "scout": {
+   "config_hash": "f96c3684b277e24c",
+   "mobility_class": "omnidirectional",
+   "lateral": true,
+   "vmax": {
+    "fwd": 0.5,
+    "back": 0.5,
+    "left": 0.5,
+    "right": 0.5,
+    "ccw": 1.5,
+    "cw": 1.5
+   },
+   "min_width": 0.4,
+   "payloads": [],
+   "tools": [],
+   "mass": 10.5,
+   "n_modules": 1,
+   "modules": [
+    {
+     "id": "m0",
+     "type": "scout",
+     "x": 0.0,
+     "y": 0.0,
+     "yaw": 0.0,
+     "size": [
+      0.42,
+      0.4
+     ],
+     "height": 0.45,
+     "faces": {
+      "front": {
+       "x": 0.21,
+       "y": 0.0,
+       "yaw": 0.0,
+       "type": "A",
+       "approach_len": 0.1,
+       "free": true
+      },
+      "rear": {
+       "x": -0.21,
+       "y": 0.0,
+       "yaw": 3.1416,
+       "type": "B",
+       "approach_len": 0.1,
+       "free": true
+      },
+      "left": {
+       "x": 0.0,
+       "y": 0.2,
+       "yaw": 1.5708,
+       "type": "A",
+       "approach_len": 0.1,
+       "free": true
+      },
+      "right": {
+       "x": 0.0,
+       "y": -0.2,
+       "yaw": -1.5708,
+       "type": "B",
+       "approach_len": 0.1,
+       "free": true
+      }
+     },
+     "camera": [
+      0.45,
+      90.0,
+      6.0
+     ]
+    }
+   ],
+   "couplings": [],
+   "half_extent": [
+    0.21,
+    0.2
+   ],
+   "aabb": [
+    -0.21,
+    -0.2,
+    0.21,
+    0.2
+   ],
+   "circumradius": 0.29,
+   "descriptor_version": "capability_descriptor_v0@c31d61aeee5e",
+   "key": "scout",
+   "ref": {
+    "compose": {
+     "types": [
+      "scout"
+     ],
+     "topology": "single"
+    }
+   },
+   "provenance": {
+    "types_from": "train pool (capplan.configs.train_pool)"
+   },
+   "crane_role": "scout",
+   "health_variants": {
+    "fl_dead_locked": {
+     "config_hash": "170697cce5cf4aef",
+     "mobility_class": "differential_like",
+     "lateral": false,
+     "vmax": {
+      "fwd": 0.0,
+      "back": 0.0,
+      "left": 0.0,
+      "right": 0.0,
+      "ccw": 0.0,
+      "cw": 0.0
+     },
+     "min_width": 0.4,
+     "payloads": []
+    },
+    "fl_dead_free": {
+     "config_hash": "00aa7fd6e4ae142d",
+     "mobility_class": "omnidirectional",
+     "lateral": true,
+     "vmax": {
+      "fwd": 0.5,
+      "back": 0.5,
+      "left": 0.5,
+      "right": 0.5,
+      "ccw": 1.5,
+      "cw": 1.5
+     },
+     "min_width": 0.4,
+     "payloads": []
+    },
+    "fl_weak": {
+     "config_hash": "9f10506ed2c882df",
+     "mobility_class": "omnidirectional",
+     "lateral": true,
+     "vmax": {
+      "fwd": 0.291,
+      "back": 0.291,
+      "left": 0.291,
+      "right": 0.291,
+      "ccw": 0.9238,
+      "cw": 0.9238
+     },
+     "min_width": 0.4,
+     "payloads": []
+    },
+    "all_weak": {
+     "config_hash": "1f25bb8447cc24e7",
+     "mobility_class": "omnidirectional",
+     "lateral": true,
+     "vmax": {
+      "fwd": 0.291,
+      "back": 0.291,
+      "left": 0.291,
+      "right": 0.291,
+      "ccw": 0.9238,
+      "cw": 0.9238
+     },
+     "min_width": 0.4,
+     "payloads": []
+    }
+   }
+  },
+  "pair_chain": {
+   "config_hash": "ace98631eb060bca",
+   "mobility_class": "omnidirectional",
+   "lateral": true,
+   "vmax": {
+    "fwd": 0.5,
+    "back": 0.5,
+    "left": 0.5,
+    "right": 0.5,
+    "ccw": 1.1086,
+    "cw": 1.1086
+   },
+   "min_width": 0.4,
+   "payloads": [
+    "box_small",
+    "box_long"
+   ],
+   "tools": [],
+   "mass": 13.6,
+   "n_modules": 2,
+   "modules": [
+    {
+     "id": "m0",
+     "type": "carrier",
+     "x": -0.21,
+     "y": 0.0,
+     "yaw": 0.0,
+     "size": [
+      0.42,
+      0.4
+     ],
+     "height": 0.14,
+     "faces": {
+      "front": {
+       "x": 0.21,
+       "y": 0.0,
+       "yaw": 0.0,
+       "type": "A",
+       "approach_len": 0.1,
+       "free": false
+      },
+      "rear": {
+       "x": -0.21,
+       "y": 0.0,
+       "yaw": 3.1416,
+       "type": "B",
+       "approach_len": 0.1,
+       "free": true
+      },
+      "left": {
+       "x": 0.0,
+       "y": 0.2,
+       "yaw": 1.5708,
+       "type": "A",
+       "approach_len": 0.1,
+       "free": true
+      },
+      "right": {
+       "x": 0.0,
+       "y": -0.2,
+       "yaw": -1.5708,
+       "type": "B",
+       "approach_len": 0.1,
+       "free": true
+      }
+     },
+     "camera": [
+      0.15,
+      70.0,
+      4.0
+     ]
+    },
+    {
+     "id": "m1",
+     "type": "carrier",
+     "x": 0.21,
+     "y": 0.0,
+     "yaw": 0.0,
+     "size": [
+      0.42,
+      0.4
+     ],
+     "height": 0.14,
+     "faces": {
+      "front": {
+       "x": 0.21,
+       "y": 0.0,
+       "yaw": 0.0,
+       "type": "A",
+       "approach_len": 0.1,
+       "free": true
+      },
+      "rear": {
+       "x": -0.21,
+       "y": 0.0,
+       "yaw": 3.1416,
+       "type": "B",
+       "approach_len": 0.1,
+       "free": false
+      },
+      "left": {
+       "x": 0.0,
+       "y": 0.2,
+       "yaw": 1.5708,
+       "type": "A",
+       "approach_len": 0.1,
+       "free": true
+      },
+      "right": {
+       "x": 0.0,
+       "y": -0.2,
+       "yaw": -1.5708,
+       "type": "B",
+       "approach_len": 0.1,
+       "free": true
+      }
+     },
+     "camera": [
+      0.15,
+      70.0,
+      4.0
+     ]
+    }
+   ],
+   "couplings": [
+    [
+     "m0",
+     "front",
+     "m1",
+     "rear"
+    ]
+   ],
+   "half_extent": [
+    0.42,
+    0.2
+   ],
+   "aabb": [
+    -0.42,
+    -0.2,
+    0.42,
+    0.2
+   ],
+   "circumradius": 0.4652,
+   "descriptor_version": "capability_descriptor_v0@c31d61aeee5e",
+   "key": "pair_chain",
+   "ref": {
+    "compose": {
+     "types": [
+      "carrier",
+      "carrier"
+     ],
+     "topology": "chain"
+    }
+   },
+   "provenance": {
+    "types_from": "train pool (capplan.configs.train_pool)"
+   },
+   "crane_role": null,
+   "health_variants": {}
+  },
+  "pair_side": {
+   "config_hash": "58a26bb34b4082bc",
+   "mobility_class": "omnidirectional",
+   "lateral": true,
+   "vmax": {
+    "fwd": 0.5,
+    "back": 0.5,
+    "left": 0.5,
+    "right": 0.5,
+    "ccw": 1.1301,
+    "cw": 1.1301
+   },
+   "min_width": 0.42,
+   "payloads": [
+    "box_small",
+    "box_long"
+   ],
+   "tools": [],
+   "mass": 13.6,
+   "n_modules": 2,
+   "modules": [
+    {
+     "id": "m0",
+     "type": "carrier",
+     "x": 0.0,
+     "y": -0.2,
+     "yaw": 0.0,
+     "size": [
+      0.42,
+      0.4
+     ],
+     "height": 0.14,
+     "faces": {
+      "front": {
+       "x": 0.21,
+       "y": 0.0,
+       "yaw": 0.0,
+       "type": "A",
+       "approach_len": 0.1,
+       "free": true
+      },
+      "rear": {
+       "x": -0.21,
+       "y": 0.0,
+       "yaw": 3.1416,
+       "type": "B",
+       "approach_len": 0.1,
+       "free": true
+      },
+      "left": {
+       "x": 0.0,
+       "y": 0.2,
+       "yaw": 1.5708,
+       "type": "A",
+       "approach_len": 0.1,
+       "free": false
+      },
+      "right": {
+       "x": 0.0,
+       "y": -0.2,
+       "yaw": -1.5708,
+       "type": "B",
+       "approach_len": 0.1,
+       "free": true
+      }
+     },
+     "camera": [
+      0.15,
+      70.0,
+      4.0
+     ]
+    },
+    {
+     "id": "m1",
+     "type": "carrier",
+     "x": 0.0,
+     "y": 0.2,
+     "yaw": 0.0,
+     "size": [
+      0.42,
+      0.4
+     ],
+     "height": 0.14,
+     "faces": {
+      "front": {
+       "x": 0.21,
+       "y": 0.0,
+       "yaw": 0.0,
+       "type": "A",
+       "approach_len": 0.1,
+       "free": true
+      },
+      "rear": {
+       "x": -0.21,
+       "y": 0.0,
+       "yaw": 3.1416,
+       "type": "B",
+       "approach_len": 0.1,
+       "free": true
+      },
+      "left": {
+       "x": 0.0,
+       "y": 0.2,
+       "yaw": 1.5708,
+       "type": "A",
+       "approach_len": 0.1,
+       "free": true
+      },
+      "right": {
+       "x": 0.0,
+       "y": -0.2,
+       "yaw": -1.5708,
+       "type": "B",
+       "approach_len": 0.1,
+       "free": false
+      }
+     },
+     "camera": [
+      0.15,
+      70.0,
+      4.0
+     ]
+    }
+   ],
+   "couplings": [
+    [
+     "m0",
+     "left",
+     "m1",
+     "right"
+    ]
+   ],
+   "half_extent": [
+    0.21,
+    0.4
+   ],
+   "aabb": [
+    -0.21,
+    -0.4,
+    0.21,
+    0.4
+   ],
+   "circumradius": 0.4518,
+   "descriptor_version": "capability_descriptor_v0@c31d61aeee5e",
+   "key": "pair_side",
+   "ref": {
+    "compose": {
+     "types": [
+      "carrier",
+      "carrier"
+     ],
+     "topology": "side"
+    }
+   },
+   "provenance": {
+    "types_from": "train pool (capplan.configs.train_pool)"
+   },
+   "crane_role": null,
+   "health_variants": {}
+  },
+  "l3_carrier": {
+   "config_hash": "222989c3208d8692",
+   "mobility_class": "omnidirectional",
+   "lateral": true,
+   "vmax": {
+    "fwd": 0.5,
+    "back": 0.5,
+    "left": 0.5,
+    "right": 0.5,
+    "ccw": 0.7991,
+    "cw": 0.7991
+   },
+   "min_width": 0.8,
+   "payloads": [
+    "box_small",
+    "box_long",
+    "tray_wide"
+   ],
+   "tools": [],
+   "mass": 20.4,
+   "n_modules": 3,
+   "modules": [
+    {
+     "id": "m0",
+     "type": "carrier",
+     "x": -0.14,
+     "y": -0.1333,
+     "yaw": 0.0,
+     "size": [
+      0.42,
+      0.4
+     ],
+     "height": 0.14,
+     "faces": {
+      "front": {
+       "x": 0.21,
+       "y": 0.0,
+       "yaw": 0.0,
+       "type": "A",
+       "approach_len": 0.1,
+       "free": false
+      },
+      "rear": {
+       "x": -0.21,
+       "y": 0.0,
+       "yaw": 3.1416,
+       "type": "B",
+       "approach_len": 0.1,
+       "free": true
+      },
+      "left": {
+       "x": 0.0,
+       "y": 0.2,
+       "yaw": 1.5708,
+       "type": "A",
+       "approach_len": 0.1,
+       "free": false
+      },
+      "right": {
+       "x": 0.0,
+       "y": -0.2,
+       "yaw": -1.5708,
+       "type": "B",
+       "approach_len": 0.1,
+       "free": true
+      }
+     },
+     "camera": [
+      0.15,
+      70.0,
+      4.0
+     ]
+    },
+    {
+     "id": "m1",
+     "type": "carrier",
+     "x": 0.28,
+     "y": -0.1333,
+     "yaw": 0.0,
+     "size": [
+      0.42,
+      0.4
+     ],
+     "height": 0.14,
+     "faces": {
+      "front": {
+       "x": 0.21,
+       "y": 0.0,
+       "yaw": 0.0,
+       "type": "A",
+       "approach_len": 0.1,
+       "free": true
+      },
+      "rear": {
+       "x": -0.21,
+       "y": 0.0,
+       "yaw": 3.1416,
+       "type": "B",
+       "approach_len": 0.1,
+       "free": false
+      },
+      "left": {
+       "x": 0.0,
+       "y": 0.2,
+       "yaw": 1.5708,
+       "type": "A",
+       "approach_len": 0.1,
+       "free": true
+      },
+      "right": {
+       "x": 0.0,
+       "y": -0.2,
+       "yaw": -1.5708,
+       "type": "B",
+       "approach_len": 0.1,
+       "free": true
+      }
+     },
+     "camera": [
+      0.15,
+      70.0,
+      4.0
+     ]
+    },
+    {
+     "id": "m2",
+     "type": "carrier",
+     "x": -0.14,
+     "y": 0.2667,
+     "yaw": 0.0,
+     "size": [
+      0.42,
+      0.4
+     ],
+     "height": 0.14,
+     "faces": {
+      "front": {
+       "x": 0.21,
+       "y": 0.0,
+       "yaw": 0.0,
+       "type": "A",
+       "approach_len": 0.1,
+       "free": true
+      },
+      "rear": {
+       "x": -0.21,
+       "y": 0.0,
+       "yaw": 3.1416,
+       "type": "B",
+       "approach_len": 0.1,
+       "free": true
+      },
+      "left": {
+       "x": 0.0,
+       "y": 0.2,
+       "yaw": 1.5708,
+       "type": "A",
+       "approach_len": 0.1,
+       "free": true
+      },
+      "right": {
+       "x": 0.0,
+       "y": -0.2,
+       "yaw": -1.5708,
+       "type": "B",
+       "approach_len": 0.1,
+       "free": false
+      }
+     },
+     "camera": [
+      0.15,
+      70.0,
+      4.0
+     ]
+    }
+   ],
+   "couplings": [
+    [
+     "m0",
+     "front",
+     "m1",
+     "rear"
+    ],
+    [
+     "m0",
+     "left",
+     "m2",
+     "right"
+    ]
+   ],
+   "half_extent": [
+    0.49,
+    0.4667
+   ],
+   "aabb": [
+    -0.35,
+    -0.3333,
+    0.49,
+    0.4667
+   ],
+   "circumradius": 0.5926,
+   "descriptor_version": "capability_descriptor_v0@c31d61aeee5e",
+   "key": "l3_carrier",
+   "ref": {
+    "compose": {
+     "types": [
+      "carrier",
+      "carrier",
+      "carrier"
+     ],
+     "topology": "L"
+    }
+   },
+   "provenance": {
+    "types_from": "train pool (capplan.configs.train_pool)"
+   },
+   "crane_role": null,
+   "health_variants": {}
+  }
+ },
+ "catalog_hash": "242200d907e04a9f"
+}

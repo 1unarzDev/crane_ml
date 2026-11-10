@@ -1,0 +1,326 @@
+{
+ "schema": "crane.fleet_scenario/v0",
+ "scenario_id": "fleet/scenes_v1/charging_contention/train/s1",
+ "note": "compiled from fleet/scenes_v1/charging_contention/train/s1 by scenes.crane_compile; the v1 source is authoritative",
+ "arena": {
+  "size_xy": [
+   10.0,
+   7.0
+  ],
+  "wall_height": 2.8,
+  "floor": "hard_tile"
+ },
+ "walls": [],
+ "doorway": {
+  "in_wall": "(none)",
+  "centre_y": 3.5,
+  "width": {
+   "default": 1.0
+  },
+  "height": 2.0
+ },
+ "zones": {
+  "bay_0": {
+   "rect": [
+    0.15,
+    0.9,
+    0.75,
+    1.5
+   ],
+   "kind": "charging"
+  },
+  "bay_1": {
+   "rect": [
+    0.15,
+    3.2,
+    0.75,
+    3.8
+   ],
+   "kind": "charging"
+  },
+  "work_c0": {
+   "rect": [
+    8.4,
+    0.6,
+    9.4,
+    3.4
+   ],
+   "kind": "delivery"
+  },
+  "work_c1": {
+   "rect": [
+    8.4,
+    3.5,
+    9.4,
+    6.3
+   ],
+   "kind": "delivery"
+  }
+ },
+ "obstacles": [
+  {
+   "id": "bay_post_0_s",
+   "type": "box",
+   "centre": [
+    0.125,
+    0.83,
+    0.3
+   ],
+   "size": [
+    0.25,
+    0.1,
+    0.6
+   ],
+   "v1_kind": "charger",
+   "v1_source": "bay_post_0_s"
+  },
+  {
+   "id": "bay_post_0_n",
+   "type": "box",
+   "centre": [
+    0.125,
+    1.57,
+    0.3
+   ],
+   "size": [
+    0.25,
+    0.1,
+    0.6
+   ],
+   "v1_kind": "charger",
+   "v1_source": "bay_post_0_n"
+  },
+  {
+   "id": "bay_post_1_s",
+   "type": "box",
+   "centre": [
+    0.125,
+    3.13,
+    0.3
+   ],
+   "size": [
+    0.25,
+    0.1,
+    0.6
+   ],
+   "v1_kind": "charger",
+   "v1_source": "bay_post_1_s"
+  },
+  {
+   "id": "bay_post_1_n",
+   "type": "box",
+   "centre": [
+    0.125,
+    3.87,
+    0.3
+   ],
+   "size": [
+    0.25,
+    0.1,
+    0.6
+   ],
+   "v1_kind": "charger",
+   "v1_source": "bay_post_1_n"
+  },
+  {
+   "id": "rack_mid",
+   "type": "box",
+   "centre": [
+    5.5,
+    3.5,
+    0.75
+   ],
+   "size": [
+    1.0,
+    1.4,
+    1.5
+   ],
+   "v1_kind": "rack",
+   "v1_source": "rack_mid"
+  }
+ ],
+ "overhead_cameras": [],
+ "overhead_modes": [
+  "working",
+  "occluded",
+  "disabled"
+ ],
+ "payload_spawn": {
+  "zone": null,
+  "types": []
+ },
+ "mission_default": "bay assignment: nearest-bay greedy queueing vs balanced assignment",
+ "outcomes": {
+  "delivered": "payload centre inside zones.delivery, at rest, supported, within the deadline"
+ },
+ "deadline_s": 115.0,
+ "x_v1": {
+  "source_sha256": "111d1ce4c9d32b3c8a4864ec2dc5d07830317d7c888fbde176c88acb9f8a95f4",
+  "family": {
+   "id": "charging_contention",
+   "seed": 1,
+   "split": "train",
+   "params": {
+    "n_units": 2,
+    "n_bays": 2
+   },
+   "generator": "families_v1.0",
+   "rule": "n_units <= 3 and n_bays == 2"
+  },
+  "doors": [],
+  "thresholds": [],
+  "floor_patches": [],
+  "tags": [
+   {
+    "id": 950,
+    "name": "lm_bay_0",
+    "pose": [
+     0.002,
+     1.2,
+     0.0
+    ],
+    "z": 0.2,
+    "size": 0.12,
+    "on": "bay"
+   },
+   {
+    "id": 951,
+    "name": "lm_bay_1",
+    "pose": [
+     0.002,
+     3.5,
+     0.0
+    ],
+    "z": 0.2,
+    "size": 0.12,
+    "on": "bay"
+   }
+  ],
+  "zones": [
+   {
+    "id": "bay_0",
+    "kind": "charging",
+    "rect": [
+     0.15,
+     0.9,
+     0.75,
+     1.5
+    ],
+    "capacity": 1,
+    "required_yaw": 0.0
+   },
+   {
+    "id": "bay_1",
+    "kind": "charging",
+    "rect": [
+     0.15,
+     3.2,
+     0.75,
+     3.8
+    ],
+    "capacity": 1,
+    "required_yaw": 0.0
+   },
+   {
+    "id": "work_c0",
+    "kind": "delivery",
+    "rect": [
+     8.4,
+     0.6,
+     9.4,
+     3.4
+    ]
+   },
+   {
+    "id": "work_c1",
+    "kind": "delivery",
+    "rect": [
+     8.4,
+     3.5,
+     9.4,
+     6.3
+    ]
+   }
+  ],
+  "overhead_cameras": [],
+  "payloads": [],
+  "units": [
+   {
+    "id": "c0",
+    "catalog": "carrier",
+    "module_graph": {
+     "manifest": "train_v1",
+     "config_hash": "d0b9ad389bac696b"
+    },
+    "config_hash": "d0b9ad389bac696b",
+    "start": [
+     2.2,
+     0.8,
+     3.142
+    ],
+    "soc": 0.175,
+    "crane_role": "cargo"
+   },
+   {
+    "id": "c1",
+    "catalog": "carrier",
+    "module_graph": {
+     "manifest": "train_v1",
+     "config_hash": "d0b9ad389bac696b"
+    },
+    "config_hash": "d0b9ad389bac696b",
+    "start": [
+     2.9,
+     1.05,
+     3.142
+    ],
+    "soc": 0.233,
+    "crane_role": "cargo"
+   }
+  ],
+  "faults": [],
+  "gaps": [
+   {
+    "field": "zones",
+    "status": "approximated",
+    "detail": "the CRANE truth check uses zones.delivery only (None)"
+   },
+   {
+    "field": "zones.required_yaw",
+    "status": "ignored",
+    "detail": "the truth check tests the payload centre only"
+   },
+   {
+    "field": "zones.charging",
+    "status": "approximated",
+    "detail": "a charging zone is a floor patch; CRANE has no battery model"
+   }
+  ],
+  "plan_gaps": {
+   "nearest": [
+    {
+     "field": "task.charge_c0",
+     "status": "approximated",
+     "detail": "charge = goto bay + wait (no battery, no bay reservation; nearest policy is fixed at compile time)"
+    },
+    {
+     "field": "task.charge_c1",
+     "status": "approximated",
+     "detail": "charge = goto bay + wait (no battery, no bay reservation; nearest policy is fixed at compile time)"
+    }
+   ],
+   "assigned": [
+    {
+     "field": "task.charge_c0",
+     "status": "approximated",
+     "detail": "charge = goto bay + wait (no battery, no bay reservation; assigned policy is fixed at compile time)"
+    },
+    {
+     "field": "task.charge_c1",
+     "status": "approximated",
+     "detail": "charge = goto bay + wait (no battery, no bay reservation; assigned policy is fixed at compile time)"
+    }
+   ]
+  }
+ }
+}

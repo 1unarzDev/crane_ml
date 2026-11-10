@@ -1,0 +1,229 @@
+{
+ "schema": "crane.fleet_scenario/v0",
+ "scenario_id": "fleet/scenes_v1/friction_patches/train/s1",
+ "note": "compiled from fleet/scenes_v1/friction_patches/train/s1 by scenes.crane_compile; the v1 source is authoritative",
+ "arena": {
+  "size_xy": [
+   10.0,
+   7.0
+  ],
+  "wall_height": 2.8,
+  "floor": "hard_tile"
+ },
+ "walls": [],
+ "doorway": {
+  "in_wall": "(none)",
+  "centre_y": 3.5,
+  "width": {
+   "default": 1.0
+  },
+  "height": 2.0
+ },
+ "zones": {
+  "staging": {
+   "rect": [
+    0.4,
+    2.5,
+    1.8,
+    4.5
+   ],
+   "kind": "staging"
+  },
+  "delivery": {
+   "rect": [
+    8.4,
+    2.5,
+    9.6,
+    4.5
+   ],
+   "kind": "delivery"
+  }
+ },
+ "obstacles": [
+  {
+   "id": "rack_s",
+   "type": "box",
+   "centre": [
+    4.507,
+    0.5,
+    0.75
+   ],
+   "size": [
+    1.545,
+    1.0,
+    1.5
+   ],
+   "v1_kind": "rack",
+   "v1_source": "rack_s"
+  }
+ ],
+ "overhead_cameras": [
+  {
+   "id": "oh_c",
+   "position": [
+    5.0,
+    3.5,
+    2.6
+   ],
+   "look_at": [
+    5.0,
+    3.5,
+    0.0
+   ]
+  }
+ ],
+ "overhead_modes": [
+  "working",
+  "occluded",
+  "disabled"
+ ],
+ "payload_spawn": {
+  "zone": "staging",
+  "types": [
+   "box_small"
+  ]
+ },
+ "mission_default": "route through the patch or around it, under a deadline set from hard-tile capability",
+ "outcomes": {
+  "delivered": "payload centre inside zones.delivery, at rest, supported, within the deadline"
+ },
+ "deadline_s": 47.4,
+ "x_v1": {
+  "source_sha256": "1aee7cf2f843a7ce828074ab5fb11546b28f714036690aea963e74eb37fdb975",
+  "family": {
+   "id": "friction_patches",
+   "seed": 1,
+   "split": "train",
+   "params": {
+    "patch_class": "carpet",
+    "patch_x0": 3.434,
+    "patch_w": 2.145,
+    "bypass_y": 5.637,
+    "deadline_factor": 1.247
+   },
+   "generator": "families_v1.0",
+   "rule": "patch_class in ('carpet', 'rubber')"
+  },
+  "doors": [],
+  "thresholds": [],
+  "floor_patches": [
+   {
+    "id": "patch_1",
+    "rect": [
+     3.434,
+     0.0,
+     5.579,
+     5.137
+    ],
+    "friction_class": "carpet",
+    "profile_floor": "low_pile_carpet"
+   }
+  ],
+  "tags": [],
+  "zones": [
+   {
+    "id": "staging",
+    "kind": "staging",
+    "rect": [
+     0.4,
+     2.5,
+     1.8,
+     4.5
+    ]
+   },
+   {
+    "id": "delivery",
+    "kind": "delivery",
+    "rect": [
+     8.4,
+     2.5,
+     9.6,
+     4.5
+    ]
+   }
+  ],
+  "overhead_cameras": [
+   {
+    "id": "oh_c",
+    "position": [
+     5.0,
+     3.5,
+     2.6
+    ],
+    "look_at": [
+     5.0,
+     3.5,
+     0.0
+    ],
+    "hfov_deg": 90.0,
+    "range_m": 8.0,
+    "mode": "working"
+   }
+  ],
+  "payloads": [
+   {
+    "id": "p1",
+    "type": "box_small",
+    "size_lwh": [
+     0.3,
+     0.2,
+     0.15
+    ],
+    "mass_kg": 2.0,
+    "unknown_mass": false,
+    "pallet_height": 0.03,
+    "spawn": {
+     "zone": "staging",
+     "pose": [
+      1.1,
+      3.0,
+      0.0
+     ],
+     "pose_known": true
+    }
+   }
+  ],
+  "units": [
+   {
+    "id": "cargo_1",
+    "catalog": "carrier",
+    "module_graph": {
+     "manifest": "train_v1",
+     "config_hash": "d0b9ad389bac696b"
+    },
+    "config_hash": "d0b9ad389bac696b",
+    "start": [
+     1.1,
+     4.0,
+     -1.571
+    ],
+    "soc": 1.0,
+    "crane_role": "cargo"
+   }
+  ],
+  "faults": [],
+  "gaps": [
+   {
+    "field": "floor_patches",
+    "status": "ignored",
+    "detail": "CRANE has one floor per arena (FleetSpec.Floor); patches are in x_v1.floor_patches (v1 loader parses them; the tractive plant does not look them up yet)"
+   }
+  ],
+  "plan_gaps": {
+   "through": [
+    {
+     "field": "task.pick",
+     "status": "approximated",
+     "detail": "a deck pickup is a lifter lift + handoff in CRANE (fastsim loads the deck kinematically); provisional grasp/hold offsets"
+    }
+   ],
+   "around": [
+    {
+     "field": "task.pick",
+     "status": "approximated",
+     "detail": "a deck pickup is a lifter lift + handoff in CRANE (fastsim loads the deck kinematically); provisional grasp/hold offsets"
+    }
+   ]
+  }
+ }
+}

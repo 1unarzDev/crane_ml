@@ -1,0 +1,332 @@
+{
+ "schema": "crane.fleet_scenario/v0",
+ "scenario_id": "fleet/scenes_v1/wheel_failure/heldout/s1",
+ "note": "compiled from fleet/scenes_v1/wheel_failure/heldout/s1 by scenes.crane_compile; the v1 source is authoritative",
+ "arena": {
+  "size_xy": [
+   10.0,
+   7.0
+  ],
+  "wall_height": 2.8,
+  "floor": "hard_tile"
+ },
+ "walls": [],
+ "doorway": {
+  "in_wall": "(lowered: no wall carries a door; geometry is in obstacles)",
+  "centre_y": 3.5,
+  "width": {
+   "default": 1.399
+  },
+  "height": 2.0,
+  "v1_door": "door_main"
+ },
+ "zones": {
+  "staging": {
+   "rect": [
+    0.5,
+    0.5,
+    2.5,
+    2.0
+   ],
+   "kind": "staging"
+  },
+  "loading": {
+   "rect": [
+    0.6,
+    4.5,
+    2.0,
+    6.0
+   ],
+   "kind": "loading"
+  },
+  "delivery": {
+   "rect": [
+    8.2,
+    2.5,
+    9.6,
+    4.5
+   ],
+   "kind": "delivery"
+  }
+ },
+ "obstacles": [
+  {
+   "id": "divider_0",
+   "type": "box",
+   "centre": [
+    6.0,
+    1.40025,
+    1.4
+   ],
+   "size": [
+    0.12,
+    2.8005,
+    2.8
+   ],
+   "v1_kind": "wall",
+   "v1_source": "divider"
+  },
+  {
+   "id": "door_main_lintel",
+   "type": "box",
+   "centre": [
+    6.0,
+    3.5,
+    2.4
+   ],
+   "size": [
+    0.12,
+    1.399,
+    0.8
+   ],
+   "v1_kind": "lintel",
+   "v1_source": "door_main"
+  },
+  {
+   "id": "divider_1",
+   "type": "box",
+   "centre": [
+    6.0,
+    5.59975,
+    1.4
+   ],
+   "size": [
+    0.12,
+    2.8005,
+    2.8
+   ],
+   "v1_kind": "wall",
+   "v1_source": "divider"
+  }
+ ],
+ "overhead_cameras": [],
+ "overhead_modes": [
+  "working",
+  "occluded",
+  "disabled"
+ ],
+ "payload_spawn": {
+  "zone": "loading",
+  "types": [
+   "box_small"
+  ]
+ },
+ "mission_default": "continue with the degraded unit or reassign the payload to a spare (handoff)",
+ "outcomes": {
+  "delivered": "payload centre inside zones.delivery, at rest, supported, within the deadline"
+ },
+ "deadline_s": 150.0,
+ "x_v1": {
+  "source_sha256": "34d5b50f55f72c1998720e0d7b249b62c68f5e3c4bae2f72705aa35c3fe2b170",
+  "family": {
+   "id": "wheel_failure",
+   "seed": 1,
+   "split": "heldout",
+   "params": {
+    "n_faults": 2,
+    "t_fail": 40.32,
+    "mode": "weak",
+    "door_w": 1.399
+   },
+   "generator": "families_v1.0",
+   "rule": "n_faults == 2 or t_fail > 35"
+  },
+  "doors": [
+   {
+    "id": "door_main",
+    "wall": "divider",
+    "centre": 3.5,
+    "width": 1.399,
+    "height": 2.0,
+    "threshold_height": 0.0,
+    "threshold_depth": 0.12
+   }
+  ],
+  "thresholds": [],
+  "floor_patches": [],
+  "tags": [
+   {
+    "id": 950,
+    "name": "lm_door_main_w_lo",
+    "pose": [
+     5.938,
+     2.601,
+     3.141593
+    ],
+    "z": 0.3,
+    "size": 0.12,
+    "on": "door"
+   },
+   {
+    "id": 951,
+    "name": "lm_door_main_w_hi",
+    "pose": [
+     5.938,
+     4.399,
+     3.141593
+    ],
+    "z": 0.3,
+    "size": 0.12,
+    "on": "door"
+   },
+   {
+    "id": 952,
+    "name": "lm_door_main_e_lo",
+    "pose": [
+     6.062,
+     2.601,
+     0.0
+    ],
+    "z": 0.3,
+    "size": 0.12,
+    "on": "door"
+   },
+   {
+    "id": 953,
+    "name": "lm_door_main_e_hi",
+    "pose": [
+     6.062,
+     4.399,
+     0.0
+    ],
+    "z": 0.3,
+    "size": 0.12,
+    "on": "door"
+   }
+  ],
+  "zones": [
+   {
+    "id": "staging",
+    "kind": "staging",
+    "rect": [
+     0.5,
+     0.5,
+     2.5,
+     2.0
+    ]
+   },
+   {
+    "id": "loading",
+    "kind": "loading",
+    "rect": [
+     0.6,
+     4.5,
+     2.0,
+     6.0
+    ]
+   },
+   {
+    "id": "delivery",
+    "kind": "delivery",
+    "rect": [
+     8.2,
+     2.5,
+     9.6,
+     4.5
+    ]
+   }
+  ],
+  "overhead_cameras": [],
+  "payloads": [
+   {
+    "id": "p1",
+    "type": "box_small",
+    "size_lwh": [
+     0.3,
+     0.2,
+     0.15
+    ],
+    "mass_kg": 2.0,
+    "unknown_mass": false,
+    "pallet_height": 0.03,
+    "spawn": {
+     "zone": "loading",
+     "pose": [
+      1.3,
+      5.2,
+      0.0
+     ],
+     "pose_known": true
+    }
+   }
+  ],
+  "units": [
+   {
+    "id": "cargo_1",
+    "catalog": "carrier",
+    "module_graph": {
+     "manifest": "train_v1",
+     "config_hash": "d0b9ad389bac696b"
+    },
+    "config_hash": "d0b9ad389bac696b",
+    "start": [
+     1.2,
+     3.2,
+     1.571
+    ],
+    "soc": 1.0,
+    "crane_role": "cargo"
+   },
+   {
+    "id": "cargo_2",
+    "catalog": "carrier",
+    "module_graph": {
+     "manifest": "train_v1",
+     "config_hash": "d0b9ad389bac696b"
+    },
+    "config_hash": "d0b9ad389bac696b",
+    "start": [
+     1.2,
+     1.0,
+     0.0
+    ],
+    "soc": 1.0,
+    "crane_role": "cargo"
+   }
+  ],
+  "faults": [
+   {
+    "unit": "cargo_1",
+    "module": "m0",
+    "target": "wheel_fl",
+    "mode": "weak",
+    "t_s": 40.32
+   },
+   {
+    "unit": "cargo_2",
+    "module": "m0",
+    "target": "wheel_fl",
+    "mode": "weak",
+    "t_s": 50.32
+   }
+  ],
+  "gaps": [
+   {
+    "field": "doors",
+    "status": "approximated",
+    "detail": "1 door(s) lowered to wall-segment and lintel boxes; v0 doorway is a stub (narrowest door door_main)"
+   }
+  ],
+  "plan_gaps": {
+   "continue": [
+    {
+     "field": "task.pick",
+     "status": "approximated",
+     "detail": "a deck pickup is a lifter lift + handoff in CRANE (fastsim loads the deck kinematically); provisional grasp/hold offsets"
+    }
+   ],
+   "reassign": [
+    {
+     "field": "task.pick",
+     "status": "approximated",
+     "detail": "a deck pickup is a lifter lift + handoff in CRANE (fastsim loads the deck kinematically); provisional grasp/hold offsets"
+    },
+    {
+     "field": "task.when",
+     "status": "unsupported",
+     "detail": "conditional steps (on a fault) have no CRANE equivalent; dropped: ['take', 'go2']"
+    }
+   ]
+  }
+ }
+}

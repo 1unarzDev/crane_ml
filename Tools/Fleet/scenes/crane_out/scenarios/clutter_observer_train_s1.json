@@ -1,0 +1,349 @@
+{
+ "schema": "crane.fleet_scenario/v0",
+ "scenario_id": "fleet/scenes_v1/clutter_observer/train/s1",
+ "note": "compiled from fleet/scenes_v1/clutter_observer/train/s1 by scenes.crane_compile; the v1 source is authoritative",
+ "arena": {
+  "size_xy": [
+   10.0,
+   7.0
+  ],
+  "wall_height": 2.8,
+  "floor": "hard_tile"
+ },
+ "walls": [],
+ "doorway": {
+  "in_wall": "(none)",
+  "centre_y": 3.5,
+  "width": {
+   "default": 1.0
+  },
+  "height": 2.0
+ },
+ "zones": {
+  "staging": {
+   "rect": [
+    0.4,
+    0.4,
+    2.2,
+    2.2
+   ],
+   "kind": "staging"
+  },
+  "loading": {
+   "rect": [
+    5.5,
+    2.0,
+    9.4,
+    6.4
+   ],
+   "kind": "loading"
+  },
+  "delivery": {
+   "rect": [
+    0.4,
+    4.8,
+    2.0,
+    6.5
+   ],
+   "kind": "delivery"
+  }
+ },
+ "obstacles": [
+  {
+   "id": "clutter_0",
+   "type": "box",
+   "centre": [
+    8.589,
+    3.273,
+    0.361
+   ],
+   "size": [
+    0.475,
+    0.519,
+    0.722
+   ],
+   "v1_kind": "clutter",
+   "v1_source": "clutter_0"
+  },
+  {
+   "id": "clutter_1",
+   "type": "box",
+   "centre": [
+    7.2,
+    3.406,
+    0.25
+   ],
+   "size": [
+    0.465,
+    0.531,
+    0.499
+   ],
+   "v1_kind": "clutter",
+   "v1_source": "clutter_1"
+  },
+  {
+   "id": "clutter_2",
+   "type": "box",
+   "centre": [
+    6.033,
+    3.888,
+    0.394
+   ],
+   "size": [
+    0.445,
+    0.352,
+    0.789
+   ],
+   "v1_kind": "clutter",
+   "v1_source": "clutter_2"
+  },
+  {
+   "id": "clutter_3",
+   "type": "box",
+   "centre": [
+    6.121,
+    2.813,
+    0.159
+   ],
+   "size": [
+    0.679,
+    0.487,
+    0.318
+   ],
+   "v1_kind": "clutter",
+   "v1_source": "clutter_3"
+  },
+  {
+   "id": "clutter_4",
+   "type": "box",
+   "centre": [
+    9.046,
+    5.753,
+    0.206
+   ],
+   "size": [
+    0.393,
+    0.646,
+    0.412
+   ],
+   "v1_kind": "clutter",
+   "v1_source": "clutter_4"
+  },
+  {
+   "id": "clutter_5",
+   "type": "box",
+   "centre": [
+    7.399,
+    2.393,
+    0.239
+   ],
+   "size": [
+    0.507,
+    0.454,
+    0.477
+   ],
+   "v1_kind": "clutter",
+   "v1_source": "clutter_5"
+  },
+  {
+   "id": "screen_w",
+   "type": "box",
+   "centre": [
+    5.6,
+    5.428,
+    0.2
+   ],
+   "size": [
+    0.3,
+    2.0,
+    0.4
+   ],
+   "v1_kind": "clutter",
+   "v1_source": "screen_w"
+  }
+ ],
+ "overhead_cameras": [
+  {
+   "id": "oh_load",
+   "position": [
+    7.5,
+    4.2,
+    2.6
+   ],
+   "look_at": [
+    7.5,
+    4.2,
+    0.0
+   ]
+  }
+ ],
+ "overhead_modes": [
+  "working",
+  "occluded",
+  "disabled"
+ ],
+ "payload_spawn": {
+  "zone": "loading",
+  "types": [
+   "box_small"
+  ]
+ },
+ "mission_default": "send a mast-camera scout as observer, or let the carrier search itself",
+ "outcomes": {
+  "delivered": "payload centre inside zones.delivery, at rest, supported, within the deadline"
+ },
+ "deadline_s": 220.0,
+ "x_v1": {
+  "source_sha256": "550fa5d906c16c0c2e596c7d8d9bc54f1713b0945b3715cc496db146a7f1b46c",
+  "family": {
+   "id": "clutter_observer",
+   "seed": 1,
+   "split": "train",
+   "params": {
+    "overhead": "working",
+    "n_clutter": 6
+   },
+   "generator": "families_v1.0",
+   "rule": "overhead in ('working', 'occluded') and n_clutter <= 6"
+  },
+  "doors": [],
+  "thresholds": [],
+  "floor_patches": [],
+  "tags": [],
+  "zones": [
+   {
+    "id": "staging",
+    "kind": "staging",
+    "rect": [
+     0.4,
+     0.4,
+     2.2,
+     2.2
+    ]
+   },
+   {
+    "id": "loading",
+    "kind": "loading",
+    "rect": [
+     5.5,
+     2.0,
+     9.4,
+     6.4
+    ]
+   },
+   {
+    "id": "delivery",
+    "kind": "delivery",
+    "rect": [
+     0.4,
+     4.8,
+     2.0,
+     6.5
+    ]
+   }
+  ],
+  "overhead_cameras": [
+   {
+    "id": "oh_load",
+    "position": [
+     7.5,
+     4.2,
+     2.6
+    ],
+    "look_at": [
+     7.5,
+     4.2,
+     0.0
+    ],
+    "hfov_deg": 80.0,
+    "range_m": 6.0,
+    "mode": "working"
+   }
+  ],
+  "payloads": [
+   {
+    "id": "p1",
+    "type": "box_small",
+    "size_lwh": [
+     0.3,
+     0.2,
+     0.15
+    ],
+    "mass_kg": 2.0,
+    "unknown_mass": false,
+    "pallet_height": 0.03,
+    "spawn": {
+     "zone": "loading",
+     "pose": [
+      7.345,
+      5.428,
+      1.571
+     ],
+     "pose_known": false
+    }
+   }
+  ],
+  "units": [
+   {
+    "id": "scout_1",
+    "catalog": "scout",
+    "module_graph": {
+     "compose": {
+      "types": [
+       "scout"
+      ],
+      "topology": "single"
+     }
+    },
+    "config_hash": "f96c3684b277e24c",
+    "start": [
+     1.2,
+     1.2,
+     0.0
+    ],
+    "soc": 1.0,
+    "crane_role": "scout"
+   },
+   {
+    "id": "cargo_1",
+    "catalog": "carrier",
+    "module_graph": {
+     "manifest": "train_v1",
+     "config_hash": "d0b9ad389bac696b"
+    },
+    "config_hash": "d0b9ad389bac696b",
+    "start": [
+     1.4,
+     3.2,
+     0.0
+    ],
+    "soc": 1.0,
+    "crane_role": "cargo"
+   }
+  ],
+  "faults": [],
+  "gaps": [
+   {
+    "field": "payloads.spawn.pose_known",
+    "status": "approximated",
+    "detail": "CRANE's autonomy finds the payload with an explore task; the fastsim 'unknown until seen' rule is not a CRANE field"
+   }
+  ],
+  "plan_gaps": {
+   "observer": [
+    {
+     "field": "task.pick",
+     "status": "approximated",
+     "detail": "a deck pickup is a lifter lift + handoff in CRANE (fastsim loads the deck kinematically); provisional grasp/hold offsets"
+    }
+   ],
+   "self_search": [
+    {
+     "field": "task.pick",
+     "status": "approximated",
+     "detail": "a deck pickup is a lifter lift + handoff in CRANE (fastsim loads the deck kinematically); provisional grasp/hold offsets"
+    }
+   ]
+  }
+ }
+}

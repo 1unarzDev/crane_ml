@@ -1,0 +1,135 @@
+{
+ "schema": "crane.fleet_mission/v0",
+ "mission_id": "fleet/scenes_v1/long_payload_door/train/s1/reconfigure/crane_approx",
+ "note": "CRANE cannot spawn a pre-coupled assembly (the 3-carrier L of long_payload_door). For a plan that undocks it into a",
+ "crane_start": {
+  "cargo_1": [
+   2.08,
+   1.5667,
+   0.0
+  ],
+  "cargo_2": [
+   1.51,
+   1.5667,
+   0.0
+  ],
+  "lifter_1": [
+   0.75,
+   6.25,
+   0.0
+  ],
+  "scout_1": [
+   1.95,
+   6.25,
+   0.0
+  ]
+ },
+ "crane_unit_map": {
+  "chain": [
+   "cargo_1",
+   "cargo_2"
+  ]
+ },
+ "crane_max_duration_s": 300.0,
+ "crane_payload": {
+  "id": "p1",
+  "type": "box_long",
+  "pose": [
+   2.18,
+   2.6667,
+   3.141592653589793
+  ],
+  "pallet_height": 0.03,
+  "mass_kg": 6.0
+ },
+ "tasks": [
+  {
+   "id": "settle",
+   "type": "wait",
+   "agents": [
+    "cargo_1",
+    "cargo_2",
+    "lifter_1",
+    "scout_1"
+   ],
+   "duration": 1.5
+  },
+  {
+   "id": "couple",
+   "type": "dock",
+   "docker": "cargo_2",
+   "docker_face": "front",
+   "target": "cargo_1",
+   "target_face": "rear",
+   "after": [
+    "settle"
+   ],
+   "retries": 2
+  },
+  {
+   "id": "pick",
+   "type": "lift",
+   "agent": "lifter_1",
+   "object": "p1",
+   "grasp_offset": 0.237,
+   "height": 0.15,
+   "after": [
+    "settle"
+   ]
+  },
+  {
+   "id": "give",
+   "type": "handoff",
+   "from": "lifter_1",
+   "supporters": [
+    "cargo_1",
+    "cargo_2"
+   ],
+   "payload": "p1",
+   "payload_type": "box_long",
+   "hold_offset": 0.637,
+   "after": [
+    "pick",
+    "couple"
+   ],
+   "place_on": "cargo_1",
+   "place_offset": [
+    -0.17,
+    0.0,
+    3.141592653589793
+   ]
+  },
+  {
+   "id": "lifter_clear",
+   "type": "goto",
+   "agent": "lifter_1",
+   "goal": [
+    0.75,
+    6.25,
+    0.0
+   ],
+   "after": [
+    "give"
+   ]
+  },
+  {
+   "id": "go",
+   "type": "transport",
+   "agent": "cargo_1",
+   "goal": [
+    8.65,
+    3.5,
+    0.0
+   ],
+   "payload": "p1",
+   "tol": [
+    0.05,
+    0.08
+   ],
+   "after": [
+    "give",
+    "lifter_clear"
+   ]
+  }
+ ]
+}
