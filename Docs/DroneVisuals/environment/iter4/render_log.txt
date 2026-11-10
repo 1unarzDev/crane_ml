@@ -1,0 +1,31 @@
+[Iter4 0s] self-tests
+[Iter4 0s] self-tests pass=18 fail=0
+[Iter4 131s] built summer in 130s season=Summer green=0.5
+[Iter4 132s] MANIFEST_COMPARE summer(default look) vs committed seed-1337 manifest, ignoring scene path: IDENTICAL
+[Iter4 135s] frame 01_0530_cinematic.png h=5.50 sunEl=4.4 moonLux=0.000 ev100=11.5 comp=0.30
+[Iter4 135s] frame 02_0700_cinematic.png h=7.00 sunEl=19.5 moonLux=0.000 ev100=13.7 comp=0.48
+[Iter4 136s] frame 03_0900_cinematic.png h=9.00 sunEl=39.0 moonLux=0.000 ev100=14.6 comp=0.15
+[Iter4 137s] frame 04_1200_cinematic.png h=12.00 sunEl=55.3 moonLux=0.000 ev100=14.9 comp=-0.07
+[Iter4 138s] frame 05_1600_cinematic.png h=16.00 sunEl=29.5 moonLux=0.000 ev100=14.2 comp=0.28
+[Iter4 139s] frame 06_1830_cinematic.png h=18.50 sunEl=4.4 moonLux=0.000 ev100=11.5 comp=0.30
+[Iter4 139s] frame 07_1930_cinematic.png h=19.50 sunEl=-5.1 moonLux=0.005 ev100=1.8 comp=-0.78
+[Iter4 140s] frame 08_2100_cinematic.png h=21.00 sunEl=-17.6 moonLux=0.018 ev100=-8.4 comp=-1.99
+[Iter4 140s] frame 09_0000_cinematic.png h=0.00 sunEl=-29.7 moonLux=0.000 ev100=-11.4 comp=-2.00
+[Iter4 140s] frame hero_blue_hour_aerial.png h=19.75 sunEl=-7.4 moonLux=0.014 ev100=-1.0 comp=-1.11
+[Iter4 140s] frame hero_night_clearing.png h=0.00 sunEl=-29.7 moonLux=0.000 ev100=-11.4 comp=-2.00
+[Iter4 141s] frame night_sky_stars_x1.png h=0.00 sunEl=-29.7 moonLux=0.000 ev100=-11.4 comp=-2.00
+[Iter4 141s] frame night_sky_stars_x10.png h=0.00 sunEl=-29.7 moonLux=0.000 ev100=-11.4 comp=-2.00
+[Iter4 141s] frame aerial_wide_golden.png h=16.51 sunEl=24.4 moonLux=0.000 ev100=14.0 comp=0.38
+[Iter4 141s] frame corridor_mid_dusk.png h=17.57 sunEl=13.7 moonLux=0.000 ev100=13.1 comp=0.55
+[Iter4 142s] frame target1_golden_dof.png h=16.51 sunEl=24.4 moonLux=0.000 ev100=14.0 comp=0.38
+[Iter4 274s] built autumn in 132s season=Autumn green=0.5
+[Iter4 276s] frame season_autumn_cinematic.png h=16.00 sunEl=12.1 moonLux=0.000 ev100=13.0 comp=0.53
+[Iter4 277s] frame hero_autumn_golden_corridor.png h=16.35 sunEl=9.0 moonLux=0.000 ev100=12.5 comp=0.48
+[Iter4 277s] frame hero_autumn_golden_aerial.png h=16.35 sunEl=9.0 moonLux=0.000 ev100=12.5 comp=0.48
+[Iter4 415s] built spring in 137s season=Spring green=0.5
+[Iter4 417s] frame season_spring_cinematic.png h=16.00 sunEl=28.3 moonLux=0.000 ev100=14.2 comp=0.30
+[Iter4 560s] built late_autumn in 142s season=LateAutumn green=0.5
+[Iter4 562s] frame season_late_autumn_cinematic.png h=16.00 sunEl=5.0 moonLux=0.000 ev100=11.6 comp=0.32
+[Iter4 703s] built winter_bare in 140s season=WinterBare green=0.5
+[Iter4 705s] frame season_winter_bare_cinematic.png h=16.00 sunEl=2.7 moonLux=0.000 ev100=10.9 comp=0.20
+[Iter4 707s] done

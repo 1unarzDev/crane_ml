@@ -128,3 +128,4 @@ __pycache__/
 #   unity-drones LOG -executeMethod Crane.Drones.Environment.Editor.BuildDroneForest.BuildFromCommandLine -forestSeed 1337 -quit)
 /Assets/Drones/Environment/Generated/
 /Assets/Drones/Environment/Generated.meta
+Tools/BeliefSVR/results/raw/

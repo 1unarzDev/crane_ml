@@ -1,0 +1,949 @@
+{
+ "jobs": [
+  {
+   "campaign": "d2_learned",
+   "est_seconds": 30,
+   "job_id": "d2_exact_dataset.s000",
+   "kind": "fastsim",
+   "max_attempts": 3,
+   "needs": {
+    "min_cpu": 1,
+    "os": [
+     "linux"
+    ],
+    "tags": [
+     "nlc",
+     "linux"
+    ]
+   },
+   "outputs": {
+    "class": "summary"
+   },
+   "preemptible": true,
+   "priority": 100,
+   "priority_class": "sim",
+   "purpose": "Generate exact-solver (expectimax) state-action pairs on random tiny search-verify-report instances (<= 6 cells, 2 view classes, horizon <= 6) for behaviour cloning of a belief-space verification policy.",
+   "schema": "rc-job/1",
+   "seeds": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17
+   ],
+   "spec": {
+    "cmd": "python Tools/BeliefSVR/bs_learn_bc.py gen --instances",
+    "n_seeds": 18,
+    "seeds": [
+     0,
+     17
+    ],
+    "split": "dev"
+   },
+   "submitter": "frontier-d4"
+  },
+  {
+   "campaign": "d2_learned",
+   "est_seconds": 30,
+   "job_id": "d2_exact_dataset.s001",
+   "kind": "fastsim",
+   "max_attempts": 3,
+   "needs": {
+    "min_cpu": 1,
+    "os": [
+     "linux"
+    ],
+    "tags": [
+     "nlc",
+     "linux"
+    ]
+   },
+   "outputs": {
+    "class": "summary"
+   },
+   "preemptible": true,
+   "priority": 100,
+   "priority_class": "sim",
+   "purpose": "Generate exact-solver (expectimax) state-action pairs on random tiny search-verify-report instances (<= 6 cells, 2 view classes, horizon <= 6) for behaviour cloning of a belief-space verification policy.",
+   "schema": "rc-job/1",
+   "seeds": [
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35
+   ],
+   "spec": {
+    "cmd": "python Tools/BeliefSVR/bs_learn_bc.py gen --instances",
+    "n_seeds": 18,
+    "seeds": [
+     18,
+     35
+    ],
+    "split": "dev"
+   },
+   "submitter": "frontier-d4"
+  },
+  {
+   "campaign": "d2_learned",
+   "est_seconds": 30,
+   "job_id": "d2_exact_dataset.s002",
+   "kind": "fastsim",
+   "max_attempts": 3,
+   "needs": {
+    "min_cpu": 1,
+    "os": [
+     "linux"
+    ],
+    "tags": [
+     "nlc",
+     "linux"
+    ]
+   },
+   "outputs": {
+    "class": "summary"
+   },
+   "preemptible": true,
+   "priority": 100,
+   "priority_class": "sim",
+   "purpose": "Generate exact-solver (expectimax) state-action pairs on random tiny search-verify-report instances (<= 6 cells, 2 view classes, horizon <= 6) for behaviour cloning of a belief-space verification policy.",
+   "schema": "rc-job/1",
+   "seeds": [
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53
+   ],
+   "spec": {
+    "cmd": "python Tools/BeliefSVR/bs_learn_bc.py gen --instances",
+    "n_seeds": 18,
+    "seeds": [
+     36,
+     53
+    ],
+    "split": "dev"
+   },
+   "submitter": "frontier-d4"
+  },
+  {
+   "campaign": "d2_learned",
+   "est_seconds": 30,
+   "job_id": "d2_exact_dataset.s003",
+   "kind": "fastsim",
+   "max_attempts": 3,
+   "needs": {
+    "min_cpu": 1,
+    "os": [
+     "linux"
+    ],
+    "tags": [
+     "nlc",
+     "linux"
+    ]
+   },
+   "outputs": {
+    "class": "summary"
+   },
+   "preemptible": true,
+   "priority": 100,
+   "priority_class": "sim",
+   "purpose": "Generate exact-solver (expectimax) state-action pairs on random tiny search-verify-report instances (<= 6 cells, 2 view classes, horizon <= 6) for behaviour cloning of a belief-space verification policy.",
+   "schema": "rc-job/1",
+   "seeds": [
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61,
+    62,
+    63,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71
+   ],
+   "spec": {
+    "cmd": "python Tools/BeliefSVR/bs_learn_bc.py gen --instances",
+    "n_seeds": 18,
+    "seeds": [
+     54,
+     71
+    ],
+    "split": "dev"
+   },
+   "submitter": "frontier-d4"
+  },
+  {
+   "campaign": "d2_learned",
+   "est_seconds": 30,
+   "job_id": "d2_exact_dataset.s004",
+   "kind": "fastsim",
+   "max_attempts": 3,
+   "needs": {
+    "min_cpu": 1,
+    "os": [
+     "linux"
+    ],
+    "tags": [
+     "nlc",
+     "linux"
+    ]
+   },
+   "outputs": {
+    "class": "summary"
+   },
+   "preemptible": true,
+   "priority": 100,
+   "priority_class": "sim",
+   "purpose": "Generate exact-solver (expectimax) state-action pairs on random tiny search-verify-report instances (<= 6 cells, 2 view classes, horizon <= 6) for behaviour cloning of a belief-space verification policy.",
+   "schema": "rc-job/1",
+   "seeds": [
+    72,
+    73,
+    74,
+    75,
+    76,
+    77,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88,
+    89
+   ],
+   "spec": {
+    "cmd": "python Tools/BeliefSVR/bs_learn_bc.py gen --instances",
+    "n_seeds": 18,
+    "seeds": [
+     72,
+     89
+    ],
+    "split": "dev"
+   },
+   "submitter": "frontier-d4"
+  },
+  {
+   "campaign": "d2_learned",
+   "est_seconds": 30,
+   "job_id": "d2_exact_dataset.s005",
+   "kind": "fastsim",
+   "max_attempts": 3,
+   "needs": {
+    "min_cpu": 1,
+    "os": [
+     "linux"
+    ],
+    "tags": [
+     "nlc",
+     "linux"
+    ]
+   },
+   "outputs": {
+    "class": "summary"
+   },
+   "preemptible": true,
+   "priority": 100,
+   "priority_class": "sim",
+   "purpose": "Generate exact-solver (expectimax) state-action pairs on random tiny search-verify-report instances (<= 6 cells, 2 view classes, horizon <= 6) for behaviour cloning of a belief-space verification policy.",
+   "schema": "rc-job/1",
+   "seeds": [
+    90,
+    91,
+    92,
+    93,
+    94,
+    95,
+    96,
+    97,
+    98,
+    99,
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107
+   ],
+   "spec": {
+    "cmd": "python Tools/BeliefSVR/bs_learn_bc.py gen --instances",
+    "n_seeds": 18,
+    "seeds": [
+     90,
+     107
+    ],
+    "split": "dev"
+   },
+   "submitter": "frontier-d4"
+  },
+  {
+   "campaign": "d2_learned",
+   "est_seconds": 30,
+   "job_id": "d2_exact_dataset.s006",
+   "kind": "fastsim",
+   "max_attempts": 3,
+   "needs": {
+    "min_cpu": 1,
+    "os": [
+     "linux"
+    ],
+    "tags": [
+     "nlc",
+     "linux"
+    ]
+   },
+   "outputs": {
+    "class": "summary"
+   },
+   "preemptible": true,
+   "priority": 100,
+   "priority_class": "sim",
+   "purpose": "Generate exact-solver (expectimax) state-action pairs on random tiny search-verify-report instances (<= 6 cells, 2 view classes, horizon <= 6) for behaviour cloning of a belief-space verification policy.",
+   "schema": "rc-job/1",
+   "seeds": [
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119,
+    120,
+    121,
+    122,
+    123,
+    124,
+    125
+   ],
+   "spec": {
+    "cmd": "python Tools/BeliefSVR/bs_learn_bc.py gen --instances",
+    "n_seeds": 18,
+    "seeds": [
+     108,
+     125
+    ],
+    "split": "dev"
+   },
+   "submitter": "frontier-d4"
+  },
+  {
+   "campaign": "d2_learned",
+   "est_seconds": 30,
+   "job_id": "d2_exact_dataset.s007",
+   "kind": "fastsim",
+   "max_attempts": 3,
+   "needs": {
+    "min_cpu": 1,
+    "os": [
+     "linux"
+    ],
+    "tags": [
+     "nlc",
+     "linux"
+    ]
+   },
+   "outputs": {
+    "class": "summary"
+   },
+   "preemptible": true,
+   "priority": 100,
+   "priority_class": "sim",
+   "purpose": "Generate exact-solver (expectimax) state-action pairs on random tiny search-verify-report instances (<= 6 cells, 2 view classes, horizon <= 6) for behaviour cloning of a belief-space verification policy.",
+   "schema": "rc-job/1",
+   "seeds": [
+    126,
+    127,
+    128,
+    129,
+    130,
+    131,
+    132,
+    133,
+    134,
+    135,
+    136,
+    137,
+    138,
+    139,
+    140,
+    141,
+    142,
+    143
+   ],
+   "spec": {
+    "cmd": "python Tools/BeliefSVR/bs_learn_bc.py gen --instances",
+    "n_seeds": 18,
+    "seeds": [
+     126,
+     143
+    ],
+    "split": "dev"
+   },
+   "submitter": "frontier-d4"
+  },
+  {
+   "campaign": "d2_learned",
+   "est_seconds": 30,
+   "job_id": "d2_exact_dataset.s008",
+   "kind": "fastsim",
+   "max_attempts": 3,
+   "needs": {
+    "min_cpu": 1,
+    "os": [
+     "linux"
+    ],
+    "tags": [
+     "nlc",
+     "linux"
+    ]
+   },
+   "outputs": {
+    "class": "summary"
+   },
+   "preemptible": true,
+   "priority": 100,
+   "priority_class": "sim",
+   "purpose": "Generate exact-solver (expectimax) state-action pairs on random tiny search-verify-report instances (<= 6 cells, 2 view classes, horizon <= 6) for behaviour cloning of a belief-space verification policy.",
+   "schema": "rc-job/1",
+   "seeds": [
+    144,
+    145,
+    146,
+    147,
+    148,
+    149,
+    150,
+    151,
+    152,
+    153,
+    154,
+    155,
+    156,
+    157,
+    158,
+    159,
+    160,
+    161
+   ],
+   "spec": {
+    "cmd": "python Tools/BeliefSVR/bs_learn_bc.py gen --instances",
+    "n_seeds": 18,
+    "seeds": [
+     144,
+     161
+    ],
+    "split": "dev"
+   },
+   "submitter": "frontier-d4"
+  },
+  {
+   "campaign": "d2_learned",
+   "est_seconds": 30,
+   "job_id": "d2_exact_dataset.s009",
+   "kind": "fastsim",
+   "max_attempts": 3,
+   "needs": {
+    "min_cpu": 1,
+    "os": [
+     "linux"
+    ],
+    "tags": [
+     "nlc",
+     "linux"
+    ]
+   },
+   "outputs": {
+    "class": "summary"
+   },
+   "preemptible": true,
+   "priority": 100,
+   "priority_class": "sim",
+   "purpose": "Generate exact-solver (expectimax) state-action pairs on random tiny search-verify-report instances (<= 6 cells, 2 view classes, horizon <= 6) for behaviour cloning of a belief-space verification policy.",
+   "schema": "rc-job/1",
+   "seeds": [
+    162,
+    163,
+    164,
+    165,
+    166,
+    167,
+    168,
+    169,
+    170,
+    171,
+    172,
+    173,
+    174,
+    175,
+    176,
+    177,
+    178,
+    179
+   ],
+   "spec": {
+    "cmd": "python Tools/BeliefSVR/bs_learn_bc.py gen --instances",
+    "n_seeds": 18,
+    "seeds": [
+     162,
+     179
+    ],
+    "split": "dev"
+   },
+   "submitter": "frontier-d4"
+  },
+  {
+   "campaign": "d2_learned",
+   "est_seconds": 30,
+   "job_id": "d2_exact_dataset.s010",
+   "kind": "fastsim",
+   "max_attempts": 3,
+   "needs": {
+    "min_cpu": 1,
+    "os": [
+     "linux"
+    ],
+    "tags": [
+     "nlc",
+     "linux"
+    ]
+   },
+   "outputs": {
+    "class": "summary"
+   },
+   "preemptible": true,
+   "priority": 100,
+   "priority_class": "sim",
+   "purpose": "Generate exact-solver (expectimax) state-action pairs on random tiny search-verify-report instances (<= 6 cells, 2 view classes, horizon <= 6) for behaviour cloning of a belief-space verification policy.",
+   "schema": "rc-job/1",
+   "seeds": [
+    180,
+    181,
+    182,
+    183,
+    184,
+    185,
+    186,
+    187,
+    188,
+    189,
+    190,
+    191,
+    192,
+    193,
+    194,
+    195,
+    196,
+    197
+   ],
+   "spec": {
+    "cmd": "python Tools/BeliefSVR/bs_learn_bc.py gen --instances",
+    "n_seeds": 18,
+    "seeds": [
+     180,
+     197
+    ],
+    "split": "dev"
+   },
+   "submitter": "frontier-d4"
+  },
+  {
+   "campaign": "d2_learned",
+   "est_seconds": 30,
+   "job_id": "d2_exact_dataset.s011",
+   "kind": "fastsim",
+   "max_attempts": 3,
+   "needs": {
+    "min_cpu": 1,
+    "os": [
+     "linux"
+    ],
+    "tags": [
+     "nlc",
+     "linux"
+    ]
+   },
+   "outputs": {
+    "class": "summary"
+   },
+   "preemptible": true,
+   "priority": 100,
+   "priority_class": "sim",
+   "purpose": "Generate exact-solver (expectimax) state-action pairs on random tiny search-verify-report instances (<= 6 cells, 2 view classes, horizon <= 6) for behaviour cloning of a belief-space verification policy.",
+   "schema": "rc-job/1",
+   "seeds": [
+    198,
+    199,
+    200,
+    201,
+    202,
+    203,
+    204,
+    205,
+    206,
+    207,
+    208,
+    209,
+    210,
+    211,
+    212,
+    213,
+    214,
+    215
+   ],
+   "spec": {
+    "cmd": "python Tools/BeliefSVR/bs_learn_bc.py gen --instances",
+    "n_seeds": 18,
+    "seeds": [
+     198,
+     215
+    ],
+    "split": "dev"
+   },
+   "submitter": "frontier-d4"
+  },
+  {
+   "campaign": "d2_learned",
+   "est_seconds": 30,
+   "job_id": "d2_exact_dataset.s012",
+   "kind": "fastsim",
+   "max_attempts": 3,
+   "needs": {
+    "min_cpu": 1,
+    "os": [
+     "linux"
+    ],
+    "tags": [
+     "nlc",
+     "linux"
+    ]
+   },
+   "outputs": {
+    "class": "summary"
+   },
+   "preemptible": true,
+   "priority": 100,
+   "priority_class": "sim",
+   "purpose": "Generate exact-solver (expectimax) state-action pairs on random tiny search-verify-report instances (<= 6 cells, 2 view classes, horizon <= 6) for behaviour cloning of a belief-space verification policy.",
+   "schema": "rc-job/1",
+   "seeds": [
+    216,
+    217,
+    218,
+    219,
+    220,
+    221,
+    222,
+    223,
+    224,
+    225,
+    226,
+    227,
+    228,
+    229,
+    230,
+    231,
+    232,
+    233
+   ],
+   "spec": {
+    "cmd": "python Tools/BeliefSVR/bs_learn_bc.py gen --instances",
+    "n_seeds": 18,
+    "seeds": [
+     216,
+     233
+    ],
+    "split": "dev"
+   },
+   "submitter": "frontier-d4"
+  },
+  {
+   "campaign": "d2_learned",
+   "est_seconds": 30,
+   "job_id": "d2_exact_dataset.s013",
+   "kind": "fastsim",
+   "max_attempts": 3,
+   "needs": {
+    "min_cpu": 1,
+    "os": [
+     "linux"
+    ],
+    "tags": [
+     "nlc",
+     "linux"
+    ]
+   },
+   "outputs": {
+    "class": "summary"
+   },
+   "preemptible": true,
+   "priority": 100,
+   "priority_class": "sim",
+   "purpose": "Generate exact-solver (expectimax) state-action pairs on random tiny search-verify-report instances (<= 6 cells, 2 view classes, horizon <= 6) for behaviour cloning of a belief-space verification policy.",
+   "schema": "rc-job/1",
+   "seeds": [
+    234,
+    235,
+    236,
+    237,
+    238,
+    239,
+    240,
+    241,
+    242,
+    243,
+    244,
+    245,
+    246,
+    247,
+    248,
+    249,
+    250,
+    251
+   ],
+   "spec": {
+    "cmd": "python Tools/BeliefSVR/bs_learn_bc.py gen --instances",
+    "n_seeds": 18,
+    "seeds": [
+     234,
+     251
+    ],
+    "split": "dev"
+   },
+   "submitter": "frontier-d4"
+  },
+  {
+   "campaign": "d2_learned",
+   "est_seconds": 30,
+   "job_id": "d2_exact_dataset.s014",
+   "kind": "fastsim",
+   "max_attempts": 3,
+   "needs": {
+    "min_cpu": 1,
+    "os": [
+     "linux"
+    ],
+    "tags": [
+     "nlc",
+     "linux"
+    ]
+   },
+   "outputs": {
+    "class": "summary"
+   },
+   "preemptible": true,
+   "priority": 100,
+   "priority_class": "sim",
+   "purpose": "Generate exact-solver (expectimax) state-action pairs on random tiny search-verify-report instances (<= 6 cells, 2 view classes, horizon <= 6) for behaviour cloning of a belief-space verification policy.",
+   "schema": "rc-job/1",
+   "seeds": [
+    252,
+    253,
+    254,
+    255,
+    256,
+    257,
+    258,
+    259,
+    260,
+    261,
+    262,
+    263,
+    264,
+    265,
+    266,
+    267,
+    268,
+    269
+   ],
+   "spec": {
+    "cmd": "python Tools/BeliefSVR/bs_learn_bc.py gen --instances",
+    "n_seeds": 18,
+    "seeds": [
+     252,
+     269
+    ],
+    "split": "dev"
+   },
+   "submitter": "frontier-d4"
+  },
+  {
+   "campaign": "d2_learned",
+   "est_seconds": 30,
+   "job_id": "d2_exact_dataset.s015",
+   "kind": "fastsim",
+   "max_attempts": 3,
+   "needs": {
+    "min_cpu": 1,
+    "os": [
+     "linux"
+    ],
+    "tags": [
+     "nlc",
+     "linux"
+    ]
+   },
+   "outputs": {
+    "class": "summary"
+   },
+   "preemptible": true,
+   "priority": 100,
+   "priority_class": "sim",
+   "purpose": "Generate exact-solver (expectimax) state-action pairs on random tiny search-verify-report instances (<= 6 cells, 2 view classes, horizon <= 6) for behaviour cloning of a belief-space verification policy.",
+   "schema": "rc-job/1",
+   "seeds": [
+    270,
+    271,
+    272,
+    273,
+    274,
+    275,
+    276,
+    277,
+    278,
+    279,
+    280,
+    281,
+    282,
+    283,
+    284,
+    285,
+    286,
+    287
+   ],
+   "spec": {
+    "cmd": "python Tools/BeliefSVR/bs_learn_bc.py gen --instances",
+    "n_seeds": 18,
+    "seeds": [
+     270,
+     287
+    ],
+    "split": "dev"
+   },
+   "submitter": "frontier-d4"
+  },
+  {
+   "campaign": "d2_learned",
+   "est_seconds": 900,
+   "job_id": "d2-bc-mlp",
+   "kind": "command",
+   "lease_ttl_s": 300,
+   "max_attempts": 5,
+   "needs": {
+    "gpu": true,
+    "host": "harmony",
+    "os": [
+     "linux",
+     "windows"
+    ],
+    "vram_gb": 2.0
+   },
+   "outputs": {
+    "class": "summary"
+   },
+   "preemptible": true,
+   "priority": 100,
+   "priority_class": "background",
+   "purpose": "Behaviour-clone the exact expectimax action (report / look same view / look independent view / partner / move) from belief features with a small MLP; DEV instances only, checkpoint every epoch.",
+   "schema": "rc-job/1",
+   "spec": {
+    "_note": "SPEC ONLY: no PyTorch training backend exists; kind 'command' is a placeholder",
+    "checkpoint_dir": "checkpoints",
+    "cmd": "python Tools/BeliefSVR/bs_learn_bc.py train --data d2_exact_dataset --hidden 128 --device cuda --checkpoint-dir checkpoints --resume",
+    "resume": true
+   },
+   "submitter": "frontier-train"
+  },
+  {
+   "campaign": "d2_learned",
+   "est_seconds": 14400,
+   "job_id": "d2-ppo-belief",
+   "kind": "command",
+   "lease_ttl_s": 300,
+   "max_attempts": 5,
+   "needs": {
+    "gpu": true,
+    "host": "harmony",
+    "os": [
+     "linux",
+     "windows"
+    ],
+    "vram_gb": 4.0
+   },
+   "outputs": {
+    "class": "summary"
+   },
+   "preemptible": true,
+   "priority": 100,
+   "priority_class": "background",
+   "purpose": "PPO fine-tune of the behaviour-cloned belief-space verification policy in the BeliefSVR mission simulator on DEV layouts, with an explicit false-report penalty, checkpoint at every update, resume-safe.",
+   "schema": "rc-job/1",
+   "spec": {
+    "_note": "SPEC ONLY: no PyTorch training backend exists; kind 'command' is a placeholder",
+    "checkpoint_dir": "checkpoints",
+    "cmd": "python Tools/BeliefSVR/bs_learn_ppo.py --init d2-bc-mlp --layouts 100-219 --device cuda --checkpoint-dir checkpoints --resume",
+    "depends_on": "d2-bc-mlp",
+    "resume": true
+   },
+   "submitter": "frontier-train"
+  }
+ ]
+}
