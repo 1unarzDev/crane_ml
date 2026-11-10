@@ -237,3 +237,31 @@ Earlier attempts kept for the record: `stills/autonomy_attempt1_dock_deadlock/` 
 Launch rule fix (IMPLEMENTED, not yet exercised): `fleet.sh` now takes `unity.lock` first and checks memory and all heavy slots inside
 it, and closes the lock fd for children. Before, the check ran before a long flock wait (an orphaned Xvfb from a killed run held the
 lock), so at 04:45 my build may have overlapped another session's short player by a few seconds.
+
+## Phase 3 (2026-11-10 04:55-05:25): truth outcomes, new channels, library fixes integrated
+
+| Item | Where | Evidence |
+|---|---|---|
+| Harness outcome from evaluator truth only: `truth:delivered` / `truth:not_delivered: payload <state>`; summary line "library believed X, host verdict Y; truth Z; N disputed claims; M jams" | `Sim/FleetHarness.cs`, `Sim/AutonomyMission.cs` | LIVE_SIM_VALIDATED |
+| Claim checks: whenever the library marks a task Succeeded, the evaluator checks the same claim (goto/transport position, dock joint, lift carried, handoff payload on both decks, transport payload in the zone on the decks) -> `claim_confirmed` / `claim_disputed` events and `results.autonomy.belief_vs_truth` | `Sim/AutonomyMission.cs` | LIVE_SIM_VALIDATED |
+| Payload truth (support from a 5 mm overlap probe in the run's physics scene: deck colliders touched, floor contact, tilt, speed) | `AutonomyMission.PayloadTruth` | LIVE_SIM_VALIDATED |
+| Evaluator-only jam detection (wheels commanded > 1 rad/s, body < 2 cm/s for > 1 s) with last contact partner; `jam_start/jam_end` events, `results.jams` | `Sim/FleetRun.cs` | LIVE_SIM_VALIDATED (v1: cargo_1 jammed on divider_0 from 109.6 s) |
+| Rover channels for the library: accelerometer through the library's `IInertialSource` (body frame, gravity removed, IMU rate, provisional noise 0.002 m/s^2/sqrt(Hz)); commanded vs measured wheel rates (`IObservationSourceExtras`); deck load cells (`LiftReport.DeckLoadValid/DeckLoadKg` from contact geometry); payload and landmark tag detections through the own-camera tag stream | `Sim/AutonomyMission.cs`, `Sim/RoverRig.cs`, `AutonomyApi/ObservationExtras.cs` | LIVE_SIM_VALIDATED (library used deck load: "support_confirmed deck load 6.00 kg") |
+| Door-jamb landmark tags (4, on the divider faces beside the doorway, 12 cm, 0.30 m high), known to the library via `FleetConfig.Landmarks`, rendered as plates | overlay `landmarks` | LIVE_SIM_VALIDATED (relocalisations from lm_door_w_n / lm_door_w_s) |
+| Host verdict: `Executive.ConfirmByHost` from the truth delivery check, after the payload settles (<= 3 s) | `Sim/AutonomyMission.cs` | LIVE_SIM_VALIDATED: rerun of v2 s1 through `fleet.sh request-run` -> "library believed complete, host verdict accepted; truth: delivered; 0 disputed claims; 0 jams" (`~/.cache/crane-fleet/requests/v2_s1_verdictfix/`) |
+| Close-ups: state LEDs visible (no emission dependency), labelled cutaway shots hide the chassis shell and deck of the coupled rovers so hooks and pins show | `Sim/FleetAssets.cs`, `Sim/FleetBoot.cs`, overlay `autonomy_shots` | LIVE_SIM_VALIDATED (`stills/demo_seed1_v2/03b,03c`) |
+| Autonomy library update imported (stall/shove/slip detection, relocalisation, cross-rover fixes, tag-aligned handoff with support confirmation, host verdict) + mission v2 (`place_on`, `place_offset`) | `Assets/Scripts/Fleet/Autonomy/`, `Tools/Fleet/missions/autonomy_demo_v2.json` | LIVE_SIM_VALIDATED |
+| Spawning capplan module types beyond scout/lifter/cargo (diff_carrier, sensor_mast) | none | NOT_RUN (needs a general plant; module graphs are refused as `unsupported_configuration`) |
+
+### Truth outcomes, closed loop (`~/.cache/crane-fleet/jobs/autonomy_demo_v1/`, `.../autonomy_demo_v2/`)
+| Run | Library believed | Truth |
+|---|---|---|
+| v1 s1, v1 s2 (old library) | mission succeeded | not delivered: payload on the floor; 2 disputed claims (give, deliver); 2 jams (cargo_1 on divider_0) |
+| **v2 s1 (updated library, landmarks, accelerometer, deck load cells)** | complete | **delivered**: payload on both decks at (8.75, 3.52) in the delivery zone, at rest; 0 jams; all 9 tasks first attempt; relocalised cargo_2 from the lifter's camera (it was 0.37 m off) and cargo_1 from two door landmarks; handoff confirmed by deck load 6.00 kg. The host verdict in this run said "rejected" and one claim was "disputed" only because my check required the payload at rest at the instant of completion (residual speed); fixed (verdict waits for settling) |
+| v2 s2 | not complete, class Geometry | not delivered: the lift failed twice ("goal_in_collision" from the library planner), handoff and transport skipped; library and truth agree (no false success) |
+
+Stills of the delivered run: `~/.cache/crane-fleet/stills/demo_seed1_v2/` (00 establish, 01/01b find, 02 lift, 03a wide capture,
+03b/03c cutaway hooks closing and latched with the LED white then teal, 03d shell view, 04a/04b handoff with the payload squarely on
+both decks, 05 the loaded pair in the doorway with the landmark plates, 06 onboard, 07b = the premature "failed" verdict of the old
+check (the frame shows the west hall; the payload is delivered in the east hall)). The h24 stills (`stills/demo_seed1/`, payload
+falling) are kept unchanged.
