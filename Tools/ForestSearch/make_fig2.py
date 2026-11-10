@@ -66,7 +66,7 @@ def main(md, out):
     a.legend(loc="lower center", bbox_to_anchor=(0.5, 1.0), ncol=2, fontsize=6.8, frameon=False,
              handletextpad=.2, columnspacing=1.0, borderaxespad=.2)
     a.grid(axis="y", lw=.3, alpha=.5)
-    a.text(2.3, -0.004, "silent common plan", fontsize=6.8, ha="center", va="top", color="0.25")
+    a.text(2.3, -0.004, "default plan (silent)", fontsize=6.8, ha="center", va="top", color="0.25")
     # bytes panel
     bs = [("HYBRID_P", "#009E73", "HYBRID-P"), ("HEALTH", "#CC79A7", "HEALTH"),
           ("HEARTBEAT", "#CC79A7", "HEARTBEAT")]

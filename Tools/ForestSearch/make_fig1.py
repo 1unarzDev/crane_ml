@@ -1,4 +1,4 @@
-"""Figure 1 for the paper: Delta P(detect) vs the silent common plan, on held-out 6x6.
+"""Figure 1 for the paper: Delta P(detect) vs the silent default plan, on held-out 6x6.
 
 Run from Tools/:  python -m ForestSearch.make_fig1 <results_dir> <out.pdf>
 Fonts are embedded as TrueType (pdf.fonttype 42), because AAAI forbids Type 3.
@@ -70,7 +70,7 @@ def main(rdir, out):
         for sp in ("top", "right"):
             a.spines[sp].set_visible(False)
     ax[0].set_ylabel(r"$\Delta P$ vs.\ IMPLICIT", fontsize=7.5)
-    ax[0].annotate("0 = silent common plan", (0.0, 0.0), (-0.1, 0.04), fontsize=7, ha="left", va="center",
+    ax[0].annotate("0 = default plan (silent)", (0.0, 0.0), (-0.1, 0.04), fontsize=7, ha="left", va="center",
                    color="0.2", arrowprops=dict(arrowstyle="-", lw=.5, color="0.4"))
     # direct labels, panel (b) right edge (clearest separation), nudged to avoid overlap
     a = ax[2]
