@@ -23,6 +23,7 @@ namespace Crane.Drones.Environment
             public float sunKelvin;
             public float shadowStrength = 1f;
             public float volumetricDimmer = 1f;
+            public Color hazeColor = new Color(0.8f, 0.76f, 0.68f);
         }
 
         public Light sun;
@@ -30,7 +31,9 @@ namespace Crane.Drones.Environment
         public Volume depthOfFieldVolume;   // weight 0 by default, hero shots
         public Volume filmGrainVolume;      // weight 0 by default
         public Volume motionBlurVolume;     // weight 1 by default, capture
+        public Volume aerialHazeVolume;     // weight 0 by default: for shots high above the canopy (hides the edge of the world)
         public string startPreset = "GoldenHour";
+        Color activeHaze = new Color(0.8f, 0.76f, 0.68f);
 
         void Start() { SetPreset(startPreset); }
 
@@ -41,6 +44,7 @@ namespace Crane.Drones.Environment
             {
                 bool on = string.Equals(p.name, presetName, StringComparison.OrdinalIgnoreCase);
                 if (p.volume != null) p.volume.weight = on ? 1f : 0f;
+                if (on) activeHaze = p.hazeColor;
                 if (!on || sun == null) continue;
                 sun.transform.rotation = Quaternion.Euler(p.sunEuler);
                 sun.intensity = p.sunLux;
@@ -57,6 +61,14 @@ namespace Crane.Drones.Environment
             if (depthOfFieldVolume == null) return;
             depthOfFieldVolume.weight = on ? 1f : 0f;
             if (depthOfFieldVolume.profile.TryGet(out DepthOfField dof)) dof.focusDistance.value = focusDistance;
+        }
+
+        /// <summary>Aerial / over-canopy shots: swaps volumetric fog for exponential horizon haze (weight 0..1) so the surrounding landscape fades into the sky.</summary>
+        public void SetAerialHaze(float weight)
+        {
+            if (aerialHazeVolume == null) return;
+            aerialHazeVolume.weight = Mathf.Clamp01(weight);
+            if (aerialHazeVolume.profile.TryGet(out Fog fog)) { fog.color.value = activeHaze; fog.tint.value = activeHaze; }
         }
 
         public void SetFilmGrain(bool on) { if (filmGrainVolume != null) filmGrainVolume.weight = on ? 1f : 0f; }

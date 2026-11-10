@@ -23,6 +23,7 @@ namespace Crane.Drones.Environment.Editor
     {
         public const string Root = "Assets/Drones/Environment";
         public const int EnvLayer = 9; // "Environment" in ProjectSettings/TagManager.asset
+        public const int FarLayer = 14; // "EnvironmentFar": distant visual-only landscape (no colliders, not in manifest)
         static readonly CultureInfo CI = CultureInfo.InvariantCulture;
 
         // ---------- build context ----------
@@ -39,8 +40,12 @@ namespace Crane.Drones.Environment.Editor
             public Func<float, float, float> H; // world x,z -> world y
             public Dictionary<string, TreeResult> treeCache = new Dictionary<string, TreeResult>();
             public Dictionary<string, Mesh> meshCache = new Dictionary<string, Mesh>();
+            public Material[] ferns = new Material[4], leafVar = new Material[6], needleVar = new Material[4], branchMats = new Material[2];
+            public Material grass, farBroad, farConifer, farGround; public List<MidRec> mids = new List<MidRec>(); public int nGrass, nBranch, farTrees;
+            public Texture2D tMoss, tMossN, tNeedle, tNeedleN, tGrass, tGrassN, tLeaf2, tLeaf2N;
         }
         class TreeRec { public int id; public string species; public int sizeClass, variant; public Vector3 pos; public float yaw, sx, sy, dbhCm, heightM; public bool dead; public int branchCount; }
+        class MidRec { public int id; public string kind; public Vector3 pos; public float yaw, scale, height, crownR; public int segCount; public string segs; }
         class PropRec { public string kind; public Vector3 pos; public float yaw, size; public string note; }
         class TargetRec { public int id; public string pose; public Vector3 pos; public float yaw; public float occlusion; public int coverSticks, coverMounds, coverFerns; public bool log; public float visibleFraction = -1; public string name; }
 
@@ -79,7 +84,7 @@ namespace Crane.Drones.Environment.Editor
         public static void Build(ForestSpec spec, string scenePath)
         {
             var t0 = DateTime.Now;
-            var c = new Ctx { spec = spec, rng = new System.Random(spec.seed) };
+            var c = new Ctx { spec = spec, rng = new System.Random(spec.seed) }; CurrentSeed = spec.seed;
             c.genDir = Root + "/Generated/seed_" + spec.seed;
             if (AssetDatabase.IsValidFolder(c.genDir)) AssetDatabase.DeleteAsset(c.genDir);
             Directory.CreateDirectory(c.genDir); AssetDatabase.Refresh();
@@ -93,6 +98,8 @@ namespace Crane.Drones.Environment.Editor
             PlaceTrees(c, root);
             PlaceUndergrowth(c, root);
             PlaceTargets(c, root);
+            PlaceMidstory(c, root);
+            BuildFarLandscape(c, root);
             MarkersAndRigs(c, root);
             var dir = ForestLighting.Build(root, Root + "/Profiles", spec.lightingPreset, diff);
             PostChecks(c);
@@ -117,10 +124,13 @@ namespace Crane.Drones.Environment.Editor
 
         static Texture2D Tex(string rel) { return AssetDatabase.LoadAssetAtPath<Texture2D>(Root + "/Textures/PolyHaven/" + rel); }
 
-        static Texture2D SavePng(Texture2D t, string path, bool alpha)
+        static Texture2D SavePng(Texture2D t, string path, bool alpha, int kind = 0) // kind 0 colour, 1 normal map, 2 linear data
         {
             File.WriteAllBytes(path, t.EncodeToPNG()); UnityEngine.Object.DestroyImmediate(t); AssetDatabase.ImportAsset(path);
-            var ti = (TextureImporter)AssetImporter.GetAtPath(path); ti.alphaIsTransparency = alpha; ti.mipmapEnabled = true; ti.sRGBTexture = true; ti.maxTextureSize = 1024;
+            var ti = (TextureImporter)AssetImporter.GetAtPath(path);
+            if (kind == 1) { ti.textureType = TextureImporterType.NormalMap; ti.wrapMode = alpha ? TextureWrapMode.Clamp : TextureWrapMode.Repeat; ti.maxTextureSize = 1024; ti.SaveAndReimport(); return AssetDatabase.LoadAssetAtPath<Texture2D>(path); }
+            if (kind == 2) { ti.sRGBTexture = false; ti.alphaIsTransparency = false; ti.wrapMode = TextureWrapMode.Clamp; ti.maxTextureSize = 1024; ti.SaveAndReimport(); return AssetDatabase.LoadAssetAtPath<Texture2D>(path); }
+            ti.alphaIsTransparency = alpha; ti.mipmapEnabled = true; ti.sRGBTexture = true; ti.maxTextureSize = 1024;
             ti.wrapMode = alpha ? TextureWrapMode.Clamp : TextureWrapMode.Repeat; if (alpha) ti.mipMapsPreserveCoverage = true; if (alpha) ti.alphaTestReferenceValue = 0.5f;
             ti.SaveAndReimport(); return AssetDatabase.LoadAssetAtPath<Texture2D>(path);
         }
@@ -138,27 +148,35 @@ namespace Crane.Drones.Environment.Editor
             }
             catch (Exception e) { Debug.LogWarning("[DroneForest] diffusion profile setup: " + e.Message); }
             EditorUtility.SetDirty(d); AssetDatabase.SaveAssets();
-            try { var ht = typeof(HDAdditionalLightData).Assembly.GetType("UnityEngine.Rendering.HighDefinition.DiffusionProfileHashTable"); ht.GetMethod("UpdateDiffusionProfileHashNow", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static).Invoke(null, new object[] { d }); } catch (Exception e) { Debug.LogWarning("hash: " + e.Message); }
+            try
+            {
+                string guid = AssetDatabase.AssetPathToGUID(path); uint hash = uint.Parse(guid.Substring(0, 8), System.Globalization.NumberStyles.HexNumber); if (hash == 0) hash = 1;
+                object pr = Priv(d, "profile"); var hf = pr.GetType().GetField("hash", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic); hf.SetValue(pr, hash); EditorUtility.SetDirty(d); AssetDatabase.SaveAssets();
+            }
+            catch (Exception e) { Debug.LogWarning("[DroneForest] diffusion hash: " + e.Message); }
             return d;
         }
 
         static object Priv(object o, string f) { var fi = o.GetType().GetField(f, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public); return fi.GetValue(o); }
 
-        static Material Mat(string path, Texture2D basemap, Texture2D nrm, Color tint, float smooth, float nrmScale = 1f, bool clip = false, bool dbl = false, DiffusionProfileSettings diff = null, Vector2? tiling = null)
+        static Material Mat(string path, Texture2D basemap, Texture2D nrm, Color tint, float smooth, float nrmScale = 1f, bool clip = false, bool dbl = false, DiffusionProfileSettings diff = null, Vector2? tiling = null, Texture2D thick = null)
         {
             AssetDatabase.DeleteAsset(path);
             var m = new Material(Shader.Find("HDRP/Lit")); m.name = Path.GetFileNameWithoutExtension(path);
             if (basemap != null) { m.SetTexture("_BaseColorMap", basemap); if (tiling.HasValue) m.SetTextureScale("_BaseColorMap", tiling.Value); }
             m.SetColor("_BaseColor", tint); m.SetFloat("_Smoothness", smooth); m.SetFloat("_Metallic", 0f);
             if (nrm != null) { m.SetTexture("_NormalMap", nrm); m.SetFloat("_NormalScale", nrmScale); }
-            if (clip) { m.SetFloat("_AlphaCutoffEnable", 1f); m.SetFloat("_AlphaCutoff", 0.5f); }
+            if (clip) { m.SetFloat("_AlphaCutoffEnable", 1f); m.SetFloat("_AlphaCutoff", 0.5f); m.SetFloat("_UseShadowThreshold", 1f); m.SetFloat("_AlphaCutoffShadow", 0.5f); m.SetFloat("_AlphaCutoffPrepass", 0.5f); m.SetFloat("_AlphaCutoffPostpass", 0.5f); }
             if (dbl) { m.SetFloat("_DoubleSidedEnable", 1f); m.SetFloat("_DoubleSidedNormalMode", 1f); m.SetFloat("_CullMode", 0f); m.SetFloat("_CullModeForward", 0f); }
             if (diff != null)
             {
-                m.SetFloat("_MaterialID", 5f); m.SetFloat("_TransmissionEnable", 1f); m.SetFloat("_Thickness", 1f); m.SetVector("_ThicknessRemap", new Vector4(0.3f, 0.9f, 0, 0));
-                try { var me = typeof(HDAdditionalLightData).Assembly.GetType("UnityEngine.Rendering.HighDefinition.MaterialExtension"); me.GetMethod("SetDiffusionProfile", System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static).Invoke(null, new object[] { m, diff }); } catch (Exception e) { Debug.LogWarning("SetDiffusionProfile: " + e.Message); }
+                m.SetFloat("_MaterialID", 5f); m.SetFloat("_TransmissionEnable", 1f); m.SetFloat("_Thickness", 1f); m.SetVector("_ThicknessRemap", new Vector4(0.3f, 0.9f, 0, 0)); if (thick != null) m.SetTexture("_ThicknessMap", thick);
             }
             AssetDatabase.CreateAsset(m, path);
+            if (diff != null) // must run after CreateAsset: HDRP records the profile as an external asset reference of the saved material
+            {
+                try { HDMaterial.SetDiffusionProfile(m, diff); EditorUtility.SetDirty(m); } catch (Exception e) { Debug.LogWarning("SetDiffusionProfile: " + e.Message); }
+            }
             try { UnityEditor.Rendering.HighDefinition.HDShaderUtils.ResetMaterialKeywords(m); } catch (Exception e) { Debug.LogWarning("ValidateMaterial: " + e.Message); }
             EditorUtility.SetDirty(m); return m;
         }
@@ -178,9 +196,40 @@ namespace Crane.Drones.Environment.Editor
             c.bark[4] = Mat(d + "/Bark_SnagConifer.mat", pineD, pineN, new Color(1.2f, 1.15f, 1.1f), 0.06f, 1.0f);
             c.bark[5] = Mat(d + "/Bark_SnagBroadleaf.mat", brkD, brkN, new Color(1.15f, 1.1f, 1.05f), 0.06f, 1.0f);
             c.twigMat = c.bark[4];
-            c.leaves = Mat(d + "/Foliage_Broadleaf.mat", SavePng(TexGen.Broadleaf(c.spec.seed + 11), tex + "/leaf_broadleaf.png", true), null, Color.white, 0.25f, 1f, true, true, diff);
-            c.needles = Mat(d + "/Foliage_Needles.mat", SavePng(TexGen.Needles(c.spec.seed + 12), tex + "/leaf_needles.png", true), null, new Color(0.9f, 1f, 0.9f), 0.2f, 1f, true, true, diff);
-            c.fern = Mat(d + "/Understory_Fern.mat", SavePng(TexGen.FernFrond(c.spec.seed + 13), tex + "/fern_frond.png", true), null, Color.white, 0.2f, 1f, true, true, diff);
+            Texture2D bl = TexGen.Broadleaf(c.spec.seed + 11), bln = TexGen.NormalFromAlpha(bl, 4f), blt = TexGen.ThicknessFromAlpha(bl);
+            bl = SavePng(bl, tex + "/leaf_broadleaf.png", true); bln = SavePng(bln, tex + "/leaf_broadleaf_n.png", true, 1); blt = SavePng(blt, tex + "/leaf_broadleaf_t.png", true, 2);
+            Color[] leafTints = { new Color(1f, 1f, 1f), new Color(0.82f, 1.05f, 0.8f), new Color(1.2f, 1.12f, 0.68f), new Color(0.78f, 0.95f, 0.9f), new Color(1.3f, 0.98f, 0.62f), new Color(0.92f, 1.0f, 0.72f) };
+            for (int i = 0; i < 6; i++) c.leafVar[i] = Mat(d + "/Foliage_Broadleaf" + (i == 0 ? "" : "_" + i) + ".mat", bl, bln, leafTints[i], 0.22f, 0.8f, true, true, diff, null, blt);
+            c.leaves = c.leafVar[0];
+            Texture2D nd = TexGen.Needles(c.spec.seed + 12), ndn = TexGen.NormalFromAlpha(nd, 3f), ndt = TexGen.ThicknessFromAlpha(nd);
+            nd = SavePng(nd, tex + "/leaf_needles.png", true); ndn = SavePng(ndn, tex + "/leaf_needles_n.png", true, 1); ndt = SavePng(ndt, tex + "/leaf_needles_t.png", true, 2);
+            Color[] needleTints = { new Color(0.9f, 1f, 0.9f), new Color(0.72f, 0.95f, 1.0f), new Color(1.1f, 1.05f, 0.68f), new Color(0.66f, 0.82f, 0.74f) };
+            for (int i = 0; i < 4; i++) c.needleVar[i] = Mat(d + "/Foliage_Needles" + (i == 0 ? "" : "_" + i) + ".mat", nd, ndn, needleTints[i], 0.2f, 0.8f, true, true, diff, null, ndt);
+            c.needles = c.needleVar[0];
+            Color[] fernTints = { Color.white, new Color(1.1f, 1.1f, 0.8f), new Color(0.95f, 1.05f, 0.9f), new Color(0.85f, 0.95f, 0.85f) };
+            for (int i = 0; i < 4; i++)
+            {
+                Texture2D ft = TexGen.FernFrond(c.spec.seed + 13 + i, 512, i), fn = TexGen.NormalFromAlpha(ft, 3f), fth = TexGen.ThicknessFromAlpha(ft);
+                ft = SavePng(ft, tex + "/fern_frond" + i + ".png", true); fn = SavePng(fn, tex + "/fern_frond" + i + "_n.png", true, 1); fth = SavePng(fth, tex + "/fern_frond" + i + "_t.png", true, 2);
+                c.ferns[i] = Mat(d + "/Understory_Fern" + i + ".mat", ft, fn, fernTints[i], 0.2f, 0.8f, true, true, diff, null, fth);
+            }
+            c.fern = c.ferns[0];
+            Texture2D gt = TexGen.GrassBlades(c.spec.seed + 21), gn = TexGen.NormalFromAlpha(gt, 3f), gth = TexGen.ThicknessFromAlpha(gt);
+            gt = SavePng(gt, tex + "/grass_blades.png", true); gn = SavePng(gn, tex + "/grass_blades_n.png", true, 1); gth = SavePng(gth, tex + "/grass_blades_t.png", true, 2);
+            c.grass = Mat(d + "/Understory_Grass.mat", gt, gn, new Color(0.72f, 0.78f, 0.58f), 0.15f, 0.6f, true, true, diff, null, gth);
+            c.branchMats[0] = Mat(d + "/FallenBranch_A.mat", pineD, pineN, new Color(0.55f, 0.45f, 0.38f), 0.06f, 0.9f);
+            c.branchMats[1] = Mat(d + "/FallenBranch_B.mat", brkD, brkN, new Color(0.62f, 0.58f, 0.52f), 0.06f, 0.9f);
+            // tileable procedural ground layers (moss, needle litter, grass, oak-leaf litter)
+            Texture2D td, tn;
+            TexGen.GroundTile("moss", c.spec.seed + 31, out td, out tn); c.tMoss = SavePng(td, tex + "/ground_moss.png", false); c.tMossN = SavePng(tn, tex + "/ground_moss_n.png", false, 1);
+            TexGen.GroundTile("needles", c.spec.seed + 32, out td, out tn); c.tNeedle = SavePng(td, tex + "/ground_needles.png", false); c.tNeedleN = SavePng(tn, tex + "/ground_needles_n.png", false, 1);
+            TexGen.GroundTile("grass", c.spec.seed + 33, out td, out tn); c.tGrass = SavePng(td, tex + "/ground_grass.png", false); c.tGrassN = SavePng(tn, tex + "/ground_grass_n.png", false, 1);
+            TexGen.GroundTile("leaves2", c.spec.seed + 34, out td, out tn); c.tLeaf2 = SavePng(td, tex + "/ground_leaves2.png", false); c.tLeaf2N = SavePng(tn, tex + "/ground_leaves2_n.png", false, 1);
+            // distant-forest proxies (visual only)
+            TexGen.GroundTile("canopyB", c.spec.seed + 41, out td, out tn); var cb = SavePng(td, tex + "/canopy_broad.png", false); var cbn = SavePng(tn, tex + "/canopy_broad_n.png", false, 1);
+            TexGen.GroundTile("canopyC", c.spec.seed + 42, out td, out tn); var cc = SavePng(td, tex + "/canopy_conifer.png", false); var ccn = SavePng(tn, tex + "/canopy_conifer_n.png", false, 1);
+            c.farBroad = Mat(d + "/Far_Broadleaf.mat", cb, cbn, new Color(1.05f, 1.05f, 0.9f), 0.08f, 0.8f, false, true); c.farConifer = Mat(d + "/Far_Conifer.mat", cc, ccn, new Color(1f, 1f, 1f), 0.08f, 0.8f, false, true);
+            c.farGround = Mat(d + "/Far_Ground.mat", cb, cbn, new Color(0.8f, 0.85f, 0.75f), 0.05f, 0.8f, false, true);
             c.litter = Mat(d + "/Litter_Cards.mat", leafD, leafN, new Color(0.9f, 0.7f, 0.5f), 0.12f, 1f, false, true, null);
             c.rock = Mat(d + "/Rock.mat", rockD, rockN, new Color(0.7f, 0.7f, 0.68f), 0.18f, 1.2f);
             c.moss = Mat(d + "/Moss.mat", mudD, mudN, new Color(0.30f, 0.46f, 0.12f), 0.05f, 1.5f);
@@ -274,18 +323,30 @@ namespace Crane.Drones.Environment.Editor
                 }
             td.SetHeights(0, 0, h);
             // layers
-            string ld = c.genDir; TerrainLayer L(string n, string d, string nr, float tile, float sm) { var t = new TerrainLayer { diffuseTexture = Tex(d), normalMapTexture = Tex(nr), tileSize = new Vector2(tile, tile), smoothness = sm, normalScale = 1.1f }; AssetDatabase.CreateAsset(t, ld + "/TL_" + n + ".terrainlayer"); return t; }
-            td.terrainLayers = new[] { L("Litter", "forest_leaves_02_diff.jpg", "forest_leaves_02_nor.jpg", 3.0f, 0.1f), L("MudLeaves", "brown_mud_leaves_01_diff.jpg", "brown_mud_leaves_01_nor.jpg", 3.0f, 0.2f), L("Rock", "rock_boulder_cracked_diff.jpg", "rock_boulder_cracked_nor.jpg", 4.5f, 0.15f) };
-            int ar = td.alphamapResolution; var am = new float[ar, ar, 3];
+            string ld = c.genDir; TerrainLayer L2(string n, Texture2D d, Texture2D nr, float tile, float sm, float ns = 1.1f) { var t = new TerrainLayer { diffuseTexture = d, normalMapTexture = nr, tileSize = new Vector2(tile, tile), smoothness = sm, normalScale = ns }; AssetDatabase.CreateAsset(t, ld + "/TL_" + n + ".terrainlayer"); return t; }
+            td.terrainLayers = new[] {
+                L2("Litter", Tinted("forest_leaves_02_diff.jpg", "litter_dark", new Color(0.66f, 0.60f, 0.52f)), Tex("forest_leaves_02_nor.jpg"), 3.0f, 0.1f), L2("MudLeaves", Tinted("brown_mud_leaves_01_diff.jpg", "mud_dark", new Color(0.62f, 0.58f, 0.54f)), Tex("brown_mud_leaves_01_nor.jpg"), 3.0f, 0.2f),
+                L2("Rock", Tex("rock_boulder_cracked_diff.jpg"), Tex("rock_boulder_cracked_nor.jpg"), 4.5f, 0.15f), L2("Moss", c.tMoss, c.tMossN, 2.5f, 0.12f, 1.0f),
+                L2("NeedleLitter", c.tNeedle, c.tNeedleN, 2.2f, 0.08f, 0.9f), L2("Grass", c.tGrass, c.tGrassN, 2.0f, 0.1f, 0.8f), L2("OakLeaves", c.tLeaf2, c.tLeaf2N, 2.6f, 0.1f, 0.9f) };
+            int ar = td.alphamapResolution; var am = new float[ar, ar, 7];
             for (int j = 0; j < ar; j++) for (int i = 0; i < ar; i++)
                 {
                     float u = (float)i / (ar - 1), v = (float)j / (ar - 1); float x = u * A - A / 2, z = v * A - A / 2; var pp = new Vector2(x, z);
                     float steep = td.GetSteepness(u, v);
                     float rockW = Mathf.SmoothStep(0, 1, (steep - 24f) / 12f) + (Perlin(x * 0.09f, z * 0.09f, off + 300) > 0.78f ? 0.8f : 0f);
                     float mud = Mathf.SmoothStep(0, 1, (s.trailWidth * 0.9f - DistPoly(pp, c.trail)) / 1.2f) * 0.95f + (Perlin(x * 0.05f, z * 0.05f, off + 500) > 0.66f ? 0.7f : 0f) * 0.7f;
-                    float lit = 1f; rockW = Mathf.Clamp01(rockW); mud = Mathf.Clamp01(mud) * (1f - rockW);
-                    lit = Mathf.Max(0f, 1f - rockW - mud);
-                    float sum = lit + mud + rockW; am[j, i, 0] = lit / sum; am[j, i, 1] = mud / sum; am[j, i, 2] = rockW / sum;
+                    // moisture noise (+ damp gully floors) -> moss; open ground / clearings -> grass; conifer stands (same field as tree placement) -> needle litter
+                    float moist = Perlin(x * 0.028f, z * 0.028f, off + 700) * 0.75f + Perlin(x * 0.2f, z * 0.2f, off + 710) * 0.25f;
+                    float moss = Mathf.SmoothStep(0.52f, 0.72f, moist) + Mathf.SmoothStep(18f, 6f, steep) * 0f; moss = Mathf.Clamp01(moss) * 0.9f;
+                    float gnoise = Perlin(x * 0.045f, z * 0.045f, off + 900) * 0.8f + Perlin(x * 0.3f, z * 0.3f, off + 910) * 0.2f; float cd = ClearingDepth(c, pp);
+                    float grass = Mathf.SmoothStep(0.6f, 0.76f, gnoise) * 0.9f + Mathf.SmoothStep(-3f, 3f, cd) * 0.8f;
+                    float cn = Perlin(x * 0.02f, z * 0.02f, s.seed * 0.31f); float needle = Mathf.SmoothStep(0.45f, 0.62f, cn + (Perlin(x * 0.4f, z * 0.4f, off + 920) - 0.5f) * 0.25f) * 0.9f;
+                    float oak = Mathf.SmoothStep(0.5f, 0.35f, cn) * Mathf.SmoothStep(0.45f, 0.62f, Perlin(x * 0.06f, z * 0.06f, off + 930)) * 0.8f;
+                    float rem = 1f; var w = new float[7];
+                    w[2] = Mathf.Min(rem, Mathf.Clamp01(rockW)); rem -= w[2]; w[1] = Mathf.Min(rem, Mathf.Clamp01(mud)); rem -= w[1];
+                    w[3] = Mathf.Min(rem, moss); rem -= w[3]; w[5] = Mathf.Min(rem, Mathf.Clamp01(grass)); rem -= w[5];
+                    w[4] = Mathf.Min(rem, needle * 0.9f); rem -= w[4]; w[6] = Mathf.Min(rem, oak); rem -= w[6]; w[0] = rem;
+                    for (int k = 0; k < 7; k++) am[j, i, k] = w[k];
                 }
             td.SetAlphamaps(0, 0, am);
             AssetDatabase.CreateAsset(td, c.genDir + "/ForestTerrain.asset");
@@ -297,6 +358,16 @@ namespace Crane.Drones.Environment.Editor
             Physics.SyncTransforms();
             c.H = (x, z) => terrain.SampleHeight(new Vector3(x, 0, z)) + yBase;
         }
+
+        /// <summary>Darkened/tinted copy of a PolyHaven diffuse (the originals are very pale under bright light); saved next to the other generated textures.</summary>
+        static Texture2D Tinted(string rel, string name, Color mul)
+        {
+            string src = Root + "/Textures/PolyHaven/" + rel; string dst = Root + "/Generated/seed_" + CurrentSeed + "/Tex/" + name + ".png";
+            var t = new Texture2D(2, 2, TextureFormat.RGBA32, false); t.LoadImage(File.ReadAllBytes(src)); var px = t.GetPixels32();
+            for (int i = 0; i < px.Length; i++) px[i] = new Color32((byte)(px[i].r * mul.r), (byte)(px[i].g * mul.g), (byte)(px[i].b * mul.b), 255);
+            t.SetPixels32(px); t.Apply(); return SavePng(t, dst, false);
+        }
+        static int CurrentSeed;
 
         static Vector3 Normal(Ctx c, float x, float z)
         {
@@ -325,6 +396,9 @@ namespace Crane.Drones.Environment.Editor
         /// (visual mesh with submesh 0 bark / 1 foliage, collision mesh, flight-band segments, nominal height/trunkR). Null => built-in TreeGen fallback.
         /// Layout and placement (Layout, PlaceTrees) never touch tree geometry except through this call.</summary>
         public static Func<int, int, int, TreeResult> ExternalTreeProvider;
+        /// <summary>Optional companion to ExternalTreeProvider (TreeGen, Assets/Drones/TreeGen): called once per placed tree after the default
+        /// renderer/MeshCollider are added, before the manifest record; it may replace them and change the scale, which the record then uses.</summary>
+        public static Action<GameObject, TreeResult> ExternalTreeInstantiated;
 
         static TreeResult GetTree(Ctx c, int sp, int sc, int variant)
         {
@@ -337,6 +411,8 @@ namespace Crane.Drones.Environment.Editor
             }
             return t;
         }
+
+        static float Hash01(int i) { float f = Mathf.Sin(i * 12.9898f + 78.233f) * 43758.5453f; return f - Mathf.Floor(f); }
 
         class Stem { public Vector2 p; public float r; }
 
@@ -391,8 +467,11 @@ namespace Crane.Drones.Environment.Editor
                 var tr = GetTree(c, sp, sc, variant);
                 float y = c.H(p.x, p.y) - 0.04f; float yaw = Geo.R(r, 0, 360f);
                 var g = Obj((sapling ? "Sapling_" : "Tree_") + id.ToString("D4") + "_" + tr.species.name, group, new Vector3(p.x, y, p.y), Quaternion.Euler(0, yaw, 0), new Vector3(sx, sy, sx));
-                Rend(g, tr.visual, new[] { c.bark[tr.species.bark], tr.species.conifer ? c.needles : c.leaves });
+                int nv = tr.species.conifer ? c.needleVar.Length : c.leafVar.Length;
+                float hue = Mathf.Clamp01(Perlin(p.x * 0.04f, p.y * 0.04f, s.seed * 0.19f) * 0.55f + Hash01(id * 7 + (sapling ? 3 : 0)) * 0.45f); int vi = Mathf.Min(nv - 1, (int)(hue * nv));
+                Rend(g, tr.visual, new[] { c.bark[tr.species.bark], tr.species.conifer ? c.needleVar[vi] : c.leafVar[vi] });
                 var mc = g.AddComponent<MeshCollider>(); mc.sharedMesh = tr.collision;
+                if (ExternalTreeInstantiated != null) { ExternalTreeInstantiated(g, tr); sx = g.transform.localScale.x; sy = g.transform.localScale.y; }
                 var rec = new TreeRec { id = id, species = tr.species.name, sizeClass = sc, variant = variant, pos = g.transform.position, yaw = yaw, sx = sx, sy = sy, dbhCm = tr.trunkR * 2 * sx * 100f, heightM = tr.height * sy, dead = tr.species.dead };
                 // branch obstacles in the flight band (world space)
                 var q = Quaternion.Euler(0, yaw, 0); int nb = 0; var sb = new StringBuilder();
@@ -432,17 +511,19 @@ namespace Crane.Drones.Environment.Editor
             var s = c.spec; var r = new System.Random(s.seed * 15485863 + 5); float ha = s.areaSize * s.areaSize / 10000f;
             var g = new GameObject("Understory").transform; g.SetParent(root, false);
             // shared variant meshes
-            var ferns = new List<Mesh>(); for (int i = 0; i < 6; i++) ferns.Add(Save(c, Props.Fern(new System.Random(s.seed + 700 + i), 0.9f).ToMesh("Fern" + i, true), "Fern" + i));
+            var ferns = new List<Mesh>(); for (int i = 0; i < 8; i++) ferns.Add(Save(c, Props.Fern(new System.Random(s.seed + 700 + i), 0.9f, i % 4).ToMesh("Fern" + i, true), "Fern" + i));
             var shrubs = new List<Mesh>(); for (int i = 0; i < 4; i++) shrubs.Add(Save(c, Props.Shrub(new System.Random(s.seed + 800 + i), 1.6f, s.canopyOpenness).ToMesh("Shrub" + i, true), "Shrub" + i));
             var shrubCol = new List<Mesh>(); for (int i = 0; i < 4; i++) shrubCol.Add(null);
             var litter = new List<Mesh>(); for (int i = 0; i < 4; i++) litter.Add(Save(c, Props.LitterPatch(new System.Random(s.seed + 900 + i), 1.2f, 46).ToMesh("Litter" + i, true), "Litter" + i));
-            int nFern = Mathf.RoundToInt(s.fernDensity * 420f * ha), nShrub = Mathf.RoundToInt(s.undergrowthDensity * 70f * ha), nLit = Mathf.RoundToInt(140f * ha);
+            int nFern = Mathf.RoundToInt(s.fernDensity * 420f * ha), nShrub = Mathf.RoundToInt(s.undergrowthDensity * 70f * ha), nLit = 0; // ground-hugging litter cards showed as flat rectangles; litter now comes from terrain layers
             for (int i = 0; i < nFern; i++)
             {
                 Vector2 p; if (r.NextDouble() < 0.6) { var tp = c.trees.Count > 0 ? c.trees[r.Next(c.trees.Count)].pos : Vector3.zero; p = new Vector2(tp.x, tp.z) + new Vector2(Geo.Gauss(r), Geo.Gauss(r)) * 2.5f; if (DistPoly(p, c.trail) < 1.2f || Mathf.Abs(p.x) > s.areaSize / 2 - 2 || Mathf.Abs(p.y) > s.areaSize / 2 - 2) continue; } else p = RandOpen(c, r, 1.2f);
                 if (p == Vector2.zero) continue; float y = c.H(p.x, p.y); float sc = Geo.R(r, 0.7f, 1.35f);
-                var go = Obj("Fern", g, new Vector3(p.x, y - 0.02f, p.y), GroundRot(c, new Vector3(p.x, y, p.y), Geo.R(r, 0, 360)) , Vector3.one * sc); go.layer = 0;
-                Rend(go, ferns[r.Next(ferns.Count)], c.fern); c.props.Add(new PropRec { kind = "fern", pos = go.transform.position, size = sc });
+                int fi = r.Next(ferns.Count); if (Perlin(p.x * 0.03f, p.y * 0.03f, s.seed * 0.5f) > 0.62f && r.NextDouble() < 0.7) fi = 1 + 4 * r.Next(2); // bracken drifts in open patches
+                float jx = Geo.R(r, 0.8f, 1.25f), jy = Geo.R(r, 0.7f, 1.3f);
+                var go = Obj("Fern", g, new Vector3(p.x, y - 0.02f, p.y), GroundRot(c, new Vector3(p.x, y, p.y), Geo.R(r, 0, 360)) * Quaternion.Euler(Geo.R(r, -6, 6), 0, Geo.R(r, -6, 6)), new Vector3(sc * jx, sc * jy, sc * jx)); go.layer = 0;
+                Rend(go, ferns[fi], c.ferns[fi % 4]); c.props.Add(new PropRec { kind = "fern", pos = go.transform.position, size = sc });
             }
             for (int i = 0; i < nShrub; i++)
             {
@@ -456,6 +537,29 @@ namespace Crane.Drones.Environment.Editor
                 var p = RandOpen(c, r, 0.5f); if (p == Vector2.zero) continue; float y = c.H(p.x, p.y);
                 var go = Obj("LeafLitter", g, new Vector3(p.x, y, p.y), GroundRot(c, new Vector3(p.x, y, p.y), Geo.R(r, 0, 360)), Vector3.one * Geo.R(r, 0.8f, 1.6f)); go.layer = 0;
                 var rr = Rend(go, litter[r.Next(litter.Count)], c.litter); rr.shadowCastingMode = ShadowCastingMode.Off;
+            }
+            // grass tufts in grass patches / clearings, fallen-branch scatter
+            {
+                var gm = new List<Mesh>(); for (int i = 0; i < 4; i++) gm.Add(Save(c, Props.GrassTuft(new System.Random(s.seed + 1500 + i), 0.55f).ToMesh("Grass" + i, true), "Grass" + i));
+                var gr = new GameObject("Grass").transform; gr.SetParent(root, false); float goff = s.seed * 0.137f; int nG = Mathf.RoundToInt(s.grassTuftsPerHa * ha), gTries = 0;
+                for (int i = 0; i < nG * 3 && c.nGrass < nG; i++)
+                {
+                    gTries++; var p = RandOpen(c, r, 0.8f); if (p == Vector2.zero) continue;
+                    float gn = Perlin(p.x * 0.045f, p.y * 0.045f, goff + 900) * 0.8f + Perlin(p.x * 0.3f, p.y * 0.3f, goff + 910) * 0.2f; float cdp = ClearingDepth(c, p);
+                    float pa = Mathf.SmoothStep(0.6f, 0.76f, gn) + Mathf.SmoothStep(-3f, 3f, cdp) * 0.8f; if (r.NextDouble() > pa) continue;
+                    float y = c.H(p.x, p.y); float sc = Geo.R(r, 0.6f, 1.5f);
+                    var go = Obj("GrassTuft", gr, new Vector3(p.x, y - 0.01f, p.y), GroundRot(c, new Vector3(p.x, y, p.y), Geo.R(r, 0, 360)), new Vector3(sc, sc * Geo.R(r, 0.7f, 1.3f), sc)); go.layer = 0;
+                    var gR = Rend(go, gm[r.Next(gm.Count)], c.grass); gR.shadowCastingMode = ShadowCastingMode.Off; c.nGrass++;
+                }
+                var bm = new List<Mesh>(); for (int i = 0; i < 10; i++) bm.Add(Save(c, Props.FallenBranch(new System.Random(s.seed + 1700 + i), Geo.R(r, 0.5f, 2.4f), Geo.R(r, 0.012f, 0.04f)).ToMesh("FallenBranch" + i, true), "FallenBranch" + i));
+                var br = new GameObject("FallenBranches").transform; br.SetParent(root, false); int nB = Mathf.RoundToInt(s.fallenBranchPerHa * ha);
+                for (int i = 0; i < nB; i++)
+                {
+                    Vector2 p; if (r.NextDouble() < 0.5 && c.trees.Count > 0) { var tp = c.trees[r.Next(c.trees.Count)].pos; p = new Vector2(tp.x, tp.z) + new Vector2(Geo.Gauss(r), Geo.Gauss(r)) * 2.2f; if (Mathf.Abs(p.x) > s.areaSize / 2 - 2 || Mathf.Abs(p.y) > s.areaSize / 2 - 2) continue; } else p = RandOpen(c, r, 0.3f);
+                    if (p == Vector2.zero) continue; float y = c.H(p.x, p.y);
+                    var go = Obj("FallenBranch", br, new Vector3(p.x, y + 0.005f, p.y), GroundRot(c, new Vector3(p.x, y, p.y), Geo.R(r, 0, 360)), Vector3.one * Geo.R(r, 0.8f, 1.3f)); go.layer = 0;
+                    Rend(go, bm[r.Next(bm.Count)], c.branchMats[r.Next(2)]); c.nBranch++;
+                }
             }
             // logs
             var lg = new GameObject("Logs").transform; lg.SetParent(root, false);
@@ -565,6 +669,142 @@ namespace Crane.Drones.Environment.Editor
             }
         }
 
+        // ---------- mid-story: shrubs and young conifers 1-4 m (stems have colliders and are in the manifest) ----------
+        class MidProto { public Mesh visual, collision; public List<BranchSeg> segs; public float height, crownR; public bool conifer; }
+
+        static void PlaceMidstory(Ctx c, Transform root)
+        {
+            var s = c.spec; var r = new System.Random(s.seed * 193939 + 17); float ha = s.areaSize * s.areaSize / 10000f; float half = s.areaSize * 0.5f - 2f;
+            var g = new GameObject("Midstory").transform; g.SetParent(root, false);
+            var protos = new List<MidProto>();
+            for (int i = 0; i < 12; i++)
+            {
+                bool con = i >= 6; var segs = new List<BranchSeg>(); float cr; float h = con ? Geo.R(r, 1.6f, 4.0f) : Geo.R(r, 1.6f, 3.8f);
+                var mb = con ? Props.YoungConifer(new System.Random(s.seed + 2100 + i), h, segs, out cr) : Props.MidShrub(new System.Random(s.seed + 2200 + i), h, segs, out cr);
+                var pr = new MidProto { height = h, crownR = cr, segs = segs, conifer = con };
+                pr.visual = Save(c, mb.ToMesh((con ? "YoungConifer" : "MidShrub") + i, true), (con ? "YoungConifer" : "MidShrub") + i);
+                pr.collision = Save(c, mb.ToCollisionMesh((con ? "YoungConiferCol" : "MidShrubCol") + i, 0), (con ? "YoungConiferCol" : "MidShrubCol") + i); protos.Add(pr);
+            }
+            int n = Mathf.RoundToInt(s.midstoryDensityPerHa * ha), id = 0;
+            for (int i = 0; i < n * 4 && id < n; i++)
+            {
+                var p = new Vector2(Geo.R(r, -half, half), Geo.R(r, -half, half));
+                float dens = 0.3f + 0.7f * Perlin(p.x * 0.05f, p.y * 0.05f, s.seed * 0.43f); float cd = ClearingDepth(c, p); if (cd > 0f) dens *= 0.15f; if (r.NextDouble() > dens) continue;
+                float cn = Perlin(p.x * 0.02f, p.y * 0.02f, s.seed * 0.31f); bool con = r.NextDouble() < Mathf.Clamp01(s.coniferFraction + (cn - 0.5f) * 1.1f);
+                var cand = protos.Where(pp => pp.conifer == con).ToList(); var pr = cand[r.Next(cand.Count)]; float sc = Geo.R(r, 0.85f, 1.3f); float crown = pr.crownR * sc;
+                if (DistPoly(p, c.corridor) < s.corridorClearRadius + crown) continue; if (DistPoly(p, c.trail) < s.trailWidth * 0.5f + crown * 0.5f + 0.2f) continue;
+                if (Vector2.Distance(p, c.spawn) < 3.5f + crown) continue;
+                bool bad = false; foreach (var t in c.targets) if (Vector2.Distance(new Vector2(t.pos.x, t.pos.z), p) < 1.8f + crown * 0.5f) { bad = true; break; }
+                if (bad) continue;
+                foreach (var t in c.trees) { if (Mathf.Abs(t.pos.x - p.x) > 2.5f || Mathf.Abs(t.pos.z - p.y) > 2.5f) continue; if (Vector2.Distance(new Vector2(t.pos.x, t.pos.z), p) < t.dbhCm * 0.005f + 0.45f) { bad = true; break; } }
+                if (bad) continue;
+                float y = c.H(p.x, p.y) - 0.04f; float yaw = Geo.R(r, 0, 360);
+                string kind = pr.conifer ? "young_conifer" : "shrub";
+                var go = Obj("Mid_" + id.ToString("D4") + "_" + kind, g, new Vector3(p.x, y, p.y), Quaternion.Euler(0, yaw, 0), Vector3.one * sc);
+                int nvar = pr.conifer ? c.needleVar.Length : c.leafVar.Length; float hue = Mathf.Clamp01(Perlin(p.x * 0.04f, p.y * 0.04f, s.seed * 0.19f) * 0.55f + Hash01(id * 13 + 5) * 0.45f); int vi = Mathf.Min(nvar - 1, (int)(hue * nvar));
+                Rend(go, pr.visual, pr.conifer ? c.bark[0] : c.shrubStem, pr.conifer ? c.needleVar[vi] : c.leafVar[vi]);
+                go.AddComponent<MeshCollider>().sharedMesh = pr.collision;
+                var q = Quaternion.Euler(0, yaw, 0); var sb = new StringBuilder(); int nb = 0;
+                foreach (var sg in pr.segs)
+                {
+                    Vector3 a = go.transform.position + q * (sg.a * sc), b = go.transform.position + q * (sg.b * sc); float h0 = (a.y + b.y) * 0.5f - y; float rr = sg.r * sc; if (h0 < 0.3f || h0 > 5.5f || rr < 0.004f) continue;
+                    if (nb++ > 0) sb.Append(','); sb.Append(string.Format(CI, "[{0:F2},{1:F2},{2:F2},{3:F2},{4:F2},{5:F2},{6:F4}]", a.x, a.y, a.z, b.x, b.y, b.z, rr));
+                }
+                c.mids.Add(new MidRec { id = id, kind = kind, pos = go.transform.position, yaw = yaw, scale = sc, height = pr.height * sc, crownR = crown, segCount = nb, segs = sb.ToString() }); id++;
+            }
+        }
+
+        // ---------- surrounding landscape: hills to the horizon + low-LOD distant forest (visual only, layer EnvironmentFar, no colliders, not in manifest) ----------
+        static void EnsureFarLayer()
+        {
+            try
+            {
+                var so = new SerializedObject(AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]); var l = so.FindProperty("layers").GetArrayElementAtIndex(FarLayer);
+                if (string.IsNullOrEmpty(l.stringValue)) { l.stringValue = "EnvironmentFar"; so.ApplyModifiedProperties(); }
+                else if (l.stringValue != "EnvironmentFar") Debug.LogWarning("[DroneForest] layer " + FarLayer + " already named " + l.stringValue);
+            }
+            catch (Exception e) { Debug.LogWarning("[DroneForest] could not name far layer: " + e.Message); }
+        }
+
+        static void BuildFarLandscape(Ctx c, Transform root)
+        {
+            var s = c.spec; if (!s.surroundingLandscape) return; EnsureFarLayer();
+            float A = s.areaSize, E = A * 0.5f, R = s.landscapeRadius; float off = s.seed * 0.137f; var rng = new System.Random(s.seed * 99991 + 31);
+            var far = new GameObject("SurroundingLandscape").transform; far.SetParent(root, false);
+            float edgeMean = 0f; for (int i = 0; i < 16; i++) { float t = i / 15f * A - E; edgeMean += c.H(t, E - 0.5f) + c.H(t, -E + 0.5f); } edgeMean /= 32f;
+            Func<float, float, float> dEdge = (x, z) => { float dx = Mathf.Max(0, Mathf.Abs(x) - E), dz = Mathf.Max(0, Mathf.Abs(z) - E); return Mathf.Sqrt(dx * dx + dz * dz); };
+            Func<float, float, float> ground = (x, z) =>
+            {
+                float d = dEdge(x, z); float ex = Mathf.Clamp(x, -E + 0.3f, E - 0.3f), ez = Mathf.Clamp(z, -E + 0.3f, E - 0.3f);
+                if (Mathf.Abs(x) < E - 0.01f && Mathf.Abs(z) < E - 0.01f) return -40f;
+                float e = Mathf.Lerp(c.H(ex, ez), edgeMean, Mathf.SmoothStep(0, 1, d / 220f));
+                float hill = (Perlin(x * 0.0011f, z * 0.0011f, off + 1100) - 0.35f) * 140f * Mathf.SmoothStep(30f, 1400f, d) + (Perlin(x * 0.006f, z * 0.006f, off + 1200) - 0.5f) * 26f * Mathf.SmoothStep(20f, 500f, d)
+                    + (Perlin(x * 0.03f, z * 0.03f, off + 1300) - 0.5f) * 4f * Mathf.SmoothStep(20f, 150f, d);
+                return e - 0.05f + hill * Mathf.Min(1f, d / 6f) * (hill > 0 ? 1f : 0.6f);
+            };
+            // non-uniform grid: fine at the patch edge, geometrically coarser outward
+            var ds = new List<float> { 0 }; for (float d = 4f; d < R; d += Mathf.Max(4f, d * 0.14f)) ds.Add(d); ds.Add(R);
+            var xs = new List<float>(); for (int i = ds.Count - 1; i >= 1; i--) xs.Add(-(E + ds[i])); xs.Add(-E); xs.Add(-E + 6f); xs.Add(0f); xs.Add(E - 6f); xs.Add(E); for (int i = 1; i < ds.Count; i++) xs.Add(E + ds[i]);
+            int nx = xs.Count; var vs = new Vector3[nx * nx]; var uvs = new Vector2[nx * nx]; var nrm = new Vector3[nx * nx];
+            for (int j = 0; j < nx; j++) for (int i = 0; i < nx; i++) { float x = xs[i], z = xs[j]; vs[j * nx + i] = new Vector3(x, ground(x, z), z); uvs[j * nx + i] = new Vector2(x, z) / 45f; }
+            var tris = new List<int>();
+            for (int j = 0; j < nx - 1; j++) for (int i = 0; i < nx - 1; i++)
+                {
+                    int a = j * nx + i, b = a + 1, d2 = a + nx, e2 = d2 + 1; tris.Add(a); tris.Add(d2); tris.Add(e2); tris.Add(a); tris.Add(e2); tris.Add(b);
+                }
+            var fm = new Mesh { name = "FarGround", indexFormat = IndexFormat.UInt32 }; fm.vertices = vs; fm.uv = uvs; fm.SetTriangles(tris, 0); fm.RecalculateNormals(); fm.RecalculateTangents(); fm.RecalculateBounds(); Save(c, fm, "FarGround");
+            var gg = new GameObject("FarGround"); gg.transform.SetParent(far, false); gg.layer = FarLayer; Rend(gg, fm, c.farGround).shadowCastingMode = ShadowCastingMode.Off;
+
+            // distant forest: merged low-poly trees per 160 m tile; broadleaf = lumpy ellipsoid crowns, conifer = stacked cones; trunks as prisms
+            float reach = s.distantForestReach; int tileN = 0; float tileSz = 160f; int tilesPerSide = Mathf.CeilToInt((A + 2 * reach) / tileSz);
+            var tiles = new Dictionary<int, MB>();
+            Func<float, float, MB> tileOf = (x, z) => { int tx = Mathf.FloorToInt((x + E + reach) / tileSz), tz = Mathf.FloorToInt((z + E + reach) / tileSz); int k = tz * tilesPerSide + tx; MB m; if (!tiles.TryGetValue(k, out m)) { m = new MB(3); tiles[k] = m; } return m; };
+            for (int pass = 0; pass < 2; pass++)
+            {
+                float cs = pass == 0 ? 6.0f : 9.5f, d0 = pass == 0 ? 0f : 150f, d1 = pass == 0 ? 150f : reach, crScale = pass == 0 ? 1f : 1.45f; float lim = E + reach;
+                for (float gz = -lim; gz < lim; gz += cs) for (float gx = -lim; gx < lim; gx += cs)
+                    {
+                        float x = gx + Geo.R(rng, 0, cs), z = gz + Geo.R(rng, 0, cs); float d = dEdge(x, z); if (d < d0 + 1.5f * (pass == 0 ? 1 : 0) || d >= d1 || d <= 1.5f) continue;
+                        if (Mathf.Abs(x) > lim || Mathf.Abs(z) > lim) continue;
+                        float dens = 0.55f + 0.45f * Perlin(x * 0.02f, z * 0.02f, off + 1500); if (rng.NextDouble() > dens) continue;
+                        float cn = Perlin(x * 0.012f, z * 0.012f, s.seed * 0.31f); bool con = rng.NextDouble() < Mathf.Clamp01(s.coniferFraction + (cn - 0.5f) * 1.3f);
+                        float y = ground(x, z); MB mb = tileOf(x, z); float hgt = Geo.R(rng, 14f, 24f) * (con ? 1.1f : 1f); float cr = Geo.R(rng, 3.2f, 5.0f) * crScale * (con ? 0.7f : 1f); float th = hgt * (con ? 0.18f : 0.35f);
+                        Vector2 uvo = new Vector2(Geo.R(rng, 0, 1), Geo.R(rng, 0, 1));
+                        // trunk prism
+                        { float tr = 0.22f + hgt * 0.008f; int i0 = mb.Count; for (int k = 0; k < 4; k++) { float an = k * 1.5708f + 0.7f; var dir = new Vector3(Mathf.Cos(an), 0, Mathf.Sin(an)); mb.Add(new Vector3(x, y - 0.3f, z) + dir * tr, dir, new Vector2(k * 0.25f, 0)); mb.Add(new Vector3(x, y + th + (con ? hgt * 0.1f : 2f), z) + dir * tr * 0.5f, dir, new Vector2(k * 0.25f, 4)); }
+                          for (int k = 0; k < 4; k++) { int a = i0 + k * 2, b = i0 + ((k + 1) % 4) * 2; mb.Tri(2, a, a + 1, b + 1); mb.Tri(2, a, b + 1, b); } }
+                        if (con)
+                        {
+                            int tiersN = 3; for (int t = 0; t < tiersN; t++)
+                            {
+                                float f0 = t / (float)tiersN; float yb = y + th + (hgt - th) * f0 * 0.82f, yt = yb + (hgt - th) * (0.5f - 0.12f * t), rad = cr * (1.15f - 0.38f * t); int sides = 8; int i0 = mb.Count;
+                                for (int k = 0; k < sides; k++) { float an = (k + 0.5f * t) / sides * 6.283f; var dir = new Vector3(Mathf.Cos(an), 0, Mathf.Sin(an)); float rr = rad * Geo.R(rng, 0.85f, 1.1f); mb.Add(new Vector3(x, yb, z) + dir * rr, (dir * 0.8f + Vector3.up * 0.6f).normalized, uvo + new Vector2(dir.x, dir.z) * 0.35f); }
+                                int ap = mb.Add(new Vector3(x, yt, z), Vector3.up, uvo + new Vector2(0.5f, 0.5f));
+                                int ctr = mb.Add(new Vector3(x, yb - 0.5f, z), Vector3.down, uvo);
+                                for (int k = 0; k < sides; k++) { int a = i0 + k, b = i0 + (k + 1) % sides; mb.Tri(1, a, ap, b); mb.Tri(1, a, b, ctr); }
+                            }
+                        }
+                        else
+                        {
+                            float chh = (hgt - th) * 0.5f; Vector3 cc = new Vector3(x, y + th + chh, z); var ico = Geo.Icosphere(1); int i0 = mb.Count; float nph = Geo.R(rng, 0, 50);
+                            foreach (var dv in ico.Item1)
+                            {
+                                float lump = 0.75f + 0.5f * Mathf.PerlinNoise(nph + dv.x * 2.2f + dv.z * 1.3f, nph + dv.y * 2.6f + dv.z * 0.9f); Vector3 pv = new Vector3(dv.x * cr * lump, dv.y * chh * lump, dv.z * cr * lump);
+                                mb.Add(cc + pv, (dv * 0.75f + Vector3.up * 0.5f).normalized, uvo + new Vector2(dv.x + dv.y * 0.3f, dv.z + dv.y * 0.3f) * 0.5f);
+                            }
+                            for (int k = 0; k < ico.Item2.Length; k += 3) mb.Tri(0, i0 + ico.Item2[k], i0 + ico.Item2[k + 1], i0 + ico.Item2[k + 2]);
+                        }
+                        c.farTrees++;
+                    }
+            }
+            foreach (var kv in tiles)
+            {
+                var m = kv.Value.ToMesh("FarForestTile" + tileN, true); Save(c, m, m.name);
+                var go = new GameObject("FarForestTile_" + tileN++); go.transform.SetParent(far, false); go.layer = FarLayer;
+                Rend(go, m, c.farBroad, c.farConifer, c.bark[0]).shadowCastingMode = ShadowCastingMode.Off;
+            }
+        }
+
         // ---------- spawn point, corridor, camera rigs ----------
         static void MarkersAndRigs(Ctx c, Transform root)
         {
@@ -595,12 +835,39 @@ namespace Crane.Drones.Environment.Editor
                 var cl = c.clearings[0]; var e = new Vector3(cl.x - cl.z * 0.8f, 0, cl.y - cl.z * 0.6f); e.y = c.H(e.x, e.z) + 2.5f;
                 rig("CameraRig_Clearing_Wide", e, new Vector3(cl.x, c.H(cl.x, cl.y) + 3f, cl.y));
             }
+            // high aerial establishing view over the canopy toward the patch edge and the surrounding landscape
+            { float hf = s.areaSize * 0.5f - 6f; var ap = new Vector3(-hf * 0.85f, 0, -hf * 0.9f); ap.y = c.H(ap.x, ap.z) + 62f; var at = new Vector3(hf * 0.7f, 0, hf * 0.55f); at.y = c.H(at.x, at.z) + 6f; rig("CameraRig_Aerial_Wide", ap, at); }
             foreach (var t in c.targets)
             {
-                var tp = t.pos; var back = (new Vector3(c.spawn.x, 0, c.spawn.y) - new Vector3(tp.x, 0, tp.z)).normalized;
-                Vector3 cp = tp + back * 6.5f + Vector3.up * 2.4f; cp.y = Mathf.Max(cp.y, c.H(cp.x, cp.z) + 1.8f);
-                rig("CameraRig_Orbit_Target" + t.id.ToString("D2"), cp, tp + Vector3.up * 0.3f);
+                Vector3 look; Vector3 cp = PickOrbitCam(c, t, out look);
+                rig("CameraRig_Orbit_Target" + t.id.ToString("D2"), cp, look);
             }
+        }
+
+        /// <summary>Chooses a camera pose around a target: the body must be partially occluded by colliders (about 0.35-0.8 visible), the camera must not sit in or near geometry, and the target is centred.</summary>
+        static Vector3 PickOrbitCam(Ctx c, TargetRec t, out Vector3 look)
+        {
+            Physics.SyncTransforms(); var go = GameObject.Find(t.name); var mf = go.GetComponent<MeshFilter>().sharedMesh; var vs = mf.vertices; var r = new System.Random(c.spec.seed + 777 + t.id);
+            var samples = new List<Vector3>(); for (int i = 0; i < 48; i++) samples.Add(go.transform.TransformPoint(vs[r.Next(vs.Length)]));
+            // foliage has no colliders: approximate cover ferns and mid-story crowns as spheres for the view test
+            var spheres = new List<Vector4>(); foreach (var m in c.mids) spheres.Add(new Vector4(m.pos.x, m.pos.y + m.height * 0.5f, m.pos.z, m.crownR * (m.kind == "shrub" ? 0.85f : 0.7f)));
+            var cov = GameObject.Find("TargetCover"); if (cov != null) foreach (Transform ch in cov.transform) if (ch.name == "CoverFern") spheres.Add(new Vector4(ch.position.x, ch.position.y + 0.35f, ch.position.z, 0.55f * ch.lossyScale.x));
+            Func<Vector3, Vector3, bool> soft = (a, b) => { foreach (var sp in spheres) { Vector3 ctr = new Vector3(sp.x, sp.y, sp.z); Vector3 ab = b - a; float tt = Mathf.Clamp01(Vector3.Dot(ctr - a, ab) / Mathf.Max(1e-4f, ab.sqrMagnitude)); if ((a + ab * tt - ctr).sqrMagnitude < sp.w * sp.w) return true; } return false; };
+            look = go.GetComponent<MeshRenderer>().bounds.center; Vector3 tp = t.pos; Vector3 back = (new Vector3(c.spawn.x, 0, c.spawn.y) - new Vector3(tp.x, 0, tp.z)).normalized; float baseAng = Mathf.Atan2(back.z, back.x);
+            Vector3 best = tp + back * 5f + Vector3.up * 2f; float bestScore = -1e9f; int mask = 1 << EnvLayer;
+            foreach (float dist in new[] { 3.6f, 4.4f, 5.2f, 6.2f }) foreach (float hh in new[] { 1.6f, 2.2f, 2.8f, 3.4f }) for (int k = 0; k < 36; k++)
+                    {
+                        float ang = k * 10f * Mathf.Deg2Rad; Vector3 cp = tp + new Vector3(Mathf.Cos(ang), 0, Mathf.Sin(ang)) * dist; cp.y = c.H(cp.x, cp.z) + hh;
+                        if (Mathf.Abs(cp.x) > c.spec.areaSize * 0.5f - 3f || Mathf.Abs(cp.z) > c.spec.areaSize * 0.5f - 3f) continue;
+                        if (Physics.CheckSphere(cp, 0.7f, mask)) continue; bool nearFoliage = false; foreach (var sp in spheres) if ((new Vector3(sp.x, sp.y, sp.z) - cp).magnitude < sp.w + 0.8f) { nearFoliage = true; break; }
+                        if (nearFoliage) continue;
+                        int vis = 0; foreach (var sp in samples) { RaycastHit hit; if ((!Physics.Linecast(cp, sp + (cp - sp).normalized * 0.02f, out hit, mask) || hit.collider.transform == go.transform) && !soft(cp, sp)) vis++; }
+                        float vf = vis / (float)samples.Count; if (vf < 0.3f || vf > 0.85f) continue;
+                        float d = Mathf.Abs(Mathf.DeltaAngle(ang * Mathf.Rad2Deg, baseAng * Mathf.Rad2Deg)) / 180f;
+                        float score = -Mathf.Abs(vf - 0.55f) * 3f - d * 0.5f - Mathf.Abs(dist - 4.4f) * 0.05f - (soft(cp, look) ? 1.5f : 0f);
+                        if (score > bestScore) { bestScore = score; best = cp; }
+                    }
+            return best;
         }
 
         // ---------- ground-truth visibility ----------
@@ -641,7 +908,9 @@ namespace Crane.Drones.Environment.Editor
             sb.Append("\"clearings\":[" + string.Join(",", c.clearings.Select(p => string.Format(CI, "{{\"x\":{0:F2},\"z\":{1:F2},\"radius\":{2:F2} }}", p.x, p.y, p.z))) + "],\n");
             sb.Append("\"trees\":[\n" + string.Join(",\n", c.trees.Select(t => string.Format(CI, "{{\"id\":{0},\"species\":\"{1}\",\"dead\":{2},\"pos\":{3},\"yaw_deg\":{4:F1},\"scale_xz\":{5:F3},\"scale_y\":{6:F3},\"dbh_cm\":{7:F1},\"height_m\":{8:F2},\"size_class\":{9},\"variant\":{10},\"flight_band_segments\":{11}}}", t.id, t.species, t.dead ? "true" : "false", V3(t.pos), t.yaw, t.sx, t.sy, t.dbhCm, t.heightM, t.sizeClass, t.variant, t.branchCount))) + "\n],\n");
             sb.Append("\"props\":[\n" + string.Join(",\n", c.props.Where(p => p.kind == "log" || p.kind == "rock").Select(p => string.Format(CI, "{{\"kind\":\"{0}\",\"pos\":{1},\"yaw_deg\":{2:F1},\"size_m\":{3:F2},\"note\":\"{4}\"}}", p.kind, V3(p.pos), p.yaw, p.size, p.note))) + "\n],\n");
-            sb.Append("\"understory_counts\":{\"ferns\":" + c.props.Count(p => p.kind == "fern") + ",\"shrubs\":" + c.props.Count(p => p.kind == "shrub") + "},\n");
+            sb.Append("\"understory_counts\":{\"ferns\":" + c.props.Count(p => p.kind == "fern") + ",\"shrubs\":" + c.props.Count(p => p.kind == "shrub") + ",\"grass_tufts\":" + c.nGrass + ",\"fallen_branches\":" + c.nBranch + ",\"note\":\"ferns, grass tufts and fallen branches are ground-level visuals without colliders; shrubs (legacy) have no colliders; see midstory for collidable stems\"},\n");
+            sb.Append("\"surrounding_landscape\":{\"note\":\"visual only, layer EnvironmentFar(14), no colliders, excluded from ground truth\",\"enabled\":" + (s.surroundingLandscape ? "true" : "false") + ",\"distant_trees\":" + c.farTrees + "},\n");
+            sb.Append("\"midstory\":{\"note\":\"shrubs and young conifers 1.5-4 m, stems have MeshColliders on layer Environment; leaf/needle cards have none. segments are capsules [ax,ay,az,bx,by,bz,radius_m] (mid-height 0.3-5.5 m, radius>=4 mm); crown_radius_m is the visual foliage extent\",\"count\":" + c.mids.Count + ",\"items\":[\n" + string.Join(",\n", c.mids.Select(m => string.Format(CI, "{{\"id\":{0},\"kind\":\"{1}\",\"pos\":{2},\"yaw_deg\":{3:F1},\"scale\":{4:F3},\"height_m\":{5:F2},\"crown_radius_m\":{6:F2},\"segment_count\":{7},\"segments\":[{8}]}}", m.id, m.kind, V3(m.pos), m.yaw, m.scale, m.height, m.crownR, m.segCount, m.segs))) + "\n]},\n");
             sb.Append("\"targets\":[\n" + string.Join(",\n", c.targets.Select(t => string.Format(CI, "{{\"id\":{0},\"name\":\"{1}\",\"pose\":\"{2}\",\"pos\":{3},\"yaw_deg\":{4:F1},\"occlusion_param\":{5:F2},\"cover_sticks\":{6},\"cover_mounds\":{7},\"cover_ferns\":{8},\"cover_log\":{9},\"geometric_visible_fraction\":{10:F3},\"visible_fraction_note\":\"fraction of 480 view-ray/body-point pairs (viewpoints 5-14 m away, 1.5-3.5 m above ground) not blocked by colliders; foliage cards have no colliders\"}}", t.id, t.name, t.pose, V3(t.pos), t.yaw, t.occlusion, t.coverSticks, t.coverMounds, t.coverFerns, t.log ? "true" : "false", t.visibleFraction))) + "\n],\n");
             sb.Append("\"flight_band_branches\":{\"note\":\"capsule segments [ax,ay,az,bx,by,bz,radius_m] with mid-height 0.3-5.5 m above local ground and radius>=3 mm\",\"per_tree\":[\n" + string.Join(",\n", c.branchLines) + "\n]}\n}\n");
             string mp = Root + "/Manifests/forest_seed" + s.seed + "_manifest.json"; Directory.CreateDirectory(Path.GetDirectoryName(mp)); File.WriteAllText(mp, sb.ToString());

@@ -20,7 +20,7 @@ TagManager:
   - DynamicObstacle
   - SensorQuery
   - SimulationTrigger
-  - 
+  - EnvironmentFar
   - 
   - 
   - 

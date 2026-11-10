@@ -47,31 +47,33 @@ namespace Crane.Drones.Environment.Editor
         {
             res = new TreeResult { species = sp, sizeClass = sizeClass, variant = variant };
             H = ClassH[sizeClass] * F(0.93f, 1.07f); R0 = ClassR[sizeClass] * F(0.93f, 1.07f);
-            res.height = H; res.trunkR = R0; branchBudget = 1100;
+            res.height = H; res.trunkR = R0; branchBudget = sp.conifer ? 1900 : 1500;
             mb = new MB(2); // 0 bark, 1 foliage
             crownCenter = new Vector3(0, H * (0.45f + sp.crownBase * 0.5f), 0);
 
-            // trunk spine
-            int n = Mathf.Max(8, (int)(H / 0.45f)); var pts = new List<Vector3>(); var rad = new List<float>();
+            // trunk spine: dense samples near the base so the smooth buttress flare is resolved; first ring sits below ground
+            var hs = new List<float> { -0.25f, 0f, 0.12f, 0.28f, 0.5f, 0.8f, 1.15f };
+            for (float hh = 1.15f + 0.45f; hh < H - 0.2f; hh += 0.45f) hs.Add(hh); hs.Add(H);
+            int n = hs.Count - 1; var pts = new List<Vector3>(); var rad = new List<float>();
             float lean = F(0.0f, sp.conifer ? 0.012f : 0.03f); Vector3 leanDir = new Vector3(Mathf.Cos(F(0, 6.28f)), 0, Mathf.Sin(F(0, 6.28f)));
             float phase = F(0, 100f);
+            float flareK = sp.conifer ? (sp.name == "Pine" ? 0.35f : 0.5f) : 0.8f; float flareH = sp.conifer ? 0.45f : 0.6f;
             for (int i = 0; i <= n; i++)
             {
-                float h = H * i / n; float t = h / H;
-                Vector3 p = new Vector3(0, h, 0) + leanDir * (lean * h * h / 4f) + new Vector3(Mathf.PerlinNoise(phase, h * 0.3f) - 0.5f, 0, Mathf.PerlinNoise(h * 0.3f, phase + 9) - 0.5f) * (sp.conifer ? 0.18f : 0.5f) * Mathf.Clamp01(t * 3f);
+                float h = Mathf.Max(0f, hs[i]); float t = h / H;
+                Vector3 p = new Vector3(0, hs[i], 0) + leanDir * (lean * h * h / 4f) + new Vector3(Mathf.PerlinNoise(phase, h * 0.3f) - 0.5f, 0, Mathf.PerlinNoise(h * 0.3f, phase + 9) - 0.5f) * (sp.conifer ? 0.18f : 0.5f) * Mathf.Clamp01(t * 3f);
                 pts.Add(p);
                 float taper = Mathf.Pow(1f - t, sp.conifer ? 0.85f : 0.65f);
-                float r = Mathf.Max(0.012f, R0 * (0.08f + 0.92f * taper)) * (1f + 0.55f * Mathf.Exp(-h / 0.55f));
-                rad.Add(r);
+                float fl = 1f + flareK * Mathf.Exp(-h / flareH) * (0.5f + 0.5f * Mathf.Exp(-h / (flareH * 3f)));
+                rad.Add(Mathf.Max(0.012f, R0 * (0.08f + 0.92f * taper)) * fl);
             }
             int sides = sizeClass == 0 ? 8 : 12;
             float tile = 1.4f; float uT = Mathf.Max(1, Mathf.Round(Mathf.PI * 2 * R0 / tile));
             Geo.Tube(mb, 0, pts, rad, sides, uT, tile, 1f, 1f, null, false, true, F(0, 1));
             AddSegs(pts, rad, 0);
 
-            Roots(sizeClass);
-            Func<float, Vector3> trunkAt = h => { float tt = Mathf.Clamp01(h / H) * n; int i = Mathf.Min(n - 1, (int)tt); return Vector3.Lerp(pts[i], pts[i + 1], tt - i); };
-            Func<float, float> trunkR = h => { float tt = Mathf.Clamp01(h / H) * n; int i = Mathf.Min(n - 1, (int)tt); return Mathf.Lerp(rad[i], rad[i + 1], tt - i); };
+            Func<float, Vector3> trunkAt = h => { int i = 0; while (i < n - 1 && hs[i + 1] < h) i++; float tt = Mathf.Clamp01((h - hs[i]) / Mathf.Max(1e-4f, hs[i + 1] - hs[i])); return Vector3.Lerp(pts[i], pts[i + 1], tt); };
+            Func<float, float> trunkR = h => { int i = 0; while (i < n - 1 && hs[i + 1] < h) i++; float tt = Mathf.Clamp01((h - hs[i]) / Mathf.Max(1e-4f, hs[i + 1] - hs[i])); return Mathf.Lerp(rad[i], rad[i + 1], tt); };
 
             DeadTwigBand(trunkAt, trunkR);
             if (!sp.dead) { if (sp.conifer) ConiferLimbs(trunkAt, trunkR); else BroadleafCrown(trunkAt, trunkR, pts, rad); }
@@ -85,24 +87,6 @@ namespace Crane.Drones.Environment.Editor
         void AddSegs(List<Vector3> pts, List<float> rad, int order)
         {
             for (int i = 0; i < pts.Count - 1; i++) res.segs.Add(new BranchSeg { a = pts[i], b = pts[i + 1], r = (rad[i] + rad[i + 1]) * 0.5f, order = order });
-        }
-
-        void Roots(int sc)
-        {
-            int nr = sc == 0 ? 3 : rng.Next(4, 7);
-            for (int k = 0; k < nr; k++)
-            {
-                float az = (k + F(-0.3f, 0.3f)) / nr * 6.283f; Vector3 dir = new Vector3(Mathf.Cos(az), 0, Mathf.Sin(az));
-                float len = F(0.7f, 1.7f) * (0.5f + sc * 0.5f); float r0 = R0 * F(0.32f, 0.5f);
-                var pts = new List<Vector3>(); var rad = new List<float>(); int m = 7;
-                for (int i = 0; i < m; i++)
-                {
-                    float t = (float)i / (m - 1); Vector3 side = Vector3.Cross(dir, Vector3.up) * (Mathf.PerlinNoise(k * 3.1f + R0, t * 2f) - 0.5f) * 0.5f;
-                    pts.Add(dir * (R0 * 0.6f + len * t) + side * t + new Vector3(0, 0.38f * (1 - t) * (1 - t) * (0.5f + sc * 0.5f) - 0.18f * t, 0));
-                    rad.Add(Mathf.Max(0.02f, r0 * (1f - 0.85f * t)));
-                }
-                Geo.Tube(mb, 0, pts, rad, 6, 1, 1.0f, 1, 1, null, false, true);
-            }
         }
 
         // ---- thin dead-twig whorls: the flight-band obstacle population ----
@@ -172,7 +156,7 @@ namespace Crane.Drones.Environment.Editor
             while (h < H * 0.97f && branchBudget > 0)
             {
                 float t = (h - start) / (H * 0.97f - start);
-                int cnt = sp.name == "Pine" ? rng.Next(3, 5) : rng.Next(5, 8);
+                int cnt = sp.name == "Pine" ? rng.Next(4, 7) : rng.Next(6, 10);
                 float az0 = F(0, 6.28f);
                 for (int k = 0; k < cnt; k++)
                 {
@@ -182,10 +166,10 @@ namespace Crane.Drones.Environment.Editor
                     Vector3 dir = new Vector3(Mathf.Cos(az), elev, Mathf.Sin(az)).normalized;
                     Limb(trunkAt(h), dir, len, Mathf.Max(0.008f, trunkR(h) * 0.26f), 2, sp.conifer);
                 }
-                h += F(0.5f, 0.85f) * (sp.name == "Pine" ? 1.5f : 1f);
+                h += F(0.3f, 0.52f) * (sp.name == "Pine" ? 2.0f : 1f);
             }
             // leader needles
-            Foliage(trunkAt(H), Vector3.up, 1.6f);
+            for (int q = 0; q < 3; q++) { float ang = q * 2.094f; Vector3 side = new Vector3(Mathf.Cos(ang), 0, Mathf.Sin(ang)); Geo.Card(mb, 1, trunkAt(H) - Vector3.up * 0.35f, Vector3.up, side, 1.5f, 0.9f, Vector3.up); }
         }
 
         void Limb(Vector3 o, Vector3 dir, float len, float r0, int levelsLeft, bool needles)
@@ -202,7 +186,7 @@ namespace Crane.Drones.Environment.Editor
             AddSegs(pts, rad, 3 - levelsLeft);
             if (levelsLeft > 0)
             {
-                int kids = (int)(len * (needles ? 3.0f : 2.2f));
+                int kids = (int)(len * (needles ? 4.2f : 2.2f));
                 for (int k = 0; k < kids && branchBudget > 0; k++)
                 {
                     float t = F(0.2f, 0.95f); int i = Mathf.Min(m - 2, (int)(t * (m - 1))); Vector3 bp = Vector3.Lerp(pts[i], pts[i + 1], t * (m - 1) - i);
@@ -212,22 +196,22 @@ namespace Crane.Drones.Environment.Editor
                     Limb(bp, cd, len * F(0.22f, 0.5f) * (1.2f - t), Mathf.Max(0.004f, rad[i] * 0.5f), levelsLeft - 1, needles);
                 }
             }
-            else if (needles) NeedleSpray(pts, len);
+            else if (needles) { NeedleSpray(pts, len); for (int i = 1; i < m - 1; i += 2) NeedleSpray(new List<Vector3> { pts[i], pts[i + 1] }, len * 0.6f); }
             else Foliage(pts[m - 1], (pts[m - 1] - pts[m - 2]).normalized, 1f);
         }
 
         void NeedleSpray(List<Vector3> pts, float len)
         {
-            float live = 1f - Mathf.Clamp01(0.0f);
-            float dens = 1f - 0.55f * spec.canopyOpenness;
+            float dens = 1f - 0.2f * spec.canopyOpenness;
             if (rng.NextDouble() > dens) return;
-            Vector3 a = pts[0], b = pts[pts.Count - 1]; Vector3 d = (b - a); float L = d.magnitude + 0.25f; d.Normalize();
+            Vector3 a = pts[0], b = pts[pts.Count - 1]; Vector3 d = (b - a); float L = d.magnitude + 0.3f; d.Normalize();
             Vector3 side = Vector3.Cross(d, Vector3.up); if (side.sqrMagnitude < 1e-4f) side = Vector3.right; side.Normalize();
-            Vector3 outN = ((a + b) * 0.5f - crownCenter).normalized * 0.6f + Vector3.up * 0.5f;
-            // flat spray (horizontal) + a tilted one
-            Geo.Card(mb, 1, (a + b) * 0.5f, d, side, L, Mathf.Clamp(L * 0.8f, 0.3f, 0.7f), outN.normalized);
-            Vector3 up2 = Vector3.Cross(d, side).normalized;
-            Geo.Card(mb, 1, (a + b) * 0.5f + up2 * 0.02f, d, (side + up2 * 0.8f).normalized, L, Mathf.Clamp(L * 0.7f, 0.25f, 0.6f), outN.normalized);
+            Vector3 outN = (((a + b) * 0.5f - crownCenter).normalized * 0.6f + Vector3.up * 0.5f).normalized; Vector3 c = (a + b) * 0.5f;
+            Vector3 up2 = Vector3.Cross(d, side).normalized; float wide = Mathf.Clamp(L * 0.9f, 0.35f, 0.8f) * F(0.85f, 1.15f);
+            // flat spray plus two tilted sprays so the whorl reads as a dense bough from every angle
+            Geo.Card(mb, 1, c, d, side, L * 1.15f, wide, outN);
+            Geo.Card(mb, 1, c + up2 * 0.03f, d, (side + up2 * 1.1f).normalized, L, wide * 0.85f, outN);
+            Geo.Card(mb, 1, c - up2 * 0.03f, d, (side - up2 * 1.1f).normalized, L * 0.95f, wide * 0.85f, outN);
         }
 
         // ---- broadleaf: forked trunk, spreading limbs, recursive branches, leaf-card clusters ----
@@ -267,11 +251,12 @@ namespace Crane.Drones.Environment.Editor
                     if (cd.y < -0.1f) cd.y = -cd.y * 0.3f;
                     Broad(bp, cd.normalized, len * F(0.25f, 0.55f) * (1.1f - 0.6f * t), Mathf.Max(0.004f, rad[i] * 0.55f), levelsLeft - 1);
                 }
+                if (levelsLeft == 1) for (int i = 2; i < m; i++) if (rng.NextDouble() < 0.6) Foliage(pts[i], Geo.RandUnit(rng), 1.1f);
             }
             else
             {
-                Foliage(pts[m - 1], (pts[m - 1] - pts[m - 2]).normalized, 1f);
-                for (int i = 1; i < m - 1; i++) if (rng.NextDouble() < 0.5) Foliage(pts[i], Geo.RandUnit(rng), 0.8f);
+                Foliage(pts[m - 1], (pts[m - 1] - pts[m - 2]).normalized, 1.25f);
+                for (int i = 1; i < m - 1; i++) if (rng.NextDouble() < 0.85) Foliage(pts[i], Geo.RandUnit(rng), 1.0f);
             }
         }
 
@@ -286,23 +271,27 @@ namespace Crane.Drones.Environment.Editor
             }
         }
 
+        /// <summary>Leaf cluster: several cards of different sizes in a small volume, each sampling a random window of the leaf atlas.</summary>
         void Foliage(Vector3 pos, Vector3 dir, float scale)
         {
             if (sp.dead) return;
-            if (rng.NextDouble() < spec.canopyOpenness * 0.45f) return; // open canopy thins leaf cover
+            if (rng.NextDouble() < spec.canopyOpenness * 0.25f) return; // open canopy thins leaf cover
             Vector3 outN = (pos - crownCenter); if (outN.sqrMagnitude < 0.01f) outN = Vector3.up; outN = (outN.normalized * 0.65f + Vector3.up * 0.45f).normalized;
             if (sp.conifer)
             {
                 Vector3 side = Vector3.Cross(dir, Vector3.up); if (side.sqrMagnitude < 1e-3f) side = Vector3.right; side.Normalize();
-                Geo.Card(mb, 1, pos + dir * 0.2f * scale, dir, side, 0.6f * scale, 0.5f * scale, outN);
+                Geo.Card(mb, 1, pos + dir * 0.2f * scale, dir, side, 0.7f * scale, 0.6f * scale, outN);
                 return;
             }
-            float s = F(0.38f, 0.62f) * scale;
-            Vector3 a = Geo.RandUnit(rng); Vector3 r = Vector3.Cross(a, Vector3.up); if (r.sqrMagnitude < 0.01f) r = Vector3.right; r.Normalize();
-            Vector3 u = Vector3.Cross(r, a).normalized;
-            Geo.Card(mb, 1, pos + a * 0.05f, r, u, s, s, outN);
-            Vector3 r2 = Vector3.Cross(Vector3.up, r).normalized; Vector3 u2 = (Vector3.up * 0.3f + Geo.RandUnit(rng) * 0.7f).normalized;
-            Geo.Card(mb, 1, pos, r2, Vector3.Cross(r2, u2).normalized, s * 0.95f, s * 0.95f, outN);
+            int count = 4 + rng.Next(0, 3);
+            for (int k = 0; k < count; k++)
+            {
+                float s = F(0.32f, 0.85f) * scale * (k == 0 ? 1.15f : 1f); float win = 0.65f, u0 = F(0f, 0.35f);
+                Vector3 a = (Geo.RandUnit(rng) * 0.6f + Vector3.up * 0.4f).normalized; Vector3 r = Vector3.Cross(a, Vector3.up); if (r.sqrMagnitude < 0.01f) r = Vector3.right; r.Normalize();
+                Vector3 u = Vector3.Cross(r, a).normalized;
+                Vector3 off = Geo.RandUnit(rng) * (0.1f + 0.14f * scale) * (k == 0 ? 0f : 1f);
+                Geo.Card(mb, 1, pos + off, r, u, s * win, s, outN, u0, u0 + win);
+            }
         }
     }
 }

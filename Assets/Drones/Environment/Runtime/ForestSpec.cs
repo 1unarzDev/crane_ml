@@ -44,6 +44,20 @@ namespace Crane.Drones.Environment
         public float corridorClearRadius = 1.3f;
         public float trailWidth = 2.4f;
 
+        [Header("Mid-story (1-4 m shrubs and young conifers, colliders in manifest)")]
+        [Tooltip("Mid-story stems per hectare (shrubs + young conifers).")]
+        public float midstoryDensityPerHa = 260f;
+        [Tooltip("Fallen-branch scatter (no colliders, ground level) per hectare.")]
+        public float fallenBranchPerHa = 420f;
+        [Tooltip("Grass tufts per hectare in grass patches.")]
+        public float grassTuftsPerHa = 900f;
+
+        [Header("Surrounding landscape (visual only)")]
+        public bool surroundingLandscape = true;
+        public float landscapeRadius = 3500f;
+        [Tooltip("Distant low-LOD forest ring reaches this far beyond the patch edge (m).")]
+        public float distantForestReach = 420f;
+
         [Header("Ground layers")]
         [Range(0, 3)] public float undergrowthDensity = 1f;
         [Range(0, 3)] public float fernDensity = 1f;
