@@ -96,6 +96,23 @@ namespace Crane.Theater.Tests {
         }
 
         [Test]
+        public void LookRigLeavesFixedShotsAlone() {
+            const string json = @"{""fps"": 30, ""look"": ""theater"", ""acts"": [
+                {""type"": ""spotlight"", ""duration_s"": 1, ""speed"": 0.01, ""t0"": 3, ""camera"": {""shot"": ""wide"", ""pos"": [0, -10, 12], ""look"": [4, 2, 0]}},
+                {""type"": ""spotlight"", ""duration_s"": 1, ""speed"": 0.01, ""t0"": 5, ""camera"": {""shot"": ""dock"", ""target"": [5, 3, 0], ""bearing"": 200, ""distance"": 5, ""height"": 2}}]}";
+            var plain = State(Golden(), Parse(json));
+            var rigged = Parse(json);
+            Assert.AreEqual("theater", rigged.LookDoc);
+            rigged.CameraRig = true;
+            var r = State(Golden(), rigged);
+            for (int f = 0; f < plain.FrameCount; f++) {
+                Assert.AreEqual(plain.Evaluate(f).camPos, r.Evaluate(f).camPos, $"frame {f}");
+                Assert.AreEqual(plain.Evaluate(f).camRot, r.Evaluate(f).camRot, $"frame {f}");
+            }
+            Assert.IsNull(Parse(@"{""acts"": [{}]}").LookDoc);
+        }
+
+        [Test]
         public void WideShotUsesItsPositionAndLookAt() {
             var s = State(Golden(), Parse(@"{""acts"": [{""camera"": {""shot"": ""wide"", ""pos"": [0, -10, 12], ""look"": [4, 2, 0], ""fov"": 40}}]}"));
             var fs = s.Evaluate(0);
