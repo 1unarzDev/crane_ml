@@ -39,7 +39,7 @@ namespace Crane.Fleet.Sim {
         Vector3 carryPos; Quaternion carryRot; double carryLift0;
         // lifter load model (overlay lift_load): lift force limit, payload weight + inertial reaction on the lifter body, tip check
         string loadModel; double liftForceMax, liftOffHeight, tipLimit;
-        bool liftStalled, lifterTipped, loadApplied; double maxCarrierTilt; Vector3 prevPayloadVel; bool havePrevPayloadVel;
+        bool liftStalled, lifterTipped, loadApplied, forceLimitedNow; double maxCarrierTilt; Vector3 prevPayloadVel; bool havePrevPayloadVel;
         string payloadMassSource = "profile";
         double liftSpeed, gripRate, gripMax, gripMin;
         int autonomyEventIndex;
@@ -269,7 +269,8 @@ namespace Crane.Fleet.Sim {
             double target = Math.Max(0, Math.Min(travel, k.LiftTarget));
             // lift force limit: raising a carried payload heavier than the actuator can hold (profile lift_capacity x overlay margin) stalls
             bool raising = target > rv.Lift && payloadMode == "carried" && carrier == rv;
-            if (raising && loadModel == "physical" && Payload.mass * spec.Gravity > liftForceMax) {
+            forceLimitedNow = raising && loadModel == "physical" && Payload.mass * spec.Gravity > liftForceMax;   // LiftReport.ForceLimited
+            if (forceLimitedNow) {
                 if (!liftStalled) {
                     liftStalled = true;
                     run.Event("lift_stalled", rv.D.Id, new Dictionary<string, object> { ["payload_kg"] = (double)Payload.mass, ["lift_force_max_n"] = liftForceMax,
@@ -545,7 +546,8 @@ namespace Crane.Fleet.Sim {
             }
             public LiftReport ReadLift() {
                 if (rig.D.Role == "lifter")
-                    return new LiftReport { Present = true, Height = rig.Lift, GripperClosed = GripperClosed, HoldingObject = m.payloadMode == "carried" && m.carrier == rig };
+                    return new LiftReport { Present = true, Height = rig.Lift, GripperClosed = GripperClosed, HoldingObject = m.payloadMode == "carried" && m.carrier == rig,
+                        ForceLimited = m.forceLimitedNow };
                 // deck load cell (cargo decks): the payload's weight shared over the decks it rests on (simulated sensor from contact geometry)
                 bool deck = rig.D.Payload.ContainsKey("deck_capacity");
                 double kg = 0;

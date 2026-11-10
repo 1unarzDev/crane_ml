@@ -132,7 +132,7 @@ task fails for good, dependants are `Skipped` and the mission reports the first 
 | `wait` | `agents`, `duration` | | time elapsed |
 
 Top level: `schema`, `mission_id`, `initial_couplings` [{docker, docker_face, target, target_face}], `initial_payloads` [{id, type,
-supporters, com}], `tasks`. Failure classes: `HostRejected` (host disagreed with a believed-complete mission), `Geometry` (no route for this footprint/capability), `Traction` (no feasible primitive
+supporters, com}], `tasks`. Failure classes: `Capacity` (payload over the lift capacity; not retried), `HostRejected` (host disagreed with a believed-complete mission), `Geometry` (no route for this footprint/capability), `Traction` (no feasible primitive
 or persistent deviation), `Planner`, `Docking`, `Perception`, `Support`, `Timeout`, `Configuration`.
 
 Differences from what `Tools/Fleet/harness/promote.build_mission` emits today (accepted aliases are mapped by `TaskSpec.NormalizeAliases`):
@@ -215,6 +215,15 @@ release. `ObjectReleased` drops it from the footprint at release. A payload conf
 assembly's footprint; a payload observed elsewhere is re-inserted into the map at its observed pose (`ReinsertObstacle`). If the
 map has no box for the object, the lift task's optional `payload_type` gives its size. No interface change: CRANE keeps the
 payload in the map.
+
+Escape moves and capacity (over-capacity batch, seed 4). Any plan whose start overlaps at most two map obstacles is treated as a
+contact. Examples are a retry at the grasp pose inside the object's box, or a release, or a stall against a jamb. The planner first
+plans an escape to the nearest free pose, ignoring only the obstacles in contact (`PlanRequest.EscapeContacts`, default on; logged
+as `escape_move`), then plans on from there. An unconfirmed lift opens the gripper and lowers on failure, so a retry does not drag
+the object. Capacity failures do not retry and have their own class `Capacity` ("payload over capacity"):
+- before trying, when the lift task gives `payload_type` and its profile mass exceeds the lifter's `lift_capacity`;
+- during the lift, when the lift driver reports `LiftReport.ForceLimited` for 0.5 s short of the target height.
+INTERFACE ADDITION: `LiftReport.ForceLimited`, set when the lift actuator is at its force or current limit while below its target.
 
 ## Known gaps
 

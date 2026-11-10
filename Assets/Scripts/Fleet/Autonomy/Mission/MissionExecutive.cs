@@ -127,7 +127,7 @@ namespace Crane.Fleet
                     r.Behavior.Abort();
                     _f.Log("task_attempt_failed", r.Spec.Id, null, $"{r.Behavior.FailClass}: {r.Behavior.FailReason} (attempt {r.Attempts})");
                     Release(r);
-                    if (r.Attempts <= r.Spec.Retries && r.Behavior.FailClass != FailureClass.Configuration && r.Behavior.FailClass != FailureClass.Support)
+                    if (r.Attempts <= r.Spec.Retries && r.Behavior.FailClass != FailureClass.Configuration && r.Behavior.FailClass != FailureClass.Support && r.Behavior.FailClass != FailureClass.Capacity)
                     {
                         var b = Create(r.Spec); b.Bind(_f, r.Spec); StartTask(r, b);
                     }

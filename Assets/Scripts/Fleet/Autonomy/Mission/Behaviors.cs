@@ -38,6 +38,7 @@ namespace Crane.Fleet
                 if (p2.Ok) p = p2;
             }
             Path = p; _capVersion = ag.Cap.Version;
+            if (p.Ok && p.Escaped) _f.Log("escape_move", _task, ag.Id, "start in contact with " + string.Join(",", p.EscapedFrom) + ": escape first");
             if (p.Ok && p.GoalAdjusted) { Goal = Se2.Compose(p.GoalUsed, ag.Model.ModulePose(_rover)); _f.Log("goal_adjusted", _task, ag.Id, $"goal in collision; using ({Goal.X:0.000}, {Goal.Y:0.000}, {Goal.Yaw:0.000})"); }
             _f.Log("plan", _task, ag.Id, p.Ok ? $"ok {p.Points.Count} pts {p.Duration:0.0}s rank={ag.Cap.ActuatedRank} exp={p.Expansions}" : "failed " + p.Failure + $" rank={ag.Cap.ActuatedRank}");
             if (!p.Ok) { Failure = p.Failure; FailClass = p.Failure == "no_feasible_primitive" ? FailureClass.Traction : FailureClass.Geometry; return false; }
@@ -206,6 +207,11 @@ namespace Crane.Fleet
                     if (given == null) return Fail(FailureClass.Perception, "object " + obj + " not located");
                     op = new Pose2(given[0], given[1], given.Length > 2 ? given[2] : 0);
                 }
+                // capacity: known payload mass above the lift's rated capacity is a capability failure, not something to retry
+                var lspec = F.Channel(rover).Spec;
+                string ptype = S.Str("payload_type");
+                if (ptype != null && F.Config.DockingProfile != null && F.Config.DockingProfile.Payloads.TryGetValue(ptype, out var pspec) && lspec.HasLift && pspec.Mass.Value > lspec.LiftCapacity)
+                    return Fail(FailureClass.Capacity, $"payload over capacity: {ptype} {pspec.Mass.Value:0.0} kg > {rover} lift capacity {lspec.LiftCapacity:0.0} kg");
                 // pre-grasp view in front of the object, clear of it (the close view refines the object's pose on the blackboard).
                 // The standoff accounts for the object's own extent when the map carries it as an obstacle box.
                 double halfObj = 0;
@@ -256,9 +262,24 @@ namespace Crane.Fleet
                     F.ObjectPicked(obj, rover, rel, S.Str("payload_type"));
                     return TaskState.Succeeded;
                 }
+                if (ch.Lift.ForceLimited) _forceT += dt; else _forceT = 0;
+                if (_forceT > 0.5)
+                {
+                    var ls = F.Channel(rover).Spec;
+                    return Fail(FailureClass.Capacity, $"payload over capacity: {rover} lift stalled at its force limit at {ch.Lift.Height:0.000} m (rated {ls.LiftCapacity:0.0} kg)");
+                }
                 if (_t > 10) return Fail(FailureClass.Timeout, "lift did not reach height");
             }
             return TaskState.Running;
+        }
+
+        private double _forceT;
+
+        /// <summary>An unconfirmed lift leaves the object where it is: open the gripper and lower before any retry moves the lifter.</summary>
+        public override void Abort()
+        {
+            var ch = F.Channel(S.Str("agent"));
+            if (Phase == "grip" || Phase == "lift") ch.SetLift(0, false);
         }
     }
 

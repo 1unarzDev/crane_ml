@@ -54,6 +54,8 @@ namespace Crane.Fleet
         /// <summary>Deck load cell / contact switches (cargo decks). DeckLoadValid = false when the rover has no such sensor.</summary>
         public bool DeckLoadValid;
         public double DeckLoadKg;
+        /// <summary>The lift actuator is at its force/current limit while short of its height target (load heavier than it can raise).</summary>
+        public bool ForceLimited;
     }
 
     /// <summary>Body-frame specific force in the plane (m/s^2, gravity removed, x forward, y left) from the rover's IMU accelerometer.</summary>

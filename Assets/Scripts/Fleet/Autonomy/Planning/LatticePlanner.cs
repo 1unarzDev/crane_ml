@@ -61,6 +61,7 @@ namespace Crane.Fleet
         public double Length => Points.Count == 0 ? 0 : Points[Points.Count - 1].S;
         public int CapabilityVersion;
         public Pose2 GoalUsed; public bool GoalAdjusted;
+        public bool Escaped; public string[] EscapedFrom;
     }
 
     public sealed class PlanRequest
@@ -77,6 +78,9 @@ namespace Crane.Fleet
         /// <summary>If the goal is in collision, search nearby goals (backed off along the goal's -x, small lateral shifts and heading
         /// changes) before failing; the pose used is reported in <see cref="PlannedPath.GoalUsed"/>.</summary>
         public bool GoalSearch;
+        /// <summary>If the start is in contact with obstacles (the grasped or just-released object, a jamb after a stall), first plan an
+        /// escape move to the nearest free pose, ignoring only the obstacles in contact, then plan on from there (default on).</summary>
+        public bool EscapeContacts = true;
     }
 
     /// <summary>One motion primitive: a constant body twist held for a duration (an arc of the exponential map).</summary>
@@ -156,7 +160,7 @@ namespace Crane.Fleet
             {
                 var m = new PlanMap(_map.MinX, _map.MinY, _map.MaxX, _map.MaxY);
                 foreach (var o in _map.Obstacles) if (!req.IgnoreObstacleIds.Contains(o.Id)) m.Obstacles.Add(o);
-                var sub = new PlanRequest { Start = req.Start, Goal = req.Goal, Capability = req.Capability, CruiseFraction = req.CruiseFraction, ExtraObstacles = req.ExtraObstacles, PosTol = req.PosTol, YawTol = req.YawTol, Margin = req.Margin, GoalSearch = req.GoalSearch };
+                var sub = new PlanRequest { Start = req.Start, Goal = req.Goal, Capability = req.Capability, CruiseFraction = req.CruiseFraction, ExtraObstacles = req.ExtraObstacles, PosTol = req.PosTol, YawTol = req.YawTol, Margin = req.Margin, GoalSearch = req.GoalSearch, EscapeContacts = req.EscapeContacts };
                 return new LatticePlanner(m, _a).Plan(sub);
             }
             if (req.GoalSearch)
@@ -169,6 +173,31 @@ namespace Crane.Fleet
                     if (!found) return new PlannedPath { Failure = "goal_in_collision", CapabilityVersion = req.Capability.Version, GoalUsed = req.Goal };
                     var adj = new PlanRequest { Start = req.Start, Goal = best, Capability = req.Capability, CruiseFraction = req.CruiseFraction, ExtraObstacles = req.ExtraObstacles, PosTol = req.PosTol, YawTol = req.YawTol, Margin = req.Margin };
                     var r = Plan(adj); r.GoalAdjusted = true; r.GoalUsed = best; return r;
+                }
+            }
+            if (req.EscapeContacts && _map.Collides(req.Start, req.Capability.Footprint, 0.0, null))
+            {
+                var contacts = new List<string>();
+                foreach (var b in req.Capability.Footprint)
+                {
+                    var wb = b.Transformed(req.Start);
+                    foreach (var o in _map.Obstacles) if (Box2.Overlap(wb, o) && !contacts.Contains(o.Id)) contacts.Add(o.Id);
+                }
+                if (contacts.Count > 0 && contacts.Count <= 2)
+                {
+                    double m0 = double.IsNaN(req.Margin) ? _a.PlanMargin : req.Margin;
+                    var esc = FindFreeGoal(req.Start, req.Capability.Footprint, m0, req.ExtraObstacles, out bool ok);
+                    if (!ok) return new PlannedPath { Failure = "start_in_collision", CapabilityVersion = req.Capability.Version, GoalUsed = req.Goal, EscapedFrom = contacts.ToArray() };
+                    var first = Plan(new PlanRequest { Start = req.Start, Goal = esc, Capability = req.Capability, CruiseFraction = Math.Min(req.CruiseFraction, 0.3), ExtraObstacles = req.ExtraObstacles, IgnoreObstacleIds = contacts, PosTol = 0.03, YawTol = 0.05, Margin = 0.0, EscapeContacts = false });
+                    if (!first.Ok) return first;
+                    var rest = Plan(new PlanRequest { Start = esc, Goal = req.Goal, Capability = req.Capability, CruiseFraction = req.CruiseFraction, ExtraObstacles = req.ExtraObstacles, PosTol = req.PosTol, YawTol = req.YawTol, Margin = req.Margin, GoalSearch = req.GoalSearch, EscapeContacts = false });
+                    if (!rest.Ok) { rest.EscapedFrom = contacts.ToArray(); return rest; }
+                    var all = new PlannedPath { Ok = true, CapabilityVersion = req.Capability.Version, Escaped = true, EscapedFrom = contacts.ToArray(), GoalUsed = rest.GoalUsed, GoalAdjusted = rest.GoalAdjusted, Expansions = first.Expansions + rest.Expansions };
+                    all.Points.AddRange(first.Points);
+                    if (all.Points.Count > 0) { var lp = all.Points[all.Points.Count - 1]; lp.Twist = rest.Points.Count > 0 ? rest.Points[0].Twist : Twist2.Zero; all.Points[all.Points.Count - 1] = lp; }
+                    double t0 = first.Duration, s0 = first.Length;
+                    for (int i = 1; i < rest.Points.Count; i++) { var q = rest.Points[i]; q.T += t0; q.S += s0; all.Points.Add(q); }
+                    return all;
                 }
             }
             var res0 = PlanCore(req); res0.GoalUsed = req.Goal; return res0;
