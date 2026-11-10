@@ -27,9 +27,9 @@ nothing here is measured on hardware.
     <td><img src="Docs/media/readme/forest_onboard_rgb.jpg" alt="Onboard camera view under the canopy"><br><sub><b>Aerial.</b> Onboard RGB camera under the canopy.</sub></td>
   </tr>
   <tr>
-    <td><img src="Docs/media/readme/drone_cad_vs_reference.jpg" alt="Reference concept beside the CAD model"><br><sub><b>Aerial.</b> AOS 7 V5 search drone: reference layout (left) and our CAD model (right).</sub></td>
-    <td><img src="Docs/media/readme/drone_cad_iso.jpg" alt="CAD model iso view"><br><sub><b>Aerial.</b> CAD model: 1.843 kg, two decks, L2, Orin, OAK-D S2, Cube Orange; exported to URDF for simulation.</sub></td>
-    <td><img src="Docs/media/readme/drone_cad_top.jpg" alt="CAD model top view"><br><sub><b>Aerial.</b> CAD top view: stretched-X frame, 254 x 184 mm motor rectangle, 7-inch tri-blade props.</sub></td>
+    <td><img src="Docs/media/readme/drone_cad_vs_reference.jpg" alt="Reference concept beside the CAD model"><br><sub><b>Design.</b> AOS 7 V5 search drone: reference layout (left) and our CAD model (right).</sub></td>
+    <td><img src="Docs/media/readme/drone_cad_iso.jpg" alt="CAD model iso view"><br><sub><b>Design.</b> CAD model: 1.843 kg, two decks, L2, Orin, OAK-D S2, Cube Orange; exported to URDF for simulation.</sub></td>
+    <td><img src="Docs/media/readme/drone_cad_top.jpg" alt="CAD model top view"><br><sub><b>Design.</b> CAD top view: stretched-X frame, 254 x 184 mm motor rectangle, 7-inch tri-blade props.</sub></td>
   </tr>
 </table>
 
