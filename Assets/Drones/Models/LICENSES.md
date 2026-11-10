@@ -20,3 +20,12 @@ covered by the repository license (GPL-3.0). Nothing was downloaded.
 - Cube Orange case 38.25 x 38.25 x 22.3 mm (from memory, unverified); Mini carrier board outline, Jetson Orin Nano
   carrier outline (80 x 56 mm assumed for a compact third-party carrier), Microhard pMDDL900 module outline
   (32 x 30 mm) and the 6S pack size (108 x 36 x 38 mm) are approximations, not measured.
+
+## AOS 7 V5 CAD model (Tools/DroneCAD/aos7v5, 2026-11-10)
+Geometry in `Assets/Robot Descriptions/aos7v5/` and `Docs/DroneVisuals/model/aos7v5_cad.*` is modelled from scratch with
+build123d from published datasheet dimensions (and tagged ESTIMATE where none exist; see `Tools/DroneCAD/aos7v5/SPEC.md`).
+No vendor CAD, STEP, mesh or texture was downloaded or copied. Reference image `Docs/DroneVisuals/model/reference_concept.png`
+is an owner-supplied concept render, used for layout only and not redistributed in any model asset.
+Dimension sources fetched on 2026-11-10: https://shop.iflight.com/AOS-7-V5-Frame-Kit-Pro2311 (wheelbase 313 mm, L254 x W184 x H36,
+arm 8 mm, plates 2 / 2.5 / 2 mm, kit weight 325 g). Other sources as listed above and in SPEC.md.
+Tools used (installed in ~/.cache/research/cad-venv, not vendored): build123d (Apache-2.0), trimesh (MIT), numpy/scipy/matplotlib, pyrender, pybullet (zlib).

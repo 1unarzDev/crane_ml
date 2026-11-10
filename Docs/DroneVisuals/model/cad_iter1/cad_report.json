@@ -1,0 +1,474 @@
+{
+ "iter": 1,
+ "layout": "single_deck",
+ "mass_kg": 1.7944,
+ "com_m": [
+  1.9334858180749076e-18,
+  1.2084286362968173e-19,
+  0.010577554086887342
+ ],
+ "inertia_com": [
+  [
+   0.005892497198493144,
+   3.3403009314432735e-05,
+   0.002018966318381217
+  ],
+  [
+   3.3403009314432735e-05,
+   0.014435734533981405,
+   -3.79489874954376e-05
+  ],
+  [
+   0.002018966318381217,
+   -3.79489874954376e-05,
+   0.015702637324617
+  ]
+ ],
+ "battery_xy_mm": [
+  31.08426342581062,
+  -3.2868291701312953
+ ],
+ "links": {
+  "base_link": {
+   "mass_kg": 0.3322,
+   "com_m": [
+    -0.0008493676731507937,
+    4.701167087586754e-18,
+    0.002863138812283882
+   ]
+  },
+  "motor_0": {
+   "mass_kg": 0.026600000000000002,
+   "com_m": [
+    0.127,
+    -0.092,
+    0.011519790454016302
+   ]
+  },
+  "rotor_0": {
+   "mass_kg": 0.029,
+   "com_m": [
+    0.127,
+    -0.09200000000000004,
+    0.03570622190117291
+   ]
+  },
+  "motor_1": {
+   "mass_kg": 0.0266,
+   "com_m": [
+    -0.127,
+    0.09200000000000001,
+    0.0115197904540163
+   ]
+  },
+  "rotor_1": {
+   "mass_kg": 0.028999999999999998,
+   "com_m": [
+    -0.12699999999999997,
+    0.09200000000000001,
+    0.0357062219011729
+   ]
+  },
+  "motor_2": {
+   "mass_kg": 0.026600000000000002,
+   "com_m": [
+    0.127,
+    0.092,
+    0.011519790454016302
+   ]
+  },
+  "rotor_2": {
+   "mass_kg": 0.029,
+   "com_m": [
+    0.127,
+    0.09200000000000001,
+    0.03570622190117291
+   ]
+  },
+  "motor_3": {
+   "mass_kg": 0.0266,
+   "com_m": [
+    -0.127,
+    -0.09200000000000001,
+    0.0115197904540163
+   ]
+  },
+  "rotor_3": {
+   "mass_kg": 0.028999999999999998,
+   "com_m": [
+    -0.12699999999999997,
+    -0.09200000000000003,
+    0.0357062219011729
+   ]
+  },
+  "esc_link": {
+   "mass_kg": 0.0158,
+   "com_m": [
+    -4.0238131359275844e-19,
+    -3.0788836096692433e-19,
+    0.012222288225242087
+   ]
+  },
+  "cube_carrier_link": {
+   "mass_kg": 0.065,
+   "com_m": [
+    0.05,
+    -1.0611336686563468e-20,
+    0.04371808446513159
+   ]
+  },
+  "l2_link": {
+   "mass_kg": 0.23,
+   "com_m": [
+    -0.014,
+    1.3992226181121973e-19,
+    0.062
+   ]
+  },
+  "jetson_link": {
+   "mass_kg": 0.176,
+   "com_m": [
+    -0.10499999999999998,
+    0.01,
+    0.043
+   ]
+  },
+  "usb_eth_link": {
+   "mass_kg": 0.025,
+   "com_m": [
+    -0.064,
+    0.063,
+    0.036000000000000004
+   ]
+  },
+  "radio_link": {
+   "mass_kg": 0.042,
+   "com_m": [
+    -0.15171268412520214,
+    -0.05,
+    0.07130273480107058
+   ]
+  },
+  "rx_link": {
+   "mass_kg": 0.005,
+   "com_m": [
+    -0.048,
+    0.012,
+    0.009000000000000001
+   ]
+  },
+  "oak_d_link": {
+   "mass_kg": 0.106,
+   "com_m": [
+    0.10819150943396225,
+    0.0,
+    -0.01075
+   ]
+  },
+  "harness_link": {
+   "mass_kg": 0.055,
+   "com_m": [
+    -0.01250953285713345,
+    0.007530021244877691,
+    0.006156334352530951
+   ]
+  },
+  "battery_link": {
+   "mass_kg": 0.52,
+   "com_m": [
+    0.031084263425810624,
+    -0.003286829170131295,
+    -0.029500000000000002
+   ]
+  }
+ },
+ "prop_clearance_mm": [
+  [
+   "cube_carrier_link",
+   "header",
+   9.78
+  ],
+  [
+   "cube_carrier_link",
+   "cube_case",
+   4.16
+  ],
+  [
+   "l2_link",
+   "l2_block",
+   4.22
+  ],
+  [
+   "jetson_link",
+   "body",
+   -46.4
+  ],
+  [
+   "usb_eth_link",
+   "adapter",
+   -51.31
+  ],
+  [
+   "radio_link",
+   "carrier",
+   -64.4
+  ],
+  [
+   "radio_link",
+   "module",
+   -61.9
+  ],
+  [
+   "radio_link",
+   "antenna_0",
+   -49.84
+  ],
+  [
+   "radio_link",
+   "antenna_1",
+   -27.93
+  ]
+ ],
+ "prop_clearance_min_mm": -64.4,
+ "interferences": [
+  [
+   "base_link/arm_0",
+   "oak_d_link/housing",
+   [
+    22.9,
+    44.5,
+    8.0
+   ]
+  ],
+  [
+   "base_link/arm_0",
+   "oak_d_link/bracket_r",
+   [
+    28.9,
+    3.0,
+    8.0
+   ]
+  ],
+  [
+   "base_link/arm_2",
+   "oak_d_link/housing",
+   [
+    22.9,
+    44.5,
+    8.0
+   ]
+  ],
+  [
+   "base_link/arm_2",
+   "oak_d_link/bracket_l",
+   [
+    28.9,
+    3.0,
+    8.0
+   ]
+  ],
+  [
+   "base_link/bottom_plate",
+   "harness_link/power_leads",
+   [
+    30.8,
+    7.0,
+    2.5
+   ]
+  ],
+  [
+   "base_link/top_plate",
+   "harness_link/power_leads",
+   [
+    30.8,
+    7.0,
+    2.0
+   ]
+  ],
+  [
+   "base_link/stack_standoff_0",
+   "esc_link/pcb",
+   [
+    5.0,
+    5.0,
+    1.6
+   ]
+  ],
+  [
+   "base_link/stack_standoff_0",
+   "esc_link/fets",
+   [
+    4.8,
+    5.0,
+    5.4
+   ]
+  ],
+  [
+   "base_link/stack_standoff_1",
+   "esc_link/pcb",
+   [
+    5.0,
+    5.0,
+    1.6
+   ]
+  ],
+  [
+   "base_link/stack_standoff_1",
+   "esc_link/fets",
+   [
+    4.8,
+    5.0,
+    5.4
+   ]
+  ],
+  [
+   "base_link/stack_standoff_2",
+   "esc_link/pcb",
+   [
+    5.0,
+    5.0,
+    1.6
+   ]
+  ],
+  [
+   "base_link/stack_standoff_2",
+   "esc_link/fets",
+   [
+    4.8,
+    5.0,
+    5.4
+   ]
+  ],
+  [
+   "base_link/stack_standoff_2",
+   "harness_link/signal_bundle",
+   [
+    5.0,
+    5.0,
+    10.0
+   ]
+  ],
+  [
+   "base_link/stack_standoff_3",
+   "esc_link/pcb",
+   [
+    5.0,
+    5.0,
+    1.6
+   ]
+  ],
+  [
+   "base_link/stack_standoff_3",
+   "esc_link/fets",
+   [
+    4.8,
+    5.0,
+    5.4
+   ]
+  ],
+  [
+   "base_link/stack_standoff_3",
+   "harness_link/signal_bundle",
+   [
+    5.0,
+    5.0,
+    10.0
+   ]
+  ],
+  [
+   "rotor_1/blade_2",
+   "jetson_link/body",
+   [
+    27.7,
+    37.5,
+    1.8
+   ]
+  ],
+  [
+   "rotor_3/blade_1",
+   "jetson_link/body",
+   [
+    27.7,
+    17.5,
+    1.8
+   ]
+  ],
+  [
+   "rotor_3/blade_1",
+   "radio_link/module",
+   [
+    22.7,
+    30.0,
+    1.8
+   ]
+  ],
+  [
+   "esc_link/pcb",
+   "harness_link/power_leads",
+   [
+    30.8,
+    7.0,
+    1.6
+   ]
+  ],
+  [
+   "esc_link/pcb",
+   "harness_link/buck",
+   [
+    1.5,
+    7.0,
+    1.6
+   ]
+  ],
+  [
+   "esc_link/fets",
+   "harness_link/power_leads",
+   [
+    30.4,
+    7.0,
+    1.4
+   ]
+  ],
+  [
+   "esc_link/fets",
+   "harness_link/signal_bundle",
+   [
+    29.5,
+    36.0,
+    3.0
+   ]
+  ],
+  [
+   "oak_d_link/housing",
+   "battery_link/pack",
+   [
+    4.5,
+    45.0,
+    16.0
+   ]
+  ],
+  [
+   "harness_link/power_leads",
+   "battery_link/pack",
+   [
+    30.8,
+    7.0,
+    19.0
+   ]
+  ]
+ ],
+ "frontal_area_x_m2": 0.014856999999999999,
+ "frontal_area_y_m2": 0.021102,
+ "bbox_mm": [
+  [
+   -192.64380986919338,
+   -171.98965839643665,
+   -49.5
+  ],
+  [
+   215.9,
+   171.98965839643662,
+   178.0625650331459
+  ]
+ ]
+}

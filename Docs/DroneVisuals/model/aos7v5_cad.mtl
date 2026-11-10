@@ -1,0 +1,89 @@
+newmtl carbon
+Kd 0.070 0.070 0.080
+Ks 0.2 0.2 0.2
+Ns 110
+d 1.0
+
+newmtl orange
+Kd 0.950 0.380 0.040
+Ks 0.2 0.2 0.2
+Ns 130
+d 1.0
+
+newmtl gold
+Kd 0.800 0.600 0.160
+Ks 0.2 0.2 0.2
+Ns 140
+d 1.0
+
+newmtl black
+Kd 0.030 0.030 0.035
+Ks 0.2 0.2 0.2
+Ns 120
+d 1.0
+
+newmtl alu
+Kd 0.680 0.680 0.700
+Ks 0.2 0.2 0.2
+Ns 130
+d 1.0
+
+newmtl pcb
+Kd 0.050 0.080 0.070
+Ks 0.2 0.2 0.2
+Ns 100
+d 1.0
+
+newmtl copper
+Kd 0.720 0.380 0.140
+Ks 0.2 0.2 0.2
+Ns 140
+d 1.0
+
+newmtl yellow
+Kd 0.920 0.720 0.050
+Ks 0.2 0.2 0.2
+Ns 100
+d 1.0
+
+newmtl grey
+Kd 0.450 0.450 0.470
+Ks 0.2 0.2 0.2
+Ns 80
+d 1.0
+
+newmtl white
+Kd 0.900 0.900 0.900
+Ks 0.2 0.2 0.2
+Ns 80
+d 1.0
+
+newmtl green
+Kd 0.100 0.900 0.250
+Ks 0.2 0.2 0.2
+Ns 140
+d 1.0
+
+newmtl glass
+Kd 0.020 0.030 0.040
+Ks 0.2 0.2 0.2
+Ns 180
+d 1.0
+
+newmtl prop
+Kd 0.120 0.120 0.130
+Ks 0.2 0.2 0.2
+Ns 120
+d 1.0
+
+newmtl beige
+Kd 0.850 0.800 0.650
+Ks 0.2 0.2 0.2
+Ns 80
+d 1.0
+
+newmtl lipo
+Kd 0.050 0.050 0.060
+Ks 0.2 0.2 0.2
+Ns 89
+d 1.0

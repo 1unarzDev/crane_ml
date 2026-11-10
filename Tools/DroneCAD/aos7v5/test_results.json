@@ -1,0 +1,422 @@
+{
+ "checks": [
+  {
+   "name": "URDF total mass == CAD (1%)",
+   "ok": true,
+   "detail": "1.8429 vs 1.8429 kg"
+  },
+  {
+   "name": "URDF CoM == CAD (1 mm)",
+   "ok": true,
+   "detail": "[-2.99 -0.   17.27] vs [-2.99  0.   17.27] mm"
+  },
+  {
+   "name": "URDF inertia diag == CAD (1%)",
+   "ok": true,
+   "detail": "max rel 2.97e-07"
+  },
+  {
+   "name": "URDF inertia off-diagonals == CAD (1% of max diag)",
+   "ok": true,
+   "detail": "max abs 2.68e-09"
+  },
+  {
+   "name": "mesh-recomputed inertia battery_link (1%)",
+   "ok": true,
+   "detail": "I err 4.17e-08, com err 0.00 mm"
+  },
+  {
+   "name": "mesh-recomputed inertia l2_link (1%)",
+   "ok": true,
+   "detail": "I err 2.24e-04, com err 0.00 mm"
+  },
+  {
+   "name": "mesh-recomputed inertia jetson_link (1%)",
+   "ok": true,
+   "detail": "I err 5.57e-06, com err 0.00 mm"
+  },
+  {
+   "name": "mesh-recomputed inertia usb_eth_link (1%)",
+   "ok": true,
+   "detail": "I err 5.08e-05, com err 0.00 mm"
+  },
+  {
+   "name": "mesh-recomputed inertia esc_link (1%)",
+   "ok": true,
+   "detail": "I err 1.00e-04, com err 0.00 mm"
+  },
+  {
+   "name": "mesh-recomputed inertia harness_link (1%)",
+   "ok": true,
+   "detail": "I err 2.24e-05, com err 0.00 mm"
+  },
+  {
+   "name": "mesh-recomputed inertia rx_link (1%)",
+   "ok": true,
+   "detail": "I err 2.17e-04, com err 0.00 mm"
+  },
+  {
+   "name": "mesh-recomputed inertia motor_0 (1%)",
+   "ok": true,
+   "detail": "I err 4.14e-04, com err 0.00 mm"
+  },
+  {
+   "name": "every link inertia positive-definite and triangle-inequality OK",
+   "ok": true,
+   "detail": "bad=[]"
+  },
+  {
+   "name": "total inertia positive-definite + triangle inequality",
+   "ok": true,
+   "detail": "eig [0.006334 0.01505  0.015814]"
+  },
+  {
+   "name": "rotor_0: continuous joint on +z",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "rotor_0 position == sidecar",
+   "ok": true,
+   "detail": "[ 0.127 -0.092  0.04 ]"
+  },
+  {
+   "name": "rotor_0 rel-CoM position == sidecar",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "rotor_0 prop radius == sidecar rotor_radius (1 mm)",
+   "ok": true,
+   "detail": "88.99 mm"
+  },
+  {
+   "name": "rotor_1: continuous joint on +z",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "rotor_1 position == sidecar",
+   "ok": true,
+   "detail": "[-0.127  0.092  0.04 ]"
+  },
+  {
+   "name": "rotor_1 rel-CoM position == sidecar",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "rotor_1 prop radius == sidecar rotor_radius (1 mm)",
+   "ok": true,
+   "detail": "88.99 mm"
+  },
+  {
+   "name": "rotor_2: continuous joint on +z",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "rotor_2 position == sidecar",
+   "ok": true,
+   "detail": "[0.127 0.092 0.04 ]"
+  },
+  {
+   "name": "rotor_2 rel-CoM position == sidecar",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "rotor_2 prop radius == sidecar rotor_radius (1 mm)",
+   "ok": true,
+   "detail": "88.99 mm"
+  },
+  {
+   "name": "rotor_3: continuous joint on +z",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "rotor_3 position == sidecar",
+   "ok": true,
+   "detail": "[-0.127 -0.092  0.04 ]"
+  },
+  {
+   "name": "rotor_3 rel-CoM position == sidecar",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "rotor_3 prop radius == sidecar rotor_radius (1 mm)",
+   "ok": true,
+   "detail": "88.99 mm"
+  },
+  {
+   "name": "spin order PX4/CRANE (FR,RL,FL,RR) = +,+,-,-",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "quad-X geometry: FR(+,-) RL(-,+) FL(+,+) RR(-,-)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "diagonal 313.6 mm (AOS 7 V5 datasheet)",
+   "ok": true,
+   "detail": "313.6 mm"
+  },
+  {
+   "name": "sidecar rotor_inertia == URDF rotor_0 Izz",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "sidecar mass == URDF mass (0.1%)",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "kf*omega_max^2 == thrust_max_per_motor",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "frame oak_d_left_camera_frame present",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "frame oak_d_right_camera_frame present",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "frame oak_d_rgb_camera_frame present",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "frame oak_d_left_camera_optical_frame present",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "frame oak_d_right_camera_optical_frame present",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "frame oak_d_rgb_camera_optical_frame present",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "frame l2_lidar_frame present",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "frame l2_imu_frame present",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "frame cube_imu_link present",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "OAK-D stereo baseline 75 mm",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "optical frame rpy = (-pi/2, 0, -pi/2) REP-103",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "all URDF mesh files exist",
+   "ok": true,
+   "detail": "[]"
+  },
+  {
+   "name": "all visual meshes watertight",
+   "ok": true,
+   "detail": "0 not watertight: []"
+  },
+  {
+   "name": "collision hull exists and is watertight",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "prop-disc clearance of every non-prop body >= 1 mm",
+   "ok": true,
+   "detail": "4.2 mm"
+  },
+  {
+   "name": "no unexplained CAD interferences",
+   "ok": true,
+   "detail": "[]"
+  },
+  {
+   "name": "plant trimmed hover is steady (< 1 mm in 1 s)",
+   "ok": true,
+   "detail": "5.61e-15 m"
+  },
+  {
+   "name": "T/W > 2.5 (CRANE flag threshold)",
+   "ok": true,
+   "detail": "4.79"
+  },
+  {
+   "name": "collective step reaches target accel",
+   "ok": true,
+   "detail": ""
+  },
+  {
+   "name": "roll 20 deg step settles (final within 1 deg)",
+   "ok": true,
+   "detail": "{'t10': 0.04800000000000003, 't90': 0.12000000000000009, 'overshoot_pct': 11.12991598984179, 'final_roll_deg': 19.251881723726484, 'peak_rotor_frac': 0.717473108543721, 'saturated_step_frac': 0.06666666666666667, 'altitude_change_m': 0.08894824320701389}"
+  },
+  {
+   "name": "saturating roll case is flagged saturated",
+   "ok": true,
+   "detail": "{'t10': 0.08800000000000006, 't90': 0.1320000000000001, 'overshoot_pct': 477.5711708557234, 'final_roll_deg': 115.32551235329234, 'peak_rotor_frac': 0.9878702657333559, 'saturated_step_frac': 1.0, 'altitude_change_m': -1.2057829148484203}"
+  },
+  {
+   "name": "pybullet loads URDF, total mass == URDF",
+   "ok": true,
+   "detail": "1.8429 kg, 28 joints"
+  },
+  {
+   "name": "pybullet drop test: comes to rest upright on the pack",
+   "ok": true,
+   "detail": "v=0.000 m/s tilt=0.0 deg lowest_aabb=-1.0 mm, base z=52.2 mm (pack bottom at +49.5 + contact margin)"
+  }
+ ],
+ "sim": {
+  "cad_1p843kg": {
+   "hover_rotor_rad_s": 938.8040497253861,
+   "hover_rpm": 8964.918306509082,
+   "hover_thrust_fraction": 0.2088466380833105,
+   "thrust_to_weight_nominal_V": 4.788202525918049,
+   "trim_speed_spread_pct": 2.351506128525228,
+   "equal_speed_hover_pitch_accel_rad_s2": 3.5868049683002656,
+   "hover_drift_1s_m": 5.6118423454168535e-15,
+   "collective_step_x1.5": {
+    "az_final": 4.854789039391264,
+    "az_target": 4.904999999999999,
+    "t63_ms": 28.000000000000018
+   },
+   "attitude_roll20_wn25": {
+    "t10": 0.04800000000000003,
+    "t90": 0.12000000000000009,
+    "overshoot_pct": 11.12991598984179,
+    "final_roll_deg": 19.251881723726484,
+    "peak_rotor_frac": 0.717473108543721,
+    "saturated_step_frac": 0.06666666666666667,
+    "altitude_change_m": 0.08894824320701389
+   },
+   "attitude_roll30_wn45_saturating": {
+    "t10": 0.08800000000000006,
+    "t90": 0.1320000000000001,
+    "overshoot_pct": 477.5711708557234,
+    "final_roll_deg": 115.32551235329234,
+    "peak_rotor_frac": 0.9878702657333559,
+    "saturated_step_frac": 1.0,
+    "altitude_change_m": -1.2057829148484203
+   },
+   "full_throttle_with_battery": {
+    "tw_at_1s": 3.2813248378903404,
+    "tw_peak": 3.342892773276638,
+    "current_a": 94.07434754768879,
+    "pack_v": 19.524713651706428
+   },
+   "wrench_limits_at_hover": {
+    "max_yaw_torque_nm": 0.2536788992711081,
+    "max_roll_torque_nm": 1.6241347725554078,
+    "yaw1nm_feasible": false
+   },
+   "roll_accel_per_nm_rad_s2": 144.1936019128416,
+   "pitch_accel_per_nm_rad_s2": 66.44322695772848
+  },
+  "crane_profile_1p383kg": {
+   "hover_rotor_rad_s": 813.3328750434808,
+   "hover_rpm": 7766.7568465387685,
+   "hover_thrust_fraction": 0.1567524125470852,
+   "thrust_to_weight_nominal_V": 6.379487139948297,
+   "trim_speed_spread_pct": 1.3977897759947096e-14,
+   "equal_speed_hover_pitch_accel_rad_s2": 0.0,
+   "hover_drift_1s_m": 1.2643486287309706e-14,
+   "collective_step_x1.5": {
+    "az_final": 4.85775065934747,
+    "az_target": 4.904999999999999,
+    "t63_ms": 36.00000000000003
+   },
+   "attitude_roll20_wn25": {
+    "t10": 0.03600000000000002,
+    "t90": 0.09600000000000007,
+    "overshoot_pct": 23.16013900436471,
+    "final_roll_deg": 19.312701936781373,
+    "peak_rotor_frac": 0.5058201686669614,
+    "saturated_step_frac": 0.008,
+    "altitude_change_m": 0.02139257582742715
+   },
+   "attitude_roll30_wn45_saturating": {
+    "t10": 0.032000000000000015,
+    "t90": 0.07000000000000005,
+    "overshoot_pct": 59.32764320529852,
+    "final_roll_deg": 30.864186135952107,
+    "peak_rotor_frac": 0.8079642254684444,
+    "saturated_step_frac": 0.98,
+    "altitude_change_m": 0.5961139874865253
+   },
+   "full_throttle_with_battery": {
+    "tw_at_1s": 4.4664790036451345,
+    "tw_peak": 5.414986055892739,
+    "current_a": 115.7452118694506,
+    "pack_v": 21.655065067271643
+   },
+   "wrench_limits_at_hover": {
+    "max_yaw_torque_nm": 0.19498629852932936,
+    "max_roll_torque_nm": 1.5255842569786182,
+    "yaw1nm_feasible": false
+   },
+   "roll_accel_per_nm_rad_s2": 167.0955452327641,
+   "pitch_accel_per_nm_rad_s2": 120.2776007024212
+  }
+ },
+ "mass_props": {
+  "mass_kg": 1.842885,
+  "com_m": [
+   -0.002985932415858831,
+   -1.6726491400446492e-10,
+   0.017269035590924013
+  ],
+  "inertia": [
+   [
+    0.006935120468135987,
+    -4.22915465020139e-06,
+    0.0023093743028003715
+   ],
+   [
+    -4.22915465020139e-06,
+    0.015050442999046464,
+    -2.095535875094729e-05
+   ],
+   [
+    0.0023093743028003715,
+    -2.095535875094729e-05,
+    0.015212935876725533
+   ]
+  ]
+ },
+ "hull_volume_m3": 0.008135631164963934,
+ "pybullet": {
+  "mass": 1.8428850090000002,
+  "rest_base_z_m": 0.052184780718150026,
+  "tilt_deg": 0.0011731691836948872
+ }
+}
