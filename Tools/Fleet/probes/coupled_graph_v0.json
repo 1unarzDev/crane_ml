@@ -1,0 +1,702 @@
+{
+ "couplings": [
+  {
+   "a": "c1",
+   "b": "c2",
+   "face_a": "rear",
+   "face_b": "front",
+   "kind": "face",
+   "state": "LATCHED_VERIFIED",
+   "stiffness": 100000.0
+  },
+  {
+   "a": "pa",
+   "b": "pb",
+   "face_a": "left",
+   "face_b": "rear",
+   "kind": "face",
+   "state": "LATCHED_VERIFIED",
+   "stiffness": 100000.0
+  },
+  {
+   "a": "dm",
+   "b": "mm",
+   "face_a": "front",
+   "face_b": "rear",
+   "kind": "face",
+   "state": "LATCHED_VERIFIED",
+   "stiffness": 100000.0
+  }
+ ],
+ "meta": {
+  "generator": "Tools/Fleet/capplan_types/make_coupled_graph.py",
+  "note": "CRANE M2 probe: pre-latched assemblies"
+ },
+ "modules": [
+  {
+   "act_gain": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "act_health": [
+    "ok",
+    "ok",
+    "ok",
+    "ok"
+   ],
+   "face_blocked": {},
+   "id": "c1",
+   "sensor_health": [
+    "ok",
+    "ok",
+    "ok",
+    "ok"
+   ],
+   "sensor_noise": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "type": "carrier",
+   "x": 0.0,
+   "y": 0.0,
+   "yaw": 0.0
+  },
+  {
+   "act_gain": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "act_health": [
+    "ok",
+    "ok",
+    "ok",
+    "ok"
+   ],
+   "face_blocked": {},
+   "id": "c2",
+   "sensor_health": [
+    "ok",
+    "ok",
+    "ok",
+    "ok"
+   ],
+   "sensor_noise": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "type": "carrier",
+   "x": -0.42,
+   "y": 5.143516556418883e-17,
+   "yaw": -2.4492935982947064e-16
+  },
+  {
+   "act_gain": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "act_health": [
+    "ok",
+    "ok",
+    "ok",
+    "ok"
+   ],
+   "face_blocked": {},
+   "id": "pa",
+   "sensor_health": [
+    "ok",
+    "ok"
+   ],
+   "sensor_noise": [
+    1.0,
+    1.0
+   ],
+   "type": "mecanum_pod",
+   "x": 0.0,
+   "y": 1.6,
+   "yaw": 0.0
+  },
+  {
+   "act_gain": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "act_health": [
+    "ok",
+    "ok",
+    "ok",
+    "ok"
+   ],
+   "face_blocked": {},
+   "id": "pb",
+   "sensor_health": [
+    "ok",
+    "ok"
+   ],
+   "sensor_noise": [
+    1.0,
+    1.0
+   ],
+   "type": "mecanum_pod",
+   "x": 1.2858791391047208e-17,
+   "y": 2.0100000000000002,
+   "yaw": 1.5707963267948966
+  },
+  {
+   "act_gain": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "act_health": [
+    "ok",
+    "ok",
+    "ok",
+    "ok"
+   ],
+   "face_blocked": {},
+   "id": "dm",
+   "sensor_health": [
+    "ok",
+    "ok"
+   ],
+   "sensor_noise": [
+    1.0,
+    1.0
+   ],
+   "type": "diff_carrier",
+   "x": 0.0,
+   "y": 3.6,
+   "yaw": 0.0
+  },
+  {
+   "act_gain": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "act_health": [
+    "ok",
+    "ok",
+    "ok",
+    "ok"
+   ],
+   "face_blocked": {},
+   "id": "mm",
+   "sensor_health": [
+    "ok",
+    "ok"
+   ],
+   "sensor_noise": [
+    1.0,
+    1.0
+   ],
+   "type": "mecanum_pod",
+   "x": 0.42,
+   "y": 3.6,
+   "yaw": 0.0
+  }
+ ],
+ "schema": "capplan.module_graph/v0",
+ "types": {
+  "carrier": {
+   "decks": [
+    {
+     "capacity": 8.0,
+     "lx": 0.4,
+     "ly": 0.3,
+     "x": 0.0,
+     "y": 0.0,
+     "z": 0.14
+    }
+   ],
+   "faces": {
+    "front": {
+     "approach_len": 0.1,
+     "couplable": true,
+     "guide_lat": 0.01,
+     "guide_yaw": 0.087,
+     "hook_spacing": 0.12,
+     "hooks": 2,
+     "magnet": true,
+     "rating": 60.0,
+     "type": "A",
+     "x": 0.21,
+     "y": 0.0,
+     "yaw": 0.0,
+     "z": 0.06
+    },
+    "left": {
+     "approach_len": 0.1,
+     "couplable": true,
+     "guide_lat": 0.01,
+     "guide_yaw": 0.087,
+     "hook_spacing": 0.12,
+     "hooks": 2,
+     "magnet": true,
+     "rating": 60.0,
+     "type": "A",
+     "x": 0.0,
+     "y": 0.2,
+     "yaw": 1.5707963267948966,
+     "z": 0.06
+    },
+    "rear": {
+     "approach_len": 0.1,
+     "couplable": true,
+     "guide_lat": 0.01,
+     "guide_yaw": 0.087,
+     "hook_spacing": 0.12,
+     "hooks": 2,
+     "magnet": true,
+     "rating": 60.0,
+     "type": "B",
+     "x": -0.21,
+     "y": 0.0,
+     "yaw": 3.141592653589793,
+     "z": 0.06
+    },
+    "right": {
+     "approach_len": 0.1,
+     "couplable": true,
+     "guide_lat": 0.01,
+     "guide_yaw": 0.087,
+     "hook_spacing": 0.12,
+     "hooks": 2,
+     "magnet": true,
+     "rating": 60.0,
+     "type": "B",
+     "x": 0.0,
+     "y": -0.2,
+     "yaw": -1.5707963267948966,
+     "z": 0.06
+    }
+   },
+   "family": "carrier",
+   "height": 0.14,
+   "heldout_family": false,
+   "mass": 6.8,
+   "name": "carrier",
+   "provenance": "profile cargo role",
+   "sensors": [
+    {
+     "kind": "imu",
+     "x": 0.0,
+     "y": 0.0,
+     "yaw": 0.0
+    },
+    {
+     "kind": "wheel_encoder",
+     "x": 0.0,
+     "y": 0.0,
+     "yaw": 0.0
+    },
+    {
+     "elevated": false,
+     "fov": 1.4,
+     "kind": "camera",
+     "range": 3.0,
+     "x": 0.21,
+     "y": 0.0,
+     "yaw": 0.0
+    },
+    {
+     "fov": 0.44,
+     "kind": "tof",
+     "range": 2.0,
+     "x": 0.21,
+     "y": 0.0,
+     "yaw": 0.0
+    }
+   ],
+   "size": [
+    0.42,
+    0.4
+   ],
+   "sym180": null,
+   "tools": [],
+   "wheels": [
+    {
+     "d": [
+      0.707106781187,
+      -0.707106781187
+     ],
+     "hand": -1,
+     "kind": "wheel_mecanum",
+     "lateral": "skid",
+     "phi_max": 12.0,
+     "radius": 0.0485,
+     "tau_max": 1.2,
+     "x": 0.14,
+     "y": 0.175,
+     "yaw": 0.0
+    },
+    {
+     "d": [
+      0.707106781187,
+      0.707106781187
+     ],
+     "hand": 1,
+     "kind": "wheel_mecanum",
+     "lateral": "skid",
+     "phi_max": 12.0,
+     "radius": 0.0485,
+     "tau_max": 1.2,
+     "x": 0.14,
+     "y": -0.175,
+     "yaw": 0.0
+    },
+    {
+     "d": [
+      0.707106781187,
+      0.707106781187
+     ],
+     "hand": 1,
+     "kind": "wheel_mecanum",
+     "lateral": "skid",
+     "phi_max": 12.0,
+     "radius": 0.0485,
+     "tau_max": 1.2,
+     "x": -0.14,
+     "y": 0.175,
+     "yaw": 0.0
+    },
+    {
+     "d": [
+      0.707106781187,
+      -0.707106781187
+     ],
+     "hand": -1,
+     "kind": "wheel_mecanum",
+     "lateral": "skid",
+     "phi_max": 12.0,
+     "radius": 0.0485,
+     "tau_max": 1.2,
+     "x": -0.14,
+     "y": -0.175,
+     "yaw": 0.0
+    }
+   ]
+  },
+  "diff_carrier": {
+   "decks": [
+    {
+     "capacity": 8.0,
+     "lx": 0.4,
+     "ly": 0.3,
+     "x": 0.0,
+     "y": 0.0,
+     "z": 0.14
+    }
+   ],
+   "faces": {
+    "front": {
+     "approach_len": 0.1,
+     "couplable": true,
+     "guide_lat": 0.01,
+     "guide_yaw": 0.087,
+     "hook_spacing": 0.12,
+     "hooks": 2,
+     "magnet": true,
+     "rating": 60.0,
+     "type": "A",
+     "x": 0.21,
+     "y": 0.0,
+     "yaw": 0.0,
+     "z": 0.06
+    },
+    "left": {
+     "approach_len": 0.1,
+     "couplable": true,
+     "guide_lat": 0.01,
+     "guide_yaw": 0.087,
+     "hook_spacing": 0.12,
+     "hooks": 2,
+     "magnet": true,
+     "rating": 60.0,
+     "type": "A",
+     "x": 0.0,
+     "y": 0.2,
+     "yaw": 1.5707963267948966,
+     "z": 0.06
+    },
+    "rear": {
+     "approach_len": 0.1,
+     "couplable": true,
+     "guide_lat": 0.01,
+     "guide_yaw": 0.087,
+     "hook_spacing": 0.12,
+     "hooks": 2,
+     "magnet": true,
+     "rating": 60.0,
+     "type": "B",
+     "x": -0.21,
+     "y": 0.0,
+     "yaw": 3.141592653589793,
+     "z": 0.06
+    },
+    "right": {
+     "approach_len": 0.1,
+     "couplable": true,
+     "guide_lat": 0.01,
+     "guide_yaw": 0.087,
+     "hook_spacing": 0.12,
+     "hooks": 2,
+     "magnet": true,
+     "rating": 60.0,
+     "type": "B",
+     "x": 0.0,
+     "y": -0.2,
+     "yaw": -1.5707963267948966,
+     "z": 0.06
+    }
+   },
+   "family": "diff_carrier",
+   "height": 0.14,
+   "heldout_family": false,
+   "mass": 5.0,
+   "name": "diff_carrier",
+   "provenance": "assumed",
+   "sensors": [
+    {
+     "kind": "imu",
+     "x": 0.0,
+     "y": 0.0,
+     "yaw": 0.0
+    },
+    {
+     "kind": "wheel_encoder",
+     "x": 0.0,
+     "y": 0.0,
+     "yaw": 0.0
+    }
+   ],
+   "size": [
+    0.42,
+    0.4
+   ],
+   "sym180": null,
+   "tools": [],
+   "wheels": [
+    {
+     "e": [
+      1.0,
+      0.0
+     ],
+     "hand": 0,
+     "kind": "wheel_conventional",
+     "lateral": "skid",
+     "phi_max": 12.0,
+     "radius": 0.0485,
+     "tau_max": 1.2,
+     "x": 0.0,
+     "y": 0.175,
+     "yaw": 0.0
+    },
+    {
+     "e": [
+      1.0,
+      0.0
+     ],
+     "hand": 0,
+     "kind": "wheel_conventional",
+     "lateral": "skid",
+     "phi_max": 12.0,
+     "radius": 0.0485,
+     "tau_max": 1.2,
+     "x": 0.0,
+     "y": -0.175,
+     "yaw": 0.0
+    },
+    {
+     "hand": 0,
+     "kind": "wheel_caster",
+     "lateral": "skid",
+     "phi_max": 12.0,
+     "radius": 0.0485,
+     "tau_max": 1.2,
+     "x": 0.15,
+     "y": 0.0,
+     "yaw": 0.0
+    },
+    {
+     "hand": 0,
+     "kind": "wheel_caster",
+     "lateral": "skid",
+     "phi_max": 12.0,
+     "radius": 0.0485,
+     "tau_max": 1.2,
+     "x": -0.15,
+     "y": 0.0,
+     "yaw": 0.0
+    }
+   ]
+  },
+  "mecanum_pod": {
+   "decks": [],
+   "faces": {
+    "front": {
+     "approach_len": 0.1,
+     "couplable": true,
+     "guide_lat": 0.01,
+     "guide_yaw": 0.087,
+     "hook_spacing": 0.12,
+     "hooks": 2,
+     "magnet": true,
+     "rating": 60.0,
+     "type": "A",
+     "x": 0.21,
+     "y": 0.0,
+     "yaw": 0.0,
+     "z": 0.06
+    },
+    "left": {
+     "approach_len": 0.1,
+     "couplable": true,
+     "guide_lat": 0.01,
+     "guide_yaw": 0.087,
+     "hook_spacing": 0.12,
+     "hooks": 2,
+     "magnet": true,
+     "rating": 60.0,
+     "type": "A",
+     "x": 0.0,
+     "y": 0.2,
+     "yaw": 1.5707963267948966,
+     "z": 0.06
+    },
+    "rear": {
+     "approach_len": 0.1,
+     "couplable": true,
+     "guide_lat": 0.01,
+     "guide_yaw": 0.087,
+     "hook_spacing": 0.12,
+     "hooks": 2,
+     "magnet": true,
+     "rating": 60.0,
+     "type": "B",
+     "x": -0.21,
+     "y": 0.0,
+     "yaw": 3.141592653589793,
+     "z": 0.06
+    },
+    "right": {
+     "approach_len": 0.1,
+     "couplable": true,
+     "guide_lat": 0.01,
+     "guide_yaw": 0.087,
+     "hook_spacing": 0.12,
+     "hooks": 2,
+     "magnet": true,
+     "rating": 60.0,
+     "type": "B",
+     "x": 0.0,
+     "y": -0.2,
+     "yaw": -1.5707963267948966,
+     "z": 0.06
+    }
+   },
+   "family": "mecanum_pod",
+   "height": 0.14,
+   "heldout_family": false,
+   "mass": 6.0,
+   "name": "mecanum_pod",
+   "provenance": "profile chassis",
+   "sensors": [
+    {
+     "kind": "imu",
+     "x": 0.0,
+     "y": 0.0,
+     "yaw": 0.0
+    },
+    {
+     "kind": "wheel_encoder",
+     "x": 0.0,
+     "y": 0.0,
+     "yaw": 0.0
+    }
+   ],
+   "size": [
+    0.42,
+    0.4
+   ],
+   "sym180": null,
+   "tools": [],
+   "wheels": [
+    {
+     "d": [
+      0.707106781187,
+      -0.707106781187
+     ],
+     "hand": -1,
+     "kind": "wheel_mecanum",
+     "lateral": "skid",
+     "phi_max": 12.0,
+     "radius": 0.0485,
+     "tau_max": 1.2,
+     "x": 0.14,
+     "y": 0.175,
+     "yaw": 0.0
+    },
+    {
+     "d": [
+      0.707106781187,
+      0.707106781187
+     ],
+     "hand": 1,
+     "kind": "wheel_mecanum",
+     "lateral": "skid",
+     "phi_max": 12.0,
+     "radius": 0.0485,
+     "tau_max": 1.2,
+     "x": 0.14,
+     "y": -0.175,
+     "yaw": 0.0
+    },
+    {
+     "d": [
+      0.707106781187,
+      0.707106781187
+     ],
+     "hand": 1,
+     "kind": "wheel_mecanum",
+     "lateral": "skid",
+     "phi_max": 12.0,
+     "radius": 0.0485,
+     "tau_max": 1.2,
+     "x": -0.14,
+     "y": 0.175,
+     "yaw": 0.0
+    },
+    {
+     "d": [
+      0.707106781187,
+      -0.707106781187
+     ],
+     "hand": -1,
+     "kind": "wheel_mecanum",
+     "lateral": "skid",
+     "phi_max": 12.0,
+     "radius": 0.0485,
+     "tau_max": 1.2,
+     "x": -0.14,
+     "y": -0.175,
+     "yaw": 0.0
+    }
+   ]
+  }
+ }
+}
