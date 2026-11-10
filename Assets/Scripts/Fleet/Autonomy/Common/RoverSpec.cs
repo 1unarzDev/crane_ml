@@ -108,6 +108,22 @@ namespace Crane.Fleet
         public double GyroMinInterval = 0.01;            // s: gyro samples are averaged over this interval
         public double ZuptSigmaLin = 0.002, ZuptSigmaYaw = 0.0005; // zero-velocity update when no wheel count changed over the interval
         public double StartupStillTime = 1.5;            // s held still before the first task (gyro bias from zero-velocity updates)
+        // ---- stall / slip / shove detection and relocalisation
+        public double StallResidual = 0.07;              // m/s: |encoder velocity - inertial velocity| that flags a stall, shove or gross slip
+        public double StallResidualTime = 0.15;          // s it must persist
+        public double InertialLeakTime = 1.5;            // s: complementary-filter leak of the accelerometer-integrated velocity toward the encoder velocity
+        public double StallYawResidual = 0.12;           // rad/s: |encoder yaw rate - gyro yaw rate| that flags slip (without accelerometer)
+        public double StallPosInflation = 0.25, StallYawInflation = 0.08; // added to the pose covariance at detection
+        public double StallBackoffDistance = 0.15, StallBackoffSpeed = 0.08, StallHoldTime = 2.0;
+        public int MaxStallsPerTask = 3;
+        public int RelocaliseStreak = 4;                 // consecutive gate-rejected fixes with mutually consistent innovations
+        public double RelocaliseConsistency = 0.08;      // m between successive rejected innovations
+        public double CrossFixSigmaRatio = 0.5;          // a rover's camera fixes another rover only if its own position sigma is below this fraction
+        // ---- handoff
+        public double HandoffPrePlaceBack = 0.25;        // m: lifter aligns on the receiver's tags this far behind the place pose
+        public double HandoffAlignPosSigma = 0.008, HandoffAlignYawSigma = 0.02; // gate on the relative estimate before the blind final move
+        public double HandoffAlignPosTol = 0.012, HandoffAlignYawTol = 0.02;
+        public double HandoffConfirmTimeout = 6.0;       // s to confirm the payload rests on the decks after release
         public double AccelProcessSigma = 0.5;           // m/s^2 white acceleration (constant-velocity model)
         public double YawAccelProcessSigma = 0.5;        // rad/s^2 (large values let slip-corrupted encoder yaw rate override the gyro between samples)
         public double InitialPosSigma = 0.02, InitialYawSigma = 0.02, InitialBiasSigma = 0.005;

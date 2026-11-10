@@ -7,7 +7,7 @@ using DockProfile = Crane.Fleet.Profile.DockingProfile;
 
 namespace Crane.Fleet
 {
-    public enum FailureClass { None, Geometry, Docking, Traction, Perception, Planner, Support, Timeout, Configuration }
+    public enum FailureClass { None, Geometry, Docking, Traction, Perception, Planner, Support, Timeout, Configuration, HostRejected }
 
     public sealed class AutonomyEvent
     {
@@ -30,7 +30,10 @@ namespace Crane.Fleet
         public readonly ConnectorReport[] Connectors = new ConnectorReport[4];
         public LiftReport Lift;
         internal string PulseFace; internal DockingCommand PulseCmd;
-        internal double LiftTarget; internal bool Gripper;
+        internal readonly List<AccelSample> Accel = new List<AccelSample>(256);
+        internal readonly List<PoseFix> Fixes = new List<PoseFix>(8);
+        internal double ViX, ViY, LastAccelT = double.NaN, StallTimer, YawSlipTimer, LastGyroRate; internal bool HasInertial;
+        internal double LiftTarget; internal bool Gripper, LiftInitialised;
         public WheelHealthMonitor Health;
         public ConnectorReport Connector(string face) { for (int i = 0; i < 4; i++) if (FaceNames[i] == face) return Connectors[i]; return default; }
         public void Pulse(string face, DockingCommand c) { PulseFace = face; PulseCmd = c; }
@@ -49,6 +52,13 @@ namespace Crane.Fleet
         public Twist2 Command; public bool CommandSet;
         public string OwnerTask;
         internal double[] Wheels;
+        /// <summary>Set when commanded/measured wheel motion is inconsistent with the IMU (stall against an obstacle, shove, gross slip).
+        /// Behaviours stop, back off and replan; cleared by the behaviour that handled it.</summary>
+        public bool Stalled; public int StallEpoch, RelocEpoch; public string StallReason;
+        /// <summary>Behaviours in deliberate contact (docking push, magnet pull-in) suppress stall detection until this time.</summary>
+        public double SuppressStallUntil = double.NegativeInfinity;
+        public Twist2 LastCommand;
+        internal int RejStreak; internal double LastRejDx, LastRejDy;
         internal double[] KinRows;
         public readonly List<RoverChannel> Members = new List<RoverChannel>();
         public Pose2 Pose => Ekf.Pose;
@@ -86,6 +96,10 @@ namespace Crane.Fleet
         /// <summary>When true, wheel health is identified online from encoders (dead_free is kinematically invisible on a 4-mecanum base;
         /// see README). When false the health is only changed through <see cref="FleetAutonomy.ReportWheelHealth"/>.</summary>
         public bool IdentifyWheelHealth = true;
+        /// <summary>Known landmarks: world pose of the frame "&lt;name&gt;/base_link" whose tag an own camera may observe (door jambs, wall tags).</summary>
+        public readonly Dictionary<string, Pose2> Landmarks = new Dictionary<string, Pose2>();
+        /// <summary>Safeguards (all default on; switching one off reproduces the corresponding CRANE phase-2 failure in the harness).</summary>
+        public bool StallDetection = true, Relocalisation = true, CrossRoverFixes = true, HandoffTagAlignment = true, PostReleaseSupportCheck = true;
     }
 
     /// <summary>
@@ -321,11 +335,16 @@ namespace Crane.Fleet
                 ch.Source.ReadEncoders(ch.Enc); ch.Source.ReadGyro(ch.Gyro); ch.Source.ReadTagObservations(ch.Tags);
                 for (int i = 0; i < 4; i++) ch.Connectors[i] = ch.Source.ReadConnector(RoverChannel.FaceNames[i]);
                 ch.Lift = ch.Source.ReadLift();
+                if (!ch.LiftInitialised) { ch.LiftInitialised = true; ch.Gripper = ch.Lift.GripperClosed; ch.LiftTarget = ch.Lift.Height; }   // never drop what is held at start-up
+                if (ch.Source is IInertialSource ins) ins.ReadAccel(ch.Accel); else ch.Accel.Clear();
+                if (ch.Source is IPoseFixSource fx) fx.ReadPoseFixes(ch.Fixes); else ch.Fixes.Clear();
             }
             // proprioception and world-frame self observations
             foreach (var ag in Agents) { ag.CommandSet = false; ProcessProprio(ag, now); }
             foreach (var ch in Channels) ProcessSelfObservations(ch);
+            foreach (var ch in Channels) ProcessDerivedFixes(ch);
             foreach (var ag in Agents) ag.Ekf.PredictTo(now);
+            foreach (var ch in Channels) CheckStall(ch, dt);
             // health identification
             if (Config.IdentifyWheelHealth)
                 foreach (var ch in Channels) CheckHealth(ch, dt);
@@ -347,7 +366,8 @@ namespace Crane.Fleet
             foreach (var ag in Agents)
             {
                 var cmd = ag.CommandSet ? ag.Command : ag.Tracker.Hold(Twist2.Zero, dt);
-                ag.Alloc.Allocate(cmd, ag.Wheels);
+                var real = ag.Alloc.Allocate(cmd, ag.Wheels);
+                if (real.LinearSpeed > 0.01 || Math.Abs(real.Wz) > 0.05) ag.LastCommand = real;
                 for (int m = 0; m < ag.Model.Modules.Count; m++)
                 {
                     var ch = Channel(ag.Model.Modules[m].Spec.Id);
@@ -458,13 +478,152 @@ namespace Crane.Fleet
                 // a flagged two-branch PnP solution of a horizontal top tag differs mostly in tilt; its planar part stays usable
                 // with an inflated covariance (the innovation gate still rejects a flipped yaw)
                 if (o.AmbiguousPose) for (int i = 0; i < 9; i++) _cov3[i] *= A.WorldAmbiguousInflation;
-                int before = ag.Ekf.AcceptedPoseUpdates; WorldPoseOffered++;
-                ag.Ekf.WorldPose(ag.Model.IndexOf(ch.Spec.Id), o.StampAcquired, Se2.FromPose(o.Pose), _cov3);
-                if (ag.Ekf.AcceptedPoseUpdates > before) WorldPoseAccepted++;
+                ApplyFix(ag, ch.Spec.Id, o.StampAcquired, Se2.FromPose(o.Pose), _cov3, o.SourceId);
             }
         }
 
         private static readonly int[] MarginalIdx = { 0, 1, 5 };
+        private readonly double[] _fixCov = new double[9], _jn = new double[9], _tmp9 = new double[9];
+
+        /// <summary>
+        /// Absolute fix of member <paramref name="rover"/>'s base. Accepted fixes update the EKF; fixes the gate rejects are tracked, and
+        /// a streak of rejected fixes whose innovations agree with each other means the estimate (not the fixes) is wrong: the agent is
+        /// re-localised on the fix (covariance x4). This is what recovers from overconfident odometry after an unseen stall or shove.
+        /// </summary>
+        public bool ApplyFix(Agent ag, string rover, double t, Pose2 z, double[] cov3, string source)
+        {
+            int m = ag.Model.IndexOf(rover);
+            var pred = ag.MemberPose(rover);
+            int before = ag.Ekf.AcceptedPoseUpdates; WorldPoseOffered++;
+            ag.Ekf.WorldPose(m, t, z, cov3);
+            if (ag.Ekf.AcceptedPoseUpdates > before) { WorldPoseAccepted++; ag.RejStreak = 0; return true; }
+            double dx = z.X - pred.X, dy = z.Y - pred.Y;
+            if (ag.RejStreak > 0 && Math.Sqrt((dx - ag.LastRejDx) * (dx - ag.LastRejDx) + (dy - ag.LastRejDy) * (dy - ag.LastRejDy)) < A.RelocaliseConsistency) ag.RejStreak++;
+            else ag.RejStreak = 1;
+            ag.LastRejDx = dx; ag.LastRejDy = dy;
+            if (Config.Relocalisation && ag.RejStreak >= A.RelocaliseStreak)
+            {
+                var framePose = Se2.Compose(z, Se2.Inverse(ag.Model.ModulePose(rover)));
+                for (int i = 0; i < 9; i++) _fixCov[i] = cov3[i] * 4 + (i % 4 == 0 ? 0.03 * 0.03 : 0);
+                ag.Ekf.Reset(framePose, _fixCov, Now, keepVelocity: true);
+                ag.RejStreak = 0; ag.RelocEpoch++;
+                Log("relocalised", ag.OwnerTask, ag.Id, $"{rover} from {source}: estimate was off by {Math.Sqrt(dx * dx + dy * dy):0.000} m");
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>Fixes derived from own-camera observations: known landmarks give the observer's pose; another rover's tags seen by a
+        /// well-localised observer give that rover's pose (scout or lifter watching a pair); external fixes (scan matching) as delivered.</summary>
+        private void ProcessDerivedFixes(RoverChannel ch)
+        {
+            var me = ch.Agent;
+            foreach (var f in ch.Fixes) if (f.Cov3 != null) ApplyFix(me, ch.Spec.Id, f.Stamp, f.Pose, f.Cov3, f.SourceId ?? "external");
+            foreach (var o in ch.Tags)
+            {
+                if (o.SourceKind != ObservationSourceKind.OwnCamera || o.AmbiguousPose) continue;
+                string child = FrameOwner(o.FrameChild);
+                var t = Se2.FromPose(o.Pose);
+                Marginal(o.Covariance, _cov3);
+                if (Config.Landmarks.TryGetValue(child, out var L))
+                {
+                    // me = L * T^-1 ; numeric Jacobian wrt T (3x3), cov = J R J^T
+                    var z = Se2.Compose(L, Se2.Inverse(t));
+                    NumericJac(tt => Se2.Compose(L, Se2.Inverse(tt)), t, z, _jn);
+                    Lin.Mul(_jn, _cov3, _tmp9, 3, 3, 3); Lin.MulBt(_tmp9, _jn, _fixCov, 3, 3, 3);
+                    ApplyFix(me, ch.Spec.Id, o.StampAcquired, z, (double[])_fixCov.Clone(), "landmark:" + child);
+                    continue;
+                }
+                if (!Config.CrossRoverFixes || !IsRover(child)) continue;
+                var target = AgentOf(child);
+                if (target == me || me.Stalled) continue;
+                if (me.Ekf.PosSigma > A.CrossFixSigmaRatio * target.Ekf.PosSigma) continue;   // only a better-localised observer fixes others
+                var obsPose = me.MemberPose(ch.Spec.Id);
+                var zt = Se2.Compose(obsPose, t);
+                var co = new double[9]; me.Ekf.PoseCov(co);
+                Se2.JacComposeLeft(obsPose, t, _jn);
+                Lin.Mul(_jn, co, _tmp9, 3, 3, 3); Lin.MulBt(_tmp9, _jn, _fixCov, 3, 3, 3);
+                Se2.JacComposeRight(obsPose, _jn);
+                var c2 = new double[9]; Lin.Mul(_jn, _cov3, _tmp9, 3, 3, 3); Lin.MulBt(_tmp9, _jn, c2, 3, 3, 3);
+                for (int i = 0; i < 9; i++) c2[i] += _fixCov[i];
+                ApplyFix(target, child, o.StampAcquired, zt, c2, "peer_camera:" + ch.Spec.Id);
+            }
+        }
+
+        private static void NumericJac(Func<Pose2, Pose2> f, Pose2 x, Pose2 fx, double[] j)
+        {
+            const double h = 1e-6;
+            for (int k = 0; k < 3; k++)
+            {
+                var xp = new Pose2(x.X + (k == 0 ? h : 0), x.Y + (k == 1 ? h : 0), x.Yaw + (k == 2 ? h : 0));
+                var y = f(xp);
+                j[k] = (y.X - fx.X) / h; j[3 + k] = (y.Y - fx.Y) / h; j[6 + k] = Se2.Wrap(y.Yaw - fx.Yaw) / h;
+            }
+        }
+
+        /// <summary>
+        /// Stall / shove / slip detection per module: (1) an accelerometer-integrated body velocity (leaky toward the encoder velocity)
+        /// disagreeing with the encoder velocity (impact on a wall, wheels spinning on a stuck body, a push the wheels did not make);
+        /// (2) encoder yaw rate disagreeing with the gyro (rotational slip). On detection the pose covariance is inflated and the agent is
+        /// flagged; while flagged, encoder-claimed motion keeps inflating the covariance instead of moving the estimate with confidence.
+        /// </summary>
+        private void CheckStall(RoverChannel ch, double dt)
+        {
+            var ag = ch.Agent; int m = ag.Model.IndexOf(ch.Spec.Id);
+            var mp = ag.Model.ModulePose(ch.Spec.Id); var v = ag.Ekf.Velocity;
+            double c = Math.Cos(mp.Yaw), sn = Math.Sin(mp.Yaw);
+            double wvx = v.Vx - v.Wz * mp.Y, wvy = v.Vy + v.Wz * mp.X;
+            double evx = c * wvx + sn * wvy, evy = -sn * wvx + c * wvy;   // encoder/EKF velocity of this module (module frame)
+            if (ag.Stalled)
+            {
+                double sp = Math.Sqrt(evx * evx + evy * evy);
+                if (sp > 0.01) ag.Ekf.InflatePose(sp * dt, Math.Abs(v.Wz) * dt);
+                ch.HasInertial = false; ch.StallTimer = 0;
+                return;
+            }
+            if (!Config.StallDetection) return;
+            if (Now < ag.SuppressStallUntil) { ch.HasInertial = false; ch.StallTimer = 0; ch.YawSlipTimer = 0; return; }
+            bool flag = false; string why = null;
+            if (ch.Accel.Count > 0)
+            {
+                if (!ch.HasInertial) { ch.ViX = evx; ch.ViY = evy; ch.HasInertial = true; ch.LastAccelT = ch.Accel[0].Stamp; }
+                foreach (var a in ch.Accel)
+                {
+                    double h = a.Stamp - ch.LastAccelT; ch.LastAccelT = a.Stamp;
+                    if (h <= 0 || h > 0.1) continue;
+                    double w = v.Wz;
+                    ch.ViX += (a.Ax + w * ch.ViY) * h; ch.ViY += (a.Ay - w * ch.ViX) * h;
+                    double k = h / A.InertialLeakTime;
+                    ch.ViX += (evx - ch.ViX) * k; ch.ViY += (evy - ch.ViY) * k;
+                }
+                double r = Math.Sqrt((evx - ch.ViX) * (evx - ch.ViX) + (evy - ch.ViY) * (evy - ch.ViY));
+                if (r > A.StallResidual) { ch.StallTimer += dt; if (ch.StallTimer >= A.StallResidualTime) { flag = true; why = $"encoder vs inertial velocity residual {r:0.000} m/s"; } }
+                else ch.StallTimer = 0;
+            }
+            if (ch.Gyro.Count > 0)
+            {
+                double gs = 0; foreach (var g in ch.Gyro) gs += g.RateZ;
+                ch.LastGyroRate = gs / ch.Gyro.Count - ag.Ekf.GyroBias(m);
+            }
+            var sp2 = ch.Spec; double kk = sp2.Lx + sp2.Ly; var mr = ch.MeasuredRates;
+            double wEnc = sp2.WheelRadius / (4 * kk) * (-mr[0] + mr[1] - mr[2] + mr[3]);
+            bool allOk = true; for (int j = 0; j < 4; j++) allOk &= ag.Model.Modules[m].Health[j].Mode == CapHealthMode.Ok;
+            if (allOk && Math.Abs(wEnc - ch.LastGyroRate) > A.StallYawResidual) { ch.YawSlipTimer += dt; if (ch.YawSlipTimer > 0.3) { flag = true; why = $"encoder yaw rate {wEnc:0.000} vs gyro {ch.LastGyroRate:0.000} rad/s"; } }
+            else ch.YawSlipTimer = 0;
+            if (flag) DeclareStall(ag, ch.Spec.Id + ": " + why);
+        }
+
+        public void DeclareStall(Agent ag, string why)
+        {
+            if (ag.Stalled) return;
+            ag.Stalled = true; ag.StallEpoch++; ag.StallReason = why;
+            ag.Ekf.InflatePose(A.StallPosInflation, A.StallYawInflation);
+            foreach (var mm in ag.Model.Modules) { var c = Channel(mm.Spec.Id); c.StallTimer = 0; c.YawSlipTimer = 0; c.HasInertial = false; }
+            Log("stall_detected", ag.OwnerTask, ag.Id, why + $"; pose sigma now {ag.Ekf.PosSigma:0.000} m");
+        }
+
+        public void ClearStall(Agent ag) { ag.Stalled = false; foreach (var mm in ag.Model.Modules) Channel(mm.Spec.Id).HasInertial = false; }
+
         /// <summary>Planar (x, y, yaw) marginal of a Perception 6x6 [dp; dtheta] covariance.</summary>
         public static void Marginal(Matrix c6, double[] c3)
         {

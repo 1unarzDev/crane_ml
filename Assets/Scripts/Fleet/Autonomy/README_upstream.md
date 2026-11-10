@@ -71,6 +71,20 @@ need it) and to ROS.
 
 `IClock.Now`: the simulation time used for every stamp. `FleetAutonomy.Step(dt)`: single entry point.
 
+Optional channels (implement on the same source object; detected with `is`):
+- `IInertialSource.ReadAccel`: `AccelSample {Stamp, Ax, Ay}` body-frame specific force, gravity removed, 200 Hz (rigid-body
+  acceleration of the chassis plus noise). Enables impact / stall / shove detection; without it only encoder-vs-gyro yaw slip is
+  detected, and a body stuck against a wall while driving straight is NOT detectable.
+- `IPoseFixSource.ReadPoseFixes`: `PoseFix {Stamp, Pose (world pose of this rover's base), Cov3, SourceId}` from LiDAR scan matching
+  against the scenario map, a fixed tracker, or any other absolute source.
+- `LiftReport.DeckLoadValid / DeckLoadKg`: deck load cell or contact switches on cargo decks (used to confirm a handoff).
+- `FleetConfig.Landmarks[name] = Pose2`: static tags (door jambs, walls) whose frame `"<name>/base_link"` the own cameras may see;
+  CRANE must deliver their detections like any other own-camera `RelPoseObservation` (child `"<name>/base_link"`).
+
+Mission outcome: the library never reports success from its own belief. When every task succeeded it sets
+`Executive.BelievedComplete` (event `mission_believed_complete`); the host must evaluate the world (the evaluator's delivery check)
+and call `Executive.ConfirmByHost(ok, reason)`. Only then is `Executive.Succeeded` true; a rejection gives class `HostRejected`.
+
 Per-frame cost: the estimator, allocator and tracker work on preallocated buffers; allocation happens on structural events
 (plan, merge, split, capability change), task transitions and in the docking prior. A full-rank plan across the 10 x 7 m
 warehouse takes tens of node expansions (milliseconds); reduced-mobility searches cost about 1 ms per expansion and are bounded by
@@ -114,11 +128,11 @@ task fails for good, dependants are `Skipped` and the mission reports the first 
 | `assemble` | `sequence` [{docker, docker_face, target, target_face}, ...] | | every step docked in order |
 | `transport` | `agent`, `goal`, `payload` (opt), `tol`, `cruise` | belief graph support verified; all payload supporters in the agent | goal reached with every coupling still verified |
 | `separate` | `docker`, `docker_face`, `target`, `target_face`, `clear_distance` | `ModuleGraph.CanRelease` (release invariant) | connector `RELEASED`, agents split, docker cleared |
-| `handoff` | `from`, `supporters`, `place_pose`, `payload`, `payload_type`, `hold_offset` | `from` holds an object | object released over the decks; payload added to the belief graph; lifter backed off |
+| `handoff` | `from`, `supporters`, `place_on`, `place_offset`, `payload`, `payload_type`, `hold_offset`, `clear_distance` (`place_pose` legacy) | `from` holds an object; receiver tags visible | aligned on the receiver's tags, released, support confirmed (load cell or payload tag on the deck); payload added to the belief graph |
 | `wait` | `agents`, `duration` | | time elapsed |
 
 Top level: `schema`, `mission_id`, `initial_couplings` [{docker, docker_face, target, target_face}], `initial_payloads` [{id, type,
-supporters, com}], `tasks`. Failure classes: `Geometry` (no route for this footprint/capability), `Traction` (no feasible primitive
+supporters, com}], `tasks`. Failure classes: `HostRejected` (host disagreed with a believed-complete mission), `Geometry` (no route for this footprint/capability), `Traction` (no feasible primitive
 or persistent deviation), `Planner`, `Docking`, `Perception`, `Support`, `Timeout`, `Configuration`.
 
 Differences from what `Tools/Fleet/harness/promote.build_mission` emits today (accepted aliases are mapped by `TaskSpec.NormalizeAliases`):
@@ -158,6 +172,31 @@ error 30/30 (also 12/12 at 6 cm / 10 deg, 6/6 at 6 px corner noise); line assemb
 crabbing through a 0.65 m doorway 8/8; separation 6/6, and 6/6 correctly refused (Support) with a payload across the coupling;
 weak wheel mid-mission 6/6; locked wheel mid-mission (single rover) 4/4; locked wheel on a loaded line before the doorway 0/2,
 both reported infeasible (Geometry). No unsafe release.
+
+## Contact safeguards (CRANE phase-2 failures, D69-fleet)
+
+CRANE showed two overconfidence failures the kinematic harness could not: a coupled pair jammed against the divider while odometry
+integrated 3.2 m with ~7 cm reported sigma, and a lifter 5-20 cm off released the payload beside the decks. Now:
+- Stall/shove/slip detection per module (`CheckStall`): accelerometer-integrated body velocity (leaky, 1.5 s, toward the encoder
+  velocity) vs encoder velocity (residual > 0.07 m/s for 0.15 s), and encoder vs gyro yaw rate (> 0.12 rad/s for 0.3 s). On
+  detection the pose covariance is inflated (0.25 m, 0.08 rad), the agent is flagged `Stalled`, and while flagged every metre of
+  encoder-claimed motion adds a metre of sigma. The navigator backs off 0.15 m opposite to the last command, holds 2 s for fixes, then
+  replans; more than 3 stalls in a task fails it with class `Traction`. Docking contact suppresses detection.
+- Absolute fixes during any task: world-frame tags (peer, overhead), known landmarks, `IPoseFixSource`, and cross-rover fixes (a
+  rover whose camera sees another rover's tags fixes that rover when its own position sigma is under half the target's). A streak of
+  4 gate-rejected fixes with mutually consistent innovations re-localises the agent on the fix (the estimate, not the fixes, was wrong).
+- Handoff is defined in the receiver's frame (`place_on`, `place_offset`): the lifter stops 0.25 m short, aligns on the receiver's
+  tags with a relative estimate that must pass a covariance gate (8 mm, 0.02 rad), makes the final blind move on that estimate,
+  releases, backs off 0.55 m, and reports done only after support is confirmed (deck load cells >= 70 % of the payload mass, or the
+  payload's tag seen inside the deck area); otherwise class `Support`.
+- Each safeguard has a `FleetConfig` switch (`StallDetection`, `Relocalisation`, `CrossRoverFixes`, `HandoffTagAlignment`,
+  `PostReleaseSupportCheck`); the reproduction tests run with them off (failure reproduced: believed complete, host rejects) and on.
+
+Harness reproductions (`ContactFailureReproductionTests`): wall jam after an unseen 0.35 m shove: safeguards off -> believed
+complete, host rejects (2.7 m from goal); on + door-jamb tags -> 3/3 delivered (shove detected, fixes or relocalisation); on without
+any absolute fix -> stalls repeatedly and fails `Traction`, never claims success. Handoff with +0.15/+0.17 m lifter odometry bias:
+off -> payload falls, believed complete, host rejects; on -> 3/3 placed and confirmed by the payload tag, and by load cells; tag
+alignment off but support check on -> `Support` failure instead of success. Scan-match fixes re-localise a confident 0.5 m error.
 
 ## Known gaps
 

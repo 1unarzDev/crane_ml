@@ -15,7 +15,7 @@ namespace Crane.Fleet
         public ICollection<string> Ignore;   // rovers not treated as obstacles
         public int Replans, MaxReplans = 8;
         public string Failure; public FailureClass FailClass;
-        private int _capVersion = -1; private Agent _agent; private bool _planned;
+        private int _capVersion = -1, _relocEpoch; private Agent _agent; private bool _planned;
         public PlannedPath Path { get; private set; }
         public double PosTol = double.NaN, YawTol = double.NaN;
 
@@ -45,13 +45,44 @@ namespace Crane.Fleet
             return true;
         }
 
+        private int _stallPhase, _stalls; private double _stallT; private Twist2 _backDir;
+        public int Stalls => _stalls;
+
+        /// <summary>Stall response: back off along the reverse of the last commanded motion, hold still so absolute fixes can
+        /// re-localise the (now uncertain) estimate, then replan from the new estimate.</summary>
+        private TaskState HandleStall(Agent ag, double dt)
+        {
+            if (_stallPhase == 0)
+            {
+                _stalls++; _stallPhase = 1; _stallT = 0;
+                if (_stalls > _f.A.MaxStallsPerTask) { Failure = "stalled " + _stalls + " times (" + ag.StallReason + ")"; FailClass = FailureClass.Traction; return TaskState.Failed; }
+                var lc = ag.LastCommand; double n = lc.LinearSpeed;
+                _backDir = n > 1e-6 ? new Twist2(-lc.Vx / n, -lc.Vy / n, 0) : Twist2.Zero;
+                ag.Tracker.Stop(); ag.Tracker.ResetCommand();
+                _f.Log("stall_response", _task, ag.Id, "back off and re-localise");
+            }
+            _stallT += dt;
+            if (_stallPhase == 1)
+            {
+                double dur = _f.A.StallBackoffDistance / _f.A.StallBackoffSpeed;
+                ag.Command = ag.Cap.Saturate(_backDir * _f.A.StallBackoffSpeed, out _); ag.CommandSet = true;
+                if (_stallT >= dur) { _stallPhase = 2; _stallT = 0; }
+                return TaskState.Running;
+            }
+            ag.Command = Twist2.Zero; ag.CommandSet = true;
+            if (_stallT >= _f.A.StallHoldTime) { _f.ClearStall(ag); _stallPhase = 0; _planned = false; }
+            return TaskState.Running;
+        }
+
         public TaskState Tick(double dt)
         {
             var ag = _f.AgentOf(_rover);
+            if (ag.Stalled || _stallPhase != 0) return HandleStall(ag, dt);
             if (ag.Cap.ActuatedRank < 3) MaxReplans = Math.Min(MaxReplans, 4);   // reduced-mobility plans are expensive: fail fast and let the executive retry
-            if (!_planned || ag != _agent || ag.Cap.Version != _capVersion)
+            if (!_planned || ag != _agent || ag.Cap.Version != _capVersion || ag.RelocEpoch != _relocEpoch)
             {
                 if (_planned) Replans++;
+                _relocEpoch = ag.RelocEpoch;
                 if (Replans > MaxReplans) { Failure = "too many replans"; FailClass = FailureClass.Planner; return TaskState.Failed; }
                 if (!Plan()) return TaskState.Failed;
             }
@@ -217,38 +248,99 @@ namespace Crane.Fleet
     }
 
     // ================================================================================================ handoff
-    /// <summary>The lifter carries the held object to a place pose over the receivers' decks, lowers and releases it; the payload is
-    /// added to the module-graph belief (supporters) and the lifter backs off.</summary>
+    /// <summary>
+    /// The lifter places the held object onto the receivers' decks. Placement is defined in the RECEIVER's frame (place_on,
+    /// place_offset = payload centre on that deck), not in world coordinates, because the lifter's and receiver's world estimates can
+    /// each be off by centimetres: the lifter stops behind the place pose, aligns on the receiver's tags with a relative-pose
+    /// estimate, requires that estimate to pass a covariance gate, makes the final (camera-blind) move on the relative estimate,
+    /// lowers and releases, backs off, and only reports done once support is CONFIRMED (deck load cells, or the payload's tag seen
+    /// resting inside the deck area); otherwise it fails with class Support.
+    /// </summary>
     public sealed class HandoffBehavior : TaskBehavior
     {
-        private Navigator _nav; private double _t;
+        private Navigator _nav; private double _t, _releasedAt; private RelativePoseEstimator _rel;
+        private Pose2 _q; private bool _aligned; private Pose2 _payInLifter; private double _payObsT = double.NegativeInfinity;
+        private readonly double[] _ca = new double[9], _cb = new double[9], _c3 = new double[9];
         public override IEnumerable<string> Rovers() { yield return S.Str("from"); foreach (var r in S.Strs("supporters")) yield return r; }
+        private string PlaceOn => S.Str("place_on") ?? S.Strs("supporters")[0];
+
+        private Pose2 Offset() { var o = S.Nums("place_offset"); return o == null ? Pose2.Identity : new Pose2(o[0], o[1], o.Length > 2 ? o[2] : 0); }
+
+        private void Hold(string rover, double dt) { var ag = F.AgentOf(rover); ag.Command = ag.Tracker.Hold(Twist2.Zero, dt); ag.CommandSet = true; }
+
+        private void FeedRelative(double dt)
+        {
+            string from = S.Str("from"); var ag = F.AgentOf(from);
+            _rel.PredictDockerMotion(ag.MemberIncrement(from, dt), F.Now);
+            string self = from + "/base_link", child = PlaceOn + "/base_link", pay = S.Str("payload") + "/base_link";
+            foreach (var o in F.Channel(from).Tags)
+            {
+                if (o.FrameParent != self || o.AmbiguousPose) continue;
+                if (o.FrameChild == child) { FleetAutonomy.Marginal(o.Covariance, _c3); _rel.UpdateBaseRelative(Se2.FromPose(o.Pose), _c3, o.StampAcquired); }
+                else if (o.FrameChild == pay && o.StampAcquired > _releasedAt) { _payInLifter = Se2.FromPose(o.Pose); _payObsT = o.StampAcquired; }
+            }
+        }
+
         public override TaskState Tick(double dt)
         {
             string from = S.Str("from"); var ch = F.Channel(from);
+            foreach (var r in S.Strs("supporters")) Hold(r, dt);
+            double hold = S.Num("hold_offset", 0.30);
             if (Phase == "start")
             {
                 if (!ch.Lift.HoldingObject) return Fail(FailureClass.Configuration, from + " holds nothing");
-                _nav = new Navigator(F, from, S.PoseOf("place_pose"), F.A.CruiseFraction * 0.5, S.Id) { PosTol = 0.03, YawTol = 0.05 };
-                foreach (var r in S.Strs("supporters")) { _nav.Ignore = new List<string>(S.Strs("supporters")); break; }
+                _q = Se2.Compose(Offset(), new Pose2(-hold, 0, 0));           // lifter base in the receiver frame at release
+                var sw = F.AgentOf(PlaceOn).MemberPose(PlaceOn);
+                var goal = F.Config.HandoffTagAlignment ? Se2.Compose(sw, Se2.Compose(_q, new Pose2(-F.A.HandoffPrePlaceBack, 0, 0))) : Se2.Compose(sw, _q);
+                if (!F.Config.HandoffTagAlignment && S.Nums("place_pose") != null) goal = S.PoseOf("place_pose");
+                _nav = new Navigator(F, from, goal, F.A.CruiseFraction * 0.5, S.Id) { PosTol = 0.03, YawTol = 0.05, Ignore = S.Strs("supporters") };
+                // relative estimate: state = T(lifter base -> receiver base) (face frames identity / pi)
+                _rel = new RelativePoseEstimator(Pose2.Identity, new Pose2(0, 0, Math.PI), F.A);
                 SetPhase("carry");
             }
+            if (_rel != null && _rel.Initialized) FeedRelative(dt);
             if (Phase == "carry")
             {
                 var s = _nav.Tick(dt);
                 if (s == TaskState.Failed) return Fail(_nav.FailClass, _nav.Failure);
-                if (s == TaskState.Succeeded) { ch.SetLift(0, false); _t = 0; SetPhase("release"); }
+                if (s == TaskState.Succeeded)
+                {
+                    if (F.Config.HandoffTagAlignment) { InitPrior(); SetPhase("observe"); _t = 0; }
+                    else { ch.SetLift(0, false); _t = 0; SetPhase("release"); }
+                }
                 return TaskState.Running;
             }
             _t += dt;
+            if (Phase == "observe")
+            {
+                Hold(from, dt);
+                if (_t > 0.6 && _rel.Accepted >= 5 && Math.Max(_rel.SigmaGap, _rel.SigmaLateral) < F.A.HandoffAlignPosSigma && _rel.SigmaYaw < F.A.HandoffAlignYawSigma) { SetPhase("align"); _t = 0; }
+                else if (_t > 5)
+                    return Fail(_rel.Accepted == 0 ? FailureClass.Perception : FailureClass.Geometry,
+                        $"receiver {PlaceOn} not localised for handoff (accepted {_rel.Accepted}, sigma {_rel.SigmaLateral:0.000} m / {_rel.SigmaYaw:0.000} rad)");
+                return TaskState.Running;
+            }
+            if (Phase == "align")
+            {
+                // current lifter pose in the receiver frame = inv(T); error to the target pose Q in the lifter frame
+                var cur = Se2.Inverse(_rel.Estimate);
+                var e = Se2.Between(cur, _q);
+                var ag = F.AgentOf(from);
+                if (Math.Sqrt(e.X * e.X + e.Y * e.Y) < F.A.HandoffAlignPosTol && Math.Abs(e.Yaw) < F.A.HandoffAlignYawTol && ag.Ekf.Velocity.LinearSpeed < 0.01)
+                { Hold(from, dt); _aligned = true; ch.SetLift(0, false); _t = 0; SetPhase("release"); return TaskState.Running; }
+                var cmd = new Twist2(Clamp(1.2 * e.X, 0.05), Clamp(1.2 * e.Y, 0.05), Clamp(1.5 * e.Yaw, 0.2));
+                ag.Command = ag.Tracker.Hold(cmd, dt); ag.CommandSet = true; ag.SuppressStallUntil = F.Now + 0.3;
+                if (_t > 20) return Fail(FailureClass.Geometry, "handoff alignment did not converge");
+                return TaskState.Running;
+            }
             if (Phase == "release")
             {
+                Hold(from, dt);
                 if (!ch.Lift.HoldingObject)
                 {
-                    var off = S.Num("hold_offset", 0.30);
-                    var com = Se2.Compose(F.AgentOf(from).MemberPose(from), new Pose2(off, 0, 0));
-                    F.AddPayload(S.Str("payload"), S.Str("payload_type", "box_small"), S.Strs("supporters"), com);
-                    var back = Se2.Compose(F.AgentOf(from).MemberPose(from), new Pose2(-0.35, 0, 0));
+                    _releasedAt = F.Now;
+                    if (!F.Config.PostReleaseSupportCheck) { AddBelief(Offset()); }
+                    var back = Se2.Compose(F.AgentOf(from).MemberPose(from), new Pose2(-S.Num("clear_distance", 0.55), 0, 0));   // far enough to see the payload tag over the deck
                     _nav = new Navigator(F, from, back, F.A.CruiseFraction * 0.5, S.Id) { PosTol = 0.06, YawTol = 0.1, Ignore = S.Strs("supporters") };
                     SetPhase("clear");
                 }
@@ -259,10 +351,68 @@ namespace Crane.Fleet
             {
                 var s = _nav.Tick(dt);
                 if (s == TaskState.Failed) return Fail(_nav.FailClass, _nav.Failure);
-                return s;
+                if (s == TaskState.Succeeded) { if (!F.Config.PostReleaseSupportCheck) return TaskState.Succeeded; SetPhase("confirm"); _t = 0; }
+                return TaskState.Running;
+            }
+            if (Phase == "confirm")
+            {
+                Hold(from, dt);
+                string pid = S.Str("payload"); double mass = F.Config.DockingProfile != null && F.Config.DockingProfile.Payloads.TryGetValue(S.Str("payload_type", "box_small"), out var ps) ? ps.Mass.Value : 1.0;
+                // (1) deck load cells
+                double load = 0; bool anyCell = false;
+                foreach (var r in S.Strs("supporters")) { var l = F.Channel(r).Lift; if (l.DeckLoadValid) { anyCell = true; load += l.DeckLoadKg; } }
+                if (anyCell)
+                {
+                    if (load >= 0.7 * mass) { AddBelief(Offset()); F.Log("support_confirmed", S.Id, from, $"deck load {load:0.00} kg"); return TaskState.Succeeded; }
+                    if (_t > 1.0) return Fail(FailureClass.Support, $"payload {pid} not on the decks: deck load {load:0.00} kg of {mass:0.00} kg");
+                    return TaskState.Running;
+                }
+                // (2) the payload's tag seen after release, expressed in the receiver frame
+                if (_payObsT > _releasedAt)
+                {
+                    Pose2 recvInLifter = _rel != null && _rel.Initialized ? _rel.Estimate : Se2.Between(F.AgentOf(from).MemberPose(from), F.AgentOf(PlaceOn).MemberPose(PlaceOn));
+                    var pIn = Se2.Between(recvInLifter, _payInLifter);
+                    var spec = F.Channel(PlaceOn).Spec;
+                    double mx = Math.Abs(pIn.X), my = Math.Abs(pIn.Y);
+                    bool onDeck = S.Strs("supporters").Count > 1 ? CheckMulti(pIn) : (mx <= spec.DeckLength / 2 - 0.03 && my <= spec.DeckWidth / 2 - 0.02);
+                    if (onDeck) { AddBelief(pIn); F.Log("support_confirmed", S.Id, from, $"payload seen at ({pIn.X:0.000}, {pIn.Y:0.000}) on {PlaceOn}"); return TaskState.Succeeded; }
+                    return Fail(FailureClass.Support, $"payload {pid} observed off the decks at ({pIn.X:0.000}, {pIn.Y:0.000}) in {PlaceOn} frame");
+                }
+                if (_t > F.A.HandoffConfirmTimeout) return Fail(FailureClass.Support, $"support of {pid} not confirmed after release (no deck load signal, payload tag not seen)");
+                return TaskState.Running;
             }
             return TaskState.Running;
         }
+
+        private bool CheckMulti(Pose2 pIn)
+        {
+            if (F.Belief == null) return true;
+            string pid = S.Str("payload") + "#check";
+            var world = Se2.Compose(F.AgentOf(PlaceOn).MemberPose(PlaceOn), pIn);
+            F.Belief.AddPayload(pid, S.Str("payload_type", "box_small"), new Vec2(world.X, world.Y), S.Strs("supporters").ToArray());
+            var ok = F.Belief.CheckSupport().Ok;
+            F.Belief.Payloads.Remove(pid);
+            return ok;
+        }
+
+        private void AddBelief(Pose2 inReceiver)
+        {
+            var com = Se2.Compose(F.AgentOf(PlaceOn).MemberPose(PlaceOn), inReceiver);
+            var sup = new List<string>(S.Strs("supporters")); sup.Remove(PlaceOn); sup.Insert(0, PlaceOn);
+            F.AddPayload(S.Str("payload"), S.Str("payload_type", "box_small"), sup, com);
+        }
+
+        private void InitPrior()
+        {
+            string from = S.Str("from");
+            var al = F.AgentOf(from); var ar = F.AgentOf(PlaceOn);
+            al.Ekf.PoseCov(_ca); ar.Ekf.PoseCov(_cb);
+            var cov = new double[9];
+            for (int i = 0; i < 9; i++) cov[i] = _ca[i] + _cb[i] + (i == 0 || i == 4 ? 0.15 * 0.15 : i == 8 ? 0.2 * 0.2 : 0);   // world estimates are only a coarse prior
+            _rel.InitializeFromBaseRelative(Se2.Between(al.MemberPose(from), ar.MemberPose(PlaceOn)), cov, F.Now);
+        }
+
+        private static double Clamp(double v, double m) => v > m ? m : v < -m ? -m : v;
     }
 
     // ================================================================================================ rendezvous
@@ -395,6 +545,7 @@ namespace Crane.Fleet
             var c = Spec(); var ad = F.AgentOf(c.Docker);
             var faceInAgent = Se2.Compose(ad.Model.ModulePose(c.Docker), F.Channel(c.Docker).Spec.Face(c.DockerFace).InBody);
             var body = Agent.BodyTwistForFrame(faceInAgent, faceTwist);
+            ad.SuppressStallUntil = F.Now + 0.6; F.AgentOf(c.Target).SuppressStallUntil = F.Now + 0.6;   // deliberate face contact
             ad.Command = ad.Tracker.Hold(body, dt); ad.CommandSet = true;
             var at = F.AgentOf(c.Target); at.Command = at.Tracker.Hold(Twist2.Zero, dt); at.CommandSet = true;
         }

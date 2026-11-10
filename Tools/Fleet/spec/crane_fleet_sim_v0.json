@@ -1568,5 +1568,50 @@
         "fov": 55.0
       }
     ]
+  },
+  "landmarks": {
+    "note": "Door-jamb landmark tags (provisional): base_link on the wall face, yaw = outward normal; the tag is 2 mm proud at 'height'. Known to the autonomy library (FleetConfig.Landmarks).",
+    "size": {
+      "value": 0.12,
+      "provenance": "provisional"
+    },
+    "height": {
+      "value": 0.3,
+      "provenance": "provisional"
+    },
+    "tags": [
+      {
+        "name": "lm_door_w_s",
+        "pose": [
+          5.925,
+          2.8,
+          3.14159265
+        ]
+      },
+      {
+        "name": "lm_door_w_n",
+        "pose": [
+          5.925,
+          4.2,
+          3.14159265
+        ]
+      },
+      {
+        "name": "lm_door_e_s",
+        "pose": [
+          6.075,
+          2.8,
+          0.0
+        ]
+      },
+      {
+        "name": "lm_door_e_n",
+        "pose": [
+          6.075,
+          4.2,
+          0.0
+        ]
+      }
+    ]
   }
 }

@@ -1,0 +1,19 @@
+{
+  "note": "Closed-loop demo v2 (library with stall/landmark/handoff fixes), seeds 1 and 2, truth outcomes and host verdict.",
+  "out": "/home/lunarz/.cache/crane-fleet/jobs/autonomy_demo_v2",
+  "divergence_tol": 0.001,
+  "jobs": [
+    {
+      "id": "auto_v2_s1",
+      "seed": 1,
+      "variant": "autonomy_v2",
+      "mission_file": "/home/lunarz/worktrees/crane-fleet/Tools/Fleet/missions/autonomy_demo_v2.json"
+    },
+    {
+      "id": "auto_v2_s2",
+      "seed": 2,
+      "variant": "autonomy_v2",
+      "mission_file": "/home/lunarz/worktrees/crane-fleet/Tools/Fleet/missions/autonomy_demo_v2.json"
+    }
+  ]
+}

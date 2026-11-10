@@ -106,14 +106,22 @@ namespace Crane.Fleet
         public Pose2 ModulePose(int module) => Se2.Compose(Pose, _model.Modules[module].InAssembly);
 
         /// <summary>Overwrite the pose part (used when an assembly forms or splits); velocity reset to zero.</summary>
-        public void Reset(Pose2 pose, double[] cov3, double t)
+        public void Reset(Pose2 pose, double[] cov3, double t, bool keepVelocity = false)
         {
-            Array.Clear(_x, 3, 3);
+            if (!keepVelocity) Array.Clear(_x, 3, 3);
             _x[0] = pose.X; _x[1] = pose.Y; _x[2] = Se2.Wrap(pose.Yaw);
             for (int i = 0; i < N; i++) for (int j = 0; j < N; j++) if (i < 3 || j < 3) _p[i * N + j] = 0;
             for (int i = 0; i < 3; i++) for (int j = 0; j < 3; j++) _p[i * N + j] = cov3[3 * i + j];
-            for (int i = 3; i < 6; i++) { for (int j = 0; j < N; j++) { _p[i * N + j] = 0; _p[j * N + i] = 0; } _p[i * N + i] = 1e-4; }
+            if (!keepVelocity) for (int i = 3; i < 6; i++) { for (int j = 0; j < N; j++) { _p[i * N + j] = 0; _p[j * N + i] = 0; } _p[i * N + i] = 1e-4; }
             Time = Math.Max(Time, t); ResetLog();
+        }
+
+        /// <summary>Add uncertainty to the pose block (stall, shove, unexplained motion): position sigma and yaw sigma in quadrature.
+        /// The measurement log is restarted so a later re-application cannot undo the inflation.</summary>
+        public void InflatePose(double posSigma, double yawSigma)
+        {
+            _p[0] += posSigma * posSigma; _p[N + 1] += posSigma * posSigma; _p[2 * N + 2] += yawSigma * yawSigma;
+            ResetLog();
         }
 
         public void SetBias(int module, double b, double var) { _x[6 + module] = b; _p[(6 + module) * N + 6 + module] = var; }

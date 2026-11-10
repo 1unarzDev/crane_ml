@@ -40,7 +40,23 @@ namespace Crane.Fleet
         public readonly MissionSpec Mission;
         public readonly List<TaskRecord> Records = new List<TaskRecord>();
         public bool Done { get; private set; }
+        /// <summary>True only after the host confirmed the outcome (<see cref="ConfirmByHost"/>): the library never reports mission
+        /// success from its own belief alone.</summary>
         public bool Succeeded { get; private set; }
+        /// <summary>Every task succeeded according to the library's own belief; the host must check the world and confirm or reject.</summary>
+        public bool BelievedComplete { get; private set; }
+        public bool HostConfirmed { get; private set; }
+        public string HostVerdict { get; private set; }
+
+        /// <summary>Host's verdict on a believed-complete mission (evaluator delivery check, operator). A rejection becomes the
+        /// mission's failure with class HostRejected (a divergence between belief and world worth logging, promotion_v0 §3).</summary>
+        public void ConfirmByHost(bool ok, string reason)
+        {
+            if (!BelievedComplete) throw new InvalidOperationException("ConfirmByHost: the mission is not believed complete");
+            HostConfirmed = ok; Succeeded = ok; HostVerdict = reason;
+            if (!ok) { FirstFailure = "host rejected: " + reason; FirstFailureClass = FailureClass.HostRejected; }
+            _f.Log(ok ? "mission_confirmed" : "mission_rejected_by_host", null, null, reason ?? "");
+        }
         public FailureClass FirstFailureClass { get; private set; }
         public string FirstFailure { get; private set; }
 
@@ -129,7 +145,11 @@ namespace Crane.Fleet
                 if (r.State == TaskState.Pending || r.State == TaskState.Running) anyActive = true;
                 if (r.State != TaskState.Succeeded) allOk = false;
             }
-            if (!anyActive) { Done = true; Succeeded = allOk; _f.Log(allOk ? "mission_succeeded" : "mission_failed", null, null, FirstFailure ?? ""); }
+            if (!anyActive)
+            {
+                Done = true; BelievedComplete = allOk; Succeeded = false;
+                _f.Log(allOk ? "mission_believed_complete" : "mission_failed", null, null, FirstFailure ?? "awaiting host confirmation");
+            }
         }
 
         private TaskState Fail(TaskRecord r, FailureClass c, string why) { r.Behavior.FailClass = c; r.Behavior.FailReason = why; r.Attempts = int.MaxValue / 2; return TaskState.Failed; }

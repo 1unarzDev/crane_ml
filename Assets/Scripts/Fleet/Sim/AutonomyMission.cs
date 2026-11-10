@@ -44,6 +44,7 @@ namespace Crane.Fleet.Sim {
         readonly Dictionary<string, TaskState> lastState = new Dictionary<string, TaskState>();
         readonly List<object> beliefVsTruth = new List<object>();
         int disagreements;
+        bool hostVerdictGiven;
 
         sealed class Clock : IClock { public double Now { get; set; } }
 
@@ -128,6 +129,16 @@ namespace Crane.Fleet.Sim {
             liftSpeed = lr["lift_speed"].Double; gripMax = lr["gripper_opening"].Double;
             foreach (var rv in r.Rovers) if (rv.D.Role == "lifter") { rv.Lift = 0; rv.GripperOpening = gripMax; gripMin = rv.Visual?.Manifest.GripperOpeningRange?[0] ?? 0.04; }
             gripRate = (gripMax - gripMin) / lr["gripper_close_time"].Double;
+            // render-only landmark plates (white with a black frame; not a decodable tag image)
+            double ls = spec.O["landmarks.size"].Double, lh = spec.O["landmarks.height"].Double;
+            foreach (var lm in spec.O["landmarks.tags"].Items) {
+                double[] lp = lm["pose"].Doubles;
+                var go = new GameObject("landmark_" + lm["name"].String);
+                go.transform.SetPositionAndRotation(FleetFrames.World(lp[0], lp[1], 0), FleetFrames.WorldYaw(lp[2]));
+                FleetGeometry.Visual(PrimitiveType.Cube, "frame", go.transform, FleetFrames.Local(0.002, 0, lh), Quaternion.identity, FleetFrames.LocalScale(0.004, ls * 1.25, ls * 1.25), Color.black);
+                FleetGeometry.Visual(PrimitiveType.Cube, "face", go.transform, FleetFrames.Local(0.004, 0, lh), Quaternion.identity, FleetFrames.LocalScale(0.002, ls * 0.75, ls * 0.75), Color.white);
+                roots.Add(go);
+            }
             return roots;
         }
 
@@ -153,6 +164,15 @@ namespace Crane.Fleet.Sim {
                 srcList.Add(s); sinkList.Add(k);
                 rv.SampleSink = s;
                 if (rv.Visual != null) foreach (var f in rv.D.Faces) { rv.Visual.SetFaceHooks(f.Name, 0, 0); rv.Visual.SetLed(f.Name, Color.black, 0); }
+            }
+            // landmark tags (door jambs): known poses for the library, detections through the perception host's object channel
+            int lmId = 950;
+            foreach (var lm in spec.O["landmarks.tags"].Items) {
+                double[] p = lm["pose"].Doubles;
+                var pose = new Pose2(p[0], p[1], p[2]);
+                cfg.Landmarks[lm["name"].String] = pose;
+                perception.RecordObject(r.T, lm["name"].String, pose, new TagSpec { Id = lmId++, OwnerId = lm["name"].String, Name = "landmark",
+                    Size = spec.O["landmarks.size"].Double, MountInOwner = TagSpec.OnVerticalFace(new Vec3(0.002, 0, spec.O["landmarks.height"].Double), 0) });
             }
             if (missionJson.Has("crane_initial_sigma")) { double[] sg = missionJson["crane_initial_sigma"].Doubles; cfg.InitialPosSigma = sg[0]; cfg.InitialYawSigma = sg[1]; }
             clock.Now = r.T;
@@ -205,6 +225,16 @@ namespace Crane.Fleet.Sim {
                 lastState.TryGetValue(rec.Spec.Id, out var prev);
                 if (rec.State != prev && rec.State == TaskState.Succeeded) CheckClaim(rec);
                 lastState[rec.Spec.Id] = rec.State;
+            }
+            if (fleet.Executive.BelievedComplete && !hostVerdictGiven) {
+                // host verdict (library contract): only the evaluator's truth delivery check makes the mission a success
+                hostVerdictGiven = true;
+                var pt = PayloadTruth();
+                bool ok = pt == null || (bool)pt["delivered"];
+                string reason = pt == null ? "no payload" : $"payload {pt["state"]} at ({pt["x"]:0.00}, {pt["y"]:0.00}), in delivery zone {pt["in_delivery_zone"]}";
+                fleet.Executive.ConfirmByHost(ok, reason);
+                results["host_verdict"] = new Dictionary<string, object> { ["t"] = r.T, ["ok"] = ok, ["reason"] = reason };
+                run.Event("host_verdict", "", new Dictionary<string, object> { ["ok"] = ok, ["reason"] = reason });
             }
             if (fleet.Executive.Done && double.IsNaN(doneAt)) {
                 doneAt = r.T;
@@ -393,6 +423,7 @@ namespace Crane.Fleet.Sim {
                     ["started"] = rec.Started, ["ended"] = rec.Ended, ["class"] = rec.Class.ToString(), ["reason"] = rec.Reason });
             results["tasks"] = tasks;
             results["done"] = fleet.Executive.Done;
+            results["library_believed_complete"] = fleet.Executive.BelievedComplete;
             results["succeeded"] = fleet.Executive.Succeeded;
             results["first_failure_class"] = fleet.Executive.FirstFailureClass.ToString();
             results["first_failure"] = fleet.Executive.FirstFailure;
@@ -409,13 +440,15 @@ namespace Crane.Fleet.Sim {
             results["jams"] = run.Jams;
             bool delivered = pt != null && (bool)pt["delivered"];
             results["truth_outcome"] = delivered ? "delivered" : pt == null ? "no_payload" : "not_delivered: payload " + pt["state"];
-            results["summary"] = $"library believed: {(fleet.Executive.Succeeded ? "mission succeeded" : "mission failed (" + fleet.Executive.FirstFailureClass + ")")}; " +
+            results["summary"] = $"library believed: {(fleet.Executive.BelievedComplete ? "complete" : "not complete (" + fleet.Executive.FirstFailureClass + ")")}, host verdict {(hostVerdictGiven ? (fleet.Executive.Succeeded ? "accepted" : "rejected") : "not requested")}; " +
                 $"truth: {results["truth_outcome"]}; {disagreements} disputed claims; {run.Jams.Count} jams";
             res["autonomy"] = results;
         }
 
         // ------------------------------------------------------------------ I/O
-        sealed class Source : IObservationSource, IRoverSampleSink, Crane.Fleet.Autonomy.IObservationSourceExtras {
+        sealed class Source : IObservationSource, IInertialSource, IRoverSampleSink, Crane.Fleet.Autonomy.IObservationSourceExtras {
+            /// <summary>Library channel (IInertialSource): body-frame specific force, gravity removed, at the IMU rate.</summary>
+            public void ReadAccel(List<AccelSample> into) { into.Clear(); foreach (var a in accel) into.Add(new AccelSample { Stamp = a.Stamp, Ax = a.Ax, Ay = a.Ay }); accel.Clear(); }
             readonly List<Crane.Fleet.Autonomy.WheelRateSample> rates = new List<Crane.Fleet.Autonomy.WheelRateSample>();
             readonly List<Crane.Fleet.Autonomy.AccelSample> accel = new List<Crane.Fleet.Autonomy.AccelSample>();
             public void OnWheelRates(double t, double[] c, double[] m) => rates.Add(new Crane.Fleet.Autonomy.WheelRateSample { Stamp = t, Commanded = c, Measured = m });
@@ -447,8 +480,19 @@ namespace Crane.Fleet.Sim {
                     PartnerRover = c.Machine.Captured || ConnectorStateNames.IsVerified(c.Machine.State) ? (isA ? c.B.D.Id : c.A.D.Id) : null,
                     PartnerFace = c.Machine.Captured || ConnectorStateNames.IsVerified(c.Machine.State) ? (isA ? c.FaceB : c.FaceA) : null };
             }
-            public LiftReport ReadLift() => rig.D.Role != "lifter" ? new LiftReport { Present = false }
-                : new LiftReport { Present = true, Height = rig.Lift, GripperClosed = GripperClosed, HoldingObject = m.payloadMode == "carried" && m.carrier == rig };
+            public LiftReport ReadLift() {
+                if (rig.D.Role == "lifter")
+                    return new LiftReport { Present = true, Height = rig.Lift, GripperClosed = GripperClosed, HoldingObject = m.payloadMode == "carried" && m.carrier == rig };
+                // deck load cell (cargo decks): the payload's weight shared over the decks it rests on (simulated sensor from contact geometry)
+                bool deck = rig.D.Payload.ContainsKey("deck_capacity");
+                double kg = 0;
+                if (deck && m.Payload != null && m.payloadMode != "carried") {
+                    var pt = m.PayloadTruth();
+                    var sup = (List<object>)pt["supporters"];
+                    if (sup.Contains(rig.D.Id)) kg = m.Payload.mass / sup.Count;
+                }
+                return new LiftReport { Present = false, DeckLoadValid = deck, DeckLoadKg = kg };
+            }
         }
 
         sealed class Sink : IActuatorSink, IEstimatePublisher {

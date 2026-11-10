@@ -51,6 +51,35 @@ namespace Crane.Fleet
         public double Height;        // m, lift travel above its lowest position
         public bool GripperClosed;   // gripper reached the commanded closed position
         public bool HoldingObject;   // gripper force/position says an object is held
+        /// <summary>Deck load cell / contact switches (cargo decks). DeckLoadValid = false when the rover has no such sensor.</summary>
+        public bool DeckLoadValid;
+        public double DeckLoadKg;
+    }
+
+    /// <summary>Body-frame specific force in the plane (m/s^2, gravity removed, x forward, y left) from the rover's IMU accelerometer.</summary>
+    public struct AccelSample
+    {
+        public double Stamp, Ax, Ay;
+        public AccelSample(double stamp, double ax, double ay) { Stamp = stamp; Ax = ax; Ay = ay; }
+    }
+
+    /// <summary>OPTIONAL on an IObservationSource: accelerometer samples since the last call (enables impact/stall/shove detection).</summary>
+    public interface IInertialSource
+    {
+        void ReadAccel(List<AccelSample> into);
+    }
+
+    /// <summary>An absolute fix of this rover's base pose in the world frame (LiDAR scan matching, known landmark, external
+    /// tracker), with its 3x3 covariance (x, y, yaw; world axes), acquired at Stamp.</summary>
+    public struct PoseFix
+    {
+        public double Stamp; public Pose2 Pose; public double[] Cov3; public string SourceId;
+    }
+
+    /// <summary>OPTIONAL on an IObservationSource: absolute pose fixes delivered since the last call.</summary>
+    public interface IPoseFixSource
+    {
+        void ReadPoseFixes(List<PoseFix> into);
     }
 
     /// <summary>
