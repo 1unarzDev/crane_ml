@@ -1,0 +1,165 @@
+{
+  "schema": "crane.fleet_mission/v0",
+  "mission_id": "warehouse_a_demo_closed_loop_v2_box_long_5kg",
+  "note": "v2 with the box_long payload declared at 5.0 kg (the lifter lift_capacity) instead of the profile 6.0 kg: a CRANE-only variant (crane_payload.mass_kg) to separate the mass rating from the end-grip geometry. Everything else as v2.",
+  "crane_payload": {
+    "id": "payload_box_long",
+    "type": "box_long",
+    "pose": [
+      3.65,
+      6.0,
+      3.14159265
+    ],
+    "pallet_height": 0.03,
+    "mass_kg": 5.0
+  },
+  "crane_max_duration_s": 320,
+  "tasks": [
+    {
+      "id": "settle",
+      "type": "wait",
+      "agents": [
+        "scout_1",
+        "lifter_1",
+        "cargo_1",
+        "cargo_2"
+      ],
+      "duration": 1.5
+    },
+    {
+      "id": "find",
+      "type": "explore",
+      "agent": "scout_1",
+      "region": [
+        3.2,
+        5.5,
+        4.2,
+        6.5
+      ],
+      "target": "payload_box_long",
+      "viewpoints": [
+        4.9,
+        5.4,
+        2.53,
+        4.6,
+        5.0,
+        2.2
+      ],
+      "dwell": 1.5,
+      "after": [
+        "settle"
+      ],
+      "retries": 1
+    },
+    {
+      "id": "watch",
+      "type": "goto",
+      "agent": "scout_1",
+      "goal": [
+        7.3,
+        4.9,
+        -2.09
+      ],
+      "after": [
+        "find"
+      ],
+      "retries": 1
+    },
+    {
+      "id": "pick",
+      "type": "lift",
+      "agent": "lifter_1",
+      "object": "payload_box_long",
+      "grasp_offset": 0.237,
+      "height": 0.15,
+      "after": [
+        "find"
+      ],
+      "retries": 1
+    },
+    {
+      "id": "meet",
+      "type": "rendezvous",
+      "target": "cargo_1",
+      "docker": "cargo_2",
+      "target_face": "rear",
+      "docker_face": "front",
+      "meeting_pose": [
+        4.8,
+        3.5,
+        0.0
+      ],
+      "after": [
+        "settle"
+      ],
+      "retries": 1
+    },
+    {
+      "id": "couple",
+      "type": "dock",
+      "docker": "cargo_2",
+      "docker_face": "front",
+      "target": "cargo_1",
+      "target_face": "rear",
+      "after": [
+        "meet"
+      ],
+      "retries": 2
+    },
+    {
+      "id": "give",
+      "type": "handoff",
+      "from": "lifter_1",
+      "supporters": [
+        "cargo_1",
+        "cargo_2"
+      ],
+      "payload": "payload_box_long",
+      "payload_type": "box_long",
+      "hold_offset": 0.637,
+      "after": [
+        "pick",
+        "couple"
+      ],
+      "place_on": "cargo_1",
+      "place_offset": [
+        -0.17,
+        0.0,
+        3.14159265
+      ]
+    },
+    {
+      "id": "lifter_clear",
+      "type": "goto",
+      "agent": "lifter_1",
+      "goal": [
+        5.4,
+        4.45,
+        3.14159265
+      ],
+      "after": [
+        "give"
+      ]
+    },
+    {
+      "id": "deliver",
+      "type": "transport",
+      "agent": "cargo_1",
+      "goal": [
+        8.96,
+        3.5,
+        0.0
+      ],
+      "payload": "payload_box_long",
+      "tol": [
+        0.05,
+        0.08
+      ],
+      "after": [
+        "give",
+        "lifter_clear",
+        "watch"
+      ]
+    }
+  ]
+}

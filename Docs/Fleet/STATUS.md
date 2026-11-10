@@ -265,3 +265,30 @@ Stills of the delivered run: `~/.cache/crane-fleet/stills/demo_seed1_v2/` (00 es
 both decks, 05 the loaded pair in the doorway with the landmark plates, 06 onboard, 07b = the premature "failed" verdict of the old
 check (the frame shows the west hall; the payload is delivered in the east hall)). The h24 stills (`stills/demo_seed1/`, payload
 falling) are kept unchanged.
+
+## Phase 4 (2026-11-10 05:30-08:00): success rate, two library versions, per-wheel tractive plant
+
+### Closed-loop success rate, seeds 1-10, mission v2, GPU player, `fleet.sh request-run --seeds 1-10 --player` (LIVE_SIM_VALIDATED)
+The outcome comes from evaluator truth only (payload resting on both decks inside the delivery zone). The library's belief and the host
+verdict are reported next to it. The tables are produced by `Tools/Fleet/summarize_jobs.py OUT_DIR` (Wilson 95 % interval).
+
+| Seed | Batch 1: library at 910b6152 (lift-geometry fix) | Batch 2: library at 67d4d793 (+ held object leaves the map) |
+|---|---|---|
+| 1, 2, 3, 7, 8, 10 | delivered; believed complete; host accepted | delivered; believed complete; host accepted |
+| 4, 5, 6, 9 | **not delivered** (payload still carried by the lifter). Library: not complete, class Geometry, `give` failed twice with `start_in_collision`. The lifter's start pose overlapped the payload's own static map box, still at the pick pose after pickup. `give`, `lifter_clear` and `deliver` failed | delivered; believed complete; host accepted |
+| **Total** | **6/10** (Wilson 95 % 0.31-0.83) | **10/10** (Wilson 95 % 0.72-1.00) |
+| Disputed claims | 0 in all 10 | 0 in all 10 |
+| Jams (evaluator) | 0 | 0 |
+| False success (believed complete, truth failed) | 0 | 0 |
+
+- **Outputs.** Run directories, summaries and `success_rate.json` are under:
+  - `~/.cache/crane-fleet/requests/success_rate_v2_s1-10/`
+  - `~/.cache/crane-fleet/requests/success_rate_v2b_s1-10/`
+- **Failure replays.** Batch 1 has replays for seeds 4, 5, 6 and 9, rendered automatically by the player in `replays/<id>/`: `replay.json`, a rerun, and 4 frames around the first failure event at t 69-72 s.
+  - Known defect: the failing autonomy event carries no rover, so the frames aim at `cargo_2`. The lifter with the raised payload is only in the frame edge.
+- **Mecanum path unchanged by the refactor.** Batch 2 also contains the plant refactor (`IWheelPlant`). Seed 1 of the two batches is byte-identical for 1423 state rows, up to t 71.15 s, which is just after the lift where the library change acts. The refactor leaves the mecanum path bit-identical.
+- **Seed 2 lift failure is fixed.** The library fix: size-aware pre-grasp standoff, goal search, and the grasped object excluded by id. The payload stays in the CRANE planning map under its object id. No `goal_adjusted` events occurred in either batch.
+- **CAVEAT (open; next item).** Every run logs `payload_gripped` with `over_capacity: true` and `would_tip_forward: true`:
+  - box_long is 6 kg; the lifter's profile `lift_capacity` is 5 kg.
+  - The combined CoM is ahead of the front axle.
+  - The carry is kinematic, so lifter load and tipping are not simulated. These deliveries therefore assume a lifter that can hold 6 kg at the end of a 0.8 m box. That is a design question for the CAD/profile owners.
