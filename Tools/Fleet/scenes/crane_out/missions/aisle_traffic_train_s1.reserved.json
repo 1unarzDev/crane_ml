@@ -17,6 +17,11 @@
    1.0,
    1.0,
    0.0
+  ],
+  "scout_1": [
+   0.75,
+   6.25,
+   0.0
   ]
  },
  "crane_unit_map": {
@@ -32,7 +37,8 @@
    "agents": [
     "cargo_1",
     "cargo_2",
-    "lifter_1"
+    "lifter_1",
+    "scout_1"
    ],
    "duration": 1.5
   },

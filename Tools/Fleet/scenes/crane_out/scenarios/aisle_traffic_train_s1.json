@@ -314,11 +314,6 @@
      "detail": "role substitution: r2 (cargo) runs as lifter_1 (same mecanum chassis; role mass and sensors differ); it only drives in this plan"
     },
     {
-     "field": "fleet",
-     "status": "unsupported",
-     "detail": "no free parking spot for the unused profile rovers"
-    },
-    {
      "field": "plans.traffic",
      "status": "ignored",
      "detail": "CRANE's executive has its own deconfliction; policy reserved not mapped"
@@ -329,11 +324,6 @@
      "field": "fleet.units.r2",
      "status": "approximated",
      "detail": "role substitution: r2 (cargo) runs as lifter_1 (same mecanum chassis; role mass and sensors differ); it only drives in this plan"
-    },
-    {
-     "field": "fleet",
-     "status": "unsupported",
-     "detail": "no free parking spot for the unused profile rovers"
     },
     {
      "field": "plans.traffic",

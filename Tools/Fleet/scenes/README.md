@@ -35,9 +35,10 @@ nice -n 15 python3 -m scenes.validate scenes/fastsim_domain/scenarios/*.json
 nice -n 15 python3 -m scenes.render --family narrow_door --split heldout --seed 3 --out /tmp/nd.png
 
 # fastsim: the official batch command (one YAML per family/split/plan; --generate writes the seed bundles)
-cd scenes/fastsim_domain/configs
-nice -n 15 python3 -m fastsim.batch --config narrow_door-train-single.yaml --seeds 1:6 --out /tmp/fs \
-       --variant narrow_door-train-single --generate          # run from the crane root, or put it on PYTHONPATH
+cd ../..   # the crane root (fastsim/ lives there)
+nice -n 15 python3 -m fastsim.batch --config Tools/Fleet/scenes/fastsim_domain/configs/narrow_door-train-single.yaml \
+       --seeds 1:6 --out /tmp/fs --variant narrow_door-train-single --generate
+cd Tools/Fleet && nice -n 15 python3 -m scenes.summarize /tmp/fs          # markdown table of outcomes
 # fastsim: in-process (every plan of a family)
 cd Tools/Fleet && nice -n 15 python3 -m scenes.fastsim_run --family wheel_failure --split heldout --seeds 1:4 --out /tmp/fs
 

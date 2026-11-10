@@ -132,7 +132,10 @@ def free_spots(scn, n, avoid=()):
             pts = s.footprint()
             boxes.append((min(p[0] for p in pts), min(p[1] for p in pts), max(p[0] for p in pts), max(p[1] for p in pts)))
     for z in scn["zones"]:
-        boxes.append(tuple(z["rect"]))
+        r = z["rect"]
+        if z["kind"] in ("staging", "aisle") or (r[2] - r[0]) * (r[3] - r[1]) > 6.0:
+            continue   # halls and aisles are space to park in, not destinations
+        boxes.append(tuple(r))
     for p in list(avoid):
         boxes.append((p[0] - 0.3, p[1] - 0.3, p[0] + 0.3, p[1] + 0.3))
     for p in scn["payloads"]:

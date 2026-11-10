@@ -171,7 +171,6 @@
     "mission": true,
     "gaps": [
      "fleet.units.r2:approximated",
-     "fleet:unsupported",
      "plans.traffic:ignored"
     ]
    },
@@ -179,7 +178,6 @@
     "mission": true,
     "gaps": [
      "fleet.units.r2:approximated",
-     "fleet:unsupported",
      "plans.traffic:ignored"
     ]
    }
