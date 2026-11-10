@@ -59,6 +59,10 @@ namespace Crane.Fleet {
         public double Mass, Izz, ComX, ComY, ComZ, Gravity;
         public double MaxSpeedXy, MaxYawRate;    // body limits for twist commands
         public double DefaultWeakGain;           // weak without an explicit gain
+        /// <summary>"clamp": torque clamp(K (w_ref - w), +-tau_max) (v0). "linear_dc": a DC gearmotor whose available torque in the motoring
+        /// direction falls linearly from stall (tau_max) to zero at the no-load speed (the wheel MaxSpeed, datasheet: Pololu 25D 47:1 for v1);
+        /// braking torque up to stall.</summary>
+        public string MotorCurve = "clamp";
 
         /// <summary>From the overlay <c>plant.tractive</c>, <c>plant.motor_time_constant</c>, the floor and the rover description.</summary>
         public static TractionParams From(FleetSpec spec, RoverDescription d, FloorProperties floor) {
@@ -67,6 +71,7 @@ namespace Crane.Fleet {
                 MuLong = floor.MuLong, MuLatRatio = t["mu_lat_ratio"].Double, SlipVelocity = t["slip_velocity"].Double, RollerDrag = t["roller_drag"].Double,
                 RollingResistance = t["rolling_resistance"].Double, MotorGain = t["motor_gain"].Double, MotorTimeConstant = spec.O["plant.motor_time_constant"].Double,
                 BackdriveTorque = t["backdrive_torque"].Double, BackdriveSpeed = t["backdrive_speed"].Double, DefaultWeakGain = t["weak_gain_default"].Double,
+                MotorCurve = spec.O.TryGet("profiles." + spec.ProfileKey + ".motor_curve")?.String ?? t["motor_curve"].String,
                 Mass = d.Mass, Izz = d.InertiaDiag[2], ComX = d.ComOffset[0], ComY = d.ComOffset[1], ComZ = d.ComOffset[2] + d.OriginHeight, Gravity = spec.Gravity,
                 MaxSpeedXy = d.MaxSpeedXy, MaxYawRate = d.MaxYawRate
             };
@@ -297,8 +302,15 @@ namespace Crane.Fleet {
                     double g = h == WheelHealth.Weak ? Gain[i] : 1;
                     double tauMax = u.MaxTorque * g, wmax = u.MaxSpeed * g;
                     double wref = Math.Max(-wmax, Math.Min(wmax, WheelRef[i]));
-                    double Tm(double x) => h == WheelHealth.DeadFree ? -P.BackdriveTorque * Math.Tanh(x / P.BackdriveSpeed)
-                        : Math.Max(-tauMax, Math.Min(tauMax, P.MotorGain * (wref - x)));
+                    bool dc = P.MotorCurve == "linear_dc";
+                    double Tm(double x) {
+                        if (h == WheelHealth.DeadFree) return -P.BackdriveTorque * Math.Tanh(x / P.BackdriveSpeed);
+                        double tau = P.MotorGain * (wref - x);
+                        if (!dc) return Math.Max(-tauMax, Math.Min(tauMax, tau));
+                        // torque available in the direction of tau: reduced linearly with speed when motoring (tau and x same sign), stall when braking
+                        double avail = tau * x > 0 ? tauMax * Math.Max(0, 1 - Math.Abs(x) / wmax) : tauMax;
+                        return Math.Max(-avail, Math.Min(avail, tau));
+                    }
                     // residual Tm(w) - r c Fa(w) is strictly decreasing: bisection on a bracket that contains both the free-rolling and set-point speeds
                     double span = Math.Abs(va / rc) + Math.Abs(wref) + u.MaxSpeed + 1;
                     double lo = -span, hi = span;

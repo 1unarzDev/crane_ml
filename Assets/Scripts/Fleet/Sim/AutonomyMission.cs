@@ -130,7 +130,7 @@ namespace Crane.Fleet.Sim {
                 double bf = spec.O["physics.body_friction"].Double;
                 payloadCol.sharedMaterial = new PhysicsMaterial("payload") { dynamicFriction = (float)bf, staticFriction = (float)bf };
                 payloadCol.providesContacts = true;
-                string pm = System.IO.Path.Combine(spec.Directory, spec.O["visual.payload_manifest"].String);
+                string pm = System.IO.Path.Combine(spec.Directory, spec.PayloadManifest);
                 if (System.IO.File.Exists(pm)) AssetVisual.BuildPayload(AssetManifest.Load(pm), "payload_" + payloadType, root.transform);
                 roots.Add(root);
                 var pal = FleetGeometry.SolidBox("pallet", null, FleetFrames.World(pose[0], pose[1], pallet / 2), FleetFrames.WorldScale(payloadSize[0] * 0.9, payloadSize[1] * 0.9, pallet),
@@ -582,7 +582,8 @@ namespace Crane.Fleet.Sim {
                 var c = m.couplings.TryPair(rig, face);
                 if (c == null) return new ConnectorReport { Present = false, State = ConnectorState.Free };
                 bool isA = c.A == rig;
-                return new ConnectorReport { Present = true, State = c.Machine.State, SensedA = c.Machine.SensedA, SensedB = c.Machine.SensedB, Action = c.LastAction,
+                var (ownSensed, partnerSensed) = m.couplings.OwnPartner(c, rig, c.Machine.SensedA, c.Machine.SensedB);   // reciprocal faces: A = own hook
+                return new ConnectorReport { Present = true, State = c.Machine.State, SensedA = ownSensed, SensedB = partnerSensed, Action = c.LastAction,
                     FailedAttempts = c.Machine.FailedAttempts, RetriesExhausted = c.Machine.RetriesExhausted,
                     PartnerRover = c.Machine.Captured || ConnectorStateNames.IsVerified(c.Machine.State) ? (isA ? c.B.D.Id : c.A.D.Id) : null,
                     PartnerFace = c.Machine.Captured || ConnectorStateNames.IsVerified(c.Machine.State) ? (isA ? c.FaceB : c.FaceA) : null };

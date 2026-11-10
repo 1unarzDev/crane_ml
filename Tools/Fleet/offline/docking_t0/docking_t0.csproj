@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- T0 kinematic closed loop of TagDockingController with the perception simulator: TurnAround.cs (rear-face dock, observe facing the target,
+       turn 180 deg, close on odometry). FrontDock.cs.txt is the earlier front-face check (swap it in as the compile item to run it). -->
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><Nullable>disable</Nullable><LangVersion>9.0</LangVersion><EnableDefaultCompileItems>false</EnableDefaultCompileItems><NoWarn>CS0618</NoWarn></PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../../../Assets/Scripts/Fleet/Core/**/*.cs" /><Compile Include="../../../../Assets/Scripts/Fleet/Perception/**/*.cs" />
+    <Compile Include="../../../../Assets/Scripts/Fleet/PerceptionEvaluator/**/*.cs" /><Compile Include="../../../../Assets/Scripts/Fleet/AutonomyApi/**/*.cs" />
+    <Compile Include="TurnAround.cs" />
+  </ItemGroup>
+</Project>

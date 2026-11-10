@@ -18,6 +18,8 @@ namespace Crane.Fleet.Sim {
         public static bool Has(string key) => Array.IndexOf(Environment.GetCommandLineArgs(), key) >= 0;
 
         public static string SpecDir(string fallback) => Get("--crane-fleet-spec", fallback);
+        /// <summary>Overlay profile key (<c>--crane-fleet-profile v1</c>); null = the overlay's default.</summary>
+        public static string ProfileKey() => Get("--crane-fleet-profile");
 
         public static FleetRunOptions RunOptions(string launcher, FleetSpec spec = null) {
             var o = new FleetRunOptions { Launcher = launcher };
@@ -84,7 +86,7 @@ namespace Crane.Fleet.Sim {
 
         IEnumerator Body(Action<int> exit) {
             yield return null;
-            var spec = FleetSpec.LoadDirectory(FleetArgs.SpecDir(Path.Combine(Application.streamingAssetsPath, "Fleet")));
+            var spec = FleetSpec.LoadDirectory(FleetArgs.SpecDir(Path.Combine(Application.streamingAssetsPath, "Fleet")), FleetSpec.DefaultScenario, FleetArgs.ProfileKey());
             Debug.Log($"CRANE_FLEET_SPEC profile={spec.Profile.Sha256} scenario={spec.Scenario.Sha256} overlay={spec.Overlay.Sha256} gfx={SystemInfo.graphicsDeviceType}");
             string check = FleetArgs.Get("--crane-fleet-check");
             if (check != null) {

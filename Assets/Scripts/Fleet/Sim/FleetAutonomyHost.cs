@@ -43,7 +43,30 @@ namespace Crane.Fleet.Sim {
             }
             this.seed = FleetRng.For(seed, "perception").NextU64();
             Sim = new FleetSimulator(profile, scene, truth, this.seed);
+            // the selected profile's overlay entry decides (profiles.<key>.manifest_tags): v1 yes; v0 keeps the profile-derived mounts its evidence used
+            if (spec.O.TryGet("profiles." + spec.ProfileKey + ".manifest_tags")?.Bool == true) foreach (var r in rovers) ApplyManifestTags(r);
             foreach (var r in rovers) { providers[r.D.Id] = new LossyProvider(Sim.ProviderFor(r.D.Id), this); rigs[r.D.Id] = r; }
+        }
+
+        /// <summary>When the rover's asset manifest declares its tags (CAD v1: a 30 mm tag on a 45 deg bevel above each dock face, a top tag),
+        /// the perception geometry uses those mounts and sizes instead of the profile-derived ones (v0: a vertical face tag in the pocket).
+        /// Tag ids stay the perception core's (unique per rover index). Mount poses are in base_link (same frame as the profile face frames the
+        /// v0 mounts are built from). Observations still resolve to the partner's base_link, so docking consumers need no change.</summary>
+        void ApplyManifestTags(RoverRig r) {
+            var a = r.D.Asset;
+            if (a == null || a.Tags.Count == 0) return;
+            var byName = new Dictionary<string, AssetManifest.Tag>();
+            foreach (var t in a.Tags) byName[t.Name] = t;
+            foreach (var spec in Sim.GeometryOf(r.D.Id).Tags) {
+                AssetManifest.Tag t = null;
+                if (spec.Name.StartsWith("face_")) { if (a.FaceTags.TryGetValue(spec.Name.Substring(5), out var tn)) byName.TryGetValue(tn, out t); }
+                else if (spec.Name == "top") byName.TryGetValue("tag_top", out t);
+                if (t == null || t.Parent != "base_link") continue;
+                var R = AssetManifest.OutwardRotation(t.Origin.Rpy);
+                spec.MountInOwner = new PPose(new Mat3(R[0], R[1], R[2], R[3], R[4], R[5], R[6], R[7], R[8]), new Vec3(t.Origin.Xyz[0], t.Origin.Xyz[1], t.Origin.Xyz[2]));
+                spec.Size = t.Size;
+                spec.Provenance = "asset_manifest " + t.Name;
+            }
         }
 
         static RoverTruthState State(List<(double t, double x, double y, double yaw, double vx, double vy, double wz, double wvx, double wvy)> h, double t) {
@@ -165,8 +188,18 @@ namespace Crane.Fleet.Sim {
         public double PairRange = 0.6;
         public Action<Coupling> OnLatched;
 
+        /// <summary>Reciprocal faces (profile docking.hook_count = 1, CAD v1: one J-hook + one pin per face). The connector machine's HOOK_A is
+        /// the initiating rover's (A) own hook and HOOK_B the partner's (B) hook on the mating face, so each rover's own hook shows and senses
+        /// its own side. With two hooks per face (v0) both rovers show the machine's A/B hooks as before.</summary>
+        public readonly bool Reciprocal;
+
+        /// <summary>(own, partner) hook value for rover <paramref name="rv"/> of coupling <paramref name="c"/>: machine (A, B) for the initiator,
+        /// (B, A) for the partner when faces are reciprocal; (A, B) for both otherwise.</summary>
+        public (T own, T partner) OwnPartner<T>(Coupling c, RoverRig rv, T a, T b) => Reciprocal && rv == c.B ? (b, a) : (a, b);
+
         public CouplingManager(FleetRun run, FleetSpec spec) {
             this.run = run; this.spec = spec;
+            Reciprocal = spec.P.TryGet("docking.hook_count") != null && spec.P["docking.hook_count"].Double == 1;
             model = new ContactModel(DockingProfileBuilder.Build(spec), new DockingAssumptions());
             run.IgnoreContact = (a, b) => { foreach (var c in All) if (c.Joint != null && ((c.A == a && c.B == b) || (c.A == b && c.B == a))) return true; return false; };
         }
@@ -253,7 +286,8 @@ namespace Crane.Fleet.Sim {
                 float nits = (float)spec.O["visual.led_nits"].Double;
                 foreach (var (rv, face) in new[] { (c.A, c.FaceA), (c.B, c.FaceB) }) {
                     if (rv.Visual == null) continue;
-                    rv.Visual.SetFaceHooks(face, c.Machine.HookPosA, c.Machine.HookPosB);
+                    var (own, partner) = OwnPartner(c, rv, c.Machine.HookPosA, c.Machine.HookPosB);
+                    rv.Visual.SetFaceHooks(face, own, partner);   // v1 manifests have one hook per face (_a = own); v0 two (_a, _b)
                     rv.Visual.SetLed(face, led, nits);
                 }
             }

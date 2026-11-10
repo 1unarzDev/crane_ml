@@ -123,3 +123,7 @@ __pycache__/
 
 # the plugin package (pyproject.toml) when pip-installed in place
 *.egg-info/
+
+# CAD v1 assets: synced from ~/.cache/crane-fleet/assets_v1 by Tools/Fleet/sync_spec.sh (checksums in Tools/Fleet/assets_v1_SHA256SUMS)
+Assets/StreamingAssets/Fleet/assets_v1/
+Assets/StreamingAssets/Fleet/assets_v1.meta

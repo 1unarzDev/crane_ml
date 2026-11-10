@@ -30,7 +30,7 @@ namespace Crane.Fleet.EditorTools {
         public const string ScenePath = "Assets/Scenes/Fleet/FleetEmpty.unity";
         const string DefaultSpec = "Assets/StreamingAssets/Fleet";
 
-        static FleetSpec Spec() => FleetSpec.LoadDirectory(FleetArgs.SpecDir(DefaultSpec));
+        static FleetSpec Spec() => FleetSpec.LoadDirectory(FleetArgs.SpecDir(DefaultSpec), FleetSpec.DefaultScenario, FleetArgs.ProfileKey());
 
         static void Exit(int code) {
             Debug.Log($"CRANE_FLEET_EXIT code={code}");

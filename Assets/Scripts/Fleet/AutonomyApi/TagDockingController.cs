@@ -15,13 +15,18 @@ namespace Crane.Fleet.Autonomy {
     /// FREE) returns to the stand-off pose and re-observes.
     /// </summary>
     public sealed class TagDockingController {
-        public enum Phase { Search, Standoff, Observe, Approach, Hooks, Latched, Abandoned }
+        public enum Phase { Search, Standoff, Observe, Turn, Approach, Hooks, Latched, Abandoned }
 
         readonly IRoverIO io;
         readonly string targetId, myFace, targetFace;
         readonly Pose2 mateRel;        // desired pose of the target base in my base frame at mating
         readonly double standoff, speed, approachSpeed, kp, kyaw, wmax, posTol, yawTol;
         readonly int minObs;
+        /// <summary>Turn-around docking (CAD v1 lifter: forward camera, rear/side dock faces): when my dock face's yaw in my frame exceeds
+        /// <c>turn_around_min_face_yaw</c>, I observe the target at the stand-off position rotated by that yaw (camera facing the target),
+        /// then turn in place to the docking heading and close on odometry. NaN (parameter absent) = off (v0).</summary>
+        readonly double turnAroundMinYaw = double.NaN, faceYaw;
+        bool TurnAround => !double.IsNaN(turnAroundMinYaw) && Math.Abs(Angles.Wrap(faceYaw)) > turnAroundMinYaw;
         readonly List<(double t, Pose2 pose)> odoHistory = new List<(double, Pose2)>();
         double sx, sy, sc, ss; int n;   // running mean of the target pose in the odometry frame (yaw by its unit vector)
         double sxx, syy, sxy;            // second moments for the covariance of the mean (x, y, yaw about the first sample)
@@ -61,6 +66,8 @@ namespace Crane.Fleet.Autonomy {
             standoff = p["standoff"].Double; speed = p["speed"].Double; approachSpeed = p["approach_speed"].Double;
             kp = p["kp_pos"].Double; kyaw = p["kp_yaw"].Double; wmax = p["max_yaw_rate"].Double;
             posTol = p["pos_tolerance"].Double; yawTol = p["yaw_tolerance"].Double; minObs = (int)p["min_observations"].Double;
+            faceYaw = mine.Yaw;
+            if (p.Has("turn_around_min_face_yaw")) turnAroundMinYaw = p["turn_around_min_face_yaw"].Double;
         }
 
         static Pose2 Compose(Pose2 a, Pose2 b) {
@@ -107,14 +114,29 @@ namespace Crane.Fleet.Autonomy {
                 case Phase.Standoff:
                 case Phase.Observe: {
                     var goal = Compose(TargetEstimate, Inverse(Shift(mateRel, standoff)));
+                    // turn-around: observe from the same position with the camera (my +x) where my dock face will point
+                    if (TurnAround) goal = new Pose2(goal.X, goal.Y, Angles.Wrap(goal.Yaw + faceYaw));
                     var cmd = GoToController.Command(me, goal.X, goal.Y, goal.Yaw, kp, kyaw, speed, wmax, out double d, out double ey);
                     io.CommandTwist(cmd);
                     if (State == Phase.Standoff && d < posTol && Math.Abs(ey) < yawTol) { Enter(Phase.Observe, t, "at stand-off"); ResetMean(); }
                     if (State == Phase.Observe && n >= minObs && d < posTol && Math.Abs(ey) < yawTol) {
+                        if (TurnAround) { Enter(Phase.Turn, t, $"{n} observations averaged; turning {faceYaw:0.00} rad to the dock heading (odometry)"); return false; }
                         Enter(Phase.Approach, t, $"{n} observations averaged");
                         io.CommandConnector(myFace, DockingCommand.Approach);
                         attempt++;
                     }
+                    return false;
+                }
+                case Phase.Turn: {
+                    // in place, on odometry (the target estimate is held in the odometry frame; the face camera cannot see it now)
+                    var goal = Compose(TargetEstimate, Inverse(Shift(mateRel, standoff)));
+                    io.CommandTwist(GoToController.Command(me, goal.X, goal.Y, goal.Yaw, kp, kyaw, speed, wmax, out double d, out double ey));
+                    if (d < posTol && Math.Abs(ey) < yawTol) {
+                        Enter(Phase.Approach, t, "at the dock heading: closing on odometry");
+                        io.CommandConnector(myFace, DockingCommand.Approach);
+                        attempt++;
+                    }
+                    if (t - phaseStart > 20) { Enter(Phase.Standoff, t, "turn timeout"); ResetMean(); }
                     return false;
                 }
                 case Phase.Approach:
@@ -140,8 +162,9 @@ namespace Crane.Fleet.Autonomy {
             }
         }
 
-        /// <summary>The mating relative pose shifted so I stand <paramref name="gap"/> further back along my own heading.</summary>
-        static Pose2 Shift(Pose2 rel, double gap) => new Pose2(rel.X + gap, rel.Y, rel.Yaw);
+        /// <summary>The mating relative pose shifted so I stand <paramref name="gap"/> further back along my dock face's outward normal (for a
+        /// front face that is my heading, as before; a rear or side face backs off along its own normal).</summary>
+        Pose2 Shift(Pose2 rel, double gap) => new Pose2(rel.X + gap * Math.Cos(faceYaw), rel.Y + gap * Math.Sin(faceYaw), rel.Yaw);
 
         void ResetMean() { if (n > 0) lastTarget = TargetEstimate; sx = sy = sc = ss = 0; sxx = syy = sxy = yawSum = yawSq = 0; n = 0; }
 

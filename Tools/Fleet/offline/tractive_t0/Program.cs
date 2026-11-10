@@ -69,6 +69,16 @@ static class P {
     // 10 friction limit: low mu, high accel demand -> traction scale < 1 reported and acceleration bounded by mu g
     var lo = new TractivePlant(Mec(), Tp(8, 0.1)); lo.Step(new Twist(0.5, 0, 0), new Twist(), 0.005);
     Check(lo.Ax <= 0.1 * 9.81 * 1.05, $"low mu accel {lo.Ax:0.000} <= mu g");
+    // 11 linear DC motor curve (v1 datasheet motor): available torque falls to 0 at the no-load speed, so a full-speed command settles
+    // below no-load (rolling resistance needs torque) while the clamp model reaches it; stall torque available from rest
+    var v1w = new List<WheelUnit> { Wh("fl", WheelKind.Mecanum, 0.109, 0.104, -1), Wh("fr", WheelKind.Mecanum, 0.109, -0.104, 1), Wh("rl", WheelKind.Mecanum, -0.109, 0.104, 1), Wh("rr", WheelKind.Mecanum, -0.109, -0.104, -1) };
+    foreach (var u in v1w) { u.MaxSpeed = 23; u.MaxTorque = 1.47; }
+    TractionParams V1(string curve) { var t = Tp(5.26); t.MotorCurve = curve; t.MotorGain = 5.0; t.RollingResistance = 0.03; t.MaxSpeedXy = 2; return t; }
+    var dcRun = Sim(new TractivePlant(v1w, V1("linear_dc")), new Twist(1.115, 0, 0), 4.0); var clRun = Sim(new TractivePlant(v1w, V1("clamp")), new Twist(1.115, 0, 0), 4.0);
+    Check(dcRun.v.Vx < clRun.v.Vx - 0.01 && dcRun.v.Vx < 23 * 0.04 && dcRun.v.Vx > 0.5, $"linear_dc full-speed command settles below no-load ({dcRun.v.Vx:0.000} m/s) and below clamp ({clRun.v.Vx:0.000} m/s)");
+    var dc0 = new TractivePlant(v1w, V1("linear_dc")); for (int i = 0; i < 40; i++) dc0.Step(new Twist(1.115, 0, 0), new Twist(), 0.005);
+    double maxF = 0; for (int i = 0; i < 4; i++) maxF = Math.Max(maxF, Math.Abs(dc0.Fx[i]));
+    Check(maxF > 0.5 * 1.47 / 0.04 / Math.Sqrt(2) || maxF > 0.9 * 0.9 * 5.26 * 9.81 / 4, $"linear_dc from rest: wheel force {maxF:0.0} N (stall- or traction-limited)");
     Console.WriteLine(fails == 0 ? "ALL PASS" : $"{fails} FAIL"); Environment.Exit(fails);
   }
 }

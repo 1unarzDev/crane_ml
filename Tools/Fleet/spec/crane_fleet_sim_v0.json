@@ -112,6 +112,11 @@
         "value": 0.3,
         "provenance": "provisional",
         "note": "weak without explicit gain; same fraction as the mecanum plant"
+      },
+      "motor_curve": {
+        "value": "clamp",
+        "provenance": "provisional",
+        "note": "clamp | linear_dc; per-profile override profiles.<key>.motor_curve"
       }
     }
   },
@@ -1690,6 +1695,27 @@
       "value": 0.35,
       "provenance": "provisional",
       "note": "evaluator tip threshold"
+    }
+  },
+  "profiles": {
+    "note": "selectable shared profiles (--crane-fleet-profile KEY, jobs key \"profile\"); v0 stays the default until v1 is validated in CRANE",
+    "default": "v0",
+    "v0": {
+      "profile_file": "fleet_profile_v0.json",
+      "mesh_manifest": "assets_provisional_v0/{role}/{role}.manifest.json",
+      "payload_manifest": "assets_provisional_v0/payloads/payloads.manifest.json",
+      "manifest_tags": false
+    },
+    "v1": {
+      "profile_file": "fleet_profile_v1.json",
+      "mesh_manifest": "assets_v1/{role}/{role}.manifest.json",
+      "payload_manifest": "assets_v1/payloads/payloads.manifest.json",
+      "status": "IMPLEMENTED, not validated in CRANE (CAD v1, D87)",
+      "source": "crane_ml Tools/Fleet/spec/fleet_profile_v1.json; assets ~/.cache/crane-fleet/assets_v1 (OBJ/MTL/manifests/textures only)",
+      "manifest_tags": true,
+      "motor_curve": "linear_dc",
+      "plant_model": "tractive",
+      "plant_model_note": "v1 profile rovers run the per-wheel TractivePlant (datasheet motor curve); NOT_RUN in CRANE until validated"
     }
   }
 }

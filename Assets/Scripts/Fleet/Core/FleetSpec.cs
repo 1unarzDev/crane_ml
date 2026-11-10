@@ -35,20 +35,34 @@ namespace Crane.Fleet {
     /// <summary>The three inputs a fleet run is built from: the shared fleet profile, a shared scenario and the
     /// CRANE-local overlay (values the profile does not define yet). Nothing else carries numbers.</summary>
     public sealed class FleetSpec {
-        public const string ProfileFile = "fleet_profile_v0.json";
+        public const string ProfileFile = "fleet_profile_v0.json";   // the v0 profile file (overlay profiles.v0); see LoadDirectory for the selection
         public const string OverlayFile = "crane_fleet_sim_v0.json";
         public const string DefaultScenario = "scenarios/warehouse_a_v0.json";
 
         public readonly SpecFile Profile, Scenario, Overlay;
         public readonly string Directory;
 
-        public FleetSpec(SpecFile profile, SpecFile scenario, SpecFile overlay, string directory) {
-            Profile = profile; Scenario = scenario; Overlay = overlay; Directory = directory;
+        /// <summary>Selected profile key in the overlay's <c>profiles</c> table ("v0", "v1", ...).</summary>
+        public readonly string ProfileKey;
+
+        public FleetSpec(SpecFile profile, SpecFile scenario, SpecFile overlay, string directory, string profileKey = "v0") {
+            Profile = profile; Scenario = scenario; Overlay = overlay; Directory = directory; ProfileKey = profileKey;
         }
 
-        public static FleetSpec LoadDirectory(string dir, string scenarioRelative = DefaultScenario) =>
-            new FleetSpec(SpecFile.Load(Path.Combine(dir, ProfileFile)), SpecFile.Load(Path.Combine(dir, scenarioRelative)),
-                SpecFile.Load(Path.Combine(dir, OverlayFile)), Path.GetFullPath(dir));
+        /// <summary>Load profile, scenario and overlay. The profile is selected by <paramref name="profileKey"/> from the overlay's
+        /// <c>profiles</c> table (null = <c>profiles.default</c>; an overlay without the table means the v0 file).</summary>
+        public static FleetSpec LoadDirectory(string dir, string scenarioRelative = DefaultScenario, string profileKey = null) {
+            var overlay = SpecFile.Load(Path.Combine(dir, OverlayFile));
+            var table = overlay.Root.TryGet("profiles");
+            string key = profileKey ?? table?.TryGet("default")?.String ?? "v0";
+            string file = table == null ? ProfileFile : (table.TryGet(key) ?? throw new KeyNotFoundException($"overlay profiles has no '{key}'"))["profile_file"].String;
+            return new FleetSpec(SpecFile.Load(Path.Combine(dir, file)), SpecFile.Load(Path.Combine(dir, scenarioRelative ?? DefaultScenario)), overlay, Path.GetFullPath(dir), key);
+        }
+
+        /// <summary>A key of the selected profile's overlay entry (e.g. mesh_manifest), else the v0 location under <c>visual.</c>.</summary>
+        public string ProfileAsset(string key) => O.TryGet("profiles." + ProfileKey + "." + key)?.String ?? O["visual." + key].String;
+        public string MeshManifestPattern => ProfileAsset("mesh_manifest");
+        public string PayloadManifest => ProfileAsset("payload_manifest");
 
         public JsonNode P => Profile.Root;
         public JsonNode S => Scenario.Root;
@@ -211,12 +225,13 @@ namespace Crane.Fleet {
             for (int i = 0; i < 4; i++)
                 d.WheelUnits.Add(new WheelUnit { Name = d.Wheels[i].Name, Kind = WheelKind.Mecanum, X = d.Wheels[i].Axle.X, Y = d.Wheels[i].Axle.Y, Hand = hands[i],
                     Radius = r, MaxSpeed = d.Geometry.MaxWheelSpeed, MaxTorque = d.Geometry.MaxWheelTorque });
-            d.PlantModel = o.TryGet("plant.model")?.String ?? "mecanum_body";
+            d.PlantModel = o.TryGet("profiles." + spec.ProfileKey + ".plant_model")?.String ?? o.TryGet("plant.model")?.String ?? "mecanum_body";
             d.CountsPerRev = d.Geometry.CountsPerRev; d.MaxSpeedXy = d.Geometry.MaxSpeedXy; d.MaxYawRate = d.Geometry.MaxYawRate;
 
             // docking faces
             var active = new HashSet<string>();
-            foreach (var n in p["docking.active_faces_default"].Items) active.Add(n.String);
+            // v1 profiles list each role's dock faces (the v1 lifter's front is a gripper face, not a dock); v0 uses the fleet default
+            foreach (var n in (roleNode.Has("active_faces") ? roleNode["active_faces"] : p["docking.active_faces_default"]).Items) active.Add(n.String);
             foreach (var kv in p["docking.face_frames"].Members) {
                 if (kv.Key == "note") continue;
                 double[] v = kv.Value.Doubles;
@@ -286,7 +301,7 @@ namespace Crane.Fleet {
                     Yaw = f.Pose.Yaw });
             }
 
-            string manifest = o["visual.mesh_manifest"].String.Replace("{role}", role);
+            string manifest = spec.MeshManifestPattern.Replace("{role}", role);
             d.MeshManifestPath = Path.Combine(spec.Directory, manifest);
             d.MeshManifestPresent = File.Exists(d.MeshManifestPath);
             d.InstanceIndex = index;

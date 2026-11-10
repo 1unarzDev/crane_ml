@@ -151,7 +151,7 @@ namespace Crane.Fleet.Sim {
             double bf = spec.O["physics.body_friction"].Double;
             payloadCol.sharedMaterial = new PhysicsMaterial("payload") { dynamicFriction = (float)bf, staticFriction = (float)bf };
             payloadCol.providesContacts = true;
-            string pm = System.IO.Path.Combine(spec.Directory, spec.O["visual.payload_manifest"].String);
+            string pm = System.IO.Path.Combine(spec.Directory, spec.PayloadManifest);
             if (System.IO.File.Exists(pm)) AssetVisual.BuildPayload(AssetManifest.Load(pm), "payload_" + type, root.transform);
             else FleetGeometry.Visual(PrimitiveType.Cube, "render_payload", root.transform, FleetFrames.Local(0, 0, payloadSize[2] / 2), Quaternion.identity,
                 FleetFrames.LocalScale(payloadSize[0], payloadSize[1], payloadSize[2]), new Color(0.72f, 0.55f, 0.32f));

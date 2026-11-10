@@ -63,6 +63,24 @@ namespace Crane.Fleet {
         public readonly List<Shape> Collision = new List<Shape>();
         public readonly List<Face> Faces = new List<Face>();
         public readonly List<Hook> Hooks = new List<Hook>();
+
+        /// <summary>A fiducial tag of the asset (attachments.tags): AprilTag3 frame convention (x right, y down as seen by a viewer, z INTO the
+        /// tag), pose in its parent part frame (base_link for every v1 tag), outward normal on the viewer side.</summary>
+        public sealed class Tag { public string Name, Family, Parent; public int Id, InstanceIdOffset; public double Size; public ManifestPose Origin; public double[] OutwardNormal; }
+        public readonly List<Tag> Tags = new List<Tag>();
+        /// <summary>Dock face name -> its face tag name (attachments.docking_faces[].tag; v1 bevel tags above each dock).</summary>
+        public readonly Dictionary<string, string> FaceTags = new Dictionary<string, string>();
+
+        /// <summary>Rotation (row-major 3x3) of a manifest tag frame converted to the outward convention: z = outward normal, y = up on the tag
+        /// face, x = right as seen by a viewer (R_out = R(rpy) * diag(1, -1, -1)).</summary>
+        public static double[] OutwardRotation(double[] rpy) {
+            double cr = Math.Cos(rpy[0]), sr = Math.Sin(rpy[0]), cp = Math.Cos(rpy[1]), sp = Math.Sin(rpy[1]), cy = Math.Cos(rpy[2]), sy = Math.Sin(rpy[2]);
+            // R = Rz(yaw) Ry(pitch) Rx(roll)
+            var R = new[] { cy * cp, cy * sp * sr - sy * cr, cy * sp * cr + sy * sr,
+                            sy * cp, sy * sp * sr + cy * cr, sy * sp * cr - cy * sr,
+                            -sp, cp * sr, cp * cr };
+            return new[] { R[0], -R[1], -R[2], R[3], -R[4], -R[5], R[6], -R[7], -R[8] };
+        }
         public readonly List<(string name, string type, ManifestPose origin)> Sensors = new List<(string, string, ManifestPose)>();
         public string LiftPart;
         public double[] LiftRange;
@@ -147,6 +165,18 @@ namespace Crane.Fleet {
                     if (g.Has("opening_range")) m.GripperOpeningRange = g["opening_range"].Doubles;
                     if (g.Has("close_time")) m.GripperCloseTime = g["close_time"].Double;
                 }
+            }
+            var att = root.TryGet("attachments");
+            if (att != null) {
+                if (att.Has("tags"))
+                    foreach (var t in att["tags"].Items)
+                        m.Tags.Add(new Tag { Name = t["name"].String, Family = t.Has("family") ? t["family"].String : "tag36h11", Id = (int)t["id"].Double,
+                            Size = t["size"].Double, Parent = t.Has("parent") ? t["parent"].String : "base_link", Origin = ManifestPose.From(t["origin"]),
+                            OutwardNormal = t.Has("outward_normal") ? t["outward_normal"].Doubles : null,
+                            InstanceIdOffset = t.Has("instance_id_offset_per_unit") ? (int)t["instance_id_offset_per_unit"].Double : 0 });
+                if (att.Has("docking_faces"))
+                    foreach (var f in att["docking_faces"].Items)
+                        if (f.Has("tag") && f["tag"].Unwrapped is string tn) m.FaceTags[f["name"].String] = tn;
             }
             return m;
         }

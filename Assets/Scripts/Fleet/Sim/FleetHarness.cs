@@ -95,7 +95,7 @@ namespace Crane.Fleet.Sim {
         }
 
         public static FleetSpec SpecFor(string specDir, JsonNode j) =>
-            FleetSpec.LoadDirectory(specDir, j.Has("scenario") ? j["scenario"].String : FleetSpec.DefaultScenario);
+            FleetSpec.LoadDirectory(specDir, j.Has("scenario") ? j["scenario"].String : FleetSpec.DefaultScenario, j.Has("profile") ? j["profile"].String : FleetArgs.ProfileKey());
 
         static JobResult RunJob(string specDir, JsonNode j, string outDir, string launcher, string commit, bool dirty, Action<FleetRun> beforeSetup) {
             var spec = SpecFor(specDir, j);
