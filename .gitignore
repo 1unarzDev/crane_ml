@@ -123,3 +123,8 @@ __pycache__/
 
 # the plugin package (pyproject.toml) when pip-installed in place
 *.egg-info/
+
+# Drone forest: deterministic generator output (rebuild with
+#   unity-drones LOG -executeMethod Crane.Drones.Environment.Editor.BuildDroneForest.BuildFromCommandLine -forestSeed 1337 -quit)
+/Assets/Drones/Environment/Generated/
+/Assets/Drones/Environment/Generated.meta

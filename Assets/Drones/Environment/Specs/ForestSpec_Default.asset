@@ -1,0 +1,43 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3e4c21f2bd5396db88a1899b715b1452, type: 3}
+  m_Name: ForestSpec_Default
+  m_EditorClassIdentifier: Crane.Drones.Environment::Crane.Drones.Environment.ForestSpec
+  seed: 1337
+  lightingPreset: GoldenHour
+  areaSize: 140
+  stemDensityPerHa: 450
+  saplingDensityPerHa: 380
+  dbhMeanCm: 26
+  dbhSigma: 0.45
+  spacingK: 7
+  spacingBase: 1
+  clustering: 0.5
+  coniferFraction: 0.45
+  deadFraction: 0.07
+  canopyOpenness: 0.25
+  clearingCount: 3
+  clearingRadiusRange: {x: 9, y: 16}
+  slopeDeg: 6
+  terrainRoughness: 1
+  branchHeightMin: 1.2
+  lowBranchDensity: 1
+  lowTwigMaxLength: 1.7
+  corridorClearRadius: 1.3
+  trailWidth: 2.4
+  undergrowthDensity: 1
+  fernDensity: 1
+  logCount: 14
+  rockCount: 26
+  targetCount: 3
+  targetOcclusion: 0.6
+  targetDistanceFromSpawn: {x: 22, y: 60}
