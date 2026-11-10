@@ -1,0 +1,187 @@
+{
+  "schema": "crane.fleet_run_manifest/v0",
+  "run_id": "fleet/warehouse_a/v0/autonomy/1",
+  "seed": 1,
+  "variant": "autonomy",
+  "git_commit": "aae01b905c60888c8c2dc00469151874db53ace3",
+  "git_dirty": false,
+  "launcher": "player",
+  "unity_version": "6000.5.10f1",
+  "platform": "LinuxPlayer",
+  "graphics_device": "Vulkan",
+  "profile": {
+    "path": "/home/lunarz/worktrees/crane-fleet/Assets/StreamingAssets/Fleet/fleet_profile_v0.json",
+    "sha256": "7674dd0e7ef6b678f04d7b2e9af97990390632650149e2519b90c26ecf96ce31",
+    "id": "mecanum_fleet_provisional_v0"
+  },
+  "scenario": {
+    "path": "/home/lunarz/worktrees/crane-fleet/Assets/StreamingAssets/Fleet/scenarios/warehouse_a_v0.json",
+    "sha256": "8f58f3bbaaec1eec91f94d515729bbbcdd5f8aea0a680d7dc225403d49d9b943",
+    "id": "fleet/warehouse_a/v0"
+  },
+  "overlay": {
+    "path": "/home/lunarz/worktrees/crane-fleet/Assets/StreamingAssets/Fleet/crane_fleet_sim_v0.json",
+    "sha256": "e1594d7514138311303d461a9bb0872f3d47623b66ff069516402a6a1085766a"
+  },
+  "parameters": {
+    "dt": 0.005,
+    "state_hz": 20,
+    "traj_hz": 20,
+    "max_duration_s": 320,
+    "doorway_width": 0.8,
+    "floor": "hard_tile",
+    "controller_input": "estimate (Crane.Fleet.Autonomy: own encoders, gyro, perception-core tag observations; wheel-speed commands into the plant)",
+    "mission": "AutonomyMission",
+    "failures": "",
+    "physics_scene": "local (CreateScene, LocalPhysicsMode.Physics3D)",
+    "estimate_source": "wheel encoders (ideal kinematics) + gyro heading; initialised from truth at t=0",
+    "physics": "Unity PhysX Rigidbody, simulationMode=Script, frictionless wheel spheres, plant force at CoM"
+  },
+  "files": {
+    "states": "states.jsonl: per row t, step, truth{id:{pose, body twist}} (evaluator only), estimate{id:{odometry, gyro, ticks}} (rover's own), actuation{id:{cmd, wheels, slip, loads}}",
+    "events": "events.jsonl",
+    "trajectory": "trajectory.ctraj (crane-traj/1, truth, ENU, agents = rover ids)"
+  },
+  "rovers": [{"id":"scout_1","role":"scout","namespace":"/fleet/scout_1","mass":8,"render":"/home/lunarz/worktrees/crane-fleet/Assets/StreamingAssets/Fleet/assets_provisional_v0/scout/scout.manifest.json","mesh_manifest":"/home/lunarz/worktrees/crane-fleet/Assets/StreamingAssets/Fleet/assets_provisional_v0/scout/scout.manifest.json","mesh_manifest_present":true,"plant_model":"mecanum_body","module_type":null,"type_hash":null,"wheels":["fl:mecanum","fr:mecanum","rl:mecanum","rr:mecanum"]}, {"id":"lifter_1","role":"lifter","namespace":"/fleet/lifter_1","mass":8,"render":"/home/lunarz/worktrees/crane-fleet/Assets/StreamingAssets/Fleet/assets_provisional_v0/lifter/lifter.manifest.json","mesh_manifest":"/home/lunarz/worktrees/crane-fleet/Assets/StreamingAssets/Fleet/assets_provisional_v0/lifter/lifter.manifest.json","mesh_manifest_present":true,"plant_model":"mecanum_body","module_type":null,"type_hash":null,"wheels":["fl:mecanum","fr:mecanum","rl:mecanum","rr:mecanum"]}, {"id":"cargo_1","role":"cargo","namespace":"/fleet/cargo_1","mass":6.8,"render":"/home/lunarz/worktrees/crane-fleet/Assets/StreamingAssets/Fleet/assets_provisional_v0/cargo/cargo.manifest.json","mesh_manifest":"/home/lunarz/worktrees/crane-fleet/Assets/StreamingAssets/Fleet/assets_provisional_v0/cargo/cargo.manifest.json","mesh_manifest_present":true,"plant_model":"mecanum_body","module_type":null,"type_hash":null,"wheels":["fl:mecanum","fr:mecanum","rl:mecanum","rr:mecanum"]}, {"id":"cargo_2","role":"cargo","namespace":"/fleet/cargo_2","mass":6.8,"render":"/home/lunarz/worktrees/crane-fleet/Assets/StreamingAssets/Fleet/assets_provisional_v0/cargo/cargo.manifest.json","mesh_manifest":"/home/lunarz/worktrees/crane-fleet/Assets/StreamingAssets/Fleet/assets_provisional_v0/cargo/cargo.manifest.json","mesh_manifest_present":true,"plant_model":"mecanum_body","module_type":null,"type_hash":null,"wheels":["fl:mecanum","fr:mecanum","rl:mecanum","rr:mecanum"]}],
+  "labels": {
+    "scenario_id": "fleet/warehouse_a/v0",
+    "scenario_sha256": "8f58f3bbaaec1eec91f94d515729bbbcdd5f8aea0a680d7dc225403d49d9b943",
+    "configuration": "profile:mecanum_fleet_provisional_v0:fleet_default",
+    "configuration_hash": "7674dd0e7ef6b678f04d7b2e9af97990390632650149e2519b90c26ecf96ce31",
+    "variant": "autonomy",
+    "seed": 1,
+    "floor": "hard_tile",
+    "failure_state": "none",
+    "mission": "AutonomyMission",
+    "controller_input": "estimate (Crane.Fleet.Autonomy: own encoders, gyro, perception-core tag observations; wheel-speed commands into the plant)",
+    "mission_id": "warehouse_a_demo_closed_loop_v2",
+    "mission_sha256": "be9eff8a751f3ff0a4c446ae2505e140883ba943f48df19c8575d5ca79cac3d8",
+    "autonomy": "Crane.Fleet.Autonomy (closed loop)",
+    "payload_class": "box_long",
+    "interface_pair_types": "hermaphroditic_hook2_magnet+hermaphroditic_hook2_magnet"
+  },
+  "complete": true,
+  "end_reason": "script_complete",
+  "t_end": 135.91,
+  "steps": 27182,
+  "wall_start_utc": "2026-11-10T13:52:53.8961420Z",
+  "wall_seconds": 385.936895,
+  "results": {
+    "final": {
+      "scout_1": {
+        "truth": {
+          "x": 7.3061604499816895,
+          "y": 4.8943228721618652,
+          "yaw": -2.0618275499047729
+        },
+        "estimate": {
+          "x": 7.5881388346772054,
+          "y": 5.0781202891169013,
+          "yaw": -1.9311786723809268
+        },
+        "odometry_error_xy": 0.336590700873978,
+        "odometry_error_yaw": 0.13064887752384613,
+        "script_step": "idle"
+      },
+      "lifter_1": {
+        "truth": {
+          "x": 5.3937821388244629,
+          "y": 4.4450764656066895,
+          "yaw": -3.1364040465485394
+        },
+        "estimate": {
+          "x": 5.3549025185225316,
+          "y": 5.9077297241085072,
+          "yaw": -2.6093899377756995
+        },
+        "odometry_error_xy": 1.4631699079330491,
+        "odometry_error_yaw": 0.52701410877283994,
+        "script_step": "idle"
+      },
+      "cargo_1": {
+        "truth": {
+          "x": 8.9387845993042,
+          "y": 3.521282434463501,
+          "yaw": -0.00047039982187131729
+        },
+        "estimate": {
+          "x": 8.8553953152777556,
+          "y": 2.4885036307430095,
+          "yaw": -0.27462096996417557
+        },
+        "odometry_error_xy": 1.0361398699523017,
+        "odometry_error_yaw": -0.27415057014230426,
+        "script_step": "idle"
+      },
+      "cargo_2": {
+        "truth": {
+          "x": 8.5143289566040039,
+          "y": 3.5220551490783691,
+          "yaw": 0.0009022951366509564
+        },
+        "estimate": {
+          "x": 8.3883629084744555,
+          "y": 2.0226894593790661,
+          "yaw": -0.48144923719870564
+        },
+        "odometry_error_xy": 1.50464777164918,
+        "odometry_error_yaw": -0.4823515323353566,
+        "script_step": "idle"
+      }
+    },
+    "jams": [],
+    "autonomy": {
+      "coupling_cargo_2.front-cargo_1.rear": {
+        "t": 44.015,
+        "lateral": -0.000861152948345989,
+        "yaw": 0.0013730878148896508,
+        "gap": 0.0044558574445545673
+      },
+      "lift_static_check": {
+        "payload": "payload_box_long",
+        "payload_kg": 6,
+        "capacity_kg": 5,
+        "over_capacity": true,
+        "combined_com_x": 0.27964131321225849,
+        "front_axle_x": 0.14,
+        "would_tip_forward": true,
+        "note": "carry is kinematic: lifter load and tipping are not simulated"
+      },
+      "host_verdict": {
+        "t": 133.9,
+        "ok": true,
+        "reason": "payload on_decks at (8.76, 3.51), in delivery zone True, speed 0.010 m/s, judged 0.13 s after believed-complete"
+      },
+      "tasks": [{"id":"settle","type":"wait","state":"Succeeded","attempts":1,"started":1.5,"ended":3,"class":"None","reason":null}, {"id":"find","type":"explore","state":"Succeeded","attempts":1,"started":3.005,"ended":22.900000000000002,"class":"None","reason":null}, {"id":"watch","type":"goto","state":"Succeeded","attempts":1,"started":22.905,"ended":41.485,"class":"None","reason":null}, {"id":"pick","type":"lift","state":"Succeeded","attempts":1,"started":22.905,"ended":71.105,"class":"None","reason":null}, {"id":"meet","type":"rendezvous","state":"Succeeded","attempts":1,"started":3.005,"ended":32.45,"class":"None","reason":null}, {"id":"couple","type":"dock","state":"Succeeded","attempts":1,"started":32.455,"ended":44.025,"class":"None","reason":null}, {"id":"give","type":"handoff","state":"Succeeded","attempts":1,"started":71.11,"ended":104.68,"class":"None","reason":null}, {"id":"lifter_clear","type":"goto","state":"Succeeded","attempts":1,"started":104.685,"ended":109.11,"class":"None","reason":null}, {"id":"deliver","type":"transport","state":"Succeeded","attempts":1,"started":109.11500000000001,"ended":133.77,"class":"None","reason":null}],
+      "done": true,
+      "library_believed_complete": true,
+      "succeeded": true,
+      "first_failure_class": "None",
+      "first_failure": null,
+      "payload_final": {
+        "x": 8.7610301971435547,
+        "y": 3.5103764533996582,
+        "bottom_height": 0.1520000696182251,
+        "mode": "dynamic",
+        "in_delivery_zone": true
+      },
+      "payload_truth": {
+        "state": "on_decks",
+        "supporters": ["cargo_1", "cargo_2"],
+        "touches_floor": false,
+        "x": 8.7610301971435547,
+        "y": 3.5103764533996582,
+        "bottom_height": 0.1520000696182251,
+        "tilt": 6.8124643348699844E-07,
+        "speed": 1.0609556738927495E-05,
+        "in_delivery_zone": true,
+        "delivered": true
+      },
+      "belief_vs_truth": [{"t":3,"task":"settle","type":"wait","library_believed":"succeeded","truth":"not checked","agree":true}, {"t":22.900000000000002,"task":"find","type":"explore","library_believed":"succeeded","truth":"target seen by the agent's own camera (perception core)","agree":true}, {"t":32.45,"task":"meet","type":"rendezvous","library_believed":"succeeded","truth":"not checked","agree":true}, {"t":41.485,"task":"watch","type":"goto","library_believed":"succeeded","truth":"scout_1 truth (7.30, 4.89) is 0.01 m from the goal (7.30, 4.90)","agree":true}, {"t":44.025,"task":"couple","type":"dock","library_believed":"succeeded","truth":"coupling cargo_2.front-cargo_1.rear LOAD_VALIDATED, joint=True","agree":true}, {"t":71.105,"task":"pick","type":"lift","library_believed":"succeeded","truth":"payload carried","agree":true}, {"t":104.68,"task":"give","type":"handoff","library_believed":"succeeded","truth":"payload on_decks, on decks of [cargo_1,cargo_2] (wanted [cargo_1,cargo_2]), bottom 0.152 m","agree":true}, {"t":109.11,"task":"lifter_clear","type":"goto","library_believed":"succeeded","truth":"lifter_1 truth (5.40, 4.44) is 0.01 m from the goal (5.40, 4.45)","agree":true}, {"t":133.77,"task":"deliver","type":"transport","library_believed":"succeeded","truth":"cargo_1 truth (8.94, 3.52) is 0.03 m from the goal (8.96, 3.50); payload on_decks at (8.76, 3.51), delivered=True","agree":true}],
+      "disagreements": 0,
+      "jams": [],
+      "truth_outcome": "delivered",
+      "summary": "library believed: complete, host verdict accepted; truth: delivered; 0 disputed claims; 0 jams"
+    }
+  }
+}
