@@ -184,6 +184,7 @@ namespace Crane.Fleet.Sim {
             Step++;
             T = Step * dt;
             foreach (var r in Rovers) { r.Sense(Step); r.UpdateVisual(); }
+            DetectJams();
             M?.PostStep(this);
             foreach (string c in pendingContacts) events.WriteLine(c);
             pendingContacts.Clear();
@@ -211,6 +212,7 @@ namespace Crane.Fleet.Sim {
                 };
             }
             results["final"] = final;
+            results["jams"] = Jams;
             M?.Finish(this, results);
             Event("run_end", "", new Dictionary<string, object> { ["reason"] = EndReason, ["t"] = T, ["steps"] = Step });
             states.Dispose(); events.Dispose();
@@ -331,12 +333,57 @@ namespace Crane.Fleet.Sim {
                     if ((a.name == "floor" || b.name == "floor") && (a is SphereCollider || b is SphereCollider)) continue;  // wheel-floor
                     if (ra != null && rb != null && IgnoreContact != null && IgnoreContact(ra, rb)) continue;
                     loggedPairs.Add(key);
+                    if (ra != null) lastContact[ra] = (T, rb != null ? rb.D.Id + ":" + b.name : b.name);
+                    if (rb != null) lastContact[rb] = (T, ra != null ? ra.D.Id + ":" + a.name : a.name);
                     string na = ra != null ? ra.D.Id + ":" + a.name : a.name, nb = rb != null ? rb.D.Id + ":" + b.name : b.name;
                     pendingContacts.Add(EventLine("contact", ra != null ? ra.D.Id : rb != null ? rb.D.Id : "", new Dictionary<string, object> {
                         ["a"] = na, ["b"] = nb, ["impulse"] = impulse }));
                 }
             }
         }
+
+        // ---- evaluator-only stall/jam detection: wheels commanded, body not moving ----
+        readonly Dictionary<RoverRig, (double t, string other)> lastContact = new Dictionary<RoverRig, (double, string)>();
+        readonly Dictionary<RoverRig, double> stalledSince = new Dictionary<RoverRig, double>();
+        readonly Dictionary<RoverRig, bool> jammed = new Dictionary<RoverRig, bool>();
+        public readonly List<Dictionary<string, object>> Jams = new List<Dictionary<string, object>>();
+        const double JamWheelRate = 1.0, JamSpeed = 0.02, JamYawRate = 0.05, JamAfter = 1.0;
+
+        /// <summary>A rover is jammed when it commands wheel motion (max |wheel set-point| above 1 rad/s) while its true body speed stays below
+        /// 2 cm/s and yaw rate below 0.05 rad/s for more than 1 s. Evaluator-only signal (truth), logged as jam_start / jam_end with the
+        /// last contact partner. A rover being pushed against a wall by its own wheels is the typical case.</summary>
+        void DetectJams() {
+            foreach (var r in Rovers) {
+                double cmd = 0;
+                for (int i = 0; i < 4; i++) cmd = Math.Max(cmd, Math.Abs(r.Plant.WheelCommand[i]));
+                var tw = FleetFrames.BodyTwist(r.Body);
+                bool still = Math.Sqrt(tw.Vx * tw.Vx + tw.Vy * tw.Vy) < JamSpeed && Math.Abs(tw.Wz) < JamYawRate;
+                bool stalled = cmd > JamWheelRate && still;
+                jammed.TryGetValue(r, out bool was);
+                if (stalled) {
+                    if (!stalledSince.ContainsKey(r)) stalledSince[r] = T;
+                    if (!was && T - stalledSince[r] >= JamAfter) {
+                        jammed[r] = true;
+                        var t = r.Truth();
+                        lastContact.TryGetValue(r, out var lc);
+                        var f = new Dictionary<string, object> { ["since"] = stalledSince[r], ["x"] = t.X, ["y"] = t.Y, ["yaw"] = t.Yaw, ["wheel_cmd_max"] = cmd,
+                            ["last_contact"] = lc.other, ["last_contact_t"] = lc.other != null ? lc.t : double.NaN, ["evaluator_only"] = true };
+                        Jams.Add(new Dictionary<string, object>(f) { ["rover"] = r.D.Id, ["end"] = double.NaN });
+                        Event("jam_start", r.D.Id, f);
+                    }
+                }
+                else {
+                    stalledSince.Remove(r);
+                    if (was) {
+                        jammed[r] = false;
+                        for (int i = Jams.Count - 1; i >= 0; i--) if ((string)Jams[i]["rover"] == r.D.Id) { Jams[i]["end"] = T; break; }
+                        Event("jam_end", r.D.Id, new Dictionary<string, object> { ["evaluator_only"] = true });
+                    }
+                }
+            }
+        }
+
+        public bool IsJammed(RoverRig r) => jammed.TryGetValue(r, out bool j) && j;
 
         readonly HashSet<(Collider, Collider)> loggedPairs = new HashSet<(Collider, Collider)>();
         const double contactImpulseThreshold = 1e-4;

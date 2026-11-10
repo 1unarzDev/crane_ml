@@ -98,12 +98,13 @@ namespace Crane.Fleet.Sim {
             var m = JsonNode.FromText(File.ReadAllText(Path.Combine(run.Dir, "manifest.json")));
             var results = m["results"];
             if (run.Opt.Mission is AutonomyMission) {
+                // outcome from evaluator truth only; the library's own verdict is reported next to it
                 var a = results.TryGet("autonomy");
-                bool ok = a != null && a["succeeded"].Bool;
-                bool inZone = a != null && a.Has("payload_final") && a["payload_final.in_delivery_zone"].Bool;
-                res.Success = ok;
-                res.Outcome = ok ? (inZone ? "mission_succeeded_payload_delivered" : "mission_succeeded") : "mission_failed";
-                res.Reason = a != null ? $"end={run.EndReason} first_failure_class={a["first_failure_class"].String} first_failure={(a["first_failure"].Unwrapped as string ?? "")}" : "end=" + run.EndReason;
+                string truth = a != null && a.Has("truth_outcome") ? a["truth_outcome"].String : "unknown";
+                bool libOk = a != null && a["succeeded"].Bool;
+                res.Success = truth == "delivered";
+                res.Outcome = "truth:" + truth;
+                res.Reason = (a != null && a.Has("summary") ? a["summary"].String : "") + $" | end={run.EndReason}";
             }
             else if (run.Opt.Mission is DemoMission) {
                 var demo = results.TryGet("demo");

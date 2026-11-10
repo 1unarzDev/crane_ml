@@ -41,6 +41,9 @@ namespace Crane.Fleet.Sim {
         int autonomyEventIndex;
         double doneAt = double.NaN;
         readonly Dictionary<string, object> results = new Dictionary<string, object>();
+        readonly Dictionary<string, TaskState> lastState = new Dictionary<string, TaskState>();
+        readonly List<object> beliefVsTruth = new List<object>();
+        int disagreements;
 
         sealed class Clock : IClock { public double Now { get; set; } }
 
@@ -198,6 +201,11 @@ namespace Crane.Fleet.Sim {
                 var e = fleet.Events[autonomyEventIndex];
                 run.Event("autonomy", e.Agent ?? "", new Dictionary<string, object> { ["event"] = e.Kind, ["task"] = e.Task, ["detail"] = e.Detail, ["t_autonomy"] = e.T });
             }
+            foreach (var rec in fleet.Executive.Records) {
+                lastState.TryGetValue(rec.Spec.Id, out var prev);
+                if (rec.State != prev && rec.State == TaskState.Succeeded) CheckClaim(rec);
+                lastState[rec.Spec.Id] = rec.State;
+            }
             if (fleet.Executive.Done && double.IsNaN(doneAt)) {
                 doneAt = r.T;
                 run.Event(fleet.Executive.Succeeded ? "mission_succeeded" : "mission_failed", "", new Dictionary<string, object> {
@@ -265,6 +273,84 @@ namespace Crane.Fleet.Sim {
             if (Payload != null) perception.RecordObject(r.T, payloadId, PayloadBase(), payloadTag);
         }
 
+        // ------------------------------------------------------------------ evaluator truth checks
+        JsonNode TaskJson(string id) { foreach (var t in missionJson["tasks"].Items) if (t["id"].String == id) return t; return null; }
+
+        /// <summary>Payload support from truth: which deck colliders it rests on (within 5 mm), its bottom height and tilt.</summary>
+        public Dictionary<string, object> PayloadTruth() {
+            if (Payload == null) return null;
+            var sup = new List<object>();
+            bool floor = false;
+            Vector3 probe = payloadCol.transform.position + Vector3.down * 0.005f;
+            var hits = new Collider[64];
+            int n = run.Phys.Physics.OverlapBox(probe, payloadCol.size / 2, hits, payloadCol.transform.rotation, ~0, QueryTriggerInteraction.Ignore);
+            for (int i = 0; i < n; i++) {
+                var col = hits[i];
+                if (col == payloadCol) continue;
+                if (col.name == "floor") floor = true;
+                foreach (var r in run.Rovers) if (col.transform.IsChildOf(r.Root.transform) && col.name.Contains("deck") && !sup.Contains(r.D.Id)) sup.Add(r.D.Id);
+            }
+            FleetFrames.Attitude(Payload.rotation, out _, out double pitch, out double roll);
+            var c = FleetFrames.Planar(Payload.transform);
+            double[] z = spec.S["zones.delivery.rect"].Doubles;
+            bool inZone = c.X >= z[0] && c.X <= z[2] && c.Y >= z[1] && c.Y <= z[3];
+            double tilt = Math.Max(Math.Abs(pitch), Math.Abs(roll));
+            bool onDecks = payloadMode != "carried" && sup.Count > 0 && !floor && tilt < 0.1;
+            string state = payloadMode == "carried" ? "carried" : onDecks ? "on_decks" : floor ? "on_floor" : "unsupported_or_tilted";
+            return new Dictionary<string, object> { ["state"] = state, ["supporters"] = sup, ["touches_floor"] = floor, ["x"] = c.X, ["y"] = c.Y,
+                ["bottom_height"] = (double)Payload.position.y, ["tilt"] = tilt, ["speed"] = (double)Payload.linearVelocity.magnitude,
+                ["in_delivery_zone"] = inZone, ["delivered"] = inZone && onDecks && Payload.linearVelocity.magnitude < 0.01 };
+        }
+
+        /// <summary>The library declared a task succeeded: check the same claim against evaluator truth and log any disagreement.</summary>
+        void CheckClaim(TaskRecord rec) {
+            var t = TaskJson(rec.Spec.Id);
+            string type = rec.Spec.Type, truthSays = null; bool agree = true;
+            switch (type) {
+                case "goto":
+                case "transport": {
+                    var r = run.Rover(t["agent"].String); var tr = r.Truth(); double[] g = t["goal"].Doubles;
+                    double d = Math.Sqrt((tr.X - g[0]) * (tr.X - g[0]) + (tr.Y - g[1]) * (tr.Y - g[1]));
+                    double tol = t.Has("tol") ? t["tol"].Doubles[0] : 0.1;
+                    agree = d <= Math.Max(0.1, 2 * tol);
+                    truthSays = $"{r.D.Id} truth ({tr.X:0.00}, {tr.Y:0.00}) is {d:0.00} m from the goal ({g[0]:0.00}, {g[1]:0.00})" + (run.IsJammed(r) ? ", jammed" : "");
+                    if (type == "transport" && t.Has("payload")) {
+                        var p = PayloadTruth();
+                        bool del = p != null && (bool)p["delivered"];
+                        agree &= del;
+                        truthSays += $"; payload {p?["state"]} at ({p?["x"]:0.00}, {p?["y"]:0.00}), delivered={del}";
+                    }
+                    break;
+                }
+                case "dock": {
+                    var c = couplings.Of(run.Rover(t["docker"].String), t["docker_face"].String);
+                    agree = c != null && c.Joint != null;
+                    truthSays = c != null ? $"coupling {c.Id} {ConnectorStateNames.ToProfileName(c.Machine.State)}, joint={(c.Joint != null)}" : "no coupling";
+                    break;
+                }
+                case "lift": {
+                    agree = payloadMode == "carried";
+                    truthSays = "payload " + payloadMode;
+                    break;
+                }
+                case "handoff": {
+                    var p = PayloadTruth();
+                    var want = new List<string>(); foreach (var x in t["supporters"].Items) want.Add(x.String);
+                    var sup = p != null ? (List<object>)p["supporters"] : new List<object>();
+                    agree = p != null && (string)p["state"] == "on_decks" && sup.Count == want.Count;
+                    truthSays = $"payload {p?["state"]}, on decks of [{string.Join(",", sup)}] (wanted [{string.Join(",", want)}]), bottom {p?["bottom_height"]:0.000} m";
+                    break;
+                }
+                case "explore": truthSays = "target seen by the agent's own camera (perception core)"; break;
+                default: truthSays = "not checked"; break;
+            }
+            var row = new Dictionary<string, object> { ["t"] = run.T, ["task"] = rec.Spec.Id, ["type"] = type, ["library_believed"] = "succeeded",
+                ["truth"] = truthSays, ["agree"] = agree };
+            beliefVsTruth.Add(row);
+            if (!agree) disagreements++;
+            run.Event(agree ? "claim_confirmed" : "claim_disputed", "", row);
+        }
+
         // ------------------------------------------------------------------ logs
         public void LogState(StringBuilder b) {
             string N(double v) => FleetJson.Num(v);
@@ -316,11 +402,26 @@ namespace Crane.Fleet.Sim {
                 results["payload_final"] = new Dictionary<string, object> { ["x"] = c.X, ["y"] = c.Y, ["bottom_height"] = (double)Payload.position.y, ["mode"] = payloadMode,
                     ["in_delivery_zone"] = c.X >= z[0] && c.X <= z[2] && c.Y >= z[1] && c.Y <= z[3] };
             }
+            var pt = PayloadTruth();
+            results["payload_truth"] = pt;
+            results["belief_vs_truth"] = beliefVsTruth;
+            results["disagreements"] = disagreements;
+            results["jams"] = run.Jams;
+            bool delivered = pt != null && (bool)pt["delivered"];
+            results["truth_outcome"] = delivered ? "delivered" : pt == null ? "no_payload" : "not_delivered: payload " + pt["state"];
+            results["summary"] = $"library believed: {(fleet.Executive.Succeeded ? "mission succeeded" : "mission failed (" + fleet.Executive.FirstFailureClass + ")")}; " +
+                $"truth: {results["truth_outcome"]}; {disagreements} disputed claims; {run.Jams.Count} jams";
             res["autonomy"] = results;
         }
 
         // ------------------------------------------------------------------ I/O
-        sealed class Source : IObservationSource, IRoverSampleSink {
+        sealed class Source : IObservationSource, IRoverSampleSink, Crane.Fleet.Autonomy.IObservationSourceExtras {
+            readonly List<Crane.Fleet.Autonomy.WheelRateSample> rates = new List<Crane.Fleet.Autonomy.WheelRateSample>();
+            readonly List<Crane.Fleet.Autonomy.AccelSample> accel = new List<Crane.Fleet.Autonomy.AccelSample>();
+            public void OnWheelRates(double t, double[] c, double[] m) => rates.Add(new Crane.Fleet.Autonomy.WheelRateSample { Stamp = t, Commanded = c, Measured = m });
+            public void OnAccel(double t, double ax, double ay) => accel.Add(new Crane.Fleet.Autonomy.AccelSample { Stamp = t, Ax = ax, Ay = ay });
+            public void ReadWheelRates(List<Crane.Fleet.Autonomy.WheelRateSample> into) { into.Clear(); into.AddRange(rates); rates.Clear(); }
+            public void ReadAccel(List<Crane.Fleet.Autonomy.AccelSample> into) { into.Clear(); into.AddRange(accel); accel.Clear(); }
             readonly AutonomyMission m; readonly RoverRig rig;
             readonly List<EncoderSample> enc = new List<EncoderSample>();
             readonly List<GyroSample> gyro = new List<GyroSample>();
@@ -374,5 +475,7 @@ namespace Crane.Fleet.Sim {
     public interface IRoverSampleSink {
         void OnEncoder(double t, long[] ticks);
         void OnGyro(double t, double rate);
+        void OnWheelRates(double t, double[] commanded, double[] measured);
+        void OnAccel(double t, double ax, double ay);
     }
 }

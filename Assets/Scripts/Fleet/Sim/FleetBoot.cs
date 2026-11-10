@@ -244,6 +244,16 @@ namespace Crane.Fleet.Sim {
                 cam.fieldOfView = (float)s.Fov;
                 FleetLook.ConfigureCinematic(cam, w, h, s.Fov, s.Aperture, (l - p).magnitude);
             }
+            // cutaway (labelled in stills.jsonl): hide named render parts of named rovers for this shot only, e.g. the chassis shell
+            // so the hooks and catch pins inside the docking pocket are visible
+            var hidden = new List<Renderer>();
+            if (s.Camera.Has("cutaway"))
+                foreach (var rid in s.Camera["cutaway.rovers"].Items)
+                    foreach (var part in s.Camera["cutaway.parts"].Items) {
+                        var root = run.Rover(rid.String).RenderRoot;
+                        foreach (var rr in root.GetComponentsInChildren<Renderer>())
+                            if (rr.transform.name == part.String && rr.enabled) { rr.enabled = false; hidden.Add(rr); }
+                    }
             var rt = new RenderTexture(w, h, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB) { antiAliasing = 1 };
             rt.Create();
             cam.targetTexture = rt;
@@ -256,10 +266,11 @@ namespace Crane.Fleet.Sim {
             tex.Apply();
             RenderTexture.active = prev;
             File.WriteAllBytes(path, tex.EncodeToPNG());
+            foreach (var rr in hidden) rr.enabled = true;
             var rec = new Dictionary<string, object> { ["shot"] = s.Name, ["file"] = Path.GetFileName(path), ["t"] = run.T, ["step"] = run.Step,
                 ["trigger"] = s.Event != null ? s.Event + (s.Value != null ? ":" + s.Value : "") + "+" + s.Offset.ToString(CultureInfo.InvariantCulture) : "t",
                 ["profile"] = s.Camera.Has("sensor") ? "sensor" : "cinematic", ["camera"] = new[] { (double)p.x, p.z, p.y }, ["look_at"] = new[] { (double)l.x, l.z, l.y },
-                ["fov"] = s.Fov, ["size"] = new[] { w, h } };
+                ["fov"] = s.Fov, ["size"] = new[] { w, h }, ["cutaway"] = s.Camera.Has("cutaway") ? FleetJson.Write(s.Camera["cutaway"].Raw) : null };
             if (run.Opt.Mission is DemoMission dm) {
                 rec["connector"] = dm.ConnectorState;
                 rec["hook_pos"] = dm.HookPos;

@@ -1,0 +1,9 @@
+{
+  "note": "Closed-loop demo (Crane.Fleet.Autonomy), mission v1, seeds 1 and 2; outcomes from evaluator truth (phase 3).",
+  "out": "/home/lunarz/.cache/crane-fleet/jobs/autonomy_demo_v1",
+  "divergence_tol": 0.001,
+  "jobs": [
+    {"id": "auto_v1_s1", "seed": 1, "variant": "autonomy_v1", "mission_file": "/home/lunarz/worktrees/crane-fleet/Tools/Fleet/missions/autonomy_demo_v1.json"},
+    {"id": "auto_v1_s2", "seed": 2, "variant": "autonomy_v1", "mission_file": "/home/lunarz/worktrees/crane-fleet/Tools/Fleet/missions/autonomy_demo_v1.json"}
+  ]
+}

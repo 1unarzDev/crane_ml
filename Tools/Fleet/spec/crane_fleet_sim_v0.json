@@ -62,6 +62,11 @@
     "imu_initial_bias_sigma": {
       "value": 0.002,
       "provenance": "provisional"
+    },
+    "imu_accel_noise_density": {
+      "value": 0.002,
+      "provenance": "provisional",
+      "note": "m/s^2/sqrt(Hz); the profile has no accelerometer entry"
     }
   },
   "logging": {
@@ -185,7 +190,7 @@
     },
     "payload_manifest": "assets_provisional_v0/payloads/payloads.manifest.json",
     "led_size": {
-      "value": 0.018,
+      "value": 0.03,
       "provenance": "provisional"
     },
     "led_height": {
@@ -1359,25 +1364,65 @@
         "event": "connector",
         "field": "to",
         "value": "MAGNET_CAPTURED",
-        "offset": 0.9,
+        "offset": 0.4,
         "camera": {
           "target": "rover:cargo_1:face_rear",
           "position": [
-            0.12,
-            0.55,
+            0.05,
+            0.42,
             0.3
           ],
           "look_at": [
             0.0,
             0.0,
-            0.0
-          ]
+            0.04
+          ],
+          "cutaway": {
+            "rovers": [
+              "cargo_1",
+              "cargo_2"
+            ],
+            "parts": [
+              "chassis_body",
+              "deck"
+            ]
+          }
         },
         "fov": 32.0,
         "aperture": 4.0
       },
       {
         "name": "03c_dock_latched",
+        "event": "coupled",
+        "offset": 0.2,
+        "camera": {
+          "target": "rover:cargo_1:face_rear",
+          "position": [
+            0.05,
+            0.42,
+            0.3
+          ],
+          "look_at": [
+            0.0,
+            0.0,
+            0.04
+          ],
+          "cutaway": {
+            "rovers": [
+              "cargo_1",
+              "cargo_2"
+            ],
+            "parts": [
+              "chassis_body",
+              "deck"
+            ]
+          }
+        },
+        "fov": 32.0,
+        "aperture": 4.0
+      },
+      {
+        "name": "03d_dock_latched_shell",
         "event": "coupled",
         "offset": 0.2,
         "camera": {

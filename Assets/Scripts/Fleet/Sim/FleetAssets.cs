@@ -183,7 +183,7 @@ namespace Crane.Fleet.Sim {
         public void SetLed(string face, Color c, float nits) {
             if (!Leds.TryGetValue(face, out var r)) return;
             var m = r.sharedMaterial;
-            m.SetColor("_BaseColor", c * 0.3f);
+            m.SetColor("_BaseColor", c.maxColorComponent > 0 ? c : new Color(0.05f, 0.05f, 0.05f));   // visible without emission
             if (m.HasProperty("_EmissiveColor")) m.SetColor("_EmissiveColor", c * nits);
         }
 

@@ -32,7 +32,10 @@ namespace Crane.Fleet.Sim {
         public readonly AssetVisual Visual;   // null for primitives
         public double Lift, GripperOpening = double.NaN;
         public bool CameraLost, EncodersLost;
-        public IRoverSampleSink SampleSink;   // the autonomy source receives the rover's own samples as they are produced   // injected sensor failures (rover side sees no tags / frozen encoders)   // lifter state (m), render and payload carry
+        public IRoverSampleSink SampleSink;
+        Vector3 prevVel; bool havePrevVel;
+        readonly long[] prevTicks = new long[4];
+        FleetRng accelRng; double accelNoise;   // the autonomy source receives the rover's own samples as they are produced   // injected sensor failures (rover side sees no tags / frozen encoders)   // lifter state (m), render and payload carry
 
         readonly int imuEvery, encEvery;
         readonly double dt;
@@ -115,6 +118,8 @@ namespace Crane.Fleet.Sim {
             Encoders = new WheelEncoders(d.Geometry.CountsPerRev);
             Gyro = new YawGyro(FleetRng.For(seed, d.Id + "/imu"), p["sensors.imu.gyro_noise_density"].Double,
                 p["sensors.imu.gyro_bias_instability"].Double, o["plant.imu_initial_bias_sigma"].Double);
+            accelRng = FleetRng.For(seed, d.Id + "/accel");
+            accelNoise = o["plant.imu_accel_noise_density"].Double;
             imuEvery = Math.Max(1, (int)Math.Round(1.0 / (p["sensors.imu.rate_hz"].Double * dt)));
             encEvery = Math.Max(1, (int)Math.Round(1.0 / (p["sensors.wheel_encoder.rate_hz"].Double * dt)));
         }
@@ -152,11 +157,26 @@ namespace Crane.Fleet.Sim {
                 double rate = Gyro.Sample(Truth().Body.Wz, imuEvery * dt);
                 Odometry?.IntegrateGyro(rate, imuEvery * dt);
                 SampleSink?.OnGyro(step * dt, rate);
+                if (SampleSink != null) {
+                    // body-frame linear acceleration from the rigid body (gravity removed) + white noise (overlay provisional density)
+                    Vector3 v = Body.linearVelocity;
+                    if (havePrevVel) {
+                        Vector3 a = Quaternion.Inverse(Body.rotation) * ((v - prevVel) / (float)(imuEvery * dt));
+                        double sd = accelNoise / Math.Sqrt(imuEvery * dt);
+                        SampleSink.OnAccel(step * dt, a.z + sd * accelRng.Gaussian(), -a.x + sd * accelRng.Gaussian());
+                    }
+                    prevVel = v; havePrevVel = true;
+                }
             }
             if (step % encEvery == 0 && !EncodersLost) {
                 Encoders.Sample(Plant.WheelAngle);
                 Odometry?.IntegrateEncoders(encEvery * dt);
                 SampleSink?.OnEncoder(step * dt, (long[])Encoders.Ticks.Clone());
+                if (SampleSink != null) {
+                    var meas = new double[4];
+                    for (int i = 0; i < 4; i++) { meas[i] = Encoders.TicksToRad(Encoders.Ticks[i] - prevTicks[i]) / (encEvery * dt); prevTicks[i] = Encoders.Ticks[i]; }
+                    SampleSink.OnWheelRates(step * dt, (double[])Plant.WheelCommand.Clone(), meas);
+                }
             }
         }
 
