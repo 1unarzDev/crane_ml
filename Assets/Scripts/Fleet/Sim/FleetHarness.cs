@@ -161,14 +161,31 @@ namespace Crane.Fleet.Sim {
                 ["frames"] = "frames/ (rendered by the player harness with a GPU; absent in -nographics runs)" }, true) + "\n");
         }
 
+        /// <summary>Earliest failure-related event of an unpaired run: a disputed claim, a jam, a failed autonomy task attempt or a rejected
+        /// host verdict; with the rover involved when the event names one.</summary>
+        public static (double, string) FirstFailureEvent(string eventsPath) {
+            foreach (string line in File.ReadAllLines(eventsPath)) {
+                var e = JsonNode.FromText(line);
+                string kind = e["kind"].String;
+                bool fail = kind == "claim_disputed" || kind == "jam_start" || (kind == "host_verdict" && !e["ok"].Bool)
+                    || (kind == "autonomy" && e.Has("event") && e["event"].Unwrapped is string ev && (ev == "task_attempt_failed" || ev == "task_failed"));
+                if (!fail) continue;
+                string rover = e.Has("rover") && e["rover"].Unwrapped is string r && r.Length > 0 ? r : null;
+                return (e["t"].Double, rover);
+            }
+            return (double.NaN, null);
+        }
+
         /// <summary>Player with a GPU: re-run a failed job and render frames around its divergence (or its last seconds), aimed at the rover.</summary>
         public static IEnumerator RenderReplay(string specDir, JsonNode j, JobResult res, string outDir, string launcher, string commit, bool dirty) {
             double end = double.IsNaN(res.DivergenceT) || double.IsInfinity(res.DivergenceT) ? double.NaN : res.DivergenceT;
+            string focusRover = res.DivergenceRover;
+            if (double.IsNaN(end)) (end, focusRover) = FirstFailureEvent(Path.Combine(res.Dir, "events.jsonl"));
             var spec = SpecFor(specDir, j);
             var opt = Options(spec, j, Path.Combine(outDir, "replays", res.Id, "rerun"), launcher, commit, dirty);
             opt.OutDir = Path.Combine(outDir, "replays", res.Id, "rerun");
             var run = new FleetRun(spec, opt);
-            string target = res.DivergenceRover ?? "cargo_2";
+            string target = focusRover ?? "cargo_2";
             var times = new List<double>();
             if (!double.IsNaN(end)) foreach (double dt in new[] { -1.0, 0.0, 1.0, 2.0 }) times.Add(Math.Max(0, end + dt));
             var shots = new List<object>();

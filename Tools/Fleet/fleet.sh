@@ -122,26 +122,34 @@ case "$cmd" in
             --crane-disable-ros --crane-disable-sitl --crane-fleet-spec "$spec" --crane-fleet-still "$dir" --crane-fleet-mission autonomy \
             --crane-fleet-mission-file "$mf" --crane-seed "$seed" --crane-source-commit "$commit" --crane-source-dirty "$dirty" "$@" 9>&- ) 9>"$cache/unity.lock" || true
         grep -h "CRANE_FLEET_STILL \|CRANE_FLEET_EXIT\|CRANE_FLEET_FAILED\|CRANE_FLEET_CLIP\|CRANE_FLEET_RUN_END" "$dir/player.log" ;;
-    request-run)   # request-run --scenario F --config profile|GRAPH.json --mission M.json --seed N --variant V [--failures X] [--out DIR] [--labels J.json]
-        scen=""; cfg="profile"; mis=""; seed=""; var=""; fail=""; out=""; lab=""
+    request-run)   # request-run --mission M.json (--seed N | --seeds A-B) --variant V [--scenario F] [--config profile|GRAPH.json] [--failures X] [--out DIR] [--labels J.json] [--player]
+        scen=""; cfg="profile"; mis=""; seeds=""; var=""; fail=""; out=""; lab=""; useplayer=0
         while [[ $# -gt 0 ]]; do case "$1" in
             --scenario) scen=$(realpath "$2"); shift 2 ;; --config) cfg="$2"; [[ "$cfg" != profile ]] && cfg=$(realpath "$2"); shift 2 ;;
-            --mission) mis=$(realpath "$2"); shift 2 ;; --seed) seed="$2"; shift 2 ;; --variant) var="$2"; shift 2 ;;
+            --mission) mis=$(realpath "$2"); shift 2 ;; --seed) seeds="$2"; shift 2 ;; --seeds) seeds="$2"; shift 2 ;; --variant) var="$2"; shift 2 ;;
             --failures) fail="$2"; shift 2 ;; --out) out=$(realpath -m "$2"); shift 2 ;; --labels) lab=$(realpath "$2"); shift 2 ;;
+            --player) useplayer=1; shift ;;
             *) echo "request-run: unknown option $1" >&2; exit 2 ;; esac; done
-        [[ -n "$mis" && -n "$seed" && -n "$var" ]] || { echo "request-run needs --mission --seed --variant" >&2; exit 2; }
-        out=${out:-$cache/requests/${var}_${seed}_$stamp}; mkdir -p "$out"
-        python3 - "$out/job.json" "$out" "$scen" "$cfg" "$mis" "$seed" "$var" "$fail" "$lab" <<'PY'
+        [[ -n "$mis" && -n "$seeds" && -n "$var" ]] || { echo "request-run needs --mission --seed(s) --variant" >&2; exit 2; }
+        out=${out:-$cache/requests/${var}_${seeds}_$stamp}; mkdir -p "$out"
+        python3 - "$out/job.json" "$out" "$scen" "$cfg" "$mis" "$seeds" "$var" "$fail" "$lab" <<'PY'
 import json, sys
-p, out, scen, cfg, mis, seed, var, fail, lab = sys.argv[1:]
-job = {"id": f"{var}_{seed}", "mission_file": mis, "seed": int(seed), "variant": var, "failures": fail, "config": cfg}
-if scen: job["scenario"] = scen
-if lab: job["labels"] = json.load(open(lab))
-json.dump({"out": out, "jobs": [job]}, open(p, "w"), indent=2)
+p, out, scen, cfg, mis, seeds, var, fail, lab = sys.argv[1:]
+a, _, b = seeds.partition("-")
+jobs = []
+for s in range(int(a), int(b or a) + 1):
+    job = {"id": f"{var}_{s}", "mission_file": mis, "seed": s, "variant": var, "failures": fail, "config": cfg}
+    if scen: job["scenario"] = scen
+    if lab: job["labels"] = json.load(open(lab))
+    jobs.append(job)
+json.dump({"out": out, "jobs": jobs}, open(p, "w"), indent=2)
 PY
-        ed "$cache/logs/request-$stamp.log" -quit -executeMethod Crane.Fleet.EditorTools.FleetCli.Jobs --crane-fleet-jobs "$out/job.json" || true
-        grep -h "CRANE_FLEET_JOB\|CRANE_FLEET_FAILED\|CRANE_FLEET_EXIT" "$cache/logs/request-$stamp.log"
-        echo "run directory: $out/runs/${var}_${seed}  summary: $out/summary.jsonl" ;;
+        if (( useplayer )); then "$0" jobs-player "$out/job.json"
+        else
+            ed "$cache/logs/request-$stamp.log" -quit -executeMethod Crane.Fleet.EditorTools.FleetCli.Jobs --crane-fleet-jobs "$out/job.json" || true
+            grep -h "CRANE_FLEET_JOB\|CRANE_FLEET_FAILED\|CRANE_FLEET_EXIT" "$cache/logs/request-$stamp.log"
+        fi
+        echo "run directories: $out/runs/  summary: $out/summary.jsonl  replays: $out/replays/" ;;
     jobs)    # jobs JOBS.json: paired-run harness in the editor (headless)
         ed "$cache/logs/jobs-$stamp.log" -quit -executeMethod Crane.Fleet.EditorTools.FleetCli.Jobs --crane-fleet-jobs "$(realpath "${1:?jobs}")" || true
         grep -h "CRANE_FLEET_JOB\|CRANE_FLEET_FAILED\|CRANE_FLEET_EXIT" "$cache/logs/jobs-$stamp.log" ;;
