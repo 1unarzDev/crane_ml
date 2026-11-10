@@ -1,6 +1,6 @@
 """Build the RoboBoat plant card from the characterization profile and the 10-18 field trials.
 
-    python3 -m plantcard.marine.build [--trials DIR] [--store DIR] [--repo] [--n 128]
+    python3 -m plantcard.marine.build --robot R [--trials DIR] [--store DIR] [--repo] [--n 128]
 
 1. c0: ``profiles/characterized.json`` wrapped as a prior card (P0).
 2. Evidence: the open-loop pulse trials (GPS + gyro truth; see ``fieldtrials``).
@@ -39,8 +39,8 @@ def _clean(o):
     return o
 
 
-def build(trials=fieldtrials.DEFAULT_DIR, stores=(None,), n=128, log=print):
-    doc0, parts0 = seed.prior_doc()
+def build(robot, trials=fieldtrials.DEFAULT_DIR, stores=(None,), n=128, log=print):
+    doc0, parts0 = seed.prior_doc(robot=robot)
     c0 = C.Card(doc0, parts0)
     ev = fieldtrials.load(trials, [t['name'] for t in c0.family.config['thrusters']], log=log)
     log('cross-validating (leave one session out) ...')
@@ -86,13 +86,14 @@ def build(trials=fieldtrials.DEFAULT_DIR, stores=(None,), n=128, log=print):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument('--robot', required=True, help="the card's robot ref, <family>/<robot> (see refs.json)")
     ap.add_argument('--trials', default=str(fieldtrials.DEFAULT_DIR))
     ap.add_argument('--store', default=None, help='card store (default $PLANTCARD_STORE or ~/.cache/plantcards)')
     ap.add_argument('--repo', action='store_true', help='also write the cards into plantcard/cards (git-tracked)')
     ap.add_argument('--n', type=int, default=128, help='rollouts per held-out segment')
     a = ap.parse_args(argv)
     stores = [a.store or C.default_store()] + ([C.HERE] if a.repo else [])
-    out, summ, psumm, report, ev = build(a.trials, stores, a.n)
+    out, summ, psumm, report, ev = build(a.robot, a.trials, stores, a.n)
     print(json.dumps(_clean({'fit': report, 'child': summ, 'parent': psumm}), indent=1))
 
 

@@ -44,6 +44,9 @@ def _fastsim(root, out):
 
 
 def main(argv=None):
+    if (argv if argv is not None else __import__('sys').argv[1:])[:1] in (['score'], ['diverge'], ['select']):
+        from judge.cli_layers import main as layers_main
+        return layers_main(argv)
     ap = argparse.ArgumentParser(prog='judge', description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('cmd', choices=('demo', 'fastsim', 'oneline', 'markdown'))

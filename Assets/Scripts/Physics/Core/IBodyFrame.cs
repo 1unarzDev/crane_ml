@@ -22,8 +22,7 @@ namespace Sim.Physics.Core {
     /// <summary>
     /// <see cref="IBodyFrame"/> of a transform whose visible bow is
     /// <c>rotation * bodyFromFlu * Vector3.forward</c>. Identity for a body authored bow along
-    /// local +Z; the RoboBoat hull uses Euler(0,-90,0) (visible bow = local -X), the same offset as
-    /// the controllers' RoboBoatRosFrame.
+    /// local +Z; otherwise the robot's <see cref="RobotDescription.BodyFromFlu(Component)"/>.
     /// </summary>
     public sealed class BodyFrame : IBodyFrame {
         private readonly Transform transform;

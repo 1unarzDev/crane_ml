@@ -21,13 +21,14 @@ JUDGE G4 6/6 usable | quad.time_to_last_gate bias -3.09 [-4.71,-1.25] band 0.5 F
 
 | module | role |
 |---|---|
-| `record.py` | `RunRecord`: header (tier, scenario key, clock, window), typed channels with observability and sigma, events, caps, validity; deterministic save/load (G1 hashes) |
+| `record.py` | `RunRecord` (`crane.judge.run/2`, `/1` still loads): header (tier, scenario key, clock, window) plus the /2 blocks (backend, controller, calibration, clock_mode, code, evidence, reset), typed channels with observability, sigma and per-sample `tick`, events, caps, validity; standard-channel constructors (`truth.*`, `obs.*`, `cmd.*`, `act.thrust`, `env.*`), `declare_absent`, event/terminal vocabulary; deterministic save/load (G1 hashes); refuses undeclared truth-as-observation (contract: `SCHEMA_V2.md`) |
+| `validity.py` | `check(record, expect) -> ValidityReport`: clock (monotonic, dt, offsets, rtf), frames (rigid/reflected obs, yaw sign, body vs world twist), telemetry (missing, gaps, rates), reset, command delivery/rejection, infra; each reason has a code, severity and evidence; mission failures are never reasons; `apply` writes `Validity` |
 | `metric.py` | `Metric` (value + status + spans), `Property` with the NLC three-valued semantics (bounds e and L) |
 | `task.py` | `TaskSpec`, `Objective` (safety first, never summed; NI margin and G4 band declared with a cite) |
 | `pack.py` | `Pack` (metrics, decision events, outcome, segmenter, dependency graph, hints, replayer) |
 | `source.py` | `Source`, `FidelityProfile`, `Refused` |
 | `pairing.py` | exact / block / loose pairing; the design label travels with the comparison |
-| `stats.py` | one statistics module (golden parity with research-cluster `crane_cluster/promotion.py` and mhseals_testing `reliability.py`) |
+| `stats.py` | one statistics module (golden tests here; downstream parity tests pin these formulas) |
 | `compare.py` | paired comparisons, G3 (regret, MMRV, top-k recall), G4 (gap bands, failure-mode table), exclusion accounting |
 | `insight/` | integrity, divergence (time vs path residual, CUSUM, counterfactual replay split), event-timeline diff, failure clusters with bootstrap stability, first cause, hints, LLM citation validator |
 | `render.py` | report files, one-liner, Markdown, viewer feed |
@@ -38,9 +39,9 @@ JUDGE G4 6/6 usable | quad.time_to_last_gate bias -3.09 [-4.71,-1.25] band 0.5 F
 ## A new robot
 
 Write a `Source` (artifact -> `RunRecord`) and a `Pack` (metrics, outcome, decision event kinds, a
-dependency graph, optionally a `Replayer` for the plant/interaction split). No core change; the
-contract test fails if the core imports a domain. RoboBoat lives in
-`mhseals_testing/mhseals_testing/judge_pack/`; the toy quadrotor here is the template.
+dependency graph, optionally a `Replayer` for the plant/interaction split). No core change;
+`tests/test_domain_guard.py` fails if the core imports a domain. A team's packs live in the team's own repo; the toy
+quadrotor here is the template.
 
 ## How the gap origin is decided
 
@@ -54,5 +55,5 @@ of at least 50%) or the controller-plant interaction.
 
 ## Tests
 
-`python3 -m pytest judge/tests` from the crane root. Every insight generator has a seeded-fault test
+`python3 -m pytest` from the crane root runs every crane Python suite (this one is `judge/tests`). Every insight generator has a seeded-fault test
 (plant fault, decision fault, clean control, invalid runs, cluster stability, dependency walk).

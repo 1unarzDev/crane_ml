@@ -26,7 +26,7 @@ from plantcard.family import ParamBatch
 
 
 class CardPlant(PlantModel):
-    def __init__(self, limits, pose=(0.0, 0.0, 0.0), vel=(0.0, 0.0, 0.0), card='roboboat/blastoise@HEAD',
+    def __init__(self, limits, pose=(0.0, 0.0, 0.0), vel=(0.0, 0.0, 0.0), *, card,
                  particle=None, seed=None, kp=(2.0, 2.0, 2.0), substeps=2):
         super().__init__(limits, pose, vel)
         self.card = card if isinstance(card, plantcard.Card) else plantcard.load(card)

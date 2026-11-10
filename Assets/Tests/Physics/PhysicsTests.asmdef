@@ -8,7 +8,8 @@
         "BoatPhysicsEditor",
         "SensorsAssembly",
         "UtilsAssembly",
-        "Unity.Robotics.ROSTCPConnector.Messages"
+        "Unity.Robotics.ROSTCPConnector.Messages",
+        "Crane.RoboBoat"
     ],
     "includePlatforms": [
         "Editor"

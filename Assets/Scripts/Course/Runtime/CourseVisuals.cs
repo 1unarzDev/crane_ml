@@ -5,8 +5,8 @@ using UnityEngine;
 namespace Sim.Course {
     /// <summary>Scene helpers shared by the course builder, sign faces and the legacy JSON
     /// source: bounds, recolouring, colliders and the banner shapes.</summary>
-    internal static class CourseVisuals {
-        internal static Bounds WorldBounds(GameObject value) {
+    public static class CourseVisuals {
+        public static Bounds WorldBounds(GameObject value) {
             var renderers = value.GetComponentsInChildren<Renderer>();
             if (renderers.Length == 0) return new Bounds(value.transform.position, Vector3.zero);
             Bounds bounds = renderers[0].bounds;
@@ -14,7 +14,7 @@ namespace Sim.Course {
             return bounds;
         }
 
-        internal static Material TemplateMaterial() {
+        public static Material TemplateMaterial() {
             foreach (var renderer in UnityEngine.Object.FindObjectsByType<MeshRenderer>(
                          FindObjectsSortMode.None))
                 if (renderer.sharedMaterial != null &&
@@ -23,14 +23,14 @@ namespace Sim.Course {
             throw new InvalidOperationException("no HDRP Lit material to copy for banners");
         }
 
-        internal static Color BannerColor(string label) =>
+        public static Color BannerColor(string label) =>
             label.StartsWith("red", StringComparison.Ordinal) ? new Color(0.85f, 0.1f, 0.1f) :
             label.StartsWith("green", StringComparison.Ordinal) ? new Color(0.1f, 0.65f, 0.2f) :
             label.StartsWith("blue", StringComparison.Ordinal) ? new Color(0.1f, 0.3f, 0.9f) :
             Color.black;
 
         /// <summary>Is texel (u, v) in [0, 1] inside the banner's shape?</summary>
-        internal static bool InShape(string shape, float u, float v) {
+        public static bool InShape(string shape, float u, float v) {
             float x = u - 0.5f, y = v - 0.5f;
             switch (shape) {
                 case "circle": return x * x + y * y <= 0.35f * 0.35f;
@@ -49,7 +49,7 @@ namespace Sim.Course {
         /// colliders are replaced by its meshes (pole buoys had none, the black buoy's sphere
         /// was half its mesh), and kept non-convex where the body is kinematic, so a pole
         /// stays a pole rather than a cone.</summary>
-        internal static void MakeSolid(GameObject value, bool buoy) {
+        public static void MakeSolid(GameObject value, bool buoy) {
             Collider[] existing = value.GetComponentsInChildren<Collider>()
                 .Where(collider => !collider.isTrigger).ToArray();
             if (existing.Length > 0 && !buoy) return;
@@ -68,13 +68,13 @@ namespace Sim.Course {
                 Bounds bounds = new(value.transform.position, Vector3.zero);
                 foreach (Collider collider in value.GetComponentsInChildren<Collider>())
                     bounds.Encapsulate(collider.bounds);
-                Debug.Log($"CRANE_ROBOBOAT_SOLID {value.name} replaced={existing.Length} " +
+                Debug.Log($"CRANE_COURSE_SOLID {value.name} replaced={existing.Length} " +
                           $"mesh_colliders={added} size=({bounds.size.x:F2},{bounds.size.y:F2}," +
                           $"{bounds.size.z:F2})");
             }
         }
 
-        internal static void Recolor(GameObject value, string hex) {
+        public static void Recolor(GameObject value, string hex) {
             if (!ColorUtility.TryParseHtmlString(hex, out Color color))
                 throw new ArgumentException($"bad color {hex}");
             foreach (var renderer in value.GetComponentsInChildren<Renderer>()) {
@@ -87,7 +87,7 @@ namespace Sim.Course {
             }
         }
 
-        internal static float HorizontalRadius(GameObject value) {
+        public static float HorizontalRadius(GameObject value) {
             Vector3 size = WorldBounds(value).size;
             return 0.5f * Mathf.Max(size.x, size.z);
         }

@@ -47,9 +47,9 @@ readers ignore it.
       "pair_key": "<64 hex>"
     }
 
-- `options` also has `vessel` (the truth's vessel block) when the course was sized for a
-  non-default vessel; the default vessel stays implicit, so its pair keys do not change. coursegen
-  always uses the default vessel.
+- `options` also has `vessel` (the truth's vessel block) when the course was sized for a vessel
+  other than the family's (the family asset's `vessel`); the family's own stays implicit, so its
+  pair keys do not change. coursegen always uses the family's vessel.
 - `source_sha256` is the sha256 of the lines `"<path> <sha256 of file>\n"`, sorted by path, over
   every non-.meta file below `CourseIdentity.SourceDirs`. That covers the generator code and the
   family, task, catalog and constraint assets. Two truths with the same `source_sha256` were made

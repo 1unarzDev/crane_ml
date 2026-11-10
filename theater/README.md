@@ -37,7 +37,7 @@ and `ITheaterRobot` (a ghost mesh of a few hundred triangles, its full visuals f
 ## Use
 
 ```sh
-python3 -m theater.synth --truth course_truth.json --runs 500 --iterations 20 --out DIR   # or a real study's runs
+python3 -m theater.synth --truth course_truth.json --world roboboat --runs 500 --iterations 20 --out DIR   # or a real study's runs
 python3 -m theater.render script DIR --seconds 15            # the standard cut into DIR/manifest.json
 heavy unity python3 -m theater.render local DIR --player Builds/CRANE-Worker/CRANE.x86_64 --out OUT
 python3 -m theater.render submit DIR --chunk-s 10            # cluster: theater-render job, prints its id

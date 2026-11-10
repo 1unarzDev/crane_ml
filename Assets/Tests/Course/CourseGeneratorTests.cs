@@ -25,6 +25,18 @@ namespace Sim.Course.Tests {
             t.Arr("elements").Cast<JObj>().Where(e => e.Str("task") == task);
 
         [Test]
+        public void AFamilyWithNoOrADefaultedVesselRefusesToGenerate() {
+            // Unity deserializes a family asset without a vessel block as an all-zero profile.
+            foreach (var vessel in new[] { null, new VesselProfile(), new VesselProfile { Beam = 1, Length = 1, Source = "x" } }) {
+                var family = ScriptableObject.CreateInstance<CourseFamilyDefinition>();
+                family.Configure("no_vessel", Family.Tasks, Family.Catalog, Family.ConstraintSpecText, vessel, Family.Boundary);
+                Assert.Throws<ArgumentException>(() => CourseGenerator.Generate(family, new CourseRequest { Seed = 1 }));
+                UnityEngine.Object.DestroyImmediate(family);
+            }
+            Assert.Throws<ArgumentException>(() => CourseGenerator.Generate(Family, new CourseRequest { Seed = 1, Vessel = new VesselProfile() }));
+        }
+
+        [Test]
         public void SplitMix64AndFnvMatchTheirGoldens() {
             var rng = new CourseRng(0);
             Assert.That(rng.NextU64(), Is.EqualTo(0xE220A8397B1DCDAFUL));

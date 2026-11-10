@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Sim.Controllers;
+using Sim.Physics.Core;
 using Sim.Sensors.Vision;
 using Sim.Utils.Viewer;
 using UnityEngine;
@@ -86,10 +86,10 @@ namespace Sim.Course {
             if (entry.prefab != null) {
                 var anchor = entry.prefab.GetComponent<CourseObjectAnchor>();
                 float lift = anchor != null ? anchor.WaterlineOffset : 0f;
-                return UnityEngine.Object.Instantiate(entry.prefab, RoboBoatCourse.RosToUnity(ros, waterline + lift + z), heading, root);
+                return UnityEngine.Object.Instantiate(entry.prefab, RosFrame.ToUnity(ros, waterline + lift + z), heading, root);
             }
             if (entry.template.Length > 0 && templates.TryGetValue(entry.template, out var template) && template != null) {
-                var clone = UnityEngine.Object.Instantiate(template, RoboBoatCourse.RosToUnity(ros, template.transform.position.y + z),
+                var clone = UnityEngine.Object.Instantiate(template, RosFrame.ToUnity(ros, template.transform.position.y + z),
                     heading * template.transform.rotation, root);
                 clone.transform.localScale = template.transform.lossyScale;
                 float r = CourseVisuals.HorizontalRadius(clone);
@@ -99,7 +99,7 @@ namespace Sim.Course {
                 return clone;
             }
             placeholder = true;
-            return Placeholder(entry, e, RoboBoatCourse.RosToUnity(ros, waterline + z), heading, root);
+            return Placeholder(entry, e, RosFrame.ToUnity(ros, waterline + z), heading, root);
         }
 
         /// <summary>A primitive standing in for a missing prefab (design Appendix B).</summary>

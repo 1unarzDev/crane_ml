@@ -3,12 +3,17 @@
 #   generate.sh --family roboboat_2026 --seed N --out t.json [--mode corner=hi] [--set task.param=v]...
 #   generate.sh --family roboboat_2026 --seeds 0:500 --out DIR       one file per seed
 #   generate.sh --validate DIR --out verdicts.json                   C# verdicts on every truth in DIR
-# UNITY_EDITOR overrides the editor binary; the project is this checkout.
+# UNITY_EDITOR overrides the editor binary (default: the Unity Hub install of ProjectVersion.txt's editor);
+# the project is this checkout.
 # Without Unity: Tools/RoboBoat/cli (coursegen), same files and output (cli/README.md).
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 project=$(cd "$here/../.." && pwd)
-editor=${UNITY_EDITOR:-$HOME/Unity/Hub/Editor/6000.5.10f1/Editor/Unity}
+if [[ -z ${UNITY_EDITOR:-} ]]; then
+    version=$(sed -n 's/^m_EditorVersion: //p' "$project/ProjectSettings/ProjectVersion.txt" 2>/dev/null) || true
+    [[ -n $version ]] || { echo "no editor version in ProjectSettings/ProjectVersion.txt; set UNITY_EDITOR" >&2; exit 2; }
+fi
+editor=${UNITY_EDITOR:-$HOME/Unity/Hub/Editor/$version/Editor/Unity}
 method=Sim.Course.Editor.CourseCli.Generate
 pass=()
 while (($#)); do
