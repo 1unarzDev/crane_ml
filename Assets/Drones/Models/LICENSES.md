@@ -29,3 +29,10 @@ is an owner-supplied concept render, used for layout only and not redistributed 
 Dimension sources fetched on 2026-11-10: https://shop.iflight.com/AOS-7-V5-Frame-Kit-Pro2311 (wheelbase 313 mm, L254 x W184 x H36,
 arm 8 mm, plates 2 / 2.5 / 2 mm, kit weight 325 g). Other sources as listed above and in SPEC.md.
 Tools used (installed in ~/.cache/research/cad-venv, not vendored): build123d (Apache-2.0), trimesh (MIT), numpy/scipy/matplotlib, pyrender, pybullet (zlib).
+
+## AOS 7 V5 real-parts rebuild (2026-11-10, passes 4-6)
+`Assets/Robot Descriptions/aos7v5/meshes/visual/oak_d_link__black.stl` contains a decimated copy of the Luxonis OAK-D S2 enclosure
+(DM9098S2_enclosure.stp from https://github.com/luxonis/depthai-hardware), MIT License, Copyright (c) 2020 luxonis; license text in
+`Tools/DroneCAD/aos7v5/vendor_derived/LICENSE.luxonis-depthai-hardware.MIT`. CubePilot Cube / Mini carrier STEP files were downloaded
+for measurement only (no licence stated) and are NOT committed or redistributed; only measured dimensions are used. Per-file URL, sha256
+and licence: `Tools/DroneCAD/aos7v5/VENDOR_CAD.md`.

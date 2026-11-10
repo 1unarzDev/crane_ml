@@ -38,8 +38,8 @@ nothing here is measured on hardware.
   </tr>
   <tr>
     <td><img src="Docs/media/readme/drone_cad_vs_reference.jpg" alt="Reference concept beside the CAD model"><br><sub><b>Design.</b> AOS 7 V5 search drone: reference layout (left) and our CAD model (right).</sub></td>
-    <td><img src="Docs/media/readme/drone_cad_iso.jpg" alt="CAD model iso view"><br><sub><b>Design.</b> CAD model: 1.843 kg, two decks, L2, Orin, OAK-D S2, Cube Orange; exported to URDF for simulation.</sub></td>
-    <td><img src="Docs/media/readme/drone_cad_top.jpg" alt="CAD model top view"><br><sub><b>Design.</b> CAD top view: stretched-X frame, 254 x 184 mm motor rectangle, 7-inch tri-blade props.</sub></td>
+    <td><img src="Docs/media/readme/drone_cad_iso.jpg" alt="CAD model iso view"><br><sub><b>Design.</b> CAD model: 1.784 kg, two decks, L2, Orin, OAK-D S2, Cube Orange; exported to URDF for simulation.</sub></td>
+    <td><img src="Docs/media/readme/drone_cad_top.jpg" alt="CAD stack close-up"><br><sub><b>Design.</b> Stack close-up: L2, Jetson deck on M3 standoffs, Cube Mini carrier, radio and antennas.</sub></td>
   </tr>
 </table>
 

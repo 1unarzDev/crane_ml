@@ -21,9 +21,11 @@ def look_at(eye, target, up):
     return m
 
 
-def render(scene_tm, eye_dir, up, size, ortho=None, fov=30.0, fit=1.0):
-    sc = pyrender.Scene.from_trimesh_scene(scene_tm, bg_color=BG, ambient_light=[0.35, 0.33, 0.34])
-    b = scene_tm.bounds; c = b.mean(0); rad = np.linalg.norm(b[1] - b[0]) / 2
+def render(scene_tm, eye_dir, up, size, ortho=None, fov=30.0, fit=1.0, target=None):
+    sc = pyrender.Scene(bg_color=BG, ambient_light=[0.35, 0.33, 0.34])
+    for name, g in scene_tm.geometry.items():
+        sc.add(pyrender.Mesh.from_trimesh(g, smooth=False))
+    b = scene_tm.bounds; c = b.mean(0) if target is None else np.array(target, float); rad = np.linalg.norm(b[1] - b[0]) / 2
     d = np.array(eye_dir, float); d /= np.linalg.norm(d)
     if ortho:
         cam = pyrender.OrthographicCamera(xmag=ortho[0], ymag=ortho[1], znear=0.01, zfar=5)
@@ -59,6 +61,16 @@ def main():
     out["top"] = render(scene, [0, 0, 1], [1, 0, 0], (900, 1000), ortho=(ext[1] / 2 * 1.08, ext[0] / 2 * 1.1))
     out["front"] = render(scene, [1, 0, 0], [0, 0, 1], (1000, 700), ortho=(ext[1] / 2 * 1.1, ext[2] / 2 * 1.2))
     out["side"] = render(scene, [0, 1, 0], [0, 0, 1], (1100, 700), ortho=(ext[0] / 2 * 1.05, ext[2] / 2 * 1.3))
+    el2 = np.radians(-28)
+    out["under"] = render(scene, [np.cos(az) * np.cos(el2), np.sin(az) * np.cos(el2), np.sin(el2)], [0, 0, 1], (1670, 940), fov=30, fit=0.62)
+    deck = trimesh.Scene()
+    for node in scene.graph.nodes_geometry:
+        if str(node).startswith(("payload_deck_link", "jetson_link", "l2_link", "radio_link", "usb_eth_link", "cube_carrier_link")):
+            T, gname = scene.graph[node]
+            deck.add_geometry(scene.geometry[gname], node_name=str(node), transform=T)
+    db = deck.bounds
+    out["deck_top"] = render(deck, [0, 0, 1], [1, 0, 0], (1300, 760), ortho=((db[1][1] - db[0][1]) / 2 * 1.08, (db[1][0] - db[0][0]) / 2 * 1.08))
+    out["closeup"] = render(scene, [np.cos(az) * np.cos(el), np.sin(az) * np.cos(el), np.sin(el)], [0, 0, 1], (1670, 940), fov=30, fit=0.40, target=[-0.05, 0.0, 0.05])
     for k, v in out.items():
         mpimg.imsave(odir / f"{k}.png", v)
     if ref and ref.exists():

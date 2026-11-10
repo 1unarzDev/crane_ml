@@ -6,9 +6,9 @@ frames:
   body: FLU (REP-103), origin = base_link = frame centre
   spin: +1 = CCW seen from above (+z)
   com_offset_from_base_link_m:
-  - -0.002986
+  - -0.010732
   - 0.0
-  - 0.017269
+  - 0.019252
 mapping:
   px4_quad_x:
     motor1: rotor_0 front-right CCW
@@ -16,6 +16,12 @@ mapping:
     motor3: rotor_2 front-left CW
     motor4: rotor_3 rear-right CW
   crane_profile_order: FR, RL, FL, RR = M1..M4 = rotor_0..rotor_3 (identity mapping)
+motor:
+  modelled_as: T-Motor F90 2806.5 KV1300 + HQ 7040 3-blade (stand-in)
+  user_stated: Avenger (BrotherHobby), exact model unconfirmed
+  status: ASSUMED
+  note: BrotherHobby's Avenger line (checked 2026-11-10) has 2810/2812/2816 V5 and 3xxx-6xxx sizes but no 2806.5, and the product pages carry
+    no thrust table in their HTML; no Avenger data is used. Ask the user for the exact model/KV.
 rotors:
 - index: 0
   px4_motor: 1
@@ -29,9 +35,9 @@ rotors:
   - -0.092
   - 0.04
   position_rel_com_m:
-  - 0.129986
+  - 0.137732
   - -0.092
-  - 0.022731
+  - 0.020748
 - index: 1
   px4_motor: 2
   crane_motor: M2
@@ -44,9 +50,9 @@ rotors:
   - 0.092
   - 0.04
   position_rel_com_m:
-  - -0.124014
+  - -0.116268
   - 0.092
-  - 0.022731
+  - 0.020748
 - index: 2
   px4_motor: 3
   crane_motor: M3
@@ -59,9 +65,9 @@ rotors:
   - 0.092
   - 0.04
   position_rel_com_m:
-  - 0.129986
+  - 0.137732
   - 0.092
-  - 0.022731
+  - 0.020748
 - index: 3
   px4_motor: 4
   crane_motor: M4
@@ -74,25 +80,25 @@ rotors:
   - -0.092
   - 0.04
   position_rel_com_m:
-  - -0.124014
+  - -0.116268
   - -0.092
-  - 0.022731
+  - 0.020748
 mass:
-  value: 1.84288
+  value: 1.78419
   unit: kg
   status: DERIVED
   source: CAD sum of per-link masses (SPEC.md table)
 inertia_com:
   value:
-  - - 0.006935118
-    - -4.229153e-06
-    - 0.002309374
-  - - -4.229153e-06
-    - 0.01505044
-    - -2.095532e-05
-  - - 0.002309374
-    - -2.095532e-05
-    - 0.01521293
+  - - 0.006751165
+    - 0.0001025727
+    - 0.003244454
+  - - 0.0001025727
+    - 0.01716587
+    - -6.772526e-05
+  - - 0.003244454
+    - -6.772526e-05
+    - 0.01672407
   unit: kg m^2
   status: DERIVED
   source: CAD B-rep mass properties about the CoM, FLU axes, includes motors/props
@@ -122,7 +128,7 @@ thrust_max_per_motor:
   status: MEASURED_DATASHEET
   source: 2360.6 gf table row at 100% throttle (kf omega_max^2)
 motor_time_constant:
-  value: 0.02594
+  value: 0.02601
   unit: s
   status: ESTIMATED
   source: J/(Kt^2/R + 2 kq w_h) with J = CAD rotor Izz and w_h for the CAD mass
@@ -138,7 +144,7 @@ rotor_radius:
   status: MEASURED_DATASHEET
   source: 7 in prop
 rotor_drag_lambda1:
-  value: 0.00017176367719884533
+  value: 0.0001690062459714356
   unit: N s/(m rad)
   status: ESTIMATED
   source: 0.35 1/s x mass / (4 w_hover); Faessler 2018 order of magnitude
@@ -148,10 +154,10 @@ rolling_moment:
   status: ESTIMATED
   source: neglected
 drag_quadratic:
-  value: 0.01180501875
+  value: 0.011915881250000001
   unit: N s^2/m^2
   status: ESTIMATED
-  source: 0.5 rho Cd A, Cd = 1.0 (ESTIMATE), A = 0.0193 m^2 mean of CAD frontal/side silhouette (props excluded)
+  source: 0.5 rho Cd A, Cd = 1.0 (ESTIMATE), A = 0.0195 m^2 mean of CAD frontal/side silhouette (props excluded)
 drag_linear:
   value:
   - 0.0
@@ -164,8 +170,8 @@ battery:
   capacity_ah:
     value: 3.5
     unit: Ah
-    status: DATASHEET
-    source: Tattu 6S 3500 mAh (user)
+    status: ASSUMED
+    source: Tattu 6S 3500 mAh, user-reported pack label (no datasheet fetched)
   v_full:
     value: 25.2
     unit: V
@@ -193,14 +199,14 @@ battery:
     source: as CRANE profile
   note: '4 motors at 100% draw 4 x 45.1 A = 180 A (datasheet) against a 25C x 3.5 Ah = 87 A rating: sag limits real peak thrust'
 derived:
-  hover_rotor_speed_rad_s: 938.8040395369691
-  hover_rpm: 8964.918209216867
-  thrust_to_weight: 4.788202629846458
-  hover_thrust_per_rotor_n: 4.5196753644
-  hover_throttle_datasheet: 0.3428714178829664
-  hover_thrust_fraction_model: 0.20884663355027377
+  hover_rotor_speed_rad_s: 923.7328229837696
+  hover_rpm: 8820.99869244586
+  thrust_to_weight: 4.945721633628954
+  hover_thrust_per_rotor_n: 4.375725742168999
+  hover_throttle_datasheet: 0.3370130301259022
+  hover_thrust_fraction_model: 0.20219496245004875
 reconciliation_with_crane_aos7_profile:
-  profile: Tools/Aerial/profiles/aos7_v5_f90_6s.json (id aos7-v5-f90-1300kv-6s)
+  profile: Tools/Aerial/profiles/aos7_v5_f90_6s_v1.json (id aos7-v5-f90-1300kv-6s, the pre-CAD profile)
   same:
   - kf
   - km
@@ -212,7 +218,7 @@ reconciliation_with_crane_aos7_profile:
   changed:
     mass_kg:
     - 1.3832
-    - 1.8429
+    - 1.7842
     rotor_xy: 'old: true-X square 0.318 m wheelbase (+-0.11243 m); CAD: 254 x 184 mm stretched X (+-0.127, +-0.092 m, DATASHEET)'
     battery_capacity_ah:
     - 1.8

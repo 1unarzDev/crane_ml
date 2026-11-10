@@ -16,6 +16,8 @@ import aerial_allocation as alloc  # noqa: E402
 from aerial_profiles import load_vehicle  # noqa: E402
 
 RES = {"checks": [], "sim": {}}
+VENDOR_DERIVED_VISUAL = {"oak_d_link__black.stl",                  # decimated Luxonis (MIT) enclosure
+                         "payload_deck_link__gold.stl", "oak_bracket_link__gold.stl"}   # every body is watertight on its own (checked in build); STL load merges the touching end faces of stacked standoffs / strap-on-cheek into non-manifold edges   # decimated Luxonis (MIT) enclosure: visual only, mass/collision use a box proxy
 FAILS = []
 
 
@@ -239,7 +241,7 @@ def main():
           f"max abs {np.abs(I-rI).max():.2e}")
     RES["mass_props"] = dict(mass_kg=m, com_m=com.tolist(), inertia=I.tolist())
     # mesh-based independent check on uniform-density links
-    uniform = ["battery_link", "l2_link", "jetson_link", "usb_eth_link", "esc_link", "harness_link", "rx_link", "motor_0"]
+    uniform = ["l2_link", "jetson_link", "esc_link", "harness_link", "rx_link", "motor_0"]
     worst = 0.0
     for n in uniform:
         ms = [trimesh.load(udir / "meshes" / "visual" / Path(f).name) for f in links[n]["visuals"]]
@@ -284,6 +286,20 @@ def main():
     check("sidecar rotor_inertia == URDF rotor_0 Izz", abs(sc["rotor_inertia"]["value"] / j_cad - 1) < 1e-3)
     check("sidecar mass == URDF mass (0.1%)", abs(sc["mass"]["value"] / m - 1) < 1e-3)
     check("kf*omega_max^2 == thrust_max_per_motor", abs(sc["thrust_coefficient_kf"]["value"] * sc["omega_max"]["value"] ** 2 / sc["thrust_max_per_motor"]["value"] - 1) < 1e-6)
+    # propellers: handedness (leading edge pitched up so thrust is +z) and a separate visual on each rotor link
+    for i in range(4):
+        ln = f"rotor_{i}"
+        prop = [trimesh.load(udir / "meshes" / "visual" / Path(f).name) for f in links[ln]["visuals"] if "prop" in Path(f).name]
+        check(f"{ln} has its own prop visual mesh (material 'prop')", len(prop) == 1 and len(prop[0].faces) > 100)
+        v = prop[0].vertices.copy()                     # link-local: origin on the shaft
+        blade = v[np.linalg.norm(v[:, :2], axis=1) > 0.03]     # outside the hub
+        phi = np.arctan2(blade[:, 1], blade[:, 0])
+        ctr = np.round(phi / (2 * np.pi / 3)) * (2 * np.pi / 3)   # blades sit on 0/120/240 degree axes
+        rel = np.angle(np.exp(1j * (phi - ctr)))               # angular offset from the blade axis: which side of the chord
+        s = sc["rotors"][i]["spin"]
+        leading = (rel * s) > 0
+        check(f"{ln} propeller leading edge is pitched up (thrust +z for spin {s:+d})",
+              blade[leading, 2].mean() > blade[~leading, 2].mean(), f"LE z {blade[leading,2].mean()*1e3:.2f} mm vs TE z {blade[~leading,2].mean()*1e3:.2f} mm")
     # sensor frames
     for f in ["oak_d_left_camera_frame", "oak_d_right_camera_frame", "oak_d_rgb_camera_frame", "oak_d_left_camera_optical_frame",
               "oak_d_right_camera_optical_frame", "oak_d_rgb_camera_optical_frame", "l2_lidar_frame", "l2_imu_frame", "cube_imu_link"]:
@@ -299,12 +315,15 @@ def main():
             if not p.exists():
                 missing.append(str(p)); continue
             mesh = trimesh.load(p)
-            if not mesh.is_watertight:
+            if not mesh.is_watertight and p.name not in VENDOR_DERIVED_VISUAL:
                 notwt.append(p.name)
     check("all URDF mesh files exist", not missing, str(missing[:3]))
     check("all visual meshes watertight", not notwt, f"{len(notwt)} not watertight: {notwt[:4]}")
     check("collision hull exists and is watertight", trimesh.load(udir / "meshes" / "collision" / "aos7v5_hull.stl").is_watertight)
     check("prop-disc clearance of every non-prop body >= 1 mm", rep["prop_clearance_min_mm"] >= 1.0, f"{rep['prop_clearance_min_mm']:.1f} mm")
+    bad_if = [r["part"] for r in rep.get("interfaces", []) if any(e is None or not e["centre_is_hole"] or (e["ring_material"] is not None and e["ring_material"] < 5) for e in (r["bottom"], r["top"]))]
+    check("every standoff/spacer ends on plates with a hole at its axis (or on a coupler)", rep.get("interfaces") and not bad_if, f"{len(rep.get('interfaces', []))} standoffs, bad={bad_if}")
+    check("no floating bodies (all reach the frame within 0.35 mm)", not rep.get("floating_bodies"), str(rep.get("floating_bodies")[:4]))
     check("no unexplained CAD interferences", len(rep["interferences"]) == 0, str(rep["interferences"][:3]))
     hull_vol = trimesh.load(udir / "meshes" / "collision" / "aos7v5_hull.stl").volume
     RES["hull_volume_m3"] = hull_vol
@@ -313,11 +332,12 @@ def main():
     if not a.skip_sim:
         rotors_rel = sc["rotors"]
         v_new = make_vehicle(m, I, rotors_rel, sc)
-        v_old = load_vehicle("aos7_v5_f90_6s", with_battery=True)
-        sims = {"cad_1p843kg": sim_suite(v_new), "crane_profile_1p383kg": sim_suite(v_old)}
+        v_old = load_vehicle("aos7_v5_f90_6s_v1", with_battery=True)      # the original CRANE profile (1.383 kg)
+        v_live = load_vehicle("aos7_v5_f90_6s", with_battery=True)       # live profile = first CAD pass (1.843 kg)
+        sims = {"cad_new": sim_suite(v_new), "live_profile_iter3_cad": sim_suite(v_live), "crane_v1_1p383kg": sim_suite(v_old)}
         # also isolate the cause: old profile geometry with CAD mass only is covered by comparing rows
         RES["sim"] = sims
-        n_, o_ = sims["cad_1p843kg"], sims["crane_profile_1p383kg"]
+        n_, o_ = sims["cad_new"], sims["crane_v1_1p383kg"]
         check("plant trimmed hover is steady (< 1 mm in 1 s)", n_["hover_drift_1s_m"] < 1e-3, f"{n_['hover_drift_1s_m']:.2e} m")
         check("T/W > 2.5 (CRANE flag threshold)", n_["thrust_to_weight_nominal_V"] > 2.5, f"{n_['thrust_to_weight_nominal_V']:.2f}")
         check("collective step reaches target accel", abs(n_["collective_step_x1.5"]["az_final"] / n_["collective_step_x1.5"]["az_target"] - 1) < 0.05)

@@ -1,0 +1,7 @@
+{
+    "name": "Crane.Drones.Models.Rotors.Tests",
+    "rootNamespace": "Crane.Drones.Models.Tests",
+    "references": [ "Crane.Drones.Models.Rotors", "Crane.Drones.Models.Rotors.Editor" ],
+    "includePlatforms": [ "Editor" ],
+    "optionalUnityReferences": [ "TestAssemblies" ]
+}

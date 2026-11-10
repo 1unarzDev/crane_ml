@@ -1,0 +1,11 @@
+{
+    "name": "Crane.Drones.Models.Rotors",
+    "rootNamespace": "Crane.Drones.Models",
+    "references": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "autoReferenced": true,
+    "noEngineReferences": false
+}

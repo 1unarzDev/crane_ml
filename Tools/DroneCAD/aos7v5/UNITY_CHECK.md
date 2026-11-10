@@ -24,43 +24,28 @@ Expect exit 0, a `URDF_SYNC ok prefab=Assets/Robot Descriptions/aos7v5/aos7v5.pr
 ~/.cache/research/fs-scripts/unity-drones /tmp/aos7v5_check.log \
   -executeMethod Crane.Urdf.UrdfSync.Batch -urdf "Assets/Robot Descriptions/aos7v5/aos7v5.urdf" -check
 ```
-Pass criteria: exit 0; 29 links (20 physical + 9 frames); four `rotor_i` continuous joints about local up;
+Pass criteria: exit 0; 30 links (21 physical + 9 frames); four `rotor_i` continuous joints about local up;
 `oak_d_rgb_camera_optical_frame` has +Z along the camera axis (forward).
 
-## 2. Swap into the aerial demo (adapter, editor-only, own asmdef)
-The demo and flight CLIs load `Assets/Drones/Models/AOS7Quad.prefab` (hard-coded in `DemoSpec.prefab`, `AutonomyBatchCli.PrefabPath`,
-`DroneForestFlightCli.PrefabPath`) and read a `DroneVisualRig` from it (hub local +Y = spin axis, body = Unity RUF, forward = +Z).
-Do not edit those constants. Create `Assets/Drones/Editor/AOS7V5Adapter.cs` under the existing `Crane.Drones.Models` editor asmdef:
-
-```csharp
-// builds Assets/Drones/Models/AOS7V5Quad.prefab = aos7v5.prefab + DroneVisualRig (rotor map, markers). Batch: -executeMethod Crane.Drones.Models.AOS7V5Adapter.Run
-public static void Run() {
-  var src = AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Robot Descriptions/aos7v5/aos7v5.prefab");
-  var root = (GameObject)PrefabUtility.InstantiatePrefab(src);
-  var rig = root.AddComponent<DroneVisualRig>();
-  string[] names = { "rotor_0", "rotor_1", "rotor_2", "rotor_3" };           // PX4 motor 1..4 = FR, RL, FL, RR = CRANE M1..M4
-  RotorSpin[] spin = { RotorSpin.CCW, RotorSpin.CCW, RotorSpin.CW, RotorSpin.CW };
-  rig.rotors = new DroneVisualRig.Rotor[4];
-  for (int i = 0; i < 4; i++) {
-    var hub = FindDeep(root.transform, names[i]);
-    float tilt = Vector3.Angle(hub.up, root.transform.up);                    // must be 0: hub local +Y = up
-    if (tilt > 0.1f) throw new System.Exception($"{names[i]} hub up is {tilt} deg off body up; add a child pivot");
-    rig.rotors[i] = new DroneVisualRig.Rotor { name = names[i], motorIndex = i + 1, hub = hub, spin = spin[i] };
-  }
-  rig.cameraMount = FindDeep(root.transform, "oak_d_rgb_camera_optical_frame");
-  rig.lidarMount  = FindDeep(root.transform, "l2_lidar_frame");
-  rig.imuMount    = FindDeep(root.transform, "cube_imu_link");
-  var com = new GameObject("CoM").transform; com.SetParent(root.transform, false);
-  com.localPosition = DroneVisualRig.FluToUnity(new Vector3(-0.002986f, 0f, 0.017271f)); rig.comMarker = com;
-  PrefabUtility.SaveAsPrefabAsset(root, "Assets/Drones/Models/AOS7V5Quad.prefab");
-}
+## 2. Prefab adapter and the rotor spinner (written, compiles against the Unity DLLs outside Unity; not yet run in the editor)
+New asmdefs (own folders, no shared asmdef touched): `Assets/Drones/Models/Rotors/` = `Crane.Drones.Models.Rotors` (runtime `RotorSpinner`),
+`.../Editor` = `Crane.Drones.Models.Rotors.Editor` (`AOS7V5PrefabAdapter`), `.../Tests/Editor` = `Crane.Drones.Models.Rotors.Tests`.
+* `RotorSpinner` turns each `rotor_i` link transform about its own shaft (local up) by `-spinSign * omega * dt` (visual only; no physics),
+  composes with the link's rest rotation, keeps the hub fixed, and optionally fades the blades into a blur disc above 90..280 rad/s.
+  Feed it `SetRotorSpeeds(plant.RotorSpeeds)` (index = motor-1: FR CCW, RL CCW, FL CW, RR CW).
+* `AOS7V5PrefabAdapter.Run` instantiates `Assets/Robot Descriptions/aos7v5/aos7v5.prefab`, unpacks it, **removes every ArticulationBody**
+  (the URDF sync puts one on each link; the plant is kinematic), checks each rotor shaft is body-up, adds the spinner and saves
+  `Assets/Drones/Models/AOS7V5Quad.prefab`. It does not add `DroneVisualRig` (the procedural rig); the demo/flight CLIs that read a
+  `DroneVisualRig` need a one-line shim in your own asmdef, or the spinner can be driven by the plant adapter directly.
 ```
-(`FindDeep` = recursive Transform search by name.) The rotor links are rotated by the sync into Unity's frame; if the tilt assertion
-fires, wrap each rotor in a pivot child instead of loosening it. Run:
+~/.cache/research/fs-scripts/unity-drones /tmp/aos7v5_adapter.log -executeMethod Crane.Drones.Models.AOS7V5PrefabAdapter.Run
+~/.cache/research/fs-scripts/unity-drones /tmp/aos7v5_rotor_tests.log -runTests -testPlatform EditMode -assemblyNames Crane.Drones.Models.Rotors.Tests -testResults /tmp/aos7v5_rotor_tests.xml
 ```
-~/.cache/research/fs-scripts/unity-drones /tmp/aos7v5_adapter.log -executeMethod Crane.Drones.Models.AOS7V5Adapter.Run
-```
-Pass: exit 0, no tilt exception, `DroneVisualRig.BodyFlu(rotor hub)` equals the sidecar `position_base_link_m` to 1 mm (log it from the adapter).
+Tests (`RotorSpinnerTests`): URDF rotor joints are continuous about +z with parent `motor_i`; world positions equal the quad-X shaft positions
+(+-0.127, +-0.092, 0.040); the spinner turns 4 rigs with the right CCW/CW sign and magnitude (0.1 rad per 10 rad/s x 0.01 s), keeps hubs fixed and tips on their circle;
+angles stay bounded; and (once the prefab is synced) `rotor_i` are separate transforms under `motor_i` with body-up shaft axes and their own meshes.
+Import path: `UrdfSync.FindProfile` looks in the URDF's own folder first, so `Aos7v5.urdfprofile.asset` (rootYawDeg 0, no rules) wins over
+`Surface.urdfprofile.asset` (boat thruster/buoyancy rules never apply); the sync builds one transform per URDF link, so the rotors stay separate.
 
 ## 3. Physics profile for the test
 Copy (do not overwrite) `Tools/DroneCAD/aos7v5/proposed_profile_aos7_cad.json` to a scratch directory and point the plant at it by absolute
