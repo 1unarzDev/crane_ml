@@ -1,0 +1,55 @@
+{
+ "schema": "crane-aerial-demo/1",
+ "title": "vision rerun hover Overcast",
+ "subtitle": "AOS 7 V5 quad, OAK-D S2 onboard perception",
+ "fps": 30,
+ "size": [
+  1920,
+  1080
+ ],
+ "seed": 7,
+ "scene": "Assets/Scenes/Drone Forest.unity",
+ "prefab": "Assets/Drones/Models/AOS7Quad.prefab",
+ "light_preset": "Overcast",
+ "canopy_top_m": 18,
+ "person_offset": [
+  0,
+  0,
+  40
+ ],
+ "flight": {
+  "kind": "scripted",
+  "top_altitude_m": 30,
+  "cruise_height_m": 2.2,
+  "hover_height_m": 1.7,
+  "standoff_m": 3.2,
+  "hover_s": 40,
+  "through_plant": true
+ },
+ "shots": [
+  {
+   "id": "s5_orbit",
+   "type": "orbit",
+   "duration_s": 8,
+   "t0_mark": "hover",
+   "t0_offset_s": 1,
+   "time_scale": 1.0,
+   "look": "mid",
+   "radius_m": 5.0,
+   "height_m": 2.4,
+   "start_deg": 20,
+   "sweep_deg": 260,
+   "fov": 48,
+   "damping_s": 0.3,
+   "aperture_f": 2.4,
+   "detection": false,
+   "transition": {
+    "type": "cut",
+    "duration_s": 0
+   },
+   "stills": [
+    0.5
+   ]
+  }
+ ]
+}

@@ -1,0 +1,459 @@
+{
+ "schema": "crane-vision-rerun/1",
+ "purpose": "Feed CRANE onboard renders (OAK-D S2 RGB, onboard volume profile) to the benchmarked detector and compare observed detection with Tools/Vision/obs_model.py predictions per key case.",
+ "detector": "RT-DETR-R18 tiled 6x640 (Tools/Vision/detector.py), tau 0.3, loc criterion",
+ "prerequisite": "DemoSession must emit per-frame onboard ground truth in frames.jsonl: person_box_onboard [x0,y0,x1,y1] px top-left origin from DemoDirector.PersonBox(rgbCam) (null when off-screen), person_in_view (bool), person_occluded (bool, existing raycast flag), person_visible_frac (fraction of N sight rays from the camera to points on the person that are unblocked), person_range_m (camera to person centre), cam_yaw_rate (rad/s). Owner: the demo/Theater agent (Crane.Theater.Aerial asmdef); without it only false alerts on *_empty runs can be scored.",
+ "run_rules": "One job at a time through the unity-drones wrapper (project lock, one heavy slot). No retry loops.",
+ "score_cmd": "~/.cache/research/vision-venv/bin/python -I Tools/Vision/rendered_rerun.py Tools/Vision/results/rendered/<case> /tmp/crane_vision_rerun/<case>_s*",
+ "compression_note": "Encode at crf 14 so H.264 artefacts do not dominate small-person appearance; a PNG frame dump (-demoFrames slices + stills) is the reference if crf 14 still differs.",
+ "jobs": [
+  {
+   "id": "corridor_v2p0_s7",
+   "sequence": "Tools/Vision/rerun_sequences/corridor_v2p0.json",
+   "seed": 7,
+   "out": "/tmp/crane_vision_rerun/corridor_v2p0_s7",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/corridor_v2p0_s7/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/corridor_v2p0.json -demoSeed 7 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/corridor_v2p0_s7 -demoRunId corridor_v2p0_s7 -demoCrf 14"
+  },
+  {
+   "id": "corridor_v2p0_s11",
+   "sequence": "Tools/Vision/rerun_sequences/corridor_v2p0.json",
+   "seed": 11,
+   "out": "/tmp/crane_vision_rerun/corridor_v2p0_s11",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/corridor_v2p0_s11/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/corridor_v2p0.json -demoSeed 11 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/corridor_v2p0_s11 -demoRunId corridor_v2p0_s11 -demoCrf 14"
+  },
+  {
+   "id": "corridor_v2p0_s13",
+   "sequence": "Tools/Vision/rerun_sequences/corridor_v2p0.json",
+   "seed": 13,
+   "out": "/tmp/crane_vision_rerun/corridor_v2p0_s13",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/corridor_v2p0_s13/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/corridor_v2p0.json -demoSeed 13 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/corridor_v2p0_s13 -demoRunId corridor_v2p0_s13 -demoCrf 14"
+  },
+  {
+   "id": "corridor_v2p0_s17",
+   "sequence": "Tools/Vision/rerun_sequences/corridor_v2p0.json",
+   "seed": 17,
+   "out": "/tmp/crane_vision_rerun/corridor_v2p0_s17",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/corridor_v2p0_s17/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/corridor_v2p0.json -demoSeed 17 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/corridor_v2p0_s17 -demoRunId corridor_v2p0_s17 -demoCrf 14"
+  },
+  {
+   "id": "corridor_v2p0_empty_s7",
+   "sequence": "Tools/Vision/rerun_sequences/corridor_v2p0_empty.json",
+   "seed": 7,
+   "out": "/tmp/crane_vision_rerun/corridor_v2p0_empty_s7",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/corridor_v2p0_empty_s7/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/corridor_v2p0_empty.json -demoSeed 7 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/corridor_v2p0_empty_s7 -demoRunId corridor_v2p0_empty_s7 -demoCrf 14"
+  },
+  {
+   "id": "corridor_v2p0_empty_s11",
+   "sequence": "Tools/Vision/rerun_sequences/corridor_v2p0_empty.json",
+   "seed": 11,
+   "out": "/tmp/crane_vision_rerun/corridor_v2p0_empty_s11",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/corridor_v2p0_empty_s11/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/corridor_v2p0_empty.json -demoSeed 11 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/corridor_v2p0_empty_s11 -demoRunId corridor_v2p0_empty_s11 -demoCrf 14"
+  },
+  {
+   "id": "corridor_v2p0_empty_s13",
+   "sequence": "Tools/Vision/rerun_sequences/corridor_v2p0_empty.json",
+   "seed": 13,
+   "out": "/tmp/crane_vision_rerun/corridor_v2p0_empty_s13",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/corridor_v2p0_empty_s13/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/corridor_v2p0_empty.json -demoSeed 13 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/corridor_v2p0_empty_s13 -demoRunId corridor_v2p0_empty_s13 -demoCrf 14"
+  },
+  {
+   "id": "corridor_v2p0_empty_s17",
+   "sequence": "Tools/Vision/rerun_sequences/corridor_v2p0_empty.json",
+   "seed": 17,
+   "out": "/tmp/crane_vision_rerun/corridor_v2p0_empty_s17",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/corridor_v2p0_empty_s17/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/corridor_v2p0_empty.json -demoSeed 17 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/corridor_v2p0_empty_s17 -demoRunId corridor_v2p0_empty_s17 -demoCrf 14"
+  },
+  {
+   "id": "corridor_v4p5_s7",
+   "sequence": "Tools/Vision/rerun_sequences/corridor_v4p5.json",
+   "seed": 7,
+   "out": "/tmp/crane_vision_rerun/corridor_v4p5_s7",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/corridor_v4p5_s7/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/corridor_v4p5.json -demoSeed 7 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/corridor_v4p5_s7 -demoRunId corridor_v4p5_s7 -demoCrf 14"
+  },
+  {
+   "id": "corridor_v4p5_s11",
+   "sequence": "Tools/Vision/rerun_sequences/corridor_v4p5.json",
+   "seed": 11,
+   "out": "/tmp/crane_vision_rerun/corridor_v4p5_s11",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/corridor_v4p5_s11/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/corridor_v4p5.json -demoSeed 11 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/corridor_v4p5_s11 -demoRunId corridor_v4p5_s11 -demoCrf 14"
+  },
+  {
+   "id": "corridor_v4p5_s13",
+   "sequence": "Tools/Vision/rerun_sequences/corridor_v4p5.json",
+   "seed": 13,
+   "out": "/tmp/crane_vision_rerun/corridor_v4p5_s13",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/corridor_v4p5_s13/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/corridor_v4p5.json -demoSeed 13 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/corridor_v4p5_s13 -demoRunId corridor_v4p5_s13 -demoCrf 14"
+  },
+  {
+   "id": "corridor_v4p5_s17",
+   "sequence": "Tools/Vision/rerun_sequences/corridor_v4p5.json",
+   "seed": 17,
+   "out": "/tmp/crane_vision_rerun/corridor_v4p5_s17",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/corridor_v4p5_s17/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/corridor_v4p5.json -demoSeed 17 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/corridor_v4p5_s17 -demoRunId corridor_v4p5_s17 -demoCrf 14"
+  },
+  {
+   "id": "corridor_v4p5_empty_s7",
+   "sequence": "Tools/Vision/rerun_sequences/corridor_v4p5_empty.json",
+   "seed": 7,
+   "out": "/tmp/crane_vision_rerun/corridor_v4p5_empty_s7",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/corridor_v4p5_empty_s7/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/corridor_v4p5_empty.json -demoSeed 7 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/corridor_v4p5_empty_s7 -demoRunId corridor_v4p5_empty_s7 -demoCrf 14"
+  },
+  {
+   "id": "corridor_v4p5_empty_s11",
+   "sequence": "Tools/Vision/rerun_sequences/corridor_v4p5_empty.json",
+   "seed": 11,
+   "out": "/tmp/crane_vision_rerun/corridor_v4p5_empty_s11",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/corridor_v4p5_empty_s11/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/corridor_v4p5_empty.json -demoSeed 11 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/corridor_v4p5_empty_s11 -demoRunId corridor_v4p5_empty_s11 -demoCrf 14"
+  },
+  {
+   "id": "corridor_v4p5_empty_s13",
+   "sequence": "Tools/Vision/rerun_sequences/corridor_v4p5_empty.json",
+   "seed": 13,
+   "out": "/tmp/crane_vision_rerun/corridor_v4p5_empty_s13",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/corridor_v4p5_empty_s13/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/corridor_v4p5_empty.json -demoSeed 13 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/corridor_v4p5_empty_s13 -demoRunId corridor_v4p5_empty_s13 -demoCrf 14"
+  },
+  {
+   "id": "corridor_v4p5_empty_s17",
+   "sequence": "Tools/Vision/rerun_sequences/corridor_v4p5_empty.json",
+   "seed": 17,
+   "out": "/tmp/crane_vision_rerun/corridor_v4p5_empty_s17",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/corridor_v4p5_empty_s17/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/corridor_v4p5_empty.json -demoSeed 17 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/corridor_v4p5_empty_s17 -demoRunId corridor_v4p5_empty_s17 -demoCrf 14"
+  },
+  {
+   "id": "corridor_v7p0_s7",
+   "sequence": "Tools/Vision/rerun_sequences/corridor_v7p0.json",
+   "seed": 7,
+   "out": "/tmp/crane_vision_rerun/corridor_v7p0_s7",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/corridor_v7p0_s7/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/corridor_v7p0.json -demoSeed 7 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/corridor_v7p0_s7 -demoRunId corridor_v7p0_s7 -demoCrf 14"
+  },
+  {
+   "id": "corridor_v7p0_s11",
+   "sequence": "Tools/Vision/rerun_sequences/corridor_v7p0.json",
+   "seed": 11,
+   "out": "/tmp/crane_vision_rerun/corridor_v7p0_s11",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/corridor_v7p0_s11/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/corridor_v7p0.json -demoSeed 11 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/corridor_v7p0_s11 -demoRunId corridor_v7p0_s11 -demoCrf 14"
+  },
+  {
+   "id": "corridor_v7p0_s13",
+   "sequence": "Tools/Vision/rerun_sequences/corridor_v7p0.json",
+   "seed": 13,
+   "out": "/tmp/crane_vision_rerun/corridor_v7p0_s13",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/corridor_v7p0_s13/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/corridor_v7p0.json -demoSeed 13 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/corridor_v7p0_s13 -demoRunId corridor_v7p0_s13 -demoCrf 14"
+  },
+  {
+   "id": "corridor_v7p0_s17",
+   "sequence": "Tools/Vision/rerun_sequences/corridor_v7p0.json",
+   "seed": 17,
+   "out": "/tmp/crane_vision_rerun/corridor_v7p0_s17",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/corridor_v7p0_s17/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/corridor_v7p0.json -demoSeed 17 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/corridor_v7p0_s17 -demoRunId corridor_v7p0_s17 -demoCrf 14"
+  },
+  {
+   "id": "corridor_v7p0_empty_s7",
+   "sequence": "Tools/Vision/rerun_sequences/corridor_v7p0_empty.json",
+   "seed": 7,
+   "out": "/tmp/crane_vision_rerun/corridor_v7p0_empty_s7",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/corridor_v7p0_empty_s7/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/corridor_v7p0_empty.json -demoSeed 7 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/corridor_v7p0_empty_s7 -demoRunId corridor_v7p0_empty_s7 -demoCrf 14"
+  },
+  {
+   "id": "corridor_v7p0_empty_s11",
+   "sequence": "Tools/Vision/rerun_sequences/corridor_v7p0_empty.json",
+   "seed": 11,
+   "out": "/tmp/crane_vision_rerun/corridor_v7p0_empty_s11",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/corridor_v7p0_empty_s11/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/corridor_v7p0_empty.json -demoSeed 11 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/corridor_v7p0_empty_s11 -demoRunId corridor_v7p0_empty_s11 -demoCrf 14"
+  },
+  {
+   "id": "corridor_v7p0_empty_s13",
+   "sequence": "Tools/Vision/rerun_sequences/corridor_v7p0_empty.json",
+   "seed": 13,
+   "out": "/tmp/crane_vision_rerun/corridor_v7p0_empty_s13",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/corridor_v7p0_empty_s13/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/corridor_v7p0_empty.json -demoSeed 13 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/corridor_v7p0_empty_s13 -demoRunId corridor_v7p0_empty_s13 -demoCrf 14"
+  },
+  {
+   "id": "corridor_v7p0_empty_s17",
+   "sequence": "Tools/Vision/rerun_sequences/corridor_v7p0_empty.json",
+   "seed": 17,
+   "out": "/tmp/crane_vision_rerun/corridor_v7p0_empty_s17",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/corridor_v7p0_empty_s17/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/corridor_v7p0_empty.json -demoSeed 17 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/corridor_v7p0_empty_s17 -demoRunId corridor_v7p0_empty_s17 -demoCrf 14"
+  },
+  {
+   "id": "hover_dusk_s7",
+   "sequence": "Tools/Vision/rerun_sequences/hover_dusk.json",
+   "seed": 7,
+   "out": "/tmp/crane_vision_rerun/hover_dusk_s7",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/hover_dusk_s7/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/hover_dusk.json -demoSeed 7 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/hover_dusk_s7 -demoRunId hover_dusk_s7 -demoCrf 14"
+  },
+  {
+   "id": "hover_dusk_s11",
+   "sequence": "Tools/Vision/rerun_sequences/hover_dusk.json",
+   "seed": 11,
+   "out": "/tmp/crane_vision_rerun/hover_dusk_s11",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/hover_dusk_s11/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/hover_dusk.json -demoSeed 11 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/hover_dusk_s11 -demoRunId hover_dusk_s11 -demoCrf 14"
+  },
+  {
+   "id": "hover_dusk_s13",
+   "sequence": "Tools/Vision/rerun_sequences/hover_dusk.json",
+   "seed": 13,
+   "out": "/tmp/crane_vision_rerun/hover_dusk_s13",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/hover_dusk_s13/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/hover_dusk.json -demoSeed 13 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/hover_dusk_s13 -demoRunId hover_dusk_s13 -demoCrf 14"
+  },
+  {
+   "id": "hover_dusk_s17",
+   "sequence": "Tools/Vision/rerun_sequences/hover_dusk.json",
+   "seed": 17,
+   "out": "/tmp/crane_vision_rerun/hover_dusk_s17",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/hover_dusk_s17/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/hover_dusk.json -demoSeed 17 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/hover_dusk_s17 -demoRunId hover_dusk_s17 -demoCrf 14"
+  },
+  {
+   "id": "hover_dusk_empty_s7",
+   "sequence": "Tools/Vision/rerun_sequences/hover_dusk_empty.json",
+   "seed": 7,
+   "out": "/tmp/crane_vision_rerun/hover_dusk_empty_s7",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/hover_dusk_empty_s7/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/hover_dusk_empty.json -demoSeed 7 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/hover_dusk_empty_s7 -demoRunId hover_dusk_empty_s7 -demoCrf 14"
+  },
+  {
+   "id": "hover_dusk_empty_s11",
+   "sequence": "Tools/Vision/rerun_sequences/hover_dusk_empty.json",
+   "seed": 11,
+   "out": "/tmp/crane_vision_rerun/hover_dusk_empty_s11",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/hover_dusk_empty_s11/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/hover_dusk_empty.json -demoSeed 11 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/hover_dusk_empty_s11 -demoRunId hover_dusk_empty_s11 -demoCrf 14"
+  },
+  {
+   "id": "hover_dusk_empty_s13",
+   "sequence": "Tools/Vision/rerun_sequences/hover_dusk_empty.json",
+   "seed": 13,
+   "out": "/tmp/crane_vision_rerun/hover_dusk_empty_s13",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/hover_dusk_empty_s13/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/hover_dusk_empty.json -demoSeed 13 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/hover_dusk_empty_s13 -demoRunId hover_dusk_empty_s13 -demoCrf 14"
+  },
+  {
+   "id": "hover_dusk_empty_s17",
+   "sequence": "Tools/Vision/rerun_sequences/hover_dusk_empty.json",
+   "seed": 17,
+   "out": "/tmp/crane_vision_rerun/hover_dusk_empty_s17",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/hover_dusk_empty_s17/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/hover_dusk_empty.json -demoSeed 17 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/hover_dusk_empty_s17 -demoRunId hover_dusk_empty_s17 -demoCrf 14"
+  },
+  {
+   "id": "hover_goldenhour_s7",
+   "sequence": "Tools/Vision/rerun_sequences/hover_goldenhour.json",
+   "seed": 7,
+   "out": "/tmp/crane_vision_rerun/hover_goldenhour_s7",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/hover_goldenhour_s7/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/hover_goldenhour.json -demoSeed 7 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/hover_goldenhour_s7 -demoRunId hover_goldenhour_s7 -demoCrf 14"
+  },
+  {
+   "id": "hover_goldenhour_s11",
+   "sequence": "Tools/Vision/rerun_sequences/hover_goldenhour.json",
+   "seed": 11,
+   "out": "/tmp/crane_vision_rerun/hover_goldenhour_s11",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/hover_goldenhour_s11/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/hover_goldenhour.json -demoSeed 11 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/hover_goldenhour_s11 -demoRunId hover_goldenhour_s11 -demoCrf 14"
+  },
+  {
+   "id": "hover_goldenhour_s13",
+   "sequence": "Tools/Vision/rerun_sequences/hover_goldenhour.json",
+   "seed": 13,
+   "out": "/tmp/crane_vision_rerun/hover_goldenhour_s13",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/hover_goldenhour_s13/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/hover_goldenhour.json -demoSeed 13 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/hover_goldenhour_s13 -demoRunId hover_goldenhour_s13 -demoCrf 14"
+  },
+  {
+   "id": "hover_goldenhour_s17",
+   "sequence": "Tools/Vision/rerun_sequences/hover_goldenhour.json",
+   "seed": 17,
+   "out": "/tmp/crane_vision_rerun/hover_goldenhour_s17",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/hover_goldenhour_s17/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/hover_goldenhour.json -demoSeed 17 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/hover_goldenhour_s17 -demoRunId hover_goldenhour_s17 -demoCrf 14"
+  },
+  {
+   "id": "hover_goldenhour_empty_s7",
+   "sequence": "Tools/Vision/rerun_sequences/hover_goldenhour_empty.json",
+   "seed": 7,
+   "out": "/tmp/crane_vision_rerun/hover_goldenhour_empty_s7",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/hover_goldenhour_empty_s7/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/hover_goldenhour_empty.json -demoSeed 7 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/hover_goldenhour_empty_s7 -demoRunId hover_goldenhour_empty_s7 -demoCrf 14"
+  },
+  {
+   "id": "hover_goldenhour_empty_s11",
+   "sequence": "Tools/Vision/rerun_sequences/hover_goldenhour_empty.json",
+   "seed": 11,
+   "out": "/tmp/crane_vision_rerun/hover_goldenhour_empty_s11",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/hover_goldenhour_empty_s11/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/hover_goldenhour_empty.json -demoSeed 11 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/hover_goldenhour_empty_s11 -demoRunId hover_goldenhour_empty_s11 -demoCrf 14"
+  },
+  {
+   "id": "hover_goldenhour_empty_s13",
+   "sequence": "Tools/Vision/rerun_sequences/hover_goldenhour_empty.json",
+   "seed": 13,
+   "out": "/tmp/crane_vision_rerun/hover_goldenhour_empty_s13",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/hover_goldenhour_empty_s13/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/hover_goldenhour_empty.json -demoSeed 13 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/hover_goldenhour_empty_s13 -demoRunId hover_goldenhour_empty_s13 -demoCrf 14"
+  },
+  {
+   "id": "hover_goldenhour_empty_s17",
+   "sequence": "Tools/Vision/rerun_sequences/hover_goldenhour_empty.json",
+   "seed": 17,
+   "out": "/tmp/crane_vision_rerun/hover_goldenhour_empty_s17",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/hover_goldenhour_empty_s17/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/hover_goldenhour_empty.json -demoSeed 17 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/hover_goldenhour_empty_s17 -demoRunId hover_goldenhour_empty_s17 -demoCrf 14"
+  },
+  {
+   "id": "hover_overcast_s7",
+   "sequence": "Tools/Vision/rerun_sequences/hover_overcast.json",
+   "seed": 7,
+   "out": "/tmp/crane_vision_rerun/hover_overcast_s7",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/hover_overcast_s7/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/hover_overcast.json -demoSeed 7 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/hover_overcast_s7 -demoRunId hover_overcast_s7 -demoCrf 14"
+  },
+  {
+   "id": "hover_overcast_s11",
+   "sequence": "Tools/Vision/rerun_sequences/hover_overcast.json",
+   "seed": 11,
+   "out": "/tmp/crane_vision_rerun/hover_overcast_s11",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/hover_overcast_s11/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/hover_overcast.json -demoSeed 11 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/hover_overcast_s11 -demoRunId hover_overcast_s11 -demoCrf 14"
+  },
+  {
+   "id": "hover_overcast_s13",
+   "sequence": "Tools/Vision/rerun_sequences/hover_overcast.json",
+   "seed": 13,
+   "out": "/tmp/crane_vision_rerun/hover_overcast_s13",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/hover_overcast_s13/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/hover_overcast.json -demoSeed 13 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/hover_overcast_s13 -demoRunId hover_overcast_s13 -demoCrf 14"
+  },
+  {
+   "id": "hover_overcast_s17",
+   "sequence": "Tools/Vision/rerun_sequences/hover_overcast.json",
+   "seed": 17,
+   "out": "/tmp/crane_vision_rerun/hover_overcast_s17",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/hover_overcast_s17/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/hover_overcast.json -demoSeed 17 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/hover_overcast_s17 -demoRunId hover_overcast_s17 -demoCrf 14"
+  },
+  {
+   "id": "hover_overcast_empty_s7",
+   "sequence": "Tools/Vision/rerun_sequences/hover_overcast_empty.json",
+   "seed": 7,
+   "out": "/tmp/crane_vision_rerun/hover_overcast_empty_s7",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/hover_overcast_empty_s7/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/hover_overcast_empty.json -demoSeed 7 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/hover_overcast_empty_s7 -demoRunId hover_overcast_empty_s7 -demoCrf 14"
+  },
+  {
+   "id": "hover_overcast_empty_s11",
+   "sequence": "Tools/Vision/rerun_sequences/hover_overcast_empty.json",
+   "seed": 11,
+   "out": "/tmp/crane_vision_rerun/hover_overcast_empty_s11",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/hover_overcast_empty_s11/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/hover_overcast_empty.json -demoSeed 11 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/hover_overcast_empty_s11 -demoRunId hover_overcast_empty_s11 -demoCrf 14"
+  },
+  {
+   "id": "hover_overcast_empty_s13",
+   "sequence": "Tools/Vision/rerun_sequences/hover_overcast_empty.json",
+   "seed": 13,
+   "out": "/tmp/crane_vision_rerun/hover_overcast_empty_s13",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/hover_overcast_empty_s13/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/hover_overcast_empty.json -demoSeed 13 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/hover_overcast_empty_s13 -demoRunId hover_overcast_empty_s13 -demoCrf 14"
+  },
+  {
+   "id": "hover_overcast_empty_s17",
+   "sequence": "Tools/Vision/rerun_sequences/hover_overcast_empty.json",
+   "seed": 17,
+   "out": "/tmp/crane_vision_rerun/hover_overcast_empty_s17",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/hover_overcast_empty_s17/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/hover_overcast_empty.json -demoSeed 17 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/hover_overcast_empty_s17 -demoRunId hover_overcast_empty_s17 -demoCrf 14"
+  },
+  {
+   "id": "top_30m_s7",
+   "sequence": "Tools/Vision/rerun_sequences/top_30m.json",
+   "seed": 7,
+   "out": "/tmp/crane_vision_rerun/top_30m_s7",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/top_30m_s7/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/top_30m.json -demoSeed 7 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/top_30m_s7 -demoRunId top_30m_s7 -demoCrf 14"
+  },
+  {
+   "id": "top_30m_s11",
+   "sequence": "Tools/Vision/rerun_sequences/top_30m.json",
+   "seed": 11,
+   "out": "/tmp/crane_vision_rerun/top_30m_s11",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/top_30m_s11/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/top_30m.json -demoSeed 11 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/top_30m_s11 -demoRunId top_30m_s11 -demoCrf 14"
+  },
+  {
+   "id": "top_30m_s13",
+   "sequence": "Tools/Vision/rerun_sequences/top_30m.json",
+   "seed": 13,
+   "out": "/tmp/crane_vision_rerun/top_30m_s13",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/top_30m_s13/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/top_30m.json -demoSeed 13 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/top_30m_s13 -demoRunId top_30m_s13 -demoCrf 14"
+  },
+  {
+   "id": "top_30m_s17",
+   "sequence": "Tools/Vision/rerun_sequences/top_30m.json",
+   "seed": 17,
+   "out": "/tmp/crane_vision_rerun/top_30m_s17",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/top_30m_s17/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/top_30m.json -demoSeed 17 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/top_30m_s17 -demoRunId top_30m_s17 -demoCrf 14"
+  },
+  {
+   "id": "top_30m_empty_s7",
+   "sequence": "Tools/Vision/rerun_sequences/top_30m_empty.json",
+   "seed": 7,
+   "out": "/tmp/crane_vision_rerun/top_30m_empty_s7",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/top_30m_empty_s7/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/top_30m_empty.json -demoSeed 7 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/top_30m_empty_s7 -demoRunId top_30m_empty_s7 -demoCrf 14"
+  },
+  {
+   "id": "top_30m_empty_s11",
+   "sequence": "Tools/Vision/rerun_sequences/top_30m_empty.json",
+   "seed": 11,
+   "out": "/tmp/crane_vision_rerun/top_30m_empty_s11",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/top_30m_empty_s11/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/top_30m_empty.json -demoSeed 11 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/top_30m_empty_s11 -demoRunId top_30m_empty_s11 -demoCrf 14"
+  },
+  {
+   "id": "top_30m_empty_s13",
+   "sequence": "Tools/Vision/rerun_sequences/top_30m_empty.json",
+   "seed": 13,
+   "out": "/tmp/crane_vision_rerun/top_30m_empty_s13",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/top_30m_empty_s13/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/top_30m_empty.json -demoSeed 13 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/top_30m_empty_s13 -demoRunId top_30m_empty_s13 -demoCrf 14"
+  },
+  {
+   "id": "top_30m_empty_s17",
+   "sequence": "Tools/Vision/rerun_sequences/top_30m_empty.json",
+   "seed": 17,
+   "out": "/tmp/crane_vision_rerun/top_30m_empty_s17",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/top_30m_empty_s17/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/top_30m_empty.json -demoSeed 17 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/top_30m_empty_s17 -demoRunId top_30m_empty_s17 -demoCrf 14"
+  },
+  {
+   "id": "top_50m_s7",
+   "sequence": "Tools/Vision/rerun_sequences/top_50m.json",
+   "seed": 7,
+   "out": "/tmp/crane_vision_rerun/top_50m_s7",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/top_50m_s7/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/top_50m.json -demoSeed 7 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/top_50m_s7 -demoRunId top_50m_s7 -demoCrf 14"
+  },
+  {
+   "id": "top_50m_s11",
+   "sequence": "Tools/Vision/rerun_sequences/top_50m.json",
+   "seed": 11,
+   "out": "/tmp/crane_vision_rerun/top_50m_s11",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/top_50m_s11/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/top_50m.json -demoSeed 11 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/top_50m_s11 -demoRunId top_50m_s11 -demoCrf 14"
+  },
+  {
+   "id": "top_50m_s13",
+   "sequence": "Tools/Vision/rerun_sequences/top_50m.json",
+   "seed": 13,
+   "out": "/tmp/crane_vision_rerun/top_50m_s13",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/top_50m_s13/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/top_50m.json -demoSeed 13 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/top_50m_s13 -demoRunId top_50m_s13 -demoCrf 14"
+  },
+  {
+   "id": "top_50m_s17",
+   "sequence": "Tools/Vision/rerun_sequences/top_50m.json",
+   "seed": 17,
+   "out": "/tmp/crane_vision_rerun/top_50m_s17",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/top_50m_s17/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/top_50m.json -demoSeed 17 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/top_50m_s17 -demoRunId top_50m_s17 -demoCrf 14"
+  },
+  {
+   "id": "top_50m_empty_s7",
+   "sequence": "Tools/Vision/rerun_sequences/top_50m_empty.json",
+   "seed": 7,
+   "out": "/tmp/crane_vision_rerun/top_50m_empty_s7",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/top_50m_empty_s7/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/top_50m_empty.json -demoSeed 7 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/top_50m_empty_s7 -demoRunId top_50m_empty_s7 -demoCrf 14"
+  },
+  {
+   "id": "top_50m_empty_s11",
+   "sequence": "Tools/Vision/rerun_sequences/top_50m_empty.json",
+   "seed": 11,
+   "out": "/tmp/crane_vision_rerun/top_50m_empty_s11",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/top_50m_empty_s11/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/top_50m_empty.json -demoSeed 11 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/top_50m_empty_s11 -demoRunId top_50m_empty_s11 -demoCrf 14"
+  },
+  {
+   "id": "top_50m_empty_s13",
+   "sequence": "Tools/Vision/rerun_sequences/top_50m_empty.json",
+   "seed": 13,
+   "out": "/tmp/crane_vision_rerun/top_50m_empty_s13",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/top_50m_empty_s13/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/top_50m_empty.json -demoSeed 13 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/top_50m_empty_s13 -demoRunId top_50m_empty_s13 -demoCrf 14"
+  },
+  {
+   "id": "top_50m_empty_s17",
+   "sequence": "Tools/Vision/rerun_sequences/top_50m_empty.json",
+   "seed": 17,
+   "out": "/tmp/crane_vision_rerun/top_50m_empty_s17",
+   "cmd": "~/.cache/research/fs-scripts/unity-drones --render /tmp/crane_vision_rerun/top_50m_empty_s17/editor.log -executeMethod Crane.Theater.Aerial.DemoCapture.Run -demoSequence Tools/Vision/rerun_sequences/top_50m_empty.json -demoSeed 17 -demoProfile onboard -demoNoStills -demoOut /tmp/crane_vision_rerun/top_50m_empty_s17 -demoRunId top_50m_empty_s17 -demoCrf 14"
+  }
+ ]
+}

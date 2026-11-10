@@ -1,0 +1,8 @@
+{
+ "frames": 20,
+ "frames_with_gt": 0,
+ "tau": 0.5,
+ "mode": "tiled",
+ "detections_per_frame_all": 0.85,
+ "frames_with_any_detection": 0.85
+}

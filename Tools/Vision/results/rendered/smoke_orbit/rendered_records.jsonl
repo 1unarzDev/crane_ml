@@ -1,0 +1,20 @@
+{"demo": "smoke_orbit", "frame": 1680, "shot": "s5_orbit", "n_det": 1, "max_score": 0.6670810580253601, "boxes": [[975.6, 1031.8, 998.7, 1079.6, 0.667]], "gt": false, "detected": null, "n_fp": null}
+{"demo": "smoke_orbit", "frame": 1681, "shot": "s5_orbit", "n_det": 1, "max_score": 0.5917429327964783, "boxes": [[975.7, 1032.7, 998.4, 1079.4, 0.592]], "gt": false, "detected": null, "n_fp": null}
+{"demo": "smoke_orbit", "frame": 1682, "shot": "s5_orbit", "n_det": 0, "max_score": 0.44297075271606445, "boxes": [], "gt": false, "detected": null, "n_fp": null}
+{"demo": "smoke_orbit", "frame": 1683, "shot": "s5_orbit", "n_det": 1, "max_score": 0.5484196543693542, "boxes": [[975.1, 1032.9, 997.9, 1079.2, 0.548]], "gt": false, "detected": null, "n_fp": null}
+{"demo": "smoke_orbit", "frame": 1684, "shot": "s5_orbit", "n_det": 1, "max_score": 0.5813639163970947, "boxes": [[975.0, 1032.7, 997.4, 1079.4, 0.581]], "gt": false, "detected": null, "n_fp": null}
+{"demo": "smoke_orbit", "frame": 1685, "shot": "s5_orbit", "n_det": 0, "max_score": 0.4478864073753357, "boxes": [], "gt": false, "detected": null, "n_fp": null}
+{"demo": "smoke_orbit", "frame": 1686, "shot": "s5_orbit", "n_det": 0, "max_score": 0.4647819697856903, "boxes": [], "gt": false, "detected": null, "n_fp": null}
+{"demo": "smoke_orbit", "frame": 1687, "shot": "s5_orbit", "n_det": 1, "max_score": 0.5022602081298828, "boxes": [[974.7, 1033.4, 997.7, 1079.7, 0.502]], "gt": false, "detected": null, "n_fp": null}
+{"demo": "smoke_orbit", "frame": 1688, "shot": "s5_orbit", "n_det": 1, "max_score": 0.6376014351844788, "boxes": [[974.6, 1033.5, 997.6, 1079.8, 0.638]], "gt": false, "detected": null, "n_fp": null}
+{"demo": "smoke_orbit", "frame": 1689, "shot": "s5_orbit", "n_det": 1, "max_score": 0.636786937713623, "boxes": [[974.5, 1033.6, 997.6, 1079.8, 0.637]], "gt": false, "detected": null, "n_fp": null}
+{"demo": "smoke_orbit", "frame": 1690, "shot": "s5_orbit", "n_det": 1, "max_score": 0.5760101675987244, "boxes": [[974.4, 1033.4, 997.3, 1079.8, 0.576]], "gt": false, "detected": null, "n_fp": null}
+{"demo": "smoke_orbit", "frame": 1691, "shot": "s5_orbit", "n_det": 1, "max_score": 0.6248268485069275, "boxes": [[974.4, 1033.4, 997.0, 1080.0, 0.625]], "gt": false, "detected": null, "n_fp": null}
+{"demo": "smoke_orbit", "frame": 1692, "shot": "s5_orbit", "n_det": 1, "max_score": 0.5993111729621887, "boxes": [[974.5, 1033.6, 997.0, 1080.1, 0.599]], "gt": false, "detected": null, "n_fp": null}
+{"demo": "smoke_orbit", "frame": 1693, "shot": "s5_orbit", "n_det": 1, "max_score": 0.6358128190040588, "boxes": [[974.4, 1033.6, 997.1, 1080.2, 0.636]], "gt": false, "detected": null, "n_fp": null}
+{"demo": "smoke_orbit", "frame": 1694, "shot": "s5_orbit", "n_det": 1, "max_score": 0.5947861671447754, "boxes": [[974.4, 1033.7, 997.1, 1080.1, 0.595]], "gt": false, "detected": null, "n_fp": null}
+{"demo": "smoke_orbit", "frame": 1695, "shot": "s5_orbit", "n_det": 1, "max_score": 0.5902204513549805, "boxes": [[974.1, 1033.9, 997.1, 1080.0, 0.59]], "gt": false, "detected": null, "n_fp": null}
+{"demo": "smoke_orbit", "frame": 1696, "shot": "s5_orbit", "n_det": 1, "max_score": 0.6206383109092712, "boxes": [[973.0, 1034.0, 996.9, 1080.0, 0.621]], "gt": false, "detected": null, "n_fp": null}
+{"demo": "smoke_orbit", "frame": 1697, "shot": "s5_orbit", "n_det": 1, "max_score": 0.6268148422241211, "boxes": [[973.1, 1033.9, 996.9, 1080.0, 0.627]], "gt": false, "detected": null, "n_fp": null}
+{"demo": "smoke_orbit", "frame": 1698, "shot": "s5_orbit", "n_det": 1, "max_score": 0.5615846514701843, "boxes": [[973.0, 1033.8, 996.7, 1080.0, 0.562]], "gt": false, "detected": null, "n_fp": null}
+{"demo": "smoke_orbit", "frame": 1699, "shot": "s5_orbit", "n_det": 1, "max_score": 0.5518767833709717, "boxes": [[972.3, 1034.3, 996.6, 1079.9, 0.552]], "gt": false, "detected": null, "n_fp": null}
