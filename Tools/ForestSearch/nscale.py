@@ -918,6 +918,46 @@ def heldout_phase(part, index=None):
         os.replace(o + ".part", o)
 
 
+
+def make_params(budget_cpu_min, travels, planners, info_path, out_path):
+    """Frozen rule (PREREG_SCALING.md): episodes per instance E for N < 10 and
+    E10 = max(40, int(0.6 E)) for N = 10, with E the largest multiple of 10 in [40, 200]
+    whose estimated CPU (dev ms/episode, lam 3, burst link, perm1) fits the budget;
+    if none fits, E = 40 / E10 = 30.  Horizons come from the dev scan rule."""
+    info = json.load(open(info_path))
+
+    def cost(N, tr, pl, E):
+        f = 1.0
+        if pl != "greedy":
+            f = info["rollout"][str(N)]["HYBRID_P"][1] / max(1e-9, info["ms_per_ep"][f"{N},1,HYBRID_P"])
+        ms = lambda p: info["ms_per_ep"][f"{N},{tr},{p}"] * f
+        per = (2 * sum(ms(p) for p in ("ORACLE", "INDEP", "IMPLICIT"))
+               + 3 * sum(ms(p) for p in ("HYBRID", "HYBRID_P", "HB_TO"))
+               + 3 * sum(ms(p) for p in ("HYBRID", "HYBRID_P", "HB_TO", "HEALTH")))
+        return 16 * 2 * E * per / 60e3
+    choice = None
+    for E in range(200, 39, -10):
+        Es = {N: (E if N < 10 else max(40, int(0.6 * E))) for N in NS_ALL}
+        tot = sum(cost(N, tr, pl, Es[N]) for N in NS_ALL for tr in travels for pl in planners)
+        if tot <= budget_cpu_min:
+            choice = (Es, tot); break
+    if choice is None:
+        Es = {2: 40, 3: 40, 5: 40, 10: 30}
+        choice = (Es, sum(cost(N, tr, pl, Es[N]) for N in NS_ALL for tr in travels for pl in planners))
+    Es, tot = choice
+    tasks = []
+    for pl in planners:
+        for tr in travels:
+            for N in (2, 3, 5, 10):
+                tasks.append(dict(N=N, travel=tr, planners=[pl], faults=["none", "perm1"], E=Es[N],
+                                  H=info["horizon"][f"{N},{tr}"], out=f"nscale_heldout_N{N}_t{tr}_{pl}.csv.gz",
+                                  est_cpu_min=round(cost(N, tr, pl, Es[N]), 1)))
+    P = dict(seeds=list(range(3000, 3016)), lams=[1, 3], links=["ideal", "d1", "burst30_d1"],
+             tasks=tasks, est_total_cpu_min=round(tot, 1), parts={}, budget_cpu_min=budget_cpu_min)
+    json.dump(P, open(out_path, "w"), indent=1)
+    print(json.dumps(P, indent=1))
+
+
 def main():
     ap = argparse.ArgumentParser()
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -943,7 +983,16 @@ def main():
     hh = sub.add_parser("heldout")
     hh.add_argument("--part", default=None)
     hh.add_argument("--index", type=int, default=None)
+    pp = sub.add_parser("params")
+    pp.add_argument("--budget", type=float, required=True)
+    pp.add_argument("--travels", default="1,0")
+    pp.add_argument("--planners", default="greedy")
+    pp.add_argument("--info", default="/tmp/nscale_dev/nscale_dev_info.json")
     a = ap.parse_args()
+    if a.cmd == "params":
+        make_params(a.budget, [int(x) for x in a.travels.split(",")], a.planners.split(","), a.info,
+                    os.path.join(HERE, "results", "nscale_heldout_params.json"))
+        return
     if a.cmd == "dev":
         dev_phase(a.out_dir, scan_only=a.scan_only)
         return
