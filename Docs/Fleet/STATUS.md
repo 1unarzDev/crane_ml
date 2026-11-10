@@ -416,3 +416,19 @@ on the coupled pair in the delivery zone, with the scout watching. The h24 still
 - joint wrench readout against the face profile's limits;
 - autonomy-in-the-loop assemblies (the library distributes; CRANE applies);
 - the demo stand mission.
+
+### CAD v1 import: prepared as a selectable profile (code-only, 06d26b61; v0 stays the default)
+| Item | Where | Evidence |
+|---|---|---|
+| Profile selection: overlay `profiles` table (v0 default, v1 = `fleet_profile_v1.json` + `assets_v1/`), `--crane-fleet-profile KEY`, jobs key `profile`; per-profile `mesh_manifest`, `payload_manifest`, `manifest_tags`, `motor_curve`, `plant_model` | `Core/FleetSpec.cs`, `Sim/FleetBoot.cs`, `Sim/FleetHarness.cs`, `Editor/FleetCli.cs`, overlay | FIXTURE_VALIDATED (`Tools/Fleet/offline/v1_import_t0`): every rover is described under v0 (unchanged) and v1. v1 masses scout 5.118, lifter 6.074, cargo 5.257 kg; wheels lx 0.109, ly 0.104, 23 rad/s, 1.47 N m, 2249 cpr; manifests present; collision from the manifest |
+| v1 assets synced into `StreamingAssets/Fleet/assets_v1` (OBJ/MTL/manifests/textures, 19 MB; gitignored; `Tools/Fleet/assets_v1_SHA256SUMS`, 102 files) | `Tools/Fleet/sync_spec.sh` | done; v0 profile and scenario identical to upstream (checked before syncing) |
+| Role `active_faces` (v1 lifter: rear/left/right; the front is a gripper face) | `Core/FleetSpec.cs` | T0 (v0 lifter still front/rear) |
+| Reciprocal faces (profile `docking.hook_count` = 1): HOOK_A = initiator's own hook, HOOK_B = partner's; the partner rover sees and senses (own, partner) swapped; v0 (2 hooks) unchanged | `Sim/FleetAutonomyHost.cs` (`CouplingManager.OwnPartner`), `Sim/AutonomyMission.cs` (`ReadConnector`) | IMPLEMENTED (typechecked) |
+| Bevel-tag frames: manifest `attachments.tags` and `docking_faces[].tag` parsed; AprilTag3 frame (z into the tag) converted to the perception convention (z out, y up). Face and top tag mounts replace the profile-derived ones when `profiles.<key>.manifest_tags` (v1 only; v0 manifests also declare tags, and the v0 evidence used profile mounts) | `Core/MeshManifest.cs`, `Sim/FleetAutonomyHost.cs` | FIXTURE_VALIDATED: all 14 v1 tags have z_out = the manifest outward normal and y up the face |
+| TractivePlant `linear_dc` motor curve (available torque from stall to 0 at no-load; braking to stall); v1 profile rovers use the tractive plant | `Core/TractivePlant.cs` | T0 12/12 (`tractive_t0`) |
+| Turn-around docking (camera at the front, dock face rear or side): observe at the stand-off rotated by the face yaw, turn in place on odometry, close on odometry. Stand-off along the dock face's outward normal (unchanged for front faces) | `AutonomyApi/TagDockingController.cs` | FIXTURE_VALIDATED (`Tools/Fleet/offline/docking_t0`, kinematic plus perception simulator): rear-face dock 20/20 latched, all turned, |lat| <= 1.2 mm; front-face regression 20/20 unchanged |
+
+**BLOCKER for running v1 (perception-library owner).** The perception core's `FleetProfile.Parse` rejects `fleet_profile_v1.json`. The autonomy library reads the profile through it too.
+- **(a) Non-numeric descriptive leaves.** `chassis.wheel.motor`, `docking.magnet`, `docking.partner_acquisition`, `roles.*.compute` / `mcu` / `arm_proxy.servo` / `lifter_option`. A one-line tolerant skip works; I tried it and reverted it to keep the copy equal to upstream.
+- **(b) Unknown sensor tokens.** `lidar_2d (RPLIDAR C1)`, `realsense_d435 (depth + infra1/infra2 + color)`, and the lifter's `mono_camera_ov9281(mast)` needs a mount token.
+- **What it needs.** Perception support for the D435 (stereo infra pair at 0.050, colour, depth) and the mast camera. Until then, v1 runs in CRANE fail at the perception host.
