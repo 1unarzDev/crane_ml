@@ -87,7 +87,15 @@ Ranges must not change after the first dataset is generated. "Lighting" and "win
 Contract: same `scene_seed`, scene, physics profile/params and trajectory spec reproduce the same logs. `t_ns`, event sequence and
 sensor index stamps must match exactly; state values within the tolerance below (`check_repro.py` defaults, override with `--tol-*`).
 All stub randomness comes from `DroneRng` (xorshift64*), never `System.Random` or `UnityEngine.Random`. PhysX runs in Script mode (`Physics.Simulate(1 ms)`).
-MEASURED_TOLERANCE_PLACEHOLDER
+**Measured (stub plant, seed 1337, 6 s, 1 kHz, 6001 state rows, one host, Unity 6000.5.10f1, `-nographics`):**
+two runs in one Editor process and a run in a second, separate Unity process are **bitwise identical** in `state.csv`, `imu.csv`
+and `events.jsonl` (max |d| = 0 for position, quaternion, velocity, rate, acceleration, rotors, battery; `cmp` clean), including
+through a rigid-body collision with the box. A different seed differs (max |dpos| about 11 m). So the measured tolerance on this host
+is 0. The `check_repro.py` defaults (pos 1e-6 m, quat 1e-6, vel 1e-6 m/s, rate 1e-5 rad/s, body accel 1e-2 m/s^2, rotors 1e-3, battery 1e-6)
+are deliberately loose guard rails for other hosts or CPUs (PhysX and `Math.Exp/Sin` are not guaranteed bit-exact across CPU architectures);
+tighten them once a second host has been measured. NOT measured: cross-host, GPU/render-mode runs, the real aerial plant with
+sub-stepped articulations, multi-body contact with many trees. Rerun `check_repro.py` after each physics change.
+Evidence label: FIXTURE_VALIDATED (stub plant).
 
 ## Commands
 ```

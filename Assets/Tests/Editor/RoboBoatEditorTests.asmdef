@@ -7,6 +7,7 @@
         "PhysicsAssembly",
         "PerformanceAssembly",
         "UtilsAssembly",
+        "Crane.Drones.Logging",
         "Unity.InputSystem",
         "Unity.Robotics.ROSTCPConnector.Messages"
     ],

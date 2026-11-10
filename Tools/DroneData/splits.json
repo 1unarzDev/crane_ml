@@ -1,0 +1,23 @@
+{
+  "schema": "crane-drone-splits/1",
+  "policy": "dev seeds are for iteration, demos and smoke tests and are never reported. train/val/test are the learning splits. HELD-OUT seeds and disturbance values must never be rendered, logged or trained on during development; they are used once, for the final evaluation, with --allow-heldout. Seeds outside every range are refused. Do not edit ranges after the first dataset is generated.",
+  "seed_ranges": [
+    {"split": "dev",     "start": 0,     "end": 1999},
+    {"split": "train",   "start": 2000,  "end": 69999},
+    {"split": "val",     "start": 70000, "end": 79999},
+    {"split": "test",    "start": 80000, "end": 89999},
+    {"split": "heldout", "start": 90000, "end": 99999}
+  ],
+  "disturbance": [
+    {"family": "wind", "split": "dev",     "values": ["calm", "light_breeze"]},
+    {"family": "wind", "split": "train",   "values": ["calm", "light_breeze", "gusty"]},
+    {"family": "wind", "split": "val",     "values": ["moderate_gusty"]},
+    {"family": "wind", "split": "test",    "values": ["strong_steady"]},
+    {"family": "wind", "split": "heldout", "values": ["storm_gust", "turbulent_shear"]},
+    {"family": "lighting", "split": "dev",     "values": ["GoldenHour"]},
+    {"family": "lighting", "split": "train",   "values": ["GoldenHour", "Overcast"]},
+    {"family": "lighting", "split": "val",     "values": ["Dusk"]},
+    {"family": "lighting", "split": "test",    "values": ["Noon"]},
+    {"family": "lighting", "split": "heldout", "values": ["LowSunGlare", "HeavyFog"]}
+  ]
+}
