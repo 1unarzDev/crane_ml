@@ -1,0 +1,602 @@
+{
+ "schema": "crane.fleet_generator_defaults/v0",
+ "note": "Dimensions the fleet profile does not provide. Every entry is provisional and is a question for the mechanical designer (see CAD_IMPORT.md checklist). Edit here, not in gen_provisional.py.",
+ "groups": {
+  "tessellation": {
+   "_note": "Render quality only; not a design question.",
+   "wheel_hub_segments": {
+    "value": 32,
+    "provenance": "provisional"
+   },
+   "roller_segments": {
+    "value": 12,
+    "provenance": "provisional"
+   },
+   "roller_profile_stations": {
+    "value": 7,
+    "provenance": "provisional"
+   },
+   "pin_segments": {
+    "value": 12,
+    "provenance": "provisional"
+   },
+   "cylinder_segments": {
+    "value": 24,
+    "provenance": "provisional"
+   },
+   "puck_segments": {
+    "value": 32,
+    "provenance": "provisional"
+   },
+   "crease_angle_deg": {
+    "value": 40.0,
+    "provenance": "provisional"
+   }
+  },
+  "chassis": {
+   "edge_chamfer": {
+    "value": 0.008,
+    "provenance": "provisional",
+    "question": "Outer shell chamfer width (m). Designer: bumper/shell edge treatment?"
+   },
+   "corner_chamfer": {
+    "value": 0.016,
+    "provenance": "provisional",
+    "question": "Vertical corner chamfer at the docking ends (m)."
+   },
+   "top_plate_thickness": {
+    "value": 0.015,
+    "provenance": "provisional",
+    "question": "Thickness of the top cover plate over the wheel wells (m)."
+   },
+   "wheel_well_inset": {
+    "value": 0.03,
+    "provenance": "provisional",
+    "question": "How far the body is cut back from its side wall inside each wheel well (m). Real wheel-to-body clearance?"
+   },
+   "wheel_well_margin": {
+    "value": 0.012,
+    "provenance": "provisional",
+    "question": "Clearance between wheel radius and the well edge along x (m)."
+   },
+   "dock_module_depth": {
+    "value": 0.05,
+    "provenance": "provisional",
+    "question": "Depth of the docking end block behind the face plane (m)."
+   },
+   "uv_scale": {
+    "value": 0.5,
+    "provenance": "provisional"
+   }
+  },
+  "wheel": {
+   "hub_radius_frac": {
+    "value": 0.42,
+    "provenance": "provisional",
+    "question": "Hub radius as fraction of wheel radius. Wheel model?"
+   },
+   "end_plate_radius_frac": {
+    "value": 0.8,
+    "provenance": "provisional",
+    "question": "Roller end-plate radius as fraction of roller-circle radius."
+   },
+   "end_plate_thickness": {
+    "value": 0.004,
+    "provenance": "provisional",
+    "question": "m"
+   },
+   "roller_fill": {
+    "value": 0.92,
+    "provenance": "provisional",
+    "question": "Roller diameter as fraction of the max that fits between neighbours (rollers must not touch)."
+   },
+   "roller_taper": {
+    "value": 0.75,
+    "provenance": "provisional",
+    "question": "Barrel profile: r(t)=r0*sqrt(1-taper*(2t/L)^2). Real roller profile?"
+   },
+   "axle_cap_radius": {
+    "value": 0.009,
+    "provenance": "provisional",
+    "question": "m"
+   },
+   "axle_cap_length": {
+    "value": 0.006,
+    "provenance": "provisional",
+    "question": "m"
+   },
+   "roller_angle": {
+    "value": 0.7853981634,
+    "provenance": "provisional",
+    "question": "Roller axis angle to the wheel axis; the profile only says 45deg. Confirm."
+   }
+  },
+  "dock": {
+   "pocket_depth": {
+    "value": 0.04,
+    "provenance": "provisional",
+    "question": "Depth of the docking pocket behind the face plane (m). Hook and pin geometry?"
+   },
+   "pocket_half_height": {
+    "value": 0.025,
+    "provenance": "provisional",
+    "question": "Half height of the pocket opening (m)."
+   },
+   "pocket_side_margin": {
+    "value": 0.008,
+    "provenance": "provisional",
+    "question": "Lateral margin between swung-out hook and pocket wall (m)."
+   },
+   "hook_arm_length": {
+    "value": 0.06,
+    "provenance": "provisional",
+    "question": "Pivot to hook tip (m). Hook geometry?"
+   },
+   "hook_arm_width": {
+    "value": 0.012,
+    "provenance": "provisional",
+    "question": "m"
+   },
+   "hook_thickness": {
+    "value": 0.016,
+    "provenance": "provisional",
+    "question": "m"
+   },
+   "hook_level_dz": {
+    "value": 0.011,
+    "provenance": "provisional",
+    "question": "z stagger of the two hooks about the face centre (m): hook A sits +dz, hook B -dz so identical faces mate. Designer: confirm the hermaphroditic stagger or give the real coupler."
+   },
+   "hook_prong_depth": {
+    "value": 0.01,
+    "provenance": "provisional",
+    "question": "Prong length along the arm (m)."
+   },
+   "hook_prong_reach": {
+    "value": 0.014,
+    "provenance": "provisional",
+    "question": "Prong reach across the arm toward the centreline (m)."
+   },
+   "hook_pivot_inset": {
+    "value": 0.01,
+    "provenance": "provisional",
+    "question": "Pivot sits this far in front of the pocket back wall (m)."
+   },
+   "hook_boss_radius": {
+    "value": 0.01,
+    "provenance": "provisional",
+    "question": "m"
+   },
+   "hook_open_angle": {
+    "value": 1.3,
+    "provenance": "provisional",
+    "question": "Swing-out angle for the open state (rad). Hook travel?"
+   },
+   "pin_radius": {
+    "value": 0.004,
+    "provenance": "provisional",
+    "question": "Catch pin radius (m)."
+   },
+   "engage_clearance": {
+    "value": 0.0015,
+    "provenance": "provisional",
+    "question": "Clearance between prong/arm and the caught pin (m)."
+   },
+   "guide_flare_deg": {
+    "value": 45.0,
+    "provenance": "provisional",
+    "question": "Funnel flare angle of the mouth chamfer (deg). Profile gives acceptance angle only."
+   },
+   "guide_chamfer_max_frac_of_rail": {
+    "value": 0.7,
+    "provenance": "provisional",
+    "question": "Chamfer width never exceeds this fraction of the top rail height."
+   },
+   "tag_recess": {
+    "value": 0.001,
+    "provenance": "provisional",
+    "question": "Tag plate stands this far off the pocket back wall (m)."
+   },
+   "marker_size": {
+    "value": [
+     0.1,
+     0.05
+    ],
+    "provenance": "provisional",
+    "question": "Placeholder plate for left/right faces which are not modelled (m)."
+   }
+  },
+  "tags": {
+   "id_base": {
+    "value": {
+     "scout": 10,
+     "lifter": 20,
+     "cargo": 30
+    },
+    "provenance": "provisional",
+    "question": "Tag ids per role: front=+0, rear=+1, left=+2, right=+3, top=+4. Fleet-wide id allocation?"
+   },
+   "id_offset_second_cargo": {
+    "value": 10,
+    "provenance": "provisional",
+    "question": "cargo_2 adds this to every cargo tag id."
+   },
+   "top_tag_offset_xy": {
+    "value": {
+     "scout": [
+      -0.015,
+      0.0
+     ],
+     "lifter": [
+      -0.1,
+      0.0
+     ],
+     "cargo": [
+      0.0,
+      0.0
+     ]
+    },
+    "provenance": "provisional",
+    "question": "Top tag centre (x,y) in base. Cargo tag is covered by payload."
+   },
+   "top_tag_standoff": {
+    "value": 0.0006,
+    "provenance": "provisional",
+    "question": "Plate sits this far above the surface (m)."
+   }
+  },
+  "scout": {
+   "mast_x": {
+    "value": -0.14,
+    "provenance": "provisional",
+    "question": "Mast position on the body (m)."
+   },
+   "mast_radius": {
+    "value": 0.012,
+    "provenance": "provisional",
+    "question": "m"
+   },
+   "mast_base_radius": {
+    "value": 0.03,
+    "provenance": "provisional",
+    "question": "m"
+   },
+   "mast_base_height": {
+    "value": 0.01,
+    "provenance": "provisional",
+    "question": "m"
+   },
+   "mast_added_mass_footprint": {
+    "value": [
+     0.08,
+     0.08
+    ],
+    "provenance": "provisional",
+    "question": "x,y footprint of the box used to place the 2 kg added mass."
+   },
+   "stereo_bar_margin": {
+    "value": 0.045,
+    "provenance": "provisional",
+    "question": "Bar length = baseline + margin (m)."
+   },
+   "stereo_bar_depth": {
+    "value": 0.03,
+    "provenance": "provisional",
+    "question": "m"
+   },
+   "stereo_bar_height": {
+    "value": 0.028,
+    "provenance": "provisional",
+    "question": "m"
+   },
+   "stereo_bar_below_mast_top": {
+    "value": 0.06,
+    "provenance": "provisional",
+    "question": "Bar centre this far below the mast top (m)."
+   },
+   "lens_radius": {
+    "value": 0.009,
+    "provenance": "provisional",
+    "question": "m"
+   },
+   "lens_length": {
+    "value": 0.012,
+    "provenance": "provisional",
+    "question": "m"
+   },
+   "puck_radius": {
+    "value": 0.035,
+    "provenance": "provisional",
+    "question": "LiDAR puck radius (m). LiDAR model?"
+   },
+   "puck_height": {
+    "value": 0.04,
+    "provenance": "provisional",
+    "question": "m"
+   },
+   "puck_base_frac": {
+    "value": 0.55,
+    "provenance": "provisional",
+    "question": "Fraction of puck height that is the static base."
+   },
+   "rear_camera_size": {
+    "value": [
+     0.02,
+     0.03,
+     0.025
+    ],
+    "provenance": "provisional",
+    "question": "Rear camera body (m)."
+   },
+   "rear_camera_x": {
+    "value": -0.185,
+    "provenance": "provisional",
+    "question": "m"
+   },
+   "arm_pedestal_x": {
+    "value": 0.1,
+    "provenance": "provisional",
+    "question": "Arm base position (m). Arm design?"
+   },
+   "arm_pedestal_radius": {
+    "value": 0.035,
+    "provenance": "provisional",
+    "question": "m"
+   },
+   "arm_pedestal_height": {
+    "value": 0.03,
+    "provenance": "provisional",
+    "question": "m"
+   },
+   "arm_envelope_width": {
+    "value": 0.14,
+    "provenance": "provisional",
+    "question": "Reach-envelope box width (m)."
+   },
+   "arm_envelope_height": {
+    "value": 0.16,
+    "provenance": "provisional",
+    "question": "m"
+   },
+   "arm_envelope_height_above_top": {
+    "value": 0.03,
+    "provenance": "provisional",
+    "question": "m"
+   }
+  },
+  "lifter": {
+   "column_x": {
+    "value": 0.15,
+    "provenance": "provisional",
+    "question": "Lift column x on the body (m). Lift mechanism?"
+   },
+   "column_size": {
+    "value": [
+     0.04,
+     0.2
+    ],
+    "provenance": "provisional",
+    "question": "Column x,y footprint (m)."
+   },
+   "column_height_above_top": {
+    "value": 0.22,
+    "provenance": "provisional",
+    "question": "Column height above the body top (m)."
+   },
+   "carriage_plate_thickness": {
+    "value": 0.015,
+    "provenance": "provisional",
+    "question": "m"
+   },
+   "carriage_plate_height": {
+    "value": 0.2,
+    "provenance": "provisional",
+    "question": "Backing plate height (m)."
+   },
+   "carriage_plate_width": {
+    "value": 0.24,
+    "provenance": "provisional",
+    "question": "m"
+   },
+   "carriage_standoff": {
+    "value": 0.012,
+    "provenance": "provisional",
+    "question": "Clearance (m) between the closed hook tips and the carriage plate: the plate sits at face + hook protrusion + this. Lift mechanism layout?"
+   },
+   "carriage_low_bottom_above_ground": {
+    "value": 0.015,
+    "provenance": "provisional",
+    "question": "Plate bottom height above ground at lift = 0 (m)."
+   },
+   "carriage_shoe_height": {
+    "value": 0.025,
+    "provenance": "provisional",
+    "question": "m"
+   },
+   "fork_plate_length": {
+    "value": 0.2,
+    "provenance": "provisional",
+    "question": "Fork plate reach beyond the carriage plate (m)."
+   },
+   "fork_plate_thickness": {
+    "value": 0.012,
+    "provenance": "provisional",
+    "question": "m"
+   },
+   "fork_plate_margin": {
+    "value": 0.02,
+    "provenance": "provisional",
+    "question": "Fork plate extends beyond the open fingers by this (m)."
+   },
+   "finger_thickness": {
+    "value": 0.012,
+    "provenance": "provisional",
+    "question": "m"
+   },
+   "finger_length": {
+    "value": 0.12,
+    "provenance": "provisional",
+    "question": "m"
+   },
+   "finger_height": {
+    "value": 0.08,
+    "provenance": "provisional",
+    "question": "m"
+   },
+   "finger_start_from_plate": {
+    "value": 0.03,
+    "provenance": "provisional",
+    "question": "Finger starts this far out from the carriage plate (m)."
+   },
+   "gripper_min_opening": {
+    "value": 0.04,
+    "provenance": "provisional",
+    "question": "Smallest clear gap between closed fingers (m)."
+   },
+   "camera_dz_above_plate_bottom": {
+    "value": 0.2,
+    "provenance": "provisional",
+    "question": "Front camera height on the carriage plate (m)."
+   },
+   "tof_offset_y": {
+    "value": 0.06,
+    "provenance": "provisional",
+    "question": "ToF y offset from camera on the plate (m)."
+   }
+  },
+  "cargo": {
+   "deck_thickness": {
+    "value": 0.012,
+    "provenance": "provisional",
+    "question": "m"
+   },
+   "lip_height": {
+    "value": 0.012,
+    "provenance": "provisional",
+    "question": "m"
+   },
+   "lip_width": {
+    "value": 0.008,
+    "provenance": "provisional",
+    "question": "m"
+   },
+   "deck_height_reference": {
+    "value": "above_ground",
+    "provenance": "provisional",
+    "question": "Profile deck_height 0.14: taken as the deck top above the GROUND, not above the body underside. Confirm."
+   },
+   "camera_x": {
+    "value": 0.185,
+    "provenance": "provisional",
+    "question": "m"
+   },
+   "tof_offset_y": {
+    "value": 0.05,
+    "provenance": "provisional",
+    "question": "m"
+   }
+  },
+  "sensors": {
+   "camera_body_size": {
+    "value": [
+     0.025,
+     0.03,
+     0.02
+    ],
+    "provenance": "provisional",
+    "question": "Camera body box (m)."
+   },
+   "tof_body_size": {
+    "value": [
+     0.012,
+     0.02,
+     0.012
+    ],
+    "provenance": "provisional",
+    "question": "m"
+   },
+   "imu_position": {
+    "value": [
+     0.0,
+     0.0,
+     0.05
+    ],
+    "provenance": "provisional",
+    "question": "IMU at the body centre (m)."
+   },
+   "front_sensor_x": {
+    "value": 0.19,
+    "provenance": "provisional",
+    "question": "x of front camera/ToF on lifter/cargo top edge."
+   },
+   "front_sensor_z_above_top": {
+    "value": 0.012,
+    "provenance": "provisional",
+    "question": "m"
+   }
+  },
+  "payload": {
+   "chamfer": {
+    "value": 0.006,
+    "provenance": "provisional",
+    "question": "Box edge chamfer (m)."
+   },
+   "foot_size": {
+    "value": [
+     0.08,
+     0.08
+    ],
+    "provenance": "provisional",
+    "question": "Contact patch (foot) size for box_long / tray_wide (m)."
+   },
+   "foot_inset": {
+    "value": 0.06,
+    "provenance": "provisional",
+    "question": "Foot inset from payload edges (m)."
+   },
+   "base_patch_frac": {
+    "value": 0.9,
+    "provenance": "provisional",
+    "question": "box_small contact patch as fraction of footprint."
+   },
+   "friction_group": {
+    "value": "payload_rubber",
+    "provenance": "provisional"
+   }
+  },
+  "mass_model": {
+   "lifter_added_box": {
+    "value": [
+     0.05,
+     0.3,
+     0.25
+    ],
+    "provenance": "provisional",
+    "question": "Box (x,y,z) standing for the 2 kg of lift hardware, centred over the carriage/column."
+   },
+   "cargo_added_box_z": {
+    "value": 0.012,
+    "provenance": "provisional",
+    "question": "Deck plate thickness used for the mass model (m)."
+   },
+   "scout_added_box_height": {
+    "value": 0.3,
+    "provenance": "provisional",
+    "question": "Height of the added mass box on the mast (m)."
+   },
+   "arm_proxy_box": {
+    "value": [
+     0.45,
+     0.12,
+     0.1
+    ],
+    "provenance": "provisional",
+    "question": "Box used for the optional arm-proxy inertia (m)."
+   },
+   "box_inertia_factor_allowed": {
+    "value": 3.0,
+    "provenance": "provisional"
+   }
+  }
+ }
+}

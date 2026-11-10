@@ -1,0 +1,116 @@
+schema=crane.fleet_profile/v0 id=mecanum_fleet_provisional_v0 levels=provisional|cad|measured
+leaf chassis.base_mass [6] provisional
+leaf chassis.body_size_lwh [0.42,0.3,0.1] provisional
+leaf chassis.com_offset_xyz [0,0,0.05] provisional
+leaf chassis.ground_clearance [0.03] provisional
+leaf chassis.inertia_diag [0.06,0.1,0.14] provisional
+leaf chassis.max_speed_xy [0.5] provisional
+leaf chassis.max_yaw_rate [1.5] provisional
+leaf chassis.overall_width_with_wheels [0.4] provisional
+leaf chassis.wheel.encoder_counts_per_rev [1440] provisional
+leaf chassis.wheel.half_track_ly [0.175] provisional
+leaf chassis.wheel.half_wheelbase_lx [0.14] provisional
+leaf chassis.wheel.max_wheel_speed_rad_s [12] provisional
+leaf chassis.wheel.max_wheel_torque [1.2] provisional
+leaf chassis.wheel.radius [0.0485] provisional
+leaf chassis.wheel.roller_count [10] provisional
+leaf chassis.wheel.width [0.045] provisional
+leaf docking.connector_compliance_lateral [0.0005] provisional
+leaf docking.face_frames.front [0.21,0,0.06,0] provisional
+leaf docking.face_frames.left [0,0.2,0.06,1.57079633] provisional
+leaf docking.face_frames.rear [-0.21,0,0.06,3.14159265] provisional
+leaf docking.face_frames.right [0,-0.2,0.06,-1.57079633] provisional
+leaf docking.guide_acceptance_half_angle [0.087] provisional
+leaf docking.guide_half_width [0.01] provisional
+leaf docking.hook_actuation_time [0.8] provisional
+leaf docking.hook_count [2] provisional
+leaf docking.hook_lateral_spacing [0.12] provisional
+leaf docking.hook_position_tolerance [0.002] provisional
+leaf docking.hook_rated_load [60] provisional
+leaf docking.hook_yaw_tolerance [0.035] provisional
+leaf docking.magnet_hold_force [25] provisional
+leaf docking.magnet_pull_in_range [0.008] provisional
+leaf floors.hard_tile.lateral_efficiency [0.85] provisional
+leaf floors.hard_tile.mu_long [0.6] provisional
+leaf floors.hard_tile.slip_sigma_frac [0.03] provisional
+leaf floors.low_pile_carpet.lateral_efficiency [0.75] provisional
+leaf floors.low_pile_carpet.mu_long [0.75] provisional
+leaf floors.low_pile_carpet.slip_sigma_frac [0.05] provisional
+leaf floors.rubber_mat.lateral_efficiency [0.9] provisional
+leaf floors.rubber_mat.mu_long [0.9] provisional
+leaf floors.rubber_mat.slip_sigma_frac [0.02] provisional
+leaf payloads.box_long.mass [6] provisional
+leaf payloads.box_long.size_lwh [0.8,0.25,0.15] provisional
+leaf payloads.box_small.mass [2] provisional
+leaf payloads.box_small.size_lwh [0.3,0.2,0.15] provisional
+leaf payloads.tray_wide.mass [5] provisional
+leaf payloads.tray_wide.size_lwh [0.6,0.6,0.08] provisional
+leaf roles.cargo.added_mass [0.8] provisional
+leaf roles.cargo.deck_capacity [8] provisional
+leaf roles.cargo.deck_height [0.14] provisional
+leaf roles.cargo.deck_size_lw [0.4,0.3] provisional
+leaf roles.lifter.added_mass [2] provisional
+leaf roles.lifter.gripper_close_time [1] provisional
+leaf roles.lifter.gripper_opening [0.3] provisional
+leaf roles.lifter.lift_capacity [5] provisional
+leaf roles.lifter.lift_speed [0.05] provisional
+leaf roles.lifter.lift_travel [0.15] provisional
+leaf roles.scout.added_mass [2] provisional
+leaf roles.scout.arm_proxy.mass [2.5] provisional
+leaf roles.scout.arm_proxy.payload [0.5] provisional
+leaf roles.scout.arm_proxy.reach [0.45] provisional
+leaf roles.scout.mast_height [0.35] provisional
+leaf sensors.apriltag.face_tag_size [0.05] provisional
+leaf sensors.apriltag.top_tag_size [0.12] provisional
+leaf sensors.imu.gyro_bias_instability [5E-05] provisional
+leaf sensors.imu.gyro_noise_density [0.0003] provisional
+leaf sensors.imu.rate_hz [200] provisional
+leaf sensors.lidar_2d.max_range [12] provisional
+leaf sensors.lidar_2d.points_per_scan [720] provisional
+leaf sensors.lidar_2d.rate_hz [10] provisional
+leaf sensors.mono_camera_ov9281.hfov [1.4] provisional
+leaf sensors.mono_camera_ov9281.latency [0.03] provisional
+leaf sensors.mono_camera_ov9281.rate_hz [60] provisional
+leaf sensors.mono_camera_ov9281.resolution [1280,800] provisional
+leaf sensors.overhead_camera.height [2.6] provisional
+leaf sensors.overhead_camera.hfov [1.4] provisional
+leaf sensors.overhead_camera.latency [0.15] provisional
+leaf sensors.overhead_camera.rate_hz [30] provisional
+leaf sensors.range_tof.fov [0.44] provisional
+leaf sensors.range_tof.max_range [2] provisional
+leaf sensors.range_tof.rate_hz [30] provisional
+leaf sensors.stereo_baseline [0.075] provisional
+leaf sensors.wheel_encoder.rate_hz [100] provisional
+camera 1280x800 1.4 60 0.03 global mono8 hfov=provisional,latency=provisional,rate_hz=provisional,resolution=provisional
+overhead 2.6 1.4 30 0.15 True
+tof 2 0.44 30
+lidar 12 10 720
+imu 200 0.0003 5E-05
+encoder 100 1440 0.0485 0.14 0.175
+misc 0.075 0.05 0.12 [0.42,0.3,0.1] 0.03
+active front,rear
+face front 0.21 0 0.06 0 provisional
+face left 0 0.2 0.06 1.57079633 provisional
+face rear -0.21 0 0.06 3.14159265 provisional
+face right 0 -0.2 0.06 -1.57079633 provisional
+role cargo mast=0 sensors=WheelEncoder::wheel_encoder;Imu::imu;MonoCamera:front:mono_camera_ov9281(front);RangeTof:front:range_tof(front)
+role lifter mast=0 sensors=WheelEncoder::wheel_encoder;Imu::imu;MonoCamera:front:mono_camera_ov9281(front);RangeTof:front:range_tof(front)
+role scout mast=0.35 sensors=WheelEncoder::wheel_encoder;Imu::imu;Lidar2D::lidar_2d;StereoPair:front:stereo(mono_camera_ov9281 x2);MonoCamera:rear:mono_camera_ov9281(rear)
+fleet scout_1 scout
+ suite enc=True imu=True base=0.075
+ cam stereo_left front R=[0,0,1,-1,0,0,0,-1,0] p=[0.19,0.0375,0.44999999999999996] 1280x800 759.8347725610748 759.8347725610748 640 400 60 0.03 provisional
+ cam stereo_right front R=[0,0,1,-1,0,0,0,-1,0] p=[0.19,-0.0375,0.44999999999999996] 1280x800 759.8347725610748 759.8347725610748 640 400 60 0.03 provisional
+ cam cam_rear rear R=[1.2246467991473532E-16,-0,-1,1,0,1.2246467991473532E-16,0,-1,0] p=[-0.19999999999999998,0,0.44999999999999996] 1280x800 759.8347725610748 759.8347725610748 640 400 60 0.03 provisional
+ lidar lidar R=[1,-0,0,0,1,0,0,0,1] p=[0,0,0.44999999999999996] 12 10 720
+fleet lifter_1 lifter
+ suite enc=True imu=True base=0.075
+ cam cam_front front R=[0,0,1,-1,0,0,0,-1,0] p=[0.19999999999999998,0,0.08000000000000002] 1280x800 759.8347725610748 759.8347725610748 640 400 60 0.03 provisional
+ tof tof_front R=[1,-0,0,0,1,0,0,0,1] p=[0.21,0,0.06] 2 0.22 30
+fleet cargo_1 cargo
+ suite enc=True imu=True base=0.075
+ cam cam_front front R=[0,0,1,-1,0,0,0,-1,0] p=[0.19999999999999998,0,0.08000000000000002] 1280x800 759.8347725610748 759.8347725610748 640 400 60 0.03 provisional
+ tof tof_front R=[1,-0,0,0,1,0,0,0,1] p=[0.21,0,0.06] 2 0.22 30
+fleet cargo_2 cargo
+ suite enc=True imu=True base=0.075
+ cam cam_front front R=[0,0,1,-1,0,0,0,-1,0] p=[0.19999999999999998,0,0.08000000000000002] 1280x800 759.8347725610748 759.8347725610748 640 400 60 0.03 provisional
+ tof tof_front R=[1,-0,0,0,1,0,0,0,1] p=[0.21,0,0.06] 2 0.22 30

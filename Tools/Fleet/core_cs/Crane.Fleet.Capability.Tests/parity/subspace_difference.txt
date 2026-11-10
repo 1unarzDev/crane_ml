@@ -1,0 +1,4 @@
+fresh sample of 240 testbed graphs (seed 7, same distribution as testbed_vectors.json)
+cases with da<dm: 35
+Frobenius norm of P_testbed - P_csharp, quantiles [min,25,50,75,max]: [0.0, 0.0, 0.0, 0.0, 1.234]
+testbed mobility classes in those cases: {'immobile': 27, 'differential_like': 3, 'fixed_icr': 5}

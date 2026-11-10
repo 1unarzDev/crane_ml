@@ -1,0 +1,1200 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "crane.fleet_asset_manifest/v0",
+  "title": "CRANE fleet rover asset manifest v0",
+  "description": "One manifest per rover role (scout, lifter, cargo) plus one for the payload set. Every section carries its own provenance label and source file so render geometry, collision, mass, wheels, sensors, attachments and actuation can each be replaced from CAD independently. Frames: right-handed, x forward, y left, z up, metres, radians (see ASSET_MANIFEST_SPEC.md).",
+  "type": "object",
+  "required": [
+    "schema",
+    "asset_id",
+    "role",
+    "profile",
+    "units",
+    "conventions",
+    "base_frame",
+    "render",
+    "collision",
+    "mass_properties"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": "crane.fleet_asset_manifest/v0"
+    },
+    "asset_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "role": {
+      "enum": [
+        "scout",
+        "lifter",
+        "cargo",
+        "payloads"
+      ]
+    },
+    "created": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "profile": {
+      "type": "object",
+      "required": [
+        "profile_id",
+        "path"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "profile_id": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string",
+          "description": "path of fleet_profile_v0.json, relative to the repository root"
+        },
+        "sha256": {
+          "type": "string"
+        },
+        "version_note": {
+          "type": "string"
+        }
+      }
+    },
+    "units": {
+      "type": "object",
+      "required": [
+        "length",
+        "mass",
+        "angle"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "length": {
+          "const": "m"
+        },
+        "mass": {
+          "const": "kg"
+        },
+        "angle": {
+          "const": "rad"
+        }
+      }
+    },
+    "conventions": {
+      "type": "object",
+      "required": [
+        "handedness",
+        "axes",
+        "pose",
+        "unity"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "handedness": {
+          "const": "right"
+        },
+        "axes": {
+          "const": "x_forward_y_left_z_up"
+        },
+        "pose": {
+          "type": "string",
+          "description": "xyz in metres; rpy extrinsic roll-pitch-yaw, R = Rz(yaw)Ry(pitch)Rx(roll)"
+        },
+        "unity": {
+          "type": "string"
+        }
+      }
+    },
+    "base_frame": {
+      "type": "object",
+      "required": [
+        "name",
+        "ground_clearance",
+        "ground_z"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "ground_clearance": {
+          "type": "number",
+          "minimum": 0,
+          "description": "height of the body underside above the ground plane when all wheels rest on it"
+        },
+        "ground_z": {
+          "type": "number",
+          "description": "z of the ground plane in base_frame; equals -ground_clearance"
+        }
+      }
+    },
+    "render": {
+      "$ref": "#/$defs/render"
+    },
+    "collision": {
+      "$ref": "#/$defs/collision"
+    },
+    "mass_properties": {
+      "$ref": "#/$defs/mass"
+    },
+    "wheels": {
+      "$ref": "#/$defs/wheels"
+    },
+    "sensors": {
+      "$ref": "#/$defs/sensors"
+    },
+    "attachments": {
+      "$ref": "#/$defs/attachments"
+    },
+    "actuated": {
+      "$ref": "#/$defs/actuated"
+    },
+    "payloads": {
+      "$ref": "#/$defs/payloads"
+    },
+    "generator_defaults": {
+      "type": "object",
+      "description": "Provisional only: file + SHA of generator_defaults.json and the keys that were consumed, so every dimension not taken from the profile is traceable."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "role": {
+            "enum": [
+              "scout",
+              "lifter",
+              "cargo"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "wheels",
+          "sensors",
+          "attachments",
+          "actuated"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "role": {
+            "const": "payloads"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "payloads"
+        ]
+      }
+    }
+  ],
+  "$defs": {
+    "provenance": {
+      "enum": [
+        "provisional",
+        "cad",
+        "measured"
+      ]
+    },
+    "vec3": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "vec2": {
+      "type": "array",
+      "items": {
+        "type": "number"
+      },
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "pose": {
+      "type": "object",
+      "required": [
+        "xyz",
+        "rpy"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "xyz": {
+          "$ref": "#/$defs/vec3"
+        },
+        "rpy": {
+          "$ref": "#/$defs/vec3"
+        }
+      }
+    },
+    "section_header": {
+      "type": "object",
+      "required": [
+        "provenance",
+        "source_file"
+      ],
+      "properties": {
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "source_file": {
+          "type": "string",
+          "minLength": 1,
+          "description": "file this section was produced from: the generator script for provisional data, the CAD export / measurement sheet otherwise (relative to the manifest or to the repository root)"
+        },
+        "note": {
+          "type": "string"
+        }
+      }
+    },
+    "render": {
+      "type": "object",
+      "required": [
+        "provenance",
+        "source_file",
+        "materials",
+        "parts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "source_file": {
+          "type": "string",
+          "minLength": 1
+        },
+        "note": {
+          "type": "string"
+        },
+        "mtl_file": {
+          "type": "string"
+        },
+        "materials": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "required": [
+              "base_color"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "base_color": {
+                "type": "array",
+                "items": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1
+                },
+                "minItems": 3,
+                "maxItems": 3
+              },
+              "alpha": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "specular": {
+                "type": "number"
+              },
+              "shininess": {
+                "type": "number"
+              },
+              "texture": {
+                "type": "string"
+              },
+              "note": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "parts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "file",
+              "parent",
+              "origin",
+              "materials"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "file": {
+                "type": "string",
+                "minLength": 1
+              },
+              "parent": {
+                "type": "string",
+                "description": "base frame name or the name of another part (its frame)"
+              },
+              "origin": {
+                "$ref": "#/$defs/pose"
+              },
+              "materials": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "minItems": 1,
+                "description": "material slots used by the OBJ, in the order of first use"
+              },
+              "kind": {
+                "enum": [
+                  "solid",
+                  "quad"
+                ],
+                "description": "quad = open surface (tag plate, marker), exempt from the watertight check"
+              },
+              "default_visible": {
+                "type": "boolean"
+              },
+              "hideable_group": {
+                "type": "string"
+              },
+              "joint": {
+                "type": "object",
+                "required": [
+                  "type"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "type": {
+                    "enum": [
+                      "fixed",
+                      "revolute",
+                      "continuous",
+                      "prismatic"
+                    ]
+                  },
+                  "axis": {
+                    "$ref": "#/$defs/vec3"
+                  },
+                  "limits": {
+                    "$ref": "#/$defs/vec2"
+                  },
+                  "authored_value": {
+                    "type": "number",
+                    "description": "joint value at which the OBJ is modelled; Unity applies (q - authored_value)"
+                  },
+                  "actuated_ref": {
+                    "type": "string"
+                  }
+                }
+              },
+              "contacts_ground": {
+                "type": "boolean"
+              },
+              "role_in_assembly": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "collision": {
+      "type": "object",
+      "required": [
+        "provenance",
+        "source_file",
+        "shapes"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "source_file": {
+          "type": "string",
+          "minLength": 1
+        },
+        "note": {
+          "type": "string"
+        },
+        "shapes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "type",
+              "parent",
+              "origin"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "type": {
+                "enum": [
+                  "box",
+                  "cylinder",
+                  "sphere",
+                  "convex_mesh"
+                ]
+              },
+              "parent": {
+                "type": "string"
+              },
+              "origin": {
+                "$ref": "#/$defs/pose"
+              },
+              "size": {
+                "$ref": "#/$defs/vec3",
+                "description": "box full extents x,y,z in the shape frame"
+              },
+              "radius": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "height": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "cylinder length along the shape-frame z axis"
+              },
+              "file": {
+                "type": "string",
+                "description": "convex_mesh OBJ"
+              },
+              "friction_group": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "mass": {
+      "type": "object",
+      "required": [
+        "provenance",
+        "source_file",
+        "mass",
+        "com_xyz",
+        "inertia_tensor"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "source_file": {
+          "type": "string",
+          "minLength": 1
+        },
+        "note": {
+          "type": "string"
+        },
+        "mass": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "com_xyz": {
+          "$ref": "#/$defs/vec3",
+          "description": "centre of mass in the base frame"
+        },
+        "inertia_tensor": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {
+            "$ref": "#/$defs/vec3"
+          },
+          "description": "full symmetric 3x3 tensor about the centre of mass, axes parallel to the base frame, kg m^2 (rows)"
+        },
+        "frame": {
+          "type": "string"
+        },
+        "derivation": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "optional_masses": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "wheels": {
+      "type": "object",
+      "required": [
+        "provenance",
+        "source_file",
+        "convention",
+        "items"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "source_file": {
+          "type": "string",
+          "minLength": 1
+        },
+        "note": {
+          "type": "string"
+        },
+        "convention": {
+          "type": "object"
+        },
+        "items": {
+          "type": "array",
+          "minItems": 4,
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "position",
+              "axis",
+              "radius",
+              "width",
+              "roller_count",
+              "roller_angle",
+              "roller_angle_sign",
+              "render_part"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "enum": [
+                  "FL",
+                  "FR",
+                  "RL",
+                  "RR"
+                ]
+              },
+              "position": {
+                "$ref": "#/$defs/vec3",
+                "description": "axle centre in base frame"
+              },
+              "frame": {
+                "$ref": "#/$defs/pose"
+              },
+              "axis": {
+                "$ref": "#/$defs/vec3",
+                "description": "spin axis in base frame; positive spin drives the rover forward"
+              },
+              "radius": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "width": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "roller_count": {
+                "type": "integer",
+                "minimum": 3
+              },
+              "roller_angle": {
+                "type": "number",
+                "description": "magnitude of the roller axis angle to the wheel axis, rad (pi/4 for 45 deg)"
+              },
+              "roller_angle_sign": {
+                "enum": [
+                  -1,
+                  1
+                ],
+                "description": "sign s of the y-component of the ground-contact roller axis a=(cos45, s*sin45) in base xy, a oriented forward"
+              },
+              "ground_roller_axis_xy": {
+                "$ref": "#/$defs/vec2"
+              },
+              "render_part": {
+                "type": "string"
+              },
+              "collision_shape": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "sensors": {
+      "type": "object",
+      "required": [
+        "provenance",
+        "source_file",
+        "frames"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "source_file": {
+          "type": "string",
+          "minLength": 1
+        },
+        "note": {
+          "type": "string"
+        },
+        "frames": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "type",
+              "parent",
+              "origin"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "type": {
+                "enum": [
+                  "camera",
+                  "lidar2d",
+                  "tof",
+                  "imu"
+                ]
+              },
+              "parent": {
+                "type": "string"
+              },
+              "origin": {
+                "$ref": "#/$defs/pose",
+                "description": "link frame: x = boresight/forward, y left, z up"
+              },
+              "optical_origin": {
+                "$ref": "#/$defs/pose",
+                "description": "cameras only: optical frame (x right, y down, z = optical axis, forward), same parent"
+              },
+              "optical_axis_convention": {
+                "type": "string"
+              },
+              "params": {
+                "type": "object"
+              },
+              "render_part": {
+                "type": "string"
+              },
+              "provenance": {
+                "$ref": "#/$defs/provenance"
+              }
+            }
+          }
+        }
+      }
+    },
+    "attachments": {
+      "type": "object",
+      "required": [
+        "provenance",
+        "source_file",
+        "mating_convention",
+        "docking_faces",
+        "hook_pivots",
+        "tags"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "source_file": {
+          "type": "string",
+          "minLength": 1
+        },
+        "note": {
+          "type": "string"
+        },
+        "mating_convention": {
+          "type": "string"
+        },
+        "docking_faces": {
+          "type": "array",
+          "minItems": 4,
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "active",
+              "geometry",
+              "origin",
+              "hooks",
+              "catch_pins",
+              "guide"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "enum": [
+                  "front",
+                  "rear",
+                  "left",
+                  "right"
+                ]
+              },
+              "active": {
+                "type": "boolean"
+              },
+              "geometry": {
+                "enum": [
+                  "modelled",
+                  "marker_only"
+                ]
+              },
+              "origin": {
+                "$ref": "#/$defs/pose",
+                "description": "face frame in base: +x outward normal, +z up, y = z cross x; origin on the mating plane at the face centre"
+              },
+              "pocket": {
+                "type": "object"
+              },
+              "hooks": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "catch_pins": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "name",
+                    "position"
+                  ],
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "position": {
+                      "$ref": "#/$defs/vec3"
+                    },
+                    "radius": {
+                      "type": "number"
+                    }
+                  }
+                }
+              },
+              "guide": {
+                "type": "object"
+              },
+              "tag": {
+                "type": "string"
+              },
+              "obstructed_by": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "note": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "hook_pivots": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "face",
+              "parent",
+              "origin"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "face": {
+                "type": "string"
+              },
+              "parent": {
+                "type": "string"
+              },
+              "origin": {
+                "$ref": "#/$defs/pose"
+              }
+            }
+          }
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "family",
+              "id",
+              "size",
+              "parent",
+              "origin",
+              "render_part"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "family": {
+                "const": "tag36h11"
+              },
+              "id": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 586
+              },
+              "size": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "description": "edge of the black border square (AprilTag convention)"
+              },
+              "plate_size": {
+                "type": "number",
+                "description": "edge of the textured quad including the 1-cell white margin (size*10/8)"
+              },
+              "parent": {
+                "type": "string"
+              },
+              "origin": {
+                "$ref": "#/$defs/pose",
+                "description": "AprilTag frame: x right, y down (viewer), z INTO the tag"
+              },
+              "outward_normal": {
+                "$ref": "#/$defs/vec3",
+                "description": "unit normal pointing out of the tag toward the viewer, in the parent frame"
+              },
+              "render_part": {
+                "type": "string"
+              },
+              "texture": {
+                "type": "string"
+              },
+              "instance_id_offset_per_unit": {
+                "type": "integer"
+              },
+              "may_be_occluded_by_payload": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      }
+    },
+    "actuated": {
+      "type": "object",
+      "required": [
+        "provenance",
+        "source_file",
+        "hooks"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "source_file": {
+          "type": "string",
+          "minLength": 1
+        },
+        "note": {
+          "type": "string"
+        },
+        "hooks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "face",
+              "part",
+              "pivot",
+              "axis",
+              "closed_angle",
+              "open_angle",
+              "authored_angle"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "face": {
+                "type": "string"
+              },
+              "part": {
+                "type": "string"
+              },
+              "pivot": {
+                "type": "string"
+              },
+              "axis": {
+                "$ref": "#/$defs/vec3",
+                "description": "rotation axis in the hook frame (right-hand rule)"
+              },
+              "closed_angle": {
+                "type": "number"
+              },
+              "open_angle": {
+                "type": "number"
+              },
+              "authored_angle": {
+                "type": "number"
+              },
+              "engage_point": {
+                "$ref": "#/$defs/vec3",
+                "description": "point in the hook frame (at closed_angle) where the opposing catch pin sits when latched"
+              },
+              "level_dz": {
+                "type": "number",
+                "description": "z offset of the hook plane from the face centre (hooks are z-staggered so identical faces can mate)"
+              },
+              "rated_load": {
+                "type": "number"
+              },
+              "actuation_time": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        "lift": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "required": [
+            "part",
+            "axis",
+            "range",
+            "authored_value",
+            "docking_value"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "part": {
+              "type": "string"
+            },
+            "axis": {
+              "$ref": "#/$defs/vec3"
+            },
+            "range": {
+              "$ref": "#/$defs/vec2"
+            },
+            "authored_value": {
+              "type": "number"
+            },
+            "docking_value": {
+              "type": "number"
+            },
+            "speed": {
+              "type": "number"
+            },
+            "capacity": {
+              "type": "number"
+            },
+            "note": {
+              "type": "string"
+            }
+          }
+        },
+        "gripper": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "required": [
+            "fingers",
+            "opening_range",
+            "authored_opening"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "fingers": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "part",
+                  "axis",
+                  "travel"
+                ],
+                "properties": {
+                  "part": {
+                    "type": "string"
+                  },
+                  "axis": {
+                    "$ref": "#/$defs/vec3"
+                  },
+                  "travel": {
+                    "$ref": "#/$defs/vec2"
+                  }
+                }
+              }
+            },
+            "opening_range": {
+              "$ref": "#/$defs/vec2",
+              "description": "inner clear distance between finger faces [min,max], m"
+            },
+            "authored_opening": {
+              "type": "number"
+            },
+            "close_time": {
+              "type": "number"
+            },
+            "note": {
+              "type": "string"
+            }
+          }
+        },
+        "lidar_spin": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "arm_proxy": {
+          "type": [
+            "object",
+            "null"
+          ]
+        }
+      }
+    },
+    "payloads": {
+      "type": "object",
+      "required": [
+        "provenance",
+        "source_file",
+        "items"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "source_file": {
+          "type": "string",
+          "minLength": 1
+        },
+        "note": {
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "size_lwh",
+              "mass",
+              "com_xyz",
+              "inertia_tensor",
+              "render_part",
+              "collision",
+              "contact_patches",
+              "frame"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "frame": {
+                "type": "string",
+                "description": "origin at the centre of the bottom face, axes as the carrying rover"
+              },
+              "size_lwh": {
+                "$ref": "#/$defs/vec3"
+              },
+              "mass": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "com_xyz": {
+                "$ref": "#/$defs/vec3"
+              },
+              "inertia_tensor": {
+                "type": "array",
+                "minItems": 3,
+                "maxItems": 3,
+                "items": {
+                  "$ref": "#/$defs/vec3"
+                }
+              },
+              "render_part": {
+                "type": "string"
+              },
+              "collision": {
+                "type": "object"
+              },
+              "contact_patches": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "name",
+                    "center",
+                    "size"
+                  ],
+                  "properties": {
+                    "name": {
+                      "type": "string"
+                    },
+                    "center": {
+                      "$ref": "#/$defs/vec3"
+                    },
+                    "size": {
+                      "$ref": "#/$defs/vec2"
+                    },
+                    "friction_group": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "grasp_faces": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                }
+              },
+              "needs": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,919 @@
+{
+ "schema": "crane.fleet_profile/v0",
+ "profile_id": "mecanum_fleet_concept_v1",
+ "created": "2026-11-10",
+ "note": "Concept-derived design version. Provenance levels: provisional (placeholder, no better basis), concept (estimated from the concept renders modular1/2/3.png, scale fixed by COTS parts; see DESIGN_PLAN.md sec. 2 for the method and +-uncertainty), datasheet (COTS manufacturer data, URL given), cad / measured (none yet). Images give proportions, not dimensions: every concept value carries the uncertainty stated in its 'estimate'.",
+ "provenance_levels": [
+  "provisional",
+  "concept",
+  "datasheet",
+  "cad",
+  "measured"
+ ],
+ "units": {
+  "length": "m",
+  "mass": "kg",
+  "angle": "rad",
+  "time": "s",
+  "force": "N"
+ },
+ "chassis": {
+  "body_size_lwh": {
+   "value": [
+    0.342,
+    0.26,
+    0.085
+   ],
+   "provenance": "concept",
+   "source": "modular1.png (scout concept), modular2.png (lifter concept), modular3.png (cargo concept)",
+   "estimate": "ITERATION 5. L x W (mating planes) x H. The image's own COTS rulers (D435 90 mm on the scout front edge, Arducam 38 mm on the cargo/lifter front) give W 0.16-0.18 m (overlay: cad_v1/images/width_overlay.jpg), but the same rulers make the side face only 0.24-0.30 m long, which cannot hold a reciprocal dock between two 97 mm wheels, and leave 79 mm between the wheels (micro motors only). W = 0.26 is set by the drivetrain: two Pololu 25D gearmotors (67 mm + coupling each) facing each other need ~160 mm between the wheel inner faces; it also restores the concept's near-square, squat footprint (L/W 1.32 vs concept 1.1-1.4). Consequence: COTS parts look ~1/3 smaller relative to the body than drawn. L from the dock-between-wheels constraint (>= 0.34 m); H from the dock/wheel rulers (78-90 mm). Uncertainty: L +-15 %; W is an engineering choice (image says 0.17)."
+  },
+  "overall_width_with_wheels": {
+   "value": 0.26,
+   "provenance": "concept",
+   "source": "modular1.png (scout concept)",
+   "estimate": "wheels sit 3.5 mm inside the side mating planes (tucked into corner wells) so overall width = body width"
+  },
+  "ground_clearance": {
+   "value": 0.022,
+   "provenance": "concept",
+   "source": "modular1.png (scout concept), modular3.png (cargo concept)",
+   "estimate": "gap under the face bottom edge vs wheel contact, ~0.2 x wheel radius; +-8 mm"
+  },
+  "base_mass": {
+   "value": 4.2235,
+   "provenance": "concept",
+   "source": "Tools/Fleet/assets/cad_v1/build_v1.py (solids x densities + datasheet COTS masses)",
+   "estimate": "shared chassis: printed PETG shell, aluminium top plate, 4 docks, wheels, 4 hooks, battery, motors, MCU, IMU, drivers; +-20 % (materials and wall thickness not chosen)"
+  },
+  "com_offset_xyz": {
+   "value": [
+    -0.0001,
+    -0.0006,
+    0.0423
+   ],
+   "provenance": "concept",
+   "source": "Tools/Fleet/assets/cad_v1/build_v1.py (solids x densities + datasheet COTS masses)"
+  },
+  "inertia_diag": {
+   "value": [
+    0.02644,
+    0.04825,
+    0.06758
+   ],
+   "provenance": "concept",
+   "source": "Tools/Fleet/assets/cad_v1/build_v1.py (solids x densities + datasheet COTS masses)",
+   "note": "about the chassis COM; full tensors in the manifests"
+  },
+  "wheel": {
+   "type": "mecanum_45deg",
+   "radius": {
+    "value": 0.0485,
+    "provenance": "datasheet",
+    "source": "https://www.dfrobot.com/product-2271.html",
+    "note": "DFRobot FIT0768 97 mm mecanum (9 rollers, 44.9 mm wide, 45 deg); concept wheel diameter cross-checks at 97-106 mm against the D435 scale"
+   },
+   "width": {
+    "value": 0.045,
+    "provenance": "datasheet",
+    "source": "https://www.dfrobot.com/product-2271.html",
+    "note": "44.9 mm"
+   },
+   "roller_count": {
+    "value": 9,
+    "provenance": "datasheet",
+    "source": "https://www.dfrobot.com/product-2271.html",
+    "note": "concept shows 9-10 rollers"
+   },
+   "half_wheelbase_lx": {
+    "value": 0.109,
+    "provenance": "concept",
+    "source": "modular1.png (scout concept)",
+    "estimate": "side flat between the wells must hold the 110 mm dock + 2 mm: lx = 0.057 + gap 0.0035 + r"
+   },
+   "half_track_ly": {
+    "value": 0.104,
+    "provenance": "concept",
+    "source": "modular1.png (scout concept)",
+    "estimate": "wheel outer face 3.5 mm inside the side mating plane (0.130): 0.130-0.0035-0.0225"
+   },
+   "encoder_counts_per_rev": {
+    "value": 2249,
+    "provenance": "datasheet",
+    "source": "https://www.pololu.com/product/4845",
+    "note": "48 CPR x 46.85:1 = 2248.86 counts per wheel revolution"
+   },
+   "max_wheel_speed_rad_s": {
+    "value": 23.0,
+    "provenance": "datasheet",
+    "source": "https://www.pololu.com/product/4845",
+    "note": "220 rpm no-load at 12 V (1.12 m/s); ~15 rad/s under load"
+   },
+   "max_wheel_torque": {
+    "value": 1.47,
+    "provenance": "datasheet",
+    "source": "https://www.pololu.com/product/4845",
+    "note": "stall 15 kg cm at 12 V (5 A); continuous use <= ~25 % (0.37 N m)"
+   },
+   "mass": {
+    "value": 0.152,
+    "provenance": "datasheet",
+    "source": "https://www.dfrobot.com/product-2271.html",
+    "note": "listed weight field; may include packaging (+-10 %)"
+   },
+   "motor": {
+    "value": "Pololu 47:1 Metal Gearmotor 25Dx67L mm HP 12V with 48 CPR encoder (#4845), 101 g",
+    "provenance": "datasheet",
+    "source": "https://www.pololu.com/product/4845"
+   }
+  },
+  "max_speed_xy": {
+   "value": 0.5,
+   "provenance": "provisional",
+   "note": "drivetrain allows ~0.8 m/s loaded"
+  },
+  "max_yaw_rate": {
+   "value": 1.5,
+   "provenance": "provisional"
+  }
+ },
+ "floors": {
+  "note": "Friction and slip are assumptions; only the ordering tile < carpet < rubber is taken from the literature.",
+  "hard_tile": {
+   "mu_long": {
+    "value": 0.6,
+    "provenance": "provisional"
+   },
+   "lateral_efficiency": {
+    "value": 0.85,
+    "provenance": "provisional"
+   },
+   "slip_sigma_frac": {
+    "value": 0.03,
+    "provenance": "provisional"
+   }
+  },
+  "low_pile_carpet": {
+   "mu_long": {
+    "value": 0.75,
+    "provenance": "provisional"
+   },
+   "lateral_efficiency": {
+    "value": 0.75,
+    "provenance": "provisional"
+   },
+   "slip_sigma_frac": {
+    "value": 0.05,
+    "provenance": "provisional"
+   }
+  },
+  "rubber_mat": {
+   "mu_long": {
+    "value": 0.9,
+    "provenance": "provisional"
+   },
+   "lateral_efficiency": {
+    "value": 0.9,
+    "provenance": "provisional"
+   },
+   "slip_sigma_frac": {
+    "value": 0.02,
+    "provenance": "provisional"
+   }
+  }
+ },
+ "docking": {
+  "face_frames": {
+   "note": "[x, y, z, yaw] of each mating plane centre in base_link. Reciprocal (hermaphroditic) faces: 1 J-hook (face -y) + 1 horizontal catch pin (face +y) + 2 magnets + 2 C-shaped guide brackets + 2 contact pads.",
+   "front": {
+    "value": [
+     0.171,
+     0,
+     0.0425,
+     0
+    ],
+    "provenance": "concept",
+    "source": "modular1.png (scout concept)",
+    "estimate": "face centre at mid body height"
+   },
+   "rear": {
+    "value": [
+     -0.171,
+     0,
+     0.0425,
+     3.141592653589793
+    ],
+    "provenance": "concept",
+    "source": "modular1.png (scout concept)",
+    "estimate": "same chassis, assumed identical to front"
+   },
+   "left": {
+    "value": [
+     0,
+     0.13,
+     0.0425,
+     1.5707963267948966
+    ],
+    "provenance": "concept",
+    "source": "modular1.png (scout concept), modular3.png (cargo concept)",
+    "estimate": "side dock between the wheels"
+   },
+   "right": {
+    "value": [
+     0,
+     -0.13,
+     0.0425,
+     -1.5707963267948966
+    ],
+    "provenance": "concept",
+    "source": "modular1.png (scout concept)",
+    "estimate": "assumed mirror of left"
+   }
+  },
+  "active_faces_default": [
+   "front",
+   "rear",
+   "left",
+   "right"
+  ],
+  "guide_half_width": {
+   "value": 0.009,
+   "provenance": "concept",
+   "source": "modular1.png (scout concept)",
+   "estimate": "lateral capture of the 6 mm hook in the 24 mm pin pocket: (24-6)/2 mm"
+  },
+  "guide_acceptance_half_angle": {
+   "value": 0.087,
+   "provenance": "provisional"
+  },
+  "magnet_pull_in_range": {
+   "value": 0.008,
+   "provenance": "provisional"
+  },
+  "magnet_hold_force": {
+   "value": 25.0,
+   "provenance": "provisional",
+   "note": "two 12x3 mm N52 disc pairs at ~1 mm gap; needs a pull test"
+  },
+  "hook_count": {
+   "value": 1,
+   "provenance": "concept",
+   "source": "modular1.png (scout concept) (reciprocal dock inset)",
+   "estimate": "one J-hook per face; a mated connection has 2 hooks (one from each rover)"
+  },
+  "hook_lateral_spacing": {
+   "value": 0.044,
+   "provenance": "concept",
+   "source": "modular1.png (scout concept)",
+   "estimate": "hook pocket at face y=-0.022, pin pocket at +0.022 (dock scaled to a 110 mm span)"
+  },
+  "hook_position_tolerance": {
+   "value": 0.002,
+   "provenance": "provisional",
+   "note": "unchanged"
+  },
+  "hook_yaw_tolerance": {
+   "value": 0.035,
+   "provenance": "provisional"
+  },
+  "hook_actuation_time": {
+   "value": 0.8,
+   "provenance": "provisional"
+  },
+  "hook_rated_load": {
+   "value": 60.0,
+   "provenance": "provisional"
+  },
+  "connector_compliance_lateral": {
+   "value": 0.0005,
+   "provenance": "provisional"
+  },
+  "states": [
+   "FREE",
+   "APPROACH",
+   "MAGNET_CAPTURED",
+   "HOOK_A_ENGAGED",
+   "HOOK_B_ENGAGED",
+   "LATCHED_VERIFIED",
+   "LOAD_VALIDATED",
+   "RELEASE_REQUESTED",
+   "RELEASED"
+  ],
+  "fault_states": [
+   "PARTIAL",
+   "FALSE_ENGAGEMENT",
+   "OBSTRUCTED",
+   "VERIFICATION_LOST",
+   "STUCK_HOOK"
+  ],
+  "release_invariant": "A load-bearing connection may release only when support is verified on the remaining module graph.",
+  "hook_open_angle": {
+   "value": 0.3,
+   "provenance": "concept",
+   "source": "Tools/Fleet/assets/cad_v1/DESIGN_PLAN.md",
+   "estimate": "derived: tip clears the partner pin by 2.9 mm and stays inside the 38 mm pocket"
+  },
+  "magnet": {
+   "value": {
+    "diameter": 0.01,
+    "thickness": 0.003,
+    "face_y": 0.041,
+    "face_z": -0.004,
+    "polarity": "+y face N out, -y face S out (reciprocal)"
+   },
+   "provenance": "concept",
+   "source": "modular1.png (scout concept)",
+   "estimate": "disc ~11 mm against the D435 scale"
+  },
+  "states_mapping_v1": "Per connection: HOOK_A = the hook of the rover whose face is listed first in the coupling (initiator), HOOK_B = the partner's hook. Each face carries one hook (manifest name hook_<face>_a) and one pin (<face>_pin).",
+  "partner_acquisition_proposal": "No face tags (the dock fills the face). Top tags lie flat at 0.107-0.150 m and are seen almost edge-on (<5 deg) by the forward cameras (0.10-0.16 m high) at docking range, so they are only usable from the optional overhead camera. Proposal: (1) far field: overhead camera / fleet map gives the partner pose to +-5 cm; (2) mid field (1.0-0.3 m): a 30 mm tag36h11 on a 45 deg facet of the top bevel above each dock face (bevel grown locally from 9 to ~25 mm; top contact pad moves 10 mm down) is visible to a forward camera at 45 deg off-normal; (3) near field (<0.3 m): odometry + magnet pull-in (+-9 mm capture) + hook-sensed engagement, as TagDockingController already does. Alternative for (2): print the tag on the C-bracket faces (bracket must widen from 7 to ~30 mm, changing the concept look).",
+  "partner_acquisition": {
+   "value": "bevel_tags_staged",
+   "provenance": "provisional",
+   "source": "user decision 2026-11-10",
+   "note": "far: overhead camera / fleet map; mid (0.3-1.5 m): 30 mm tag on the 45 deg bevel facet above each dock face, seen by the approaching rover's front camera; close (<0.3 m): odometry + magnet capture (+-9 mm) + hook sensing. The lifter's camera faces forward but it docks rear/sides: it acquires front-on, turns, and closes on odometry."
+  }
+ },
+ "sensors": {
+  "wheel_encoder": {
+   "rate_hz": {
+    "value": 100,
+    "provenance": "provisional"
+   }
+  },
+  "imu": {
+   "rate_hz": {
+    "value": 200,
+    "provenance": "provisional"
+   },
+   "gyro_noise_density": {
+    "value": 0.0003,
+    "provenance": "provisional"
+   },
+   "gyro_bias_instability": {
+    "value": 5e-05,
+    "provenance": "provisional"
+   },
+   "model": "Adafruit ISM330DHCX breakout #4502 (STEMMA QT)",
+   "board_size": {
+    "value": [
+     0.0254,
+     0.0178
+    ],
+    "provenance": "provisional",
+    "note": "Adafruit 1.0 x 0.7 in STEMMA QT form factor; the fab print was not machine-readable here, verify"
+   },
+   "source": "https://www.adafruit.com/product/4502"
+  },
+  "mono_camera_ov9281": {
+   "resolution": {
+    "value": [
+     1280,
+     800
+    ],
+    "provenance": "datasheet",
+    "source": "https://www.arducam.com/product/arducam_ov9281_1mp_global_shutter_usb_camera_evaluation_kit_ek026/"
+   },
+   "hfov": {
+    "value": 1.2217,
+    "provenance": "datasheet",
+    "source": "https://cdn.robotshop.com/media/A/Adu/RB-Adu-256/pdf/arducam-1mp-ov9281-usb-camera-120fps-global-shutter-uvc-low-distortion-m12-lens-datasheet.pdf",
+    "note": "70 deg H with the stock 2.8 mm M12 lens (one reseller says 75 deg)"
+   },
+   "rate_hz": {
+    "value": 60,
+    "provenance": "provisional",
+    "note": "unchanged"
+   },
+   "latency": {
+    "value": 0.03,
+    "provenance": "provisional",
+    "note": "unchanged"
+   },
+   "shutter": "global",
+   "encoding": "mono8",
+   "board_size": {
+    "value": [
+     0.038,
+     0.038
+    ],
+    "provenance": "datasheet",
+    "source": "https://cdn.robotshop.com/media/A/Adu/RB-Adu-256/pdf/arducam-1mp-ov9281-usb-camera-120fps-global-shutter-uvc-low-distortion-m12-lens-datasheet.pdf",
+    "note": "B0332 USB board 38x38 mm"
+   }
+  },
+  "range_tof": {
+   "max_range": {
+    "value": 2.0,
+    "provenance": "provisional"
+   },
+   "fov": {
+    "value": 0.44,
+    "provenance": "provisional"
+   },
+   "rate_hz": {
+    "value": 30,
+    "provenance": "provisional"
+   }
+  },
+  "lidar_2d": {
+   "max_range": {
+    "value": 12.0,
+    "provenance": "datasheet",
+    "source": "https://www.slamtec.com/en/C1/Spec",
+    "note": "white target; 6 m on black"
+   },
+   "rate_hz": {
+    "value": 10,
+    "provenance": "datasheet",
+    "source": "https://www.slamtec.com/en/C1/Spec",
+    "note": "8-12 Hz"
+   },
+   "points_per_scan": {
+    "value": 500,
+    "provenance": "datasheet",
+    "source": "https://www.slamtec.com/en/C1/Spec",
+    "note": "5 kHz sample rate / 10 Hz, 0.72 deg"
+   },
+   "model": "SLAMTEC RPLIDAR C1",
+   "size": {
+    "value": [
+     0.0556,
+     0.0556,
+     0.0413
+    ],
+    "provenance": "datasheet",
+    "source": "https://www.slamtec.com/en/C1/Spec"
+   },
+   "mass": {
+    "value": 0.11,
+    "provenance": "datasheet",
+    "source": "https://www.slamtec.com/en/C1/Spec"
+   }
+  },
+  "stereo_baseline": {
+   "value": 0.05,
+   "provenance": "datasheet",
+   "source": "https://www.mouser.com/datasheet/2/612/Intel_3_28_2023_D435if_Launch_Deck-3135151.pdf",
+   "note": "v1: the scout stereo pair is the D435 infra1/infra2 imagers (v0: OV9281 pair 0.075)"
+  },
+  "apriltag": {
+   "family": "tag36h11",
+   "face_tag_size": {
+    "value": 0.03,
+    "provenance": "concept",
+    "source": "user decision 2026-11-10",
+    "note": "30 mm tag36h11 on a 45 deg facet of the top bevel above each dock face (ids: role base + face index, cargo_2 +10)"
+   },
+   "top_tag_size": {
+    "value": 0.07,
+    "provenance": "concept",
+    "source": "modular2.png (lifter concept)",
+    "estimate": "lifter top tag plate ~88 mm against the OV9281 board scale"
+   },
+   "pose_noise_note": "model as corner noise projected through the camera; published accuracy for a 16.4 cm tag is centimetre level at 2 m and degrades with range and viewing angle"
+  },
+  "overhead_camera": {
+   "height": {
+    "value": 2.6,
+    "provenance": "provisional"
+   },
+   "hfov": {
+    "value": 1.4,
+    "provenance": "provisional"
+   },
+   "rate_hz": {
+    "value": 30,
+    "provenance": "provisional"
+   },
+   "latency": {
+    "value": 0.15,
+    "provenance": "provisional"
+   },
+   "optional": true
+  },
+  "realsense_d435_depth": {
+   "resolution": {
+    "value": [
+     1280,
+     720
+    ],
+    "provenance": "datasheet",
+    "source": "https://www.intel.com/content/www/us/en/products/sku/128255/intel-realsense-depth-camera-d435/specifications.html"
+   },
+   "hfov": {
+    "value": 1.5184,
+    "provenance": "datasheet",
+    "source": "https://www.mouser.com/datasheet/2/612/Intel_3_28_2023_D435if_Launch_Deck-3135151.pdf",
+    "note": "87 +-3 deg x 58 deg"
+   },
+   "rate_hz": {
+    "value": 30,
+    "provenance": "datasheet",
+    "source": "https://www.intel.com/content/www/us/en/products/sku/128255/intel-realsense-depth-camera-d435/specifications.html",
+    "note": "up to 90 fps"
+   },
+   "range": {
+    "value": [
+     0.3,
+     3.0
+    ],
+    "provenance": "datasheet",
+    "source": "https://www.intel.com/content/www/us/en/products/sku/128255/intel-realsense-depth-camera-d435/specifications.html"
+   },
+   "latency": {
+    "value": 0.05,
+    "provenance": "provisional",
+    "note": "not measured"
+   },
+   "shutter": "global",
+   "encoding": "16UC1"
+  },
+  "realsense_d435_infra": {
+   "resolution": {
+    "value": [
+     1280,
+     720
+    ],
+    "provenance": "datasheet",
+    "source": "https://www.mouser.com/datasheet/2/612/Intel_3_28_2023_D435if_Launch_Deck-3135151.pdf"
+   },
+   "hfov": {
+    "value": 1.5184,
+    "provenance": "datasheet",
+    "source": "https://www.mouser.com/datasheet/2/612/Intel_3_28_2023_D435if_Launch_Deck-3135151.pdf"
+   },
+   "rate_hz": {
+    "value": 30,
+    "provenance": "datasheet",
+    "source": "https://www.intel.com/content/www/us/en/products/sku/128255/intel-realsense-depth-camera-d435/specifications.html"
+   },
+   "latency": {
+    "value": 0.05,
+    "provenance": "provisional",
+    "note": "not measured"
+   },
+   "shutter": "global",
+   "encoding": "mono8"
+  },
+  "realsense_d435_color": {
+   "resolution": {
+    "value": [
+     1920,
+     1080
+    ],
+    "provenance": "provisional",
+    "note": "datasheet RGB 1920x1080 rolling shutter; FOV 69x42 deg (not re-verified this session)"
+   },
+   "hfov": {
+    "value": 1.2043,
+    "provenance": "provisional",
+    "note": "69 deg, from memory of the D400 datasheet; verify"
+   },
+   "rate_hz": {
+    "value": 30,
+    "provenance": "provisional",
+    "note": ""
+   },
+   "latency": {
+    "value": 0.05,
+    "provenance": "provisional",
+    "note": ""
+   },
+   "shutter": "rolling",
+   "encoding": "rgb8"
+  },
+  "realsense_d435_body": {
+   "size_lwh": {
+    "value": [
+     0.025,
+     0.09,
+     0.025
+    ],
+    "provenance": "datasheet",
+    "source": "https://www.intel.com/content/www/us/en/products/sku/128255/intel-realsense-depth-camera-d435/specifications.html",
+    "note": "90 x 25 x 25 mm"
+   },
+   "mass": {
+    "value": 0.072,
+    "provenance": "datasheet",
+    "source": "https://openelab.io/blogs/learn/intel-realsense-d435-depth-camera-guide-fast-wide-fov-3d-scanning-and-tracking",
+    "note": "72-75 g nominal +-10 %"
+   },
+   "ir_baseline": {
+    "value": 0.05,
+    "provenance": "datasheet",
+    "source": "https://www.mouser.com/datasheet/2/612/Intel_3_28_2023_D435if_Launch_Deck-3135151.pdf"
+   }
+  }
+ },
+ "roles": {
+  "scout": {
+   "description": "Sensor-rich rover with a small 5-DOF arm + gripper on a turntable (folds for travel), RPLIDAR C1 on a raised rear-right (-y; the concept is a 3/4 front-RIGHT view) mount, D435 at the front edge, Orange Pi 5 Pro in an open top bay, Pico + ISM330DHCX in an internal bay.",
+   "added_mass": {
+    "value": 0.894,
+    "provenance": "concept",
+    "source": "Tools/Fleet/assets/cad_v1/build_v1.py (solids x densities + datasheet COTS masses)",
+    "estimate": "role total 5.118 kg minus base chassis 4.223 kg"
+   },
+   "sensors": [
+    "wheel_encoder",
+    "imu",
+    "lidar_2d (RPLIDAR C1)",
+    "realsense_d435 (depth + infra1/infra2 + color)"
+   ],
+   "required_sensor_frames": {
+    "imu": "imu",
+    "lidar": "lidar2d",
+    "camera_depth": "camera",
+    "camera_infra1": "camera",
+    "camera_infra2": "camera",
+    "camera_color": "camera"
+   },
+   "stereo_pair": [
+    "camera_infra1",
+    "camera_infra2"
+   ],
+   "active_faces": [
+    "front",
+    "rear",
+    "left",
+    "right"
+   ],
+   "tag_sizes": {
+    "tag_top": {
+     "value": 0.05,
+     "provenance": "provisional",
+     "note": "concept shows no scout tag; added on the free rear-right top area for overhead localisation"
+    }
+   },
+   "compute": {
+    "value": "Orange Pi 5 Pro 89 x 56 mm, 62 g",
+    "provenance": "datasheet",
+    "source": "http://www.orangepi.org/html/hardWare/computerAndMicrocontrollers/details/Orange-Pi-5-Pro.html"
+   },
+   "mcu": {
+    "value": "Raspberry Pi Pico 51 x 21 mm",
+    "provenance": "datasheet",
+    "source": "https://datasheets.raspberrypi.com/pico/pico-datasheet.pdf"
+   },
+   "mast_height": {
+    "value": 0.045,
+    "provenance": "concept",
+    "source": "modular1.png (scout concept)",
+    "estimate": "LiDAR riser block above the top plate ~1.1 x C1 height"
+   },
+   "arm_proxy": {
+    "mass": {
+     "value": 0.3866,
+     "provenance": "concept",
+     "source": "Tools/Fleet/assets/cad_v1/build_v1.py (solids x densities + datasheet COTS masses)",
+     "estimate": "moving arm links: 5 x STS3215 (55 g datasheet) + printed links at 35 % effective density; the 6th (yaw) servo sits inside the body (internals, +0.055 kg)"
+    },
+    "reach": {
+     "value": 0.275,
+     "provenance": "concept",
+     "source": "modular1.png (scout concept)",
+     "estimate": "shoulder axis to gripper tip: upper arm 0.100 + forearm 0.095 + wrist 0.030 + gripper 0.050, scaled from servo bodies ~45 mm (STS3215-like); +-25 %"
+    },
+    "payload": {
+     "value": 0.2,
+     "provenance": "provisional",
+     "note": "STS3215 shoulder at <=50 % of 19.5 kg cm stall with arm self-weight; v0 0.5"
+    },
+    "servo": {
+     "value": "Feetech STS3215 45.2 x 24.7 x 35 mm, 55 g, 19.5 kg cm stall @7.4 V",
+     "provenance": "datasheet",
+     "source": "https://www.feetechrc.com/products.html?keyword=STS3215"
+    },
+    "modelled_as": "articulated proxy: 5 revolute joints + 1 gripper jaw; limits from the concept, link shapes are envelopes"
+   }
+  },
+  "lifter": {
+   "description": "Low-lift front gripper (twin vertical rails, carriage, two L-shaped fork/jaw arms) for box_small (option b, user decision 2026-11-10; tag_box optional); Arducam OV9281 on a short mast, AprilTag on top, Orange Pi 4 Pro. No front dock (the gripper occupies it): docks rear/left/right.",
+   "added_mass": {
+    "value": 1.992,
+    "provenance": "concept",
+    "source": "Tools/Fleet/assets/cad_v1/build_v1.py (solids x densities + datasheet COTS masses)",
+    "estimate": "role total 6.216 kg minus base chassis 4.223 kg"
+   },
+   "sensors": [
+    "wheel_encoder",
+    "imu",
+    "mono_camera_ov9281(mast)"
+   ],
+   "required_sensor_frames": {
+    "imu": "imu",
+    "cam_front": "camera"
+   },
+   "active_faces": [
+    "rear",
+    "left",
+    "right"
+   ],
+   "tag_sizes": {
+    "tag_top": {
+     "value": 0.07,
+     "provenance": "concept",
+     "source": "modular2.png (lifter concept)",
+     "estimate": "tag plate ~88 mm"
+    }
+   },
+   "compute": {
+    "value": "Orange Pi 4 Pro 89 x 56 mm, 58 g",
+    "provenance": "datasheet",
+    "source": "http://www.orangepi.org/html/hardWare/computerAndMicrocontrollers/details/Orange-Pi-4-Pro.html"
+   },
+   "lift_travel": {
+    "value": 0.17,
+    "provenance": "provisional",
+    "source": "user decision D89 2026-11-10 (taller lift)",
+    "note": "box underside 0.148 m above base / 0.170 m above ground at full stroke = deck top (0.150) + 20 mm; 165 mm is the minimum for the 15 mm requirement"
+   },
+   "lift_speed": {
+    "value": 0.03,
+    "provenance": "provisional",
+    "note": "lead screw; 170 mm in ~6 s"
+   },
+   "gripper_opening": {
+    "value": 0.24,
+    "provenance": "provisional",
+    "source": "user decision D89",
+    "note": "clear opening 0.06-0.24 m (20 mm per side on box_small's 0.20 m); jaw outer width 0.258 m < body 0.26 m"
+   },
+   "gripper_close_time": {
+    "value": 1.0,
+    "provenance": "provisional",
+    "note": "unchanged"
+   },
+   "lift_capacity": {
+    "value": 2.0,
+    "provenance": "concept",
+    "source": "Tools/Fleet/assets/cad_v1/checks_v1.py (lifter_options.as_built_option_b)",
+    "estimate": "OPTION (b), user decision 2026-11-10: box_small (0.30 x 0.20 x 0.15 m, 2 kg) gripped across 0.20 m on 160 mm forks at FULL lift stroke passes pitch safety 1.54 (restoring/overturning moment), static margin 32 mm, tip-free deceleration 3.8 m/s^2; limit at safety 1.5 = 2.05 kg (box_small geometry), 3.78 kg for an 80 mm tag_box. Needs 1.25 kg steel counterweight + battery moved rearward (saves 0.12 kg of steel). Option (a) (concept jaws, tag_box only, no counterweight) kept in lifter_option.note."
+   },
+   "mast_camera_pitch": {
+    "value": 0.35,
+    "provenance": "concept",
+    "source": "modular2.png (lifter concept)",
+    "estimate": "concept ~5-10 deg down; 20 deg chosen so the box top is in view (deliberate)"
+   },
+   "lifter_option": {
+    "value": "b",
+    "provenance": "provisional",
+    "source": "user decision 2026-11-10",
+    "note": "(b) DEFAULT: jaws 0.21 m, 160 mm forks, rear counterweight + battery moved rearward, carries box_small 2 kg at full stroke. (a) alternative: concept jaws 0.12 m for tag_box only, no counterweight. tag_box stays as an optional payload type."
+   }
+  },
+  "cargo": {
+   "description": "Raised flat cargo deck on 4 standoffs with a vented electronics box in the gap, AprilTag on a corner flag, Arducam on the front face. Docks on all four faces.",
+   "added_mass": {
+    "value": 1.0339,
+    "provenance": "concept",
+    "source": "Tools/Fleet/assets/cad_v1/build_v1.py (solids x densities + datasheet COTS masses)",
+    "estimate": "role total 5.257 kg minus base chassis 4.223 kg"
+   },
+   "sensors": [
+    "wheel_encoder",
+    "imu",
+    "mono_camera_ov9281(front)"
+   ],
+   "required_sensor_frames": {
+    "imu": "imu",
+    "cam_front": "camera"
+   },
+   "active_faces": [
+    "front",
+    "rear",
+    "left",
+    "right"
+   ],
+   "tag_sizes": {
+    "tag_top": {
+     "value": 0.05,
+     "provenance": "concept",
+     "source": "modular3.png (cargo concept)",
+     "estimate": "corner flag ~62 mm plate"
+    }
+   },
+   "deck_size_lw": {
+    "value": [
+     0.334,
+     0.252
+    ],
+    "provenance": "concept",
+    "source": "modular3.png (cargo concept)",
+    "estimate": "deck inside the mating planes by 4 mm (decks must not touch when docked)"
+   },
+   "deck_height": {
+    "value": 0.15,
+    "provenance": "concept",
+    "source": "modular3.png (cargo concept)",
+    "estimate": "deck top above ground: body top 0.107 + 39 mm gap (Arducam board height) + 4 mm plate; +-15 mm"
+   },
+   "deck_capacity": {
+    "value": 5.0,
+    "provenance": "provisional",
+    "note": "iteration 5: 25D gearmotors; limited by sill climbing (1 cm at ~50 % stall with 5 kg), not by steady driving (~8 % stall). box_long 6 kg over two decks = 3 kg each"
+   }
+  }
+ },
+ "fleet_default": [
+  {
+   "id": "scout_1",
+   "role": "scout"
+  },
+  {
+   "id": "lifter_1",
+   "role": "lifter"
+  },
+  {
+   "id": "cargo_1",
+   "role": "cargo"
+  },
+  {
+   "id": "cargo_2",
+   "role": "cargo"
+  }
+ ],
+ "payloads": {
+  "box_small": {
+   "size_lwh": {
+    "value": [
+     0.3,
+     0.2,
+     0.15
+    ],
+    "provenance": "provisional"
+   },
+   "mass": {
+    "value": 2.0,
+    "provenance": "provisional"
+   },
+   "needs": "one deck"
+  },
+  "box_long": {
+   "size_lwh": {
+    "value": [
+     0.8,
+     0.25,
+     0.15
+    ],
+    "provenance": "provisional"
+   },
+   "mass": {
+    "value": 6.0,
+    "provenance": "provisional"
+   },
+   "needs": "two decks coupled in line, or two decks side by side with a spreader"
+  },
+  "tray_wide": {
+   "size_lwh": {
+    "value": [
+     0.6,
+     0.6,
+     0.08
+    ],
+    "provenance": "provisional"
+   },
+   "mass": {
+    "value": 5.0,
+    "provenance": "provisional"
+   },
+   "needs": "two decks side by side"
+  },
+  "tag_box": {
+   "size_lwh": {
+    "value": [
+     0.08,
+     0.08,
+     0.08
+    ],
+    "provenance": "concept",
+    "source": "modular2.png inset 'Tagged box pickup'",
+    "estimate": "box ~ jaw width"
+   },
+   "mass": {
+    "value": 0.5,
+    "provenance": "provisional",
+    "note": "design value; lifter limit 1.0 kg"
+   },
+   "needs": "lifter gripper (optional payload type; also fits option b jaws, min opening 0.06)"
+  }
+ },
+ "later_modules": {
+  "precision_arm": "proxy only (mass, reach, footprint) until designed",
+  "charging_bay": "proxy only (two ports, footprint 0.9 x 0.5) until designed"
+ },
+ "open_questions_for_cad": [
+  "drivetrain: Pololu 25D 47:1 HP chosen (iteration 5); sills > 2 cm exceed the 97 mm wheel's traction-limited climb (needs ramps or larger wheels)",
+  "width is an engineering choice (0.26 m, motors) - the concept's COTS scale says 0.17 m; confirm",
+  "hook actuator (micro servo behind the pocket) and hook/pin material and load rating",
+  "magnet grade/size and pull-in force; magnets are 1 mm apart when mated",
+  "face tags removed (no room on the dock face): how does the approach controller find the partner face?",
+  "lifter cannot carry box_small (2 kg, 0.30 x 0.20 m): change the payload or widen/counterweight the lifter",
+  "arm model (link lengths, servo choice) is a proxy",
+  "top plate / deck material (aluminium vs composite) drives 20-30 % of the mass"
+ ],
+ "supersedes": "mecanum_fleet_provisional_v0 (kept unchanged; frozen studies and the running CRANE batch use v0)"
+}

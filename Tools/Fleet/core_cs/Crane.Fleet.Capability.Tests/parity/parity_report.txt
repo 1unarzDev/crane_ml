@@ -1,0 +1,31 @@
+[testbed_vectors.json]
+vectors=240 subspace_not_comparable=41 holonomic=34 mobility_lt_3=173 failures=0
+max_abs_diff[A]=1.066E-014
+max_abs_diff[axis_bound]=4.441E-016
+max_abs_diff[B]=1.943E-016
+max_abs_diff[gram_hard]=6.661E-016
+max_abs_diff[limits]=0.000E+000
+max_abs_diff[proj_controlled]=1.562E-015
+max_abs_diff[proj_mobility]=1.562E-015
+max_abs_diff[ray]=8.882E-016
+max_abs_diff[support]=6.640E-010
+wheels[dead_free]=120
+wheels[dead_locked]=113
+wheels[ok]=1975
+wheels[weak]=96
+[capability_vectors.json]
+vectors=240 subspace_not_comparable=0 holonomic=41 mobility_lt_3=179 failures=0
+max_abs_diff[A]=0.000E+000
+max_abs_diff[axis_bound]=0.000E+000
+max_abs_diff[B]=2.665E-015
+max_abs_diff[gram_hard]=0.000E+000
+max_abs_diff[limits]=0.000E+000
+max_abs_diff[proj_controlled]=2.470E-015
+max_abs_diff[proj_mobility]=2.470E-015
+max_abs_diff[ray]=0.000E+000
+max_abs_diff[support]=4.619E-014
+wheels[dead_free]=104
+wheels[dead_locked]=76
+wheels[intermittent]=85
+wheels[ok]=1569
+wheels[weak]=102

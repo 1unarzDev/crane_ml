@@ -1,0 +1,795 @@
+{
+ "schema": "crane.fleet_cad_params/v1",
+ "note": "Detailed CAD dimensions below the fleet profile (fleet_profile_v1.json holds the fleet-level numbers). Metres/kg/rad. provenance: concept = estimated from modular1-3.png (method in DESIGN_PLAN.md sec. 2, uncertainty ~ +-10-25 % unless stated), datasheet = COTS (URL), provisional = engineering placeholder, derived = computed from other values to satisfy a constraint (stated).",
+ "groups": {
+  "chassis": {
+   "bracket_proud": {
+    "value": 0.004,
+    "provenance": "concept",
+    "source": "modular1.png reciprocal-dock inset",
+    "estimate": "orange brackets stand ~1/3 of the magnet diameter proud"
+   },
+   "wall_height": {
+    "value": 0.074,
+    "provenance": "concept",
+    "source": "modular1.png",
+    "estimate": "vertical wall below the top bevel"
+   },
+   "top_bevel_inset": {
+    "value": 0.009,
+    "provenance": "concept",
+    "source": "modular1.png",
+    "estimate": "bevel ~12 % of the side height (concept)"
+   },
+   "top_plate_thickness": {
+    "value": 0.002,
+    "provenance": "provisional",
+    "note": "1.5-2 mm aluminium; concept shows a screwed metal plate"
+   },
+   "corner_chamfer": {
+    "value": 0.022,
+    "provenance": "concept",
+    "source": "modular1.png",
+    "estimate": "front flat face ~0.80 x width (concept)"
+   },
+   "top_corner_chamfer": {
+    "value": 0.034,
+    "provenance": "concept",
+    "source": "modular1.png",
+    "estimate": "octagonal top plate corners"
+   },
+   "wall_thickness": {
+    "value": 0.003,
+    "provenance": "provisional",
+    "note": "printed PETG wall"
+   },
+   "front_wall_ahead_of_wheel": {
+    "value": 0.006,
+    "provenance": "derived",
+    "note": "carries the magnet bosses; wheels stay behind the front mating plane"
+   },
+   "wheel_gap": {
+    "value": 0.0035,
+    "provenance": "provisional",
+    "note": "radial / axial clearance wheel to well"
+   },
+   "well_inner_y": {
+    "value": 0.0795,
+    "provenance": "derived",
+    "note": "wheel inner face 0.0815 - 2 mm"
+   },
+   "well_top_z": {
+    "value": 0.079,
+    "provenance": "derived",
+    "note": "4 mm skin under the top plate, wheel top at z=0.075"
+   },
+   "screw_count_per_long_side": {
+    "value": 8,
+    "provenance": "concept",
+    "source": "modular1.png"
+   },
+   "screw_head_radius": {
+    "value": 0.0028,
+    "provenance": "concept",
+    "source": "modular1.png",
+    "estimate": "M3 button head"
+   }
+  },
+  "dock": {
+   "bracket_y_inner": {
+    "value": 0.03,
+    "provenance": "concept",
+    "source": "modular1.png front face",
+    "estimate": "dock span 110 mm (front ruler 115-124, side wheel ruler 86-105)"
+   },
+   "bracket_y_outer": {
+    "value": 0.055,
+    "provenance": "concept",
+    "source": "modular1.png front face"
+   },
+   "bracket_half_height": {
+    "value": 0.028,
+    "provenance": "concept",
+    "source": "modular1.png",
+    "estimate": "62 mm tall"
+   },
+   "bracket_bar": {
+    "value": 0.007,
+    "provenance": "concept",
+    "source": "modular1.png"
+   },
+   "bracket_chamfer": {
+    "value": 0.008,
+    "provenance": "concept",
+    "source": "modular1.png"
+   },
+   "pocket_y_center": {
+    "value": 0.022,
+    "provenance": "concept",
+    "source": "modular1.png",
+    "estimate": "22 mm (hook) / 29 mm (pin) from centre, averaged"
+   },
+   "pocket_width": {
+    "value": 0.024,
+    "provenance": "concept",
+    "source": "modular1.png",
+    "estimate": "31 mm in the image, reduced to keep a 2.5 mm wall to the wheel well"
+   },
+   "pocket_half_height": {
+    "value": 0.019,
+    "provenance": "derived",
+    "note": "concept ~17-18 mm; 19 mm needed for the opened hook"
+   },
+   "pocket_depth": {
+    "value": 0.024,
+    "provenance": "derived",
+    "note": "behind the face plate; holds the closed partner hook crook (to 23.5 mm)"
+   },
+   "pocket_corner_radius": {
+    "value": 0.004,
+    "provenance": "concept",
+    "source": "modular1.png"
+   },
+   "pocket_mouth_chamfer": {
+    "value": 0.002,
+    "provenance": "provisional"
+   },
+   "pin_radius": {
+    "value": 0.003,
+    "provenance": "concept",
+    "source": "modular1.png",
+    "estimate": "pin ~6.5 mm diameter"
+   },
+   "pin_x": {
+    "value": -0.01,
+    "provenance": "derived",
+    "note": "6 mm behind the face plate"
+   },
+   "pin_collar_radius": {
+    "value": 0.0045,
+    "provenance": "concept",
+    "source": "modular1.png"
+   },
+   "hook_rod_radius": {
+    "value": 0.003,
+    "provenance": "concept",
+    "source": "modular1.png",
+    "estimate": "J-hook bent from ~6 mm rod"
+   },
+   "hook_clearance": {
+    "value": 0.0005,
+    "provenance": "provisional"
+   },
+   "hook_pivot_x": {
+    "value": -0.02,
+    "provenance": "derived",
+    "note": "pivot inside the hook pocket; arm reaches 30 mm to the partner pin"
+   },
+   "hook_crook_end_deg": {
+    "value": -15,
+    "provenance": "derived",
+    "note": "crook wraps 105 deg so the hook can open by rotation (a 180 deg wrap would jam on the pin)"
+   },
+   "hook_boss_radius": {
+    "value": 0.005,
+    "provenance": "provisional"
+   },
+   "hook_boss_width": {
+    "value": 0.008,
+    "provenance": "provisional"
+   },
+   "magnet_boss_radius": {
+    "value": 0.0075,
+    "provenance": "provisional"
+   },
+   "magnet_recess": {
+    "value": 0.0005,
+    "provenance": "provisional",
+    "note": "magnet face 0.5 mm behind the mating plane -> 1 mm between mated magnets"
+   },
+   "pad_size_yz": {
+    "value": [
+     0.008,
+     0.006
+    ],
+    "provenance": "concept",
+    "source": "modular1.png",
+    "estimate": "small square pads above/below the dock"
+   },
+   "pad_z": {
+    "value": 0.03,
+    "provenance": "concept",
+    "source": "modular1.png",
+    "note": "moved down 3.5 mm (user decision 2026-11-10) to clear the 45 deg tag facet above the dock"
+   },
+   "magnet_y": {
+    "value": 0.041,
+    "provenance": "concept",
+    "source": "modular1.png",
+    "estimate": "magnet disc inside the C-bracket"
+   },
+   "magnet_z": {
+    "value": -0.004,
+    "provenance": "concept",
+    "source": "modular1.png",
+    "estimate": "slightly below the face centre"
+   },
+   "magnet_radius": {
+    "value": 0.005,
+    "provenance": "concept",
+    "source": "modular1.png",
+    "estimate": "10 mm disc (concept ~11 mm, sized to fit inside the bracket)"
+   },
+   "magnet_thickness": {
+    "value": 0.003,
+    "provenance": "provisional"
+   }
+  },
+  "wheel": {
+   "roller_angle": {
+    "value": 0.7853981634,
+    "provenance": "datasheet",
+    "source": "https://www.dfrobot.com/product-2271.html"
+   },
+   "roller_fill": {
+    "value": 0.96,
+    "provenance": "provisional"
+   },
+   "roller_taper": {
+    "value": 0.75,
+    "provenance": "provisional"
+   },
+   "hub_radius_frac": {
+    "value": 0.42,
+    "provenance": "provisional"
+   },
+   "plate_radius_frac": {
+    "value": 0.66,
+    "provenance": "concept",
+    "source": "modular1.png",
+    "estimate": "concept: chrome star plate ~2/3 of the roller circle, rollers bulge around it (iteration 3)"
+   },
+   "plate_thickness": {
+    "value": 0.003,
+    "provenance": "provisional"
+   },
+   "spoke_windows": {
+    "value": 8,
+    "provenance": "concept",
+    "source": "modular1.png"
+   },
+   "spokes": {
+    "value": 9,
+    "provenance": "derived",
+    "note": "one star spoke per roller (concept draws 8 spokes / ~10 rollers)"
+   },
+   "star_recess": {
+    "value": 0.006,
+    "provenance": "concept",
+    "source": "modular1.png",
+    "estimate": "rollers bulge ~6 mm beyond the star hub face"
+   }
+  },
+  "scout": {
+   "d435_center": {
+    "value": [
+     0.1425,
+     0.0,
+     0.1025
+    ],
+    "provenance": "concept",
+    "source": "modular1.png",
+    "estimate": "on a 5 mm bracket, lens glass 16 mm behind the front mating plane"
+   },
+   "arm_base_xy": {
+    "value": [
+     0.07,
+     0.0
+    ],
+    "provenance": "concept",
+    "source": "modular1.png",
+    "estimate": "turntable behind the D435 on the centreline"
+   },
+   "arm_base_plate": {
+    "value": [
+     0.07,
+     0.07,
+     0.004
+    ],
+    "provenance": "concept",
+    "source": "modular1.png"
+   },
+   "turntable": {
+    "value": [
+     0.029,
+     0.008
+    ],
+    "provenance": "concept",
+    "source": "modular1.png",
+    "estimate": "radius, height; ~58 mm diameter"
+   },
+   "shoulder_height": {
+    "value": 0.026,
+    "provenance": "derived",
+    "note": "turntable top to shoulder axis; 26 mm keeps the folded arm 3 mm under the LiDAR scan plane (iteration 3; was 30)"
+   },
+   "upper_arm": {
+    "value": 0.1,
+    "provenance": "concept",
+    "source": "modular1.png",
+    "estimate": "~2.2 servo lengths"
+   },
+   "forearm": {
+    "value": 0.095,
+    "provenance": "concept",
+    "source": "modular1.png"
+   },
+   "wrist": {
+    "value": 0.03,
+    "provenance": "concept",
+    "source": "modular1.png"
+   },
+   "gripper": {
+    "value": 0.05,
+    "provenance": "concept",
+    "source": "modular1.png"
+   },
+   "elbow_offset_y": {
+    "value": 0.03,
+    "provenance": "derived",
+    "note": "upper arm and forearm side by side so the arm folds flat"
+   },
+   "arm_link_section": {
+    "value": [
+     0.026,
+     0.03
+    ],
+    "provenance": "datasheet",
+    "source": "https://www.feetechrc.com/products.html?keyword=STS3215",
+    "note": "STS3215 24.7 x 35 mm body"
+   },
+   "lidar_xy": {
+    "value": [
+     -0.122,
+     -0.072
+    ],
+    "provenance": "concept",
+    "source": "modular1.png",
+    "estimate": "rear corner on the visible (right, -y) side"
+   },
+   "lidar_mount": {
+    "value": [
+     0.048,
+     0.048
+    ],
+    "provenance": "concept",
+    "source": "modular1.png"
+   },
+   "opi_xy_min": {
+    "value": [
+     -0.085,
+     -0.105
+    ],
+    "provenance": "concept",
+    "source": "modular1.png",
+    "estimate": "open top bay on the right (-y) side"
+   },
+   "bay_depth": {
+    "value": 0.007,
+    "provenance": "provisional"
+   },
+   "ethernet_xy": {
+    "value": [
+     0.112,
+     -0.085
+    ],
+    "provenance": "concept",
+    "source": "modular1.png",
+    "estimate": "front-right corner of the top plate"
+   },
+   "tag_xy": {
+    "value": [
+     -0.122,
+     0.072
+    ],
+    "provenance": "provisional",
+    "note": "added; the concept shows no scout tag"
+   },
+   "imu_xyz": {
+    "value": [
+     0.025,
+     -0.02,
+     0.008
+    ],
+    "provenance": "provisional",
+    "note": "internal bay near the centre"
+   },
+   "pico_xyz": {
+    "value": [
+     -0.02,
+     -0.02,
+     0.006
+    ],
+    "provenance": "provisional"
+   },
+   "folded_pose": {
+    "value": {
+     "arm_joint_1": 0.0,
+     "arm_joint_2": -1.5708,
+     "arm_joint_3": 3.1416,
+     "arm_joint_4": -0.2,
+     "arm_joint_5": 1.5708,
+     "arm_gripper_joint": 0.0
+    },
+    "provenance": "concept",
+    "source": "modular1.png inset 'Arm folded for travel'"
+   },
+   "concept_pose": {
+    "value": {
+     "arm_joint_1": 0.6,
+     "arm_joint_2": -0.25,
+     "arm_joint_3": 1.2,
+     "arm_joint_4": 0.95,
+     "arm_joint_5": 0.0,
+     "arm_gripper_joint": 0.55
+    },
+    "provenance": "concept",
+    "source": "modular1.png main view"
+   }
+  },
+  "lifter": {
+   "opi_xy_min": {
+    "value": [
+     -0.14,
+     -0.105
+    ],
+    "provenance": "concept",
+    "source": "modular2.png"
+   },
+   "mast_xy": {
+    "value": [
+     0.09,
+     -0.085
+    ],
+    "provenance": "concept",
+    "source": "modular2.png",
+    "note": "moved beside the taller lift column so it does not block the camera"
+   },
+   "mast_height": {
+    "value": 0.04,
+    "provenance": "concept",
+    "source": "modular2.png",
+    "estimate": "~ one board height"
+   },
+   "tag_xy": {
+    "value": [
+     0.065,
+     0.04
+    ],
+    "provenance": "concept",
+    "source": "modular2.png"
+   },
+   "rail_y": {
+    "value": 0.029,
+    "provenance": "concept",
+    "source": "modular2.png",
+    "estimate": "rails 58 mm apart"
+   },
+   "rail_x": {
+    "value": 0.179,
+    "provenance": "derived",
+    "note": "8 mm ahead of the front plane"
+   },
+   "rail_z": {
+    "value": [
+     -0.012,
+     0.192
+    ],
+    "provenance": "concept",
+    "source": "modular2.png",
+    "note": "D89 taller lift: rails extended for a 170 mm stroke"
+   },
+   "rail_radius": {
+    "value": 0.003,
+    "provenance": "concept",
+    "source": "modular2.png"
+   },
+   "top_block": {
+    "value": [
+     0.034,
+     0.048,
+     0.022
+    ],
+    "provenance": "concept",
+    "source": "modular2.png"
+   },
+   "carriage_bar": {
+    "value": [
+     0.014,
+     0.214,
+     0.012
+    ],
+    "provenance": "concept",
+    "source": "modular2.png"
+   },
+   "carriage_z0": {
+    "value": -0.004,
+    "provenance": "derived",
+    "note": "lift=0: box underside (pad bottom) on the ground, prongs 5 mm above it"
+   },
+   "jaw_prong": {
+    "value": [
+     0.16,
+     0.009,
+     0.012
+    ],
+    "provenance": "concept",
+    "source": "modular2.png",
+    "note": "option (b): forks reach under the 0.30 m deep box_small"
+   },
+   "jaw_upright": {
+    "value": [
+     0.014,
+     0.01,
+     0.048
+    ],
+    "provenance": "concept",
+    "source": "modular2.png"
+   },
+   "jaw_pad": {
+    "value": [
+     0.12,
+     0.003,
+     0.048
+    ],
+    "provenance": "concept",
+    "source": "modular2.png"
+   },
+   "gripper_min_opening": {
+    "value": 0.06,
+    "provenance": "concept",
+    "source": "modular2.png"
+   },
+   "battery_box": {
+    "value": [
+     [
+      -0.136,
+      -0.028,
+      0.042
+     ],
+     [
+      -0.071,
+      0.028,
+      0.061
+     ]
+    ],
+    "provenance": "derived",
+    "note": "option (b): battery moved above the rear motors (centre x -0.104) to reduce the counterweight"
+   },
+   "counterweight_boxes": {
+    "value": [
+     [
+      [
+       -0.136,
+       0.032,
+       0.04
+      ],
+      [
+       -0.076,
+       0.074,
+       0.072
+      ]
+     ],
+     [
+      [
+       -0.136,
+       -0.074,
+       0.04
+      ],
+      [
+       -0.076,
+       -0.032,
+       0.072
+      ]
+     ]
+    ],
+    "provenance": "derived",
+    "note": "two steel blocks above the rear motors, centroid x -0.106"
+   },
+   "counterweight_mass": {
+    "value": 1.25,
+    "provenance": "derived",
+    "note": "steel, two blocks above the rear motors (1.27 kg max in that volume); sized so box_small 2 kg at full stroke passes pitch safety >= 1.5 (+0.2 kg over iteration-5 estimate because the 160 mm forks and wider jaws add front mass)"
+   },
+   "jaw_pad_z0": {
+    "value": -0.017,
+    "provenance": "derived",
+    "note": "pads/skirt end 1 mm above the gripped box's underside and 4 mm below the prong bottom, so jaws and forks clear the deck when the box is set down"
+   },
+   "box_below_pad": {
+    "value": 0.001,
+    "provenance": "derived",
+    "note": "gripped box protrudes 1 mm below the pads"
+   }
+  },
+  "cargo": {
+   "standoff_xy": {
+    "value": [
+     0.13,
+     0.1
+    ],
+    "provenance": "concept",
+    "source": "modular3.png"
+   },
+   "standoff_radius": {
+    "value": 0.006,
+    "provenance": "concept",
+    "source": "modular3.png"
+   },
+   "deck_thickness": {
+    "value": 0.004,
+    "provenance": "provisional"
+   },
+   "deck_corner_chamfer": {
+    "value": 0.012,
+    "provenance": "concept",
+    "source": "modular3.png"
+   },
+   "flag_notch": {
+    "value": 0.072,
+    "provenance": "derived",
+    "note": "flag stays inside the footprint and 2 mm below the deck top"
+   },
+   "flag_xy": {
+    "value": [
+     -0.131,
+     0.09
+    ],
+    "provenance": "concept",
+    "source": "modular3.png",
+    "estimate": "far corner = rear-left (+y), moved inside the footprint"
+   },
+   "ebox": {
+    "value": [
+     0.2,
+     0.15,
+     0.03
+    ],
+    "provenance": "concept",
+    "source": "modular3.png",
+    "estimate": "vented electronics box in the deck gap"
+   },
+   "camera_x": {
+    "value": 0.15,
+    "provenance": "derived",
+    "note": "board plane; lens front at 0.168 < mating plane 0.171"
+   },
+   "camera_z": {
+    "value": 0.104,
+    "provenance": "concept",
+    "source": "modular3.png"
+   }
+  },
+  "masses": {
+   "opi5pro": {
+    "value": 0.062,
+    "provenance": "datasheet",
+    "source": "http://www.orangepi.org/html/hardWare/computerAndMicrocontrollers/details/Orange-Pi-5-Pro.html"
+   },
+   "opi4pro": {
+    "value": 0.058,
+    "provenance": "datasheet",
+    "source": "https://www.electronics-lab.com/orange-pi-4-pro-sbc-features-allwinner-a733-soc-with-3-tops-npu-and-lpddr5-ram/"
+   },
+   "heatsink_fan": {
+    "value": 0.03,
+    "provenance": "provisional"
+   },
+   "d435": {
+    "value": 0.072,
+    "provenance": "datasheet",
+    "source": "https://openelab.io/blogs/learn/intel-realsense-d435-depth-camera-guide-fast-wide-fov-3d-scanning-and-tracking"
+   },
+   "rplidar_c1": {
+    "value": 0.11,
+    "provenance": "datasheet",
+    "source": "https://www.slamtec.com/en/C1/Spec"
+   },
+   "arducam": {
+    "value": 0.025,
+    "provenance": "provisional",
+    "note": "board + M12 lens + holder"
+   },
+   "pico": {
+    "value": 0.003,
+    "provenance": "provisional"
+   },
+   "imu_board": {
+    "value": 0.002,
+    "provenance": "provisional"
+   },
+   "wheel": {
+    "value": 0.152,
+    "provenance": "datasheet",
+    "source": "https://www.dfrobot.com/product-2271.html"
+   },
+   "gearmotor": {
+    "value": 0.101,
+    "provenance": "datasheet",
+    "source": "https://core-electronics.com.au/47-1-metal-gearmotor-25dx67l-mm-hp-12v-with-48-cpr-encoder.html",
+    "note": "Pololu #4845 25D x 67L, 101 g"
+   },
+   "battery": {
+    "value": 0.3,
+    "provenance": "provisional",
+    "note": "3S2P 18650 pack (6 x ~47 g + BMS) for 4 x 5 A-stall motors"
+   },
+   "hook_servo": {
+    "value": 0.009,
+    "provenance": "provisional",
+    "note": "micro servo per active face"
+   },
+   "electronics_misc": {
+    "value": 0.08,
+    "provenance": "provisional",
+    "note": "motor drivers, buck converter, wiring"
+   },
+   "sts3215": {
+    "value": 0.055,
+    "provenance": "datasheet",
+    "source": "https://www.feetechrc.com/products.html?keyword=STS3215"
+   },
+   "lift_motor": {
+    "value": 0.0105,
+    "provenance": "provisional"
+   },
+   "jaw_servo": {
+    "value": 0.009,
+    "provenance": "provisional"
+   }
+  },
+  "dock_tag": {
+   "facet_lower_z": {
+    "value": 0.0765,
+    "provenance": "derived",
+    "note": "base-frame z of the facet's lower edge at the face plate; above the brackets (0.0705) and the top pad (0.0755)"
+   },
+   "facet_slant": {
+    "value": 0.0375,
+    "provenance": "derived",
+    "note": "= tag plate (30 mm border x 10/8); 26.5 mm rise above the facet edge, wedge top 18 mm above the top plate"
+   },
+   "wedge_depth": {
+    "value": 0.042,
+    "provenance": "derived"
+   },
+   "wedge_width": {
+    "value": 0.044,
+    "provenance": "derived"
+   },
+   "offsets_face_y": {
+    "value": {
+     "scout": {
+      "front": -0.072,
+      "rear": 0.0,
+      "left": 0.0,
+      "right": 0.045
+     },
+     "lifter": {
+      "rear": 0.0,
+      "left": 0.0,
+      "right": 0.0
+     },
+     "cargo": {
+      "front": 0.05,
+      "rear": 0.0,
+      "left": 0.0,
+      "right": 0.0
+     }
+    },
+    "provenance": "derived",
+    "note": "lateral tag position in the face frame (clear of D435, Orange Pi bay, LiDAR, cargo camera, flag)"
+   }
+  }
+ }
+}

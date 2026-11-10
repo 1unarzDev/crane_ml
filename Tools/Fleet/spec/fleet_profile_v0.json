@@ -1,0 +1,120 @@
+{
+  "schema": "crane.fleet_profile/v0",
+  "profile_id": "mecanum_fleet_provisional_v0",
+  "created": "2026-11-10",
+  "note": "Every value carries a provenance label: provisional (a placeholder chosen before CAD), cad (derived from CAD), measured (bench or field measurement). Nothing here is measured yet. The fast models in Tools/Fleet and the CRANE fleet read this one file; change a value here, not in code.",
+  "provenance_levels": ["provisional", "cad", "measured"],
+  "units": {"length": "m", "mass": "kg", "angle": "rad", "time": "s", "force": "N"},
+  "chassis": {
+    "body_size_lwh": {"value": [0.42, 0.30, 0.10], "provenance": "provisional"},
+    "overall_width_with_wheels": {"value": 0.40, "provenance": "provisional"},
+    "ground_clearance": {"value": 0.03, "provenance": "provisional"},
+    "base_mass": {"value": 6.0, "provenance": "provisional"},
+    "com_offset_xyz": {"value": [0.0, 0.0, 0.05], "provenance": "provisional"},
+    "inertia_diag": {"value": [0.06, 0.10, 0.14], "provenance": "provisional", "note": "box approximation; replace from CAD"},
+    "wheel": {
+      "type": "mecanum_45deg",
+      "radius": {"value": 0.0485, "provenance": "provisional"},
+      "width": {"value": 0.045, "provenance": "provisional"},
+      "roller_count": {"value": 10, "provenance": "provisional"},
+      "half_wheelbase_lx": {"value": 0.14, "provenance": "provisional"},
+      "half_track_ly": {"value": 0.175, "provenance": "provisional"},
+      "encoder_counts_per_rev": {"value": 1440, "provenance": "provisional"},
+      "max_wheel_speed_rad_s": {"value": 12.0, "provenance": "provisional"},
+      "max_wheel_torque": {"value": 1.2, "provenance": "provisional"}
+    },
+    "max_speed_xy": {"value": 0.5, "provenance": "provisional"},
+    "max_yaw_rate": {"value": 1.5, "provenance": "provisional"}
+  },
+  "floors": {
+    "note": "Friction and slip are assumptions; only the ordering tile < carpet < rubber is taken from the literature.",
+    "hard_tile": {"mu_long": {"value": 0.6, "provenance": "provisional"}, "lateral_efficiency": {"value": 0.85, "provenance": "provisional"}, "slip_sigma_frac": {"value": 0.03, "provenance": "provisional"}},
+    "low_pile_carpet": {"mu_long": {"value": 0.75, "provenance": "provisional"}, "lateral_efficiency": {"value": 0.75, "provenance": "provisional"}, "slip_sigma_frac": {"value": 0.05, "provenance": "provisional"}},
+    "rubber_mat": {"mu_long": {"value": 0.9, "provenance": "provisional"}, "lateral_efficiency": {"value": 0.9, "provenance": "provisional"}, "slip_sigma_frac": {"value": 0.02, "provenance": "provisional"}}
+  },
+  "docking": {
+    "face_frames": {
+      "note": "Pose of each candidate coupling face in the chassis frame (x forward, y left): [x, y, z, yaw]. Two are active initially; the others exist so line, side-by-side and branched shapes can be compared.",
+      "front": {"value": [0.21, 0.0, 0.06, 0.0], "provenance": "provisional"},
+      "rear": {"value": [-0.21, 0.0, 0.06, 3.14159265], "provenance": "provisional"},
+      "left": {"value": [0.0, 0.20, 0.06, 1.57079633], "provenance": "provisional"},
+      "right": {"value": [0.0, -0.20, 0.06, -1.57079633], "provenance": "provisional"}
+    },
+    "active_faces_default": ["front", "rear"],
+    "guide_half_width": {"value": 0.010, "provenance": "provisional"},
+    "guide_acceptance_half_angle": {"value": 0.087, "provenance": "provisional"},
+    "magnet_pull_in_range": {"value": 0.008, "provenance": "provisional"},
+    "magnet_hold_force": {"value": 25.0, "provenance": "provisional"},
+    "hook_count": {"value": 2, "provenance": "provisional"},
+    "hook_lateral_spacing": {"value": 0.12, "provenance": "provisional"},
+    "hook_position_tolerance": {"value": 0.002, "provenance": "provisional"},
+    "hook_yaw_tolerance": {"value": 0.035, "provenance": "provisional"},
+    "hook_actuation_time": {"value": 0.8, "provenance": "provisional"},
+    "hook_rated_load": {"value": 60.0, "provenance": "provisional"},
+    "connector_compliance_lateral": {"value": 0.0005, "provenance": "provisional"},
+    "states": ["FREE", "APPROACH", "MAGNET_CAPTURED", "HOOK_A_ENGAGED", "HOOK_B_ENGAGED", "LATCHED_VERIFIED", "LOAD_VALIDATED", "RELEASE_REQUESTED", "RELEASED"],
+    "fault_states": ["PARTIAL", "FALSE_ENGAGEMENT", "OBSTRUCTED", "VERIFICATION_LOST", "STUCK_HOOK"],
+    "release_invariant": "A load-bearing connection may release only when support is verified on the remaining module graph."
+  },
+  "sensors": {
+    "wheel_encoder": {"rate_hz": {"value": 100, "provenance": "provisional"}},
+    "imu": {"rate_hz": {"value": 200, "provenance": "provisional"}, "gyro_noise_density": {"value": 0.0003, "provenance": "provisional"}, "gyro_bias_instability": {"value": 0.00005, "provenance": "provisional"}},
+    "mono_camera_ov9281": {"resolution": {"value": [1280, 800], "provenance": "provisional", "note": "sensor native; lens not chosen"}, "hfov": {"value": 1.40, "provenance": "provisional"}, "rate_hz": {"value": 60, "provenance": "provisional"}, "latency": {"value": 0.03, "provenance": "provisional"}, "shutter": "global", "encoding": "mono8"},
+    "range_tof": {"max_range": {"value": 2.0, "provenance": "provisional"}, "fov": {"value": 0.44, "provenance": "provisional"}, "rate_hz": {"value": 30, "provenance": "provisional"}},
+    "lidar_2d": {"max_range": {"value": 12.0, "provenance": "provisional"}, "rate_hz": {"value": 10, "provenance": "provisional"}, "points_per_scan": {"value": 720, "provenance": "provisional"}},
+    "stereo_baseline": {"value": 0.075, "provenance": "provisional"},
+    "apriltag": {"family": "tag36h11", "face_tag_size": {"value": 0.05, "provenance": "provisional"}, "top_tag_size": {"value": 0.12, "provenance": "provisional"}, "pose_noise_note": "model as corner noise projected through the camera; published accuracy for a 16.4 cm tag is centimetre level at 2 m and degrades with range and viewing angle"},
+    "overhead_camera": {"height": {"value": 2.6, "provenance": "provisional"}, "hfov": {"value": 1.40, "provenance": "provisional"}, "rate_hz": {"value": 30, "provenance": "provisional"}, "latency": {"value": 0.15, "provenance": "provisional"}, "optional": true}
+  },
+  "roles": {
+    "scout": {
+      "description": "Sensor-rich rover and future arm carrier; full onboard autonomy.",
+      "added_mass": {"value": 2.0, "provenance": "provisional"},
+      "sensors": ["wheel_encoder", "imu", "lidar_2d", "stereo(mono_camera_ov9281 x2)", "mono_camera_ov9281(rear)"],
+      "mast_height": {"value": 0.35, "provenance": "provisional"},
+      "arm_proxy": {"mass": {"value": 2.5, "provenance": "provisional"}, "reach": {"value": 0.45, "provenance": "provisional"}, "payload": {"value": 0.5, "provenance": "provisional"}, "modelled_as": "mass and reach envelope only"}
+    },
+    "lifter": {
+      "description": "Low-profile lift and gripper for ground-level pickup.",
+      "added_mass": {"value": 2.0, "provenance": "provisional"},
+      "sensors": ["wheel_encoder", "imu", "mono_camera_ov9281(front)", "range_tof(front)"],
+      "lift_travel": {"value": 0.15, "provenance": "provisional"},
+      "lift_speed": {"value": 0.05, "provenance": "provisional"},
+      "gripper_opening": {"value": 0.30, "provenance": "provisional"},
+      "gripper_close_time": {"value": 1.0, "provenance": "provisional"},
+      "lift_capacity": {"value": 5.0, "provenance": "provisional"}
+    },
+    "cargo": {
+      "description": "Flat cargo deck; two of these in the first fleet.",
+      "added_mass": {"value": 0.8, "provenance": "provisional"},
+      "sensors": ["wheel_encoder", "imu", "mono_camera_ov9281(front)", "range_tof(front)"],
+      "deck_size_lw": {"value": [0.40, 0.30], "provenance": "provisional"},
+      "deck_height": {"value": 0.14, "provenance": "provisional"},
+      "deck_capacity": {"value": 8.0, "provenance": "provisional"}
+    }
+  },
+  "fleet_default": [
+    {"id": "scout_1", "role": "scout"},
+    {"id": "lifter_1", "role": "lifter"},
+    {"id": "cargo_1", "role": "cargo"},
+    {"id": "cargo_2", "role": "cargo"}
+  ],
+  "payloads": {
+    "box_small": {"size_lwh": {"value": [0.30, 0.20, 0.15], "provenance": "provisional"}, "mass": {"value": 2.0, "provenance": "provisional"}, "needs": "one deck"},
+    "box_long": {"size_lwh": {"value": [0.80, 0.25, 0.15], "provenance": "provisional"}, "mass": {"value": 6.0, "provenance": "provisional"}, "needs": "two decks coupled in line, or two decks side by side with a spreader"},
+    "tray_wide": {"size_lwh": {"value": [0.60, 0.60, 0.08], "provenance": "provisional"}, "mass": {"value": 5.0, "provenance": "provisional"}, "needs": "two decks side by side"}
+  },
+  "later_modules": {
+    "precision_arm": "proxy only (mass, reach, footprint) until designed",
+    "charging_bay": "proxy only (two ports, footprint 0.9 x 0.5) until designed"
+  },
+  "open_questions_for_cad": [
+    "chassis outer dimensions, wheel positions and wheel model (radius, width, roller count and angle)",
+    "mass, centre of mass and inertia of each role variant",
+    "coupling face positions and heights; hook geometry, spacing, travel and actuation time; magnet type and gap",
+    "guide chamfer width and acceptance angle",
+    "camera and LiDAR mounting poses, lens choice (field of view), tag sizes and positions",
+    "lift travel, gripper opening and deck height",
+    "collision envelope that may differ from the render mesh (cables, bumpers)"
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "schema": "crane.fleet_scenario/v0",
+  "scenario_id": "fleet/warehouse_a/v0",
+  "note": "One indoor scene shared by the fast models and CRANE. Coordinates in metres, x east, y north, origin at the south-west inside corner. All geometry provisional. A run is identified as <scenario_id>/<variant>/<seed>.",
+  "arena": {"size_xy": [10.0, 7.0], "wall_height": 2.8, "floor": "hard_tile"},
+  "walls": [
+    {"id": "divider", "from": [6.0, 0.0], "to": [6.0, 7.0], "thickness": 0.15, "note": "splits the loading hall (west) from the delivery bay (east); the doorway is the only passage"}
+  ],
+  "doorway": {"in_wall": "divider", "centre_y": 3.5, "width": {"default": 0.80, "sweep": [0.50, 0.65, 0.80, 0.95, 1.20]}, "height": 2.0},
+  "zones": {
+    "start_staging": {"rect": [0.5, 0.5, 2.5, 2.0], "note": "all rovers start here"},
+    "loading_area": {"rect": [3.0, 4.5, 5.5, 6.5], "note": "payload appears here, behind the shelf as seen from the start"},
+    "assembly_staging": {"rect": [3.5, 2.5, 5.5, 4.2], "note": "where rovers may couple before the doorway"},
+    "delivery": {"rect": [8.0, 2.5, 9.5, 4.5]},
+    "charging_bay_proxy": {"rect": [0.5, 5.5, 1.4, 6.5]}
+  },
+  "obstacles": [
+    {"id": "shelf_a", "type": "box", "centre": [2.8, 5.0, 1.0], "size": [0.5, 2.4, 2.0], "note": "hides the loading area from the start zone and from overhead camera west"},
+    {"id": "pallet_stack", "type": "box", "centre": [4.6, 2.2, 0.5], "size": [1.0, 0.8, 1.0], "note": "occludes the docking face in the assembly zone from the south"},
+    {"id": "gantry_beam", "type": "box", "centre": [4.5, 3.4, 2.3], "size": [2.4, 0.3, 0.3], "note": "elevated; blocks overhead views of part of the assembly zone, does not block driving"}
+  ],
+  "overhead_cameras": [
+    {"id": "oh_west", "position": [2.0, 3.5, 2.6], "look_at": [3.5, 3.5, 0.0]},
+    {"id": "oh_east", "position": [8.0, 3.5, 2.6], "look_at": [7.5, 3.5, 0.0]}
+  ],
+  "overhead_modes": ["working", "occluded", "disabled"],
+  "payload_spawn": {"zone": "loading_area", "types": ["box_small", "box_long", "tray_wide"]},
+  "mission_default": "locate the payload (unknown position inside the loading area), pick it up, bring it through the doorway to the delivery zone",
+  "outcomes": {
+    "delivered": "payload centre inside the delivery zone, at rest, supported, within the deadline",
+    "dropped": "payload contacts the floor outside the loading area or delivery zone",
+    "stuck": "no progress for 60 s or deadline reached",
+    "unsafe": "a load-bearing connection released without verified support, or a collision above the contact threshold"
+  },
+  "deadline_s": 600
+}
