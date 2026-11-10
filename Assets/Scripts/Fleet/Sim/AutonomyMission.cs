@@ -39,7 +39,7 @@ namespace Crane.Fleet.Sim {
         Vector3 carryPos; Quaternion carryRot; double carryLift0;
         // lifter load model (overlay lift_load): lift force limit, payload weight + inertial reaction on the lifter body, tip check
         string loadModel; double liftForceMax, liftOffHeight, tipLimit;
-        bool liftStalled, lifterTipped, loadApplied, forceLimitedNow; double maxCarrierTilt; Vector3 prevPayloadVel; bool havePrevPayloadVel;
+        bool liftStalled, lifterTipped, loadApplied, loadEverApplied, forceLimitedNow; double maxCarrierTilt;
         string payloadMassSource = "profile";
         double liftSpeed, gripRate, gripMax, gripMin;
         int autonomyEventIndex;
@@ -316,23 +316,50 @@ namespace Crane.Fleet.Sim {
             double cap = spec.P["roles.lifter.lift_capacity"].Double, pm = Payload.mass, comX = (pm * carryPos.z + rv.D.Mass * rv.D.ComOffset[0]) / (pm + rv.D.Mass);
             var f = new Dictionary<string, object> { ["payload"] = payloadId, ["payload_kg"] = pm, ["capacity_kg"] = cap, ["over_capacity"] = pm > cap,
                 ["combined_com_x"] = comX, ["front_axle_x"] = rv.D.Wheels[0].Axle.X, ["would_tip_forward"] = comX > rv.D.Wheels[0].Axle.X,
-                ["note"] = loadModel == "physical" ? "lift_load physical: payload weight and inertial reaction act on the lifter body at the payload CoM once lifted off; lift force limited"
+                ["note"] = loadModel == "physical" ? "lift_load physical: payload mass, CoM and inertia join the lifter rigid body once lifted off; lift force limited"
                     : "carry is kinematic: lifter load and tipping are not simulated" };
             results["lift_static_check"] = f;
             run.Event("payload_gripped", rv.D.Id, f);
         }
 
-        /// <summary>Payload weight and inertial reaction (m (g - a), a = acceleration of the carry point) on the carrier body at the payload CoM, once
-        /// the lift has raised it off its support (lift_off_height above the grip height). PhysX then decides load transfer and tipping.</summary>
+        /// <summary>
+        /// Lifter load once the lift has raised the payload off its support (lift_off_height above the grip height): the payload's mass, CoM and
+        /// box inertia are added to the carrier's rigid body (composite rigid body; restored on release), so PhysX integrates weight, inertia,
+        /// load transfer and tipping implicitly. Off-diagonal products of inertia of the composite are dropped (the payload sits on the
+        /// carrier's centre line, so they are small). A first version applied m (g - a) explicitly at the payload CoM; that is unstable when the
+        /// payload outweighs the carrier's effective mass at that point (box_small at 0.41 m: about 0.7 kg) and was replaced (2026-11-10).
+        /// </summary>
         void ApplyLoad(FleetRun r, Vector3 payloadPos) {
-            bool lifted = carrier.Lift - carryLift0 >= liftOffHeight;
-            Vector3 com = payloadPos + Payload.rotation * Payload.centerOfMass;
-            Vector3 v = carrier.Body.GetPointVelocity(com);
-            Vector3 a = havePrevPayloadVel ? (v - prevPayloadVel) / (float)r.Dt : Vector3.zero;
-            prevPayloadVel = v; havePrevPayloadVel = true;
-            if (!lifted) return;
-            if (!loadApplied) { loadApplied = true; run.Event("payload_load_on", carrier.D.Id, new Dictionary<string, object> { ["payload_kg"] = (double)Payload.mass }); }
-            carrier.Body.AddForceAtPosition(Payload.mass * (Physics.gravity - a), com, ForceMode.Force);
+            if (loadApplied || carrier.Lift - carryLift0 < liftOffHeight) return;
+            loadApplied = true; loadEverApplied = true;
+            var b = carrier.Body;
+            saved = (carrier, b.mass, b.centerOfMass, b.inertiaTensor, b.inertiaTensorRotation);
+            float M = b.mass, m = Payload.mass;
+            Vector3 cOld = b.centerOfMass;
+            Vector3 pLocal = b.transform.InverseTransformPoint(payloadPos + Payload.rotation * Payload.centerOfMass);
+            Vector3 cNew = (M * cOld + m * pLocal) / (M + m);
+            // payload box inertia about its CoM, in carrier local axes (Unity local: x = -left, y = up, z = forward; payload aligned with the carrier)
+            float lx = (float)payloadSize[0], ly = (float)payloadSize[1], lz = (float)payloadSize[2];
+            var Ip = new Vector3(m / 12f * (lz * lz + lx * lx), m / 12f * (lx * lx + ly * ly), m / 12f * (ly * ly + lz * lz));   // about local x, y, z
+            Vector3 Ic = b.inertiaTensor;   // carrier, about cOld, rotation identity (RoverRig)
+            Vector3 d1 = cOld - cNew, d2 = pLocal - cNew;
+            Vector3 Par(Vector3 d, float mass) => mass * new Vector3(d.y * d.y + d.z * d.z, d.x * d.x + d.z * d.z, d.x * d.x + d.y * d.y);
+            b.mass = M + m;
+            b.centerOfMass = cNew;
+            b.inertiaTensor = Ic + Par(d1, M) + Ip + Par(d2, m);
+            b.inertiaTensorRotation = Quaternion.identity;
+            run.Event("payload_load_on", carrier.D.Id, new Dictionary<string, object> { ["payload_kg"] = (double)m, ["composite_mass"] = (double)b.mass,
+                ["composite_com_forward"] = (double)cNew.z, ["model"] = "composite rigid body" });
+        }
+
+        (RoverRig rig, float mass, Vector3 com, Vector3 inertia, Quaternion rot)? saved;
+
+        void RemoveLoad() {
+            if (saved == null) return;
+            var s = saved.Value; var b = s.rig.Body;
+            b.mass = s.mass; b.centerOfMass = s.com; b.inertiaTensor = s.inertia; b.inertiaTensorRotation = s.rot;
+            saved = null;
+            run.Event("payload_load_off", s.rig.D.Id, new Dictionary<string, object>());
         }
 
         /// <summary>Evaluator tip check on the lifter: |pitch| or |roll| above lift_load.tip_limit_rad. A tipped lifter drops what it carries.</summary>
@@ -352,7 +379,8 @@ namespace Crane.Fleet.Sim {
         }
 
         void Release() {
-            payloadMode = "dynamic"; carrier = null; havePrevPayloadVel = false;
+            RemoveLoad(); loadApplied = false;
+            payloadMode = "dynamic"; carrier = null;
             Payload.isKinematic = false;
             Payload.linearVelocity = Vector3.zero; Payload.angularVelocity = Vector3.zero;
             run.Event("payload_released", "", new Dictionary<string, object> { ["bottom_height"] = (double)Payload.position.y });
@@ -488,7 +516,7 @@ namespace Crane.Fleet.Sim {
             results["first_failure_class"] = fleet.Executive.FirstFailureClass.ToString();
             results["first_failure"] = fleet.Executive.FirstFailure;
             results["lift_load"] = new Dictionary<string, object> { ["model"] = loadModel, ["payload_kg"] = Payload != null ? (object)(double)Payload.mass : null,
-                ["payload_mass_source"] = payloadMassSource, ["lift_force_max_n"] = liftForceMax, ["lift_stalled"] = liftStalled, ["load_applied"] = loadApplied,
+                ["payload_mass_source"] = payloadMassSource, ["lift_force_max_n"] = liftForceMax, ["lift_stalled"] = liftStalled, ["load_applied"] = loadEverApplied, ["load_model"] = "composite rigid body while lifted",
                 ["lifter_tipped"] = lifterTipped, ["max_lifter_tilt_rad"] = maxCarrierTilt };
             if (Payload != null) {
                 var c = FleetFrames.Planar(Payload.transform);
