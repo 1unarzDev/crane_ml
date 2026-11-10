@@ -68,6 +68,11 @@ Session cron jobs die with the session. Recreate them with CronCreate if needed.
   - the fallback brake follows the last validated path
   - a turning brake table
   - reconcile the body radius: 0.268 m vs 0.2479 m
+- **Paired sweep, ready to launch** (default-off fix vs legacy; ~1.5 h each, single core):
+  - `dotnet $BIN/CraneExperiment.dll run --spec Tools/CraneHarness/specs/recfeas_sweep.json --out $OUT/recfeas_sweep`
+  - `dotnet $BIN/CraneExperiment.dll run --spec Tools/CraneHarness/specs/recfeas_sweep_legacy.json --out $OUT/recfeas_sweep_legacy`
+  - Then a Unity compile check of the new Core.
+  - M5 (Unity) and M6 are DONE; stills are in Docs/DroneVisuals/autonomy_m6.
 - **Next:**
   - re-run the speed sweep via the harness
   - M6 rendered flight
