@@ -452,3 +452,16 @@ on the coupled pair in the delivery zone, with the scout watching. The h24 still
   - the cargo pair docks with the reciprocal faces;
   - truth goal `carried_in_zone`.
   - **Design gap:** the v1 lift travel is 0.045 m but the v1 deck is at 0.150 m, so no lifter-to-deck handoff is possible. The jaws also leave only 5 mm per side on box_small.
+
+### CAD v1 iteration 7 (D89/D90) prepared (c2b7ec26; code-only)
+- **Re-synced** the v1 profile and assets: lift 0-0.17 m, jaws 0.06-0.24 m, lifter 6.216 kg, lift speed 0.03 m/s. v0 profile and scenario are identical upstream. v1_import_t0 passes.
+- **Carry acceleration (evaluator check).** `lift_load.carry_accel_cap` is 2.0 m/s^2 (provisional, D90). It is checked while the lifter holds a lifted payload.
+  - Episodes are logged as `carry_accel_exceeded`; `results.autonomy.lift_load.{max_carry_accel, carry_accel_events}` hold the summary. The library's own acceleration limit is 0.5 m/s^2.
+  - Evaluator-only, so the dynamics are unchanged. It also applies to v0 runs.
+- **Payload covers the top tag** (`profiles.v1.payload_covers_top_tag`). A rover the payload rests on, or that holds it lifted, loses its top tag from the perception geometry while covered (`top_tag_covered` / `top_tag_uncovered` events). Loaded-cargo acquisition therefore runs on the bevel dock tags.
+- **Side-on deck handoff restored.**
+  - `autonomy_cad_v1_handoff_single.json`: cargo_1 alone.
+  - `autonomy_cad_v1_handoff_pair.json`: cargo_2 docked in line to cargo_1 with reciprocal faces.
+  - In both, the lifter comes from cargo_1's +y side facing -y. place_offset is (0, +0.055, -pi/2) and hold_offset 0.276, which leaves 3 cm from the lifter nose to the side face. The box CoM stays on the deck, and the box overhangs the deck edge on the lifter side by about 8 cm. Lift 0.17 m.
+- **Fallback.** `autonomy_cad_v1_lifter_carry.json` (truth goal `carried_in_zone`).
+- **Jobs.** `Tools/Fleet/jobs/cad_v1_closed_loop.json`: 3 missions x seeds 1-3, profile v1. UNITY-PENDING.
