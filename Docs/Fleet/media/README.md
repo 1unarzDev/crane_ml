@@ -1,53 +1,92 @@
-# CRANE fleet: simulator screenshots (as of 2026-11-10)
+# CRANE modular fleet: media (curated 2026-11-10)
 
-These frames were rendered by the CRANE Unity player: Unity 6000.5.10f1, Vulkan, Linux, warehouse scene `fleet/warehouse_a/v0`. They are converted to JPEG to keep the repo small; the full-resolution PNGs are in `~/.cache/crane-fleet/`. **Simulation only. Nothing here is measured on hardware, and every rover dimension is provisional (pre-CAD).**
+Curated by the periodic README agent (brief: `Docs/Fleet/README_CURATOR.md`). **Simulation only: nothing here is measured on hardware.** Unity frames come from the CRANE player (Unity 6000.5.10f1, Vulkan, Linux, scene `fleet/warehouse_a/v0`) and were converted to JPEG. The full-resolution PNGs are in `~/.cache/crane-fleet/`. Plots are made only from existing result files; each one states n, intervals, the decision ID and "simulation only".
 
-## 0. CURRENT design: CAD v1 from the user's concept pictures (`cad_v1/`, 2026-11-10)
-**Current frames for the CAD row:** `cad_v1/compare_scout.jpg`, `cad_v1/compare_lifter.jpg`, `cad_v1/compare_cargo.jpg`. Each puts the concept on the left and the v1 parametric CAD (build123d) on the right.
-- **Shared chassis:** 342 × 260 × 85 mm, with 97 mm mecanum wheels (9 rollers, X pattern) and Pololu 25D 47:1 gearmotors.
-- **Docks:** a reciprocal J-hook + pin dock on every face, plus a 30 mm AprilTag on a 45° bevel above it.
-- **Role kits:**
-  - scout: RPLIDAR C1, RealSense D435 and a proxy arm;
-  - lifter: 0.21 m jaws and a counterweight, rated 2.0 kg at safety factor 1.5;
-  - cargo: raised deck on standoffs.
-- **User decisions (D87):** width 0.26 m, so the electronics look smaller than in the concept by design; the lifter carries the 2 kg box_small; bevel dock tags.
-- **Caveats:** this is concept/datasheet level, not measured. The arm is a proxy. The CRANE scene still uses the v0 rovers in sections 1–4 until v1 is imported.
-- **Deck loading (D89/D90):** `cad_v1/lifter_places_box_small_on_cargo.jpg` shows the v1 lifter, with its 170 mm taller lift and 0.24 m jaws, setting box_small (2 kg) side-on onto a cargo deck. It is a static CAD placement check, not a simulated run. The rating is 2.0 kg at safety factor 1.51, so the margin is thin.
-- **Sources:** code, URDFs and the design log are on branch `research/fleet-orchestration` under `Tools/Fleet/assets/cad_v1/`.
-- **Superseded:** section 4 (`assets_v0/`) is the previous provisional design.
+## Current frames
+`OK` means usable in a README. `NOT VALID` means a consumer such as the DecisionCal README agent must skip the frame.
 
-## 1. Closed-loop mission, seed 1 (`demo_seed1_v3/`, player at commit aae01b90, clean tree)
-The fleet runs the autonomy library: EKF, capability-conditioned planner, docking controller, mission executive. Simulator truth issues the verdict (D77: 10/10 seeds delivered on this library). Run manifest: `demo_seed1_v3/run_manifest.json`.
-
-| Frame | What it shows |
+| Frame | Status |
 |---|---|
-| `00_establish` | Wide view of the whole fleet at the start: scout (orange, sensor mast), lifter (blue), two cargo rovers (green). |
-| `01_scout_finds_payload_onboard`, `01b_…_wide` | The scout finds the payload behind the shelf, from its onboard camera and from a wide view. |
-| `02_lift` | The lifter grips box_long at one end and lifts it off the pallet. |
-| `03a_wide_formation_capture` | The two cargo rovers line up and capture in the assembly zone. |
-| `03b_dock_hooks_closing`, `03c_dock_latched`, `03d_dock_latched_shell` | Docking close-ups: magnet capture, then both hooks closing, then the verified latch. |
-| `04a_wide_handoff`, `04b_payload_on_decks` | The lifter sets box_long down across both coupled decks. |
-| `05_through_doorway` | The coupled pair carries the box through the 0.80 m doorway. |
-| `06_scout_watches_onboard` | The scout's onboard view of the loaded pair at the doorway. |
-| `07_done` | Rendered 0.3 s after the host's accepted verdict: the payload is in the delivery zone and the scout watches. |
+| `cad_v1/compare_scout.jpg`, `cad_v1/compare_lifter.jpg`, `cad_v1/compare_cargo.jpg` | OK: design renders at concept/datasheet level |
+| `cad_v1/lifter_places_box_small_on_cargo.jpg` | OK: static CAD placement check, not a run |
+| `runs/box_small_seed1_t104.7_perception.jpg` | OK: physical lift (failure frame) |
+| `runs/box_long6kg_seed1_t68.8_capacity_crop.jpg` | OK: over-capacity refusal |
+| `runs/box_small_seed5_t102.1_configuration.jpg` | **NOT VALID**: lifter-to-deck contact unverified |
+| `runs/box_long5kg_seed1_t70.1_tipped_crop.jpg` | **NOT VALID** as tip evidence: payload not in frame |
+| `findings/crane_load_batches.jpg`, `findings/robust_feasibility_info.jpg`, `findings/e2fix_valid_arms.jpg`, `findings/fleet_p1_summary.jpg` | OK |
+| `findings/xm_causes.jpg` | OK, labelled EXPLORATORY |
+| `scenes/*.jpg` (all 8) | OK: schematic or benchmark renders, not CRANE runs |
+| `demo_seed1_v3/00_establish`, `01*`, `03b`–`03d`, `04b`, `06`, `07` | OK with caveats (section 5) |
+| `demo_seed1_v3/02_lift`, `04a_wide_handoff` | **NOT VALID**: kinematic carry of 6 kg over a 5 kg rating |
+| `demo_seed1_v3/05_through_doorway` | **NOT VALID** until checked: possible box-jamb interpenetration |
+| `assets_v0/*` | SUPERSEDED design (pre-CAD) |
 
-**Render critique (honest):**
-- **Lifter carry is kinematic.** In `02_lift` and on the way to `04a`, the payload was attached to the lifter rigidly, and box_long is 6 kg against a 5 kg rating. The physical lift model added since then shows this lift is impossible: the lift stalls at its force limit. An end-gripped box_long also tips even at 5 kg. **Do not read `02_lift`–`04a` as physical transport.** Deck support (`04b`–`07`) uses the physical payload with support probes.
-- **Wheel contact.** The rendered rollers sit on the floor and nothing visibly floats. Until today, however, the wheel collision shapes were spheres 2.35 cm wider than the rendered wheel. That error caused a wheel-to-wheel contact in a later box_small run, and they are being replaced by true-width cylinders.
-- **Hook engagement.** It is visible only in the cutaway asset sheets (`assets_v0/docked_*_sheet`). In-scene, the shell hides the hooks (`03b`–`03d`).
-- **Doorway clearance.** In `05` the far end of the box appears to overlap the door jamb. It could be perspective or real interpenetration, and I have not verified which. Check it against the simulator's contact logs before using this frame.
-- **Legibility.** The tags and role colours read well. The scene is dim, and the wide views are cluttered by the pallet stack in the foreground.
+Ready-to-paste block for the main README: `Docs/Fleet/media/README_SECTION.md`.
 
-## 2. Over-capacity lift attempt, old library (`load_box_long6_oldlib/`, seed 1, t = 77–80 s)
-These are replay frames from the batch where box_long (6 kg) is lifted with physical load. The lift stalls (58.9 N needed against a 49.05 N limit). On this older library the mission then ended in a Timeout or Geometry failure: 0/10 delivered, 0 false successes. On the new library the same attempt fails fast with an explicit `Capacity` failure and puts the payload back. That batch is still running, so there are no frames yet.
+## 1. CAD: current design is CAD v1 (`cad_v1/`)
+- **`compare_scout.jpg`, `compare_lifter.jpg`, `compare_cargo.jpg`**: each puts the user's concept on the left and the v1 parametric CAD (build123d) on the right.
+  - Shared chassis: 342 × 260 × 85 mm, with 97 mm mecanum wheels and Pololu 25D 47:1 gearmotors.
+  - Docks: a reciprocal J-hook + pin dock on each face, and a 30 mm AprilTag on a 45° bevel.
+  - Scout: RPLIDAR C1 and D435, with a proxy arm.
+  - Lifter: jaws and counterweight. These sheets come from `Tools/Fleet/assets/cad_v1/images/` and are unchanged since iteration 7.
+  - Cargo: raised deck.
+  - User decisions: D87.
+  - *Critique:* concept/datasheet level, not measured. The arm is a proxy. The electronics look smaller than in the concept by design (the width is 0.26 m). There is no contact or mass validation in these renders.
+- **`lifter_places_box_small_on_cargo.jpg`** (D89/D90, iteration 7): the lifter, with its 170 mm stroke and 0.24 m jaws, sets box_small (2 kg) side-on onto a cargo deck.
+  - *Critique:* this is a static CAD placement check, not a simulated run. The rating is 2.0 kg at safety factor 1.51, a margin under 1 %. End-on set-down interferes by 4–8 mm (D90), so only the side-on pose is valid. The CRANE scene still runs the v0 rovers until v1 is imported.
+- **Superseded:** `assets_v0/` holds the provisional pre-CAD sheets (perspective, top, mating close-ups, hook cutaways). They are kept for reference only, and their geometry is not the current design.
 
-## 3. Scene, first qualitative run (`scene_v0/`, Nov 9)
-Wide start, close start and assembly views from the first spawn of the four-rover fleet. These predate the autonomy library.
+## 2. Runs: CRANE physical-load batches, new library (`runs/`)
+These are replay frames from the newest completed batches: `~/.cache/crane-fleet/requests/load4_*`. They use the composite-body load model and wheel cylinders. The verdict comes from simulator truth.
 
-## 4. Provisional rover assets (`assets_v0/`)
-Asset sheets for the scout, lifter and cargo rover, and docked pairs (cargo front to cargo rear, lifter to cargo, scout to cargo). The sheets include perspective, top, mating-plane close-up, and a cutaway showing the two hooks closed on their pins. All geometry is **PROVISIONAL** until CAD replaces it (`Tools/Fleet/spec/fleet_profile_v0.json`).
+| Frame | Run id / seed | CRANE commit | Verdict |
+|---|---|---|---|
+| `box_small_seed1_t104.7_perception.jpg` | `load4_box_small_1`, seed 1, t = 104.7 s | `df67914c` | not delivered: first failure Perception (receiver cargo_1 not localised for the handoff, σ 1.6 m); payload still carried |
+| `box_small_seed5_t102.1_configuration.jpg` | `load4_box_small_5`, seed 5, t = 102.1 s | `df67914c` | not delivered: first failure Configuration ("lifter_1 holds nothing"); payload on the decks, outside the delivery zone |
+| `box_long6kg_seed1_t68.8_capacity_crop.jpg` | `load4_box_long6_1`, seed 1, t = 68.8 s | `c2d13662` | **Capacity**: the lift stalled at its force limit (rated 5.0 kg) and the attempt was refused; payload returned to the pallet |
+| `box_long5kg_seed1_t70.1_tipped_crop.jpg` | `load4_box_long5_1`, seed 1, t = 70.1 s | `0dc05957` | **tipped**: end-gripped 5 kg; the library logs Geometry "gripper closed on nothing" |
 
-## Not here yet
-- A within-rating physical-carry demo; the box_small batch is queued.
-- A clip with physical load. The only clip so far is `~/.cache/crane-fleet/stills/autonomy_attempt1_dock_deadlock/clip_wide.mp4`, an early failed attempt kept as a failure record.
-- Coupled-pair group control (M2), which the final reconfiguration demo needs.
+*Critique:*
+- **box_small seed 1.** The lift is physical (no kinematic attach), and the box rides in the jaws. The lifter is close to the cargo pair, but this frame does not show whether they touch. D86 attributes both box_small failures to the handoff carry, which treated the receivers as non-obstacles. That fix is upstream, and its Unity verification is pending.
+- **box_small seed 5.** The shelf in the foreground hides the lifter. The lifter's jaws appear to meet cargo_2's deck edge, and the overlap is unverified. Do not use this frame as evidence of a clean set-down.
+- **box_long 6 kg, crop.** This is the top-left quarter of the 960 × 540 frame, around the lifter. The box is back on the pallet after the refusal. Truth still labels the payload `unsupported_or_tilted`, because the pallet is not modelled as a support (D82, known gap).
+- **box_long 5 kg, crop.** The payload is not visible in any of the four replay frames, so the tip verdict rests on the logs and statics (D86), not on this image. The lifter looks pitched, but the camera is far away. This frame is not physical evidence.
+- **Missing:** none of the 8 box_small successes was rendered (replays exist only for failures). A rendered within-rating delivery is still missing.
+
+## 3. Findings (`findings/`)
+- **`crane_load_batches.jpg`** (D82, D86): first-outcome shares per batch.
+  - box_small 2 kg: delivered 8/10 (Wilson 95 % 0.49–0.94).
+  - box_long 6 kg: Capacity refusal 10/10.
+  - box_long 5 kg end-gripped: tipped 3/3.
+  - 0 false successes in all batches.
+  - The kinematic-carry 10/10 (D77) is deliberately not plotted: it is not physical evidence.
+- **`robust_feasibility_info.jpg`** (D84, which revises D72): in game core v6 with the action set held fixed, feasibility information raises servable delivery on the large-fleet family H4F: +0.108 [0.067, 0.154] at 4 jobs and +0.040 [0.022, 0.058] at 16. At 16 jobs it beats timing information by +0.028 [0.010, 0.046]. The bottom row shows where the D72 null came from: the all-bays action set costs −0.096 [−0.144, −0.051]. The effect is null on train, and score gains sit just below the noise floor.
+- **`e2fix_valid_arms.jpg`** (E2_PREREG amendments 1–3, the D76 decisive test; validity per D83): held-out success with the executor clearance fix, for the 5 arms that do not use observations. n = 43 configurations × 2 episodes. oracle − nominal = −0.035 [−0.081, +0.012], so the D76 threshold is not met. **Belief arms are excluded:** D74 is suspended (D83), and the corrected belief re-run has no D-entry yet. Nothing from D74 is plotted.
+- **`xm_causes.jpg`** (D81, **EXPLORATORY** pilot, 15–17 train instances):
+  - At drift 3, idealising one subsystem alone removes this share of the 40 failures: tracking 60 %, localisation 60 %, timeouts 38 %, recovery 10 %. The shares overlap.
+  - Invalid plans from docking constraints: UD-TAPF 14/15, Zhou-style team formation 10/15.
+- **`fleet_p1_summary.jpg`**: the figure from the paper draft `papers/fleet_p1` (claim frozen in D28-fleet; baselines in D46-fleet). It shows what survives each of the three stress tests. It is a timing model and planner-level evidence, not executions; the paper caption states this.
+
+## 4. Scenes: modular-robotics testing scenes (`scenes/`)
+- **`warehouse_a_v0_topdown.jpg`**: the CRANE warehouse scene, drawn from `Tools/Fleet/spec/scenarios/warehouse_a_v0.json`: 10 × 7 m, a 0.80 m doorway, a shelf, a pallet stack, an elevated gantry and two overhead cameras. *Critique:* all geometry is provisional and the drawing is schematic.
+- **`scenes_v1_index.jpg`**, **`scenes_v1_narrow_door.jpg`**: scenes v1 (D85, `Tools/Fleet/scenes/previews/` on research/fleet). The index shows 9 families as fastsim top-down previews, each with the plan it tests.
+  - Families that discriminate in fastsim: narrow_door, long_payload_door, lateral_slot, blocked_faces, charging_contention, wheel_failure.
+  - Weak families: aisle_traffic, friction_patches, clutter_observer.
+  - *Critique:* these are fastsim plots, not CRANE renders. The CRANE loader changes are untested in Unity. In CRANE, door sills are solid boxes (untested) and floor patches are visual only (D86).
+- **`mapf_key_ii_detour.jpg`**: a WoMAPF key instance, fixed topology against reshaping, solved exactly (makespan 17 vs 15). *Critique:* it is a hand-built illustration. On the shared capplan families, reconfiguration rescued 0 of 234 instances (D59).
+- **`fleetgame_A_v1012_t60.jpg`**: a fleet-game core audit replay, two auctions on the same instance with the divergence step marked. *Critique:* it is a grid abstraction, not physics.
+- **`capplan_configs.jpg`**: one example configuration each from train and held-out H2–H6 (`Tools/Fleet/capplan/manifests/`). *Critique:* the footprints are a uniform schematic, not per-type geometry. A red outline marks a degraded actuator.
+- **`gazebo_blocked_a_overview.jpg`**, **`gazebo_mission_oblique_018_t65.jpg`**: Gazebo modular benchmark (Blocked-A layout), copied read-only from `~/mrmn-main/paper/iros2026_codesign/`. *Critique:* the Gazebo primitives are boxes and cylinders, and "pod 4 jammed" is the benchmark's own failure case. This is a different simulator from CRANE.
+
+## 5. Older run: closed-loop mission, seed 1 (`demo_seed1_v3/`, player at aae01b90)
+This is the only end-to-end CRANE mission with frames (D77: 10/10 delivered on that library). It was made before the physical load model. Run manifest: `demo_seed1_v3/run_manifest.json`. The frames run 00 → 07: establish, scout finds the payload, lift, formation capture, dock close-ups (03b–03d), handoff, payload on the decks, doorway, scout view, done.
+
+*Critique:*
+- **`02_lift`–`04a`: NOT physically valid.** The carry is kinematic: 6 kg box_long against a 5 kg rating. The physical model now refuses this lift (D82), and an end-gripped box_long tips even at 5 kg (D86).
+- **`05`:** the box may interpenetrate the door jamb. This is unverified.
+- **Wheel collision shapes.** At this time they were spheres 2.35 cm wider than the rendered wheels. They have since been replaced by cylinders.
+- **Dock frames.** The shell hides the hooks in `03b`–`03d`.
+
+## Removed this cycle (git history keeps them)
+- `load_box_long6_oldlib/`: superseded by the new-library batch in section 2.
+- `scene_v0/`: the first qualitative spawn, superseded by section 4.
