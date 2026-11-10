@@ -5,6 +5,34 @@ simulation platform for developing navigation systems that can be reused across 
 underwater, ground, and surface vehicles. Unity supplies environment physics and simulated
 sensors; ROS 2 supplies the planning, navigation, estimation, and control stack.
 
+## Screenshots
+
+All frames are rendered by CRANE (Unity HDRP) from recorded or live simulation runs. Simulation only;
+nothing here is measured on hardware.
+
+<table>
+  <tr>
+    <td width="33%"><img src="Docs/media/readme/roboboat_route_wide.jpg" alt="RoboBoat route from above"><br><sub><b>Surface.</b> Gate, U-turn and slip dock: one recorded run replayed with HDRP water.</sub></td>
+    <td width="33%"><img src="Docs/media/readme/roboboat_dock_close.jpg" alt="Boat entering the slip"><br><sub><b>Surface.</b> Final approach into the slip, close view.</sub></td>
+    <td width="33%"><img src="Docs/media/readme/roboboat_unity_vs_numpy.jpg" alt="Unity and NumPy plants overlaid"><br><sub><b>Surface.</b> Unity plant (gold) against the fast NumPy plant (silver), same controller and seed.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="Docs/media/readme/fleet_warehouse_start.jpg" alt="Four rovers in a warehouse"><br><sub><b>Ground.</b> Four-rover mecanum fleet at the start of a warehouse mission.</sub></td>
+    <td><img src="Docs/media/readme/fleet_dock_latched.jpg" alt="Docking hooks latched"><br><sub><b>Ground.</b> Rover-to-rover docking: hooks latched.</sub></td>
+    <td><img src="Docs/media/readme/fleet_payload_on_decks.jpg" alt="Payload across two coupled rovers"><br><sub><b>Ground.</b> Payload carried across two coupled decks.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="Docs/media/readme/forest_aerial_wide.jpg" alt="Procedural forest from the air"><br><sub><b>Aerial.</b> Procedural forest, wide aerial view.</sub></td>
+    <td><img src="Docs/media/readme/forest_search_orbit.jpg" alt="Drone search orbit with a detection"><br><sub><b>Aerial.</b> Forest search: orbit around a detected person.</sub></td>
+    <td><img src="Docs/media/readme/forest_onboard_rgb.jpg" alt="Onboard camera view under the canopy"><br><sub><b>Aerial.</b> Onboard RGB camera under the canopy.</sub></td>
+  </tr>
+</table>
+
+More frames, with run identifiers and render notes, live on the research branches:
+[`research/decisioncal`](../../tree/research/decisioncal/Tools/DecisionCal/sprint/images) (surface),
+[`research/fleet`](../../tree/research/fleet/Docs/Fleet/media) (ground) and
+[`research/drone-sim`](../../tree/research/drone-sim/Docs/DroneVisuals) (aerial).
+
 The project is currently strongest in aquatic simulation. Its production scenes use Unity
 HDRP water for both the rendered environment and physical water queries used by buoyancy and
 hydrodynamics. The same component model also supports land and aerial robots through reusable
