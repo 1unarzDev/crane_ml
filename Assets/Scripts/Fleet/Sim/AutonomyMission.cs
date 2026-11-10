@@ -113,7 +113,7 @@ namespace Crane.Fleet.Sim {
                 roots.Add(root);
                 var pal = FleetGeometry.SolidBox("pallet", null, FleetFrames.World(pose[0], pose[1], pallet / 2), FleetFrames.WorldScale(payloadSize[0] * 0.9, payloadSize[1] * 0.9, pallet),
                     new Color(0.45f, 0.30f, 0.18f), r.World.FloorMaterial);
-                pal.transform.rotation = FleetFrames.WorldYaw(pose[2]);
+                pal.transform.rotation = Quaternion.Euler(0f, (float)(-pose[2] * 180.0 / Math.PI), 0f);   // world-axis box: pure yaw (WorldYaw is for rover frames)
                 roots.Add(pal);
                 // the payload's tag on its -x end face (autonomy harness convention), base_link = that face's centre
                 double tagSize = spec.P["sensors.apriltag.top_tag_size"].Double;

@@ -157,7 +157,7 @@ namespace Crane.Fleet.Sim {
                 FleetFrames.LocalScale(payloadSize[0], payloadSize[1], payloadSize[2]), new Color(0.72f, 0.55f, 0.32f));
             var stand = FleetGeometry.SolidBox("payload_stand", null, FleetFrames.World(pp[0], pp[1], standH / 2), FleetFrames.WorldScale(standSz[0], standSz[1], standH),
                 new Color(0.35f, 0.38f, 0.42f), r.World.FloorMaterial);
-            stand.transform.rotation = FleetFrames.WorldYaw(pp[2]);
+            stand.transform.rotation = Quaternion.Euler(0f, (float)(-pp[2] * 180.0 / Math.PI), 0f);   // world-axis box: pure yaw
 
             // couplings (docking core per face pair) and the perception core (evaluator side; rovers get providers only)
             couplings = new CouplingManager(r, spec);
