@@ -114,7 +114,8 @@ namespace Crane.Fleet.Sim {
             var o = new Dictionary<string, object> { ["role"] = r.D.Role, ["render"] = r.RenderSource,
                 ["pitch"] = t.Pitch, ["roll"] = t.Roll, ["base_height"] = t.Z };
             if (Math.Abs(t.Pitch) > yawTol || Math.Abs(t.Roll) > yawTol) failures.Add($"{r.D.Id}: not level (pitch {t.Pitch:0.0000}, roll {t.Roll:0.0000})");
-            if (Math.Abs(t.Z) > contactTol) failures.Add($"{r.D.Id}: chassis origin {t.Z:0.0000} m off the floor");
+            o["origin_height_error"] = t.Z - r.D.OriginHeight;
+            if (Math.Abs(t.Z - r.D.OriginHeight) > contactTol) failures.Add($"{r.D.Id}: chassis origin at {t.Z:0.0000} m, expected {r.D.OriginHeight:0.0000} m above the floor");
 
             var wheels = new Dictionary<string, object>();
             for (int i = 0; i < r.WheelColliders.Count; i++) {
@@ -125,7 +126,7 @@ namespace Crane.Fleet.Sim {
                 if (floor.Raycast(new Ray(centre + Vector3.up * 0.5f, Vector3.down), out RaycastHit hit, 2f))
                     gap = centre.y - hit.point.y - sc.radius;   // > 0 floating, < 0 penetrating
                 Vector3 frame = r.Frames["wheel_" + w.Name].position;
-                double heightErr = frame.y - w.Axle.Z;
+                double heightErr = frame.y - w.Radius;   // axle must sit one wheel radius above the floor
                 bool ok = !double.IsNaN(gap) && Math.Abs(gap) <= contactTol && Math.Abs(heightErr) <= frameTol;
                 if (!ok) failures.Add($"{r.D.Id}: wheel {w.Name} contact gap {gap:0.0000}, axle height error {heightErr:0.0000}");
                 wheels[w.Name] = new Dictionary<string, object> { ["contact_gap"] = gap, ["axle_height_error"] = heightErr, ["pass"] = ok };
@@ -152,7 +153,7 @@ namespace Crane.Fleet.Sim {
         static Dictionary<string, object> FrameError(RoverRig r, string frame, FramePose declared, RoverTruth t, double tol, double yawTol, List<string> failures) {
             Transform f = r.Frames[frame];
             double c = Math.Cos(t.Yaw), s = Math.Sin(t.Yaw);
-            double ex = t.X + c * declared.X - s * declared.Y, ey = t.Y + s * declared.X + c * declared.Y, ez = declared.Z;
+            double ex = t.X + c * declared.X - s * declared.Y, ey = t.Y + s * declared.X + c * declared.Y, ez = declared.Z + r.D.OriginHeight;
             FleetFrames.ToEnu(f.position, out double x, out double y, out double z);
             FleetFrames.Attitude(f.rotation, out double yaw, out _, out _);
             double pos = Math.Sqrt((x - ex) * (x - ex) + (y - ey) * (y - ey) + (z - ez) * (z - ez));

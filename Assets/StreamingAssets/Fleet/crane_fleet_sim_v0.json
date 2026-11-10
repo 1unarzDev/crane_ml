@@ -2,10 +2,12 @@
   "schema": "crane.fleet_sim_overlay/v0",
   "note": "CRANE-local values the shared fleet profile does not define (yet). Every entry is provisional and owned by CRANE; when the shared profile gains a field, delete it here and read the profile. Nothing in C# repeats a value from this file or the profile.",
   "frame_convention": {
-    "chassis": "FLU (x forward, y left, z up); origin on the floor plane, below the centre of the wheel rectangle, with the rover resting on level floor",
+    "chassis": "FLU (x forward, y left, z up); origin = base_link at the centre of the body underside, as in Tools/Fleet/assets/ASSET_MANIFEST_SPEC.md (ground plane z = -ground_clearance)",
     "world": "scenario ENU (x east, y north, z up); Unity = (x, z, y), Unity yaw deg = 90 - ENU yaw deg",
     "provenance": "provisional",
-    "open_question": "the shared profile does not state its chassis origin; face z=0.06 and com z=0.05 are read as heights above the floor"
+    "open_question": "the shared profile does not state its chassis origin; this follows the asset generator so CAD manifests and CRANE agree",
+    "origin": "body_underside",
+    "heights": "profile docking face z, com z and the sensor mounts below are in the base frame; roles.*.deck_height and mast_height are above the ground (as the asset generator reads them)"
   },
   "physics": {
     "dt": {

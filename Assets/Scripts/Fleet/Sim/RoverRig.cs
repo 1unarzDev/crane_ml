@@ -40,7 +40,7 @@ namespace Crane.Fleet.Sim {
             Root = new GameObject(d.Id);
             Root.transform.SetParent(parent, false);
             double lift = o["physics.spawn_lift"].Double;
-            Root.transform.SetPositionAndRotation(FleetFrames.World(pose.X, pose.Y, lift), FleetFrames.WorldYaw(pose.Yaw));
+            Root.transform.SetPositionAndRotation(FleetFrames.World(pose.X, pose.Y, d.OriginHeight + lift), FleetFrames.WorldYaw(pose.Yaw));
 
             // mass properties
             Body = Root.AddComponent<Rigidbody>();

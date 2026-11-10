@@ -144,6 +144,9 @@ namespace Crane.Fleet {
         public Dictionary<string, string> Provenance = new Dictionary<string, string>();
 
         public MecanumGeometry Geometry;
+        /// <summary>Height of the chassis origin above a level floor when the rover rests on its wheels
+        /// (overlay frame_convention.origin: "body_underside" = ground_clearance, "floor" = 0).</summary>
+        public double OriginHeight;
 
         public DockingFace Face(string name) {
             foreach (var f in Faces) if (f.Name == name) return f;
@@ -158,6 +161,9 @@ namespace Crane.Fleet {
             double[] lwh = ch["body_size_lwh"].Doubles;
             double clearance = ch["ground_clearance"].Double;
             double r = wh["radius"].Double, w = wh["width"].Double, lx = wh["half_wheelbase_lx"].Double, ly = wh["half_track_ly"].Double;
+            string origin = o.TryGet("frame_convention.origin")?.String ?? "floor";
+            double g = origin == "body_underside" ? clearance : origin == "floor" ? 0 : throw new FormatException("frame_convention.origin " + origin);
+            d.OriginHeight = g;   // generated geometry below is computed as heights above the floor, minus g
             d.Geometry = new MecanumGeometry(r, lx, ly, wh["max_wheel_speed_rad_s"].Double, wh["max_wheel_torque"].Double,
                 (int)wh["encoder_counts_per_rev"].Double, ch["max_speed_xy"].Double, ch["max_yaw_rate"].Double);
 
@@ -185,10 +191,10 @@ namespace Crane.Fleet {
             d.Provenance["inertia"] = "derived(" + ch["inertia_diag"].Provenance + ", scaled by mass)";
 
             // wheels (order fl, fr, rl, rr), axle centre at wheel radius above the floor
-            d.Wheels.Add(new WheelFrame { Name = "fl", Axle = new FramePose(lx, ly, r), Radius = r, Width = w });
-            d.Wheels.Add(new WheelFrame { Name = "fr", Axle = new FramePose(lx, -ly, r), Radius = r, Width = w });
-            d.Wheels.Add(new WheelFrame { Name = "rl", Axle = new FramePose(-lx, ly, r), Radius = r, Width = w });
-            d.Wheels.Add(new WheelFrame { Name = "rr", Axle = new FramePose(-lx, -ly, r), Radius = r, Width = w });
+            d.Wheels.Add(new WheelFrame { Name = "fl", Axle = new FramePose(lx, ly, r - g), Radius = r, Width = w });
+            d.Wheels.Add(new WheelFrame { Name = "fr", Axle = new FramePose(lx, -ly, r - g), Radius = r, Width = w });
+            d.Wheels.Add(new WheelFrame { Name = "rl", Axle = new FramePose(-lx, ly, r - g), Radius = r, Width = w });
+            d.Wheels.Add(new WheelFrame { Name = "rr", Axle = new FramePose(-lx, -ly, r - g), Radius = r, Width = w });
             d.WheelContact = o["physics.wheel_contact"].String;
 
             // docking faces
@@ -205,7 +211,7 @@ namespace Crane.Fleet {
                 var poseItems = m["pose"].Items;
                 var v = new double[5];
                 for (int i = 0; i < 5; i++)
-                    v[i] = poseItems[i].Unwrapped is string key ? roleNode[key].Double : poseItems[i].Double;
+                    v[i] = poseItems[i].Unwrapped is string key ? roleNode[key].Double - (i == 2 ? g : 0) : poseItems[i].Double;  // role heights are above ground
                 string sensor = m["sensor"].String, sid = m["id"].String;
                 if (m.Has("pair_baseline")) {
                     double half = p["sensors." + m["pair_baseline"].String].Double / 2;
@@ -226,7 +232,7 @@ namespace Crane.Fleet {
             }
 
             // collision: chassis box (wheel spheres are added from the wheel frames by the simulator)
-            double bodyZ = clearance + lwh[2] / 2;
+            double bodyZ = clearance + lwh[2] / 2 - g;
             d.CollisionParts.Add(new PrimitivePart { Name = "chassis", Kind = PrimitiveKind.Box, Centre = new[] { 0, 0, bodyZ }, Size = lwh });
 
             // render primitives (provisional geometry from the profile dimensions)
@@ -235,15 +241,15 @@ namespace Crane.Fleet {
             foreach (var wf in d.Wheels)
                 d.RenderPrimitives.Add(new PrimitivePart { Name = "wheel_" + wf.Name, Kind = PrimitiveKind.Cylinder, Axis = 'y',
                     Centre = new[] { wf.Axle.X, wf.Axle.Y, wf.Axle.Z }, Size = new[] { 2 * r, w, 2 * r }, Color = wheelColor });
-            double top = clearance + lwh[2];
+            double top = clearance + lwh[2] - g;
             if (role == "scout" && roleNode.Has("mast_height")) {
                 double mr = o["visual.mast_radius"].Double, mh = roleNode["mast_height"].Double;
                 d.RenderPrimitives.Add(new PrimitivePart { Name = "mast", Kind = PrimitiveKind.Cylinder, Axis = 'z',
-                    Centre = new[] { 0, 0, (top + mh) / 2 }, Size = new[] { 2 * mr, 2 * mr, mh - top }, Color = d.Color });
+                    Centre = new[] { 0, 0, (top + mh - g) / 2 }, Size = new[] { 2 * mr, 2 * mr, mh - g - top }, Color = d.Color });
             }
             if (roleNode.Has("deck_size_lw") && roleNode.Has("deck_height")) {
                 double[] deck = roleNode["deck_size_lw"].Doubles;
-                double t = o["visual.deck_thickness"].Double, dh = roleNode["deck_height"].Double;
+                double t = o["visual.deck_thickness"].Double, dh = roleNode["deck_height"].Double - g;  // deck top above ground
                 var part = new PrimitivePart { Name = "deck", Kind = PrimitiveKind.Box, Centre = new[] { 0, 0, dh - t / 2 },
                     Size = new[] { deck[0], deck[1], t }, Color = Lighten(d.Color, 0.35) };
                 d.RenderPrimitives.Add(part);
@@ -252,7 +258,7 @@ namespace Crane.Fleet {
             if (roleNode.Has("gripper_opening") && roleNode.Has("lift_travel")) {
                 double t = o["visual.lift_fork_thickness"].Double, gw = roleNode["gripper_opening"].Double, lt = roleNode["lift_travel"].Double;
                 d.RenderPrimitives.Add(new PrimitivePart { Name = "lift_plate", Kind = PrimitiveKind.Box,
-                    Centre = new[] { lwh[0] / 2 + t / 2, 0, clearance + (lwh[2] + lt) / 2 }, Size = new[] { t, gw, lwh[2] + lt }, Color = Lighten(d.Color, 0.35) });
+                    Centre = new[] { lwh[0] / 2 + t / 2, 0, clearance - g + (lwh[2] + lt) / 2 }, Size = new[] { t, gw, lwh[2] + lt }, Color = Lighten(d.Color, 0.35) });
             }
             double[] faceColor = o["visual.face_marker_color"].Doubles;
             double spacing = p["docking.hook_lateral_spacing"].Double;

@@ -148,6 +148,10 @@ namespace Crane.Fleet.Tests {
                 Assert.Greater(d.Sensors.Count, 0, id);
                 Assert.Greater(d.Mass, spec.P["chassis.base_mass"].Double, id);
                 Assert.AreEqual("/fleet/" + id, d.Namespace);
+                // base_link at the body-underside centre (asset generator convention): origin rides ground_clearance high
+                double clr = spec.P["chassis.ground_clearance"].Double;
+                Assert.AreEqual(clr, d.OriginHeight, 1e-12);
+                Assert.AreEqual(d.Wheels[0].Radius - clr, d.Wheels[0].Axle.Z, 1e-12);
                 Assert.IsNotNull(d.Color);
             }
             Assert.AreEqual("fleet/warehouse_a/v0/qual/3", RunIds.Make(spec.S["scenario_id"].String, "qual", 3));

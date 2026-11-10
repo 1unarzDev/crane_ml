@@ -9,11 +9,12 @@ namespace Crane.Fleet {
     /// render meshes replace the role's primitives (and its collision meshes, if given, replace the chassis box);
     /// mass properties, wheel, sensor and docking frames still come from the profile. Expected manifest:
     /// <code>
-    /// {"schema": "crane.fleet_mesh_manifest/v0", "role": "scout", "units": "m", "frame": "chassis_flu_floor_origin",
+    /// {"schema": "crane.fleet_mesh_manifest/v0", "role": "scout", "units": "m", "frame": "base_link",
     ///  "render":    [{"obj": "body.obj", "color": [r,g,b]}, ...],
     ///  "collision": [{"obj": "hull_convex.obj"}, ...]}            // optional, each convex
     /// </code>
-    /// OBJ vertices are in the chassis frame (FLU, metres, origin on the floor below the wheel-rectangle centre).
+    /// OBJ vertices are in the chassis frame (FLU, metres, origin = base_link at the centre of the body underside,
+    /// overlay frame_convention). The richer crane.fleet_asset_manifest/v0 (Tools/Fleet/assets) needs an adapter (parts tree, origins).
     /// </summary>
     public sealed class MeshManifest {
         public sealed class Entry {

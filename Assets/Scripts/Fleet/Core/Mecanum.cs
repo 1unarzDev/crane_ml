@@ -93,14 +93,15 @@ namespace Crane.Fleet {
     public sealed class PlantParams {
         public double MotorTimeConstant, ContactTrackingTime, SlipCorrelationTime;
         public double LateralEfficiency, SlipSigma, Mu;
-        public double Mass, Izz, ComX, ComY, ComZ, Gravity;
+        public double Mass, Izz, ComX, ComY, Gravity;
+        public double ComZ;   // CoM height above the floor (load transfer lever)
 
         public static PlantParams From(FleetSpec spec, RoverDescription d, FloorProperties floor) => new PlantParams {
             MotorTimeConstant = spec.O["plant.motor_time_constant"].Double,
             ContactTrackingTime = spec.O["plant.contact_tracking_time"].Double,
             SlipCorrelationTime = spec.O["plant.slip_noise_correlation_time"].Double,
             LateralEfficiency = floor.LateralEfficiency, SlipSigma = floor.SlipSigmaFrac, Mu = floor.MuLong,
-            Mass = d.Mass, Izz = d.InertiaDiag[2], ComX = d.ComOffset[0], ComY = d.ComOffset[1], ComZ = d.ComOffset[2],
+            Mass = d.Mass, Izz = d.InertiaDiag[2], ComX = d.ComOffset[0], ComY = d.ComOffset[1], ComZ = d.ComOffset[2] + d.OriginHeight,  // CoM height above the floor
             Gravity = spec.Gravity
         };
     }
