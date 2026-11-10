@@ -432,3 +432,23 @@ on the coupled pair in the delivery zone, with the scout watching. The h24 still
 - **(a) Non-numeric descriptive leaves.** `chassis.wheel.motor`, `docking.magnet`, `docking.partner_acquisition`, `roles.*.compute` / `mcu` / `arm_proxy.servo` / `lifter_option`. A one-line tolerant skip works; I tried it and reverted it to keep the copy equal to upstream.
 - **(b) Unknown sensor tokens.** `lidar_2d (RPLIDAR C1)`, `realsense_d435 (depth + infra1/infra2 + color)`, and the lifter's `mono_camera_ov9281(mast)` needs a mount token.
 - **What it needs.** Perception support for the D435 (stereo infra pair at 0.050, colour, depth) and the mast camera. Until then, v1 runs in CRANE fail at the perception host.
+
+### Library re-import with the v1 blockers fixed upstream (5f59ff59, fb6353ff; code-only)
+- **Import tool.** `Tools/Fleet/import_core_libs.sh` maps each upstream file to its CRANE path and reports NEW / CHANGED / GONE, then regenerates the SOURCE_SHA256 files. The upstream docking `ProfileLoader` is deliberately not imported. Run: Perception (FleetProfile v1, Sensors), Docking (reciprocal mode, v1 profile), Autonomy (RoverSpec). A dry run afterwards shows CRANE equal to upstream.
+- **`DockingProfileBuilder`** (CRANE's single loader) mirrors the core's new v1 fields: `hook_open_angle`, magnet geometry, descriptive metadata, `roles.*.active_faces`.
+  - T0: v0 gives TwoHooksPerFace; v1 gives Reciprocal with magnet face_y 0.041 and lifter faces rear/left/right.
+  - Perception parses both profiles (face tag 0.05 / 0.03).
+- **`PartnerLinkUp` (CRANE's choice).**
+  - The partner-hook report travels over the rover-to-rover link. The link is up unless either rover has the injected failure `rover:link:lost@t` (`link:ok` restores it).
+  - Transitions are logged as `partner_link_up` / `partner_link_down`.
+  - The docking core applies the 0.1 s latency and the 0.5 s staleness fail-safe. There is no network model beyond that.
+- **dotnet regression.**
+  - Upstream autonomy tests on CRANE's copy: 101/104 (the same 3 path-scan failures).
+  - tractive_t0 12/12; assembly_t0 18/18; v1_import_t0 all pass.
+  - docking turn-around 20/20; front dock 20/20.
+  - Unity-DLL typecheck clean.
+- **v1 closed-loop mission** (`Tools/Fleet/missions/autonomy_cad_v1_lifter_carry.json`, jobs `cad_v1_closed_loop.json`, profile v1):
+  - the scout finds box_small; the lifter picks it (grasp 0.126 m, lift 0.04 m) and carries it into the delivery zone;
+  - the cargo pair docks with the reciprocal faces;
+  - truth goal `carried_in_zone`.
+  - **Design gap:** the v1 lift travel is 0.045 m but the v1 deck is at 0.150 m, so no lifter-to-deck handoff is possible. The jaws also leave only 5 mm per side on box_small.
