@@ -80,19 +80,6 @@ namespace Crane.Fleet.Sim {
             }
         }
 
-        public static Mesh ToMesh(ObjMesh obj, string name) {
-            var v = new Vector3[obj.Vertices.Count];
-            for (int i = 0; i < v.Length; i++) v[i] = FleetFrames.Local(obj.Vertices[i]);
-            // FLU -> Unity is a reflection: flip winding so faces stay outward
-            var t = obj.Triangles.ToArray();
-            for (int i = 0; i + 2 < t.Length; i += 3) { int a = t[i + 1]; t[i + 1] = t[i + 2]; t[i + 2] = a; }
-            var m = new Mesh { name = name, indexFormat = v.Length > 65000 ? IndexFormat.UInt32 : IndexFormat.UInt16 };
-            m.vertices = v;
-            m.triangles = t;
-            m.RecalculateNormals();
-            m.RecalculateBounds();
-            return m;
-        }
     }
 
     /// <summary>

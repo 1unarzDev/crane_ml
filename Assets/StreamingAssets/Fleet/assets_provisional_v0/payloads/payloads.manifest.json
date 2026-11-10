@@ -1,0 +1,625 @@
+{
+ "schema": "crane.fleet_asset_manifest/v0",
+ "asset_id": "payloads_provisional_v0",
+ "role": "payloads",
+ "created": "generated",
+ "description": "payload types carried by cargo decks",
+ "profile": {
+  "profile_id": "mecanum_fleet_provisional_v0",
+  "path": "Tools/Fleet/spec/fleet_profile_v0.json",
+  "sha256": "7674dd0e7ef6b678f04d7b2e9af97990390632650149e2519b90c26ecf96ce31"
+ },
+ "units": {
+  "length": "m",
+  "mass": "kg",
+  "angle": "rad"
+ },
+ "conventions": {
+  "handedness": "right",
+  "axes": "x_forward_y_left_z_up",
+  "pose": "xyz [m]; rpy [rad] extrinsic roll-pitch-yaw, R = Rz(yaw) Ry(pitch) Rx(roll); poses give child frame in parent frame; OBJ vertices are in the PART frame",
+  "obj": "OBJ vertices are metres in the part frame, right-handed z-up, triangle winding counter-clockwise seen from outside; v/vt/vn present; vt origin bottom-left",
+  "unity": "Unity (left-handed, y up, z forward): (x_u,y_u,z_u) = (-y, z, x); reverse triangle winding (a,b,c)->(a,c,b); yaw psi (left turn) -> Unity euler y = -psi; quaternion (x,y,z,w) -> (y,-z,-x,w). Worked example: hook pivot (0.21,0.06,0.06) -> (-0.06,0.06,0.21).",
+  "camera_optical": "optical frame x right, y down, z forward (OpenCV/ROS optical); link frame x forward, y left, z up",
+  "tag_frame": "AprilTag3 detector convention: x right, y down (as seen by a viewer), z INTO the tag; outward_normal gives the viewer-side normal"
+ },
+ "base_frame": {
+  "name": "payload_frame",
+  "description": "origin at the centre of the bottom face of the payload",
+  "ground_clearance": 0.0,
+  "ground_z": 0.0
+ },
+ "render": {
+  "provenance": "provisional",
+  "source_file": "Tools/Fleet/assets/gen_provisional.py",
+  "mtl_file": "payloads.mtl",
+  "materials": {
+   "payload_box": {
+    "base_color": [
+     0.72,
+     0.55,
+     0.32
+    ]
+   },
+   "payload_tray": {
+    "base_color": [
+     0.35,
+     0.5,
+     0.7
+    ]
+   },
+   "payload_long": {
+    "base_color": [
+     0.78,
+     0.72,
+     0.3
+    ]
+   },
+   "foot": {
+    "base_color": [
+     0.1,
+     0.1,
+     0.1
+    ]
+   }
+  },
+  "parts": [
+   {
+    "name": "payload_box_small",
+    "file": "payload_box_small.obj",
+    "parent": "payload_frame",
+    "origin": {
+     "xyz": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    "materials": [
+     "payload_box",
+     "foot"
+    ],
+    "kind": "solid",
+    "default_visible": true,
+    "role_in_assembly": "payload"
+   },
+   {
+    "name": "payload_box_long",
+    "file": "payload_box_long.obj",
+    "parent": "payload_frame",
+    "origin": {
+     "xyz": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    "materials": [
+     "payload_long",
+     "foot"
+    ],
+    "kind": "solid",
+    "default_visible": true,
+    "role_in_assembly": "payload"
+   },
+   {
+    "name": "payload_tray_wide",
+    "file": "payload_tray_wide.obj",
+    "parent": "payload_frame",
+    "origin": {
+     "xyz": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    "materials": [
+     "payload_tray",
+     "foot"
+    ],
+    "kind": "solid",
+    "default_visible": true,
+    "role_in_assembly": "payload"
+   }
+  ]
+ },
+ "collision": {
+  "provenance": "provisional",
+  "source_file": "Tools/Fleet/assets/gen_provisional.py",
+  "shapes": [
+   {
+    "name": "box_small_col",
+    "type": "box",
+    "parent": "payload_frame",
+    "origin": {
+     "xyz": [
+      0.0,
+      0.0,
+      0.075
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    "size": [
+     0.3,
+     0.2,
+     0.15
+    ]
+   },
+   {
+    "name": "box_long_col",
+    "type": "box",
+    "parent": "payload_frame",
+    "origin": {
+     "xyz": [
+      0.0,
+      0.0,
+      0.075
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    "size": [
+     0.8,
+     0.25,
+     0.15
+    ]
+   },
+   {
+    "name": "tray_wide_col",
+    "type": "box",
+    "parent": "payload_frame",
+    "origin": {
+     "xyz": [
+      0.0,
+      0.0,
+      0.04
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    "size": [
+     0.6,
+     0.6,
+     0.08
+    ]
+   }
+  ]
+ },
+ "mass_properties": {
+  "provenance": "provisional",
+  "source_file": "Tools/Fleet/assets/gen_provisional.py",
+  "mass": 2.0,
+  "com_xyz": [
+   0,
+   0,
+   0.075
+  ],
+  "inertia_tensor": [
+   [
+    0.010416666666666666,
+    0.0,
+    0.0
+   ],
+   [
+    0.0,
+    0.018749999999999996,
+    0.0
+   ],
+   [
+    0.0,
+    0.0,
+    0.021666666666666667
+   ]
+  ],
+  "note": "first payload only; per-payload values are in payloads.items"
+ },
+ "payloads": {
+  "provenance": "provisional",
+  "source_file": "Tools/Fleet/assets/gen_provisional.py",
+  "items": [
+   {
+    "name": "box_small",
+    "frame": "payload_frame: origin at the centre of the bottom face; x along length, y along width, z up",
+    "size_lwh": [
+     0.3,
+     0.2,
+     0.15
+    ],
+    "mass": 2.0,
+    "com_xyz": [
+     0,
+     0,
+     0.075
+    ],
+    "inertia_tensor": [
+     [
+      0.010416666666666666,
+      0.0,
+      0.0
+     ],
+     [
+      0.0,
+      0.018749999999999996,
+      0.0
+     ],
+     [
+      0.0,
+      0.0,
+      0.021666666666666667
+     ]
+    ],
+    "render_part": "payload_box_small",
+    "collision": {
+     "type": "box",
+     "size": [
+      0.3,
+      0.2,
+      0.15
+     ],
+     "origin": {
+      "xyz": [
+       0.0,
+       0.0,
+       0.075
+      ],
+      "rpy": [
+       0.0,
+       0.0,
+       0.0
+      ]
+     }
+    },
+    "contact_patches": [
+     {
+      "name": "base",
+      "center": [
+       0,
+       0,
+       0
+      ],
+      "size": [
+       0.27,
+       0.18000000000000002
+      ],
+      "friction_group": "payload_rubber"
+     }
+    ],
+    "grasp_faces": [
+     {
+      "name": "side_pos_y",
+      "normal": [
+       0,
+       1,
+       0
+      ],
+      "center": [
+       0,
+       0.1,
+       0.075
+      ],
+      "size": [
+       0.3,
+       0.15
+      ]
+     },
+     {
+      "name": "side_neg_y",
+      "normal": [
+       0,
+       -1,
+       0
+      ],
+      "center": [
+       0,
+       -0.1,
+       0.075
+      ],
+      "size": [
+       0.3,
+       0.15
+      ]
+     }
+    ],
+    "needs": "one deck"
+   },
+   {
+    "name": "box_long",
+    "frame": "payload_frame: origin at the centre of the bottom face; x along length, y along width, z up",
+    "size_lwh": [
+     0.8,
+     0.25,
+     0.15
+    ],
+    "mass": 6.0,
+    "com_xyz": [
+     0,
+     0,
+     0.075
+    ],
+    "inertia_tensor": [
+     [
+      0.042499999999999996,
+      0.0,
+      0.0
+     ],
+     [
+      0.0,
+      0.33125000000000004,
+      0.0
+     ],
+     [
+      0.0,
+      0.0,
+      0.35125000000000006
+     ]
+    ],
+    "render_part": "payload_box_long",
+    "collision": {
+     "type": "box",
+     "size": [
+      0.8,
+      0.25,
+      0.15
+     ],
+     "origin": {
+      "xyz": [
+       0.0,
+       0.0,
+       0.075
+      ],
+      "rpy": [
+       0.0,
+       0.0,
+       0.0
+      ]
+     }
+    },
+    "contact_patches": [
+     {
+      "name": "foot_00",
+      "center": [
+       -0.34,
+       0.0,
+       0
+      ],
+      "size": [
+       0.08,
+       0.08
+      ],
+      "friction_group": "payload_rubber"
+     },
+     {
+      "name": "foot_10",
+      "center": [
+       0.34,
+       0.0,
+       0
+      ],
+      "size": [
+       0.08,
+       0.08
+      ],
+      "friction_group": "payload_rubber"
+     }
+    ],
+    "grasp_faces": [
+     {
+      "name": "side_pos_y",
+      "normal": [
+       0,
+       1,
+       0
+      ],
+      "center": [
+       0,
+       0.125,
+       0.075
+      ],
+      "size": [
+       0.8,
+       0.15
+      ]
+     },
+     {
+      "name": "side_neg_y",
+      "normal": [
+       0,
+       -1,
+       0
+      ],
+      "center": [
+       0,
+       -0.125,
+       0.075
+      ],
+      "size": [
+       0.8,
+       0.15
+      ]
+     }
+    ],
+    "needs": "two decks coupled in line, or two decks side by side with a spreader"
+   },
+   {
+    "name": "tray_wide",
+    "frame": "payload_frame: origin at the centre of the bottom face; x along length, y along width, z up",
+    "size_lwh": [
+     0.6,
+     0.6,
+     0.08
+    ],
+    "mass": 5.0,
+    "com_xyz": [
+     0,
+     0,
+     0.04
+    ],
+    "inertia_tensor": [
+     [
+      0.15266666666666667,
+      0.0,
+      0.0
+     ],
+     [
+      0.0,
+      0.15266666666666667,
+      0.0
+     ],
+     [
+      0.0,
+      0.0,
+      0.3
+     ]
+    ],
+    "render_part": "payload_tray_wide",
+    "collision": {
+     "type": "box",
+     "size": [
+      0.6,
+      0.6,
+      0.08
+     ],
+     "origin": {
+      "xyz": [
+       0.0,
+       0.0,
+       0.04
+      ],
+      "rpy": [
+       0.0,
+       0.0,
+       0.0
+      ]
+     }
+    },
+    "contact_patches": [
+     {
+      "name": "foot_00",
+      "center": [
+       -0.24,
+       -0.24,
+       0
+      ],
+      "size": [
+       0.08,
+       0.08
+      ],
+      "friction_group": "payload_rubber"
+     },
+     {
+      "name": "foot_01",
+      "center": [
+       -0.24,
+       0.24,
+       0
+      ],
+      "size": [
+       0.08,
+       0.08
+      ],
+      "friction_group": "payload_rubber"
+     },
+     {
+      "name": "foot_10",
+      "center": [
+       0.24,
+       -0.24,
+       0
+      ],
+      "size": [
+       0.08,
+       0.08
+      ],
+      "friction_group": "payload_rubber"
+     },
+     {
+      "name": "foot_11",
+      "center": [
+       0.24,
+       0.24,
+       0
+      ],
+      "size": [
+       0.08,
+       0.08
+      ],
+      "friction_group": "payload_rubber"
+     }
+    ],
+    "grasp_faces": [
+     {
+      "name": "side_pos_y",
+      "normal": [
+       0,
+       1,
+       0
+      ],
+      "center": [
+       0,
+       0.3,
+       0.04
+      ],
+      "size": [
+       0.6,
+       0.08
+      ]
+     },
+     {
+      "name": "side_neg_y",
+      "normal": [
+       0,
+       -1,
+       0
+      ],
+      "center": [
+       0,
+       -0.3,
+       0.04
+      ],
+      "size": [
+       0.6,
+       0.08
+      ]
+     }
+    ],
+    "needs": "two decks side by side"
+   }
+  ]
+ },
+ "generator_defaults": {
+  "file": "Tools/Fleet/assets/generator_defaults.json",
+  "sha256": "fc64c8df052dafa015f1b20f145d04a90a247ad9aabd2f146364f483b74ab57b",
+  "keys_used": [
+   "payload.base_patch_frac",
+   "payload.chamfer",
+   "payload.foot_inset",
+   "payload.foot_size",
+   "payload.friction_group"
+  ]
+ }
+}

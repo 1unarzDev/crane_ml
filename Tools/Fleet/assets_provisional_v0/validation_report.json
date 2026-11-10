@@ -1,0 +1,1586 @@
+[
+ {
+  "schema": "crane.fleet_asset_validation/v0",
+  "manifest": "/home/lunarz/.cache/crane-fleet/assets_v0/cargo/cargo.manifest.json",
+  "overall": "PASS",
+  "counts": {
+   "PASS": 52,
+   "WARN": 0,
+   "FAIL": 0
+  },
+  "checks": [
+   {
+    "id": "schema",
+    "level": "PASS",
+    "message": "manifest conforms to crane.fleet_asset_manifest/v0"
+   },
+   {
+    "id": "files.profile",
+    "level": "PASS",
+    "message": "profile mecanum_fleet_provisional_v0 loaded"
+   },
+   {
+    "id": "files.source.render",
+    "level": "PASS",
+    "message": "render: source_file exists (provisional)"
+   },
+   {
+    "id": "files.source.collision",
+    "level": "PASS",
+    "message": "collision: source_file exists (provisional)"
+   },
+   {
+    "id": "files.source.mass_properties",
+    "level": "PASS",
+    "message": "mass_properties: source_file exists (provisional)"
+   },
+   {
+    "id": "files.source.wheels",
+    "level": "PASS",
+    "message": "wheels: source_file exists (provisional)"
+   },
+   {
+    "id": "files.source.sensors",
+    "level": "PASS",
+    "message": "sensors: source_file exists (provisional)"
+   },
+   {
+    "id": "files.source.attachments",
+    "level": "PASS",
+    "message": "attachments: source_file exists (provisional)"
+   },
+   {
+    "id": "files.source.actuated",
+    "level": "PASS",
+    "message": "actuated: source_file exists (provisional)"
+   },
+   {
+    "id": "files.exist",
+    "level": "PASS",
+    "message": "all referenced files exist",
+    "measured": []
+   },
+   {
+    "id": "files.obj_contents",
+    "level": "PASS",
+    "message": "OBJ files readable with normals, UVs and declared material slots",
+    "measured": []
+   },
+   {
+    "id": "files.collision_parents",
+    "level": "PASS",
+    "message": "collision shape parents exist"
+   },
+   {
+    "id": "scale.assembly",
+    "level": "PASS",
+    "message": "rover extent [0.48, 0.405, 0.172] m is 1.14x the profile body (0.42 m)",
+    "measured": [
+     0.4800000000502571,
+     0.40499999999999997,
+     0.17172300000000001
+    ],
+    "expected": 0.42
+   },
+   {
+    "id": "scale.parts",
+    "level": "PASS",
+    "message": "every part is between 0.1 mm and 5 m",
+    "measured": []
+   },
+   {
+    "id": "scale.wheel_radius",
+    "level": "PASS",
+    "message": "wheel radius 0.0485 m plausible",
+    "measured": 0.0485
+   },
+   {
+    "id": "profile.ground_clearance",
+    "level": "PASS",
+    "message": "ground clearance 0.03 m"
+   },
+   {
+    "id": "profile.wheels",
+    "level": "PASS",
+    "message": "wheel positions, radius, width and roller count match the profile",
+    "measured": [],
+    "tol": 0.002
+   },
+   {
+    "id": "profile.body_size",
+    "level": "PASS",
+    "message": "chassis_body footprint 0.420 x 0.300 m",
+    "measured": [
+     0.42,
+     0.3,
+     0.1
+    ],
+    "expected": [
+     0.42,
+     0.3,
+     0.1
+    ],
+    "tol": 0.003
+   },
+   {
+    "id": "profile.body_clearance",
+    "level": "PASS",
+    "message": "body underside 0.0300 m above ground",
+    "measured": 0.03,
+    "expected": 0.03
+   },
+   {
+    "id": "profile.body_height",
+    "level": "PASS",
+    "message": "body height 0.100 m"
+   },
+   {
+    "id": "profile.faces",
+    "level": "PASS",
+    "message": "docking-face poses, active set and hook spacing match the profile",
+    "measured": [],
+    "tol": 0.002
+   },
+   {
+    "id": "profile.tags",
+    "level": "PASS",
+    "message": "tag sizes match the profile (black-border edge)"
+   },
+   {
+    "id": "profile.sensors",
+    "level": "PASS",
+    "message": "sensor set and camera parameters match the profile",
+    "measured": []
+   },
+   {
+    "id": "profile.deck_height",
+    "level": "PASS",
+    "message": "deck top 0.1100 m in base (= 0.14 m above ground)",
+    "measured": 0.11,
+    "expected": 0.11000000000000001,
+    "tol": 0.002
+   },
+   {
+    "id": "profile.deck_size",
+    "level": "PASS",
+    "message": "deck footprint 0.400 x 0.300"
+   },
+   {
+    "id": "mass.physical",
+    "level": "PASS",
+    "message": "inertia positive definite, principal moments [0.0681, 0.1127, 0.1567] satisfy the triangle inequalities",
+    "measured": [
+     0.068067953,
+     0.11273462,
+     0.156666667
+    ]
+   },
+   {
+    "id": "mass.box_consistency",
+    "level": "PASS",
+    "message": "diag(I)/diag(I_box) = [1.2, 1.07, 1.04] within a factor 3.0",
+    "measured": [
+     1.2011991705882352,
+     1.0672931709164353,
+     1.0378025105988342
+    ],
+    "expected": [
+     0.05666666666666667,
+     0.10562666666666666,
+     0.15095999999999998
+    ]
+   },
+   {
+    "id": "mass.total",
+    "level": "PASS",
+    "message": "total mass 6.800 kg = base + added (6.800)",
+    "measured": 6.8,
+    "expected": 6.8
+   },
+   {
+    "id": "mass.com_inside",
+    "level": "PASS",
+    "message": "centre of mass lies inside the collision envelope"
+   },
+   {
+    "id": "mass.within_envelope",
+    "level": "PASS",
+    "message": "inertia no larger than the collision envelope can support"
+   },
+   {
+    "id": "bbox.render_vs_collision",
+    "level": "PASS",
+    "message": "render and collision bounding boxes agree within 35 mm (worst 30.0 mm)",
+    "measured": {
+     "x-": 0.03,
+     "y-": 0.005,
+     "z-": -0.0003,
+     "x+": 0.03,
+     "y+": 0.005,
+     "z+": 0.02
+    },
+    "tol": 0.035
+   },
+   {
+    "id": "watertight",
+    "level": "PASS",
+    "message": "all solid parts are closed (every edge balanced)",
+    "measured": []
+   },
+   {
+    "id": "watertight.degenerate",
+    "level": "PASS",
+    "message": "no degenerate triangles"
+   },
+   {
+    "id": "winding",
+    "level": "PASS",
+    "message": "solid parts have outward (positive-volume) winding"
+   },
+   {
+    "id": "wheels_ground",
+    "level": "PASS",
+    "message": "all four wheels touch z = ground plane within tolerance (axle height and mesh)",
+    "measured": {
+     "FL": -0.029723000000000003,
+     "FR": -0.029723000000000003,
+     "RL": -0.029723000000000003,
+     "RR": -0.029723000000000003
+    },
+    "tol": 0.001
+   },
+   {
+    "id": "symmetry",
+    "level": "PASS",
+    "message": "left/right and fore/aft symmetry holds (wheels, hooks, COM, body)",
+    "measured": [],
+    "tol": 0.002
+   },
+   {
+    "id": "roller_handedness",
+    "level": "PASS",
+    "message": "manifest signs and roller meshes follow the X convention (FL/RR -1, FR/RL +1)",
+    "measured": {
+     "FL": {
+      "mesh_sign": -1,
+      "axis_xy": [
+       0.707,
+       -0.707
+      ],
+      "angle_to_axle_deg": 45.0
+     },
+     "FR": {
+      "mesh_sign": 1,
+      "axis_xy": [
+       0.707,
+       0.707
+      ],
+      "angle_to_axle_deg": 45.0
+     },
+     "RL": {
+      "mesh_sign": 1,
+      "axis_xy": [
+       0.707,
+       0.707
+      ],
+      "angle_to_axle_deg": 45.0
+     },
+     "RR": {
+      "mesh_sign": -1,
+      "axis_xy": [
+       0.707,
+       -0.707
+      ],
+      "angle_to_axle_deg": 45.0
+     }
+    }
+   },
+   {
+    "id": "actuated",
+    "level": "PASS",
+    "message": "actuated parts reference existing parts/pivots with consistent limits",
+    "measured": []
+   },
+   {
+    "id": "mating.front_rear.gap",
+    "level": "PASS",
+    "message": "face-plane gap -0.00 mm (cargo_provisional_v0.front <-> cargo_provisional_v0.rear)",
+    "measured": -4.810322582272148e-10
+   },
+   {
+    "id": "mating.front_rear.body_overlap",
+    "level": "PASS",
+    "message": "no body interpenetration (0 mm3)",
+    "measured": 0.0
+   },
+   {
+    "id": "mating.front_rear.hook_clearance",
+    "level": "PASS",
+    "message": "hooks clear of the opposing hooks/body/pins (max overlap 0 mm3)",
+    "measured": 0.0
+   },
+   {
+    "id": "mating.front_rear.hook_engagement",
+    "level": "PASS",
+    "message": "every hook engage point is within 0.00 mm of an opposing catch pin (tolerance 2.0 mm)",
+    "measured": 0.0,
+    "tol": 0.002
+   },
+   {
+    "id": "mating.front_rear.guide_alignment",
+    "level": "PASS",
+    "message": "guide axes are collinear and antiparallel"
+   },
+   {
+    "id": "mating.front_rear.guide_width",
+    "level": "PASS",
+    "message": "guide chamfer 10.0 mm covers the profile guide half-width",
+    "measured": 0.01
+   },
+   {
+    "id": "mating.front_rear.other_parts",
+    "level": "PASS",
+    "message": "no other parts collide when mated (docking pose)",
+    "measured": 0.0
+   },
+   {
+    "id": "mating.front_front.gap",
+    "level": "PASS",
+    "message": "face-plane gap -0.00 mm (cargo_provisional_v0.front <-> cargo_provisional_v0.front)",
+    "measured": -1.134530850705438e-17
+   },
+   {
+    "id": "mating.front_front.body_overlap",
+    "level": "PASS",
+    "message": "no body interpenetration (0 mm3)",
+    "measured": 0.0
+   },
+   {
+    "id": "mating.front_front.hook_clearance",
+    "level": "PASS",
+    "message": "hooks clear of the opposing hooks/body/pins (max overlap 0 mm3)",
+    "measured": 0.0
+   },
+   {
+    "id": "mating.front_front.hook_engagement",
+    "level": "PASS",
+    "message": "every hook engage point is within 0.00 mm of an opposing catch pin (tolerance 2.0 mm)",
+    "measured": 0.0,
+    "tol": 0.002
+   },
+   {
+    "id": "mating.front_front.guide_alignment",
+    "level": "PASS",
+    "message": "guide axes are collinear and antiparallel"
+   },
+   {
+    "id": "mating.front_front.guide_width",
+    "level": "PASS",
+    "message": "guide chamfer 10.0 mm covers the profile guide half-width",
+    "measured": 0.01
+   },
+   {
+    "id": "mating.front_front.other_parts",
+    "level": "PASS",
+    "message": "no other parts collide when mated (docking pose)",
+    "measured": 0.0
+   }
+  ],
+  "mating": [
+   {
+    "label": "cargo_provisional_v0.front <-> cargo_provisional_v0.rear",
+    "A": "cargo_provisional_v0",
+    "B": "cargo_provisional_v0",
+    "face_A": "front",
+    "face_B": "rear",
+    "body_protrusion_beyond_face_mm": [
+     0.0,
+     0.0
+    ],
+    "face_plane_gap_mm": -0.0,
+    "overlap_mm3": {
+     "body_vs_body": 0.0,
+     "hooks_vs_hooks": 0.0,
+     "hooksA_vs_bodyB": 0.0,
+     "hooksB_vs_bodyA": 0.0,
+     "other_vs_all": 0.0
+    },
+    "hook_engagement": [
+     {
+      "hook": "hook_front_a",
+      "nearest_pin": "rear_pin_hi",
+      "distance_mm": 0.0
+     },
+     {
+      "hook": "hook_front_b",
+      "nearest_pin": "rear_pin_lo",
+      "distance_mm": 0.0
+     },
+     {
+      "hook": "hook_rear_a",
+      "nearest_pin": "front_pin_hi",
+      "distance_mm": 0.0
+     },
+     {
+      "hook": "hook_rear_b",
+      "nearest_pin": "front_pin_lo",
+      "distance_mm": 0.0
+     }
+    ],
+    "guide": {
+     "axis_antiparallel_error_deg": 0.0,
+     "origin_offset_mm": 0.0,
+     "chamfer_width_mm": [
+      10.0,
+      10.0
+     ],
+     "profile_guide_half_width_mm": 10.0
+    },
+    "summary": "gap -0.0 mm, overlaps(mm3) {'body_vs_body': 0.0, 'hooks_vs_hooks': 0.0, 'hooksA_vs_bodyB': 0.0, 'hooksB_vs_bodyA': 0.0, 'other_vs_all': 0.0}, worst hook-to-pin 0.00 mm, guide axis err 0.0 deg"
+   },
+   {
+    "label": "cargo_provisional_v0.front <-> cargo_provisional_v0.front",
+    "A": "cargo_provisional_v0",
+    "B": "cargo_provisional_v0",
+    "face_A": "front",
+    "face_B": "front",
+    "body_protrusion_beyond_face_mm": [
+     0.0,
+     0.0
+    ],
+    "face_plane_gap_mm": -0.0,
+    "overlap_mm3": {
+     "body_vs_body": 0.0,
+     "hooks_vs_hooks": 0.0,
+     "hooksA_vs_bodyB": 0.0,
+     "hooksB_vs_bodyA": 0.0,
+     "other_vs_all": 0.0
+    },
+    "hook_engagement": [
+     {
+      "hook": "hook_front_a",
+      "nearest_pin": "front_pin_hi",
+      "distance_mm": 0.0
+     },
+     {
+      "hook": "hook_front_b",
+      "nearest_pin": "front_pin_lo",
+      "distance_mm": 0.0
+     },
+     {
+      "hook": "hook_front_a",
+      "nearest_pin": "front_pin_hi",
+      "distance_mm": 0.0
+     },
+     {
+      "hook": "hook_front_b",
+      "nearest_pin": "front_pin_lo",
+      "distance_mm": 0.0
+     }
+    ],
+    "guide": {
+     "axis_antiparallel_error_deg": 0.0,
+     "origin_offset_mm": 0.0,
+     "chamfer_width_mm": [
+      10.0,
+      10.0
+     ],
+     "profile_guide_half_width_mm": 10.0
+    },
+    "summary": "gap -0.0 mm, overlaps(mm3) {'body_vs_body': 0.0, 'hooks_vs_hooks': 0.0, 'hooksA_vs_bodyB': 0.0, 'hooksB_vs_bodyA': 0.0, 'other_vs_all': 0.0}, worst hook-to-pin 0.00 mm, guide axis err 0.0 deg"
+   }
+  ]
+ },
+ {
+  "schema": "crane.fleet_asset_validation/v0",
+  "manifest": "/home/lunarz/.cache/crane-fleet/assets_v0/lifter/lifter.manifest.json",
+  "overall": "PASS",
+  "counts": {
+   "PASS": 51,
+   "WARN": 1,
+   "FAIL": 0
+  },
+  "checks": [
+   {
+    "id": "schema",
+    "level": "PASS",
+    "message": "manifest conforms to crane.fleet_asset_manifest/v0"
+   },
+   {
+    "id": "files.profile",
+    "level": "PASS",
+    "message": "profile mecanum_fleet_provisional_v0 loaded"
+   },
+   {
+    "id": "files.source.render",
+    "level": "PASS",
+    "message": "render: source_file exists (provisional)"
+   },
+   {
+    "id": "files.source.collision",
+    "level": "PASS",
+    "message": "collision: source_file exists (provisional)"
+   },
+   {
+    "id": "files.source.mass_properties",
+    "level": "PASS",
+    "message": "mass_properties: source_file exists (provisional)"
+   },
+   {
+    "id": "files.source.wheels",
+    "level": "PASS",
+    "message": "wheels: source_file exists (provisional)"
+   },
+   {
+    "id": "files.source.sensors",
+    "level": "PASS",
+    "message": "sensors: source_file exists (provisional)"
+   },
+   {
+    "id": "files.source.attachments",
+    "level": "PASS",
+    "message": "attachments: source_file exists (provisional)"
+   },
+   {
+    "id": "files.source.actuated",
+    "level": "PASS",
+    "message": "actuated: source_file exists (provisional)"
+   },
+   {
+    "id": "files.exist",
+    "level": "PASS",
+    "message": "all referenced files exist",
+    "measured": []
+   },
+   {
+    "id": "files.obj_contents",
+    "level": "PASS",
+    "message": "OBJ files readable with normals, UVs and declared material slots",
+    "measured": []
+   },
+   {
+    "id": "files.collision_parents",
+    "level": "PASS",
+    "message": "collision shape parents exist"
+   },
+   {
+    "id": "scale.assembly",
+    "level": "PASS",
+    "message": "rover extent [0.707, 0.405, 0.35] m is 1.68x the profile body (0.42 m)",
+    "measured": [
+     0.7070000000502571,
+     0.40499999999999997,
+     0.349723
+    ],
+    "expected": 0.42
+   },
+   {
+    "id": "scale.parts",
+    "level": "PASS",
+    "message": "every part is between 0.1 mm and 5 m",
+    "measured": []
+   },
+   {
+    "id": "scale.wheel_radius",
+    "level": "PASS",
+    "message": "wheel radius 0.0485 m plausible",
+    "measured": 0.0485
+   },
+   {
+    "id": "profile.ground_clearance",
+    "level": "PASS",
+    "message": "ground clearance 0.03 m"
+   },
+   {
+    "id": "profile.wheels",
+    "level": "PASS",
+    "message": "wheel positions, radius, width and roller count match the profile",
+    "measured": [],
+    "tol": 0.002
+   },
+   {
+    "id": "profile.body_size",
+    "level": "PASS",
+    "message": "chassis_body footprint 0.420 x 0.300 m",
+    "measured": [
+     0.42,
+     0.3,
+     0.1
+    ],
+    "expected": [
+     0.42,
+     0.3,
+     0.1
+    ],
+    "tol": 0.003
+   },
+   {
+    "id": "profile.body_clearance",
+    "level": "PASS",
+    "message": "body underside 0.0300 m above ground",
+    "measured": 0.03,
+    "expected": 0.03
+   },
+   {
+    "id": "profile.body_height",
+    "level": "PASS",
+    "message": "body height 0.100 m"
+   },
+   {
+    "id": "profile.faces",
+    "level": "PASS",
+    "message": "docking-face poses, active set and hook spacing match the profile",
+    "measured": [],
+    "tol": 0.002
+   },
+   {
+    "id": "profile.tags",
+    "level": "PASS",
+    "message": "tag sizes match the profile (black-border edge)"
+   },
+   {
+    "id": "profile.sensors",
+    "level": "PASS",
+    "message": "sensor set and camera parameters match the profile",
+    "measured": []
+   },
+   {
+    "id": "profile.lift_travel",
+    "level": "PASS",
+    "message": "lift travel 0.15 m"
+   },
+   {
+    "id": "profile.gripper_opening",
+    "level": "PASS",
+    "message": "gripper max opening 0.3 m"
+   },
+   {
+    "id": "mass.physical",
+    "level": "PASS",
+    "message": "inertia positive definite, principal moments [0.1091, 0.2001, 0.221] satisfy the triangle inequalities",
+    "measured": [
+     0.10913634424002926,
+     0.200120833,
+     0.22098448975997076
+    ]
+   },
+   {
+    "id": "mass.box_consistency",
+    "level": "PASS",
+    "message": "diag(I)/diag(I_box) = [1.97, 1.61, 1.12] within a factor 3.0",
+    "measured": [
+     1.9703125049999999,
+     1.6104144286480688,
+     1.1191816835585586
+    ],
+    "expected": [
+     0.06666666666666667,
+     0.12426666666666665,
+     0.17759999999999998
+    ]
+   },
+   {
+    "id": "mass.total",
+    "level": "PASS",
+    "message": "total mass 8.000 kg = base + added (8.000)",
+    "measured": 8.0,
+    "expected": 8.0
+   },
+   {
+    "id": "mass.com_inside",
+    "level": "PASS",
+    "message": "centre of mass lies inside the collision envelope"
+   },
+   {
+    "id": "mass.within_envelope",
+    "level": "PASS",
+    "message": "inertia no larger than the collision envelope can support"
+   },
+   {
+    "id": "bbox.render_vs_collision",
+    "level": "PASS",
+    "message": "render and collision bounding boxes agree within 35 mm (worst 30.0 mm)",
+    "measured": {
+     "x-": 0.03,
+     "y-": 0.005,
+     "z-": -0.0003,
+     "x+": 0.0,
+     "y+": 0.005,
+     "z+": 0.0
+    },
+    "tol": 0.035
+   },
+   {
+    "id": "watertight",
+    "level": "PASS",
+    "message": "all solid parts are closed (every edge balanced)",
+    "measured": []
+   },
+   {
+    "id": "watertight.degenerate",
+    "level": "PASS",
+    "message": "no degenerate triangles"
+   },
+   {
+    "id": "winding",
+    "level": "PASS",
+    "message": "solid parts have outward (positive-volume) winding"
+   },
+   {
+    "id": "wheels_ground",
+    "level": "PASS",
+    "message": "all four wheels touch z = ground plane within tolerance (axle height and mesh)",
+    "measured": {
+     "FL": -0.029723000000000003,
+     "FR": -0.029723000000000003,
+     "RL": -0.029723000000000003,
+     "RR": -0.029723000000000003
+    },
+    "tol": 0.001
+   },
+   {
+    "id": "symmetry",
+    "level": "PASS",
+    "message": "left/right and fore/aft symmetry holds (wheels, hooks, COM, body)",
+    "measured": [],
+    "tol": 0.002
+   },
+   {
+    "id": "roller_handedness",
+    "level": "PASS",
+    "message": "manifest signs and roller meshes follow the X convention (FL/RR -1, FR/RL +1)",
+    "measured": {
+     "FL": {
+      "mesh_sign": -1,
+      "axis_xy": [
+       0.707,
+       -0.707
+      ],
+      "angle_to_axle_deg": 45.0
+     },
+     "FR": {
+      "mesh_sign": 1,
+      "axis_xy": [
+       0.707,
+       0.707
+      ],
+      "angle_to_axle_deg": 45.0
+     },
+     "RL": {
+      "mesh_sign": 1,
+      "axis_xy": [
+       0.707,
+       0.707
+      ],
+      "angle_to_axle_deg": 45.0
+     },
+     "RR": {
+      "mesh_sign": -1,
+      "axis_xy": [
+       0.707,
+       -0.707
+      ],
+      "angle_to_axle_deg": 45.0
+     }
+    }
+   },
+   {
+    "id": "actuated",
+    "level": "PASS",
+    "message": "actuated parts reference existing parts/pivots with consistent limits",
+    "measured": []
+   },
+   {
+    "id": "mating.front_rear.gap",
+    "level": "PASS",
+    "message": "face-plane gap -0.00 mm (lifter_provisional_v0.front <-> lifter_provisional_v0.rear)",
+    "measured": -4.810322582272148e-10
+   },
+   {
+    "id": "mating.front_rear.body_overlap",
+    "level": "PASS",
+    "message": "no body interpenetration (0 mm3)",
+    "measured": 0.0
+   },
+   {
+    "id": "mating.front_rear.hook_clearance",
+    "level": "PASS",
+    "message": "hooks clear of the opposing hooks/body/pins (max overlap 0 mm3)",
+    "measured": 0.0
+   },
+   {
+    "id": "mating.front_rear.hook_engagement",
+    "level": "PASS",
+    "message": "every hook engage point is within 0.00 mm of an opposing catch pin (tolerance 2.0 mm)",
+    "measured": 0.0,
+    "tol": 0.002
+   },
+   {
+    "id": "mating.front_rear.guide_alignment",
+    "level": "PASS",
+    "message": "guide axes are collinear and antiparallel"
+   },
+   {
+    "id": "mating.front_rear.guide_width",
+    "level": "PASS",
+    "message": "guide chamfer 10.0 mm covers the profile guide half-width",
+    "measured": 0.01
+   },
+   {
+    "id": "mating.front_rear.other_parts",
+    "level": "PASS",
+    "message": "no other parts collide when mated (docking pose)",
+    "measured": 0.0
+   },
+   {
+    "id": "mating.front_front.gap",
+    "level": "PASS",
+    "message": "face-plane gap -0.00 mm (lifter_provisional_v0.front <-> lifter_provisional_v0.front)",
+    "measured": -1.134530850705438e-17
+   },
+   {
+    "id": "mating.front_front.body_overlap",
+    "level": "PASS",
+    "message": "no body interpenetration (0 mm3)",
+    "measured": 0.0
+   },
+   {
+    "id": "mating.front_front.hook_clearance",
+    "level": "PASS",
+    "message": "hooks clear of the opposing hooks/body/pins (max overlap 0 mm3)",
+    "measured": 0.0
+   },
+   {
+    "id": "mating.front_front.hook_engagement",
+    "level": "PASS",
+    "message": "every hook engage point is within 0.00 mm of an opposing catch pin (tolerance 2.0 mm)",
+    "measured": 0.0,
+    "tol": 0.002
+   },
+   {
+    "id": "mating.front_front.guide_alignment",
+    "level": "PASS",
+    "message": "guide axes are collinear and antiparallel"
+   },
+   {
+    "id": "mating.front_front.guide_width",
+    "level": "PASS",
+    "message": "guide chamfer 10.0 mm covers the profile guide half-width",
+    "measured": 0.01
+   },
+   {
+    "id": "mating.front_front.other_parts",
+    "level": "WARN",
+    "message": "non-dock parts collide with the neighbour by 1594700 mm3 (lifter_provisional_v0.front <-> lifter_provisional_v0.front)",
+    "measured": 0.0015946999999999398
+   }
+  ],
+  "mating": [
+   {
+    "label": "lifter_provisional_v0.front <-> lifter_provisional_v0.rear",
+    "A": "lifter_provisional_v0",
+    "B": "lifter_provisional_v0",
+    "face_A": "front",
+    "face_B": "rear",
+    "body_protrusion_beyond_face_mm": [
+     0.0,
+     0.0
+    ],
+    "face_plane_gap_mm": -0.0,
+    "overlap_mm3": {
+     "body_vs_body": 0.0,
+     "hooks_vs_hooks": 0.0,
+     "hooksA_vs_bodyB": 0.0,
+     "hooksB_vs_bodyA": 0.0,
+     "other_vs_all": 0.0
+    },
+    "hook_engagement": [
+     {
+      "hook": "hook_front_a",
+      "nearest_pin": "rear_pin_hi",
+      "distance_mm": 0.0
+     },
+     {
+      "hook": "hook_front_b",
+      "nearest_pin": "rear_pin_lo",
+      "distance_mm": 0.0
+     },
+     {
+      "hook": "hook_rear_a",
+      "nearest_pin": "front_pin_hi",
+      "distance_mm": 0.0
+     },
+     {
+      "hook": "hook_rear_b",
+      "nearest_pin": "front_pin_lo",
+      "distance_mm": 0.0
+     }
+    ],
+    "guide": {
+     "axis_antiparallel_error_deg": 0.0,
+     "origin_offset_mm": 0.0,
+     "chamfer_width_mm": [
+      10.0,
+      10.0
+     ],
+     "profile_guide_half_width_mm": 10.0
+    },
+    "summary": "gap -0.0 mm, overlaps(mm3) {'body_vs_body': 0.0, 'hooks_vs_hooks': 0.0, 'hooksA_vs_bodyB': 0.0, 'hooksB_vs_bodyA': 0.0, 'other_vs_all': 0.0}, worst hook-to-pin 0.00 mm, guide axis err 0.0 deg"
+   },
+   {
+    "label": "lifter_provisional_v0.front <-> lifter_provisional_v0.front",
+    "A": "lifter_provisional_v0",
+    "B": "lifter_provisional_v0",
+    "face_A": "front",
+    "face_B": "front",
+    "body_protrusion_beyond_face_mm": [
+     0.0,
+     0.0
+    ],
+    "face_plane_gap_mm": -0.0,
+    "overlap_mm3": {
+     "body_vs_body": 0.0,
+     "hooks_vs_hooks": 0.0,
+     "hooksA_vs_bodyB": 0.0,
+     "hooksB_vs_bodyA": 0.0,
+     "other_vs_all": 1594700.0
+    },
+    "hook_engagement": [
+     {
+      "hook": "hook_front_a",
+      "nearest_pin": "front_pin_hi",
+      "distance_mm": 0.0
+     },
+     {
+      "hook": "hook_front_b",
+      "nearest_pin": "front_pin_lo",
+      "distance_mm": 0.0
+     },
+     {
+      "hook": "hook_front_a",
+      "nearest_pin": "front_pin_hi",
+      "distance_mm": 0.0
+     },
+     {
+      "hook": "hook_front_b",
+      "nearest_pin": "front_pin_lo",
+      "distance_mm": 0.0
+     }
+    ],
+    "guide": {
+     "axis_antiparallel_error_deg": 0.0,
+     "origin_offset_mm": 0.0,
+     "chamfer_width_mm": [
+      10.0,
+      10.0
+     ],
+     "profile_guide_half_width_mm": 10.0
+    },
+    "summary": "gap -0.0 mm, overlaps(mm3) {'body_vs_body': 0.0, 'hooks_vs_hooks': 0.0, 'hooksA_vs_bodyB': 0.0, 'hooksB_vs_bodyA': 0.0, 'other_vs_all': np.float64(1594700.0)}, worst hook-to-pin 0.00 mm, guide axis err 0.0 deg"
+   }
+  ]
+ },
+ {
+  "schema": "crane.fleet_asset_validation/v0",
+  "manifest": "/home/lunarz/.cache/crane-fleet/assets_v0/payloads/payloads.manifest.json",
+  "overall": "PASS",
+  "counts": {
+   "PASS": 16,
+   "WARN": 0,
+   "FAIL": 0
+  },
+  "checks": [
+   {
+    "id": "schema",
+    "level": "PASS",
+    "message": "manifest conforms to crane.fleet_asset_manifest/v0"
+   },
+   {
+    "id": "files.profile",
+    "level": "PASS",
+    "message": "profile mecanum_fleet_provisional_v0 loaded"
+   },
+   {
+    "id": "files.source.render",
+    "level": "PASS",
+    "message": "render: source_file exists (provisional)"
+   },
+   {
+    "id": "files.source.collision",
+    "level": "PASS",
+    "message": "collision: source_file exists (provisional)"
+   },
+   {
+    "id": "files.source.mass_properties",
+    "level": "PASS",
+    "message": "mass_properties: source_file exists (provisional)"
+   },
+   {
+    "id": "files.source.payloads",
+    "level": "PASS",
+    "message": "payloads: source_file exists (provisional)"
+   },
+   {
+    "id": "files.exist",
+    "level": "PASS",
+    "message": "all referenced files exist",
+    "measured": []
+   },
+   {
+    "id": "files.obj_contents",
+    "level": "PASS",
+    "message": "OBJ files readable with normals, UVs and declared material slots",
+    "measured": []
+   },
+   {
+    "id": "files.collision_parents",
+    "level": "PASS",
+    "message": "collision shape parents exist"
+   },
+   {
+    "id": "scale.assembly",
+    "level": "PASS",
+    "message": "largest payload extent 0.800 m",
+    "measured": 1.0
+   },
+   {
+    "id": "profile.payloads",
+    "level": "PASS",
+    "message": "payload sizes and masses match the profile",
+    "measured": []
+   },
+   {
+    "id": "mass.physical",
+    "level": "PASS",
+    "message": "inertia positive definite, principal moments [0.0104, 0.0187, 0.0217] satisfy the triangle inequalities",
+    "measured": [
+     0.010416666666666666,
+     0.018749999999999996,
+     0.021666666666666667
+    ]
+   },
+   {
+    "id": "bbox.render_vs_collision",
+    "level": "PASS",
+    "message": "render and collision bounding boxes agree within 35 mm (worst 0.0 mm)",
+    "measured": {
+     "x-": 0.0,
+     "y-": 0.0,
+     "z-": 0.0,
+     "x+": 0.0,
+     "y+": 0.0,
+     "z+": 0.0
+    },
+    "tol": 0.035
+   },
+   {
+    "id": "watertight",
+    "level": "PASS",
+    "message": "all solid parts are closed (every edge balanced)",
+    "measured": []
+   },
+   {
+    "id": "watertight.degenerate",
+    "level": "PASS",
+    "message": "no degenerate triangles"
+   },
+   {
+    "id": "winding",
+    "level": "PASS",
+    "message": "solid parts have outward (positive-volume) winding"
+   }
+  ],
+  "mating": []
+ },
+ {
+  "schema": "crane.fleet_asset_validation/v0",
+  "manifest": "/home/lunarz/.cache/crane-fleet/assets_v0/scout/scout.manifest.json",
+  "overall": "PASS",
+  "counts": {
+   "PASS": 52,
+   "WARN": 0,
+   "FAIL": 0
+  },
+  "checks": [
+   {
+    "id": "schema",
+    "level": "PASS",
+    "message": "manifest conforms to crane.fleet_asset_manifest/v0"
+   },
+   {
+    "id": "files.profile",
+    "level": "PASS",
+    "message": "profile mecanum_fleet_provisional_v0 loaded"
+   },
+   {
+    "id": "files.source.render",
+    "level": "PASS",
+    "message": "render: source_file exists (provisional)"
+   },
+   {
+    "id": "files.source.collision",
+    "level": "PASS",
+    "message": "collision: source_file exists (provisional)"
+   },
+   {
+    "id": "files.source.mass_properties",
+    "level": "PASS",
+    "message": "mass_properties: source_file exists (provisional)"
+   },
+   {
+    "id": "files.source.wheels",
+    "level": "PASS",
+    "message": "wheels: source_file exists (provisional)"
+   },
+   {
+    "id": "files.source.sensors",
+    "level": "PASS",
+    "message": "sensors: source_file exists (provisional)"
+   },
+   {
+    "id": "files.source.attachments",
+    "level": "PASS",
+    "message": "attachments: source_file exists (provisional)"
+   },
+   {
+    "id": "files.source.actuated",
+    "level": "PASS",
+    "message": "actuated: source_file exists (provisional)"
+   },
+   {
+    "id": "files.exist",
+    "level": "PASS",
+    "message": "all referenced files exist",
+    "measured": []
+   },
+   {
+    "id": "files.obj_contents",
+    "level": "PASS",
+    "message": "OBJ files readable with normals, UVs and declared material slots",
+    "measured": []
+   },
+   {
+    "id": "files.collision_parents",
+    "level": "PASS",
+    "message": "collision shape parents exist"
+   },
+   {
+    "id": "scale.assembly",
+    "level": "PASS",
+    "message": "rover extent [0.48, 0.405, 0.52] m is 1.24x the profile body (0.42 m)",
+    "measured": [
+     0.4800000000502571,
+     0.40499999999999997,
+     0.519723
+    ],
+    "expected": 0.42
+   },
+   {
+    "id": "scale.parts",
+    "level": "PASS",
+    "message": "every part is between 0.1 mm and 5 m",
+    "measured": []
+   },
+   {
+    "id": "scale.wheel_radius",
+    "level": "PASS",
+    "message": "wheel radius 0.0485 m plausible",
+    "measured": 0.0485
+   },
+   {
+    "id": "profile.ground_clearance",
+    "level": "PASS",
+    "message": "ground clearance 0.03 m"
+   },
+   {
+    "id": "profile.wheels",
+    "level": "PASS",
+    "message": "wheel positions, radius, width and roller count match the profile",
+    "measured": [],
+    "tol": 0.002
+   },
+   {
+    "id": "profile.body_size",
+    "level": "PASS",
+    "message": "chassis_body footprint 0.420 x 0.300 m",
+    "measured": [
+     0.42,
+     0.3,
+     0.1
+    ],
+    "expected": [
+     0.42,
+     0.3,
+     0.1
+    ],
+    "tol": 0.003
+   },
+   {
+    "id": "profile.body_clearance",
+    "level": "PASS",
+    "message": "body underside 0.0300 m above ground",
+    "measured": 0.03,
+    "expected": 0.03
+   },
+   {
+    "id": "profile.body_height",
+    "level": "PASS",
+    "message": "body height 0.100 m"
+   },
+   {
+    "id": "profile.faces",
+    "level": "PASS",
+    "message": "docking-face poses, active set and hook spacing match the profile",
+    "measured": [],
+    "tol": 0.002
+   },
+   {
+    "id": "profile.tags",
+    "level": "PASS",
+    "message": "tag sizes match the profile (black-border edge)"
+   },
+   {
+    "id": "profile.sensors",
+    "level": "PASS",
+    "message": "sensor set and camera parameters match the profile",
+    "measured": []
+   },
+   {
+    "id": "profile.mast_height",
+    "level": "PASS",
+    "message": "mast top 0.450 m = body top + 0.35",
+    "measured": 0.45,
+    "expected": 0.44999999999999996
+   },
+   {
+    "id": "profile.arm_proxy",
+    "level": "PASS",
+    "message": "arm proxy reach matches"
+   },
+   {
+    "id": "mass.physical",
+    "level": "PASS",
+    "message": "inertia positive definite, principal moments [0.1082, 0.1994, 0.2055] satisfy the triangle inequalities",
+    "measured": [
+     0.10820974776019669,
+     0.19939025223980328,
+     0.20546666699999994
+    ]
+   },
+   {
+    "id": "mass.box_consistency",
+    "level": "PASS",
+    "message": "diag(I)/diag(I_box) = [2.04, 1.65, 0.97] within a factor 3.0",
+    "measured": [
+     2.041000005,
+     1.6534334790772534,
+     0.9658408389639641
+    ],
+    "expected": [
+     0.06666666666666667,
+     0.12426666666666665,
+     0.17759999999999998
+    ]
+   },
+   {
+    "id": "mass.total",
+    "level": "PASS",
+    "message": "total mass 8.000 kg = base + added (8.000)",
+    "measured": 8.0,
+    "expected": 8.0
+   },
+   {
+    "id": "mass.com_inside",
+    "level": "PASS",
+    "message": "centre of mass lies inside the collision envelope"
+   },
+   {
+    "id": "mass.within_envelope",
+    "level": "PASS",
+    "message": "inertia no larger than the collision envelope can support"
+   },
+   {
+    "id": "bbox.render_vs_collision",
+    "level": "PASS",
+    "message": "render and collision bounding boxes agree within 35 mm (worst 30.0 mm)",
+    "measured": {
+     "x-": 0.03,
+     "y-": 0.005,
+     "z-": -0.0003,
+     "x+": 0.03,
+     "y+": 0.005,
+     "z+": 0.0
+    },
+    "tol": 0.035
+   },
+   {
+    "id": "watertight",
+    "level": "PASS",
+    "message": "all solid parts are closed (every edge balanced)",
+    "measured": []
+   },
+   {
+    "id": "watertight.degenerate",
+    "level": "PASS",
+    "message": "no degenerate triangles"
+   },
+   {
+    "id": "winding",
+    "level": "PASS",
+    "message": "solid parts have outward (positive-volume) winding"
+   },
+   {
+    "id": "wheels_ground",
+    "level": "PASS",
+    "message": "all four wheels touch z = ground plane within tolerance (axle height and mesh)",
+    "measured": {
+     "FL": -0.029723000000000003,
+     "FR": -0.029723000000000003,
+     "RL": -0.029723000000000003,
+     "RR": -0.029723000000000003
+    },
+    "tol": 0.001
+   },
+   {
+    "id": "symmetry",
+    "level": "PASS",
+    "message": "left/right and fore/aft symmetry holds (wheels, hooks, COM, body)",
+    "measured": [],
+    "tol": 0.002
+   },
+   {
+    "id": "roller_handedness",
+    "level": "PASS",
+    "message": "manifest signs and roller meshes follow the X convention (FL/RR -1, FR/RL +1)",
+    "measured": {
+     "FL": {
+      "mesh_sign": -1,
+      "axis_xy": [
+       0.707,
+       -0.707
+      ],
+      "angle_to_axle_deg": 45.0
+     },
+     "FR": {
+      "mesh_sign": 1,
+      "axis_xy": [
+       0.707,
+       0.707
+      ],
+      "angle_to_axle_deg": 45.0
+     },
+     "RL": {
+      "mesh_sign": 1,
+      "axis_xy": [
+       0.707,
+       0.707
+      ],
+      "angle_to_axle_deg": 45.0
+     },
+     "RR": {
+      "mesh_sign": -1,
+      "axis_xy": [
+       0.707,
+       -0.707
+      ],
+      "angle_to_axle_deg": 45.0
+     }
+    }
+   },
+   {
+    "id": "actuated",
+    "level": "PASS",
+    "message": "actuated parts reference existing parts/pivots with consistent limits",
+    "measured": []
+   },
+   {
+    "id": "mating.front_rear.gap",
+    "level": "PASS",
+    "message": "face-plane gap -0.00 mm (scout_provisional_v0.front <-> scout_provisional_v0.rear)",
+    "measured": -4.810322582272148e-10
+   },
+   {
+    "id": "mating.front_rear.body_overlap",
+    "level": "PASS",
+    "message": "no body interpenetration (0 mm3)",
+    "measured": 0.0
+   },
+   {
+    "id": "mating.front_rear.hook_clearance",
+    "level": "PASS",
+    "message": "hooks clear of the opposing hooks/body/pins (max overlap 0 mm3)",
+    "measured": 0.0
+   },
+   {
+    "id": "mating.front_rear.hook_engagement",
+    "level": "PASS",
+    "message": "every hook engage point is within 0.00 mm of an opposing catch pin (tolerance 2.0 mm)",
+    "measured": 0.0,
+    "tol": 0.002
+   },
+   {
+    "id": "mating.front_rear.guide_alignment",
+    "level": "PASS",
+    "message": "guide axes are collinear and antiparallel"
+   },
+   {
+    "id": "mating.front_rear.guide_width",
+    "level": "PASS",
+    "message": "guide chamfer 10.0 mm covers the profile guide half-width",
+    "measured": 0.01
+   },
+   {
+    "id": "mating.front_rear.other_parts",
+    "level": "PASS",
+    "message": "no other parts collide when mated (docking pose)",
+    "measured": 0.0
+   },
+   {
+    "id": "mating.front_front.gap",
+    "level": "PASS",
+    "message": "face-plane gap -0.00 mm (scout_provisional_v0.front <-> scout_provisional_v0.front)",
+    "measured": -1.134530850705438e-17
+   },
+   {
+    "id": "mating.front_front.body_overlap",
+    "level": "PASS",
+    "message": "no body interpenetration (0 mm3)",
+    "measured": 0.0
+   },
+   {
+    "id": "mating.front_front.hook_clearance",
+    "level": "PASS",
+    "message": "hooks clear of the opposing hooks/body/pins (max overlap 0 mm3)",
+    "measured": 0.0
+   },
+   {
+    "id": "mating.front_front.hook_engagement",
+    "level": "PASS",
+    "message": "every hook engage point is within 0.00 mm of an opposing catch pin (tolerance 2.0 mm)",
+    "measured": 0.0,
+    "tol": 0.002
+   },
+   {
+    "id": "mating.front_front.guide_alignment",
+    "level": "PASS",
+    "message": "guide axes are collinear and antiparallel"
+   },
+   {
+    "id": "mating.front_front.guide_width",
+    "level": "PASS",
+    "message": "guide chamfer 10.0 mm covers the profile guide half-width",
+    "measured": 0.01
+   },
+   {
+    "id": "mating.front_front.other_parts",
+    "level": "PASS",
+    "message": "no other parts collide when mated (docking pose)",
+    "measured": 0.0
+   }
+  ],
+  "mating": [
+   {
+    "label": "scout_provisional_v0.front <-> scout_provisional_v0.rear",
+    "A": "scout_provisional_v0",
+    "B": "scout_provisional_v0",
+    "face_A": "front",
+    "face_B": "rear",
+    "body_protrusion_beyond_face_mm": [
+     0.0,
+     0.0
+    ],
+    "face_plane_gap_mm": -0.0,
+    "overlap_mm3": {
+     "body_vs_body": 0.0,
+     "hooks_vs_hooks": 0.0,
+     "hooksA_vs_bodyB": 0.0,
+     "hooksB_vs_bodyA": 0.0,
+     "other_vs_all": 0.0
+    },
+    "hook_engagement": [
+     {
+      "hook": "hook_front_a",
+      "nearest_pin": "rear_pin_hi",
+      "distance_mm": 0.0
+     },
+     {
+      "hook": "hook_front_b",
+      "nearest_pin": "rear_pin_lo",
+      "distance_mm": 0.0
+     },
+     {
+      "hook": "hook_rear_a",
+      "nearest_pin": "front_pin_hi",
+      "distance_mm": 0.0
+     },
+     {
+      "hook": "hook_rear_b",
+      "nearest_pin": "front_pin_lo",
+      "distance_mm": 0.0
+     }
+    ],
+    "guide": {
+     "axis_antiparallel_error_deg": 0.0,
+     "origin_offset_mm": 0.0,
+     "chamfer_width_mm": [
+      10.0,
+      10.0
+     ],
+     "profile_guide_half_width_mm": 10.0
+    },
+    "summary": "gap -0.0 mm, overlaps(mm3) {'body_vs_body': 0.0, 'hooks_vs_hooks': 0.0, 'hooksA_vs_bodyB': 0.0, 'hooksB_vs_bodyA': 0.0, 'other_vs_all': 0.0}, worst hook-to-pin 0.00 mm, guide axis err 0.0 deg"
+   },
+   {
+    "label": "scout_provisional_v0.front <-> scout_provisional_v0.front",
+    "A": "scout_provisional_v0",
+    "B": "scout_provisional_v0",
+    "face_A": "front",
+    "face_B": "front",
+    "body_protrusion_beyond_face_mm": [
+     0.0,
+     0.0
+    ],
+    "face_plane_gap_mm": -0.0,
+    "overlap_mm3": {
+     "body_vs_body": 0.0,
+     "hooks_vs_hooks": 0.0,
+     "hooksA_vs_bodyB": 0.0,
+     "hooksB_vs_bodyA": 0.0,
+     "other_vs_all": 0.0
+    },
+    "hook_engagement": [
+     {
+      "hook": "hook_front_a",
+      "nearest_pin": "front_pin_hi",
+      "distance_mm": 0.0
+     },
+     {
+      "hook": "hook_front_b",
+      "nearest_pin": "front_pin_lo",
+      "distance_mm": 0.0
+     },
+     {
+      "hook": "hook_front_a",
+      "nearest_pin": "front_pin_hi",
+      "distance_mm": 0.0
+     },
+     {
+      "hook": "hook_front_b",
+      "nearest_pin": "front_pin_lo",
+      "distance_mm": 0.0
+     }
+    ],
+    "guide": {
+     "axis_antiparallel_error_deg": 0.0,
+     "origin_offset_mm": 0.0,
+     "chamfer_width_mm": [
+      10.0,
+      10.0
+     ],
+     "profile_guide_half_width_mm": 10.0
+    },
+    "summary": "gap -0.0 mm, overlaps(mm3) {'body_vs_body': 0.0, 'hooks_vs_hooks': 0.0, 'hooksA_vs_bodyB': 0.0, 'hooksB_vs_bodyA': 0.0, 'other_vs_all': 0.0}, worst hook-to-pin 0.00 mm, guide axis err 0.0 deg"
+   }
+  ]
+ }
+]

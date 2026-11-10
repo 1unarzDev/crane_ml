@@ -8,6 +8,24 @@ using Unity.Collections;
 using UnityEngine;
 
 namespace Crane.Fleet.Sim {
+    /// <summary>A scripted mission run by <see cref="FleetRun"/> instead of the qualification script.</summary>
+    public interface IFleetMission {
+        string Variant { get; }
+        Pose2 StartPose(string roverId);
+        /// <summary>After the rovers exist, before settling: create payloads, stands, couplings; return extra roots to adopt into the run's physics scene.</summary>
+        IEnumerable<GameObject> Build(FleetRun run);
+        void Start(FleetRun run);
+        /// <summary>Before each physics step: set every rover's Command (and lifter, payload, connector state).</summary>
+        void PreStep(FleetRun run);
+        void PostStep(FleetRun run);
+        bool Done { get; }
+        string StepOf(string roverId);
+        /// <summary>Extra per-row state (written under "mission" in states.jsonl).</summary>
+        void LogState(StringBuilder b);
+        void Finish(FleetRun run, Dictionary<string, object> results);
+        string ControllerInput { get; }
+    }
+
     public sealed class FleetRunOptions {
         public long Seed = 1;
         public string Variant;            // default: overlay qualification.variant
@@ -18,6 +36,7 @@ namespace Crane.Fleet.Sim {
         public string SourceCommit = "";
         public bool SourceDirty;
         public string Launcher = "unknown";
+        public IFleetMission Mission;
     }
 
     /// <summary>
@@ -51,10 +70,16 @@ namespace Crane.Fleet.Sim {
         readonly Dictionary<string, bool> saturated = new Dictionary<string, bool>();
         DateTime wallStart;
         SimulationMode previousMode;
+        public FleetPhysicsScene Phys;
+        public double Dt => dt;
+        /// <summary>Every event as it is logged (kind, rover, fields); stills and missions subscribe.</summary>
+        public event Action<string, string, Dictionary<string, object>> EventRaised;
+        public RoverRig Rover(string id) { foreach (var r in Rovers) if (r.D.Id == id) return r; throw new KeyNotFoundException(id); }
+        IFleetMission M => Opt.Mission;
 
         public FleetRun(FleetSpec spec, FleetRunOptions opt) {
             Spec = spec; Opt = opt;
-            Opt.Variant ??= spec.O["qualification.variant"].String;
+            Opt.Variant ??= opt.Mission != null ? opt.Mission.Variant : spec.O["qualification.variant"].String;
             RunId = RunIds.Make(spec.S["scenario_id"].String, Opt.Variant, Opt.Seed);
             string root = opt.OutRoot ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".cache", "crane-fleet", "runs");
             Dir = opt.OutDir ?? Path.Combine(root, RunIds.DirectoryName(RunId));
@@ -76,14 +101,17 @@ namespace Crane.Fleet.Sim {
             previousMode = Physics.simulationMode;
             ConfigurePhysics(Spec);
             Directory.CreateDirectory(Dir);
+            Phys = FleetPhysicsScene.Create("fleet run " + RunId);
             World = new FleetWorld(Spec, Opt.DoorwayWidth);
 
             FloorProperties floor = Spec.Floor();
             var jitter = FleetRng.For(Opt.Seed, "start_jitter");
             double jxy = Spec.O["qualification.start_jitter_xy"].Double, jyaw = Spec.O["qualification.start_jitter_yaw"].Double;
             foreach (var (id, role) in Spec.FleetDefault()) {
-                double[] s = Spec.O["qualification.rovers." + id + ".start"].Doubles;
-                var pose = new Pose2(s[0] + jitter.Uniform(-jxy, jxy), s[1] + jitter.Uniform(-jxy, jxy), s[2] + jitter.Uniform(-jyaw, jyaw));
+                Pose2 nominal;
+                if (M != null) nominal = M.StartPose(id);
+                else { double[] s = Spec.O["qualification.rovers." + id + ".start"].Doubles; nominal = new Pose2(s[0], s[1], s[2]); }
+                var pose = new Pose2(nominal.X + jitter.Uniform(-jxy, jxy), nominal.Y + jitter.Uniform(-jxy, jxy), nominal.Yaw + jitter.Uniform(-jyaw, jyaw));
                 var rig = new RoverRig(Spec, Spec.Describe(id, role), floor, Opt.Seed, World.Root.transform, pose);
                 Rovers.Add(rig);
                 foreach (var c in rig.Root.GetComponentsInChildren<Collider>()) { byCollider[c] = rig; c.providesContacts = true; }
@@ -93,18 +121,22 @@ namespace Crane.Fleet.Sim {
                     trajColumns.Add(new CraneTraj.Column { Name = name, Scale = CraneTraj.ScaleOf(name) });
                 }
             }
+            var roots = new List<GameObject> { World.Root };
+            if (M != null) roots.AddRange(M.Build(this));
+            foreach (var g in roots) Phys.Adopt(g);
             Physics.SyncTransforms();
 
             // settle on the floor with zero command, then start the clock, the estimators and the scripts
             int settle = (int)Math.Round(Spec.O["physics.settle_s"].Double / dt);
             for (int i = 0; i < settle; i++) {
                 foreach (var r in Rovers) r.ApplyPlant();
-                Physics.Simulate((float)dt);
+                Phys.Simulate((float)dt);
             }
             foreach (var r in Rovers) {
                 r.StartOdometry();
                 RoverTruth t = r.Truth();
-                r.Script = new QualificationScript(Spec, r.D.Id, r.D.Geometry, new Pose2(t.X, t.Y, t.Yaw), FleetRng.For(Opt.Seed, r.D.Id + "/script"));
+                if (M == null) r.Script = new QualificationScript(Spec, r.D.Id, r.D.Geometry, new Pose2(t.X, t.Y, t.Yaw), FleetRng.For(Opt.Seed, r.D.Id + "/script"));
+                r.UpdateVisual();
             }
             Physics.ContactEvent += OnContacts;
 
@@ -117,6 +149,7 @@ namespace Crane.Fleet.Sim {
                 Event("spawn", r.D.Id, new Dictionary<string, object> { ["role"] = r.D.Role, ["namespace"] = r.D.Namespace,
                     ["render"] = r.RenderSource, ["truth_x"] = t.X, ["truth_y"] = t.Y, ["truth_z"] = t.Z, ["truth_yaw"] = t.Yaw });
             }
+            M?.Start(this);
             LogState();
             SampleTraj();
         }
@@ -124,11 +157,14 @@ namespace Crane.Fleet.Sim {
         /// <summary>Advance one fixed physics step. Returns false when the run has ended.</summary>
         public bool Advance() {
             if (Done) return false;
+            M?.PreStep(this);
             foreach (var r in Rovers) {
                 RoverTruth t = r.Truth();
-                stepEvents.Clear();
-                r.Command = r.Script.Command(T, new Pose2(t.X, t.Y, t.Yaw), stepEvents);
-                foreach (var e in stepEvents) OnStep(r, e, t);
+                if (M == null) {
+                    stepEvents.Clear();
+                    r.Command = r.Script.Command(T, new Pose2(t.X, t.Y, t.Yaw), stepEvents);
+                    foreach (var e in stepEvents) OnStep(r, e, t);
+                }
                 r.ApplyPlant();
                 bool sat = r.Plant.TractionScale < 1 - 1e-9;
                 if (sat != saturated[r.D.Id]) {
@@ -136,17 +172,18 @@ namespace Crane.Fleet.Sim {
                     Event(sat ? "traction_limit_on" : "traction_limit_off", r.D.Id, new Dictionary<string, object> { ["scale"] = r.Plant.TractionScale });
                 }
             }
-            Physics.Simulate((float)dt);
+            Phys.Simulate((float)dt);
             Step++;
             T = Step * dt;
-            foreach (var r in Rovers) r.Sense(Step);
+            foreach (var r in Rovers) { r.Sense(Step); r.UpdateVisual(); }
+            M?.PostStep(this);
             foreach (string c in pendingContacts) events.WriteLine(c);
             pendingContacts.Clear();
             if (Step % stateEvery == 0) LogState();
             if (Step % trajEvery == 0) SampleTraj();
 
-            bool all = true;
-            foreach (var r in Rovers) all &= r.Script.Done;
+            bool all = M != null ? M.Done : true;
+            if (M == null) foreach (var r in Rovers) all &= r.Script.Done;
             if (all) { Done = true; EndReason = "script_complete"; }
             else if (T >= maxDuration) { Done = true; EndReason = "max_duration"; }
             return !Done;
@@ -162,10 +199,11 @@ namespace Crane.Fleet.Sim {
                     ["estimate"] = new Dictionary<string, object> { ["x"] = r.Odometry.X, ["y"] = r.Odometry.Y, ["yaw"] = r.Odometry.Yaw },
                     ["odometry_error_xy"] = Math.Sqrt(Sq(r.Odometry.X - t.X) + Sq(r.Odometry.Y - t.Y)),
                     ["odometry_error_yaw"] = Angles.Wrap(r.Odometry.Yaw - t.Yaw),
-                    ["script_step"] = r.Script.CurrentStep
+                    ["script_step"] = StepOf(r)
                 };
             }
             results["final"] = final;
+            M?.Finish(this, results);
             Event("run_end", "", new Dictionary<string, object> { ["reason"] = EndReason, ["t"] = T, ["steps"] = Step });
             states.Dispose(); events.Dispose();
             WriteTraj();
@@ -173,9 +211,13 @@ namespace Crane.Fleet.Sim {
             Physics.simulationMode = previousMode;
         }
 
+        string StepOf(RoverRig r) => M != null ? M.StepOf(r.D.Id) : r.Script.CurrentStep;
+
         public void Dispose() {
             World?.Destroy();
             World = null;
+            Phys?.Dispose();
+            Phys = null;
         }
 
         /// <summary>Run to the end synchronously (editor CLI, tests and the headless player).</summary>
@@ -274,9 +316,11 @@ namespace Crane.Fleet.Sim {
                 b.Append(FleetJson.Quote(r.D.Id)).Append(":{\"cmd\":[").Append(N(r.Command.Vx)).Append(',').Append(N(r.Command.Vy)).Append(',').Append(N(r.Command.Wz))
                     .Append("],\"wheel_cmd\":").Append(Arr(p.WheelCommand)).Append(",\"wheel\":").Append(Arr(p.WheelSpeed))
                     .Append(",\"slip\":").Append(Arr(p.SlipFactor)).Append(",\"normal_load\":").Append(Arr(p.NormalLoad))
-                    .Append(",\"traction_scale\":").Append(N(p.TractionScale)).Append(",\"step\":").Append(FleetJson.Quote(r.Script.CurrentStep)).Append('}');
+                    .Append(",\"traction_scale\":").Append(N(p.TractionScale)).Append(",\"step\":").Append(FleetJson.Quote(StepOf(r))).Append('}');
             }
-            b.Append("}}");
+            b.Append('}');
+            if (M != null) { b.Append(",\"mission\":{"); M.LogState(b); b.Append('}'); }
+            b.Append('}');
             states.WriteLine(b.ToString());
         }
 
@@ -292,9 +336,10 @@ namespace Crane.Fleet.Sim {
             return FleetJson.Write(d);
         }
 
-        void Event(string kind, string rover, Dictionary<string, object> fields) {
+        public void Event(string kind, string rover, Dictionary<string, object> fields) {
             string line = EventLine(kind, rover, fields);
             events?.WriteLine(line);
+            EventRaised?.Invoke(kind, rover, fields);
             var te = new Dictionary<string, object> { ["kind"] = kind, ["t"] = Math.Round(T, 4) };
             if (rover.Length > 0) te["agent"] = rover;
             if (fields.TryGetValue("step", out object s) && s is string) te["step"] = s;
@@ -343,7 +388,9 @@ namespace Crane.Fleet.Sim {
                 ["parameters"] = new Dictionary<string, object> {
                     ["dt"] = dt, ["state_hz"] = 1.0 / (stateEvery * dt), ["traj_hz"] = 1.0 / (trajEvery * dt), ["max_duration_s"] = maxDuration,
                     ["doorway_width"] = World != null ? World.DoorwayWidth : double.NaN, ["floor"] = Spec.S["arena.floor"].String,
-                    ["controller_input"] = "evaluator_truth (qualification script only)",
+                    ["controller_input"] = M != null ? M.ControllerInput : "evaluator_truth (qualification script only)",
+                    ["mission"] = M != null ? M.GetType().Name : "qualification",
+                    ["physics_scene"] = Phys != null ? Phys.Describe : "default",
                     ["estimate_source"] = "wheel encoders (ideal kinematics) + gyro heading; initialised from truth at t=0",
                     ["physics"] = "Unity PhysX Rigidbody, simulationMode=Script, frictionless wheel spheres, plant force at CoM"
                 },

@@ -20,6 +20,7 @@ namespace Crane.Fleet.Sim {
             SimulationMode previous = Physics.simulationMode;
             FleetRun.ConfigurePhysics(spec);
             var world = new FleetWorld(spec, scenario: false);
+            var phys = FleetPhysicsScene.Create("fleet cad-swap check");
             var res = new Result();
             try {
                 JsonNode c = spec.O["check"];
@@ -43,13 +44,14 @@ namespace Crane.Fleet.Sim {
                 Pose2 pb = MatingPose(pa, da.Face(pairFaceA).Pose, db.Face(pairFaceB).Pose);
                 var ra = new RoverRig(spec, da, floor, 0, world.Root.transform, pa);
                 var rb = new RoverRig(spec, db, floor, 0, world.Root.transform, pb);
+                phys.Adopt(world.Root);
                 Physics.SyncTransforms();
 
                 int settle = (int)Math.Round(spec.O["physics.settle_s"].Double / spec.Dt);
                 var all = new List<RoverRig>(rigs) { ra, rb };
                 for (int s = 0; s < settle; s++) {
                     foreach (var r in all) r.ApplyPlant();
-                    Physics.Simulate((float)spec.Dt);
+                    phys.Simulate((float)spec.Dt);
                 }
 
                 Collider floorCol = world.Root.transform.Find("floor").GetComponent<Collider>();
@@ -96,6 +98,7 @@ namespace Crane.Fleet.Sim {
             }
             finally {
                 world.Destroy();
+                phys.Dispose();
                 Physics.simulationMode = previous;
             }
         }
@@ -142,10 +145,57 @@ namespace Crane.Fleet.Sim {
 
             // render geometry must not dip below the floor or float far above the collision envelope
             double minY = double.PositiveInfinity;
-            foreach (var mr in r.Root.transform.Find("render").GetComponentsInChildren<Renderer>()) minY = Math.Min(minY, mr.bounds.min.y);
+            foreach (var mr in r.RenderRoot.GetComponentsInChildren<Renderer>()) minY = Math.Min(minY, mr.bounds.min.y);
             o["render_min_height"] = minY;
             if (minY < -contactTol) failures.Add($"{r.D.Id}: render geometry {minY:0.0000} m below the floor");
+            o["render_source"] = r.RenderSource;
+            o["sensor_frame_source"] = r.D.SensorFrameSource;
+            o["collision_source"] = r.D.CollisionSource;
+            if (r.Visual != null) o["asset"] = CheckAsset(r, contactTol, frameTol, yawTol, failures);
             return o;
+        }
+
+        /// <summary>The imported asset against the profile: each render wheel's lowest point on the floor (no visual floating or sinking),
+        /// manifest wheel origins at the profile's axle frames, manifest docking-face origins at the profile's face frames.</summary>
+        static Dictionary<string, object> CheckAsset(RoverRig r, double contactTol, double frameTol, double yawTol, List<string> failures) {
+            var m = r.Visual.Manifest;
+            var o = new Dictionary<string, object> { ["manifest"] = m.Path, ["asset_id"] = m.AssetId, ["provenance"] = m.Provenance };
+            var wheels = new Dictionary<string, object>();
+            string[] names = { "wheel_FL", "wheel_FR", "wheel_RL", "wheel_RR" };
+            for (int i = 0; i < 4; i++) {
+                var part = m.FindPart(names[i]);
+                if (part == null) { failures.Add($"{r.D.Id}: asset has no {names[i]}"); continue; }
+                var axle = r.D.Wheels[i].Axle;
+                double dOrigin = Math.Sqrt(Sq(part.Origin.Xyz[0] - axle.X) + Sq(part.Origin.Xyz[1] - axle.Y) + Sq(part.Origin.Xyz[2] - axle.Z));
+                var tr = FindDeep(r.Visual.Root, names[i]);
+                double low = double.NaN;
+                if (tr != null) { low = double.PositiveInfinity; foreach (var rr in tr.GetComponentsInChildren<Renderer>()) low = Math.Min(low, rr.bounds.min.y); }
+                bool ok = dOrigin <= frameTol && !double.IsNaN(low) && Math.Abs(low) <= contactTol;
+                if (!ok) failures.Add($"{r.D.Id}: asset {names[i]} origin off by {dOrigin:0.0000} m, render bottom at {low:0.0000} m");
+                wheels[names[i]] = new Dictionary<string, object> { ["origin_error"] = dOrigin, ["render_bottom_height"] = low, ["pass"] = ok };
+            }
+            o["wheels"] = wheels;
+            var faces = new Dictionary<string, object>();
+            foreach (var f in m.Faces) {
+                DockingFace pf = null;
+                foreach (var x in r.D.Faces) if (x.Name == f.Name) pf = x;
+                if (pf == null) { failures.Add($"{r.D.Id}: asset face {f.Name} not in the profile"); continue; }
+                double dp = Math.Sqrt(Sq(f.Origin.Xyz[0] - pf.Pose.X) + Sq(f.Origin.Xyz[1] - pf.Pose.Y) + Sq(f.Origin.Xyz[2] - pf.Pose.Z));
+                double dy = Angles.Wrap(f.Origin.Rpy[2] - pf.Pose.Yaw);
+                bool ok = dp <= frameTol && Math.Abs(dy) <= yawTol;
+                if (!ok) failures.Add($"{r.D.Id}: asset face {f.Name} off the profile by {dp:0.0000} m, yaw {dy:0.0000}");
+                faces[f.Name] = new Dictionary<string, object> { ["position_error"] = dp, ["yaw_error"] = dy, ["pass"] = ok };
+            }
+            o["faces"] = faces;
+            return o;
+        }
+
+        static double Sq(double x) => x * x;
+
+        static Transform FindDeep(Transform t, string name) {
+            if (t.name == name) return t;
+            foreach (Transform c in t) { var f = FindDeep(c, name); if (f != null) return f; }
+            return null;
         }
 
         /// <summary>Error of a frame against its declared pose, evaluated in the world from the settled rover pose

@@ -10,6 +10,15 @@ using UnityEngine;
 using Debug = UnityEngine.Debug;
 
 namespace Crane.Fleet.EditorTools {
+    /// <summary>Edit-mode runs get their own physics scene: a preview scene per run (FleetPhysicsScene).</summary>
+    [InitializeOnLoad]
+    static class FleetEditorHooks {
+        static FleetEditorHooks() {
+            FleetPhysicsScene.EditorFactory = name => EditorSceneManager.NewPreviewScene();
+            FleetPhysicsScene.EditorClose = scene => EditorSceneManager.ClosePreviewScene(scene);
+        }
+    }
+
     /// <summary>
     /// Batch-mode entry points (-executeMethod):
     ///   Crane.Fleet.EditorTools.FleetCli.Run          seeded run in a fresh empty scene (--crane-seed N, --crane-fleet-out DIR)
@@ -32,9 +41,10 @@ namespace Crane.Fleet.EditorTools {
             int code = 0;
             try {
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-                var opt = FleetArgs.RunOptions("editor");
+                var spec = Spec();
+                var opt = FleetArgs.RunOptions("editor", spec);
                 if (string.IsNullOrEmpty(opt.SourceCommit)) (opt.SourceCommit, opt.SourceDirty) = Git();
-                var run = new FleetRun(Spec(), opt);
+                var run = new FleetRun(spec, opt);
                 run.RunToEnd();
                 Debug.Log($"CRANE_FLEET_RUN_END id={run.RunId} reason={run.EndReason} t={run.T} steps={run.Step} dir={run.Dir}");
                 run.Dispose();
@@ -61,13 +71,14 @@ namespace Crane.Fleet.EditorTools {
                     }
                     else if (kind == "run") {
                         int colon = arg.IndexOf(':');
-                        var opt = FleetArgs.RunOptions("editor");
+                        var spec = Spec();
+                        var opt = FleetArgs.RunOptions("editor", spec);
                         opt.Seed = long.Parse(arg.Substring(0, colon));
                         opt.OutDir = arg.Substring(colon + 1);
                         if (string.IsNullOrEmpty(opt.SourceCommit)) { opt.SourceCommit = commit; opt.SourceDirty = dirty; }
-                        var run = new FleetRun(Spec(), opt);
+                        var run = new FleetRun(spec, opt);
                         run.RunToEnd();
-                        Debug.Log($"CRANE_FLEET_RUN_END id={run.RunId} reason={run.EndReason} t={run.T} steps={run.Step} dir={run.Dir}");
+                        Debug.Log($"CRANE_FLEET_RUN_END id={run.RunId} reason={run.EndReason} t={run.T} steps={run.Step} dir={run.Dir} physics={run.Phys?.Describe}");
                         run.Dispose();
                     }
                     else throw new ArgumentException("unknown batch job " + kind);

@@ -14,4 +14,7 @@ for dst in "$root/Tools/Fleet/spec" "$root/Assets/StreamingAssets/Fleet"; do
     cp "$src/fleet_profile_v0.json" "$dst/"
     cp "$src/scenarios/"*.json "$dst/scenarios/"
 done
+# provisional asset set (meshes, manifests, textures) for the runtime
+rm -rf "$root/Assets/StreamingAssets/Fleet/assets_provisional_v0"
+cp -r "$root/Tools/Fleet/assets_provisional_v0" "$root/Assets/StreamingAssets/Fleet/assets_provisional_v0"
 ( cd "$root/Assets/StreamingAssets/Fleet" && sha256sum fleet_profile_v0.json scenarios/*.json crane_fleet_sim_v0.json )

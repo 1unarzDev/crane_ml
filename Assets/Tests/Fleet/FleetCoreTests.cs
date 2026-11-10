@@ -181,35 +181,59 @@ namespace Crane.Fleet.Tests {
         }
 
         [Test]
-        public void MeshManifestReplacesPrimitives() {
-            string dir = Path.Combine(Path.GetTempPath(), "crane-fleet-mesh-test-" + Guid.NewGuid().ToString("N"));
-            try {
-                Directory.CreateDirectory(Path.Combine(dir, "scenarios"));
-                Directory.CreateDirectory(Path.Combine(dir, "meshes", "cargo"));
-                File.Copy(Path.Combine(SpecDir, FleetSpec.ProfileFile), Path.Combine(dir, FleetSpec.ProfileFile));
-                File.Copy(Path.Combine(SpecDir, FleetSpec.OverlayFile), Path.Combine(dir, FleetSpec.OverlayFile));
-                File.Copy(Path.Combine(SpecDir, FleetSpec.DefaultScenario), Path.Combine(dir, FleetSpec.DefaultScenario));
-                File.WriteAllText(Path.Combine(dir, "meshes", "cargo", "body.obj"),
-                    "v -0.2 -0.15 0.03\nv 0.2 -0.15 0.03\nv 0.2 0.15 0.03\nv -0.2 0.15 0.03\nv -0.2 -0.15 0.13\nv 0.2 -0.15 0.13\nv 0.2 0.15 0.13\nv -0.2 0.15 0.13\n" +
-                    "f 1 2 3 4\nf 5 8 7 6\nf 1 5 6 2\nf 2 6 7 3\nf 3 7 8 4\nf 4 8 5 1\n");
-                File.WriteAllText(Path.Combine(dir, "meshes", "cargo", "manifest.json"),
-                    "{\"schema\": \"crane.fleet_mesh_manifest/v0\", \"role\": \"cargo\", \"units\": \"m\", \"render\": [{\"obj\": \"body.obj\"}], \"collision\": [{\"obj\": \"body.obj\"}]}");
-                var spec = FleetSpec.LoadDirectory(dir);
-                var d = spec.Describe("cargo_1", "cargo");
-                Assert.IsTrue(d.MeshManifestPresent);
-                Assert.IsFalse(spec.Describe("scout_1", "scout").MeshManifestPresent);
-                var m = MeshManifest.Load(d.MeshManifestPath);
-                Assert.AreEqual(8, m.Render[0].Mesh.Vertices.Count);
-                Assert.AreEqual(36, m.Render[0].Mesh.Triangles.Count);
+        public void ObjParserSplitsMaterialsAndKeepsUvsAndNormals() {
+            var m = ObjMesh.Parse("v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\nvt 0 0\nvt 1 0\nvt 1 1\nvt 0 1\nvn 0 0 1\n" +
+                "usemtl a\nf 1/1/1 2/2/1 3/3/1\nusemtl b\nf 1/1/1 3/3/1 4/4/1\nusemtl a\nf 1/1/1 2/2/1 4/4/1\n");
+            CollectionAssert.AreEqual(new[] { "a", "b" }, m.SubmeshMaterials);
+            Assert.AreEqual(6, m.Submeshes[0].Count);
+            Assert.AreEqual(3, m.Submeshes[1].Count);
+            Assert.AreEqual(4, m.Positions.Count);
+            Assert.IsNotNull(m.Uvs[2]); Assert.IsNotNull(m.Normals[2]);
+        }
 
-                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-                var root = new UnityEngine.GameObject("t");
-                var rig = new RoverRig(spec, d, spec.Floor(), 1, root.transform, new Pose2(0, 0, 0));
-                Assert.AreEqual(d.MeshManifestPath, rig.RenderSource);
-                Assert.AreEqual(1, rig.Root.transform.Find("render").childCount);
-                UnityEngine.Object.DestroyImmediate(root);
+        [Test]
+        public void AssetManifestsResolveForEveryRoleAndBuildVisuals() {
+            var spec = Spec();
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new UnityEngine.GameObject("t");
+            try {
+                foreach (var (id, role) in spec.FleetDefault()) {
+                    var d = spec.Describe(id, role);
+                    Assert.IsTrue(d.MeshManifestPresent, id);
+                    Assert.AreEqual("asset_manifest", d.SensorFrameSource, id);
+                    Assert.AreEqual(4, d.Asset.Hooks.Count, id);
+                    var rig = new RoverRig(spec, d, spec.Floor(), 1, root.transform, new Pose2(0, 0, 0));
+                    Assert.IsNotNull(rig.Visual, id);
+                    Assert.Greater(rig.Visual.Root.GetComponentsInChildren<UnityEngine.MeshRenderer>().Length, 8, id);
+                }
+                Assert.AreEqual(1, spec.Describe("cargo_2", "cargo").InstanceIndex);
+                Assert.IsNotNull(spec.Describe("lifter_1", "lifter").Asset.LiftPart);
             }
-            finally { Directory.Delete(dir, true); }
+            finally { UnityEngine.Object.DestroyImmediate(root); }
+        }
+
+        [Test]
+        public void DockingProfileComesFromTheFleetSpec() {
+            var p = Crane.Fleet.Docking.DockingProfileBuilder.Build(Spec());
+            Assert.AreEqual(Spec().P["docking.hook_lateral_spacing"].Double, p.HookLateralSpacing.Value);
+            Assert.AreEqual(4, p.FaceFrames.Count);
+            Assert.AreEqual(0, p.Validate().Count);
+        }
+
+        [Test]
+        public void ConnectorMachineLatchesOnAnIdealApproach() {
+            var spec = Spec();
+            var model = new Crane.Fleet.Docking.ContactModel(Crane.Fleet.Docking.DockingProfileBuilder.Build(spec), new Crane.Fleet.Docking.DockingAssumptions());
+            var mc = new Crane.Fleet.Docking.ConnectorMachine(model, 42, "t");
+            double gap = 0.05;
+            var cmd = Crane.Fleet.Docking.DockingCommand.Approach;
+            for (int i = 0; i < 2000 && mc.State != Crane.Fleet.Docking.ConnectorState.LatchedVerified; i++) {
+                mc.Step(0.005, new Crane.Fleet.Docking.ConnectorInputs { Pose = new Crane.Fleet.Docking.FacePose(0.001, gap, 0.002, 0.0005), ClosingSpeed = 0.03, Command = cmd });
+                gap = Math.Max(0, gap - 0.03 * 0.005);
+                if (mc.State == Crane.Fleet.Docking.ConnectorState.MagnetCaptured) cmd = Crane.Fleet.Docking.DockingCommand.EngageHooks;
+                if (mc.SensedA && mc.SensedB) cmd = Crane.Fleet.Docking.DockingCommand.Verify;
+            }
+            Assert.AreEqual(Crane.Fleet.Docking.ConnectorState.LatchedVerified, mc.State);
         }
     }
 
@@ -246,6 +270,24 @@ namespace Crane.Fleet.Tests {
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             var r = CadSwapCheck.Run(FleetSpec.LoadDirectory(SpecDir), null);
             Assert.IsTrue(r.Pass, string.Join("\n", r.Failures));
+        }
+
+        [Test]
+        public void RunIsIndependentOfWhatRanBeforeInTheProcess() {
+            string root = Path.Combine(Path.GetTempPath(), "crane-fleet-hist-" + Guid.NewGuid().ToString("N"));
+            try {
+                var spec = FleetSpec.LoadDirectory(SpecDir);
+                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                var a = new FleetRun(spec, new FleetRunOptions { Seed = 5, OutDir = Path.Combine(root, "a"), MaxDuration = 4.0 });
+                a.RunToEnd(); a.Dispose();
+                CadSwapCheck.Run(spec, null);   // other physics work in between
+                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                var b = new FleetRun(spec, new FleetRunOptions { Seed = 5, OutDir = Path.Combine(root, "b"), MaxDuration = 4.0 });
+                b.RunToEnd(); b.Dispose();
+                Assert.AreEqual(File.ReadAllText(Path.Combine(root, "a", "states.jsonl")), File.ReadAllText(Path.Combine(root, "b", "states.jsonl")),
+                    "physics scene per run: " + b.Phys?.Describe);
+            }
+            finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
         }
 
         [Test]

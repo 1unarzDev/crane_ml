@@ -19,7 +19,7 @@ namespace Crane.Fleet.Sim {
 
         public static string SpecDir(string fallback) => Get("--crane-fleet-spec", fallback);
 
-        public static FleetRunOptions RunOptions(string launcher) {
+        public static FleetRunOptions RunOptions(string launcher, FleetSpec spec = null) {
             var o = new FleetRunOptions { Launcher = launcher };
             o.Seed = long.Parse(Get("--crane-seed", "1"), CultureInfo.InvariantCulture);
             o.Variant = Get("--crane-fleet-variant");
@@ -31,15 +31,18 @@ namespace Crane.Fleet.Sim {
             if (dur != null) o.MaxDuration = double.Parse(dur, CultureInfo.InvariantCulture);
             o.SourceCommit = Get("--crane-source-commit", "");
             o.SourceDirty = string.Equals(Get("--crane-source-dirty", "false"), "true", StringComparison.OrdinalIgnoreCase);
+            if (spec != null && Get("--crane-fleet-mission", "qual") == "demo") {
+                o.Mission = new DemoMission(spec);
+                if (dur == null) o.MaxDuration = spec.O["demo.max_duration_s"].Double;
+            }
             return o;
         }
     }
 
     /// <summary>
-    /// Player entry: <c>--crane-fleet-run</c> (seeded qualification run, works with -nographics),
-    /// <c>--crane-fleet-check REPORT.json</c> (CAD-swap check) or <c>--crane-fleet-still DIR</c> (the same seeded run
-    /// with graphics, rendering the overlay's still shots to PNG). The scene is built at runtime from the spec in
-    /// StreamingAssets/Fleet (or <c>--crane-fleet-spec DIR</c>); the player quits with 0 on success.
+    /// Player entry: <c>--crane-fleet-run</c> (seeded run, works with -nographics), <c>--crane-fleet-check REPORT.json</c> (CAD-swap check) or
+    /// <c>--crane-fleet-still DIR</c> (the same seeded run with graphics: the indoor look and the overlay's shots, triggered by time or by run
+    /// events, written as PNG; <c>--crane-fleet-clip</c> adds the clip frames). <c>--crane-fleet-mission demo</c> selects the demo mission.
     /// </summary>
     public sealed class FleetBoot : MonoBehaviour {
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -83,70 +86,142 @@ namespace Crane.Fleet.Sim {
                 yield break;
             }
             string still = FleetArgs.Get("--crane-fleet-still");
-            var opt = FleetArgs.RunOptions("player");
+            var opt = FleetArgs.RunOptions("player", spec);
             if (still != null && opt.OutDir == null) opt.OutDir = Path.Combine(still, "run");
             var run = new FleetRun(spec, opt);
+            var shots = still != null ? new FleetShots(spec, run, still, opt.Mission != null ? "demo_shots" : "stills") : null;
             run.Setup();
-            Debug.Log($"CRANE_FLEET_RUN_START id={run.RunId} dir={run.Dir}");
-            var shots = still != null ? FleetStills.Shots(spec) : new List<FleetStills.Shot>();
-            int next = 0;
+            if (shots != null) shots.Begin();
+            Debug.Log($"CRANE_FLEET_RUN_START id={run.RunId} dir={run.Dir} physics={run.Phys.Describe}");
             while (true) {
-                while (next < shots.Count && run.T >= shots[next].T - 1e-9) {
-                    yield return FleetStills.Render(spec, shots[next], still);
-                    next++;
-                }
+                if (shots != null) while (shots.Due()) yield return shots.RenderNext();
                 if (!run.Advance()) break;
-                if (run.Step % 4000 == 0) yield return null;
+                if (shots == null && run.Step % 4000 == 0) yield return null;
             }
-            while (next < shots.Count) { yield return FleetStills.Render(spec, shots[next], still); next++; }
+            if (shots != null) while (shots.Pending) yield return shots.RenderNext(force: true);
             run.Finish();
+            shots?.Finish();
             Debug.Log($"CRANE_FLEET_RUN_END id={run.RunId} reason={run.EndReason} t={run.T} steps={run.Step} dir={run.Dir}");
             exit(0);
         }
     }
 
-    /// <summary>Offscreen stills with an HDRP camera into a RenderTexture (needs a graphics device: run the player
-    /// batchmode without -nographics, under xvfb-run).</summary>
-    public static class FleetStills {
-        public sealed class Shot {
-            public string Name;
-            public double T, Fov;
-            public double[] Position, LookAt;
+    /// <summary>
+    /// Shots from the overlay (<c>stills</c> or <c>demo_shots</c>): each has a trigger (<c>t</c>, or <c>event</c> with optional rover / field
+    /// match and an offset in run seconds), a camera (absolute <c>position</c>/<c>look_at</c>; <c>target</c> = rover:id[:frame] or payload with
+    /// world offsets; or <c>sensor</c> = rover:frame for an onboard view), the profile (cinematic or sensor), fov and aperture. Rendered
+    /// offscreen through HDRP into a RenderTexture and written as PNG; a JSON line per still records time, trigger and the logged state names.
+    /// </summary>
+    public sealed class FleetShots {
+        sealed class Shot {
+            public string Name, Event, Rover, Field, Value, Profile = "cinematic";
+            public double T = double.NaN, Offset, Fov = 45, Aperture, Due = double.NaN;
+            public JsonNode Camera;
+            public bool Clip, Done;
+            public double T1, Fps, NextFrame; public int Frames;
         }
 
-        public static List<Shot> Shots(FleetSpec spec) {
-            var r = new List<Shot>();
-            foreach (var s in spec.O["stills.shots"].Items)
-                r.Add(new Shot { Name = s["name"].String, T = s["t"].Double, Fov = s["fov"].Double, Position = s["position"].Doubles, LookAt = s["look_at"].Doubles });
-            r.Sort((a, b) => a.T.CompareTo(b.T));
-            return r;
+        readonly FleetSpec spec;
+        readonly FleetRun run;
+        readonly string dir;
+        readonly List<Shot> shots = new List<Shot>();
+        readonly int w, h;
+        readonly StreamWriter index;
+        readonly bool look;
+        readonly bool clips;
+
+        public FleetShots(FleetSpec spec, FleetRun run, string dir, string section) {
+            this.spec = spec; this.run = run; this.dir = dir;
+            Directory.CreateDirectory(dir);
+            JsonNode S = spec.O[section];
+            double[] size = S["size"].Doubles;
+            double scale = double.Parse(FleetArgs.Get("--crane-fleet-still-scale", "1"), CultureInfo.InvariantCulture);
+            w = (int)(size[0] * scale); h = (int)(size[1] * scale);
+            look = S.Has("look") && S["look"].Bool;
+            clips = FleetArgs.Has("--crane-fleet-clip");
+            foreach (var n in S["shots"].Items) {
+                var s = new Shot { Name = n["name"].String, Camera = n["camera"], Fov = n.Has("fov") ? n["fov"].Double : 45, Aperture = n.Has("aperture") ? n["aperture"].Double : 0,
+                    Profile = n.Has("profile") ? n["profile"].String : "cinematic", Offset = n.Has("offset") ? n["offset"].Double : 0 };
+                if (n.Has("t")) s.T = s.Due = s.NextFrame = n["t"].Double;
+                if (n.Has("event")) { s.Event = n["event"].String; if (n.Has("rover")) s.Rover = n["rover"].String; if (n.Has("field")) { s.Field = n["field"].String; s.Value = n["value"].String; } }
+                if (n.Has("clip")) { if (!clips) continue; s.Clip = true; s.T1 = n["clip.duration_s"].Double; s.Fps = n["clip.fps"].Double; }
+                shots.Add(s);
+            }
+            index = new StreamWriter(Path.Combine(dir, "stills.jsonl"), false) { NewLine = "\n" };
+            run.EventRaised += OnEvent;
         }
 
-        public static IEnumerator Render(FleetSpec spec, Shot shot, string dir) {
-            double[] size = spec.O["stills.size"].Doubles;
-            int w = (int)size[0], h = (int)size[1];
-            var go = new GameObject("still camera " + shot.Name);
+        public void Begin() {
+            if (look) FleetLook.Apply(run.World, spec);
+            Debug.Log($"CRANE_FLEET_SHOTS n={shots.Count} size={w}x{h} look={look} clips={clips}");
+        }
+
+        void OnEvent(string kind, string rover, Dictionary<string, object> f) {
+            foreach (var s in shots) {
+                if (s.Event == null || !double.IsNaN(s.Due) || s.Event != kind) continue;
+                if (s.Rover != null && s.Rover != rover) continue;
+                if (s.Field != null && !(f.TryGetValue(s.Field, out var v) && Convert.ToString(v, CultureInfo.InvariantCulture) == s.Value)) continue;
+                s.Due = run.T + s.Offset;
+                if (s.Clip) s.NextFrame = s.Due;
+            }
+        }
+
+        public bool Pending { get { foreach (var s in shots) if (!s.Done && !double.IsNaN(s.Due)) return true; return false; } }
+
+        public bool Due() {
+            foreach (var s in shots) if (!s.Done && !double.IsNaN(s.Due) && run.T >= (s.Clip ? s.NextFrame : s.Due) - 1e-9) return true;
+            return false;
+        }
+
+        public IEnumerator RenderNext(bool force = false) {
+            foreach (var s in shots) {
+                if (s.Done || double.IsNaN(s.Due)) continue;
+                if (!force && run.T < (s.Clip ? s.NextFrame : s.Due) - 1e-9) continue;
+                if (s.Clip) {
+                    string d = Path.Combine(dir, s.Name);
+                    Directory.CreateDirectory(d);
+                    yield return Render(s, Path.Combine(d, $"frame_{s.Frames:D5}.png"), warm: s.Frames == 0 ? 8 : 1);
+                    s.Frames++;
+                    s.NextFrame = s.Due + s.Frames / s.Fps;
+                    if (force || s.NextFrame > s.Due + s.T1) s.Done = true;
+                }
+                else {
+                    yield return Render(s, Path.Combine(dir, s.Name + ".png"), warm: 12);
+                    s.Done = true;
+                }
+                yield break;
+            }
+        }
+
+        IEnumerator Render(Shot s, string path, int warm) {
+            var go = new GameObject("shot camera " + s.Name);
             var cam = go.AddComponent<Camera>();
-            var hd = go.AddComponent<HDAdditionalCameraData>();
-            hd.antialiasing = HDAdditionalCameraData.AntialiasingMode.SubpixelMorphologicalAntiAliasing;
-            hd.allowDynamicResolution = false;
+            go.AddComponent<HDAdditionalCameraData>();
             cam.enabled = false;
-            cam.nearClipPlane = 0.05f; cam.farClipPlane = 200f;
-            cam.fieldOfView = (float)shot.Fov;
+            Vector3 p, l;
+            double hfov = double.NaN;
+            if (s.Camera.Has("sensor")) {
+                var parts = s.Camera["sensor"].String.Split(':');
+                var frame = run.Rover(parts[0]).Frames["sensor_" + parts[1]];
+                p = frame.position; l = p + frame.forward;
+                go.transform.SetPositionAndRotation(p, frame.rotation);
+                hfov = spec.P["sensors.mono_camera_ov9281.hfov"].Double;
+                var missing = FleetLook.ConfigureSensor(cam, w, h, hfov);
+                if (missing.Count > 0) Debug.Log("CRANE_FLEET_SENSOR_FRAMESETTING_MISSING " + string.Join(",", missing));
+            }
+            else {
+                Vector3 anchor = Vector3.zero;
+                if (s.Camera.Has("target")) anchor = Target(s.Camera["target"].String);
+                p = anchor + Off(s.Camera, "position");
+                l = anchor + Off(s.Camera, "look_at");
+                go.transform.SetPositionAndRotation(p, Quaternion.LookRotation(l - p, Vector3.up));
+                cam.fieldOfView = (float)s.Fov;
+                FleetLook.ConfigureCinematic(cam, w, h, s.Fov, s.Aperture, (l - p).magnitude);
+            }
             var rt = new RenderTexture(w, h, 24, RenderTextureFormat.ARGB32, RenderTextureReadWrite.sRGB) { antiAliasing = 1 };
             rt.Create();
             cam.targetTexture = rt;
-            cam.aspect = w / (float)h;
-            Vector3 p = FleetFrames.World(shot.Position[0], shot.Position[1], shot.Position[2]);
-            Vector3 l = FleetFrames.World(shot.LookAt[0], shot.LookAt[1], shot.LookAt[2]);
-            go.transform.SetPositionAndRotation(p, Quaternion.LookRotation(l - p, Vector3.up));
-            var renderers = UnityEngine.Object.FindObjectsByType<Renderer>(FindObjectsInactive.Exclude);
-            Material sample = renderers.Length > 0 ? renderers[0].sharedMaterial : null;
-            Debug.Log($"CRANE_FLEET_STILL_DIAG renderers={renderers.Length} template={FleetGeometry.Template?.name} " +
-                      $"shader={(sample != null ? sample.shader.name : "none")} supported={(sample != null && sample.shader.isSupported)} " +
-                      $"passes={(sample != null ? sample.passCount : 0)} pipeline={UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline?.name} " +
-                      $"quality={QualitySettings.names[QualitySettings.GetQualityLevel()]} cam={p} look={l}");
-            for (int i = 0; i < 12; i++) { cam.Render(); yield return null; }  // sky, shadows and history warm-up
+            for (int i = 0; i < warm; i++) { cam.Render(); yield return null; }
             cam.Render();
             var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
             var prev = RenderTexture.active;
@@ -154,14 +229,55 @@ namespace Crane.Fleet.Sim {
             tex.ReadPixels(new Rect(0, 0, w, h), 0, 0, false);
             tex.Apply();
             RenderTexture.active = prev;
-            Directory.CreateDirectory(dir);
-            string path = Path.Combine(dir, shot.Name + ".png");
             File.WriteAllBytes(path, tex.EncodeToPNG());
-            Debug.Log($"CRANE_FLEET_STILL {path} {w}x{h} t={shot.T}");
+            var rec = new Dictionary<string, object> { ["shot"] = s.Name, ["file"] = Path.GetFileName(path), ["t"] = run.T, ["step"] = run.Step,
+                ["trigger"] = s.Event != null ? s.Event + (s.Value != null ? ":" + s.Value : "") + "+" + s.Offset.ToString(CultureInfo.InvariantCulture) : "t",
+                ["profile"] = s.Camera.Has("sensor") ? "sensor" : "cinematic", ["camera"] = new[] { (double)p.x, p.z, p.y }, ["look_at"] = new[] { (double)l.x, l.z, l.y },
+                ["fov"] = s.Fov, ["size"] = new[] { w, h } };
+            if (run.Opt.Mission is DemoMission dm) {
+                rec["connector"] = Crane.Fleet.Docking.ConnectorStateNames.ToProfileName(dm.Machine.State);
+                rec["hook_pos"] = new[] { dm.Machine.HookPosA, dm.Machine.HookPosB };
+                rec["payload_mode"] = dm.PayloadMode;
+                var steps = new Dictionary<string, object>();
+                foreach (var r in run.Rovers) steps[r.D.Id] = dm.StepOf(r.D.Id);
+                rec["steps"] = steps;
+            }
+            if (s.Camera.Has("sensor")) rec["sensor_profile_violations"] = FleetLook.Sensor != null ? FleetLook.SensorProfileViolations(FleetLook.Sensor) : new List<string> { "no sensor profile (look off)" };
+            index.WriteLine(FleetJson.Write(rec));
+            index.Flush();
+            if (!s.Clip) Debug.Log($"CRANE_FLEET_STILL {path} {w}x{h} t={run.T:0.00}");
             UnityEngine.Object.Destroy(tex);
             cam.targetTexture = null;
             rt.Release();
             UnityEngine.Object.Destroy(go);
+        }
+
+        Vector3 Target(string t) {
+            var parts = t.Split(':');
+            if (parts[0] == "payload" && run.Opt.Mission is DemoMission dm) return dm.Payload.worldCenterOfMass;
+            if (parts[0] == "rover") {
+                var r = run.Rover(parts[1]);
+                return parts.Length > 2 ? r.Frames[parts[2]].position : r.Body.position;
+            }
+            throw new ArgumentException("unknown camera target " + t);
+        }
+
+        static Vector3 Off(JsonNode cam, string key) { double[] v = cam[key].Doubles; return FleetFrames.World(v[0], v[1], v[2]); }
+
+        public void Finish() {
+            run.EventRaised -= OnEvent;
+            index.Dispose();
+            foreach (var s in shots) {
+                if (!s.Clip || s.Frames == 0) continue;
+                string d = Path.Combine(dir, s.Name), ff = FleetArgs.Get("--crane-fleet-ffmpeg", "ffmpeg");
+                try {
+                    var p = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(ff,
+                        $"-y -loglevel error -framerate {s.Fps.ToString(CultureInfo.InvariantCulture)} -i {d}/frame_%05d.png -c:v libx264 -pix_fmt yuv420p -crf 20 {d}.mp4") { UseShellExecute = false });
+                    p.WaitForExit();
+                    Debug.Log($"CRANE_FLEET_CLIP {d}.mp4 frames={s.Frames} exit={p.ExitCode}");
+                }
+                catch (Exception e) { Debug.Log($"CRANE_FLEET_CLIP_FAILED {e.Message}"); }
+            }
         }
     }
 }

@@ -23,6 +23,23 @@ namespace Crane.Fleet.Sim {
             Quaternion.AngleAxis((float)(pitchRad * 180.0 / Math.PI), Vector3.right);
 
         public static Quaternion Local(FramePose p) => LocalYawPitch(p.Yaw, p.Pitch);
+
+        /// <summary>Unity local rotation of a manifest rpy (R = Rz(yaw) Ry(pitch) Rx(roll), right-handed FLU).</summary>
+        public static Quaternion Rpy(double[] rpy) =>
+            Quaternion.AngleAxis((float)(-rpy[2] * 180.0 / Math.PI), Vector3.up) *
+            Quaternion.AngleAxis((float)(rpy[1] * 180.0 / Math.PI), Vector3.right) *
+            Quaternion.AngleAxis((float)(-rpy[0] * 180.0 / Math.PI), Vector3.forward);
+
+        /// <summary>Unity rotation of a right-handed rotation by <paramref name="angle"/> rad about FLU axis <paramref name="axis"/>.</summary>
+        public static Quaternion AxisAngle(double[] axis, double angle) =>
+            Quaternion.AngleAxis((float)(-angle * 180.0 / Math.PI), Local(axis));
+
+        /// <summary>Planar pose (ENU x, y, yaw) of a world transform whose local +z is its forward.</summary>
+        public static Pose2 Planar(Transform t) {
+            ToEnu(t.position, out double x, out double y, out _);
+            Attitude(t.rotation, out double yaw, out _, out _);
+            return new Pose2(x, y, yaw);
+        }
         public static Vector3 LocalPosition(FramePose p) => Local(p.X, p.Y, p.Z);
 
         /// <summary>ENU position of a Unity point.</summary>

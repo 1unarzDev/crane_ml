@@ -29,6 +29,8 @@ namespace Crane.Fleet.Sim {
         public readonly Dictionary<string, Transform> Frames = new Dictionary<string, Transform>();
         public readonly List<SphereCollider> WheelColliders = new List<SphereCollider>();
         public readonly string RenderSource;
+        public readonly AssetVisual Visual;   // null for primitives
+        public double Lift, GripperOpening = double.NaN;   // lifter state (m), render and payload carry
 
         readonly int imuEvery, encEvery;
         readonly double dt;
@@ -65,28 +67,15 @@ namespace Crane.Fleet.Sim {
             var bodyMat = new PhysicsMaterial("fleet body") { dynamicFriction = (float)bf, staticFriction = (float)bf };
             var wheelMat = new PhysicsMaterial("fleet wheel") { dynamicFriction = (float)wf, staticFriction = (float)wf,
                 frictionCombine = PhysicsMaterialCombine.Minimum, bounceCombine = PhysicsMaterialCombine.Minimum };
-            MeshManifest manifest = d.MeshManifestPresent ? MeshManifest.Load(d.MeshManifestPath) : null;
-            if (manifest != null && manifest.Collision.Count > 0) {
-                foreach (var e in manifest.Collision) {
-                    var go = new GameObject("collision_" + e.Obj);
-                    go.transform.SetParent(collision, false);
-                    var mc = go.AddComponent<MeshCollider>();
-                    mc.convex = true;
-                    mc.sharedMesh = FleetGeometry.ToMesh(e.Mesh, e.Obj);
-                    mc.sharedMaterial = bodyMat;
-                    mc.providesContacts = true;
-                }
-            }
-            else {
-                foreach (var part in d.CollisionParts) {
-                    var go = new GameObject("collision_" + part.Name);
-                    go.transform.SetParent(collision, false);
-                    go.transform.localPosition = FleetFrames.Local(part.Centre);
-                    var bc = go.AddComponent<BoxCollider>();
-                    bc.size = FleetFrames.LocalScale(part.Size[0], part.Size[1], part.Size[2]);
-                    bc.sharedMaterial = bodyMat;
-                    bc.providesContacts = true;
-                }
+            foreach (var part in d.CollisionParts) {
+                var go = new GameObject("collision_" + part.Name);
+                go.transform.SetParent(collision, false);
+                go.transform.localPosition = FleetFrames.Local(part.Centre);
+                go.transform.localRotation = FleetFrames.LocalYawPitch(part.Yaw, 0);
+                var bc = go.AddComponent<BoxCollider>();
+                bc.size = FleetFrames.LocalScale(part.Size[0], part.Size[1], part.Size[2]);
+                bc.sharedMaterial = bodyMat;
+                bc.providesContacts = true;
             }
             if (d.WheelContact != "sphere") throw new NotSupportedException("wheel contact " + d.WheelContact);
             foreach (var w in d.Wheels) {
@@ -99,19 +88,14 @@ namespace Crane.Fleet.Sim {
                 WheelColliders.Add(sc);
             }
 
-            // render geometry: mesh manifest when present, else primitives
-            var render = new GameObject("render").transform;
-            render.SetParent(Root.transform, false);
-            if (manifest != null) {
-                foreach (var e in manifest.Render) {
-                    var go = new GameObject("render_" + e.Obj);
-                    go.transform.SetParent(render, false);
-                    go.AddComponent<MeshFilter>().sharedMesh = FleetGeometry.ToMesh(e.Mesh, e.Obj);
-                    go.AddComponent<MeshRenderer>().sharedMaterial = FleetGeometry.Material(FleetFrames.Rgb(e.Color ?? d.Color));
-                }
-                RenderSource = manifest.Path;
+            // render geometry: the asset manifest when present, else primitives
+            if (d.MeshManifestPresent) {
+                Visual = new AssetVisual(d, Root.transform, spec);
+                RenderSource = d.MeshManifestPath;
             }
             else {
+                var render = new GameObject("render").transform;
+                render.SetParent(Root.transform, false);
                 foreach (var part in d.RenderPrimitives) FleetGeometry.Part(part, render);
                 RenderSource = "primitives";
             }
@@ -171,6 +155,16 @@ namespace Crane.Fleet.Sim {
                 Odometry?.IntegrateEncoders(encEvery * dt);
             }
         }
+
+        /// <summary>Drive the render-only movable parts from state (wheels from the plant's wheel angles; lift; gripper).</summary>
+        public void UpdateVisual() {
+            if (Visual == null) return;
+            Visual.SetWheels(Plant.WheelAngle);
+            Visual.SetLift(Lift);
+            if (!double.IsNaN(GripperOpening)) Visual.SetGripper(GripperOpening);
+        }
+
+        public Transform RenderRoot => Visual != null ? Visual.Root : Root.transform.Find("render");
 
         public void StartOdometry() {
             RoverTruth t = Truth();

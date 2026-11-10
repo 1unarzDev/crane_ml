@@ -1,0 +1,1637 @@
+{
+ "schema": "crane.fleet_asset_manifest/v0",
+ "asset_id": "cargo_provisional_v0",
+ "role": "cargo",
+ "created": "generated",
+ "description": "Flat cargo deck; two of these in the first fleet.",
+ "profile": {
+  "profile_id": "mecanum_fleet_provisional_v0",
+  "path": "Tools/Fleet/spec/fleet_profile_v0.json",
+  "sha256": "7674dd0e7ef6b678f04d7b2e9af97990390632650149e2519b90c26ecf96ce31",
+  "version_note": "bump profile_id when replacing provisional values with CAD values"
+ },
+ "units": {
+  "length": "m",
+  "mass": "kg",
+  "angle": "rad"
+ },
+ "conventions": {
+  "handedness": "right",
+  "axes": "x_forward_y_left_z_up",
+  "pose": "xyz [m]; rpy [rad] extrinsic roll-pitch-yaw, R = Rz(yaw) Ry(pitch) Rx(roll); poses give child frame in parent frame; OBJ vertices are in the PART frame",
+  "obj": "OBJ vertices are metres in the part frame, right-handed z-up, triangle winding counter-clockwise seen from outside; v/vt/vn present; vt origin bottom-left",
+  "unity": "Unity (left-handed, y up, z forward): (x_u,y_u,z_u) = (-y, z, x); reverse triangle winding (a,b,c)->(a,c,b); yaw psi (left turn) -> Unity euler y = -psi; quaternion (x,y,z,w) -> (y,-z,-x,w). Worked example: hook pivot (0.21,0.06,0.06) -> (-0.06,0.06,0.21).",
+  "camera_optical": "optical frame x right, y down, z forward (OpenCV/ROS optical); link frame x forward, y left, z up",
+  "tag_frame": "AprilTag3 detector convention: x right, y down (as seen by a viewer), z INTO the tag; outward_normal gives the viewer-side normal"
+ },
+ "base_frame": {
+  "name": "base_link",
+  "description": "origin at the centre of the body underside (footprint centre, z = body bottom); ground plane is z = -ground_clearance",
+  "ground_clearance": 0.03,
+  "ground_z": -0.03
+ },
+ "render": {
+  "provenance": "provisional",
+  "source_file": "Tools/Fleet/assets/gen_provisional.py",
+  "note": "generated placeholder shapes",
+  "mtl_file": "cargo.mtl",
+  "materials": {
+   "shell_cargo": {
+    "base_color": [
+     0.28,
+     0.62,
+     0.36
+    ],
+    "specular": 0.25,
+    "shininess": 35
+   },
+   "shell_dark": {
+    "base_color": [
+     0.13,
+     0.14,
+     0.16
+    ],
+    "specular": 0.2,
+    "shininess": 30
+   },
+   "guide": {
+    "base_color": [
+     0.98,
+     0.84,
+     0.1
+    ],
+    "specular": 0.2,
+    "shininess": 30,
+    "note": "funnel / chamfer lead-in faces of the docking pocket"
+   },
+   "pin": {
+    "base_color": [
+     0.78,
+     0.78,
+     0.8
+    ],
+    "specular": 0.6,
+    "shininess": 80
+   },
+   "hook": {
+    "base_color": [
+     0.9,
+     0.16,
+     0.12
+    ],
+    "specular": 0.3,
+    "shininess": 40
+   },
+   "wheel_hub": {
+    "base_color": [
+     0.1,
+     0.1,
+     0.11
+    ]
+   },
+   "axle_cap": {
+    "base_color": [
+     0.55,
+     0.56,
+     0.58
+    ],
+    "specular": 0.5,
+    "shininess": 60
+   },
+   "roller": {
+    "base_color": [
+     0.86,
+     0.86,
+     0.8
+    ],
+    "specular": 0.2
+   },
+   "tag36h11_00030": {
+    "base_color": [
+     1,
+     1,
+     1
+    ],
+    "specular": 0.0,
+    "texture": "../textures/tag36h11_00030.png",
+    "note": "tag36h11 id 30"
+   },
+   "tag36h11_00031": {
+    "base_color": [
+     1,
+     1,
+     1
+    ],
+    "specular": 0.0,
+    "texture": "../textures/tag36h11_00031.png",
+    "note": "tag36h11 id 31"
+   },
+   "tag36h11_00034": {
+    "base_color": [
+     1,
+     1,
+     1
+    ],
+    "specular": 0.0,
+    "texture": "../textures/tag36h11_00034.png",
+    "note": "tag36h11 id 34"
+   },
+   "marker": {
+    "base_color": [
+     0.95,
+     0.95,
+     0.95
+    ],
+    "alpha": 0.6
+   },
+   "deck": {
+    "base_color": [
+     0.46,
+     0.47,
+     0.5
+    ],
+    "specular": 0.1
+   },
+   "sensor_body": {
+    "base_color": [
+     0.08,
+     0.08,
+     0.09
+    ]
+   },
+   "lens": {
+    "base_color": [
+     0.02,
+     0.03,
+     0.08
+    ],
+    "specular": 0.9,
+    "shininess": 120
+   }
+  },
+  "parts": [
+   {
+    "name": "chassis_body",
+    "file": "chassis_body.obj",
+    "parent": "base_link",
+    "origin": {
+     "xyz": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    "materials": [
+     "shell_cargo",
+     "shell_dark",
+     "guide",
+     "pin"
+    ],
+    "kind": "solid",
+    "default_visible": true,
+    "role_in_assembly": "body"
+   },
+   {
+    "name": "hook_front_a",
+    "file": "hook_front_a.obj",
+    "parent": "base_link",
+    "origin": {
+     "xyz": [
+      0.18,
+      0.06,
+      0.071
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    "materials": [
+     "hook",
+     "pin"
+    ],
+    "kind": "solid",
+    "default_visible": true,
+    "role_in_assembly": "hook",
+    "joint": {
+     "type": "revolute",
+     "axis": [
+      0,
+      0,
+      1
+     ],
+     "limits": [
+      0.0,
+      1.3
+     ],
+     "authored_value": 0.0,
+     "actuated_ref": "hook_front_a"
+    }
+   },
+   {
+    "name": "hook_front_b",
+    "file": "hook_front_b.obj",
+    "parent": "base_link",
+    "origin": {
+     "xyz": [
+      0.18,
+      -0.06,
+      0.049
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    "materials": [
+     "hook",
+     "pin"
+    ],
+    "kind": "solid",
+    "default_visible": true,
+    "role_in_assembly": "hook",
+    "joint": {
+     "type": "revolute",
+     "axis": [
+      0,
+      0,
+      1
+     ],
+     "limits": [
+      -1.3,
+      0.0
+     ],
+     "authored_value": 0.0,
+     "actuated_ref": "hook_front_b"
+    }
+   },
+   {
+    "name": "hook_rear_a",
+    "file": "hook_rear_a.obj",
+    "parent": "base_link",
+    "origin": {
+     "xyz": [
+      -0.18,
+      -0.06,
+      0.071
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      3.14159265
+     ]
+    },
+    "materials": [
+     "hook",
+     "pin"
+    ],
+    "kind": "solid",
+    "default_visible": true,
+    "role_in_assembly": "hook",
+    "joint": {
+     "type": "revolute",
+     "axis": [
+      0,
+      0,
+      1
+     ],
+     "limits": [
+      0.0,
+      1.3
+     ],
+     "authored_value": 0.0,
+     "actuated_ref": "hook_rear_a"
+    }
+   },
+   {
+    "name": "hook_rear_b",
+    "file": "hook_rear_b.obj",
+    "parent": "base_link",
+    "origin": {
+     "xyz": [
+      -0.18,
+      0.06,
+      0.049
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      3.14159265
+     ]
+    },
+    "materials": [
+     "hook",
+     "pin"
+    ],
+    "kind": "solid",
+    "default_visible": true,
+    "role_in_assembly": "hook",
+    "joint": {
+     "type": "revolute",
+     "axis": [
+      0,
+      0,
+      1
+     ],
+     "limits": [
+      -1.3,
+      0.0
+     ],
+     "authored_value": 0.0,
+     "actuated_ref": "hook_rear_b"
+    }
+   },
+   {
+    "name": "wheel_FL",
+    "file": "wheel_FL.obj",
+    "parent": "base_link",
+    "origin": {
+     "xyz": [
+      0.14,
+      0.175,
+      0.0185
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    "materials": [
+     "wheel_hub",
+     "axle_cap",
+     "roller"
+    ],
+    "kind": "solid",
+    "default_visible": true,
+    "role_in_assembly": "wheel",
+    "joint": {
+     "type": "continuous",
+     "axis": [
+      0,
+      1,
+      0
+     ],
+     "authored_value": 0.0
+    },
+    "contacts_ground": true
+   },
+   {
+    "name": "wheel_FR",
+    "file": "wheel_FR.obj",
+    "parent": "base_link",
+    "origin": {
+     "xyz": [
+      0.14,
+      -0.175,
+      0.0185
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    "materials": [
+     "wheel_hub",
+     "axle_cap",
+     "roller"
+    ],
+    "kind": "solid",
+    "default_visible": true,
+    "role_in_assembly": "wheel",
+    "joint": {
+     "type": "continuous",
+     "axis": [
+      0,
+      1,
+      0
+     ],
+     "authored_value": 0.0
+    },
+    "contacts_ground": true
+   },
+   {
+    "name": "wheel_RL",
+    "file": "wheel_RL.obj",
+    "parent": "base_link",
+    "origin": {
+     "xyz": [
+      -0.14,
+      0.175,
+      0.0185
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    "materials": [
+     "wheel_hub",
+     "axle_cap",
+     "roller"
+    ],
+    "kind": "solid",
+    "default_visible": true,
+    "role_in_assembly": "wheel",
+    "joint": {
+     "type": "continuous",
+     "axis": [
+      0,
+      1,
+      0
+     ],
+     "authored_value": 0.0
+    },
+    "contacts_ground": true
+   },
+   {
+    "name": "wheel_RR",
+    "file": "wheel_RR.obj",
+    "parent": "base_link",
+    "origin": {
+     "xyz": [
+      -0.14,
+      -0.175,
+      0.0185
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    "materials": [
+     "wheel_hub",
+     "axle_cap",
+     "roller"
+    ],
+    "kind": "solid",
+    "default_visible": true,
+    "role_in_assembly": "wheel",
+    "joint": {
+     "type": "continuous",
+     "axis": [
+      0,
+      1,
+      0
+     ],
+     "authored_value": 0.0
+    },
+    "contacts_ground": true
+   },
+   {
+    "name": "tag_front",
+    "file": "tag_front.obj",
+    "parent": "base_link",
+    "origin": {
+     "xyz": [
+      0.171,
+      0.0,
+      0.06
+     ],
+     "rpy": [
+      -1.570796327,
+      0.0,
+      1.570796327
+     ]
+    },
+    "materials": [
+     "tag36h11_00030"
+    ],
+    "kind": "quad",
+    "default_visible": true,
+    "role_in_assembly": "tag"
+   },
+   {
+    "name": "tag_rear",
+    "file": "tag_rear.obj",
+    "parent": "base_link",
+    "origin": {
+     "xyz": [
+      -0.171,
+      -0.0,
+      0.06
+     ],
+     "rpy": [
+      -1.570796327,
+      0.0,
+      -1.57079633
+     ]
+    },
+    "materials": [
+     "tag36h11_00031"
+    ],
+    "kind": "quad",
+    "default_visible": true,
+    "role_in_assembly": "tag"
+   },
+   {
+    "name": "tag_top",
+    "file": "tag_top.obj",
+    "parent": "base_link",
+    "origin": {
+     "xyz": [
+      0.0,
+      0.0,
+      0.1106
+     ],
+     "rpy": [
+      3.141592654,
+      0.0,
+      -1.570796327
+     ]
+    },
+    "materials": [
+     "tag36h11_00034"
+    ],
+    "kind": "quad",
+    "default_visible": true,
+    "role_in_assembly": "tag"
+   },
+   {
+    "name": "dock_marker_left",
+    "file": "dock_marker_left.obj",
+    "parent": "base_link",
+    "origin": {
+     "xyz": [
+      0.0,
+      0.2,
+      0.06
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      1.57079633
+     ]
+    },
+    "materials": [
+     "marker"
+    ],
+    "kind": "solid",
+    "default_visible": false,
+    "role_in_assembly": "marker",
+    "hideable_group": "side_dock_markers"
+   },
+   {
+    "name": "dock_marker_right",
+    "file": "dock_marker_right.obj",
+    "parent": "base_link",
+    "origin": {
+     "xyz": [
+      0.0,
+      -0.2,
+      0.06
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      -1.57079633
+     ]
+    },
+    "materials": [
+     "marker"
+    ],
+    "kind": "solid",
+    "default_visible": false,
+    "role_in_assembly": "marker",
+    "hideable_group": "side_dock_markers"
+   },
+   {
+    "name": "deck",
+    "file": "deck.obj",
+    "parent": "base_link",
+    "origin": {
+     "xyz": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    "materials": [
+     "deck",
+     "shell_cargo"
+    ],
+    "kind": "solid",
+    "default_visible": true,
+    "role_in_assembly": "deck"
+   },
+   {
+    "name": "front_camera",
+    "file": "front_camera.obj",
+    "parent": "base_link",
+    "origin": {
+     "xyz": [
+      0.185,
+      0.0,
+      0.132
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    "materials": [
+     "sensor_body",
+     "lens"
+    ],
+    "kind": "solid",
+    "default_visible": true,
+    "role_in_assembly": "sensor"
+   },
+   {
+    "name": "front_tof",
+    "file": "front_tof.obj",
+    "parent": "base_link",
+    "origin": {
+     "xyz": [
+      0.185,
+      0.05,
+      0.128
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    "materials": [
+     "sensor_body"
+    ],
+    "kind": "solid",
+    "default_visible": true,
+    "role_in_assembly": "sensor"
+   }
+  ]
+ },
+ "collision": {
+  "provenance": "provisional",
+  "source_file": "Tools/Fleet/assets/gen_provisional.py",
+  "note": "primitives; cylinder axis = shape-frame z",
+  "shapes": [
+   {
+    "name": "chassis_col",
+    "type": "box",
+    "parent": "base_link",
+    "origin": {
+     "xyz": [
+      0.0,
+      0.0,
+      0.05
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    "size": [
+     0.42,
+     0.3,
+     0.1
+    ]
+   },
+   {
+    "name": "wheel_FL_col",
+    "type": "cylinder",
+    "parent": "wheel_FL",
+    "origin": {
+     "xyz": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "rpy": [
+      -1.570796327,
+      0.0,
+      0.0
+     ]
+    },
+    "radius": 0.0485,
+    "height": 0.045
+   },
+   {
+    "name": "wheel_FR_col",
+    "type": "cylinder",
+    "parent": "wheel_FR",
+    "origin": {
+     "xyz": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "rpy": [
+      -1.570796327,
+      0.0,
+      0.0
+     ]
+    },
+    "radius": 0.0485,
+    "height": 0.045
+   },
+   {
+    "name": "wheel_RL_col",
+    "type": "cylinder",
+    "parent": "wheel_RL",
+    "origin": {
+     "xyz": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "rpy": [
+      -1.570796327,
+      0.0,
+      0.0
+     ]
+    },
+    "radius": 0.0485,
+    "height": 0.045
+   },
+   {
+    "name": "wheel_RR_col",
+    "type": "cylinder",
+    "parent": "wheel_RR",
+    "origin": {
+     "xyz": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "rpy": [
+      -1.570796327,
+      0.0,
+      0.0
+     ]
+    },
+    "radius": 0.0485,
+    "height": 0.045
+   },
+   {
+    "name": "deck_col",
+    "type": "box",
+    "parent": "base_link",
+    "origin": {
+     "xyz": [
+      0.0,
+      0.0,
+      0.104
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    "size": [
+     0.4,
+     0.3,
+     0.012
+    ]
+   },
+   {
+    "name": "deck_lip_col",
+    "type": "box",
+    "parent": "base_link",
+    "origin": {
+     "xyz": [
+      0.0,
+      0.0,
+      0.116
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    "size": [
+     0.4,
+     0.3,
+     0.012
+    ]
+   }
+  ]
+ },
+ "mass_properties": {
+  "provenance": "provisional",
+  "source_file": "Tools/Fleet/assets/gen_provisional.py",
+  "mass": 6.8,
+  "com_xyz": [
+   0.0,
+   0.0,
+   0.056352941
+  ],
+  "inertia_tensor": [
+   [
+    0.068067953,
+    0.0,
+    0.0
+   ],
+   [
+    0.0,
+    0.11273462,
+    0.0
+   ],
+   [
+    0.0,
+    0.0,
+    0.156666667
+   ]
+  ],
+  "frame": "base_link axes, about the centre of mass",
+  "derivation": [
+   {
+    "component": "chassis_base",
+    "mass": 6.0,
+    "com_xyz": [
+     0.0,
+     0.0,
+     0.05
+    ],
+    "inertia_about_own_com": [
+     [
+      0.06,
+      0.0,
+      0.0
+     ],
+     [
+      0.0,
+      0.1,
+      0.0
+     ],
+     [
+      0.0,
+      0.0,
+      0.14
+     ]
+    ]
+   },
+   {
+    "component": "added_mass",
+    "mass": 0.8,
+    "com_xyz": [
+     0.0,
+     0.0,
+     0.10400000000000001
+    ],
+    "inertia_about_own_com": [
+     [
+      0.0060096,
+      0.0,
+      0.0
+     ],
+     [
+      0.0,
+      0.010676266666666668,
+      0.0
+     ],
+     [
+      0.0,
+      0.0,
+      0.016666666666666666
+     ]
+    ]
+   }
+  ],
+  "optional_masses": [],
+  "note": "Base chassis from profile (mass, com, inertia_diag) plus the role's added mass as a solid box (parallel-axis combined). Provisional."
+ },
+ "wheels": {
+  "provenance": "provisional",
+  "source_file": "Tools/Fleet/assets/gen_provisional.py",
+  "convention": {
+   "name": "mecanum_X",
+   "frames": "wheel frame: origin at the axle centre, axes parallel to base_link; spin axis +y for ALL wheels; positive spin rolls the rover forward (+x)",
+   "ground_roller_axis": "a_i = (sin(alpha), s_i*cos(alpha)) in base xy (alpha = angle between roller axis and wheel axle, 45 deg), oriented forward",
+   "sign_rule": "s_i = -sign(x_i * y_i): FL -1, FR +1, RL +1, RR -1 (FL and RR parallel, FR and RL parallel)",
+   "kinematics": "w_i = (vx + k_i*vy + (lx+ly)*kz_i*wz)/r with k = (-1,+1,+1,-1) and kz = (-1,+1,-1,+1) for (FL,FR,RL,RR); equivalently vx=r/4*sum(w), vy=r/4*(-wFL+wFR+wRL-wRR), wz=r/(4(lx+ly))*(-wFL+wFR-wRL+wRR)",
+   "verify": "(1) all four wheels forward -> +x; (2) wFL=wRR=-w, wFR=wRL=+w -> pure strafe LEFT (+y); (3) the roller touching the ground in each wheel mesh, viewed from above, has its axis along a_i: FL and RR drawn '/' (rising to the right... forward-right), FR and RL '\\\\' when forward is up on the page; the TOP-visible rollers show the mirror image (the 'X' seen from above). validate_manifest.py recomputes (3) from the OBJ roller groups."
+  },
+  "items": [
+   {
+    "name": "FL",
+    "position": [
+     0.14,
+     0.175,
+     0.018500000000000003
+    ],
+    "frame": {
+     "xyz": [
+      0.14,
+      0.175,
+      0.0185
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    "axis": [
+     0,
+     1,
+     0
+    ],
+    "radius": 0.0485,
+    "width": 0.045,
+    "roller_count": 10,
+    "roller_angle": 0.7853981634,
+    "roller_angle_sign": -1,
+    "ground_roller_axis_xy": [
+     0.707106781,
+     -0.707106781
+    ],
+    "render_part": "wheel_FL",
+    "collision_shape": "wheel_FL_col"
+   },
+   {
+    "name": "FR",
+    "position": [
+     0.14,
+     -0.175,
+     0.018500000000000003
+    ],
+    "frame": {
+     "xyz": [
+      0.14,
+      -0.175,
+      0.0185
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    "axis": [
+     0,
+     1,
+     0
+    ],
+    "radius": 0.0485,
+    "width": 0.045,
+    "roller_count": 10,
+    "roller_angle": 0.7853981634,
+    "roller_angle_sign": 1,
+    "ground_roller_axis_xy": [
+     0.707106781,
+     0.707106781
+    ],
+    "render_part": "wheel_FR",
+    "collision_shape": "wheel_FR_col"
+   },
+   {
+    "name": "RL",
+    "position": [
+     -0.14,
+     0.175,
+     0.018500000000000003
+    ],
+    "frame": {
+     "xyz": [
+      -0.14,
+      0.175,
+      0.0185
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    "axis": [
+     0,
+     1,
+     0
+    ],
+    "radius": 0.0485,
+    "width": 0.045,
+    "roller_count": 10,
+    "roller_angle": 0.7853981634,
+    "roller_angle_sign": 1,
+    "ground_roller_axis_xy": [
+     0.707106781,
+     0.707106781
+    ],
+    "render_part": "wheel_RL",
+    "collision_shape": "wheel_RL_col"
+   },
+   {
+    "name": "RR",
+    "position": [
+     -0.14,
+     -0.175,
+     0.018500000000000003
+    ],
+    "frame": {
+     "xyz": [
+      -0.14,
+      -0.175,
+      0.0185
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    "axis": [
+     0,
+     1,
+     0
+    ],
+    "radius": 0.0485,
+    "width": 0.045,
+    "roller_count": 10,
+    "roller_angle": 0.7853981634,
+    "roller_angle_sign": -1,
+    "ground_roller_axis_xy": [
+     0.707106781,
+     -0.707106781
+    ],
+    "render_part": "wheel_RR",
+    "collision_shape": "wheel_RR_col"
+   }
+  ],
+  "note": "ground_roller_axis_xy = (sin(roller_angle), s*cos(roller_angle)) is the roller axis at the contact patch, oriented forward"
+ },
+ "sensors": {
+  "provenance": "provisional",
+  "source_file": "Tools/Fleet/assets/gen_provisional.py",
+  "frames": [
+   {
+    "name": "imu",
+    "type": "imu",
+    "parent": "base_link",
+    "origin": {
+     "xyz": [
+      0.0,
+      0.0,
+      0.05
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    "params": {
+     "rate_hz": 200,
+     "gyro_noise_density": 0.0003,
+     "gyro_bias_instability": 5e-05
+    }
+   },
+   {
+    "name": "cam_front",
+    "type": "camera",
+    "parent": "base_link",
+    "origin": {
+     "xyz": [
+      0.189,
+      0.0,
+      0.132
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    "optical_origin": {
+     "xyz": [
+      0.189,
+      0.0,
+      0.132
+     ],
+     "rpy": [
+      -1.570796327,
+      0.0,
+      -1.570796327
+     ]
+    },
+    "optical_axis_convention": "optical frame: x right, y down, z = optical axis (forward); link frame: x = optical axis, y left, z up",
+    "params": {
+     "resolution": [
+      1280,
+      800
+     ],
+     "hfov": 1.4,
+     "rate_hz": 60,
+     "latency": 0.03,
+     "shutter": "global",
+     "encoding": "mono8"
+    },
+    "render_part": "front_camera"
+   },
+   {
+    "name": "tof_front",
+    "type": "tof",
+    "parent": "base_link",
+    "origin": {
+     "xyz": [
+      0.185,
+      0.05,
+      0.128
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    "params": {
+     "max_range": 2.0,
+     "fov": 0.44,
+     "rate_hz": 30
+    },
+    "render_part": "front_tof"
+   }
+  ]
+ },
+ "attachments": {
+  "provenance": "provisional",
+  "source_file": "Tools/Fleet/assets/gen_provisional.py",
+  "mating_convention": "Face frame: origin on the mating plane at the face centre, +x = outward normal (pointing away from the rover), +z up, +y = z cross x. Two faces are mated when T_world_B*F_B = T_world_A*F_A*Rz(pi): origins coincide, outward normals are opposite, z stays up, y flips. Faces are hermaphroditic: each has two hooks (A at face y>0 on the upper level +dz, B at y<0 on the lower level -dz) and two catch pins (pin_hi at y=-yc upper level, pin_lo at y=+yc lower level) so that A's hook A closes on the opposing face's pin_hi and so on. A hook's engage_point (hook frame, closed) must coincide with the opposing catch pin position when mated.",
+  "docking_faces": [
+   {
+    "name": "front",
+    "active": true,
+    "geometry": "modelled",
+    "origin": {
+     "xyz": [
+      0.21,
+      0.0,
+      0.06
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    },
+    "hooks": [
+     "hook_front_a",
+     "hook_front_b"
+    ],
+    "catch_pins": [
+     {
+      "name": "front_pin_hi",
+      "position": [
+       -0.0145,
+       -0.0485,
+       0.011
+      ],
+      "radius": 0.004
+     },
+     {
+      "name": "front_pin_lo",
+      "position": [
+       -0.0145,
+       0.0485,
+       -0.011
+      ],
+      "radius": 0.004
+     }
+    ],
+    "guide": {
+     "type": "funnel",
+     "axis": "face +x (centreline of the pocket)",
+     "chamfer_width": 0.01,
+     "flare_deg": 45.0,
+     "profile_half_width": 0.01,
+     "profile_acceptance_half_angle": 0.087,
+     "material_slot": "guide"
+    },
+    "pocket": {
+     "half_width": 0.12581349112503157,
+     "half_height": 0.025,
+     "depth": 0.04,
+     "back_wall_x": -0.04
+    },
+    "tag": "tag_front"
+   },
+   {
+    "name": "rear",
+    "active": true,
+    "geometry": "modelled",
+    "origin": {
+     "xyz": [
+      -0.21,
+      0.0,
+      0.06
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      3.14159265
+     ]
+    },
+    "hooks": [
+     "hook_rear_a",
+     "hook_rear_b"
+    ],
+    "catch_pins": [
+     {
+      "name": "rear_pin_hi",
+      "position": [
+       -0.0145,
+       -0.0485,
+       0.011
+      ],
+      "radius": 0.004
+     },
+     {
+      "name": "rear_pin_lo",
+      "position": [
+       -0.0145,
+       0.0485,
+       -0.011
+      ],
+      "radius": 0.004
+     }
+    ],
+    "guide": {
+     "type": "funnel",
+     "axis": "face +x (centreline of the pocket)",
+     "chamfer_width": 0.01,
+     "flare_deg": 45.0,
+     "profile_half_width": 0.01,
+     "profile_acceptance_half_angle": 0.087,
+     "material_slot": "guide"
+    },
+    "pocket": {
+     "half_width": 0.12581349112503157,
+     "half_height": 0.025,
+     "depth": 0.04,
+     "back_wall_x": -0.04
+    },
+    "tag": "tag_rear"
+   },
+   {
+    "name": "left",
+    "active": false,
+    "geometry": "marker_only",
+    "origin": {
+     "xyz": [
+      0.0,
+      0.2,
+      0.06
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      1.57079633
+     ]
+    },
+    "hooks": [],
+    "catch_pins": [],
+    "guide": {},
+    "note": "available face: frame only; no pocket/hooks modelled (placed at y=+-0.20, outside body and wheel envelope)"
+   },
+   {
+    "name": "right",
+    "active": false,
+    "geometry": "marker_only",
+    "origin": {
+     "xyz": [
+      0.0,
+      -0.2,
+      0.06
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      -1.57079633
+     ]
+    },
+    "hooks": [],
+    "catch_pins": [],
+    "guide": {},
+    "note": "available face: frame only; no pocket/hooks modelled (placed at y=+-0.20, outside body and wheel envelope)"
+   }
+  ],
+  "hook_pivots": [
+   {
+    "name": "pivot_front_a",
+    "face": "front",
+    "parent": "base_link",
+    "origin": {
+     "xyz": [
+      0.18,
+      0.06,
+      0.071
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    }
+   },
+   {
+    "name": "pivot_front_b",
+    "face": "front",
+    "parent": "base_link",
+    "origin": {
+     "xyz": [
+      0.18,
+      -0.06,
+      0.049
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      0.0
+     ]
+    }
+   },
+   {
+    "name": "pivot_rear_a",
+    "face": "rear",
+    "parent": "base_link",
+    "origin": {
+     "xyz": [
+      -0.18,
+      -0.06,
+      0.071
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      3.14159265
+     ]
+    }
+   },
+   {
+    "name": "pivot_rear_b",
+    "face": "rear",
+    "parent": "base_link",
+    "origin": {
+     "xyz": [
+      -0.18,
+      0.06,
+      0.049
+     ],
+     "rpy": [
+      0.0,
+      0.0,
+      3.14159265
+     ]
+    }
+   }
+  ],
+  "tags": [
+   {
+    "name": "tag_front",
+    "family": "tag36h11",
+    "id": 30,
+    "size": 0.05,
+    "plate_size": 0.0625,
+    "parent": "base_link",
+    "origin": {
+     "xyz": [
+      0.171,
+      0.0,
+      0.06
+     ],
+     "rpy": [
+      -1.570796327,
+      0.0,
+      1.570796327
+     ]
+    },
+    "outward_normal": [
+     1.0,
+     0.0,
+     0.0
+    ],
+    "render_part": "tag_front",
+    "texture": "../textures/tag36h11_00030.png",
+    "instance_id_offset_per_unit": 10
+   },
+   {
+    "name": "tag_rear",
+    "family": "tag36h11",
+    "id": 31,
+    "size": 0.05,
+    "plate_size": 0.0625,
+    "parent": "base_link",
+    "origin": {
+     "xyz": [
+      -0.171,
+      -0.0,
+      0.06
+     ],
+     "rpy": [
+      -1.570796327,
+      0.0,
+      -1.57079633
+     ]
+    },
+    "outward_normal": [
+     -1.0,
+     4e-09,
+     0.0
+    ],
+    "render_part": "tag_rear",
+    "texture": "../textures/tag36h11_00031.png",
+    "instance_id_offset_per_unit": 10
+   },
+   {
+    "name": "tag_top",
+    "family": "tag36h11",
+    "id": 34,
+    "size": 0.12,
+    "plate_size": 0.15,
+    "parent": "base_link",
+    "origin": {
+     "xyz": [
+      0.0,
+      0.0,
+      0.1106
+     ],
+     "rpy": [
+      3.141592654,
+      0.0,
+      -1.570796327
+     ]
+    },
+    "outward_normal": [
+     0.0,
+     0.0,
+     1.0
+    ],
+    "render_part": "tag_top",
+    "texture": "../textures/tag36h11_00034.png",
+    "may_be_occluded_by_payload": true,
+    "instance_id_offset_per_unit": 10
+   }
+  ]
+ },
+ "actuated": {
+  "provenance": "provisional",
+  "source_file": "Tools/Fleet/assets/gen_provisional.py",
+  "hooks": [
+   {
+    "name": "hook_front_a",
+    "face": "front",
+    "part": "hook_front_a",
+    "pivot": "pivot_front_a",
+    "axis": [
+     0,
+     0,
+     1
+    ],
+    "closed_angle": 0.0,
+    "open_angle": 1.3,
+    "authored_angle": 0.0,
+    "engage_point": [
+     0.0445,
+     -0.0115,
+     0.0
+    ],
+    "level_dz": 0.011,
+    "rated_load": 60.0,
+    "actuation_time": 0.8
+   },
+   {
+    "name": "hook_front_b",
+    "face": "front",
+    "part": "hook_front_b",
+    "pivot": "pivot_front_b",
+    "axis": [
+     0,
+     0,
+     1
+    ],
+    "closed_angle": 0.0,
+    "open_angle": -1.3,
+    "authored_angle": 0.0,
+    "engage_point": [
+     0.0445,
+     0.0115,
+     0.0
+    ],
+    "level_dz": -0.011,
+    "rated_load": 60.0,
+    "actuation_time": 0.8
+   },
+   {
+    "name": "hook_rear_a",
+    "face": "rear",
+    "part": "hook_rear_a",
+    "pivot": "pivot_rear_a",
+    "axis": [
+     0,
+     0,
+     1
+    ],
+    "closed_angle": 0.0,
+    "open_angle": 1.3,
+    "authored_angle": 0.0,
+    "engage_point": [
+     0.0445,
+     -0.0115,
+     0.0
+    ],
+    "level_dz": 0.011,
+    "rated_load": 60.0,
+    "actuation_time": 0.8
+   },
+   {
+    "name": "hook_rear_b",
+    "face": "rear",
+    "part": "hook_rear_b",
+    "pivot": "pivot_rear_b",
+    "axis": [
+     0,
+     0,
+     1
+    ],
+    "closed_angle": 0.0,
+    "open_angle": -1.3,
+    "authored_angle": 0.0,
+    "engage_point": [
+     0.0445,
+     0.0115,
+     0.0
+    ],
+    "level_dz": -0.011,
+    "rated_load": 60.0,
+    "actuation_time": 0.8
+   }
+  ],
+  "lift": null
+ },
+ "generator_defaults": {
+  "file": "Tools/Fleet/assets/generator_defaults.json",
+  "sha256": "fc64c8df052dafa015f1b20f145d04a90a247ad9aabd2f146364f483b74ab57b",
+  "keys_used": [
+   "cargo.camera_x",
+   "cargo.deck_thickness",
+   "cargo.lip_height",
+   "cargo.lip_width",
+   "cargo.tof_offset_y",
+   "chassis.corner_chamfer",
+   "chassis.dock_module_depth",
+   "chassis.edge_chamfer",
+   "chassis.top_plate_thickness",
+   "chassis.uv_scale",
+   "chassis.wheel_well_inset",
+   "chassis.wheel_well_margin",
+   "dock.engage_clearance",
+   "dock.guide_chamfer_max_frac_of_rail",
+   "dock.guide_flare_deg",
+   "dock.hook_arm_length",
+   "dock.hook_arm_width",
+   "dock.hook_boss_radius",
+   "dock.hook_level_dz",
+   "dock.hook_open_angle",
+   "dock.hook_pivot_inset",
+   "dock.hook_prong_depth",
+   "dock.hook_prong_reach",
+   "dock.hook_thickness",
+   "dock.marker_size",
+   "dock.pin_radius",
+   "dock.pocket_depth",
+   "dock.pocket_half_height",
+   "dock.pocket_side_margin",
+   "dock.tag_recess",
+   "sensors.camera_body_size",
+   "sensors.imu_position",
+   "sensors.tof_body_size",
+   "tags.id_base",
+   "tags.id_offset_second_cargo",
+   "tags.top_tag_offset_xy",
+   "tags.top_tag_standoff",
+   "tessellation.cylinder_segments",
+   "tessellation.pin_segments",
+   "tessellation.roller_profile_stations",
+   "tessellation.roller_segments",
+   "tessellation.wheel_hub_segments",
+   "wheel.axle_cap_length",
+   "wheel.axle_cap_radius",
+   "wheel.end_plate_radius_frac",
+   "wheel.end_plate_thickness",
+   "wheel.hub_radius_frac",
+   "wheel.roller_angle",
+   "wheel.roller_fill",
+   "wheel.roller_taper"
+  ]
+ }
+}

@@ -1,0 +1,8 @@
+a6e449bdedd9c5c397fb4624baf90280efca8e7b6d7cb4cd8681173a49c8dc77  /home/lunarz/crane_ml/Tools/Fleet/core_cs/Crane.Fleet.Docking/Geometry.cs
+fbaecad54f51706ef2f5c103fa0f9c5358ee947ff17c83d97333c92185ff6478  /home/lunarz/crane_ml/Tools/Fleet/core_cs/Crane.Fleet.Docking/Docking/Assumptions.cs
+07d33ccdf847d4a637c54f88824e630e80416c83bbe3cca5c31c44c0d049df7d  /home/lunarz/crane_ml/Tools/Fleet/core_cs/Crane.Fleet.Docking/Docking/ConnectorMachine.cs
+345793f97a01078de62af67e06063ce78d459fa358d189ce92db7aea02e5d278  /home/lunarz/crane_ml/Tools/Fleet/core_cs/Crane.Fleet.Docking/Docking/ContactModel.cs
+c2769490c17cb1fd77de795c853408b9f7ae188f7b62014e0617f53f9cd60fac  /home/lunarz/crane_ml/Tools/Fleet/core_cs/Crane.Fleet.Docking/Docking/Outcome.cs
+5563afe7173ca6ad4f5e209b0a646d784c5a03daf4b139c25fb1d4fc723d4575  /home/lunarz/crane_ml/Tools/Fleet/core_cs/Crane.Fleet.Docking/Docking/Types.cs
+6a96b1dd44c91e50515219c9b12068ec8e87c75644e7cc929ae2cfbdb6037cf0  /home/lunarz/crane_ml/Tools/Fleet/core_cs/Crane.Fleet.Docking/Graph/ModuleGraph.cs
+988cf20cab39a86ab334ffdfa762533f3fc3aca1825ac881ba61b8fb7b257966  /home/lunarz/crane_ml/Tools/Fleet/core_cs/Crane.Fleet.Docking/Profile/DockingProfile.cs

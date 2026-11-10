@@ -125,8 +125,12 @@ namespace Crane.Fleet {
 
         // render: primitives unless a mesh manifest exists (then the manifest replaces them)
         public List<PrimitivePart> RenderPrimitives = new List<PrimitivePart>();
-        public string MeshManifestPath;           // resolved absolute path, or the expected path when absent
+        public string MeshManifestPath;           // asset manifest (crane.fleet_asset_manifest/v0): resolved path, or the expected path when absent
         public bool MeshManifestPresent;
+        public AssetManifest Asset;               // parsed without meshes when present (frames, collision, hooks, lift)
+        public string SensorFrameSource = "overlay";
+        public string CollisionSource = "profile";
+        public int InstanceIndex;                 // index among rovers of the same role (cargo_2 = 1)
 
         // collision
         public List<PrimitivePart> CollisionParts = new List<PrimitivePart>();  // chassis envelope
@@ -272,6 +276,24 @@ namespace Crane.Fleet {
             string manifest = o["visual.mesh_manifest"].String.Replace("{role}", role);
             d.MeshManifestPath = Path.Combine(spec.Directory, manifest);
             d.MeshManifestPresent = File.Exists(d.MeshManifestPath);
+            d.InstanceIndex = index;
+            if (d.MeshManifestPresent) {
+                var a = d.Asset = AssetManifest.Load(d.MeshManifestPath, loadMeshes: false);
+                if (a.Role != role) throw new FormatException($"{d.MeshManifestPath}: role {a.Role} != {role}");
+                if (Math.Abs(a.GroundClearance - d.OriginHeight) > 1e-9)
+                    throw new FormatException($"{d.MeshManifestPath}: base frame ground clearance {a.GroundClearance} != CRANE origin height {d.OriginHeight}");
+                // sensors: the manifest declares them (replaces the overlay placeholders)
+                d.Sensors.Clear();
+                foreach (var (sname, stype, so) in a.Sensors)
+                    d.Sensors.Add(new SensorFrame { Id = sname, Sensor = stype, Pose = new FramePose(so.Xyz[0], so.Xyz[1], so.Xyz[2], so.Rpy[2], so.Rpy[1]) });
+                d.SensorFrameSource = "asset_manifest";
+                // collision: the manifest's base-parented boxes replace the chassis/deck boxes (wheel contact stays the profile spheres)
+                var boxes = new List<PrimitivePart>();
+                foreach (var sh in a.Collision)
+                    if (sh.Type == "box" && sh.Parent == "base_link")
+                        boxes.Add(new PrimitivePart { Name = sh.Name, Kind = PrimitiveKind.Box, Centre = sh.Origin.Xyz, Size = sh.Size, Yaw = sh.Origin.Rpy[2] });
+                if (boxes.Count > 0) { d.CollisionParts = boxes; d.CollisionSource = "asset_manifest"; }
+            }
             return d;
         }
 

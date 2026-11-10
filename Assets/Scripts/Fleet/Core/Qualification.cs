@@ -2,10 +2,21 @@ using System;
 using System.Collections.Generic;
 
 namespace Crane.Fleet {
-    /// <summary>Planar pose in the world (ENU): x, y (m), yaw (rad, CCW from east).</summary>
-    public struct Pose2 {
-        public double X, Y, Yaw;
-        public Pose2(double x, double y, double yaw) { X = x; Y = y; Yaw = yaw; }
+    // Pose2 (planar x, y, yaw) is the docking core's Crane.Fleet.Pose2 (Docking/Geometry.cs); one type for both.
+
+    /// <summary>Holonomic go-to: P control on the position error in the body frame and on the yaw error, speed-limited.</summary>
+    public static class GoToController {
+        public static Twist Command(Pose2 pose, double x, double y, double yaw, double kp, double kyaw, double vmax, double wmax, out double dist, out double yawErr) {
+            double ex = x - pose.X, ey = y - pose.Y;
+            yawErr = Angles.Wrap(yaw - pose.Yaw);
+            dist = Math.Sqrt(ex * ex + ey * ey);
+            double c = Math.Cos(pose.Yaw), sn = Math.Sin(pose.Yaw);
+            double bx = c * ex + sn * ey, by = -sn * ex + c * ey;
+            double vx = kp * bx, vy = kp * by, sp = Math.Sqrt(vx * vx + vy * vy);
+            if (sp > vmax) { vx *= vmax / sp; vy *= vmax / sp; }
+            double wz = Math.Max(-wmax, Math.Min(wmax, kyaw * yawErr));
+            return new Twist(vx, vy, wz);
+        }
     }
 
     public static class Angles {
