@@ -201,7 +201,8 @@ namespace Crane.Fleet.Sim {
 
         /// <summary>Player with a GPU: re-run a failed job and render frames around its divergence (or its last seconds), aimed at the rover.</summary>
         /// <summary>Story frames for a SUCCESSFUL job (jobs key "render": "story"): the lift, the carry, the set-down on the deck and delivered, at fixed
-        /// offsets after the run's own events (payload_gripped + 1.5 s, payload_load_on + 3 s, payload_released + 0.5 s, host_verdict + 0.3 s).
+        /// offsets from the run's own events (payload_gripped + 1.5 s; midway between payload_load_on and payload_released; payload_released + 0.5 s;
+        /// host_verdict + 0.3 s).
         /// Same rerun, cameras and file naming (replays/ID/frames/replay_NN_tT.png) as the failure replays; the camera follows the rover that
         /// holds the payload at each moment (lifter for lift/carry, place_on rover for set-down and delivered).</summary>
         public static List<(double t, string rover, string label)> StoryTimes(string eventsPath, string receiverFromMission = null) {
@@ -216,7 +217,7 @@ namespace Crane.Fleet.Sim {
                 else if (k == "top_tag_covered" && receiver == null && e["rover"].String != lifter) receiver = e["rover"].String;
             }
             if (!double.IsNaN(grip)) r.Add((grip + 1.5, lifter, "lift"));
-            if (!double.IsNaN(loadOn)) r.Add((loadOn + 3.0, lifter, "carry"));
+            if (!double.IsNaN(loadOn)) r.Add((!double.IsNaN(rel) && rel > loadOn ? (loadOn + rel) / 2 : loadOn + 3.0, lifter, "carry"));   // mid-carry
             if (!double.IsNaN(rel)) r.Add((rel + 0.5, receiver ?? lifter, "set_down"));
             if (!double.IsNaN(verdict)) r.Add((verdict + 0.3, receiver ?? lifter, "delivered"));
             return r;
