@@ -11,13 +11,13 @@
  "rotorOrder": "ArduCopter/PX4 QUAD-X servo order: FR, RL, FL, RR",
  "derived": {
   "com_offset_from_frame_center_flu": [
-   -0.002986,
+   -0.010732,
    0.0,
-   0.017269
+   0.019252
   ],
-  "hover_rotor_speed": 938.8040395369691,
+  "hover_rotor_speed": 923.7328229837696,
   "hover_rpm": 7766.7568465387685,
-  "thrust_to_weight": 4.788202629846458,
+  "thrust_to_weight": 4.945721633628954,
   "thrust_max_per_rotor_n": 21.641121465872327,
   "ct": 0.16536894813438482,
   "hover_thrust_per_rotor_g": 345.9181269852601,
@@ -83,7 +83,7 @@
  },
  "parameters": {
   "mass": {
-   "value": 1.84288,
+   "value": 1.78419,
    "unit": "kg",
    "status": "ESTIMATED",
    "source": null,
@@ -92,19 +92,19 @@
   "inertia": {
    "value": [
     [
-     0.006935118,
-     -4.229e-06,
-     0.002309374
+     0.006751165,
+     0.000102573,
+     0.003244454
     ],
     [
-     -4.229e-06,
-     0.01505044,
-     -2.0955e-05
+     0.000102573,
+     0.017165874,
+     -6.7725e-05
     ],
     [
-     0.002309374,
-     -2.0955e-05,
-     0.015212935
+     0.003244454,
+     -6.7725e-05,
+     0.016724067
     ]
    ],
    "unit": "kg m^2",
@@ -127,14 +127,14 @@
    "locator": "Q = eta P_elec / w with eta = 0.8 (ESTIMATED motor+ESC efficiency); kq fit by relative least squares, km = kq / kf. Electrical power is datasheet; the split is estimated."
   },
   "tau_up": {
-   "value": 0.02594,
+   "value": 0.02601,
    "unit": "s",
    "status": "ESTIMATED",
    "source": "TMOTOR_F90",
    "locator": "recomputed with CAD rotor inertia and CAD-mass hover speed"
   },
   "tau_down": {
-   "value": 0.02594,
+   "value": 0.02601,
    "unit": "s",
    "status": "ESTIMATED",
    "source": null,
@@ -148,7 +148,7 @@
    "locator": "100% throttle 19617 rpm at 23.48 V (HQ7040)"
   },
   "rotor_drag": {
-   "value": 0.00017176367719884533,
+   "value": 0.0001690062459714356,
    "unit": "N s/(m rad)",
    "status": "ESTIMATED",
    "source": "FAESSLER2018",
@@ -180,7 +180,7 @@
    "locator": "linear airframe drag is carried by rotor_drag"
   },
   "drag_quadratic": {
-   "value": 0.01180501875,
+   "value": 0.011915881250000001,
    "unit": "N s^2/m^2",
    "status": "ESTIMATED",
    "source": null,
@@ -240,9 +240,9 @@
   {
    "name": "front_right",
    "position": [
-    0.129986,
+    0.137732,
     -0.092,
-    0.022731
+    0.020748
    ],
    "spin": 1,
    "source": "AOS7V5_CAD",
@@ -251,9 +251,9 @@
   {
    "name": "rear_left",
    "position": [
-    -0.124014,
+    -0.116268,
     0.092,
-    0.022731
+    0.020748
    ],
    "spin": 1,
    "source": "AOS7V5_CAD",
@@ -262,9 +262,9 @@
   {
    "name": "front_left",
    "position": [
-    0.129986,
+    0.137732,
     0.092,
-    0.022731
+    0.020748
    ],
    "spin": -1,
    "source": "AOS7V5_CAD",
@@ -273,9 +273,9 @@
   {
    "name": "rear_right",
    "position": [
-    -0.124014,
+    -0.116268,
     -0.092,
-    0.022731
+    0.020748
    ],
    "spin": -1,
    "source": "AOS7V5_CAD",
@@ -285,22 +285,22 @@
  "massBudget": [
   {
    "item": "base_link",
-   "mass_kg": 0.3322,
+   "mass_kg": 0.25,
    "status": "see SPEC.md",
    "position_flu": [
-    0.00052,
-    0.0,
-    0.00269
+    -0.00087,
+    5e-05,
+    0.00299
    ]
   },
   {
    "item": "payload_deck_link",
-   "mass_kg": 0.04848,
+   "mass_kg": 0.07647,
    "status": "see SPEC.md",
    "position_flu": [
-    -0.06658,
-    0.00121,
-    0.04784
+    -0.09638,
+    8e-05,
+    0.0501
    ]
   },
   {
@@ -320,7 +320,7 @@
    "position_flu": [
     0.127,
     -0.092,
-    0.03585
+    0.03556
    ]
   },
   {
@@ -340,7 +340,7 @@
    "position_flu": [
     -0.127,
     0.092,
-    0.03585
+    0.03556
    ]
   },
   {
@@ -360,7 +360,7 @@
    "position_flu": [
     0.127,
     0.092,
-    0.03585
+    0.03556
    ]
   },
   {
@@ -380,7 +380,7 @@
    "position_flu": [
     -0.127,
     -0.092,
-    0.03585
+    0.03556
    ]
   },
   {
@@ -388,19 +388,19 @@
    "mass_kg": 0.0158,
    "status": "see SPEC.md",
    "position_flu": [
-    -0.00543,
-    -0.00328,
-    0.01277
+    -0.0065,
+    -0.00393,
+    0.01272
    ]
   },
   {
    "item": "cube_carrier_link",
-   "mass_kg": 0.065,
+   "mass_kg": 0.05602,
    "status": "see SPEC.md",
    "position_flu": [
-    0.05077,
-    -0.0,
-    0.0438
+    0.044,
+    -0.00301,
+    0.04714
    ]
   },
   {
@@ -408,9 +408,9 @@
    "mass_kg": 0.23,
    "status": "see SPEC.md",
    "position_flu": [
-    -0.009,
-    0.0,
-    0.08452
+    -0.02,
+    -0.0,
+    0.08626
    ]
   },
   {
@@ -418,19 +418,19 @@
    "mass_kg": 0.176,
    "status": "see SPEC.md",
    "position_flu": [
-    -0.1012,
-    0.00698,
-    0.06362
+    -0.11146,
+    6e-05,
+    0.07072
    ]
   },
   {
    "item": "usb_eth_link",
-   "mass_kg": 0.025,
+   "mass_kg": 0.0255,
    "status": "see SPEC.md",
    "position_flu": [
-    -0.06556,
-    0.06264,
-    0.05663
+    -0.18189,
+    -0.038,
+    0.05848
    ]
   },
   {
@@ -438,9 +438,9 @@
    "mass_kg": 0.042,
    "status": "see SPEC.md",
    "position_flu": [
-    -0.13333,
-    -0.05,
-    0.09013
+    -0.19496,
+    0.03048,
+    0.09262
    ]
   },
   {
@@ -448,19 +448,29 @@
    "mass_kg": 0.005,
    "status": "see SPEC.md",
    "position_flu": [
-    -0.04938,
+    -0.04538,
     0.0126,
-    0.00918
+    0.00878
    ]
   },
   {
    "item": "oak_d_link",
-   "mass_kg": 0.106,
+   "mass_kg": 0.091,
    "status": "see SPEC.md",
    "position_flu": [
-    0.10825,
+    0.10812,
+    -0.0,
+    -0.01374
+   ]
+  },
+  {
+   "item": "oak_bracket_link",
+   "mass_kg": 0.015,
+   "status": "see SPEC.md",
+   "position_flu": [
+    0.10905,
     0.0,
-    -0.00937
+    -0.00375
    ]
   },
   {
@@ -468,19 +478,19 @@
    "mass_kg": 0.055,
    "status": "see SPEC.md",
    "position_flu": [
-    -0.01448,
-    0.00852,
-    0.01079
+    -0.00526,
+    0.00369,
+    0.00933
    ]
   },
   {
    "item": "battery_link",
-   "mass_kg": 0.52,
+   "mass_kg": 0.524,
    "status": "see SPEC.md",
    "position_flu": [
-    0.02121,
-    -0.00237,
-    -0.02944
+    0.02321,
+    -0.00071,
+    -0.02928
    ]
   }
  ],
