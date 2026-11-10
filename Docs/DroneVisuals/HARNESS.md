@@ -102,7 +102,7 @@ Lighting is logged and guarded only. It is for later vision runs and has no effe
 
 **Forest density.**
 - Stem and branch density can only be *thinned* on one manifest (`ForestThinning`: removed capsules get radius −1000 m on a run-private world). This works on the .NET world only.
-- Denser forests need new manifests. `BuildManifestOnly` does not exist yet: no match in any worktree on 2026-11-10. Once the environment owner adds it, list the new seeds in `forests` and nothing else changes.
+- Denser forests need new manifests. `BuildDroneForest.BuildManifestOnly` exists but has never been run (no manifest from it yet; a first run needs Unity, which is pilot-gated). Once new manifests exist, list the new seeds in `forests` and nothing else changes.
 
 ## 3. Failure labels and replay
 

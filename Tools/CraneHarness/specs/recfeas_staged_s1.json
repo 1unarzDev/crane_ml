@@ -1,0 +1,45 @@
+{
+ "schema": "crane-experiment/1",
+ "split": "dev",
+ "forests": [
+  {
+   "seed": 1337,
+   "manifest": "Assets/Drones/Environment/Manifests/forest_seed1337_manifest.json"
+  }
+ ],
+ "missions": {
+  "cross": 10,
+  "corridor": true,
+  "only": [
+   "cross_0",
+   "cross_1",
+   "cross_2",
+   "cross_3",
+   "cross_4",
+   "cross_5",
+   "cross_6",
+   "cross_7"
+  ]
+ },
+ "speeds": [
+  5.0,
+  6.0,
+  8.0
+ ],
+ "run_seeds": [
+  1
+ ],
+ "planner": "map_rhp",
+ "wind": "calm",
+ "lighting": "GoldenHour",
+ "logs": "events",
+ "label_failures": true,
+ "bundle_failures": true,
+ "name": "recfeas_staged_s1",
+ "_note": "Reduced staged recfeas sweep, stage 1 (units new at this stage; cell=speed, flight=(mission,run_seed)); speeds >=5 only (<=4 m/s: 0 collisions in 97 flights). Derived from recfeas_sweep.json. ",
+ "config": {
+  "RecursiveFeasibility": true,
+  "BrakeAlongPath": true,
+  "TurnBrakeTable": true
+ }
+}

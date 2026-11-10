@@ -1,0 +1,118 @@
+{
+ "jobs": [
+  {
+   "schema": "rc-job/1",
+   "job_id": "drones.frontier.gpucanary.1",
+   "kind": "command",
+   "purpose": "GPU canary 1 of 2 for the drones project: a tiny MLP trained for 60 s with a checkpoint at 30 s and a resume test; checks the queue, CUDA and checkpoint path before real training.",
+   "submitter": "drones-frontier-ops",
+   "campaign": "frontier_gpu_canary",
+   "priority_class": "sim",
+   "priority": 100,
+   "est_seconds": 90,
+   "needs": {
+    "os": [
+     "linux"
+    ],
+    "gpu": true,
+    "vram_gb": 1.0,
+    "min_ram_gb": 4,
+    "tags": [
+     "host:harmony"
+    ]
+   },
+   "preemptible": true,
+   "anti_affinity": {
+    "keys": [],
+    "scope": "host"
+   },
+   "inputs": [],
+   "items": null,
+   "seeds": null,
+   "repos": [
+    {
+     "name": "crane-drones",
+     "url": "<crane-drones remote>",
+     "ref": "research/drone-sim"
+    }
+   ],
+   "spec": {
+    "argv": [
+     "python",
+     "Tools/Frontier/canary/canary_train.py",
+     "--out",
+     "$JOB_SCRATCH/canary",
+     "--budget-s",
+     "60",
+     "--ckpt-at-s",
+     "30",
+     "--device",
+     "cuda",
+     "--stop-after-ckpt"
+    ]
+   },
+   "outputs": {
+    "class": "summary"
+   },
+   "max_attempts": 2,
+   "lease_ttl_s": 300
+  },
+  {
+   "schema": "rc-job/1",
+   "job_id": "drones.frontier.gpucanary.2",
+   "kind": "command",
+   "purpose": "GPU canary 2 of 2 for the drones project: a tiny MLP trained for 60 s with a checkpoint at 30 s and a resume test; checks the queue, CUDA and checkpoint path before real training.",
+   "submitter": "drones-frontier-ops",
+   "campaign": "frontier_gpu_canary",
+   "priority_class": "sim",
+   "priority": 100,
+   "est_seconds": 90,
+   "needs": {
+    "os": [
+     "linux"
+    ],
+    "gpu": true,
+    "vram_gb": 1.0,
+    "min_ram_gb": 4,
+    "tags": [
+     "host:harmony"
+    ]
+   },
+   "preemptible": true,
+   "anti_affinity": {
+    "keys": [],
+    "scope": "host"
+   },
+   "inputs": [],
+   "items": null,
+   "seeds": null,
+   "repos": [
+    {
+     "name": "crane-drones",
+     "url": "<crane-drones remote>",
+     "ref": "research/drone-sim"
+    }
+   ],
+   "spec": {
+    "argv": [
+     "python",
+     "Tools/Frontier/canary/canary_train.py",
+     "--out",
+     "$JOB_SCRATCH/canary",
+     "--budget-s",
+     "60",
+     "--ckpt-at-s",
+     "30",
+     "--device",
+     "cuda",
+     "--resume"
+    ]
+   },
+   "outputs": {
+    "class": "summary"
+   },
+   "max_attempts": 2,
+   "lease_ttl_s": 300
+  }
+ ]
+}

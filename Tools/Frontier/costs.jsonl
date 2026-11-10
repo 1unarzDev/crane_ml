@@ -1,0 +1,80 @@
+{"fidelity": "L1", "hi_s": 0.008, "kind": "audit", "lo_s": 0.001, "sim": "forestsearch_greedy", "source": "audit 2026-11-10: ForestSearch greedy 0.001-0.008 s/episode", "unit": "episode"}
+{"fidelity": "L1", "hi_s": 1.24, "kind": "audit", "lo_s": 0.55, "sim": "forestsearch_lookahead", "source": "audit 2026-11-10: ForestSearch lookahead 0.55-1.24 s/episode", "unit": "episode"}
+{"fidelity": "L1", "hi_s": 0.04, "kind": "audit", "lo_s": 0.002, "sim": "nscale", "source": "audit 2026-11-10: nscale 2-40 ms/episode", "unit": "episode"}
+{"fidelity": "L1", "hi_s": 1.3333333333333333, "kind": "audit", "lo_s": 1.3333333333333333, "sim": "navpilot", "source": "audit 2026-11-10: NavPilot 0.75 episodes/s", "unit": "episode"}
+{"fidelity": "L1", "hi_s": 0.28, "kind": "audit", "lo_s": 0.13, "sim": "missionsim", "source": "audit 2026-11-10: MissionSim 0.13-0.28 s/mission", "unit": "mission"}
+{"fidelity": "L1", "hi_s": 37.0, "kind": "audit", "lo_s": 12.0, "sim": "rolespec", "source": "audit 2026-11-10: RoleSpec 12-37 s/cell", "unit": "cell"}
+{"fidelity": "L2", "hi_s": 32.0, "kind": "audit", "lo_s": 32.0, "sim": "dotnet_harness", "source": "audit 2026-11-10: .NET harness ~32 s/run", "unit": "run"}
+{"fidelity": "L3", "hi_s": 2.8, "kind": "audit", "lo_s": 2.8, "sim": "unity_batch", "source": "audit 2026-11-10: Unity batch 2.8x slower than real time", "unit": "sim_second"}
+{"fidelity": "L3", "hi_s": 0.375, "kind": "audit", "lo_s": 0.375, "sim": "unity_render", "source": "audit 2026-11-10: Unity render 0.375 s/frame", "unit": "frame"}
+{"fidelity": "L1", "hi_s": 0.0208, "kind": "audit", "lo_s": 0.0208, "sim": "rtdetr", "source": "audit 2026-11-10: RT-DETR 20.8 ms/frame", "unit": "frame"}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v2|f1337", "seed": 1, "wall_s": 13.299, "cpu_s": 12.132}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v2.5|f1337", "seed": 1, "wall_s": 10.184, "cpu_s": 9.514}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v3|f1337", "seed": 1, "wall_s": 6.91, "cpu_s": 6.572}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v4|f1337", "seed": 1, "wall_s": 8.119, "cpu_s": 7.828}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v5|f1337", "seed": 1, "wall_s": 0.703, "cpu_s": 0.674}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v6|f1337", "seed": 1, "wall_s": 0.618, "cpu_s": 0.605}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v8|f1337", "seed": 1, "wall_s": 0.611, "cpu_s": 0.552}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v2|f1337", "seed": 1, "wall_s": 12.381, "cpu_s": 11.692}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v2.5|f1337", "seed": 1, "wall_s": 7.098, "cpu_s": 6.739}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v3|f1337", "seed": 1, "wall_s": 5.462, "cpu_s": 5.347}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v4|f1337", "seed": 1, "wall_s": 0.822, "cpu_s": 0.812}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v5|f1337", "seed": 1, "wall_s": 0.402, "cpu_s": 0.397}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v6|f1337", "seed": 1, "wall_s": 0.757, "cpu_s": 0.724}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v8|f1337", "seed": 1, "wall_s": 3.765, "cpu_s": 3.59}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v2|f1337", "seed": 1, "wall_s": 8.474, "cpu_s": 7.98}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v2.5|f1337", "seed": 1, "wall_s": 7.341, "cpu_s": 6.974}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v3|f1337", "seed": 1, "wall_s": 9.455, "cpu_s": 8.877}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v4|f1337", "seed": 1, "wall_s": 4.197, "cpu_s": 4.045}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v5|f1337", "seed": 1, "wall_s": 3.039, "cpu_s": 2.982}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v6|f1337", "seed": 1, "wall_s": 2.37, "cpu_s": 2.344}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v8|f1337", "seed": 1, "wall_s": 1.914, "cpu_s": 1.865}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v2|f1337", "seed": 1, "wall_s": 12.442, "cpu_s": 12.185}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v2.5|f1337", "seed": 1, "wall_s": 11.012, "cpu_s": 10.699}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v3|f1337", "seed": 1, "wall_s": 9.823, "cpu_s": 9.374}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v4|f1337", "seed": 1, "wall_s": 7.368, "cpu_s": 6.976}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v5|f1337", "seed": 1, "wall_s": 2.72, "cpu_s": 2.588}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v6|f1337", "seed": 1, "wall_s": 1.647, "cpu_s": 1.569}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v8|f1337", "seed": 1, "wall_s": 0.543, "cpu_s": 0.531}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v2|f1337", "seed": 1, "wall_s": 8.615, "cpu_s": 8.339}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v2.5|f1337", "seed": 1, "wall_s": 5.061, "cpu_s": 4.757}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v3|f1337", "seed": 1, "wall_s": 5.268, "cpu_s": 5.009}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v4|f1337", "seed": 1, "wall_s": 3.389, "cpu_s": 3.195}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v5|f1337", "seed": 1, "wall_s": 1.801, "cpu_s": 1.704}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v6|f1337", "seed": 1, "wall_s": 1.946, "cpu_s": 1.816}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v8|f1337", "seed": 1, "wall_s": 1.101, "cpu_s": 1.09}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v2|f1337", "seed": 1, "wall_s": 9.208, "cpu_s": 8.974}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v2.5|f1337", "seed": 1, "wall_s": 4.848, "cpu_s": 4.754}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v3|f1337", "seed": 1, "wall_s": 4.139, "cpu_s": 4.032}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v4|f1337", "seed": 1, "wall_s": 5.547, "cpu_s": 5.454}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v5|f1337", "seed": 1, "wall_s": 0.901, "cpu_s": 0.88}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v6|f1337", "seed": 1, "wall_s": 0.856, "cpu_s": 0.837}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v8|f1337", "seed": 1, "wall_s": 0.57, "cpu_s": 0.558}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v2|f1337", "seed": 1, "wall_s": 6.757, "cpu_s": 6.45}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v2.5|f1337", "seed": 1, "wall_s": 6.178, "cpu_s": 5.966}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v3|f1337", "seed": 1, "wall_s": 5.534, "cpu_s": 5.106}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v4|f1337", "seed": 1, "wall_s": 4.207, "cpu_s": 4.07}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v5|f1337", "seed": 1, "wall_s": 0.375, "cpu_s": 0.368}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v6|f1337", "seed": 1, "wall_s": 0.865, "cpu_s": 0.837}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v8|f1337", "seed": 1, "wall_s": 1.208, "cpu_s": 1.126}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v2|f1337", "seed": 1, "wall_s": 14.658, "cpu_s": 13.653}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v2.5|f1337", "seed": 1, "wall_s": 10.753, "cpu_s": 10.448}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v3|f1337", "seed": 1, "wall_s": 6.574, "cpu_s": 6.387}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v4|f1337", "seed": 1, "wall_s": 6.524, "cpu_s": 6.467}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v5|f1337", "seed": 1, "wall_s": 1.345, "cpu_s": 1.329}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v6|f1337", "seed": 1, "wall_s": 0.984, "cpu_s": 0.878}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v8|f1337", "seed": 1, "wall_s": 0.225, "cpu_s": 0.216}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v2|f1337", "seed": 1, "wall_s": 9.162, "cpu_s": 8.85}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v2.5|f1337", "seed": 1, "wall_s": 5.269, "cpu_s": 5.18}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v3|f1337", "seed": 1, "wall_s": 6.909, "cpu_s": 6.635}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v4|f1337", "seed": 1, "wall_s": 6.344, "cpu_s": 5.957}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v5|f1337", "seed": 1, "wall_s": 3.073, "cpu_s": 2.722}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v6|f1337", "seed": 1, "wall_s": 1.126, "cpu_s": 1.098}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v8|f1337", "seed": 1, "wall_s": 0.27, "cpu_s": 0.261}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v2|f1337", "seed": 1, "wall_s": 20.992, "cpu_s": 18.277}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v2.5|f1337", "seed": 1, "wall_s": 16.883, "cpu_s": 14.491}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v3|f1337", "seed": 1, "wall_s": 10.164, "cpu_s": 9.729}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v4|f1337", "seed": 1, "wall_s": 10.616, "cpu_s": 10.014}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v5|f1337", "seed": 1, "wall_s": 1.838, "cpu_s": 1.744}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v6|f1337", "seed": 1, "wall_s": 0.612, "cpu_s": 0.602}
+{"kind": "run", "sim": "navpilot_2p5d_twin", "fidelity": "low", "config": "v8|f1337", "seed": 1, "wall_s": 3.375, "cpu_s": 2.813}
