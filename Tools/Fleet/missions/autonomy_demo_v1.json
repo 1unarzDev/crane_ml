@@ -1,0 +1,163 @@
+{
+  "schema": "crane.fleet_mission/v0",
+  "mission_id": "warehouse_a_demo_closed_loop_v1",
+  "note": "The demo mission executed closed loop by Crane.Fleet.Autonomy in CRANE: scout finds the long payload (its east end-face tag), lifter lifts it, cargo_1/cargo_2 rendezvous and dock front-to-rear (tag-only docking), lifter hands the payload over onto the coupled decks, the pair transports it through the doorway to delivery while the scout watches. crane_* keys are CRANE simulator setup, ignored by the library. v1: handoff place pose 8 cm (not 2 cm) clear of cargo_1's front face, after v0 seed 1 showed the lifter's estimate error (5-20 cm) driving it into the coupled pair.",
+  "crane_payload": {
+    "id": "payload_box_long",
+    "type": "box_long",
+    "pose": [
+      3.65,
+      6.0,
+      3.14159265
+    ],
+    "pallet_height": 0.03
+  },
+  "crane_max_duration_s": 320,
+  "tasks": [
+    {
+      "id": "settle",
+      "type": "wait",
+      "agents": [
+        "scout_1",
+        "lifter_1",
+        "cargo_1",
+        "cargo_2"
+      ],
+      "duration": 1.5
+    },
+    {
+      "id": "find",
+      "type": "explore",
+      "agent": "scout_1",
+      "region": [
+        3.2,
+        5.5,
+        4.2,
+        6.5
+      ],
+      "target": "payload_box_long",
+      "viewpoints": [
+        4.9,
+        5.4,
+        2.53,
+        4.6,
+        5.0,
+        2.2
+      ],
+      "dwell": 1.5,
+      "after": [
+        "settle"
+      ],
+      "retries": 1
+    },
+    {
+      "id": "watch",
+      "type": "goto",
+      "agent": "scout_1",
+      "goal": [
+        7.3,
+        4.9,
+        -2.09
+      ],
+      "after": [
+        "find"
+      ],
+      "retries": 1
+    },
+    {
+      "id": "pick",
+      "type": "lift",
+      "agent": "lifter_1",
+      "object": "payload_box_long",
+      "grasp_offset": 0.237,
+      "height": 0.15,
+      "after": [
+        "find"
+      ],
+      "retries": 1
+    },
+    {
+      "id": "meet",
+      "type": "rendezvous",
+      "target": "cargo_1",
+      "docker": "cargo_2",
+      "target_face": "rear",
+      "docker_face": "front",
+      "meeting_pose": [
+        4.8,
+        3.5,
+        0.0
+      ],
+      "after": [
+        "settle"
+      ],
+      "retries": 1
+    },
+    {
+      "id": "couple",
+      "type": "dock",
+      "docker": "cargo_2",
+      "docker_face": "front",
+      "target": "cargo_1",
+      "target_face": "rear",
+      "after": [
+        "meet"
+      ],
+      "retries": 2
+    },
+    {
+      "id": "give",
+      "type": "handoff",
+      "from": "lifter_1",
+      "supporters": [
+        "cargo_1",
+        "cargo_2"
+      ],
+      "place_pose": [
+        5.3,
+        3.5,
+        3.14159265
+      ],
+      "payload": "payload_box_long",
+      "payload_type": "box_long",
+      "hold_offset": 0.637,
+      "after": [
+        "pick",
+        "couple"
+      ]
+    },
+    {
+      "id": "lifter_clear",
+      "type": "goto",
+      "agent": "lifter_1",
+      "goal": [
+        5.4,
+        4.45,
+        3.14159265
+      ],
+      "after": [
+        "give"
+      ]
+    },
+    {
+      "id": "deliver",
+      "type": "transport",
+      "agent": "cargo_1",
+      "goal": [
+        8.96,
+        3.5,
+        0.0
+      ],
+      "payload": "payload_box_long",
+      "tol": [
+        0.05,
+        0.08
+      ],
+      "after": [
+        "give",
+        "lifter_clear",
+        "watch"
+      ]
+    }
+  ]
+}

@@ -167,3 +167,73 @@ rovers, a constant odometry offset of up to 8 cm at hand-over, leader parked up 
 <= 8 mm inside +-1 cm and +-0.087 rad): 30/30 latched on the first attempt; about 15 to 20 observations used and 80 to 140 rejected as
 ambiguous (near-frontal PnP flips) per docking; yaw error at capture up to 0.031 rad, close to the 0.035 rad hook yaw tolerance, so in
 the full ConnectorMachine (per-hook seating) one-hook outcomes are expected: tag yaw is the weak axis, as the perception handoff says.
+
+## Phase 2: closed-loop autonomy integrated (Crane.Fleet.Autonomy)
+
+| Item | Where | Evidence |
+|---|---|---|
+| Autonomy library + its Capability dependency imported (own asmdefs, noEngineReferences); compiles unchanged against CRANE's `Crane.Fleet.Core` (docking profile from `DockingProfileBuilder`, no System.Text.Json) | `Assets/Scripts/Fleet/Autonomy/`, `Capability/` (`SOURCE_SHA256.txt`) | LIVE_SIM_VALIDATED |
+| `AutonomyMission`: per-rover `IObservationSource` (own quantised encoders and raw gyro from the plant at their rates, perception-core tag observations incl. payload tags generated with the core's TagObserver, connector reports, lift/gripper driver state) and `IActuatorSink` (wheel-speed set-points straight into `MecanumPlant.WheelCommandOverride`, connector pulses, lift/gripper); `FleetAutonomy.Step(dt)` every physics step, synchronously (deterministic; planning stalls a tick instead of running on another thread); estimates and their 3x3 covariance logged next to truth in `states.jsonl` (`mission.autonomy.estimates`) | `Sim/AutonomyMission.cs` | LIVE_SIM_VALIDATED |
+| Mission in the library's format with CRANE setup keys (`crane_payload`, `crane_max_duration_s`) | `Tools/Fleet/missions/autonomy_demo_v0.json`, `_v1.json` (8 cm place clearance) | LIVE_SIM_VALIDATED |
+| Integration bug found and fixed: the library pulses connector Approach only to a PRESENT machine; CRANE created machines only on Approach (deadlock: dock looped servo/backoff for 290 s, `stills/autonomy_attempt1_dock_deadlock/`). Now a machine (FREE) exists once a facing partner face is within 0.6 m; idle separated ones are dropped | `Sim/FleetAutonomyHost.cs` | LIVE_SIM_VALIDATED |
+| Editor launch guard: `timeout 3000` inside heavy (an editor hung once at startup for 85 min holding the only slot; killed after diagnosis: idle main thread in futex, log ended before the method ran) | `Tools/Fleet/fleet.sh` | IMPLEMENTED |
+
+### Closed-loop results (harness `Tools/Fleet/jobs/autonomy_demo_v0.json`, mission v0, editor headless, 2026-11-10 03:48-04:33)
+
+Outputs: `~/.cache/crane-fleet/jobs/autonomy_demo_v0/` (`summary.jsonl`, `runs/<id>/`, `replays/<id>/replay.json`).
+
+| Job | Library verdict | Physical outcome (evaluator) |
+|---|---|---|
+| auto_s1 | all 9 tasks succeeded, t = 124 s (287 s wall) | scout found the payload by its tag at 23.0 s; lift ok; **tag-only dock latched in 11 s, 1 attempt** (capture 41.4 s, LATCHED_VERIFIED + LOAD_VALIDATED 42.2 s, residual 0.7 mm / 0.45 mrad); **handoff failed physically**: the lifter's estimate (5-8 cm, then 20 cm while pushing) drove it into cargo_1 with 2 cm planned clearance, the shove yawed the coupled pair -0.45 rad (its own estimate stayed at +0.015: skidding wheels read no motion), the released payload hit a deck-lip edge and fell to the floor at (4.43, 3.77); the pair then transported with a 0.33 rad heading error and clipped the divider. The library reported success throughout (it does not sense payload support after handoff). |
+| auto_s1_repeat | identical | **byte-identical** states/events/trajectory to auto_s1 although it ran after it in the same process (per-run physics scene + deterministic library) |
+| auto_s2 | all succeeded, t = 122 s | same failure mode as s1 (systematic: place-pose clearance vs estimate error), dock latched first attempt in 12 s |
+| auto_s1_cargo2_rl_weak (weak wheel @5 s) | **failed, class Support** at the transport precondition | first divergence from auto_s1 at t = 17.4 s (cargo_2); dock: 5 back-offs, attempt 1 failed (Docking), attempt 2 latched at 278.8 s; payload fell off at handoff; the library's support check refused transport (payload COM 0.42 m outside the support hull): a correct refusal |
+| scripted_demo_s1 (fallback) | n/a | **REGRESSION, not delivered**: lifter and cargo_1 both route through (2.2, 2.6) after an untested lifter-route edit (step timeouts at 70 and 130 s); the fallback tag docker then saw no tag. The scripted path is not validated in this build. |
+
+Defects to fix next: (1) handoff place pose must account for the estimator covariance (v1 mission uses 8 cm clearance; better: the library should hold off when the pre-place estimate uncertainty exceeds the clearance); (2) the library should detect an external shove of a stationary assembly (wheel odometry cannot; tag observations of a peer or overhead could); (3) payload support is not sensed after release (no deck load cell / payload tag check), so "handoff succeeded" is belief, not fact; (4) transport through the doorway on a 0.33 rad heading error grazed the divider: tracking used the estimate, which was wrong; (5) scripted fallback regression above; (6) weak-wheel docking needed 5 back-offs (re-tune gains on the dynamic plant, as the library README warns).
+
+Note (process): a stills run at 04:35 used the player built at 03:06, before the connector-pairing fix, and deadlocked at docking
+again (`stills/autonomy_attempt2_stale_player/`). The player must be rebuilt after every code change; `fleet.sh` does not check
+staleness yet (next: compare the build manifest's commit with HEAD before a player launch).
+
+### The major finding: "mission succeeded" was physically false in every closed-loop run
+
+In auto_s1, auto_s1_repeat, auto_s2 and the stills run (mission v1), the transport task ended "Succeeded" while the coupled pair
+was jammed against the divider BELOW the doorway (truth cargo_1 (5.71, 2.88-2.96); the opening spans y 3.1-3.9), with the
+library's estimate at the goal (8.94, 3.42-3.45): a 3.2 m estimate error. The wheels kept turning against the wall and wheel
+odometry integrated motion that did not happen; the reported covariance stayed small in x (sigma about 7 cm). Combined with the
+handoff failure (payload on the floor next to the pair), the demo mission delivered nothing, while the executive reported success.
+This is a predicted-vs-executed disagreement of class "perception/estimation" in promotion_v0 terms, and exactly why CRANE must not
+take the autonomy's own success flag: the harness classifies outcomes from evaluator truth (summary.jsonl reports
+`mission_succeeded`, not `..._payload_delivered`; to fix next: make the harness outcome require the evaluator's delivery check).
+Library-side fixes to propose: exteroceptive correction during transport (peer/overhead/fixed-station tags), contact/stall detection
+from commanded-vs-achieved wheel torque or a bumper, and a delivery check from the payload's tag.
+
+### Stills, closed-loop run (mission v1, seed 1): `~/.cache/crane-fleet/stills/demo_seed1/` (LIVE_SIM_VALIDATED; labelled closed loop, Crane.Fleet.Autonomy)
+
+`stills.jsonl` records per image the trigger, time, camera and the task/phase of every rover.
+- `00_establish.png` (t 1 s): indoor and legible: tiled floor, matte walls, yellow door jambs, tinted zones with tape, real asset
+  rovers with tags and mecanum rollers. Defects: shelf renders as a dark monolith; gantry beam near-black; south wall cut away so the
+  camera looks in from outside.
+- `01_scout_finds_payload_onboard.png` (t 23.0 s, sensor profile, scout cam_left frame of the asset manifest): payload visible
+  low-left; its tag is not drawn (exists only in the perception model); the onboard frame is the manifest camera, not the perception
+  core's mount that produced the detection (integration gap).
+- `01b_scout_finds_payload_wide.png`: scout facing the payload's east end; payload on its 3 cm pallet (pallet orientation fixed).
+- `02_lift.png` (t 68.2 s): lifter holding the long box clear of the pallet; reads correctly; kinematic carry (no load on the lifter).
+- `03a_wide_formation_capture.png` (t 41.6 s): coupled cargo pair in the violet zone, rovers about 120-130 px long; scout already
+  through the doorway; the pallet stack occludes the lower right of the zone (camera placement defect).
+- `03b_dock_hooks_closing.png` / `03c_dock_latched.png` (t 42.25 / 42.36 s): faces flush, wheels on the floor, tags crisp; the two
+  images are nearly identical because hooks close in 0.8 s and the trigger was capture + 0.9 s; the hooks sit inside the pocket and
+  are NOT visible from this angle; the state LED renders black (emissive not applied). Hook engagement is not shown visually.
+- `04a_wide_handoff.png` (t 91.3 s, release): the lifter approached from the north side at an angle and holds the box BESIDE the
+  pair, not over the decks: the v1 clearance did not fix the root cause (lifter estimate and approach geometry).
+- `04b_payload_on_decks.png` (t 92.8 s): the payload leans against cargo_1's side, one end on the floor: support failed; matches
+  the logs.
+- `05_through_doorway.png` (t 106.9 s): the coupled pair, without the payload, pressed against the divider beside the opening.
+- `06_scout_watches_onboard.png` (t 109.9 s, sensor profile): through the doorway the scout sees the pair still in the west hall.
+- `07_done.png` (t 123.1 s, at the library's "mission succeeded"): the delivery zone is empty.
+Earlier attempts kept for the record: `stills/autonomy_attempt1_dock_deadlock/` (connector-pairing deadlock), `stills/autonomy_attempt2_stale_player/` (stale player build).
+
+Launch rule fix (IMPLEMENTED, not yet exercised): `fleet.sh` now takes `unity.lock` first and checks memory and all heavy slots inside
+it, and closes the lock fd for children. Before, the check ran before a long flock wait (an orphaned Xvfb from a killed run held the
+lock), so at 04:45 my build may have overlapped another session's short player by a few seconds.
