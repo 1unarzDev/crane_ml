@@ -186,7 +186,10 @@ namespace Crane.Fleet.Sim {
             c.Cmd = cmd;
         }
 
-        Coupling Pair(RoverRig r, string face) {
+        /// <summary>Create the coupling (connector machine, state FREE) for this face if a facing partner face is in range; null otherwise.</summary>
+        public Coupling TryPair(RoverRig r, string face) => Of(r, face) ?? Pair(r, face, quiet: true);
+
+        Coupling Pair(RoverRig r, string face, bool quiet = false) {
             Transform fa = r.Frames["face_" + face];
             double best = PairRange; RoverRig br = null; string bf = null;
             double accept = spec.P["docking.guide_acceptance_half_angle"].Double * 4;
@@ -200,6 +203,7 @@ namespace Crane.Fleet.Sim {
                 }
             }
             if (br == null) return null;
+            if (Of(br, bf) != null) return null;   // the partner face is already in another coupling
             var c = new Coupling { A = r, FaceA = face, B = br, FaceB = bf, Id = $"{br.D.Id}.{bf}-{r.D.Id}.{face}" };
             c.Machine = new ConnectorMachine(model, FleetRng.For(run.Opt.Seed, "coupling/" + c.Id).NextU64(), c.Id);
             All.Add(c);
@@ -216,6 +220,9 @@ namespace Crane.Fleet.Sim {
         }
 
         public void Step(double dt) {
+            // idle couplings whose faces separated again are dropped (proximity pairing must not lock a face to a passer-by)
+            All.RemoveAll(c => c.Joint == null && (c.Machine.State == ConnectorState.Free || c.Machine.State == ConnectorState.Released) && c.Cmd == DockingCommand.None
+                && (c.A.Frames["face_" + c.FaceA].position - c.B.Frames["face_" + c.FaceB].position).magnitude > PairRange * 1.2);
             foreach (var c in All) {
                 c.Pose = Relative(c.A.Frames["face_" + c.FaceA], c.B.Frames["face_" + c.FaceB]);
                 c.Closing = double.IsNaN(c.PrevGap) ? 0 : (c.PrevGap - c.Pose.Gap) / dt;

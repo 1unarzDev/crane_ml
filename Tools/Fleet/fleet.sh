@@ -44,7 +44,8 @@ memwait() {
 ed() {  # ed LOG args...
     local log=$1; shift
     memwait
-    flock "$cache/unity.lock" "$heavy" unity "$editor" -batchmode -nographics -projectPath "$root" -logFile "$log" "$@"
+    # wall-clock guard: an editor that hangs at startup (seen once, 2026-11-10 01:40) must not hold the machine's only Unity slot
+    flock "$cache/unity.lock" "$heavy" unity timeout -k 30 "${CRANE_FLEET_EDITOR_TIMEOUT:-3000}" "$editor" -batchmode -nographics -projectPath "$root" -logFile "$log" "$@"
 }
 pl() {  # pl LOG args...  (player, no graphics)
     local log=$1; shift

@@ -337,7 +337,8 @@ namespace Crane.Fleet.Sim {
                 into.AddRange(m.perception.PollObjectObservations(rig.D.Id, m.run.T));
             }
             public ConnectorReport ReadConnector(string face) {
-                var c = m.couplings.Of(rig, face);
+                // the connector machine exists once a facing partner face is in range (the library pulses Approach only to a present machine)
+                var c = m.couplings.TryPair(rig, face);
                 if (c == null) return new ConnectorReport { Present = false, State = ConnectorState.Free };
                 bool isA = c.A == rig;
                 return new ConnectorReport { Present = true, State = c.Machine.State, SensedA = c.Machine.SensedA, SensedB = c.Machine.SensedB, Action = c.LastAction,
