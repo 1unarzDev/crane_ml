@@ -72,9 +72,31 @@ Players read the worktree spec (`--crane-fleet-spec`), so data edits need no reb
   motor lag), rotate 6.283 rad -> 6.22 to 6.24 rad. Odometry believes 0.289 m (it does not know the lateral
   efficiency), so the wheel-odometry estimate drifts 0.2 to 0.9 m and 0.06 to 0.2 rad over a 53 s run.
 
+- CAD-swap check is data-driven and informative (player, no rebuild): a modified profile (wheel radius 0.06,
+  clearance 0.045, lx 0.15, front/rear face z 0.075) passes with no code change
+  (`check/cad_swap_check_modified_profile.json`); a cargo mesh manifest whose collision hull reaches 1 cm below the
+  wheel plane fails with 36 findings (rover rides 10 mm high on the hull; `check/cad_swap_check_bad_cad.json`).
+  Variants in `~/.cache/crane-fleet/spec_variants/`.
+
+## Still (LIVE_SIM_VALIDATED, first picture only, not polished)
+
+`~/.cache/crane-fleet/stills/seed1_v2/{wide_start,close_start,wide_assembly}.png` (1600x900, Vulkan on the RTX
+4070 Ti SUPER, player `-batchmode` under `xvfb-run`, HDRP Balanced). The first attempt
+(`stills/seed1/`) rendered only the sky: the fleet player has no scene materials, so HDRP/Lit variants were stripped
+and every draw was dropped silently; fixed by shipping `Assets/Resources/Fleet/FleetLit.mat` as the colour template.
+What is wrong with the current stills:
+- No ambient/indirect light: shadowed areas are near-black. The runtime scene has no baked or updated ambient
+  probe; only the sun lights anything.
+- The scene is lit like an outdoor courtyard (one sun at 55 deg, no roof, no ceiling lights). The south wall's
+  shadow covers half the start zone, so lifter_1 and cargo_1 are almost invisible at t = 0.
+- Shadow edges are very soft and banded (default cascades over a 12 m view).
+- Outside the arena the HDRI sky's lower hemisphere shows as a flat brown backdrop; floor margin visible.
+- Rovers are about 25 px long in the wide shot; roles are readable by colour (orange scout with mast, blue
+  lifter, two greens for cargo) only in the lit area. Wheels look grounded; no z-fighting seen on zone patches.
+- The doorway is hidden from above by its lintel; face markers (magenta) are tiny; sensors are not drawn.
+
 ## Known defects / open items
 
-- Still render: see the handoff note and the still section below (first attempt rendered sky only).
 - `contact` events report impulse 0 at collision enter (enter events carry no impulse yet).
 - Lifter lift plate and face markers are render-only; the lift plate overlaps the front docking face (visual).
 - Inertia = profile box inertia scaled by total/base mass (derived, not from CAD); scout arm proxy not fitted.
