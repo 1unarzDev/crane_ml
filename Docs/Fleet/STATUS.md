@@ -41,8 +41,11 @@ Players read the worktree spec (`--crane-fleet-spec`), so data edits need no reb
 
 ## Model summary
 
-- Frames: world = scenario ENU, Unity = (x, z, y); chassis FLU with origin on the floor under the wheel-rectangle
-  centre (assumption; the profile does not say). One converter: `Sim/FleetFrames.cs`.
+- Frames: world = scenario ENU, Unity = (x, z, y); chassis FLU with origin = `base_link` at the body-underside
+  centre, as in `Tools/Fleet/assets/ASSET_MANIFEST_SPEC.md` (overlay `frame_convention.origin`; the profile itself
+  does not say). Face, CoM and sensor-mount z are base-frame; deck and mast heights are above ground. One
+  converter: `Sim/FleetFrames.cs`. (Evidence collected under the earlier floor-origin convention is archived in
+  `~/.cache/crane-fleet/archive/floor_origin/`.)
 - Plant (Core, `MecanumPlant`): command -> body limits -> IK -> common wheel-speed desaturation -> first-order
   motor lag -> per-wheel Gauss-Markov slip (floor sigma) -> FK x lateral efficiency -> body acceleration toward
   that twist (tracking time constant) -> per-wheel traction limit mu*N_i (CoM + load transfer) and torque/radius,
@@ -55,13 +58,15 @@ Players read the worktree spec (`--crane-fleet-spec`), so data edits need no reb
 
 ## Results (2026-11-09)
 
-- EditMode: 16/16 pass (kinematics identity, zero-slip achieved = commanded to 1e-9, lateral efficiency, wheel
+- EditMode: 16/16 pass, re-run after the frame-convention change (kinematics identity, zero-slip achieved = commanded to 1e-9, lateral efficiency, wheel
   limit direction, normal loads, traction cap, encoders/odometry, RNG streams, spec resolution, mating pose,
   JSON, mesh manifest, warehouse geometry, CAD-swap check, in-process determinism).
-- Seeded run (seed 1, 4 rovers): `script_complete` at t = 52.81 s, 10562 steps, 5.9 s wall (editor), no contacts.
-- Determinism, seed 1: byte-identical `states.jsonl` and `events.jsonl` across two separate editor processes, the
-  headless player and the player with graphics. `trajectory.ctraj` columns and events identical (header differs
-  only in the recorded commit). Seed 2 differs from row 0 (start jitter), as intended.
+- Seeded run (seed 1, 4 rovers): `script_complete` at t = 52.81 s, 10562 steps, about 4 s wall (editor), no
+  contacts; base_link rides at z = 0.0300 m (= ground clearance), tilt 0. (With the first route, three rovers grazed
+  the shelf corner; the lane waypoint moved to (3.5, 3.3); archived in `archive/route_v1/`.)
+- Determinism, seed 1: byte-identical `states.jsonl`, `events.jsonl` and `trajectory.ctraj` across two separate
+  editor processes, the headless player and the player with graphics (the still run), all at commit d95a788.
+  Seed 2 differs from row 0 (start jitter), as intended. Reports: `~/.cache/crane-fleet/determinism_*.json`.
 - Caveat: a run that shares a process with other physics content first (e.g. the CAD check, then the run) is
   not bitwise identical: positions agree within 1.1e-6 m, contact enter/exit events flicker at grazing contacts.
   The default PhysX scene keeps history. Each run in its own process (or its own physics scene) avoids it.
@@ -69,7 +74,7 @@ Players read the worktree spec (`--crane-fleet-spec`), so data edits need no reb
   primitives built from the same numbers this is a pipeline guard; it becomes informative with CAD collision
   meshes. It caught the world-scaling bug on its first run.
 - Qualification metrics (seed 1): strafe 0.3 m commanded -> 0.236 to 0.242 m truth (lateral efficiency 0.85 plus
-  motor lag), rotate 6.283 rad -> 6.22 to 6.24 rad. Odometry believes 0.289 m (it does not know the lateral
+  motor lag), rotate 6.283 rad -> 6.217 to 6.235 rad. Odometry believes 0.289 m (it does not know the lateral
   efficiency), so the wheel-odometry estimate drifts 0.2 to 0.9 m and 0.06 to 0.2 rad over a 53 s run.
 
 - CAD-swap check is data-driven and informative (player, no rebuild): a modified profile (wheel radius 0.06,
@@ -80,9 +85,9 @@ Players read the worktree spec (`--crane-fleet-spec`), so data edits need no reb
 
 ## Still (LIVE_SIM_VALIDATED, first picture only, not polished)
 
-`~/.cache/crane-fleet/stills/seed1_v2/{wide_start,close_start,wide_assembly}.png` (1600x900, Vulkan on the RTX
+`~/.cache/crane-fleet/stills/seed1/{wide_start,close_start,wide_assembly}.png` (1600x900, Vulkan on the RTX
 4070 Ti SUPER, player `-batchmode` under `xvfb-run`, HDRP Balanced). The first attempt
-(`stills/seed1/`) rendered only the sky: the fleet player has no scene materials, so HDRP/Lit variants were stripped
+(`archive/floor_origin/stills/seed1/`) rendered only the sky: the fleet player has no scene materials, so HDRP/Lit variants were stripped
 and every draw was dropped silently; fixed by shipping `Assets/Resources/Fleet/FleetLit.mat` as the colour template.
 What is wrong with the current stills:
 - No ambient/indirect light: shadowed areas are near-black. The runtime scene has no baked or updated ambient
