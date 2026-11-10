@@ -47,6 +47,8 @@ namespace Crane.Theater {
         public string Hud = "fleet";           // fleet (the study HUD) | minimal (title + caption line) | none
         public bool HudSet;                    // the script named a HUD (else the manifest's "hud", else fleet)
         public string Backend = "";            // which backend produced the run (shown by the minimal HUD)
+        public bool CameraRig;                 // the theater look's rig (TheaterCameraRig) rewrites the camera paths
+        public object LookDoc;                 // the script's "look": a preset name or {"name", "time_of_day", ...}; null = not set
         public readonly List<TheaterAct> Acts = new List<TheaterAct>();
         public float Duration { get { float d = 0; foreach (var a in Acts) d += a.duration; return d; } }
         public int FrameCount => Mathf.RoundToInt(Duration * Fps);
@@ -60,6 +62,7 @@ namespace Crane.Theater {
                 Fps = (float)TJson.Num(doc, "fps", 60), Title = TJson.Str(doc, "title", ""),
                 Hud = NormHud(TJson.Str(doc, "hud", "fleet")), HudSet = TJson.Has(doc, "hud"), Backend = TJson.Str(doc, "backend", "")
             };
+            s.LookDoc = doc is Dictionary<string, object> dd && dd.TryGetValue("look", out var lk) ? lk : null;
             var size = TJson.Arr(doc, "size");
             if (size != null && size.Count == 2) { s.Width = (int)(double)size[0]; s.Height = (int)(double)size[1]; }
             foreach (var o in TJson.Arr(doc, "acts") ?? new List<object>()) {

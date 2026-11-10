@@ -114,6 +114,9 @@ namespace Crane.Theater {
             if (hudArg != null) script.Hud = TheaterScript.NormHud(hudArg);
             else if (!script.HudSet && TJson.Has(manifest.Raw, "hud")) script.Hud = TheaterScript.NormHud(TJson.Str(manifest.Raw, "hud", "fleet"));
             if (string.IsNullOrEmpty(script.Backend)) script.Backend = TJson.Str(manifest.Raw, "backend", "");
+            // look: --crane-theater-look, else the script's "look", else the manifest's "look_preset", else plain
+            var preset = LookPreset.Resolve(manifest, k => Arg(k), script.LookDoc);
+            script.CameraRig = preset.Theater && preset.Rig;
 
             var state = new TheaterState(manifest, script, world);
             int total = state.FrameCount, a = 0, b = total;
@@ -127,7 +130,7 @@ namespace Crane.Theater {
             int first = Mathf.Max(0, a - preroll);
             int stills = int.Parse(Arg("--crane-theater-stills", "0"), CultureInfo.InvariantCulture);
             Debug.Log($"CRANE_THEATER_START manifest={manifestPath} runs={manifest.Runs.Count} world={world.Describe} robot={robotName} " +
-                      $"acts={script.Acts.Count} frames={a}:{b}/{total} fps={script.Fps} size={script.Width}x{script.Height} hud={script.Hud} " +
+                      $"acts={script.Acts.Count} frames={a}:{b}/{total} fps={script.Fps} size={script.Width}x{script.Height} hud={script.Hud} look={preset.Describe} " +
                       $"gfx={SystemInfo.graphicsDeviceType} device={SystemInfo.graphicsDeviceName} quality={QualitySettings.names[QualitySettings.GetQualityLevel()]}");
 
             // determinism: no motion blur, exposure without temporal adaptation. Only these parameters are
@@ -165,6 +168,9 @@ namespace Crane.Theater {
             cpv.injectionPoint = CustomPassInjectionPoint.AfterPostProcess;
             cpv.customPasses.Add(new TheaterPass { R = renderer, name = "ghost theater" });
             var hud = new HudRenderer(script.Width, script.Height) { Mode = script.Hud };
+            TheaterLook look = preset.Theater ? new TheaterLook(preset, state, world, renderer, profile, cam) : null;
+            // the look's panel HUD replaces only the fleet HUD; an explicit minimal/none HUD is kept
+            TheaterPanels panels = preset.Theater && preset.Panels && script.Hud == "fleet" ? new TheaterPanels(state, script.Width, script.Height) : null;
 
             GameObject gold = null, silver = null;
             bool heroes = false;
@@ -195,8 +201,9 @@ namespace Crane.Theater {
                 cam.transform.SetPositionAndRotation(fs.camPos, fs.camRot);
                 cam.fieldOfView = fs.fov;
                 renderer.Prepare(fs);
+                look?.Frame(fs, cam);
                 cam.Render();
-                if (script.Hud != "none") hud.Draw(rt, fs.hud);
+                if (panels != null) panels.Draw(rt, fs); else if (script.Hud != "none") hud.Draw(rt, fs.hud);
                 if (f >= a) {
                     string pix = capture.Write(rt, f);
                     if (stills > 0 && (f - a) % stills == 0) capture.WritePng(Path.Combine(outDir, "stills", $"frame_{f:D6}.png"));
@@ -232,6 +239,11 @@ namespace Crane.Theater {
             doc["unity"] = Application.unityVersion;
             doc["quality"] = QualitySettings.names[QualitySettings.GetQualityLevel()];
             doc["world"] = world.Describe;
+            if (preset.Theater) doc["look"] = preset.Describe;
+            if (look != null) {
+                foreach (var kv in look.Report) doc["look_" + kv.Key] = kv.Value;
+                doc["look_scene_draws"] = look.SceneDraws; doc["look_finish_draws"] = look.FinishDraws;
+            }
             doc["errors"] = errors;
             doc["error_lines"] = errorLines;
             doc["render_ms_median"] = renderMs.Count > 0 ? renderMs[renderMs.Count / 2] : 0.0;
@@ -242,7 +254,7 @@ namespace Crane.Theater {
             foreach (var kv in renderer.Stats) doc["stat_" + kv.Key] = kv.Value;
             File.WriteAllText(Path.Combine(outDir, "render_report.json"), TJson.Write(doc) + "\n");
             Debug.Log($"CRANE_THEATER_DONE frames={capture.Frames} video={video} encoded={encoded} errors={errors} wall_s={wall.Elapsed.TotalSeconds:0.0}");
-            renderer.Dispose(); hud.Dispose(); capture.Dispose();
+            renderer.Dispose(); hud.Dispose(); capture.Dispose(); look?.Dispose(); panels?.Dispose();
             exit(encoded && capture.Frames == b - a ? 0 : 4);
         }
 

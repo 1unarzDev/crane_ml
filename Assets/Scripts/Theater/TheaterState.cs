@@ -103,6 +103,7 @@ namespace Crane.Theater {
                 CameraPath(p);
                 Plans.Add(p);
             }
+            if (s.CameraRig) TheaterCameraRig.Apply(this);
         }
 
         // ------------------------------------------------------------------ planning
@@ -349,8 +350,8 @@ namespace Crane.Theater {
 
         // ------------------------------------------------------------------ cameras
 
-        Vector3 North => (World.ToUnity(0, 1, 0) - World.ToUnity(0, 0, 0)).normalized;
-        Vector3 East => (World.ToUnity(1, 0, 0) - World.ToUnity(0, 0, 0)).normalized;
+        public Vector3 North => (World.ToUnity(0, 1, 0) - World.ToUnity(0, 0, 0)).normalized;
+        public Vector3 East => (World.ToUnity(1, 0, 0) - World.ToUnity(0, 0, 0)).normalized;
 
         void CameraPath(ActPlan p) {
             int n = Mathf.Max(1, p.frames);

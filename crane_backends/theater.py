@@ -20,7 +20,8 @@ Worker YAML (``path`` puts this crane copy on sys.path)::
 
 Job spec: ``inputs`` {file name: sha256} (must include the manifest, default name ``manifest.json``),
 ``manifest`` (its name), ``script`` (a name among the inputs, optional), ``chunk_frames`` (required),
-``fps``, ``size`` ("WxH"), ``crf`` (18), ``preset`` (medium), ``preroll_s`` (2), ``quality``, ``stills``.
+``fps``, ``size`` ("WxH"), ``crf`` (18), ``preset`` (medium), ``preroll_s`` (2), ``quality``, ``stills``, ``look`` (the look
+preset, ``theater`` or ``plain``; absent: the manifest's ``look_preset``, else plain) and ``time_of_day``.
 Needs: ``{"gpu": true, "tags": ["theater-render"]}``; a worker gets the tag once its render spike passes.
 Artifacts per chunk: ``video.mp4``, ``frames.jsonl``, ``render_report.json``, ``contact.png`` (summary) and
 ``player.log`` (raw).
@@ -184,7 +185,8 @@ class ClusterBackend:
         if j.get('script'):
             a += ['--crane-theater-script', str(self.inputs / j['script'])]
         for key, flag in (('fps', '--crane-theater-fps'), ('size', '--crane-theater-size'), ('quality', '--crane-theater-quality'),
-                          ('stills', '--crane-theater-stills'), ('seconds', '--crane-theater-seconds')):
+                          ('stills', '--crane-theater-stills'), ('seconds', '--crane-theater-seconds'),
+                          ('look', '--crane-theater-look'), ('time_of_day', '--crane-theater-time-of-day')):
             if j.get(key) is not None:
                 a += [flag, str(j[key])]
         extra = [str(x) for x in self.options.get('args') or []] + [str(x) for x in self.ctx.spec.get('args') or []]

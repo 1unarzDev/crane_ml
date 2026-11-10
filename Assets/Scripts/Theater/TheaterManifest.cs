@@ -16,6 +16,7 @@ namespace Crane.Theater {
         public float score, progress, duration;
         public bool valid;
         public Dictionary<string, object> parameters;
+        public Dictionary<string, object> metrics;   // what the run logged (e.g. time_s, clearance_m, contacts); null when absent
         public List<TheaterEvent> events = new List<TheaterEvent>();
         public bool Failed => outcome == "failed" || outcome == "timeout" || outcome == "invalid";
     }
@@ -54,7 +55,8 @@ namespace Crane.Theater {
                     index = i++, id = TJson.Str(o, "id", $"run{i}"), outcome = TJson.Str(o, "outcome", "finished"),
                     failureReason = TJson.Str(o, "failure_reason"), iteration = (int)TJson.Num(o, "iteration"),
                     score = (float)TJson.Num(o, "score"), progress = (float)TJson.Num(o, "progress"),
-                    valid = TJson.Bool(o, "valid", true), parameters = TJson.Obj(o, "params") ?? new Dictionary<string, object>()
+                    valid = TJson.Bool(o, "valid", true), parameters = TJson.Obj(o, "params") ?? new Dictionary<string, object>(),
+                    metrics = TJson.Obj(o, "metrics")
                 };
                 foreach (var e in TJson.Arr(o, "events") ?? new List<object>())
                     r.events.Add(new TheaterEvent {
