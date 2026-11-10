@@ -1,7 +1,7 @@
 {
   "schema": "crane.fleet_mission/v0",
   "mission_id": "warehouse_a_demo_closed_loop_v2_box_small",
-  "note": "v2 with the profile box_small payload (0.30 x 0.20 x 0.15 m, 2.0 kg, needs one deck), within the lifter rating: same tasks; the handoff places it centred on cargo_1 (supporters cargo_1 only), hold_offset = grasp_offset + half length.",
+  "note": "v2 with the profile box_small payload (0.30 x 0.20 x 0.15 m, 2.0 kg, needs one deck), within the lifter rating: same tasks; the handoff places it centred on cargo_1 (supporters cargo_1 only), hold_offset = grasp_offset + half length. place_offset x = +0.08 m keeps the lifter origin 0.467 m from cargo_1 centre as in v2 (centred placement put the lifter nose 3 cm into cargo_1; validation run 2026-11-10); payload overhangs the deck front by 3 cm, CoM on the deck.",
   "crane_payload": {
     "id": "payload_box_small",
     "type": "box_small",
@@ -121,7 +121,7 @@
       ],
       "place_on": "cargo_1",
       "place_offset": [
-        0.0,
+        0.08,
         0.0,
         3.14159265
       ]
