@@ -1,0 +1,447 @@
+{
+ "HOMO_SHARED_REVISIT": {
+  "best": {
+   "alpha": 0.0,
+   "beta": 0.5
+  },
+  "best_J": 0.2898003472222222,
+  "evaluated": [
+   {
+    "params": {},
+    "J": 0.2736545138888889,
+    "J_se": 0.04540705326021271
+   },
+   {
+    "params": {
+     "alpha": 0.0,
+     "beta": 0.5
+    },
+    "J": 0.2898003472222222,
+    "J_se": 0.04446496953153557
+   },
+   {
+    "params": {
+     "alpha": 1.0,
+     "beta": 0.0
+    },
+    "J": 0.23921440972222222,
+    "J_se": 0.0435772425013639
+   },
+   {
+    "params": {
+     "alpha": 0.0,
+     "beta": 0.0
+    },
+    "J": 0.2220486111111111,
+    "J_se": 0.04277606338654629
+   },
+   {
+    "params": {
+     "alpha": 0.25,
+     "beta": 0.8
+    },
+    "J": 0.2743055555555556,
+    "J_se": 0.046241051384461745
+   },
+   {
+    "params": {
+     "alpha": 0.0,
+     "beta": 1.0
+    },
+    "J": 0.19793836805555556,
+    "J_se": 0.042018837370252
+   },
+   {
+    "params": {
+     "alpha": 0.0,
+     "beta": 0.8
+    },
+    "J": 0.2742404513888889,
+    "J_se": 0.04623281490546925
+   },
+   {
+    "params": {
+     "alpha": 2.0,
+     "beta": 0.0
+    },
+    "J": 0.240234375,
+    "J_se": 0.04329126231257936
+   },
+   {
+    "params": {
+     "alpha": 0.5,
+     "beta": 1.0
+    },
+    "J": 0.20850694444444443,
+    "J_se": 0.04203529338111464
+   },
+   {
+    "params": {
+     "alpha": 0.5,
+     "beta": 0.0
+    },
+    "J": 0.22975260416666668,
+    "J_se": 0.04434108487447409
+   }
+  ],
+  "k": 10,
+  "seeds": [
+   0,
+   31
+  ],
+  "objective": "J = auc_rep - 0.25 * false_rep"
+ },
+ "SPEC_ADAPTIVE": {
+  "best": {
+   "alpha": 0.5,
+   "beta": 0.5,
+   "comm_self_verify": true,
+   "fallback": "slow_cover",
+   "h": 0.5,
+   "lowconf": 0.8,
+   "p_cand": 0.15,
+   "rule": "marginal",
+   "stim_range_m": 300.0,
+   "theta": 0.5
+  },
+  "best_J": 0.26968315972222223,
+  "evaluated": [
+   {
+    "params": {},
+    "J": 0.24333767361111114,
+    "J_se": 0.0449562575933128
+   },
+   {
+    "params": {
+     "alpha": 0.5,
+     "beta": 0.5,
+     "comm_self_verify": true,
+     "fallback": "slow_cover",
+     "h": 0.5,
+     "lowconf": 0.8,
+     "p_cand": 0.15,
+     "rule": "marginal",
+     "stim_range_m": 300.0,
+     "theta": 0.5
+    },
+    "J": 0.26968315972222223,
+    "J_se": 0.046584331089284156
+   },
+   {
+    "params": {
+     "alpha": 0.25,
+     "beta": 0.8,
+     "comm_self_verify": true,
+     "fallback": "slow_cover",
+     "h": 0.0,
+     "lowconf": 0.8,
+     "p_cand": 0.15,
+     "rule": "marginal",
+     "stim_range_m": 0.0,
+     "theta": 1.0
+    },
+    "J": 0.23506944444444444,
+    "J_se": 0.045283326769135296
+   },
+   {
+    "params": {
+     "alpha": 0.5,
+     "beta": 0.5,
+     "comm_self_verify": true,
+     "fallback": "any",
+     "h": 0.2,
+     "lowconf": 99.0,
+     "p_cand": 0.3,
+     "rule": "marginal",
+     "stim_range_m": 0.0,
+     "theta": 0.5
+    },
+    "J": 0.2696397569444444,
+    "J_se": 0.04674244651157735
+   },
+   {
+    "params": {
+     "alpha": 0.25,
+     "beta": 0.5,
+     "comm_self_verify": true,
+     "fallback": "slow_cover",
+     "h": 0.0,
+     "lowconf": 99.0,
+     "p_cand": 0.3,
+     "rule": "threshold",
+     "stim_range_m": 0.0,
+     "theta": 0.5
+    },
+    "J": 0.25620659722222217,
+    "J_se": 0.04350752266982237
+   },
+   {
+    "params": {
+     "alpha": 0.5,
+     "beta": 0.8,
+     "comm_self_verify": false,
+     "fallback": "slow_cover",
+     "h": 0.2,
+     "lowconf": 0.8,
+     "p_cand": 0.15,
+     "rule": "threshold",
+     "stim_range_m": 300.0,
+     "theta": 0.5
+    },
+    "J": 0.2555121527777778,
+    "J_se": 0.04431728543923996
+   },
+   {
+    "params": {
+     "alpha": 0.25,
+     "beta": 0.8,
+     "comm_self_verify": false,
+     "fallback": "any",
+     "h": 0.5,
+     "lowconf": 0.8,
+     "p_cand": 0.15,
+     "rule": "threshold",
+     "stim_range_m": 300.0,
+     "theta": 2.0
+    },
+    "J": 0.14108072916666667,
+    "J_se": 0.03308732571887274
+   },
+   {
+    "params": {
+     "alpha": 1.0,
+     "beta": 0.8,
+     "comm_self_verify": false,
+     "fallback": "slow_cover",
+     "h": 0.2,
+     "lowconf": 0.8,
+     "p_cand": 0.08,
+     "rule": "threshold",
+     "stim_range_m": 300.0,
+     "theta": 0.5
+    },
+    "J": 0.2310329861111111,
+    "J_se": 0.04433375920808477
+   },
+   {
+    "params": {
+     "alpha": 1.0,
+     "beta": 0.8,
+     "comm_self_verify": true,
+     "fallback": "any",
+     "h": 0.2,
+     "lowconf": 0.8,
+     "p_cand": 0.15,
+     "rule": "threshold",
+     "stim_range_m": 0.0,
+     "theta": 2.0
+    },
+    "J": 0.23159722222222223,
+    "J_se": 0.04425300056143313
+   },
+   {
+    "params": {
+     "alpha": 0.25,
+     "beta": 0.8,
+     "comm_self_verify": false,
+     "fallback": "any",
+     "h": 0.5,
+     "lowconf": 0.8,
+     "p_cand": 0.15,
+     "rule": "marginal",
+     "stim_range_m": 300.0,
+     "theta": 0.25
+    },
+    "J": 0.22161458333333334,
+    "J_se": 0.04425113547263124
+   }
+  ],
+  "k": 10,
+  "seeds": [
+   0,
+   31
+  ],
+  "objective": "J = auc_rep - 0.25 * false_rep"
+ },
+ "HOMO_FAST": {
+  "best": {
+   "alpha": 0.5,
+   "beta": 0.5
+  },
+  "best_J": 0.25620659722222217,
+  "evaluated": [
+   {
+    "params": {},
+    "J": 0.22022569444444445,
+    "J_se": 0.044786616918831006
+   },
+   {
+    "params": {
+     "alpha": 2.0,
+     "beta": 0.5
+    },
+    "J": 0.24980468749999998,
+    "J_se": 0.04488814901590948
+   },
+   {
+    "params": {
+     "alpha": 0.0,
+     "beta": 0.5
+    },
+    "J": 0.2479817708333333,
+    "J_se": 0.044331155706764554
+   },
+   {
+    "params": {
+     "alpha": 0.25,
+     "beta": 0.0
+    },
+    "J": 0.21030815972222222,
+    "J_se": 0.042920454908111305
+   },
+   {
+    "params": {
+     "alpha": 0.0,
+     "beta": 0.8
+    },
+    "J": 0.2217447916666667,
+    "J_se": 0.04712468901988597
+   },
+   {
+    "params": {
+     "alpha": 1.0,
+     "beta": 0.0
+    },
+    "J": 0.2169487847222222,
+    "J_se": 0.04433939343497189
+   },
+   {
+    "params": {
+     "alpha": 0.0,
+     "beta": 1.0
+    },
+    "J": 0.1853081597222222,
+    "J_se": 0.041284861727044736
+   },
+   {
+    "params": {
+     "alpha": 2.0,
+     "beta": 0.8
+    },
+    "J": 0.23014322916666669,
+    "J_se": 0.04417242794327735
+   },
+   {
+    "params": {
+     "alpha": 1.0,
+     "beta": 0.8
+    },
+    "J": 0.21976996527777778,
+    "J_se": 0.04463776805673005
+   },
+   {
+    "params": {
+     "alpha": 0.5,
+     "beta": 0.5
+    },
+    "J": 0.25620659722222217,
+    "J_se": 0.04600494764301256
+   }
+  ],
+  "k": 10,
+  "seeds": [
+   0,
+   31
+  ],
+  "objective": "J = auc_rep - 0.25 * false_rep"
+ },
+ "B7_SOLO": {
+  "best": {},
+  "best_J": 0.33305121527777776,
+  "evaluated": [
+   {
+    "params": {},
+    "J": 0.33305121527777776,
+    "J_se": 0.04824913143859082
+   },
+   {
+    "params": {
+     "alpha": 0.5,
+     "sectors": false
+    },
+    "J": 0.16384548611111113,
+    "J_se": 0.04322407806147417
+   },
+   {
+    "params": {
+     "alpha": 0.25,
+     "sectors": true
+    },
+    "J": 0.300390625,
+    "J_se": 0.04598821742710022
+   },
+   {
+    "params": {
+     "alpha": 0.25,
+     "sectors": false
+    },
+    "J": 0.14388020833333334,
+    "J_se": 0.042905983169512274
+   },
+   {
+    "params": {
+     "alpha": 0.5,
+     "sectors": true
+    },
+    "J": 0.33305121527777776,
+    "J_se": 0.04824913143859082
+   },
+   {
+    "params": {
+     "alpha": 1.0,
+     "sectors": true
+    },
+    "J": 0.3237847222222222,
+    "J_se": 0.04816841177276602
+   },
+   {
+    "params": {
+     "alpha": 0.0,
+     "sectors": true
+    },
+    "J": 0.3001302083333333,
+    "J_se": 0.045959867627355794
+   },
+   {
+    "params": {
+     "alpha": 1.0,
+     "sectors": false
+    },
+    "J": 0.18400607638888888,
+    "J_se": 0.04342992298243109
+   },
+   {
+    "params": {
+     "alpha": 2.0,
+     "sectors": false
+    },
+    "J": 0.16805555555555557,
+    "J_se": 0.0442959104833265
+   },
+   {
+    "params": {
+     "alpha": 2.0,
+     "sectors": true
+    },
+    "J": 0.3153428819444445,
+    "J_se": 0.0478411669406788
+   }
+  ],
+  "k": 10,
+  "seeds": [
+   0,
+   31
+  ],
+  "objective": "J = auc_rep - 0.25 * false_rep"
+ }
+}
