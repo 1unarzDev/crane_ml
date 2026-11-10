@@ -363,3 +363,25 @@ on the coupled pair in the delivery zone, with the scout watching. The h24 still
 - Tipping surfaces in the library as Geometry; there is no tip class.
 - The body-level mecanum plant ignores the carried mass in its traction normal loads, and its yaw torque uses the lifter's own Izz.
 - Replays aim at cargo_2 when the failure event names no rover.
+
+### box_small batch, full report (`load4_box_small_s1-10`, GPU player, library aeb9462e, cylinder wheels, 10:35-11:42)
+- **Result: 8/10 delivered by truth** (Wilson 95 % 0.49-0.94).
+  - All 8 deliveries were believed complete and accepted by the host verdict.
+  - Disputed claims 0, jams 0, false successes 0. No lift stall and no tip in any run; max lifter tilt about 1e-6 rad.
+- **Seed 1.** Perception: "receiver cargo_1 not localised for handoff (sigma 1.65 m)".
+  - Cause: the carry route contacted cargo_1 at about 88 s, stall detection inflated the lifter's sigma, and alignment failed.
+  - Replay: `replays/load4_box_small_1/frames/replay_0{0..3}_t10{2.7..5.7}.png`.
+- **Seed 5.** Configuration: "lifter_1 holds nothing" (attempt 2), after attempt 1's `goal_in_collision`.
+  - Cause: the same carry contact at 87.6 s and 89.2 s. The payload was released onto cargo_1's deck lip; the truth state is `on_decks`, but it was never transported.
+  - Replay: `replays/load4_box_small_5/frames/replay_0{0,1}_t{99.1,100.1}.png`.
+- **Near misses.** 4 of 10 runs had a lifter-cargo_1 contact on the carry leg; 2 recovered.
+- **Cause and fix (local library patch, dotnet-tested).** The handoff carry Navigator ignored the receivers. See `Tools/Fleet/offline/autonomy_patch_tests/`. It is verified in Unity after 04:00.
+
+### Code-only work, 11:42 onward (no Unity; Unity verification pending, NOT_RUN in Unity)
+| Item | Where | Evidence |
+|---|---|---|
+| Library local patch: the handoff carry keeps the receivers as obstacles (pre-place goal, goal search) | `Autonomy/Mission/Behaviors.cs`, diff in `Tools/Fleet/offline/autonomy_patch_tests/crane_local_patches.diff` | FIXTURE_VALIDATED (dotnet, upstream harness): the CRANE box_small geometry fails 5/5 unpatched ("lifter_1 hit cargo_1") and passes 5/5 patched; 100/103 upstream + new tests, 3 env-only failures |
+| Library local patch: failure class `Tipping` (not retried), from the new `LiftReport.TiltRad` and `TipTiltLimit` 0.30 rad | `Autonomy/*` | IMPLEMENTED (no harness test: the upstream harness has no TiltRad); CRANE fills TiltRad from the body attitude |
+| Truth state: the pallet counts as support (`on_pallet`); `carried` only after lift-off, `gripped` flag otherwise; the lift claim needs lift-off | `Sim/AutonomyMission.cs` | IMPLEMENTED (typechecked) |
+| `fleet.sh` re-execs itself at nice >= 10 (`CRANE_FLEET_NICE`) | `Tools/Fleet/fleet.sh` | checked (`bash -x`) |
+| Merged research/fleet-scenes (ScenarioV1 loader, v1 landmarks, door sills, floor patches, 6 EditMode tests) | merge 89e3e751 | compiles (Unity DLL typecheck); scenes pytest 41/41; Unity tests pending |
