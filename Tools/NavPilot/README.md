@@ -25,3 +25,20 @@ $F $PY Tools/NavPilot/sweep.py report
 $F $PY Tools/NavPilot/sweep.py episode --seed 3 --sensor lidar --v-limit 7 --branch high --log /tmp/np_run
 $F $PY Tools/DroneData/drone_log.py /tmp/np_run
 ```
+
+## E3: maximum reliably achievable speed (navigation-under-uncertainty track)
+- Literature: `NAV_LIT.md`. Protocol: `PREREG_SPEED.md` (FROZEN 2026-11-10 00:59). Optional learned-policy arm:
+  `BC_SHIELD_SPEC.md` (spec only).
+- Code (new files only; the E2-frozen modules are untouched): `stacks/advanced.py` (AdvStack: opt_backup_t,
+  reactive_plus, mpc_lc, ua_map, pas_opt, pas_full; RangeOccMap), `experiments/e3_episode.py`, `experiments/e3.py`,
+  `experiments/worker.py`.
+- DEV: `results/E3_dev_tuning.md`, `results/raw/e3_tune_*.jsonl`, `results/raw/e3_tuned.json`, parity
+  `results/raw/e3_parity.json` (E3 reproduces E2 exactly).
+- Held-out (layouts 90400-90407, 800 episodes): job files in `~/.cache/navpilot_e3/{pending,running,done}`, run by
+  `experiments/worker.py` under fsrun, rows in `results/raw/e3_heldout_*.jsonl`. When all 40 job files are in
+  `done/`, run:
+  `fsrun python Tools/NavPilot/experiments/e3.py report --plan heldout` -> `results/E3_heldout.md` + `results/raw/e3_heldout_summary.json`.
+  If the worker exited idle before finishing, restart it with
+  `fsrun python Tools/NavPilot/experiments/worker.py --queue ~/.cache/navpilot_e3 --name w1`. Its job files resume
+  from `pending/`. A job file interrupted mid-run must be moved from `running/` back to `pending/`. Duplicate rows
+  are deduplicated by the report.
