@@ -42,7 +42,30 @@ Abort 0 or 0.2.
 
 ## Results (exact)
 
-RESULTS_TABLE
+| n | k | hints | abort | V_cent | V_dec | V_implicit | VoC | V_dec-V_imp | |F| | s |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 2 | 2 | none | 0.0 | 0.695680 | 0.695680 | 0.695680 | 0.00e+00 | 0.00e+00 | 10 | 0.3 |
+| 2 | 2 | none | 0.2 | 0.620831 | 0.618914 | 0.614195 | 1.92e-03 | 4.72e-03 | 16 | 0.1 |
+| 2 | 2 | weak | 0.0 | 0.708662 | 0.708470 | 0.708470 | 1.92e-04 | 0.00e+00 | 26 | 0.2 |
+| 2 | 2 | weak | 0.2 | 0.631944 | 0.629284 | 0.629284 | 2.66e-03 | 1.11e-16 | 36 | 0.4 |
+| 2 | 2 | strong | 0.0 | 0.730028 | 0.729644 | 0.729644 | 3.84e-04 | 0.00e+00 | 26 | 0.2 |
+| 2 | 2 | strong | 0.2 | 0.649983 | 0.645256 | 0.645256 | 4.73e-03 | 0.00e+00 | 36 | 0.4 |
+| 2 | 2 | noisy | 0.0 | 0.699136 | 0.699136 | 0.692749 | 0.00e+00 | 6.39e-03 | 38 | 0.2 |
+| 2 | 2 | noisy | 0.2 | 0.622658 | 0.618914 | 0.618131 | 3.74e-03 | 7.83e-04 | 52 | 0.7 |
+| 3 | 2 | none | 0.0 | 0.590400 | 0.590400 | 0.590400 | 0.00e+00 | 0.00e+00 | 21 | 0.4 |
+| 3 | 2 | none | 0.2 | 0.517427 | 0.515830 | 0.515830 | 1.60e-03 | -1.11e-16 | 36 | 0.8 |
+| 3 | 2 | weak | 0.0 | 0.605658 | 0.605293 | 0.605293 | 3.65e-04 | 0.00e+00 | 63 | 1.5 |
+| 3 | 2 | weak | 0.2 | 0.528773 | 0.526423 | 0.526423 | 2.35e-03 | 0.00e+00 | 90 | 2.4 |
+| 3 | 2 | strong | 0.0 | 0.638416 | 0.628506 | 0.628506 | 9.91e-03 | 0.00e+00 | 63 | 1.0 |
+| 3 | 2 | strong | 0.2 | 0.555520 | 0.542991 | 0.542456 | 1.25e-02 | 5.35e-04 | 90 | 2.2 |
+| 3 | 2 | noisy | 0.0 | 0.593280 | 0.593280 | 0.590400 | 0.00e+00 | 2.88e-03 | 99 | 0.8 |
+| 3 | 2 | noisy | 0.2 | 0.518902 | 0.515830 | 0.515830 | 3.07e-03 | 1.11e-16 | 138 | 3.0 |
+| 2 | 3 | none | 0.0 | 0.764416 | 0.764416 | 0.764416 | 0.00e+00 | 0.00e+00 | 20 | 1.0 |
+| 2 | 3 | none | 0.2 | 0.717644 | 0.714442 | 0.709210 | 3.20e-03 | 5.23e-03 | 52 | 2.7 |
+| 2 | 3 | weak | 0.0 | 0.771691 | 0.771316 | 0.770411 | 3.74e-04 | 9.05e-04 | 272 | 9.6 |
+
+(`|F|` = size of the reduced decentralised policy-value set; time in s.  The n=2, k=3 rows with hints+aborts and with strong/noisy hints were not reached in the time budget.)
+
 
 ## No hints and no aborts: VoC = 0 exactly (proof)
 
@@ -81,7 +104,35 @@ succeeded.
 
 ## Where VoC is largest
 
-RANDOM_SUMMARY
+Base grid: VoC is 0 for `none, ab 0` (as proved), and 0 for `noisy, ab 0`
+(alpha = 0.2 makes hints nearly useless for reallocation).  Otherwise it is
+1e-4 to 1e-2: 0.02-0.06% relative for weak hints, up to 1.6% relative for
+strong hints at n=3 (VoC 9.9e-3; with aborts 1.25e-2).  Aborts alone give
+about 2-3e-3.
+
+Random instances (n=2, k=2, 600 draws: prior ~ Dir(1), g ~ U(.05,.95),
+q ~ U(.3,1), h_good, h_bad ~ U(0,1), alpha ~ U(0,.5), abort 0 or U(0,.5)),
+seed 2026, Pareto pruning:
+
+```
+random n=2 k=2: 600 instances
+  all: VoC mean 3.86e-03 median 2.18e-03 max 3.35e-02; frac VoC>1e-9 0.85; imp-gap mean 1.73e-02 max 1.44e-01
+  abort>0: VoC mean 4.75e-03 median 3.37e-03 max 2.79e-02; frac VoC>1e-9 0.95; imp-gap mean 1.97e-02 max 1.43e-01
+  abort=0: VoC mean 3.13e-03 median 1.47e-03 max 3.35e-02; frac VoC>1e-9 0.78; imp-gap mean 1.54e-02 max 1.44e-01
+  top VoC 3.3485e-02 (rel 5.22%) Vc 0.64107 Vd 0.60759 Vi 0.57918 prior [0.45, 0.55] g [[0.47, 0.88], [0.44, 0.35]] q [[0.6, 0.45], [0.64, 0.76]] hg 0.11 hb 1.00 alpha 0.01 abort 0.00
+  top VoC 2.7915e-02 (rel 3.89%) Vc 0.71758 Vd 0.68966 Vi 0.67738 prior [0.355, 0.645] g [[0.43, 0.48], [0.87, 0.8]] q [[0.66, 0.95], [0.5, 0.36]] hg 0.98 hb 0.86 alpha 0.29 abort 0.02
+  top VoC 2.5298e-02 (rel 4.53%) Vc 0.55856 Vd 0.53326 Vi 0.51642 prior [0.28, 0.72] g [[0.06, 0.74], [0.68, 0.12]] q [[0.39, 0.34], [0.6, 0.7]] hg 0.08 hb 0.95 alpha 0.03 abort 0.08
+  Spearman(VoC, param): h_good=+0.16, h_bad=+0.28, alpha=-0.22, abort=+0.24, mean_q=-0.07, mean_g=+0.04, prior_max=-0.09
+```
+
+VoC > 0 on 85% of random instances.  It is largest (up to 3.3e-2 absolute,
+5% relative, at k=2) when hints are informative about the *target* view
+being bad (high h_bad, low alpha).  Those are cases where a private HINT
+should redirect the partner.  VoC also grows with abort probability.  The
+IMPLICIT gap V_dec - V_implicit is usually larger than VoC: mean 1.7e-2,
+max 0.14.  On the base grid, though, IMPLICIT is exactly decentralised-optimal
+in most hint rows; it loses in `none, ab .2`, the `noisy` rows, and at k=3.
+
 
 ## Limits
 
