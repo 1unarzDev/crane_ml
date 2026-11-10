@@ -31,7 +31,7 @@ namespace Crane.Fleet.Sim {
         public QualificationScript Script;
         public Twist Command;
         public readonly Dictionary<string, Transform> Frames = new Dictionary<string, Transform>();
-        public readonly List<SphereCollider> WheelColliders = new List<SphereCollider>();
+        public readonly List<Collider> WheelColliders = new List<Collider>();
         public readonly string RenderSource;
         public readonly AssetVisual Visual;   // null for primitives
         public double Lift, GripperOpening = double.NaN;
@@ -86,15 +86,27 @@ namespace Crane.Fleet.Sim {
                 bc.sharedMaterial = bodyMat;
                 bc.providesContacts = true;
             }
-            if (d.WheelContact != "sphere") throw new NotSupportedException("wheel contact " + d.WheelContact);
-            foreach (var w in d.Wheels) {
+            // wheel contact proxies (frictionless; the plant supplies every horizontal force): "sphere" (radius r; overstates the lateral extent by
+            // r - width/2, 2.35 cm on the profile wheel, enough to make wheels touch where the bodies are 2 cm apart) or "cylinder" (convex
+            // cylinder, radius r, profile wheel width, axis along the axle). Casters stay spheres.
+            if (d.WheelContact != "sphere" && d.WheelContact != "cylinder") throw new NotSupportedException("wheel contact " + d.WheelContact);
+            for (int wi = 0; wi < d.Wheels.Count; wi++) {
+                var w = d.Wheels[wi];
+                bool caster = wi < d.WheelUnits.Count && d.WheelUnits[wi].Kind == WheelKind.Caster;
                 var go = new GameObject("contact_" + w.Name);
                 go.transform.SetParent(collision, false);
                 go.transform.localPosition = FleetFrames.LocalPosition(w.Axle);
-                var sc = go.AddComponent<SphereCollider>();
-                sc.radius = (float)w.Radius;
-                sc.sharedMaterial = wheelMat;
-                WheelColliders.Add(sc);
+                go.transform.localRotation = FleetFrames.LocalYawPitch(w.Axle.Yaw, 0);
+                Collider c;
+                if (d.WheelContact == "cylinder" && !caster) {
+                    var mc = go.AddComponent<MeshCollider>();
+                    mc.sharedMesh = CylinderMesh(w.Radius, w.Width);
+                    mc.convex = true;
+                    c = mc;
+                }
+                else { var sc = go.AddComponent<SphereCollider>(); sc.radius = (float)w.Radius; c = sc; }
+                c.sharedMaterial = wheelMat;
+                WheelColliders.Add(c);
             }
 
             // render geometry: the asset manifest when present, else primitives
@@ -132,6 +144,29 @@ namespace Crane.Fleet.Sim {
             accelNoise = o["plant.imu_accel_noise_density"].Double;
             imuEvery = Math.Max(1, (int)Math.Round(1.0 / (p["sensors.imu.rate_hz"].Double * dt)));
             encEvery = Math.Max(1, (int)Math.Round(1.0 / (p["sensors.wheel_encoder.rate_hz"].Double * dt)));
+        }
+
+        static readonly Dictionary<(double, double), Mesh> cylinders = new Dictionary<(double, double), Mesh>();
+
+        /// <summary>Convex cylinder (24 sides) with its axis along Unity local x (= the FLU y axle of a wheel at yaw 0).</summary>
+        static Mesh CylinderMesh(double radius, double width) {
+            if (cylinders.TryGetValue((radius, width), out var m)) return m;
+            const int n = 24;
+            var v = new Vector3[2 * n]; var tri = new List<int>();
+            for (int k = 0; k < n; k++) {
+                double a = 2 * Math.PI * k / n;
+                float y = (float)(radius * Math.Cos(a)), z = (float)(radius * Math.Sin(a));
+                v[k] = new Vector3((float)(-width / 2), y, z); v[n + k] = new Vector3((float)(width / 2), y, z);
+            }
+            for (int k = 0; k < n; k++) {
+                int k1 = (k + 1) % n;
+                tri.AddRange(new[] { k, n + k, k1, k1, n + k, n + k1 });
+                if (k > 0 && k < n - 1) { tri.AddRange(new[] { 0, k1, k }); tri.AddRange(new[] { n, n + k, n + k1 }); }
+            }
+            m = new Mesh { name = $"wheel_cylinder_{radius:0.####}_{width:0.####}", vertices = v, triangles = tri.ToArray() };
+            m.RecalculateNormals(); m.RecalculateBounds();
+            cylinders[(radius, width)] = m;
+            return m;
         }
 
         void AddFrame(Transform parent, string name, FramePose pose) {

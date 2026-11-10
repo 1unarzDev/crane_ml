@@ -122,12 +122,12 @@ namespace Crane.Fleet.Sim {
 
             var wheels = new Dictionary<string, object>();
             for (int i = 0; i < r.WheelColliders.Count; i++) {
-                SphereCollider sc = r.WheelColliders[i];
+                Collider sc = r.WheelColliders[i];
                 WheelFrame w = r.D.Wheels[i];
                 Vector3 centre = sc.transform.position;
                 double gap = double.NaN;
                 if (floor.Raycast(new Ray(centre + Vector3.up * 0.5f, Vector3.down), out RaycastHit hit, 2f))
-                    gap = centre.y - hit.point.y - sc.radius;   // > 0 floating, < 0 penetrating
+                    gap = centre.y - hit.point.y - w.Radius;   // > 0 floating, < 0 penetrating
                 Vector3 frame = r.Frames["wheel_" + w.Name].position;
                 double heightErr = frame.y - w.Radius;   // axle must sit one wheel radius above the floor
                 bool ok = !double.IsNaN(gap) && Math.Abs(gap) <= contactTol && Math.Abs(heightErr) <= frameTol;

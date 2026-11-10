@@ -30,7 +30,7 @@
       "value": 9.81,
       "provenance": "provisional"
     },
-    "wheel_contact": "sphere",
+    "wheel_contact": "cylinder",
     "wheel_friction": {
       "value": 0.0,
       "provenance": "provisional",
@@ -43,7 +43,8 @@
     "spawn_lift": {
       "value": 0.002,
       "provenance": "provisional"
-    }
+    },
+    "wheel_contact_note": "frictionless contact proxy: \"cylinder\" (convex, radius r, profile wheel width; from 2026-11-10 phase 4) or \"sphere\" (radius r, every run before that; overstates the wheel lateral extent by r - width/2 = 2.35 cm). Casters are always spheres."
   },
   "plant": {
     "motor_time_constant": {

@@ -347,7 +347,7 @@ namespace Crane.Fleet.Sim {
                     if (impulse <= contactImpulseThreshold || loggedPairs.Contains(key)) continue;
                     byCollider.TryGetValue(a, out RoverRig ra);
                     byCollider.TryGetValue(b, out RoverRig rb);
-                    if ((a.name == "floor" || b.name == "floor") && (a is SphereCollider || b is SphereCollider)) continue;  // wheel-floor
+                    if ((a.name == "floor" || b.name == "floor") && (a.name.StartsWith("contact_") || b.name.StartsWith("contact_"))) continue;  // wheel-floor
                     if (ra != null && rb != null && IgnoreContact != null && IgnoreContact(ra, rb)) continue;
                     loggedPairs.Add(key);
                     if (ra != null) lastContact[ra] = (T, rb != null ? rb.D.Id + ":" + b.name : b.name);
