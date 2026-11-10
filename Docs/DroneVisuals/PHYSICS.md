@@ -84,9 +84,9 @@ zoh-first and naive 50 Hz columns are Python only, for comparison.
 | scenario | C# 1 kHz pos [m] | att [rad] | rate [rad/s] | rotor [rad/s] | identity vs oracle @1 kHz (max rel) | zoh-first 1 kHz pos / att | naive 50 Hz pos / att / rotor |
 |---|---|---|---|---|---|---|---|
 | step (with ground effect, wind; ground contact at t = 1.73 s) | 4.6e-5 | 2.2e-4 | 1.3e-3 | 3.6e-13 | ~2e-15 | 1.1e-3 / 2.7e-3 | 8.2e-4 / 3.7e-3 / 3e-13 |
-| chirp 0.5-10 Hz, pitch | 6.4e-11 | 4.6e-9 | 1.9e-10 | 4.0e-13 | ~9e-15 | 6.0e-3 / 2.5e-3 | 1.2e-1 / 4.3e-2 / 4.8 |
+| chirp 0.5-10 Hz, pitch | 6.4e-11 | 7.3e-9 | 1.9e-10 | 4.0e-13 | ~9e-15 | 6.0e-3 / 2.5e-3 | 1.2e-1 / 4.3e-2 / 4.8 |
 | saturation (1.3x w_max, yaw pair, idle) | 1.1e-3 | 1.1e-3 | 3.7e-3 | 1.6e-1 | ~9e-15 | 9.0e-3 / 8.0e-3 | 2.6e-2 / 2.4e-2 / 4.4 |
-| hover to pitch flip (body z reaches -0.994) | 9.8e-9 | 5.6e-9 | 2.4e-8 | 6.7e-13 | ~2e-15 | 4.3e-3 / 6.4e-3 | 1.6e-3 / 1.4e-3 / 6e-13 |
+| hover to pitch flip (body z reaches -0.994) | 9.8e-9 | 6.7e-9 | 2.4e-8 | 6.7e-13 | ~2e-15 | 4.3e-3 / 6.4e-3 | 1.6e-3 / 1.4e-3 / 6e-13 |
 
 The tests assert these bounds:
 

@@ -1,0 +1,14 @@
+{
+    "name": "Crane.Aerial.Physics",
+    "rootNamespace": "Sim.Physics.Aerial",
+    "references": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

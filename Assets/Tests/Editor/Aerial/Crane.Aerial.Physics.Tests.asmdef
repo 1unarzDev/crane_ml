@@ -1,0 +1,13 @@
+{
+    "name": "Crane.Aerial.Physics.Tests",
+    "rootNamespace": "Sim.Tests.Aerial",
+    "references": [
+        "Crane.Aerial.Physics"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ]
+}
