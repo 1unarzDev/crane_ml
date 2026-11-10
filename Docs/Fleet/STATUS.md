@@ -385,3 +385,34 @@ on the coupled pair in the delivery zone, with the scout watching. The h24 still
 | Truth state: the pallet counts as support (`on_pallet`); `carried` only after lift-off, `gripped` flag otherwise; the lift claim needs lift-off | `Sim/AutonomyMission.cs` | IMPLEMENTED (typechecked) |
 | `fleet.sh` re-execs itself at nice >= 10 (`CRANE_FLEET_NICE`) | `Tools/Fleet/fleet.sh` | checked (`bash -x`) |
 | Merged research/fleet-scenes (ScenarioV1 loader, v1 landmarks, door sills, floor patches, 6 EditMode tests) | merge 89e3e751 | compiles (Unity DLL typecheck); scenes pytest 41/41; Unity tests pending |
+
+### M2 group control, command side (code-only, 2026-11-10 afternoon; Unity-pending)
+| Item | Where | Evidence |
+|---|---|---|
+| `AssemblyDrive`: a group twist at the assembly origin maps to every member's driven-wheel speeds (ideal rolling at each wheel's assembly-frame pose); weighted-LS forward kinematics; common saturation; hard lateral rows of conventional wheels give mobility and feasibility; drive rank; `MatedPose` from face frames (x, y, yaw) only (hook + pin ready) | `Core/AssemblyDrive.cs` | FIXTURE_VALIDATED: `Tools/Fleet/offline/assembly_t0` 18/18 (see below) |
+| Pre-latched spawning of rigid couplings (LATCHED_VERIFIED / LOAD_VALIDATED). The graph poses must mate the faces (<= 1 cm, 0.01 rad), else refused. Members are placed at the mated pose from the root's spawn pose, then welded with a FixedJoint (no face hardware). Non-rigid couplings spawn as free faces. The probe drives each assembly with one group twist | `Sim/ModuleProbeMission.cs` | IMPLEMENTED (Unity-DLL typecheck); EditMode tests `RigidCouplingsAreAccepted...` and `PreLatchedAssembliesDriveAsOneGroup` plus job `probe_coupled_s1` wait for Unity after 04:00 |
+| Coupled capplan graph (inline carrier pair, L of mecanum pods, diff_carrier + mecanum_pod) from capplan's own serialiser | `Tools/Fleet/probes/coupled_graph_v0.json` (`capplan_types/make_coupled_graph.py`) | generated |
+
+**T0 checks (`assembly_t0`), all passing:**
+- inline mated pose (-0.42, 0, 0);
+- inline pure translation equals the single-rover IK on both members;
+- inline pure yaw equals the member IK of (R(-yaw)(w x p), w), with cargo_2 explicitly IK(0, -0.42, 1);
+- L mated pose (0, 0.41, pi/2);
+- L: +x makes member b strafe right;
+- L pure yaw identity;
+- 200 random twists: group IK = member IK (1e-14) and Forward(Inverse(t)) = t (3.5e-9);
+- mecanum assemblies have mobility 3;
+- diff + mecanum:
+  - mobility 2;
+  - pure lateral infeasible;
+  - forward and yaw about the diff axle feasible;
+  - yaw about the pod centre infeasible;
+  - drive rank 3 (lateral only through scrub);
+- diff alone: rank 2 and B A idempotent;
+- common saturation scales to the 12 rad/s limit.
+
+**Still open for M2:**
+- profile rovers coupled by docking need the tractive plant (`plant.coupled_model`);
+- joint wrench readout against the face profile's limits;
+- autonomy-in-the-loop assemblies (the library distributes; CRANE applies);
+- the demo stand mission.
