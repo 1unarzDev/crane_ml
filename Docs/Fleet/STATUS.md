@@ -331,3 +331,35 @@ Gauss-Markov slip of the body plant is not ported). All parameters are ASSUMED (
 ### Stills with the verdict-timing fix: `~/.cache/crane-fleet/stills/demo_seed1_v3/` (mission v2, seed 1, player built 06:50)
 `07_done` is rendered at `mission_succeeded + 0.3 s` (t 134.2 s), after the accepted host verdict at 133.9 s. It shows the payload delivered
 on the coupled pair in the delivery zone, with the scout watching. The h24 stills (`stills/demo_seed1/`) are unchanged.
+
+### Lifter load model and payload batches (LIVE_SIM_VALIDATED, GPU player, 2026-11-10 08:00-11:00)
+**Model.** Overlay `lift_load.model = "physical"`, implemented in `Sim/AutonomyMission.cs`:
+- **Lift force limit.** The limit is the profile `lift_capacity` x g x `force_margin` (1.0), i.e. 49.05 N. Raising a heavier carried payload stalls the lift (`lift_stalled`).
+- **ForceLimited.** The library sees `LiftReport.ForceLimited` while the lift is stalled.
+- **Composite body.** Once the payload is lifted 5 mm off its support, its mass, CoM and box inertia join the lifter rigid body. This is restored on release; off-diagonal products of inertia are dropped. PhysX then handles load transfer and tipping.
+- **Tip check.** An evaluator-only check fires when |pitch| or |roll| exceeds 0.35 rad. A tipped lifter drops its payload.
+- **Failed first version.** It applied m(g - a) explicitly at the payload CoM and was unstable: the payload outweighed the lifter's effective mass at the grip point (about 0.7 kg for box_small at 0.41 m), and a lifter was thrown 0.6 m up. That batch is invalid and archived (`~/.cache/crane-fleet/archive/load3_box_small_INVALID_explicit_inertia`).
+- **Wheel contact proxy.** Changed from spheres to convex cylinders (`physics.wheel_contact = "cylinder"`, profile wheel width 0.045 m). The spheres overstated the wheel's lateral extent by 2.35 cm. **Every run before d52d725d used the sphere proxy.**
+
+| Batch (seeds) | Library | Payload | Truth delivered | First failure classes | Disputed / jams / false success |
+|---|---|---|---|---|---|
+| kinematic carry, batch 1 (1-10) | 910b6152 | box_long 6 kg, no load model | 6/10 | Geometry 4 (carry start_in_collision) | 0 / 0 / 0 |
+| kinematic carry, batch 2 (1-10) | 67d4d793 | box_long 6 kg, no load model | 10/10 | none | 0 / 0 / 0 |
+| `load_box_long6` (1-10), sphere proxy | 67d4d793 | box_long 6 kg, physical | **0/10** | Timeout 6 (lift stall), Geometry 4 (retry start_in_collision) | 0 / 0 / 0 |
+| `load4_box_long6` (1-10) | aeb9462e (Capacity class) | box_long 6 kg, physical | **0/10** | **Capacity 10** (fails 0.5 s after the stall, not retried, payload set back on its pallet) | 0 / 0 / 0 |
+| `load4_box_long5` (1-3) | aeb9462e | box_long declared 5 kg (= rating) | **0/3** | Geometry 3 (lifter **tipped**, pitch 0.36 rad 0.3 s after lift-off; "object lost while lifting") | 0 / 0 / 0 |
+| `load4_box_small` (1-10) | aeb9462e | box_small 2 kg (within rating) | **8/10** (Wilson 95 % 0.49-0.94) | Perception 1 (seed 1), Configuration 1 (seed 5): both from the handoff carry brushing cargo_1 | 0 / 0 / 0 |
+
+**Reading.**
+- **Capacity.** The library now refuses the over-capacity lift physically, fast and honestly.
+- **End-grip geometry.** box_long is infeasible even at the rated mass: the combined CoM sits 0.25 m forward against the front axle at 0.14 m. This needs a CAD or design decision (see the handoff).
+- **box_small failures.** In 4 of 10 runs the handoff carry route touches cargo_1; 2 of those failed. The library's carry Navigator ignores the receivers (`Ignore = supporters`), reported in the handoff.
+- **Kinematic-carry deliveries.** The 10/10 of batch 2 holds only under the kinematic carry; with the load model the same mission cannot lift box_long.
+
+**Outputs.** Under `~/.cache/crane-fleet/requests/`: `load_box_long6_s1-10`, `load4_box_long6_s1-10`, `load4_box_long5_s1-3`, `load4_box_small_s1-10`. Each has `success_rate.json` and `replays/<id>/` for every failed seed.
+
+**Known gaps.**
+- A payload resting on its pallet after a refused lift reports state `unsupported_or_tilted`; a gripped but unlifted payload reports `carried`.
+- Tipping surfaces in the library as Geometry; there is no tip class.
+- The body-level mecanum plant ignores the carried mass in its traction normal loads, and its yaw torque uses the lifter's own Izz.
+- Replays aim at cargo_2 when the failure event names no rover.
