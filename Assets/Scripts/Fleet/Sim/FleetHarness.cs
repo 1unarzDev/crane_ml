@@ -34,6 +34,15 @@ namespace Crane.Fleet.Sim {
             var byId = new Dictionary<string, JobResult>();
             using var summary = new StreamWriter(Path.Combine(outDir, "summary.jsonl"), false) { NewLine = "\n" };
             foreach (var j in root["jobs"].Items) {
+                string cfg = j.Has("config") && j["config"].Unwrapped is string cs ? cs : "profile";
+                if (cfg != "profile") {
+                    // module graphs from the shared generator cannot be spawned yet: refuse explicitly rather than run a different fleet
+                    summary.WriteLine(FleetJson.Write(new Dictionary<string, object> { ["id"] = j["id"].String, ["success"] = false, ["outcome"] = "unsupported_configuration",
+                        ["reason"] = "spawning from a module graph is not implemented yet; only config=profile (fleet_default) runs", ["config"] = cfg }));
+                    summary.Flush();
+                    Debug.Log($"CRANE_FLEET_JOB id={j["id"].String} success=False outcome=unsupported_configuration");
+                    continue;
+                }
                 var res = RunJob(specDir, j, outDir, launcher, commit, dirty, null);
                 if (res.PairOf != null && byId.TryGetValue(res.PairOf, out var pair)) {
                     (res.DivergenceT, res.DivergenceRover) = FirstDivergence(Path.Combine(pair.Dir, "states.jsonl"), Path.Combine(res.Dir, "states.jsonl"), tol);
@@ -55,7 +64,12 @@ namespace Crane.Fleet.Sim {
                 Seed = (long)j["seed"].Double, Variant = j.Has("variant") ? j["variant"].String : null, OutDir = Path.Combine(outDir, "runs", j["id"].String),
                 Failures = j.Has("failures") ? j["failures"].String : "", Launcher = launcher + " (harness)", SourceCommit = commit, SourceDirty = dirty
             };
-            if ((j.Has("mission") ? j["mission"].String : "qual") == "demo") { o.Mission = new DemoMission(spec); o.MaxDuration = spec.O["demo.max_duration_s"].Double; }
+            string mission = j.Has("mission") ? j["mission"].String : "qual";
+            if (j.Has("mission_file")) mission = JsonNode.FromText(File.ReadAllText(j["mission_file"].String))["mission"].String;
+            if (mission == "demo") { o.Mission = new DemoMission(spec); o.MaxDuration = spec.O["demo.max_duration_s"].Double; }
+            else if (mission != "qual") throw new ArgumentException("unknown mission " + mission);
+            if (j.Has("labels")) foreach (var kv in j["labels"].Members) o.Labels[kv.Key] = kv.Value.Raw;
+            o.Labels["harness_job"] = j["id"].String;
             if (j.Has("max_duration_s")) o.MaxDuration = j["max_duration_s"].Double;
             return o;
         }

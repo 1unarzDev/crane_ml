@@ -92,6 +92,13 @@ namespace Crane.Fleet.Sim {
         public string Variant => "demo";
         public string ControllerInput => "mixed: cargo_2 closed-loop (own odometry + perception-core tag observations); scout, lifter, leader parking and coupled transport scripted_truth fallback; connector machine fed by the evaluator with the truth face pose (it models the mechanism)";
         public bool Done { get; private set; }
+        public IDictionary<string, object> Labels => new Dictionary<string, object> {
+            ["interface_pair_types"] = "hermaphroditic_hook2_magnet+hermaphroditic_hook2_magnet (profile docking, asset pipeline faces)",
+            ["coupling_faces"] = $"{follower?.D.Id}.{followerFace}->{leader?.D.Id}.{leaderFace}",
+            ["shape_class"] = "line_2 (front-to-rear chain of two cargo decks)",
+            ["payload_class"] = D["payload.type"].String,
+            ["approach_feedback"] = "own camera tags (perception core) + wheel odometry; stand-off then odometry-only final approach",
+            ["transport"] = "scripted_truth (fallback)" };
         CouplingManager.Coupling Pair => couplings?.Of(follower, followerFace);
         public string ConnectorState => Pair != null ? ConnectorStateNames.ToProfileName(Pair.Machine.State) : "FREE";
         public double[] HookPos => Pair != null ? new[] { Pair.Machine.HookPosA, Pair.Machine.HookPosB } : new double[2];
@@ -502,7 +509,10 @@ namespace Crane.Fleet.Sim {
                 b.Append(",\"tag_docking\":{\"phase\":").Append(FleetJson.Quote(dockCtl.State.ToString())).Append(",\"observations\":").Append(dockCtl.ObservationsUsed)
                     .Append(",\"rejected\":").Append(dockCtl.ObservationsRejected).Append(",\"last_range\":").Append(N(dockCtl.LastObservationRange))
                     .Append(",\"estimate\":{\"target_x\":").Append(N(est.X)).Append(",\"target_y\":").Append(N(est.Y)).Append(",\"target_yaw\":").Append(N(est.Yaw))
-                    .Append(",\"self_x\":").Append(N(fo.X)).Append(",\"self_y\":").Append(N(fo.Y)).Append(",\"self_yaw\":").Append(N(fo.Yaw)).Append('}')
+                    .Append(",\"self_x\":").Append(N(fo.X)).Append(",\"self_y\":").Append(N(fo.Y)).Append(",\"self_yaw\":").Append(N(fo.Yaw)).Append('}');
+                var cv = dockCtl.TargetCovariance;
+                b.Append(",\"estimate_covariance\":{\"target_xx\":").Append(N(cv[0])).Append(",\"target_xy\":").Append(N(cv[1])).Append(",\"target_yy\":").Append(N(cv[2]))
+                    .Append(",\"target_yawyaw\":").Append(N(cv[3])).Append(",\"note\":\"covariance of the windowed mean (sample cov / n), odometry frame; excludes odometry drift\"}")
                     .Append(",\"truth\":{\"target_x\":").Append(N(lt.X)).Append(",\"target_y\":").Append(N(lt.Y)).Append(",\"target_yaw\":").Append(N(lt.Yaw))
                     .Append(",\"self_x\":").Append(N(ft.X)).Append(",\"self_y\":").Append(N(ft.Y)).Append(",\"self_yaw\":").Append(N(ft.Yaw)).Append("}}");
             }

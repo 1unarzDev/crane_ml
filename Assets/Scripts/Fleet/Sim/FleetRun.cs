@@ -24,6 +24,8 @@ namespace Crane.Fleet.Sim {
         void LogState(StringBuilder b);
         void Finish(FleetRun run, Dictionary<string, object> results);
         string ControllerInput { get; }
+        /// <summary>Cost-table keys for this mission (interface pair types, shape class, payload class).</summary>
+        IDictionary<string, object> Labels { get; }
     }
 
     public sealed class FleetRunOptions {
@@ -40,6 +42,8 @@ namespace Crane.Fleet.Sim {
         /// <summary>Injected failures: "rover:target:mode@t;..." with target wheel_fl|wheel_fr|wheel_rl|wheel_rr (dead_free, dead_locked, weak, ok),
         /// camera (lost), encoders (lost). Applied when run time reaches t; each is logged as a failure_injected event.</summary>
         public string Failures = "";
+        /// <summary>Extra labels merged over the defaults in manifest.json "labels" (harness: configuration id/hash, etc.).</summary>
+        public Dictionary<string, object> Labels = new Dictionary<string, object>();
     }
 
     /// <summary>
@@ -245,6 +249,19 @@ namespace Crane.Fleet.Sim {
             }
         }
 
+        Dictionary<string, object> Labels() {
+            var l = new Dictionary<string, object> {
+                ["scenario_id"] = Spec.S["scenario_id"].String, ["scenario_sha256"] = Spec.Scenario.Sha256,
+                ["configuration"] = "profile:" + Spec.P["profile_id"].String + ":fleet_default", ["configuration_hash"] = Spec.Profile.Sha256,
+                ["variant"] = Opt.Variant, ["seed"] = Opt.Seed, ["floor"] = Spec.S["arena.floor"].String,
+                ["failure_state"] = string.IsNullOrEmpty(Opt.Failures) ? "none" : Opt.Failures,
+                ["mission"] = M != null ? M.GetType().Name : "qualification", ["controller_input"] = M != null ? M.ControllerInput : "evaluator_truth"
+            };
+            if (M != null) foreach (var kv in M.Labels) l[kv.Key] = kv.Value;
+            foreach (var kv in Opt.Labels) l[kv.Key] = kv.Value;
+            return l;
+        }
+
         string StepOf(RoverRig r) => M != null ? M.StepOf(r.D.Id) : r.Script.CurrentStep;
 
         public void Dispose() {
@@ -445,6 +462,7 @@ namespace Crane.Fleet.Sim {
                     ["events"] = "events.jsonl", ["trajectory"] = "trajectory.ctraj (crane-traj/1, truth, ENU, agents = rover ids)"
                 },
                 ["rovers"] = rovers,
+                ["labels"] = Labels(),
                 ["complete"] = final, ["end_reason"] = EndReason, ["t_end"] = T, ["steps"] = Step,
                 ["wall_start_utc"] = wallStart.ToString("o", CultureInfo.InvariantCulture),
                 ["wall_seconds"] = (DateTime.UtcNow - wallStart).TotalSeconds,

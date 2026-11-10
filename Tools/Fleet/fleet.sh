@@ -8,6 +8,9 @@
 #   Tools/Fleet/fleet.sh player-run SEED [OUT_DIR]    seeded run in the player (-batchmode -nographics)
 #   Tools/Fleet/fleet.sh player-check [REPORT.json]   CAD-swap check in the player
 #   Tools/Fleet/fleet.sh still SEED [DIR]             stills (player, batchmode with GPU under xvfb-run)
+#   Tools/Fleet/fleet.sh demo SEED [DIR] | demo-player SEED [DIR] | demo-still SEED [DIR] [player args]
+#   Tools/Fleet/fleet.sh jobs JOBS.json | jobs-player JOBS.json      paired-run harness (FleetHarness)
+#   Tools/Fleet/fleet.sh request-run --scenario F --config profile --mission M.json --seed N --variant V [--failures X] [--out DIR] [--labels J]
 # Outputs default under ~/.cache/crane-fleet/. Logs in ~/.cache/crane-fleet/logs/.
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -111,6 +114,26 @@ case "$cmd" in
             --crane-disable-ros --crane-disable-sitl --crane-fleet-spec "$spec" --crane-fleet-still "$dir" --crane-fleet-mission demo \
             --crane-seed "$seed" --crane-source-commit "$commit" --crane-source-dirty "$dirty" "$@" ) || true
         grep -h "CRANE_FLEET_STILL \|CRANE_FLEET_EXIT\|CRANE_FLEET_FAILED\|CRANE_FLEET_CLIP\|CRANE_FLEET_RUN_END" "$dir/player.log" ;;
+    request-run)   # request-run --scenario F --config profile|GRAPH.json --mission M.json --seed N --variant V [--failures X] [--out DIR] [--labels J.json]
+        scen=""; cfg="profile"; mis=""; seed=""; var=""; fail=""; out=""; lab=""
+        while [[ $# -gt 0 ]]; do case "$1" in
+            --scenario) scen=$(realpath "$2"); shift 2 ;; --config) cfg="$2"; [[ "$cfg" != profile ]] && cfg=$(realpath "$2"); shift 2 ;;
+            --mission) mis=$(realpath "$2"); shift 2 ;; --seed) seed="$2"; shift 2 ;; --variant) var="$2"; shift 2 ;;
+            --failures) fail="$2"; shift 2 ;; --out) out=$(realpath -m "$2"); shift 2 ;; --labels) lab=$(realpath "$2"); shift 2 ;;
+            *) echo "request-run: unknown option $1" >&2; exit 2 ;; esac; done
+        [[ -n "$mis" && -n "$seed" && -n "$var" ]] || { echo "request-run needs --mission --seed --variant" >&2; exit 2; }
+        out=${out:-$cache/requests/${var}_${seed}_$stamp}; mkdir -p "$out"
+        python3 - "$out/job.json" "$out" "$scen" "$cfg" "$mis" "$seed" "$var" "$fail" "$lab" <<'PY'
+import json, sys
+p, out, scen, cfg, mis, seed, var, fail, lab = sys.argv[1:]
+job = {"id": f"{var}_{seed}", "mission_file": mis, "seed": int(seed), "variant": var, "failures": fail, "config": cfg}
+if scen: job["scenario"] = scen
+if lab: job["labels"] = json.load(open(lab))
+json.dump({"out": out, "jobs": [job]}, open(p, "w"), indent=2)
+PY
+        ed "$cache/logs/request-$stamp.log" -quit -executeMethod Crane.Fleet.EditorTools.FleetCli.Jobs --crane-fleet-jobs "$out/job.json" || true
+        grep -h "CRANE_FLEET_JOB\|CRANE_FLEET_FAILED\|CRANE_FLEET_EXIT" "$cache/logs/request-$stamp.log"
+        echo "run directory: $out/runs/${var}_${seed}  summary: $out/summary.jsonl" ;;
     jobs)    # jobs JOBS.json: paired-run harness in the editor (headless)
         ed "$cache/logs/jobs-$stamp.log" -quit -executeMethod Crane.Fleet.EditorTools.FleetCli.Jobs --crane-fleet-jobs "$(realpath "${1:?jobs}")" || true
         grep -h "CRANE_FLEET_JOB\|CRANE_FLEET_FAILED\|CRANE_FLEET_EXIT" "$cache/logs/jobs-$stamp.log" ;;
