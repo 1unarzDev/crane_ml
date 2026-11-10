@@ -28,6 +28,13 @@ namespace Crane.Theater {
         public float ghostScale = 1.6f;
         public float ghostAlpha = 0.9f;
         public string caption = "";
+        // hero appearance (defaults = the fleet look every earlier render had)
+        public float heroTint = 0.55f;         // opacity of the translucent gold/silver shell over each hero; 0 = no shell (the boat's own materials)
+        public bool heroRing = true;           // the ring marker under each hero
+        public bool heroTrail = true;          // the hero's (and previous's) path ribbon
+        public float trailWidth = 0.34f;       // hero ribbon width (m)
+        public float previousTrailWidth = 0.28f;
+        public Color? trailColour;             // hero ribbon colour (sRGB, alpha = opacity); null = gold
         public Dictionary<string, object> camera = new Dictionary<string, object> { { "shot", "orbit" } };
         public string Shot => TJson.Str(camera, "shot", "orbit");
         public float Cam(string key, float fallback) => (float)TJson.Num(camera, key, fallback);
@@ -37,16 +44,21 @@ namespace Crane.Theater {
         public float Fps = 60f;
         public int Width = 1920, Height = 1080;
         public string Title = "";
+        public string Hud = "fleet";           // fleet (the study HUD) | minimal (title + caption line) | none
+        public bool HudSet;                    // the script named a HUD (else the manifest's "hud", else fleet)
+        public string Backend = "";            // which backend produced the run (shown by the minimal HUD)
         public readonly List<TheaterAct> Acts = new List<TheaterAct>();
         public float Duration { get { float d = 0; foreach (var a in Acts) d += a.duration; return d; } }
         public int FrameCount => Mathf.RoundToInt(Duration * Fps);
 
         /// <summary><c>{"fps", "size": [w, h], "title", "acts": [{"type", "duration_s", "speed", "t0", "iterations": [a, b],
         /// "iteration_list", "outcome", "top_k", "sample", "seed", "stagger_s", "per_iteration_s", "colour", "ramp", "trails", "trail_k",
-        /// "tail_s", "heat", "markers", "hero", "previous", "ghost_scale", "ghost_alpha", "caption", "camera": {"shot", ...}}]}</c></summary>
+        /// "tail_s", "heat", "markers", "hero", "previous", "ghost_scale", "ghost_alpha", "caption", "hero_tint", "hero_ring", "hero_trail",
+        /// "trail_width", "previous_trail_width", "trail_colour": [r, g, b, a], "camera": {"shot", ...}}], "hud", "backend"}</c></summary>
         public static TheaterScript Parse(object doc) {
             var s = new TheaterScript {
-                Fps = (float)TJson.Num(doc, "fps", 60), Title = TJson.Str(doc, "title", "")
+                Fps = (float)TJson.Num(doc, "fps", 60), Title = TJson.Str(doc, "title", ""),
+                Hud = NormHud(TJson.Str(doc, "hud", "fleet")), HudSet = TJson.Has(doc, "hud"), Backend = TJson.Str(doc, "backend", "")
             };
             var size = TJson.Arr(doc, "size");
             if (size != null && size.Count == 2) { s.Width = (int)(double)size[0]; s.Height = (int)(double)size[1]; }
@@ -64,6 +76,14 @@ namespace Crane.Theater {
                     previous = TJson.Str(o, "previous", "auto"), ghostScale = (float)TJson.Num(o, "ghost_scale", 1.6),
                     ghostAlpha = (float)TJson.Num(o, "ghost_alpha", 0.9), caption = TJson.Str(o, "caption", "")
                 };
+                a.heroTint = Mathf.Clamp01((float)TJson.Num(o, "hero_tint", 0.55));
+                a.heroRing = TJson.Bool(o, "hero_ring", true);
+                a.heroTrail = TJson.Bool(o, "hero_trail", true);
+                a.trailWidth = Mathf.Max(0f, (float)TJson.Num(o, "trail_width", 0.34));
+                a.previousTrailWidth = Mathf.Max(0f, (float)TJson.Num(o, "previous_trail_width", 0.28));
+                var tc = TJson.Arr(o, "trail_colour");
+                if (tc != null && tc.Count >= 3)
+                    a.trailColour = new Color((float)(double)tc[0], (float)(double)tc[1], (float)(double)tc[2], tc.Count > 3 ? (float)(double)tc[3] : 1f);
                 var it = TJson.Arr(o, "iterations");
                 if (it != null && it.Count == 2) { a.iterFrom = (int)(double)it[0]; a.iterTo = (int)(double)it[1]; }
                 var list = TJson.Arr(o, "iteration_list");
@@ -76,6 +96,9 @@ namespace Crane.Theater {
             if (s.Acts.Count == 0) throw new ArgumentException("theater script has no acts");
             return s;
         }
+
+        /// <summary>"fleet" | "minimal" | "none"; anything else is the fleet HUD.</summary>
+        public static string NormHud(string v) => v == "minimal" || v == "none" ? v : "fleet";
 
         /// <summary>The standard cut for a study: establishing fleet coloured by iteration, the evolution with
         /// its counter, the failure heat, best vs previous best, and a chase of the best run.</summary>

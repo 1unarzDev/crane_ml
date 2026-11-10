@@ -109,6 +109,11 @@ namespace Crane.Theater {
             if (fpsArg != null) script.Fps = float.Parse(fpsArg, CultureInfo.InvariantCulture);
             if (sizeArg != null) { var p = sizeArg.Split('x'); script.Width = int.Parse(p[0]); script.Height = int.Parse(p[1]); }
             if (string.IsNullOrEmpty(script.Title)) script.Title = manifest.Study;
+            // HUD: --crane-theater-hud, else the script's "hud", else the manifest's "hud", else fleet (the study HUD)
+            string hudArg = Arg("--crane-theater-hud");
+            if (hudArg != null) script.Hud = TheaterScript.NormHud(hudArg);
+            else if (!script.HudSet && TJson.Has(manifest.Raw, "hud")) script.Hud = TheaterScript.NormHud(TJson.Str(manifest.Raw, "hud", "fleet"));
+            if (string.IsNullOrEmpty(script.Backend)) script.Backend = TJson.Str(manifest.Raw, "backend", "");
 
             var state = new TheaterState(manifest, script, world);
             int total = state.FrameCount, a = 0, b = total;
@@ -122,7 +127,7 @@ namespace Crane.Theater {
             int first = Mathf.Max(0, a - preroll);
             int stills = int.Parse(Arg("--crane-theater-stills", "0"), CultureInfo.InvariantCulture);
             Debug.Log($"CRANE_THEATER_START manifest={manifestPath} runs={manifest.Runs.Count} world={world.Describe} robot={robotName} " +
-                      $"acts={script.Acts.Count} frames={a}:{b}/{total} fps={script.Fps} size={script.Width}x{script.Height} " +
+                      $"acts={script.Acts.Count} frames={a}:{b}/{total} fps={script.Fps} size={script.Width}x{script.Height} hud={script.Hud} " +
                       $"gfx={SystemInfo.graphicsDeviceType} device={SystemInfo.graphicsDeviceName} quality={QualitySettings.names[QualitySettings.GetQualityLevel()]}");
 
             // determinism: no motion blur, exposure without temporal adaptation. Only these parameters are
@@ -159,7 +164,7 @@ namespace Crane.Theater {
             cpv.targetCamera = cam;
             cpv.injectionPoint = CustomPassInjectionPoint.AfterPostProcess;
             cpv.customPasses.Add(new TheaterPass { R = renderer, name = "ghost theater" });
-            var hud = new HudRenderer(script.Width, script.Height);
+            var hud = new HudRenderer(script.Width, script.Height) { Mode = script.Hud };
 
             GameObject gold = null, silver = null;
             bool heroes = false;
@@ -191,7 +196,7 @@ namespace Crane.Theater {
                 cam.fieldOfView = fs.fov;
                 renderer.Prepare(fs);
                 cam.Render();
-                hud.Draw(rt, fs.hud);
+                if (script.Hud != "none") hud.Draw(rt, fs.hud);
                 if (f >= a) {
                     string pix = capture.Write(rt, f);
                     if (stills > 0 && (f - a) % stills == 0) capture.WritePng(Path.Combine(outDir, "stills", $"frame_{f:D6}.png"));
@@ -233,6 +238,7 @@ namespace Crane.Theater {
             doc["render_ms_p95"] = renderMs.Count > 0 ? renderMs[(int)(renderMs.Count * 0.95)] : 0.0;
             doc["wall_s"] = wall.Elapsed.TotalSeconds;
             doc["script"] = ScriptDoc(script);
+            if (script.Hud != "fleet") { doc["hud"] = script.Hud; doc["backend"] = script.Backend; }
             foreach (var kv in renderer.Stats) doc["stat_" + kv.Key] = kv.Value;
             File.WriteAllText(Path.Combine(outDir, "render_report.json"), TJson.Write(doc) + "\n");
             Debug.Log($"CRANE_THEATER_DONE frames={capture.Frames} video={video} encoded={encoded} errors={errors} wall_s={wall.Elapsed.TotalSeconds:0.0}");
@@ -259,6 +265,15 @@ namespace Crane.Theater {
                     { "type", a.type }, { "duration_s", (double)a.duration }, { "speed", (double)a.speed }, { "colour", a.colour },
                     { "trails", a.trails }, { "heat", a.heat }, { "shot", a.Shot }, { "caption", a.caption }
                 });
+            // the demo options appear only when they differ from the fleet defaults (older reports stay byte-identical)
+            for (int i = 0; i < s.Acts.Count; i++) {
+                var a = s.Acts[i]; var d = (SortedDictionary<string, object>)acts[i];
+                if (a.heroTint != 0.55f) d["hero_tint"] = (double)a.heroTint;
+                if (!a.heroRing) d["hero_ring"] = false;
+                if (!a.heroTrail) d["hero_trail"] = false;
+                if (a.trailWidth != 0.34f) d["trail_width"] = (double)a.trailWidth;
+                if (a.trailColour.HasValue) d["trail_colour"] = "#" + ColorUtility.ToHtmlStringRGBA(a.trailColour.Value);
+            }
             return acts;
         }
 

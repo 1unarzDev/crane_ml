@@ -95,17 +95,20 @@ namespace Crane.Theater {
             for (int i = 0; i < ghostCount; i++) ghostData[i] = Gpu(f.ghosts[i]);
             ghostBuf.SetData(ghostData, 0, 0, ghostCount);
 
-            heroCount = Mathf.Min(f.heroes.Count, heroData.Length);
+            // hero shell: hero_tint is its opacity (0.55 by default); 0 draws no shell, only the boat's own materials
+            float tint = p.act.heroTint;
+            heroCount = tint > 0f ? Mathf.Min(f.heroes.Count, heroData.Length) : 0;
             for (int i = 0; i < heroCount; i++) {
                 var g = f.heroes[i];
                 g.scale = 1.12f;
-                var c = g.color; c.a = 0.55f; g.color = c;
+                var c = g.color; c.a = tint; g.color = c;
                 heroData[i] = Gpu(g);
             }
             if (heroCount > 0) heroBuf.SetData(heroData, 0, 0, heroCount);
 
             var marks = new List<MarkerDraw>(f.markers);
-            foreach (var h in f.heroes) marks.Add(new MarkerDraw { pos = h.pos, age = 0.35f, radius = 1.0f, color = h.color * new Color(1, 1, 1, 0.7f) });
+            if (p.act.heroRing)
+                foreach (var h in f.heroes) marks.Add(new MarkerDraw { pos = h.pos, age = 0.35f, radius = 1.0f, color = h.color * new Color(1, 1, 1, 0.7f) });
             markerCount = Mathf.Min(marks.Count, markerData.Length);
             for (int i = 0; i < markerCount; i++)
                 markerData[i] = new MarkerGpu { pos = marks[i].pos, radius = marks[i].radius, age = marks[i].age, color = marks[i].color };
@@ -175,8 +178,9 @@ namespace Crane.Theater {
             if (trails != null) UnityEngine.Object.Destroy(trails);
             trails = null;
             var runs = new List<(int run, Color c, float w)>();
-            if (p.hero >= 0) runs.Add((p.hero, Colormaps.Gold.linear, 0.34f));
-            if (p.previous >= 0) runs.Add((p.previous, Colormaps.Silver.linear, 0.28f));
+            var a = p.act;
+            if (a.heroTrail && p.hero >= 0 && a.trailWidth > 0f) runs.Add((p.hero, a.trailColour.HasValue ? a.trailColour.Value.linear : Colormaps.Gold.linear, a.trailWidth));
+            if (a.heroTrail && p.previous >= 0 && a.previousTrailWidth > 0f) runs.Add((p.previous, Colormaps.Silver.linear, a.previousTrailWidth));
             for (int i = 0; i < p.trailRuns.Count; i++) {
                 var r = st.M.Runs[p.trailRuns[i]];
                 var c = Colormaps.Eval(p.act.ramp, p.scoreHi > p.scoreLo ? (r.score - p.scoreLo) / (p.scoreHi - p.scoreLo) : 1f).linear;

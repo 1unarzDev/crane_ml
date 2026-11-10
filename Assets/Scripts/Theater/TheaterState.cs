@@ -20,7 +20,7 @@ namespace Crane.Theater {
     }
 
     public sealed class HudModel {
-        public string title, caption, actType, colour, ramp, legendLo, legendHi, insight = "";
+        public string title, caption, actType, colour, ramp, legendLo, legendHi, insight = "", backend = "";
         public int iteration = -1, iterFrom, iterTo, iterCount, runs, finished, failed, running;
         public float best = float.NaN, runTime, speed;
         public float[] spark;
@@ -303,7 +303,7 @@ namespace Crane.Theater {
 
         void Hud(ActPlan p, FrameState st, float t, int iteration) {
             var a = p.act; var h = st.hud;
-            h.title = S.Title; h.caption = a.caption; h.actType = a.type; h.colour = a.colour; h.ramp = a.ramp;
+            h.title = S.Title; h.caption = a.caption; h.backend = S.Backend ?? ""; h.actType = a.type; h.colour = a.colour; h.ramp = a.ramp;
             h.runTime = t; h.speed = a.speed;
             h.iterFrom = p.iterations.Length > 0 ? p.iterations[0] : M.MinIteration;
             h.iterTo = p.iterations.Length > 0 ? p.iterations[p.iterations.Length - 1] : M.MaxIteration;
@@ -430,6 +430,26 @@ namespace Crane.Theater {
                         look = target[f];
                         break;
                     }
+                    case "dock": {
+                        // fixed camera on a fixed target: the boat enters the frame, the camera does not follow it.
+                        // target [x, y, z]; pos [x, y, z], or polar around the target: bearing (deg from east,
+                        // counter-clockwise, the direction from the target to the camera), distance (m, horizontal), height (m)
+                        look = CamPoint(a, "target", World.CentreLine.Count > 0 ? World.CentreLine[World.CentreLine.Count - 1] : C);
+                        if (TJson.Has(a.camera, "pos")) pos = CamPoint(a, "pos", look);
+                        else {
+                            float ang = a.Cam("bearing", 225f) * Mathf.Deg2Rad;
+                            pos = look + (east * Mathf.Cos(ang) + north * Mathf.Sin(ang)) * a.Cam("distance", 6f) + Vector3.up * a.Cam("height", 2.5f);
+                        }
+                        look += Vector3.up * a.Cam("look_height", 0f);
+                        break;
+                    }
+                    case "wide":
+                    case "fixed": {
+                        // fixed camera with an explicit position and look-at point
+                        look = CamPoint(a, "look", C);
+                        pos = CamPoint(a, "pos", C + (east * Mathf.Cos(200f * Mathf.Deg2Rad) + north * Mathf.Sin(200f * Mathf.Deg2Rad)) * ext * 0.75f + Vector3.up * ext * 0.45f);
+                        break;
+                    }
                     default: { // orbit and establish
                         float r = a.Cam("radius", ext * 0.75f), h = a.Cam("height", ext * 0.45f);
                         if (shot == "establish") { float k = Mathf.Lerp(1.8f, 1f, Smoothstep(u)); r *= k; h *= k; }
@@ -439,7 +459,8 @@ namespace Crane.Theater {
                         break;
                     }
                 }
-                float minY = World.SurfaceY(pos) + 1.0f;
+                bool fixedShot = shot == "dock" || shot == "wide" || shot == "fixed";
+                float minY = World.SurfaceY(pos) + (fixedShot ? a.Cam("min_height", 1.0f) : 1.0f);
                 if (pos.y < minY) pos.y = minY;
                 var fwdDir = look - pos;
                 if (fwdDir.sqrMagnitude < 1e-6f) fwdDir = Vector3.forward;
@@ -447,6 +468,15 @@ namespace Crane.Theater {
                 p.camRot[f] = Quaternion.LookRotation(fwdDir.normalized, Mathf.Abs(Vector3.Dot(fwdDir.normalized, up)) > 0.999f ? north : up);
                 p.camFov[f] = fov;
             }
+        }
+
+        /// <summary>A camera point from the act's camera block: [x, y, z] in the trajectory's world frame (ENU; z above
+        /// the waterline, default 0), or in Unity coordinates when the block says "space": "unity".</summary>
+        Vector3 CamPoint(TheaterAct a, string key, Vector3 fallback) {
+            var v = TJson.Arr(a.camera, key);
+            if (v == null || v.Count < 2) return fallback;
+            float x = (float)(double)v[0], y = (float)(double)v[1], z = v.Count > 2 ? (float)(double)v[2] : 0f;
+            return TJson.Str(a.camera, "space", "world") == "unity" ? new Vector3(x, y, z) : World.ToUnity(x, y, z);
         }
 
         static float Smoothstep(float u) { u = Mathf.Clamp01(u); return u * u * (3 - 2 * u); }

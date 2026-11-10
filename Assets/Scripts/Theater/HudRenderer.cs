@@ -23,6 +23,10 @@ namespace Crane.Theater {
         const string Charset = " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~→–×·Δ•";
         static readonly Color Ink = new Color(0.94f, 0.96f, 1f, 1f), Dim = new Color(0.66f, 0.72f, 0.8f, 1f), Panel = new Color(0.02f, 0.04f, 0.07f, 0.55f);
 
+        /// <summary>fleet: the study HUD (every panel); minimal: one panel with the title and a caption line
+        /// (backend, the act's caption or the hero's run id, run time); none is handled by the caller (no Draw).</summary>
+        public string Mode = "fleet";
+
         public HudRenderer(int width, int height) {
             w = width; h = height; s = height / 1080f;
             var shader = Resources.Load<Shader>("CraneTheaterHud");
@@ -129,8 +133,28 @@ namespace Crane.Theater {
             Graphics.ExecuteCommandBuffer(cmd);
         }
 
+        /// <summary>The minimal HUD's caption line: backend, then the act's caption (else the hero's run id), then run time.</summary>
+        public static string MinimalCaption(HudModel m) {
+            var parts = new List<string>();
+            if (!string.IsNullOrEmpty(m.backend)) parts.Add(m.backend);
+            if (!string.IsNullOrEmpty(m.caption)) parts.Add(m.caption);
+            else if (!string.IsNullOrEmpty(m.goldId)) parts.Add(m.goldId);
+            parts.Add($"t {F(m.runTime, "0.0")} s");
+            return string.Join("   ·   ", parts);
+        }
+
+        void LayoutMinimal(HudModel m) {
+            float pad = 32 * s, H = h;
+            string cap = MinimalCaption(m);
+            float tw = Mathf.Max(Measure(m.title ?? "", 30, FontStyle.Bold), Measure(cap, 20, FontStyle.Normal)) + 2 * 18 * s;
+            Rect(pad - 18 * s, H - pad - 76 * s, tw, 92 * s, Panel);
+            Text(m.title, pad, H - pad - 26 * s, 30, Ink, 0, FontStyle.Bold);
+            Text(cap, pad, H - pad - 60 * s, 20, Dim);
+        }
+
         void Layout(HudModel m) {
             sv.Clear(); sc.Clear(); si.Clear(); tv.Clear(); tc.Clear(); tu.Clear(); ti.Clear();
+            if (Mode == "minimal") { LayoutMinimal(m); return; }
             float pad = 36 * s, W = w, H = h;
 
             // top left: title and caption
