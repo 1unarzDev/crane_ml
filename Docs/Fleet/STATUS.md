@@ -465,3 +465,19 @@ on the coupled pair in the delivery zone, with the scout watching. The h24 still
   - In both, the lifter comes from cargo_1's +y side facing -y. place_offset is (0, +0.055, -pi/2) and hold_offset 0.276, which leaves 3 cm from the lifter nose to the side face. The box CoM stays on the deck, and the box overhangs the deck edge on the lifter side by about 8 cm. Lift 0.17 m.
 - **Fallback.** `autonomy_cad_v1_lifter_carry.json` (truth goal `carried_in_zone`).
 - **Jobs.** `Tools/Fleet/jobs/cad_v1_closed_loop.json`: 3 missions x seeds 1-3, profile v1. UNITY-PENDING.
+
+### Loaded-carrier statics check (coordinator request; code-only, Unity-pending)
+**Model** (`Core/LoadStatics.cs`, quasi-static on level ground):
+- **Support polygon.** The hull of the wheel contacts of the rovers the payload rests on, plus every rover jointed to them.
+- **Combined CoM.** Rovers plus payload.
+- **Reported:** the relative CoM margin (1 = centred, 0 = on an edge); the margin after the library's 0.5 m/s^2 shifts the CoM by h a / g in the worst direction; the tip acceleration g d / h.
+- **Run-time evaluator.** Every 10 steps from truth while the payload is `on_decks`, keeping the worst sample (`results.autonomy.load_statics`; the summary line shows the margin).
+- **Flag.** Below `lift_load.statics_min_rel` = 0.2 the harness flags the delivery (`truth:delivered (FLAGGED: load statics margin)`, success false).
+
+**Design values** (`Tools/Fleet/offline/statics_t0`, v1 spec numbers):
+
+| Case | Static margin | Margin at 0.5 m/s^2 | Tip acceleration |
+|---|---|---|---|
+| v1 single deck (box_small 2 kg offset +0.055 m) | 86 % (89 mm) | 81 % | 8.1 m/s^2 |
+| v1 inline pair | 90 % | 88 % | 10.4 m/s^2 |
+| v0 pair with box_long (reference) | 97 % | 95 % | 14.2 m/s^2 |
