@@ -22,20 +22,21 @@ from .analyze_curve import load, paired  # noqa: E402
 PANELS = [("6x6", "0", "d0_loss0", "(a) no delay, no loss"),
           ("6x6", "0", "d1_loss0", "(b) delay 1, no loss"),
           ("6x6", "0", "d1_burst30", r"(c) delay 1, 30\% burst loss"),
-          ("6x6", "1", "d1_loss0", "(d) travel, delay 1")]
+          ("6x6", "1", "d1_loss0", "(d) travel, delay 1, no loss")]
 # Okabe-Ito palette; distinct markers/linestyles so it survives greyscale.
 # strategy: (colour, marker, linestyle, label, label dy)
 SER = {"FULL": ("#D55E00", "s", "-", "FULL", -0.012),
        "HYBRID": ("#0072B2", "o", "-", "HYBRID", 0.0),
        "HYBRID_P": ("#009E73", "^", "-", "HYBRID-P", 0.012),
-       "ORACLE": ("#000000", "D", "--", "ORACLE", 0.0)}
-YLIM = (-0.15, 0.055)
+       "ORACLE": ("#000000", "D", "--", "ORACLE", 0.0),
+       "INDEP": ("#999999", "v", "--", "INDEP (no plan)", 0.0)}
+YLIM = (-0.175, 0.055)
 
 
 def main(rdir, out):
     fig = plt.figure(figsize=(7.0, 2.2))
     gs = fig.add_gridspec(1, 5, width_ratios=[1, 1, 1, 0.42, 1], wspace=0.1,
-                          left=0.075, right=0.995, bottom=0.2, top=0.9)
+                          left=0.075, right=0.972, bottom=0.2, top=0.9)
     ax = [fig.add_subplot(gs[0, 0])]
     ax += [fig.add_subplot(gs[0, k], sharey=ax[0]) for k in (1, 2)]
     ax.append(fig.add_subplot(gs[0, 4], sharey=ax[0]))
@@ -51,13 +52,16 @@ def main(rdir, out):
         a = ax[j]
         a.axhline(0, color="0.35", lw=.8, zorder=1)
         xs = [0, 1, 2, 3]
-        for s in ("ORACLE", "FULL", "HYBRID", "HYBRID_P"):
+        for s in ("INDEP", "ORACLE", "FULL", "HYBRID", "HYBRID_P"):
             c, m, ls, lab, dy = SER[s]
             r = [paired(D, float(lam), ln, s, rng=rng, B=1000) for lam in xs]
             y = [x[0] for x in r]
-            if s != "ORACLE":
+            if s not in ("ORACLE", "INDEP"):
                 a.fill_between(xs, [x[1] for x in r], [x[2] for x in r], color=c, alpha=.14, lw=0)
-            a.plot(xs, y, ls, marker=m, ms=3.2, lw=1.2, color=c, zorder=3)
+            if s == "INDEP":  # light grey dashed, behind the others (no band)
+                a.plot(xs, y, ls, marker=m, ms=2.6, lw=.9, color=c, mfc="w", zorder=2)
+            else:
+                a.plot(xs, y, ls, marker=m, ms=3.2, lw=1.2, color=c, zorder=3)
             if j == 3:
                 ends[s] = y[-1]
         a.set_title(title, fontsize=7.5, pad=3)
@@ -78,10 +82,11 @@ def main(rdir, out):
     D = cache[("6x6", "0")]
     ys = {s: paired(D, 3.0, "d1_burst30", s, rng=rng, B=200)[0] for s in SER}
     place = {"ORACLE": ys["ORACLE"] + 0.012, "HYBRID_P": ys["HYBRID_P"] - 0.004,
-             "HYBRID": ys["HYBRID"] - 0.002, "FULL": ys["FULL"] - 0.004}
+             "HYBRID": ys["HYBRID"] - 0.002, "FULL": ys["FULL"] - 0.004,
+             "INDEP": ys["INDEP"]}
     for s, yy in place.items():
         c, m, ls, lab, dy = SER[s]
-        a.text(3.12, yy, lab, color=c, fontsize=7, va="center", ha="left",
+        a.text(3.12, yy, lab.split(" (")[0], color=c, fontsize=7, va="center", ha="left",
                clip_on=False, bbox=None)
     fig.savefig(out)
     fig.savefig(out.replace(".pdf", ".png"), dpi=200)

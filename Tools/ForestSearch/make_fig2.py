@@ -1,4 +1,4 @@
-"""Figure 2: agent-loss regimes R7a-d, dP vs IMPLICIT (top) and bytes/episode (bottom).
+"""Figure 2: agent-loss regimes (R7a-d in results/: random-time loss, loss with travel, early loss, 8x8 with travel), dP vs IMPLICIT (top) and bytes/episode (bottom).
 
 Parses the compact table in results/loss_baselines.md (no simulation is run).
 Run from Tools/:  python -m ForestSearch.make_fig2 [loss_baselines.md] [out.pdf]
@@ -48,22 +48,22 @@ def main(md, out):
     fig, (a, b) = plt.subplots(2, 1, figsize=(3.3, 4.5), gridspec_kw=dict(height_ratios=[1.7, 1]))
     off = np.linspace(-.3, .3, len(S))
     a.axhline(0, color="0.35", lw=.8)
-    top = [t for t in S if t[0] != "HEARTBEAT"]  # identical to HEALTH on the ideal link
-    off = np.linspace(-.27, .27, len(top))
+    top = S  # HEARTBEAT (open square) coincides with HEALTH on the ideal link but is drawn for legend consistency
+    off = np.linspace(-.3, .3, len(top))
     for k, (s, c, m, lab) in enumerate(top):
         x = np.arange(4) + off[k]
         y = np.array([d[r][s][0] for r in regs])
         lo = np.array([d[r][s][1] for r in regs])
         hi = np.array([d[r][s][2] for r in regs])
         a.errorbar(x, y, yerr=[y - lo, hi - y], fmt=m, color=c, ms=3.2, lw=.9, capsize=0,
-                   mfc=c if s != "INDEP" else "w", label=lab if s != "HEALTH" else "HEALTH = HEARTBEAT")
+                   mfc="w" if s in ("INDEP", "HEARTBEAT") else c, label=lab)
     a.set_ylim(-0.045, 0.125)
     a.set_xlim(-.6, 3.6)
     a.set_xticks(range(4))
-    labs = ["R7a\nno travel", "R7b\n+ travel", "R7c\nearly loss", r"R7d" + "\n" + r"$8{\times}8$ grid"]
+    labs = ["random-time\nloss", "loss with\ntravel", "early\nloss", r"$8{\times}8$ grid" + "\n" + "with travel"]
     a.set_xticklabels(labs, fontsize=6.8)
     a.set_ylabel(r"$\Delta P$ vs.\ IMPLICIT")
-    a.legend(loc="lower center", bbox_to_anchor=(0.5, 1.0), ncol=2, fontsize=6.8, frameon=False,
+    a.legend(loc="lower center", bbox_to_anchor=(0.5, 1.0), ncol=3, fontsize=6.8, frameon=False,
              handletextpad=.2, columnspacing=1.0, borderaxespad=.2)
     a.grid(axis="y", lw=.3, alpha=.5)
     a.text(2.3, -0.004, "default plan (silent)", fontsize=6.8, ha="center", va="top", color="0.25")
@@ -86,7 +86,7 @@ def main(md, out):
     b.set_ylim(3, 1e5)
     b.set_xlim(-.6, 3.6)
     b.set_xticks(range(4))
-    b.set_xticklabels([l.replace("\n", " ") if False else l.split("\n")[0] for l in labs], fontsize=6.8)
+    b.set_xticklabels(labs, fontsize=6.8)
     b.set_ylabel("bytes / episode")
     b.set_yticks([10, 100, 1000])
     b.set_yticklabels(["10", "100", "1000"])
