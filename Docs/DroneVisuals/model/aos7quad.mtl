@@ -1,0 +1,78 @@
+newmtl Carbon
+Kd 1.0000 1.0000 1.0000
+
+newmtl Aluminum_Anodized
+Kd 0.1600 0.1650 0.1800
+
+newmtl Aluminum_Brushed
+Kd 0.7800 0.7900 0.8000
+
+newmtl Anodized_Red
+Kd 0.5200 0.0350 0.0300
+
+newmtl Steel
+Kd 0.5500 0.5600 0.5800
+
+newmtl Plastic_Black
+Kd 0.0250 0.0250 0.0280
+
+newmtl PCB_Black
+Kd 0.0180 0.0200 0.0220
+
+newmtl Gold
+Kd 0.8300 0.6200 0.2000
+
+newmtl Plastic_White
+Kd 0.7200 0.7200 0.7000
+
+newmtl Plastic_DarkGray
+Kd 0.0900 0.0900 0.1000
+
+newmtl Plastic_Orange
+Kd 0.7800 0.2800 0.0300
+
+newmtl PCB_Green
+Kd 1.0000 1.0000 1.0000
+
+newmtl Wire_Black
+Kd 0.0150 0.0150 0.0150
+
+newmtl Glass_Smoked
+Kd 0.0200 0.0250 0.0300
+
+newmtl LED_Blue
+Kd 0.1000 0.3000 1.0000
+
+newmtl Glass_Lens
+Kd 0.0120 0.0140 0.0300
+
+newmtl LiPo_Wrap
+Kd 0.0400 0.0500 0.1000
+
+newmtl LiPo_Label
+Kd 1.0000 1.0000 1.0000
+
+newmtl Rubber
+Kd 0.0200 0.0200 0.0200
+
+newmtl Connector_Yellow
+Kd 0.8500 0.6200 0.0400
+
+newmtl Wire_Red
+Kd 0.5000 0.0200 0.0200
+
+newmtl Copper
+Kd 0.7200 0.3600 0.2000
+
+newmtl Prop_Plastic
+Kd 0.0550 0.0570 0.0620
+
+newmtl LED_White
+Kd 0.9000 0.9500 1.0000
+
+newmtl LED_Red
+Kd 1.0000 0.0500 0.0300
+
+newmtl LED_Green
+Kd 0.1000 1.0000 0.1500
+

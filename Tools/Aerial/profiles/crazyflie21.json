@@ -1,0 +1,85 @@
+{
+  "schema": "crane-aerial-vehicle-profile-v1",
+  "id": "bitcraze-crazyflie-2.1",
+  "description": "Bitcraze Crazyflie 2.1 nano quad X (stock brushed 7 mm motors, 250 mAh LiPo). Thrust and battery coefficients are DERIVED from Bitcraze's published 2015 thrust-stand table; inertia and moment constant come from Bitcraze's MIT-licensed gz model, which reproduces Foerster 2015 values (primary PDF could not be retrieved in this session: ETH Research Collection HTTP 429/500).",
+  "evidenceLabel": "IMPLEMENTED",
+  "frames": {"body": "FLU", "world": "ENU z-up", "spin": "+1 = CCW seen from above"},
+  "sources": {
+    "BCSIM": {
+      "url": "https://github.com/bitcraze/crazyflie-simulation",
+      "commit": "7e93752dbc803af2488c1db46bb79b3da55f5d8c",
+      "files": {
+        "simulator_files/gazebo/crazyflie/model.sdf": "89877fbd862b8d201405f2cc1213703fb54b3b4c5ecf863bb541d19174f79338",
+        "LICENSE": "47b665f1a998a2fb77eb69f81dd9490d63ddc76471b786672229fc71b2a09fe0",
+        "docs/functional_areas/meshes.md": "265342264fd98f04e88cee33083de1a215fcbb28a6bc478f966fb7325425f779"
+      },
+      "license": "MIT (Copyright (c) 2022 Bitcraze)",
+      "gplCompatible": true,
+      "meshLicense": "meshes/ (Blender-made by Bitcraze) are inside the MIT-licensed repo; no separate mesh notice found. Candidate for import with MIT attribution after maintainer-notice check."
+    },
+    "BCPWM": {
+      "url": "https://www.bitcraze.io/documentation/repository/crazyflie-firmware/master/functional-areas/pwm-to-thrust/",
+      "retrieved": "2026-10-20",
+      "license": "Web documentation; numeric measurements cited as facts with attribution (16-row table).",
+      "gplCompatible": "facts-only citation",
+      "note": "2015 table: whole-vehicle thrust (g), battery voltage, current, PWM %, mean RPM. RPM fit published on page: thrust_g = 1.0942e-07 rpm^2 - 2.1059e-04 rpm + 1.5417e-01."
+    },
+    "BCDS": {
+      "url": "https://www.bitcraze.io/documentation/hardware/crazyflie_2_1/crazyflie_2_1-datasheet.pdf",
+      "sha256": "dea768dcec7582e31d5dcffc5c82411f65ffcf5726c4f8cee9fadc54b47b45db",
+      "license": "Vendor datasheet (Rev 3); facts only.",
+      "gplCompatible": "facts-only citation"
+    },
+    "FOERSTER2015": {
+      "url": "https://doi.org/10.3929/ethz-b-000214143",
+      "citation": "J. Foerster, System Identification of the Crazyflie 2.0 Nano Quadrocopter, BSc thesis, ETH Zurich, 2015",
+      "license": "Thesis; values cited as facts.",
+      "verification": "UNVERIFIED_AT_PRIMARY (PDF download refused: HTTP 429 then 500)"
+    }
+  },
+  "measurements": {
+    "BCPWM_table_2015": {
+      "columns": ["current_A", "thrust_g_total", "voltage_V", "pwm_percent", "rpm_mean"],
+      "rows": [
+        [0.24, 0.0, 4.01, 0, 0], [0.37, 1.6, 3.98, 6.25, 4485], [0.56, 4.8, 3.95, 12.5, 7570],
+        [0.75, 7.9, 3.92, 18.75, 9374], [0.94, 10.9, 3.88, 25, 10885], [1.15, 13.9, 3.84, 31.25, 12277],
+        [1.37, 17.3, 3.80, 37.5, 13522], [1.59, 21.0, 3.76, 43.75, 14691], [1.83, 24.4, 3.71, 50, 15924],
+        [2.11, 28.6, 3.67, 56.25, 17174], [2.39, 32.8, 3.65, 62.5, 18179], [2.71, 37.3, 3.62, 68.75, 19397],
+        [3.06, 41.7, 3.56, 75, 20539], [3.46, 46.0, 3.48, 81.25, 21692], [3.88, 51.9, 3.40, 87.5, 22598],
+        [4.44, 57.9, 3.30, 93.75, 23882]
+      ],
+      "source": "BCPWM",
+      "notes": "PWM 43.25 on the page is taken as a typo for 43.75. Thrust assumed to be whole-vehicle (four rotors); consistency check: hover of 29 g lands at 50-56 % PWM."
+    }
+  },
+  "parameters": {
+    "mass": {"value": 0.029, "unit": "kg", "source": "BCDS", "locator": "'Takeoff weight: 29g' (gz model sums to 0.0282)", "status": "VENDOR_SPEC"},
+    "inertia": {"value": [[1.657171e-05, 0, 0], [0, 1.6655602e-05, 0], [0, 0, 2.9261652e-05]], "unit": "kg m^2", "source": "BCSIM", "locator": "model.sdf base link inertia; values attributed to FOERSTER2015", "status": "VENDOR_SIM_MODEL_CITING_SYSID"},
+    "kf": {"value": 2.2183102415114744e-08, "unit": "N/(rad/s)^2", "source": "BCPWM", "locator": "least-squares T_rotor = kf w^2 through origin on table rows 2-16, thrust/4 per rotor; relative RMS 2.9 %", "status": "DERIVED", "decision": "D15: the measured Bitcraze thrust-stand fit is the primary kf", "alternatives": [{"value": 1.28192e-08, "unit": "N/(rad/s)^2", "source": "BCSIM", "locator": "model.sdf motorConstant, attributed to FOERSTER2015", "status": "UNVERIFIED", "note": "Primary PDF unreadable (HTTP 429/500). At omega_max 2618 rad/s this gives T/W about 1.24 (1.27 with the model's 28.2 g), which conflicts with the measured table."}], "openQuestion": "The two kf values differ by 1.73x (measured 2.218e-8 vs 1.282e-8); unresolved until the Foerster 2015 thesis is read at the primary source."},
+    "km": {"value": 0.005964552, "unit": "m", "source": "BCSIM", "locator": "momentConstant; attributed to FOERSTER2015", "status": "VENDOR_SIM_MODEL_CITING_SYSID"},
+    "tau_up": {"value": 0.03, "unit": "s", "source": null, "locator": "no primary value retrieved; prior only. Identify from RPM-instrumented steps (see test_aerial_identifiability.py)", "status": "ASSUMED"},
+    "tau_down": {"value": 0.03, "unit": "s", "source": null, "locator": "as tau_up", "status": "ASSUMED"},
+    "omega_max": {"value": 2618.0, "unit": "rad/s", "source": "BCSIM", "locator": "maxRotVelocity (table max 23882 rpm = 2501 rad/s at 93.75 % PWM, 3.30 V)", "status": "SIMULATOR_DEFAULT"},
+    "rotor_drag": {"value": 0.0, "unit": "N s/(m rad)", "source": null, "locator": "BCSIM uses the RotorS 8.06428e-05 (scaled for a 1.5 kg vehicle); not adopted", "status": "UNKNOWN"},
+    "rolling_moment": {"value": 0.0, "unit": "N s/rad", "source": null, "locator": "BCSIM 1e-7 not adopted", "status": "UNKNOWN"},
+    "rotor_radius": {"value": 0.0235, "unit": "m", "source": null, "locator": "approx. 47 mm stock propeller; not retrieved from a primary source", "status": "ASSUMED"},
+    "drag_linear": {"value": [0.0, 0.0, 0.0], "unit": "N s/m", "source": "FOERSTER2015", "locator": "thesis reports a wind-tunnel drag matrix; values not retrieved", "status": "UNKNOWN"},
+    "drag_quadratic": {"value": 0.0, "unit": "N s^2/m^2", "source": null, "locator": "none", "status": "UNKNOWN"},
+    "battery_capacity_ah": {"value": 0.25, "unit": "Ah", "source": "BCDS", "locator": "'1 x 250mAh LiPo battery'", "status": "VENDOR_SPEC"},
+    "battery_v_full": {"value": 4.03495474, "unit": "V", "source": "BCPWM", "locator": "intercept of V = Voc - I R fit on table (near-full pack)", "status": "DERIVED"},
+    "battery_resistance": {"value": 0.16302353, "unit": "ohm", "source": "BCPWM", "locator": "slope of V vs I fit; includes connector/wiring; RMS 0.015 V", "status": "DERIVED"},
+    "battery_v_empty": {"value": 3.0, "unit": "V", "source": null, "locator": "generic 1S LiPo cutoff", "status": "ASSUMED"},
+    "battery_v_nominal": {"value": 4.0, "unit": "V", "source": null, "locator": "voltage at which omega_max is quoted (assumed)", "status": "ASSUMED"},
+    "battery_efficiency": {"value": 0.565, "unit": "1", "source": "BCPWM", "locator": "shaft power 4 km kf w^3 / (V I) at the 93.75 % row", "status": "DERIVED"}
+  },
+  "rotors": [
+    {"name": "m1_front_right", "position": [0.031, -0.031, 0.021], "spin": 1, "source": "BCSIM", "locator": "prop link pose (0.031,-0.031,0.021) ccw_prop.dae"},
+    {"name": "m2_rear_right", "position": [-0.031, -0.031, 0.021], "spin": -1, "source": "BCSIM", "locator": "(-0.031,-0.031) cw_prop.dae"},
+    {"name": "m3_rear_left", "position": [-0.031, 0.031, 0.021], "spin": 1, "source": "BCSIM", "locator": "(-0.031,0.031) ccw_prop.dae"},
+    {"name": "m4_front_left", "position": [0.031, 0.031, 0.021], "spin": -1, "source": "BCSIM", "locator": "(0.031,0.031) cw_prop.dae"}
+  ],
+  "sensors": {
+    "imu": {"part": "BMI088", "source": "BCDS"},
+    "barometer": {"part": "BMP388", "source": "BCDS"}
+  }
+}

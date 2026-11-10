@@ -1,0 +1,41 @@
+## 7. Reading the map (pilot interpretation; n = 6 layouts per cell, so single cells are +-20 points)
+
+**Where the baseline holds:** no thin branches, nominal latency: 83-100% success at every speed up to 10 m/s for all
+three sensors. Stems alone are not the problem at 800 stems/ha.
+
+**Where it breaks:**
+1. **Latency/stall tail (S, 232 collisions).** Moving from `nominal` (p99 47 ms) to `severe` (p99 0.56 s) drops even branch-free
+   success to 17-67%, and at 3 m/s it turns stuck runs into crashes (3 m/s: collision 17% -> 68%). The rule uses
+   tau = 0.10 s (nominal belief), so every stall longer than ~2 periods flies blind on the last setpoint. Points to
+   **latency-aware speed selection** (tau from the p99/p99.9 age, plus a stall watchdog that brakes).
+2. **Plan-execution gap (K tracking_lag, 216).** The obstacle was in the map in time and still there at contact, with no
+   stall. Collision share at nominal latency grows with speed (3 m/s 17%, 5 m/s 54%, 7 m/s 67%). The rule's tau omits the
+   0.3 s velocity-loop lag and the jerk ramp. Inflation (r_body + 0.10 m) is thin against the 0.1 m cells, 7.5 deg headings
+   and gusts. Most K contacts are branches (164/216) brushed sideways while weaving. This also points to
+   **latency-aware speed selection** (tau_eff = pipeline + tracking lag), or to a bounded residual on the clearance/speed.
+3. **Thin-branch perception (T thin_branch_miss 34 + M map_lag 39 + O occlusion 12, all on ~2.4 cm branches, at the highest
+   contact speeds, 6.4-7.4 m/s).** The branch was missed by the sensor, or seen but not yet occupied (the log-odds cell was
+   pre-carved free at range, so it needs >= 2 hits), or eroded by free-space carving. Points to **foliage-aware obstacle
+   sensing** (hit-protected / thin-structure-aware mapping, range-dependent detection priors, LiDAR+stereo union).
+   Its weight is understated here because K and S often fire first in branchy cells.
+4. **Local minima (L, 85) at 3 m/s in mid/high branch density.** The unknown-as-blocked map plus soft twigs mapped as
+   obstacles turns the slab into a maze. The 2.5D vehicle also cannot climb over or duck under. Partly an artefact of 2.5D.
+5. **Detection (111 runs whose only failure was detection_miss).** Recall falls 0.81 -> 0.64 from 3 to 10 m/s. The dominant
+   miss is `blur_or_size` (207 of 261 at 10 m/s), then `never_in_fov` (the route never pointed the 66 deg RGB at the
+   target). Points to **detection-aware search** (speed and heading chosen for detection, i.e. slow-down or look-at near
+   likely target areas).
+
+**Sensor comparison.** Fusion is not better than LiDAR alone in branchy cells. LiDAR at 10 Hz makes the 120 ms age gate
+fail structurally (36% of cycles vs 22-24% for stereo/fusion), but its 360 deg map avoids stereo's FOV-driven occlusion and
+local-minimum cases. Stereo collides most in `mid` (88%).
+
+## 8. Caveats (what would overturn this)
+- 2.5D slab and point mass: no climbing, no attitude dynamics, no LIO drift (state estimate = truth). Real drift would add
+  a map-misregistration failure mode that is absent here.
+- `margin-viol ticks` uses all circles, including soft (< 2 cm) twigs, so it overstates violations in branchy cells.
+  Collisions use hard colliders only (TREEGEN_DESIGN: d >= 2 cm in the 1-4 m band).
+- Map constants (l_miss -0.1 per column, clamp -1) approximate a 3D voxel map projected over the slab. With OctoMap's
+  -0.4 applied per column, every branch density saturated at 0% success, so the T/M split is sensitive to this choice.
+- Forest geometry is a seeded prior, not TreeGen output or survey data. Branch counts/diameters are [U].
+- Cause labels use rule-based attribution with t_need from the belief stopping distance. "tracking_lag" is an extra label
+  that the task's list lacked: mapped in time, no stall, still hit.

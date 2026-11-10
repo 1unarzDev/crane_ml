@@ -1,0 +1,109 @@
+{
+ "name": "spruce",
+ "_doc": "Norway spruce (Picea abies)-like conifer. Pseudo-whorled lateral buds at annual-shoot ends, strong apical control (excurrent), flattened (planar) order>=2 sprays, retains dead lower branches for many years. Optional space-colonization crown envelope. Ranges [U]: H 20-40 m, DBH 0.2-0.7 m, open-grown crown ratio 0.6-0.95, order-1 angle 60-95 deg.",
+ "kind": "conifer",
+ "seasons": 36,
+ "environment": "shadow",
+ "space": {
+  "shape": "cone",
+  "height": 26.0,
+  "base": 0.5,
+  "radius": 4.5,
+  "n_markers": 8000,
+  "r_perc": 2.0,
+  "perc_angle_deg": 50,
+  "r_occ": 0.45,
+  "q_ref": 2.0,
+  "q_floor": 0.5
+ },
+ "lambda": 0.62,
+ "alpha": 3.0,
+ "order_vigor_decay": 0.9,
+ "internode_length": 0.3,
+ "internode_order_decay": 0.9,
+ "max_metamers": 3,
+ "phyllotaxis": "whorl",
+ "whorl_buds": 5,
+ "p_intermediate_bud": 0.25,
+ "whorl_buds_lateral": 2,
+ "p_intermediate_bud_lateral": 0.6,
+ "planar_order_min": 2,
+ "max_order": 4,
+ "branch_angle_deg_by_order": [
+  0,
+  80,
+  55,
+  50
+ ],
+ "w_prev": 1.0,
+ "w_light": 0.12,
+ "w_grav_by_order": [
+  0.9,
+  -0.04,
+  -0.02,
+  -0.05
+ ],
+ "w_horiz_by_order": [
+  0.0,
+  0.25,
+  0.1
+ ],
+ "w_noise": 0.04,
+ "p_abort": 0.03,
+ "shed_threshold": 0.03,
+ "shed_grace": 4,
+ "p_stub": 0.9,
+ "stub_nodes": 6,
+ "stub_decay_seasons": 14,
+ "n_pipe": 2.5,
+ "r_tip": 0.003,
+ "height_max": 32.0,
+ "height_exponent": 2.5,
+ "crown_radius_max": 5.0,
+ "flare": 0.35,
+ "flare_height": 0.4,
+ "leaf": {
+  "card_size": 0.25,
+  "cards_per_node": 2,
+  "max_age": 5,
+  "max_radius": 0.015,
+  "atlas_index": 1,
+  "aspect": 0.5
+ },
+ "bark_tile_m": 0.5,
+ "bark_color": [
+  0.36,
+  0.25,
+  0.18
+ ],
+ "leaf_color": [
+  0.12,
+  0.25,
+  0.12
+ ],
+ "targets": {
+  "height_m": [
+   10,
+   40
+  ],
+  "dbh_m": [
+   0.1,
+   0.7
+  ],
+  "crown_ratio": [
+   0.5,
+   1.0
+  ],
+  "branch_angle_order1_deg": [
+   55,
+   100
+  ]
+ },
+ "max_metamers_by_order": [
+  3,
+  2,
+  1
+ ],
+ "leader_min_metamers": 1,
+ "favor_bright": 0.5
+}

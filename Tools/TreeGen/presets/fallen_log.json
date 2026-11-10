@@ -1,0 +1,3 @@
+{"base": "spruce", "name": "fallen_log", "variant": "fallen_log",
+ "_doc": "Fallen dead conifer log: grown as spruce, snapped at 50-90% height, branches < 3 cm removed, stubs <= 0.6 m, rotated to lie on the ground at a random azimuth, lifted so the bark rests on z=0.",
+ "seasons": 30, "bark_color": [0.33, 0.27, 0.22]}

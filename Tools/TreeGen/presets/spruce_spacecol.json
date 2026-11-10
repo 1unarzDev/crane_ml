@@ -1,0 +1,8 @@
+{
+  "base": "spruce",
+  "name": "spruce_spacecol",
+  "_doc": "Spruce grown with the optional space-colonization crown envelope multiplied into the shadow light (environment 'both'). Markers are claimed per Runions 2007 / Palubicki 2009 sec. 4.1; resource alpha raised and shedding lowered to compensate for marker competition.",
+  "environment": "both",
+  "alpha": 3.0,
+  "shed_threshold": 0.03
+}

@@ -1,0 +1,81 @@
+{
+ "name": "birch",
+ "_doc": "Silver birch (Betula pendula)-like pioneer/understory broadleaf: light-demanding (high shed threshold, strong self-pruning, few stubs), acute order-1 angles, pendulous higher-order twigs. Ranges [U]: H 15-25 m, DBH 0.1-0.4 m, crown ratio 0.35-0.7, order-1 angle 30-55 deg.",
+ "kind": "broadleaf",
+ "seasons": 26,
+ "lambda": 0.58,
+ "alpha": 2.3,
+ "internode_length": 0.35,
+ "internode_order_decay": 0.85,
+ "max_metamers": 4,
+ "branch_angle_deg_by_order": [
+  0,
+  38,
+  45,
+  50
+ ],
+ "w_prev": 1.0,
+ "w_light": 0.3,
+ "w_grav_by_order": [
+  0.5,
+  0.08,
+  -0.12,
+  -0.25
+ ],
+ "w_horiz_by_order": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "w_noise": 0.08,
+ "shed_threshold": 0.2,
+ "shed_grace": 2,
+ "p_stub": 0.25,
+ "stub_nodes": 1,
+ "stub_decay_seasons": 4,
+ "n_pipe": 2.0,
+ "r_tip": 0.003,
+ "height_max": 22.0,
+ "crown_radius_max": 5.5,
+ "flare": 0.3,
+ "flare_height": 0.4,
+ "leaf": {
+  "card_size": 0.2,
+  "cards_per_node": 3,
+  "max_age": 2,
+  "max_radius": 0.01,
+  "atlas_index": 2,
+  "aspect": 1.0
+ },
+ "bark_tile_m": 0.4,
+ "bark_color": [
+  0.85,
+  0.84,
+  0.8
+ ],
+ "leaf_color": [
+  0.33,
+  0.5,
+  0.18
+ ],
+ "targets": {
+  "height_m": [
+   8,
+   25
+  ],
+  "dbh_m": [
+   0.06,
+   0.4
+  ],
+  "crown_ratio": [
+   0.3,
+   0.75
+  ],
+  "branch_angle_order1_deg": [
+   25,
+   60
+  ]
+ },
+ "leader_min_metamers": 1,
+ "favor_bright": 0.7
+}

@@ -1,0 +1,7 @@
+{"fps": 30, "size": [1280, 720], "title": "RoboBoat reference",
+ "acts": [
+  {"type":"fleet","duration_s":3,"speed":2,"hero":"best","previous":"none","trails":"none","markers":false,"ghost_alpha":0.0,"sample":1,"caption":"establish","camera":{"shot":"establish","fov":45}},
+  {"type":"fleet","duration_s":4,"speed":2,"t0":4,"hero":"best","previous":"none","trails":"none","markers":false,"ghost_alpha":0.0,"sample":1,"caption":"chase","camera":{"shot":"chase","back":5,"height":2.2,"side":1.5,"lead":4,"fov":55}},
+  {"type":"fleet","duration_s":3,"speed":2,"t0":10,"hero":"best","previous":"none","trails":"none","markers":false,"ghost_alpha":0.0,"sample":1,"caption":"flyover","camera":{"shot":"flyover","back":14,"height":8,"fov":50}},
+  {"type":"fleet","duration_s":3,"speed":1,"t0":16,"hero":"best","previous":"none","trails":"none","markers":false,"ghost_alpha":0.0,"sample":1,"caption":"top","camera":{"shot":"top","fov":45}}
+ ]}

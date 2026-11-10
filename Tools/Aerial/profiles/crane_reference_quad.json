@@ -1,0 +1,31 @@
+{
+  "schema": "crane-aerial-vehicle-profile-v1",
+  "id": "crane-reference-quad-unity-2026-10",
+  "description": "Mirror of the CRANE Unity 'Reference Quadrotor' / 'PX4 x500-class Reference' as serialized in Assets/Scenes/{Aerial Vehicle,PX4 Walls,PX4 Windy,PX4 ArUco} Validation.unity. Rotor speed is the normalized command (omega_max = 1, kf = maximumThrustPerRotor). Inertia is PhysX's implicit tensor for the single 0.5 x 0.16 x 0.5 m BoxCollider. Converted Unity RUF -> FLU.",
+  "evidenceLabel": "LIVE_SIM_VALIDATED (roll-rate mirror matches a headless player run to 1e-6 rad/s; stale Sep-19 build)",
+  "frames": {"body": "FLU", "world": "ENU z-up", "spin": "+1 = CCW seen from above"},
+  "sources": {
+    "CRANE": {"url": "file://Assets/Scripts/Physics/Aerial/MultirotorDynamics.cs", "commit": "976ff1e (working tree)", "license": "repo LICENSE", "gplCompatible": true}
+  },
+  "parameters": {
+    "mass": {"value": 1.5, "unit": "kg", "source": "CRANE", "locator": "Rigidbody m_Mass", "status": "ASSUMED"},
+    "inertia": {"value": [[0.03445, 0, 0], [0, 0.03445, 0], [0, 0, 0.0625]], "unit": "kg m^2", "source": "CRANE", "locator": "implicit box tensor m/12 (b^2+c^2); m_ImplicitTensor 1", "status": "DERIVED"},
+    "kf": {"value": 8.0, "unit": "N per normalized speed^2", "source": "CRANE", "locator": "maximumThrustPerRotor", "status": "ASSUMED"},
+    "km": {"value": 0.015, "unit": "m", "source": "CRANE", "locator": "reactionTorquePerThrust", "status": "ASSUMED"},
+    "tau_up": {"value": 0.06, "unit": "s", "source": "CRANE", "locator": "motorTimeConstant", "status": "ASSUMED"},
+    "tau_down": {"value": 0.06, "unit": "s", "source": "CRANE", "locator": "motorTimeConstant", "status": "ASSUMED"},
+    "omega_max": {"value": 1.0, "unit": "normalized", "source": "CRANE", "locator": "Mathf.Clamp01", "status": "ASSUMED"},
+    "rotor_drag": {"value": 0.0, "unit": "-", "source": "CRANE", "locator": "absent", "status": "ASSUMED"},
+    "rolling_moment": {"value": 0.0, "unit": "-", "source": "CRANE", "locator": "absent", "status": "ASSUMED"},
+    "rotor_radius": {"value": 0.0, "unit": "m", "source": "CRANE", "locator": "absent (no ground effect)", "status": "ASSUMED"},
+    "drag_linear": {"value": [0.18, 0.18, 0.25], "unit": "N s/m", "source": "CRANE", "locator": "linearDrag Unity (x,y,z)=(0.18,0.25,0.18) -> FLU", "status": "ASSUMED"},
+    "drag_quadratic": {"value": 0.0, "unit": "N s^2/m^2", "source": "CRANE", "locator": "Unity per-axis v_i|v_i| form is not rotation-consistent and is modeled only in aerial_unity_mirror.py", "status": "NOT_REPRESENTABLE"}
+  },
+  "rotors": [
+    {"name": "front_left", "position": [0.23, 0.23, 0.0], "spin": 1, "source": "CRANE", "locator": "Unity (-0.23,0,0.23); yawSign +1 -> body torque +Unity y (clockwise from above) -> rotor CCW"},
+    {"name": "front_right", "position": [0.23, -0.23, 0.0], "spin": -1, "source": "CRANE", "locator": "Unity (0.23,0,0.23); yawSign -1"},
+    {"name": "rear_right", "position": [-0.23, -0.23, 0.0], "spin": 1, "source": "CRANE", "locator": "Unity (0.23,0,-0.23); yawSign +1"},
+    {"name": "rear_left", "position": [-0.23, 0.23, 0.0], "spin": -1, "source": "CRANE", "locator": "Unity (-0.23,0,-0.23); yawSign -1"}
+  ],
+  "notes": ["Spin pattern (FL/RR CCW) is the mirror image of PX4/ArduPilot Quad-X (FR/RL CCW)."]
+}
