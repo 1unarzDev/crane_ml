@@ -329,7 +329,7 @@ def report(args):
          "not PHYSICALLY_CALIBRATED._" % args.plan, "",
          "Complete layouts used: %d of %d seen (%s). Episodes: %d. Bootstrap: %d cluster resamples over layouts, seed 0." % (
              len(lay), len(lay_all), ", ".join(map(str, lay)), len(rows), B), "",
-         "v* = setpoint speed where the isotonic (PAVA) collision probability crosses 5 % (grid %s m/s, linear "
+         "v* = setpoint speed where the isotonic (PAVA) collision probability crosses 5 %% (grid %s m/s, linear "
          "interpolation; `<` = above 5 %% already at the lowest setpoint, `>=` = never crosses). A* = achieved course "
          "progress rate (m/s, non-collision episodes) at v*. Diff = method - %s, paired bootstrap; **bold** = 95 %% CI "
          "excludes 0." % (SPEEDS, base), ""]
