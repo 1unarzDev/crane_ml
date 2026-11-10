@@ -32,10 +32,11 @@ def parse(md):
     return out
 
 
-# strategy: (colour, marker, label); Okabe-Ito
+# strategy: (colour, marker, label); Okabe-Ito. HEARTBEAT has its own hue (orange) and hatching.
+HB = "#E69F00"
 S = [("ORACLE", "#000000", "D", "ORACLE"), ("HYBRID_P", "#009E73", "^", "HYBRID-P"),
-     ("HEALTH", "#CC79A7", "o", "HEALTH"), ("HEARTBEAT", "#CC79A7", "s", "HEARTBEAT"),
-     ("INDEP", "#999999", "v", "INDEP")]
+     ("HEALTH", "#CC79A7", "o", "HEALTH"), ("HEARTBEAT", HB, "s", "HEARTBEAT"),
+     ("INDEP", "#666666", "v", "INDEP")]
 
 
 def fmt(b):
@@ -46,7 +47,6 @@ def main(md, out):
     d = parse(md)
     regs = list(d)
     fig, (a, b) = plt.subplots(2, 1, figsize=(3.3, 4.5), gridspec_kw=dict(height_ratios=[1.7, 1]))
-    off = np.linspace(-.3, .3, len(S))
     a.axhline(0, color="0.35", lw=.8)
     top = S  # HEARTBEAT (open square) coincides with HEALTH on the ideal link but is drawn for legend consistency
     off = np.linspace(-.3, .3, len(top))
@@ -61,15 +61,15 @@ def main(md, out):
     a.set_xlim(-.6, 3.6)
     a.set_xticks(range(4))
     labs = ["random-time\nloss", "loss with\ntravel", "early\nloss", r"$8{\times}8$ grid" + "\n" + "with travel"]
-    a.set_xticklabels(labs, fontsize=6.8)
+    a.set_xticklabels(labs, fontsize=7)
     a.set_ylabel(r"$\Delta P$ vs.\ IMPLICIT")
-    a.legend(loc="lower center", bbox_to_anchor=(0.5, 1.0), ncol=3, fontsize=6.8, frameon=False,
+    a.legend(loc="lower center", bbox_to_anchor=(0.5, 1.0), ncol=3, fontsize=7, frameon=False,
              handletextpad=.2, columnspacing=1.0, borderaxespad=.2)
     a.grid(axis="y", lw=.3, alpha=.5)
-    a.text(2.3, -0.004, "default plan (silent)", fontsize=6.8, ha="center", va="top", color="0.25")
+    a.text(2.3, -0.004, "default plan (silent)", fontsize=7, ha="center", va="top", color="0.25")
     # bytes panel
     bs = [("HYBRID_P", "#009E73", "HYBRID-P"), ("HEALTH", "#CC79A7", "HEALTH"),
-          ("HEARTBEAT", "#CC79A7", "HEARTBEAT")]
+          ("HEARTBEAT", HB, "HEARTBEAT")]
     w = .25
     for k, (s, c, lab) in enumerate(bs):
         x = np.arange(4) + (k - 1) * w * 1.1
@@ -78,23 +78,26 @@ def main(md, out):
               lw=.6, label=lab)
         if s != "HEARTBEAT":
             for xi, vi in zip(x, v):
-                b.text(xi, vi * 1.25, fmt(vi), ha="center", va="bottom", fontsize=6.8, color=c, rotation=90,
-                       )
-    b.legend(loc="upper left", fontsize=6.8, frameon=False, ncol=3, handlelength=.8, handletextpad=.3,
+                b.text(xi, vi * 1.25, fmt(vi), ha="center", va="bottom", fontsize=7.5, color=c, rotation=90)
+    b.axhline(1000, color="0.4", lw=.6, ls=":", zorder=0)
+    b.text(3.62, 1000, "1 kB", fontsize=7, color="0.35", ha="right", va="bottom")
+    b.legend(loc="upper left", fontsize=7, frameon=False, ncol=3, handlelength=.8, handletextpad=.3,
              columnspacing=.8, bbox_to_anchor=(0, 1.22))
     b.set_yscale("log")
-    b.set_ylim(3, 1e5)
+    b.set_ylim(3, 2e5)
     b.set_xlim(-.6, 3.6)
     b.set_xticks(range(4))
-    b.set_xticklabels(labs, fontsize=6.8)
+    b.set_xticklabels(labs, fontsize=7)
     b.set_ylabel("bytes / episode")
     b.set_yticks([10, 100, 1000])
     b.set_yticklabels(["10", "100", "1000"])
     b.grid(axis="y", lw=.3, alpha=.5)
     for ax_ in (a, b):
-        ax_.tick_params(labelsize=6.8, length=2.5)
+        ax_.tick_params(labelsize=7, length=2.5)
         for sp in ("top", "right"):
             ax_.spines[sp].set_visible(False)
+    a.text(-0.2, 1.17, "(a)", transform=a.transAxes, fontsize=8, fontweight="bold", va="bottom")
+    b.text(-0.2, 1.17, "(b)", transform=b.transAxes, fontsize=8, fontweight="bold", va="bottom")
     fig.subplots_adjust(left=0.19, right=0.99, top=0.89, bottom=0.07, hspace=0.45)
     fig.savefig(out)
     fig.savefig(out.replace(".pdf", ".png"), dpi=200)

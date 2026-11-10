@@ -18,3 +18,8 @@
 | Silent fixes for the joint planner (none closes the gap) | joint_silent.md | exploratory |
 | Original lead analysis (§7 example 0.751/0.757/0.779/0.781) | sweep_summary.md (5x5, 'both', burst30_L10_d1) | exploratory, superseded |
 | Dev-seed event curves (λ-by-λ deltas, bytes) | curve_dev.md | exploratory (dev seeds 100–102) |
+| Revision pass 4: VoC sample max 0.034 vs targeted 0.082 (adversarial instance, 0.011 at paper rates); base-rate VoC ≤ 0.0084 (n=2, T=2); Prop. 3 numerical check (0.0066–0.0135 without frame, 0.0055–0.0109 frame lost w.p. 0.5, 9.8e-5–0.030 with hints); upper-bound table k=2..6 (paper Table tab:bound); PBP 13/16, 71%, 0.134, 78%, 4.3e-3 | theory_extra.md (+ theory_extra_*.json), vov_landscape.md, paper/figs/figA_voc.pdf | exact |
+| Revision pass 4: H1 is 12 tests; TOST 90% t passes all; one-sided t p=0.023 at 6x6 t0 λ=2; Holm 0/12 (min adj. p 0.27); bootstrap wider than t at 30/50 points (median ratio 1.03); H4 2/4 (t), 4/4 (BCa); H1 failing upper bound +0.031 | stats_sensitivity.md, hypotheses.md | robustness analysis of preregistered data (not re-registered) |
+| Revision pass 4: fresh-seed mechanism controls and placebos (HYBRID −0.045/−0.049, 5.2–5.8 coll/ep; RND_A −0.042/−0.046, 5.0–5.5 coll/ep; SYM_V −0.096 [−0.126,−0.066] at λ=3; record drops cut collisions ≤18%; PH_orc at delay 2/3 −0.040/−0.044; HYBRID_P −0.024/−0.028) | mechanism2.md (seeds 900–907, t_7 intervals) | exploratory |
+| Revision pass 4: HYBRID_P gain under loss 3–5 pp (abstract "full messaging's 3–5 pp gain"); H4 CIs [−0.121,−0.052], [−0.038,−0.004], [−0.057,+0.005] | loss_baselines.md; hypotheses.md | exploratory; confirmatory |
+| Preregistration timing (≈5 min before data by mtime; first commit ≈4 h after) | ../REPRODUCE.md §2 | disclosure |

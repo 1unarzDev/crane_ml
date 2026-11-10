@@ -1,7 +1,7 @@
 """Figure 1 for the paper: Delta P(detect) vs the silent default plan, on held-out 6x6.
 
 Run from Tools/:  python -m ForestSearch.make_fig1 <results_dir> <out.pdf>
-Fonts are embedded as TrueType (pdf.fonttype 42), because AAAI forbids Type 3.
+Text is rendered by LaTeX (usetex), so fonts are Type 1. Bootstrap B=2000.
 """
 import sys
 
@@ -21,29 +21,47 @@ from .analyze_curve import load, paired  # noqa: E402
 
 PANELS = [("6x6", "0", "d0_loss0", "(a) no delay, no loss"),
           ("6x6", "0", "d1_loss0", "(b) delay 1, no loss"),
-          ("6x6", "0", "d1_burst30", r"(c) delay 1, 30\% burst loss"),
+          ("6x6", "0", "d1_burst30", r"(c) delay 1, 30\% bursty loss"),
           ("6x6", "1", "d1_loss0", "(d) travel, delay 1, no loss")]
 # Okabe-Ito palette; distinct markers/linestyles so it survives greyscale.
-# strategy: (colour, marker, linestyle, label, label dy)
-SER = {"FULL": ("#D55E00", "s", "-", "FULL", -0.012),
-       "HYBRID": ("#0072B2", "o", "-", "HYBRID", 0.0),
-       "HYBRID_P": ("#009E73", "^", "-", "HYBRID-P", 0.012),
-       "ORACLE": ("#000000", "D", "--", "ORACLE", 0.0),
-       "INDEP": ("#999999", "v", "--", "INDEP (no plan)", 0.0)}
+# strategy: (colour, marker, linestyle, label, band?)
+SER = {"INDEP": ("#666666", "v", "--", "INDEP", False),
+       "ORACLE": ("#000000", "D", "--", "ORACLE", False),
+       "FULL": ("#D55E00", "s", "-", "FULL", False),
+       "HYBRID": ("#0072B2", "o", "-", "HYBRID", True),
+       "HYBRID_P": ("#009E73", "^", "-", "HYBRID-P", True)}
 YLIM = (-0.175, 0.055)
+GAP = 0.017  # minimum vertical separation of direct labels (data units, ~7 pt)
+
+
+def spread(ys, lo, hi, gap=GAP):
+    """Nudge label positions apart (keeps order), staying inside [lo, hi]."""
+    order = sorted(ys, key=lambda k: ys[k])
+    pos = {k: ys[k] for k in order}
+    for _ in range(50):
+        for a_, b_ in zip(order, order[1:]):
+            if pos[b_] - pos[a_] < gap:
+                m = (pos[a_] + pos[b_]) / 2
+                pos[a_], pos[b_] = m - gap / 2, m + gap / 2
+        if pos[order[-1]] > hi:
+            d = pos[order[-1]] - hi
+            for k in order:
+                pos[k] -= d
+        if pos[order[0]] < lo:
+            d = lo - pos[order[0]]
+            for k in order:
+                pos[k] += d
+    return pos
 
 
 def main(rdir, out):
-    fig = plt.figure(figsize=(7.0, 2.2))
-    gs = fig.add_gridspec(1, 5, width_ratios=[1, 1, 1, 0.42, 1], wspace=0.1,
-                          left=0.075, right=0.972, bottom=0.2, top=0.9)
+    fig = plt.figure(figsize=(7.0, 2.3))
+    gs = fig.add_gridspec(1, 4, wspace=0.08, left=0.1, right=0.995, bottom=0.18, top=0.9)
     ax = [fig.add_subplot(gs[0, 0])]
-    ax += [fig.add_subplot(gs[0, k], sharey=ax[0]) for k in (1, 2)]
-    ax.append(fig.add_subplot(gs[0, 4], sharey=ax[0]))
+    ax += [fig.add_subplot(gs[0, k], sharey=ax[0]) for k in (1, 2, 3)]
     for a in ax[1:]:
         plt.setp(a.get_yticklabels(), visible=False)
     cache = {}
-    ends = {}
     for j, (g, t, ln, title) in enumerate(PANELS):
         if (g, t) not in cache:
             cache[(g, t)] = load(f"{rdir}/confirm_{g}_t{t}.csv")[0]
@@ -52,42 +70,33 @@ def main(rdir, out):
         a = ax[j]
         a.axhline(0, color="0.35", lw=.8, zorder=1)
         xs = [0, 1, 2, 3]
+        ends = {}
         for s in ("INDEP", "ORACLE", "FULL", "HYBRID", "HYBRID_P"):
-            c, m, ls, lab, dy = SER[s]
-            r = [paired(D, float(lam), ln, s, rng=rng, B=1000) for lam in xs]
+            c, m, ls, lab, band = SER[s]
+            r = [paired(D, float(lam), ln, s, rng=rng, B=2000) for lam in xs]
             y = [x[0] for x in r]
-            if s not in ("ORACLE", "INDEP"):
-                a.fill_between(xs, [x[1] for x in r], [x[2] for x in r], color=c, alpha=.14, lw=0)
-            if s == "INDEP":  # light grey dashed, behind the others (no band)
-                a.plot(xs, y, ls, marker=m, ms=2.6, lw=.9, color=c, mfc="w", zorder=2)
+            if band:
+                a.fill_between(xs, [x[1] for x in r], [x[2] for x in r], color=c, alpha=.10, lw=0)
+            if s == "INDEP":
+                a.plot(xs, y, ls, marker=m, ms=2.8, lw=1.0, color=c, mfc="w", zorder=2)
             else:
-                a.plot(xs, y, ls, marker=m, ms=3.2, lw=1.2, color=c, zorder=3)
-            if j == 3:
-                ends[s] = y[-1]
+                a.plot(xs, y, ls, marker=m, ms=3.0, lw=1.1, color=c, zorder=3)
+            ends[s] = y[-1]
+        pos = spread(ends, YLIM[0] + 0.006, YLIM[1] - 0.006)
+        for s, yy in pos.items():
+            c = SER[s][0]
+            a.text(3.24, yy, SER[s][3], color=c, fontsize=7, va="center", ha="left", clip_on=False)
         a.set_title(title, fontsize=7.5, pad=3)
         a.set_xlabel(r"private-event scale $\lambda$", fontsize=7.5)
         a.set_xticks(xs)
+        a.set_xlim(-0.2, 5.05)
         a.set_ylim(*YLIM)
         a.set_yticks([-.15, -.1, -.05, 0, .05])
         a.tick_params(labelsize=7, length=2.5)
         a.grid(axis="y", lw=.3, alpha=.5)
         for sp in ("top", "right"):
             a.spines[sp].set_visible(False)
-    ax[0].set_ylabel(r"$\Delta P$ vs.\ IMPLICIT", fontsize=7.5)
-    ax[0].annotate("0 = default plan (silent)", (0.0, 0.0), (-0.1, 0.04), fontsize=7, ha="left", va="center",
-                   color="0.2", arrowprops=dict(arrowstyle="-", lw=.5, color="0.4"))
-    # direct labels, panel (b) right edge (clearest separation), nudged to avoid overlap
-    a = ax[2]
-    rng = np.random.default_rng(0)
-    D = cache[("6x6", "0")]
-    ys = {s: paired(D, 3.0, "d1_burst30", s, rng=rng, B=200)[0] for s in SER}
-    place = {"ORACLE": ys["ORACLE"] + 0.012, "HYBRID_P": ys["HYBRID_P"] - 0.004,
-             "HYBRID": ys["HYBRID"] - 0.002, "FULL": ys["FULL"] - 0.004,
-             "INDEP": ys["INDEP"]}
-    for s, yy in place.items():
-        c, m, ls, lab, dy = SER[s]
-        a.text(3.12, yy, lab.split(" (")[0], color=c, fontsize=7, va="center", ha="left",
-               clip_on=False, bbox=None)
+    ax[0].set_ylabel(r"$\Delta P$ vs.\ IMPLICIT" + "\n" + r"(0 = silent default plan)", fontsize=7.5)
     fig.savefig(out)
     fig.savefig(out.replace(".pdf", ".png"), dpi=200)
 

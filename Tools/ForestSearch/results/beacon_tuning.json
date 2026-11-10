@@ -1,0 +1,41 @@
+{
+ "TAKEOVER_L": {
+  "hedge": "takeover",
+  "h_f": 0.25,
+  "h_w": 1.0
+ },
+ "TAKEOVER_B": {
+  "hedge": "takeover",
+  "h_f": 0.25,
+  "h_w": 0.5
+ },
+ "REDUNDANT_L": {
+  "hedge": "redundant",
+  "h_rho": 0.5
+ },
+ "REDUNDANT_B": {
+  "hedge": "redundant",
+  "h_rho": 0.5
+ },
+ "BAYES_L": {
+  "hedge": "bayes",
+  "h_pi": 1.0
+ },
+ "BAYES_B": {
+  "hedge": "bayes",
+  "h_pi": 1.0
+ },
+ "SECSWEEP_L": {
+  "hedge": "secsweep",
+  "h_f": 0.25
+ },
+ "SECSWEEP_B": {
+  "hedge": "secsweep",
+  "h_f": 0.75
+ },
+ "HB_TO": {
+  "health": "hb_timeout",
+  "hb_period": 3,
+  "hb_timeout": 7
+ }
+}
