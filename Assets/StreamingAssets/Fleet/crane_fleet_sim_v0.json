@@ -1671,5 +1671,24 @@
     "stereo": "mono_camera_ov9281",
     "tof": "range_tof",
     "lidar": "lidar_2d"
+  },
+  "lift_load": {
+    "note": "lifter load model (AutonomyMission). physical: the carried payload weighs on the lifter body (weight and inertial reaction at the payload CoM, once lifted off), the lift actuator stalls above profile roles.lifter.lift_capacity x force_margin, and a lifter tilted beyond tip_limit_rad drops its payload. kinematic: the previous model (payload follows the lifter, no load).",
+    "model": "physical",
+    "force_margin": {
+      "value": 1.0,
+      "provenance": "provisional",
+      "note": "lift force limit = lift_capacity * g * margin; 1.0 = the rated capacity is the actuator limit (ASSUMED)"
+    },
+    "lift_off_height": {
+      "value": 0.005,
+      "provenance": "provisional",
+      "note": "m above the grip height before the payload no longer rests on its support"
+    },
+    "tip_limit_rad": {
+      "value": 0.35,
+      "provenance": "provisional",
+      "note": "evaluator tip threshold"
+    }
   }
 }

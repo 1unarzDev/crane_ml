@@ -37,6 +37,10 @@ namespace Crane.Fleet.Sim {
         string payloadMode = "static";
         RoverRig carrier;
         Vector3 carryPos; Quaternion carryRot; double carryLift0;
+        // lifter load model (overlay lift_load): lift force limit, payload weight + inertial reaction on the lifter body, tip check
+        string loadModel; double liftForceMax, liftOffHeight, tipLimit;
+        bool liftStalled, lifterTipped, loadApplied; double maxCarrierTilt; Vector3 prevPayloadVel; bool havePrevPayloadVel;
+        string payloadMassSource = "profile";
         double liftSpeed, gripRate, gripMax, gripMin;
         int autonomyEventIndex;
         double doneAt = double.NaN;
@@ -61,6 +65,7 @@ namespace Crane.Fleet.Sim {
         public IDictionary<string, object> Labels => new Dictionary<string, object> {
             ["mission_id"] = missionJson.Has("mission_id") ? missionJson["mission_id"].String : "", ["mission_sha256"] = Sha(missionText),
             ["autonomy"] = "Crane.Fleet.Autonomy (closed loop)", ["payload_class"] = payloadType ?? "none",
+            ["payload_kg"] = Payload != null ? (object)(double)Payload.mass : null, ["lift_load_model"] = spec.O["lift_load.model"].String,
             ["interface_pair_types"] = "hermaphroditic_hook2_magnet+hermaphroditic_hook2_magnet" };
         public string PayloadMode => payloadMode;
         public FleetAutonomy Fleet => fleet;
@@ -104,7 +109,8 @@ namespace Crane.Fleet.Sim {
                 var root = new GameObject(payloadId);
                 root.transform.SetPositionAndRotation(FleetFrames.World(pose[0], pose[1], pallet + spec.O["physics.spawn_lift"].Double), FleetFrames.WorldYaw(pose[2]));
                 Payload = root.AddComponent<Rigidbody>();
-                Payload.mass = (float)spec.P["payloads." + payloadType + ".mass"].Double;
+                Payload.mass = (float)(p.Has("mass_kg") ? p["mass_kg"].Double : spec.P["payloads." + payloadType + ".mass"].Double);
+                payloadMassSource = p.Has("mass_kg") ? "mission crane_payload.mass_kg (CRANE variant)" : "profile payloads." + payloadType + ".mass";
                 Payload.solverIterations = (int)spec.O["physics.solver_iterations"].Double;
                 var cg = new GameObject("collision_payload"); cg.transform.SetParent(root.transform, false);
                 cg.transform.localPosition = FleetFrames.Local(0, 0, payloadSize[2] / 2);
@@ -127,6 +133,9 @@ namespace Crane.Fleet.Sim {
                     MountInOwner = TagSpec.OnVerticalFace(new Vec3(-0.002, 0, tagZ), Math.PI) };
             }
             JsonNode lr = spec.P["roles.lifter"];
+            loadModel = spec.O["lift_load.model"].String;
+            liftForceMax = lr["lift_capacity"].Double * spec.Gravity * spec.O["lift_load.force_margin"].Double;
+            liftOffHeight = spec.O["lift_load.lift_off_height"].Double; tipLimit = spec.O["lift_load.tip_limit_rad"].Double;
             liftSpeed = lr["lift_speed"].Double; gripMax = lr["gripper_opening"].Double;
             foreach (var rv in r.Rovers) if (rv.D.Role == "lifter") { rv.Lift = 0; rv.GripperOpening = gripMax; gripMin = rv.Visual?.Manifest.GripperOpeningRange?[0] ?? 0.04; }
             gripRate = (gripMax - gripMin) / lr["gripper_close_time"].Double;
@@ -216,9 +225,12 @@ namespace Crane.Fleet.Sim {
             }
             couplings.Step(r.Dt);
             if (payloadMode == "carried" && carrier != null) {
-                Payload.MovePosition(carrier.Body.position + carrier.Body.rotation * carryPos + Vector3.up * (float)(carrier.Lift - carryLift0));
+                Vector3 at = carrier.Body.position + carrier.Body.rotation * carryPos + Vector3.up * (float)(carrier.Lift - carryLift0);
+                Payload.MovePosition(at);
                 Payload.MoveRotation(carrier.Body.rotation * carryRot);
+                if (loadModel == "physical") ApplyLoad(r, at);
             }
+            if (loadModel == "physical") CheckTip(r);
             // mirror the library's events and task records into the run log
             for (; autonomyEventIndex < fleet.Events.Count; autonomyEventIndex++) {
                 var e = fleet.Events[autonomyEventIndex];
@@ -255,7 +267,16 @@ namespace Crane.Fleet.Sim {
         void Actuate(RoverRig rv, Sink k, double dt) {
             double travel = rv.Visual?.Manifest.LiftRange?[1] ?? spec.P["roles.lifter.lift_travel"].Double;
             double target = Math.Max(0, Math.Min(travel, k.LiftTarget));
-            rv.Lift = Toward(rv.Lift, target, liftSpeed * dt);
+            // lift force limit: raising a carried payload heavier than the actuator can hold (profile lift_capacity x overlay margin) stalls
+            bool raising = target > rv.Lift && payloadMode == "carried" && carrier == rv;
+            if (raising && loadModel == "physical" && Payload.mass * spec.Gravity > liftForceMax) {
+                if (!liftStalled) {
+                    liftStalled = true;
+                    run.Event("lift_stalled", rv.D.Id, new Dictionary<string, object> { ["payload_kg"] = (double)Payload.mass, ["lift_force_max_n"] = liftForceMax,
+                        ["needed_n"] = Payload.mass * spec.Gravity, ["height"] = rv.Lift, ["evaluator_only"] = true });
+                }
+            }
+            else rv.Lift = Toward(rv.Lift, target, liftSpeed * dt);
             bool canHold = Payload != null && payloadMode != "carried" && GripWindow(rv);
             double gripTarget = k.GripperClosed ? (canHold ? Math.Max(gripMin, payloadSize[1]) : gripMin) : gripMax;
             rv.GripperOpening = Toward(rv.GripperOpening, gripTarget, gripRate * dt);
@@ -294,13 +315,43 @@ namespace Crane.Fleet.Sim {
             double cap = spec.P["roles.lifter.lift_capacity"].Double, pm = Payload.mass, comX = (pm * carryPos.z + rv.D.Mass * rv.D.ComOffset[0]) / (pm + rv.D.Mass);
             var f = new Dictionary<string, object> { ["payload"] = payloadId, ["payload_kg"] = pm, ["capacity_kg"] = cap, ["over_capacity"] = pm > cap,
                 ["combined_com_x"] = comX, ["front_axle_x"] = rv.D.Wheels[0].Axle.X, ["would_tip_forward"] = comX > rv.D.Wheels[0].Axle.X,
-                ["note"] = "carry is kinematic: lifter load and tipping are not simulated" };
+                ["note"] = loadModel == "physical" ? "lift_load physical: payload weight and inertial reaction act on the lifter body at the payload CoM once lifted off; lift force limited"
+                    : "carry is kinematic: lifter load and tipping are not simulated" };
             results["lift_static_check"] = f;
             run.Event("payload_gripped", rv.D.Id, f);
         }
 
+        /// <summary>Payload weight and inertial reaction (m (g - a), a = acceleration of the carry point) on the carrier body at the payload CoM, once
+        /// the lift has raised it off its support (lift_off_height above the grip height). PhysX then decides load transfer and tipping.</summary>
+        void ApplyLoad(FleetRun r, Vector3 payloadPos) {
+            bool lifted = carrier.Lift - carryLift0 >= liftOffHeight;
+            Vector3 com = payloadPos + Payload.rotation * Payload.centerOfMass;
+            Vector3 v = carrier.Body.GetPointVelocity(com);
+            Vector3 a = havePrevPayloadVel ? (v - prevPayloadVel) / (float)r.Dt : Vector3.zero;
+            prevPayloadVel = v; havePrevPayloadVel = true;
+            if (!lifted) return;
+            if (!loadApplied) { loadApplied = true; run.Event("payload_load_on", carrier.D.Id, new Dictionary<string, object> { ["payload_kg"] = (double)Payload.mass }); }
+            carrier.Body.AddForceAtPosition(Payload.mass * (Physics.gravity - a), com, ForceMode.Force);
+        }
+
+        /// <summary>Evaluator tip check on the lifter: |pitch| or |roll| above lift_load.tip_limit_rad. A tipped lifter drops what it carries.</summary>
+        void CheckTip(FleetRun r) {
+            foreach (var rv in r.Rovers) {
+                if (rv.D.Role != "lifter") continue;
+                var t = rv.Truth();
+                double tilt = Math.Max(Math.Abs(t.Pitch), Math.Abs(t.Roll));
+                maxCarrierTilt = Math.Max(maxCarrierTilt, tilt);
+                if (tilt > tipLimit && !lifterTipped) {
+                    lifterTipped = true;
+                    run.Event("tip", rv.D.Id, new Dictionary<string, object> { ["pitch"] = t.Pitch, ["roll"] = t.Roll, ["carrying"] = payloadMode == "carried" && carrier == rv,
+                        ["evaluator_only"] = true });
+                    if (payloadMode == "carried" && carrier == rv) Release();
+                }
+            }
+        }
+
         void Release() {
-            payloadMode = "dynamic"; carrier = null;
+            payloadMode = "dynamic"; carrier = null; havePrevPayloadVel = false;
             Payload.isKinematic = false;
             Payload.linearVelocity = Vector3.zero; Payload.angularVelocity = Vector3.zero;
             run.Event("payload_released", "", new Dictionary<string, object> { ["bottom_height"] = (double)Payload.position.y });
@@ -435,6 +486,9 @@ namespace Crane.Fleet.Sim {
             results["succeeded"] = fleet.Executive.Succeeded;
             results["first_failure_class"] = fleet.Executive.FirstFailureClass.ToString();
             results["first_failure"] = fleet.Executive.FirstFailure;
+            results["lift_load"] = new Dictionary<string, object> { ["model"] = loadModel, ["payload_kg"] = Payload != null ? (object)(double)Payload.mass : null,
+                ["payload_mass_source"] = payloadMassSource, ["lift_force_max_n"] = liftForceMax, ["lift_stalled"] = liftStalled, ["load_applied"] = loadApplied,
+                ["lifter_tipped"] = lifterTipped, ["max_lifter_tilt_rad"] = maxCarrierTilt };
             if (Payload != null) {
                 var c = FleetFrames.Planar(Payload.transform);
                 double[] z = spec.S["zones.delivery.rect"].Doubles;
@@ -449,7 +503,8 @@ namespace Crane.Fleet.Sim {
             bool delivered = pt != null && (bool)pt["delivered"];
             results["truth_outcome"] = delivered ? "delivered" : pt == null ? "no_payload" : "not_delivered: payload " + pt["state"];
             results["summary"] = $"library believed: {(fleet.Executive.BelievedComplete ? "complete" : "not complete (" + fleet.Executive.FirstFailureClass + ")")}, host verdict {(hostVerdictGiven ? (fleet.Executive.Succeeded ? "accepted" : "rejected") : "not requested")}; " +
-                $"truth: {results["truth_outcome"]}; {disagreements} disputed claims; {run.Jams.Count} jams";
+                $"truth: {results["truth_outcome"]}; {disagreements} disputed claims; {run.Jams.Count} jams"
+                + (liftStalled ? "; lift stalled (payload over the lift force limit)" : "") + (lifterTipped ? "; lifter tipped" : "");
             res["autonomy"] = results;
         }
 
