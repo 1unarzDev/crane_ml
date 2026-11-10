@@ -12,6 +12,7 @@ These frames were rendered by the CRANE Unity player: Unity 6000.5.10f1, Vulkan,
   - cargo: raised deck on standoffs.
 - **User decisions (D87):** width 0.26 m, so the electronics look smaller than in the concept by design; the lifter carries the 2 kg box_small; bevel dock tags.
 - **Caveats:** this is concept/datasheet level, not measured. The arm is a proxy. The CRANE scene still uses the v0 rovers in sections 1–4 until v1 is imported.
+- **Deck loading (D89/D90):** `cad_v1/lifter_places_box_small_on_cargo.jpg` shows the v1 lifter, with its 170 mm taller lift and 0.24 m jaws, setting box_small (2 kg) side-on onto a cargo deck. It is a static CAD placement check, not a simulated run. The rating is 2.0 kg at safety factor 1.51, so the margin is thin.
 - **Sources:** code, URDFs and the design log are on branch `research/fleet-orchestration` under `Tools/Fleet/assets/cad_v1/`.
 - **Superseded:** section 4 (`assets_v0/`) is the previous provisional design.
 
