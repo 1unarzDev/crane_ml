@@ -49,6 +49,17 @@ S = [("ORACLE", "#000000", "D", "ORACLE"), ("HYBRID_P", "#009E73", "^", "HYBRID-
      ("HEALTH", "#CC79A7", "o", "HEALTH"), ("TAKEOVER_B", TK, "s", "TAKEOVER"),
      ("INDEP", "#666666", "v", "INDEP")]
 OTHER = ["TAKEOVER_L", "REDUNDANT_L", "BAYES_L", "SECSWEEP_L", "SECSWEEP_B"]
+FAMS = ("TAKEOVER", "REDUNDANT", "BAYES", "SECSWEEP")
+
+
+def parse_tuning(md):
+    """All DEV-tuned silent hedge configs (seeds 500-503): {name: (loss mean, healthy mean)}."""
+    out = {}
+    for line in open(md):
+        f = [x.strip() for x in line.strip().strip("|").split("|")]
+        if len(f) == 16 and f[0].startswith(FAMS):
+            out[f[0]] = (float(f[13]), float(f[14]))
+    return out
 
 
 def main(md, out):
@@ -86,19 +97,29 @@ def main(md, out):
         return (np.mean([d[r][s][0] for r in LOSS]), np.mean([d[r][s][0] for r in HEALTHY]))
     b.axhline(0, color="0.35", lw=.6)
     b.axvline(0, color="0.35", lw=.6)
+    tun = parse_tuning(os.path.join(os.path.dirname(md), "beacon_tuning.md"))
+    assert len(tun) == 17, sorted(tun)
+    b.plot([v[0] for v in tun.values()], [v[1] for v in tun.values()], ".", ms=3.2, color="0.6",
+           mec="none", zorder=1)
     for s in OTHER:
         if all(s in d[r] for r in LOSS + HEALTHY):
             x, y = means(s)
-            b.plot(x, y, "s", ms=2.6, mfc="w", mec=TK, mew=.6, label=None)
+            b.plot(x, y, "s", ms=2.6, mfc="w", mec=TK, mew=.6, label=None, zorder=3)
     for s, col, m, lab in S:
         x, y = means(s)
-        b.plot(x, y, m, ms=3.6, color=col, mfc="w" if s == "INDEP" else col)
-    b.text(0.056, 0.006, "HEALTH", fontsize=7, color="#CC79A7", ha="center", va="bottom")
-    b.text(0.021, -0.093, "INDEP", fontsize=7, color="#666666", ha="right", va="center")
-    b.text(0.013, 0.006, "TAKEOVER", fontsize=7, color=TK, ha="center", va="bottom")
-    b.text(0.041, -0.084, "other silent\nhedges", fontsize=7, color=TK, ha="left", va="center")
-    b.set_xlim(-0.005, 0.075)
-    b.set_ylim(-0.11, 0.03)
+        b.plot(x, y, m, ms=3.6, color=col, mfc="w" if s == "INDEP" else col, zorder=4)
+    xi, yi = means("INDEP")
+    xt, yt = means("TAKEOVER_B")
+    b.text(0.056, 0.008, "HEALTH", fontsize=7, color="#CC79A7", ha="center", va="bottom")
+    b.text(xi - 0.004, yi, "INDEP", fontsize=7, color="#666666", ha="right", va="center")
+    b.text(xt - 0.005, 0.008, "TAKEOVER", fontsize=7, color=TK, ha="center", va="bottom",
+           bbox=dict(fc="w", ec="none", pad=0.2))
+    b.plot(0.054, -0.086, "s", ms=2.6, mfc="w", mec=TK, mew=.6)
+    b.text(0.057, -0.086, "hedges", fontsize=7, color=TK, ha="left", va="center")
+    b.plot(0.054, -0.103, ".", ms=3.2, color="0.6", mec="none")
+    b.text(0.057, -0.103, "dev grid", fontsize=7, color="0.45", ha="left", va="center")
+    b.set_xlim(-0.015, 0.082)
+    b.set_ylim(-0.115, 0.03)
     b.set_xticks([0, 0.03, 0.06])
     b.set_xticklabels(["0", ".03", ".06"])
     b.set_yticks([-0.1, -0.05, 0])

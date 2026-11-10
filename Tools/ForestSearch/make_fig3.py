@@ -13,7 +13,6 @@ matplotlib.use("Agg")
 matplotlib.rcParams.update({"pdf.fonttype": 42, "ps.fonttype": 42, "text.usetex": True,
                             "font.family": "serif", "font.size": 7})
 import matplotlib.pyplot as plt  # noqa: E402
-from matplotlib.lines import Line2D  # noqa: E402
 
 HYB, HYBP = "#0072B2", "#009E73"
 NEU = "0.30"
@@ -60,7 +59,7 @@ def panel(ax, y0, title, col, prio):
 def main(out):
     fig, ax = plt.subplots(figsize=(3.3, 2.75))
     ax.set_xlim(-2.0, 10.4)
-    ax.set_ylim(-4.6, 0.95)
+    ax.set_ylim(-4.7, 0.95)
     ax.axis("off")
     y0 = 0.0
     panel(ax, y0, r"HYBRID (stale in-flight model)", HYB, False)
@@ -68,15 +67,17 @@ def main(out):
             r"\textbf{3}: each assumes the partner is still on the stale plan,"
             "\n" r"so both pick the same best target X",
             fontsize=FS, va="top", ha="left", linespacing=1.1, color="0.15")
-    y1 = -2.7
+    y1 = -2.55
     panel(ax, y1, r"HYBRID-P (priority-order prediction)", HYBP, True)
     ax.text(-1.95, y1 - DY - 0.62,
             r"\textbf{3}: agent 1 predicts agent 0 takes X, so it takes Y",
             fontsize=FS, va="top", ha="left", color="0.15")
-    h = [Line2D([], [], color=NEU, ls="--", lw=.9, label=r"\textbf{1}$\to$\textbf{2}: delayed record (beliefs then equal)"),
-         Line2D([], [], color="0.3", ls="-", lw=1.1, label=r"\textbf{3}: chosen look")]
-    ax.legend(handles=h, loc="lower left", bbox_to_anchor=(-0.005, -0.02), fontsize=FS, frameon=False,
-              ncol=1, handlelength=2.0, borderaxespad=0, labelspacing=.25)
+    # In-figure step key (replaces the caption narration).
+    for x, yk, n, txt in ((-1.68, -4.18, 1, "clue found; record sent (dashed: delayed)"),
+                          (-1.68, -4.50, 2, "record arrives: beliefs equal"),
+                          (4.85, -4.50, 3, "next look chosen")):
+        step(ax, x, yk, n)
+        ax.text(x + 0.33, yk, txt, fontsize=FS, va="center", ha="left", color="0.15")
     fig.subplots_adjust(left=0.01, right=0.995, top=0.995, bottom=0.005)
     fig.savefig(out)
     fig.savefig(out.replace(".pdf", ".png"), dpi=200)

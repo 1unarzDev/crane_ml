@@ -31,7 +31,7 @@ SER = {"INDEP": ("#666666", "v", "--", "INDEP", False),
        "HYBRID": ("#0072B2", "o", "-", "HYBRID", True),
        "HYBRID_P": ("#009E73", "^", "-", "HYBRID-P", True)}
 YLIM = (-0.175, 0.055)
-GAP = 0.017  # minimum vertical separation of direct labels (data units, ~7 pt)
+GAP = 0.018  # minimum vertical separation of direct labels (data units, ~7 pt)
 
 
 def spread(ys, lo, hi, gap=GAP):
@@ -85,18 +85,22 @@ def main(rdir, out):
         pos = spread(ends, YLIM[0] + 0.006, YLIM[1] - 0.006)
         for s, yy in pos.items():
             c = SER[s][0]
-            a.text(3.24, yy, SER[s][3], color=c, fontsize=7, va="center", ha="left", clip_on=False)
-        a.set_title(title, fontsize=7.5, pad=3)
-        a.set_xlabel(r"private-event scale $\lambda$", fontsize=7.5)
+            a.text(3.18, yy, SER[s][3], color=c, fontsize=7.5, va="center", ha="left", clip_on=False)
+        if j == 0:
+            a.annotate("zero line:\nIMPLICIT (silence)", xy=(0.5, -0.002), xytext=(0.05, -0.052),
+                       fontsize=7.5, color="0.25", ha="left", va="center",
+                       arrowprops=dict(arrowstyle="-|>", lw=.6, color="0.35", shrinkA=1, shrinkB=1))
+        a.set_title(title, fontsize=8, pad=3)
+        a.set_xlabel(r"private-event scale $\lambda$", fontsize=8)
         a.set_xticks(xs)
-        a.set_xlim(-0.2, 5.05)
+        a.set_xlim(-0.2, 5.35)
         a.set_ylim(*YLIM)
         a.set_yticks([-.15, -.1, -.05, 0, .05])
-        a.tick_params(labelsize=7, length=2.5)
+        a.tick_params(labelsize=7.5, length=2.5)
         a.grid(axis="y", lw=.3, alpha=.5)
         for sp in ("top", "right"):
             a.spines[sp].set_visible(False)
-    ax[0].set_ylabel(r"$\Delta P$ vs.\ IMPLICIT" + "\n" + r"(0 = silent default plan)", fontsize=7.5)
+    ax[0].set_ylabel(r"$\Delta P$ vs.\ IMPLICIT" + "\n" + r"(0 = silent default plan)", fontsize=8)
     fig.savefig(out)
     fig.savefig(out.replace(".pdf", ".png"), dpi=200)
 
