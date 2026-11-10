@@ -1,0 +1,91 @@
+{
+ "schema": "crane.treegen.library",
+ "schema_version": 1,
+ "generator": "crane-treegen",
+ "generator_version": "0.2.0",
+ "forest_seed": 1,
+ "frame": "unity_lh_yup_m_tree_local (each tree's root at its local origin)",
+ "trees": [
+  {
+   "tree_id": 0,
+   "species": "birch",
+   "variant": "live",
+   "position_unity": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "yaw_deg": 0.0,
+   "dir": "trees/tree_0000",
+   "files": {
+    "skeleton": "skeleton.json",
+    "colliders": "colliders.json",
+    "lods": {
+     "0": {
+      "glb": "lod0.glb"
+     },
+     "1": {
+      "glb": "lod1.glb"
+     },
+     "2": {
+      "glb": "lod2.glb"
+     }
+    }
+   },
+   "skeleton_hash": "1269791b6ec4e060a65eb9e5b487405e66c3cff7e8522da41304996388369d73",
+   "bounds_unity_local": {
+    "min": [
+     -2.408,
+     -0.0458,
+     -1.1661
+    ],
+    "max": [
+     0.6828,
+     6.9132,
+     1.9267
+    ]
+   },
+   "metrics": {
+    "height_m": 6.867,
+    "dbh_m": 0.0629,
+    "crown_base_m": 0.476,
+    "crown_ratio": 0.931,
+    "crown_radius_m": 2.298,
+    "nodes": 125,
+    "dead_nodes": 5,
+    "max_order": 3,
+    "branch_angle_median_deg_by_order": {
+     "1": 40.0,
+     "2": 44.0,
+     "3": 49.4
+    },
+    "n_branches_by_order": {
+     "1": 12,
+     "2": 23,
+     "3": 6
+    }
+   },
+   "n_capsules": 16,
+   "n_soft_obstacles": 100,
+   "tri_counts": {
+    "0": {
+     "bark_tris": 2318,
+     "leaf_tris": 2300
+    },
+    "1": {
+     "bark_tris": 220,
+     "leaf_tris": 838
+    },
+    "2": {
+     "bark_tris": 30,
+     "leaf_tris": 108
+    }
+   },
+   "params_hash": "b8b04b7d0e8e0e82",
+   "timing_s": {
+    "grow": 0.386,
+    "export": 0.284
+   }
+  }
+ ]
+}

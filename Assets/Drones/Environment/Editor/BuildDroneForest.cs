@@ -166,7 +166,7 @@ namespace Crane.Drones.Environment.Editor
             if (basemap != null) { m.SetTexture("_BaseColorMap", basemap); if (tiling.HasValue) m.SetTextureScale("_BaseColorMap", tiling.Value); }
             m.SetColor("_BaseColor", tint); m.SetFloat("_Smoothness", smooth); m.SetFloat("_Metallic", 0f);
             if (nrm != null) { m.SetTexture("_NormalMap", nrm); m.SetFloat("_NormalScale", nrmScale); }
-            if (clip) { m.SetFloat("_AlphaCutoffEnable", 1f); m.SetFloat("_AlphaCutoff", 0.5f); m.SetFloat("_UseShadowThreshold", 1f); m.SetFloat("_AlphaCutoffShadow", 0.5f); m.SetFloat("_AlphaCutoffPrepass", 0.5f); m.SetFloat("_AlphaCutoffPostpass", 0.5f); }
+            if (clip) { m.SetFloat("_AlphaCutoffEnable", 1f); m.SetFloat("_AlphaCutoff", 0.38f); m.SetFloat("_UseShadowThreshold", 1f); m.SetFloat("_AlphaCutoffShadow", 0.4f); m.SetFloat("_AlphaCutoffPrepass", 0.38f); m.SetFloat("_AlphaCutoffPostpass", 0.38f); if (m.HasProperty("_AlphaToMask")) { m.SetFloat("_AlphaToMask", 1f); m.SetFloat("_AlphaToMaskInspectorValue", 1f); } }
             if (dbl) { m.SetFloat("_DoubleSidedEnable", 1f); m.SetFloat("_DoubleSidedNormalMode", 1f); m.SetFloat("_CullMode", 0f); m.SetFloat("_CullModeForward", 0f); }
             if (diff != null)
             {
@@ -198,7 +198,7 @@ namespace Crane.Drones.Environment.Editor
             c.twigMat = c.bark[4];
             Texture2D bl = TexGen.Broadleaf(c.spec.seed + 11), bln = TexGen.NormalFromAlpha(bl, 4f), blt = TexGen.ThicknessFromAlpha(bl);
             bl = SavePng(bl, tex + "/leaf_broadleaf.png", true); bln = SavePng(bln, tex + "/leaf_broadleaf_n.png", true, 1); blt = SavePng(blt, tex + "/leaf_broadleaf_t.png", true, 2);
-            Color[] leafTints = { new Color(1f, 1f, 1f), new Color(0.82f, 1.05f, 0.8f), new Color(1.2f, 1.12f, 0.68f), new Color(0.78f, 0.95f, 0.9f), new Color(1.3f, 0.98f, 0.62f), new Color(0.92f, 1.0f, 0.72f) };
+            Color[] leafTints = { new Color(1f, 1f, 1f), new Color(0.82f, 1.05f, 0.8f), new Color(1.08f, 1.06f, 0.76f), new Color(0.82f, 0.96f, 0.88f), new Color(1.14f, 1.0f, 0.7f), new Color(0.92f, 1.0f, 0.76f) };
             for (int i = 0; i < 6; i++) c.leafVar[i] = Mat(d + "/Foliage_Broadleaf" + (i == 0 ? "" : "_" + i) + ".mat", bl, bln, leafTints[i], 0.22f, 0.8f, true, true, diff, null, blt);
             c.leaves = c.leafVar[0];
             Texture2D nd = TexGen.Needles(c.spec.seed + 12), ndn = TexGen.NormalFromAlpha(nd, 3f), ndt = TexGen.ThicknessFromAlpha(nd);
@@ -216,7 +216,7 @@ namespace Crane.Drones.Environment.Editor
             c.fern = c.ferns[0];
             Texture2D gt = TexGen.GrassBlades(c.spec.seed + 21), gn = TexGen.NormalFromAlpha(gt, 3f), gth = TexGen.ThicknessFromAlpha(gt);
             gt = SavePng(gt, tex + "/grass_blades.png", true); gn = SavePng(gn, tex + "/grass_blades_n.png", true, 1); gth = SavePng(gth, tex + "/grass_blades_t.png", true, 2);
-            c.grass = Mat(d + "/Understory_Grass.mat", gt, gn, new Color(0.72f, 0.78f, 0.58f), 0.15f, 0.6f, true, true, diff, null, gth);
+            c.grass = Mat(d + "/Understory_Grass.mat", gt, gn, new Color(0.40f, 0.47f, 0.28f), 0.1f, 0.6f, true, true, diff, null, gth);
             c.branchMats[0] = Mat(d + "/FallenBranch_A.mat", pineD, pineN, new Color(0.55f, 0.45f, 0.38f), 0.06f, 0.9f);
             c.branchMats[1] = Mat(d + "/FallenBranch_B.mat", brkD, brkN, new Color(0.62f, 0.58f, 0.52f), 0.06f, 0.9f);
             // tileable procedural ground layers (moss, needle litter, grass, oak-leaf litter)
@@ -540,15 +540,15 @@ namespace Crane.Drones.Environment.Editor
             }
             // grass tufts in grass patches / clearings, fallen-branch scatter
             {
-                var gm = new List<Mesh>(); for (int i = 0; i < 4; i++) gm.Add(Save(c, Props.GrassTuft(new System.Random(s.seed + 1500 + i), 0.55f).ToMesh("Grass" + i, true), "Grass" + i));
+                var gm = new List<Mesh>(); for (int i = 0; i < 4; i++) gm.Add(Save(c, Props.GrassTuft(new System.Random(s.seed + 1500 + i), 0.34f).ToMesh("Grass" + i, true), "Grass" + i));
                 var gr = new GameObject("Grass").transform; gr.SetParent(root, false); float goff = s.seed * 0.137f; int nG = Mathf.RoundToInt(s.grassTuftsPerHa * ha), gTries = 0;
                 for (int i = 0; i < nG * 3 && c.nGrass < nG; i++)
                 {
                     gTries++; var p = RandOpen(c, r, 0.8f); if (p == Vector2.zero) continue;
                     float gn = Perlin(p.x * 0.045f, p.y * 0.045f, goff + 900) * 0.8f + Perlin(p.x * 0.3f, p.y * 0.3f, goff + 910) * 0.2f; float cdp = ClearingDepth(c, p);
-                    float pa = Mathf.SmoothStep(0.6f, 0.76f, gn) + Mathf.SmoothStep(-3f, 3f, cdp) * 0.8f; if (r.NextDouble() > pa) continue;
-                    float y = c.H(p.x, p.y); float sc = Geo.R(r, 0.6f, 1.5f);
-                    var go = Obj("GrassTuft", gr, new Vector3(p.x, y - 0.01f, p.y), GroundRot(c, new Vector3(p.x, y, p.y), Geo.R(r, 0, 360)), new Vector3(sc, sc * Geo.R(r, 0.7f, 1.3f), sc)); go.layer = 0;
+                    float pa = Mathf.SmoothStep(0.6f, 0.76f, gn) + Mathf.SmoothStep(-3f, 3f, cdp) * 0.8f; if (r.NextDouble() > pa * 0.75f) continue;
+                    float y = c.H(p.x, p.y); float sc = Geo.R(r, 0.5f, 1.25f) * (r.NextDouble() < 0.15 ? 1.4f : 1f);
+                    var go = Obj("GrassTuft", gr, new Vector3(p.x, y - 0.01f, p.y), GroundRot(c, new Vector3(p.x, y, p.y), Geo.R(r, 0, 360)), new Vector3(sc, sc * Geo.R(r, 0.55f, 1.4f), sc)); go.layer = 0;
                     var gR = Rend(go, gm[r.Next(gm.Count)], c.grass); gR.shadowCastingMode = ShadowCastingMode.Off; c.nGrass++;
                 }
                 var bm = new List<Mesh>(); for (int i = 0; i < 10; i++) bm.Add(Save(c, Props.FallenBranch(new System.Random(s.seed + 1700 + i), Geo.R(r, 0.5f, 2.4f), Geo.R(r, 0.012f, 0.04f)).ToMesh("FallenBranch" + i, true), "FallenBranch" + i));
@@ -733,14 +733,19 @@ namespace Crane.Drones.Environment.Editor
             var far = new GameObject("SurroundingLandscape").transform; far.SetParent(root, false);
             float edgeMean = 0f; for (int i = 0; i < 16; i++) { float t = i / 15f * A - E; edgeMean += c.H(t, E - 0.5f) + c.H(t, -E + 0.5f); } edgeMean /= 32f;
             Func<float, float, float> dEdge = (x, z) => { float dx = Mathf.Max(0, Mathf.Abs(x) - E), dz = Mathf.Max(0, Mathf.Abs(z) - E); return Mathf.Sqrt(dx * dx + dz * dz); };
+            Func<float, float, float, float> SS = (a, b, x) => { float t = Mathf.Clamp01((x - a) / (b - a)); return t * t * (3f - 2f * t); }; // true smoothstep (Mathf.SmoothStep is a lerp)
             Func<float, float, float> ground = (x, z) =>
             {
                 float d = dEdge(x, z); float ex = Mathf.Clamp(x, -E + 0.3f, E - 0.3f), ez = Mathf.Clamp(z, -E + 0.3f, E - 0.3f);
                 if (Mathf.Abs(x) < E - 0.01f && Mathf.Abs(z) < E - 0.01f) return -40f;
-                float e = Mathf.Lerp(c.H(ex, ez), edgeMean, Mathf.SmoothStep(0, 1, d / 220f));
-                float hill = (Perlin(x * 0.0011f, z * 0.0011f, off + 1100) - 0.35f) * 140f * Mathf.SmoothStep(30f, 1400f, d) + (Perlin(x * 0.006f, z * 0.006f, off + 1200) - 0.5f) * 26f * Mathf.SmoothStep(20f, 500f, d)
-                    + (Perlin(x * 0.03f, z * 0.03f, off + 1300) - 0.5f) * 4f * Mathf.SmoothStep(20f, 150f, d);
-                return e - 0.05f + hill * Mathf.Min(1f, d / 6f) * (hill > 0 ? 1f : 0.6f);
+                // inner skirt: same height and slope as the forest terrain at its edge, extrapolated outward with a fading gradient, then eased to the mean edge height
+                float h0 = c.H(ex, ez), gx = (c.H(Mathf.Clamp(ex + 1f, -E, E), ez) - c.H(Mathf.Clamp(ex - 1f, -E, E), ez)) * 0.5f, gz = (c.H(ex, Mathf.Clamp(ez + 1f, -E, E)) - c.H(ex, Mathf.Clamp(ez - 1f, -E, E))) * 0.5f;
+                float fade = Mathf.Exp(-d / 60f); float ext = Mathf.Clamp((gx * (x - ex) + gz * (z - ez)) * fade, -3f, 3f);
+                float e = Mathf.Lerp(h0 + ext, edgeMean, SS(0f, 260f, d));
+                // gentle hills only beyond ~200 m; amplitudes chosen so slopes stay below about 0.2 (no stretched cliff texturing)
+                float hill = (Perlin(x * 0.0011f, z * 0.0011f, off + 1100) - 0.35f) * 100f * SS(200f, 1500f, d) + (Perlin(x * 0.006f, z * 0.006f, off + 1200) - 0.5f) * 14f * SS(250f, 700f, d)
+                    + (Perlin(x * 0.03f, z * 0.03f, off + 1300) - 0.5f) * 2.5f * SS(220f, 500f, d);
+                return e - 0.05f + hill;
             };
             // non-uniform grid: fine at the patch edge, geometrically coarser outward
             var ds = new List<float> { 0 }; for (float d = 4f; d < R; d += Mathf.Max(4f, d * 0.14f)) ds.Add(d); ds.Add(R);
@@ -759,9 +764,9 @@ namespace Crane.Drones.Environment.Editor
             float reach = s.distantForestReach; int tileN = 0; float tileSz = 160f; int tilesPerSide = Mathf.CeilToInt((A + 2 * reach) / tileSz);
             var tiles = new Dictionary<int, MB>();
             Func<float, float, MB> tileOf = (x, z) => { int tx = Mathf.FloorToInt((x + E + reach) / tileSz), tz = Mathf.FloorToInt((z + E + reach) / tileSz); int k = tz * tilesPerSide + tx; MB m; if (!tiles.TryGetValue(k, out m)) { m = new MB(3); tiles[k] = m; } return m; };
-            for (int pass = 0; pass < 2; pass++)
+            for (int pass = 0; pass < 3; pass++)
             {
-                float cs = pass == 0 ? 6.0f : 9.5f, d0 = pass == 0 ? 0f : 150f, d1 = pass == 0 ? 150f : reach, crScale = pass == 0 ? 1f : 1.45f; float lim = E + reach;
+                float cs = pass == 0 ? 6.0f : (pass == 1 ? 9.5f : 14f), d0 = pass == 0 ? 0f : (pass == 1 ? 150f : 400f), d1 = pass == 0 ? 150f : (pass == 1 ? 400f : reach), crScale = pass == 0 ? 1f : (pass == 1 ? 1.45f : 2.1f); float lim = E + reach;
                 for (float gz = -lim; gz < lim; gz += cs) for (float gx = -lim; gx < lim; gx += cs)
                     {
                         float x = gx + Geo.R(rng, 0, cs), z = gz + Geo.R(rng, 0, cs); float d = dEdge(x, z); if (d < d0 + 1.5f * (pass == 0 ? 1 : 0) || d >= d1 || d <= 1.5f) continue;
@@ -837,6 +842,7 @@ namespace Crane.Drones.Environment.Editor
             }
             // high aerial establishing view over the canopy toward the patch edge and the surrounding landscape
             { float hf = s.areaSize * 0.5f - 6f; var ap = new Vector3(-hf * 0.85f, 0, -hf * 0.9f); ap.y = c.H(ap.x, ap.z) + 62f; var at = new Vector3(hf * 0.7f, 0, hf * 0.55f); at.y = c.H(at.x, at.z) + 6f; rig("CameraRig_Aerial_Wide", ap, at); }
+            { float hf = s.areaSize * 0.5f - 6f; var ap = new Vector3(hf * 0.8f, 0, hf * 0.95f); ap.y = c.H(ap.x, ap.z) + 48f; var at = new Vector3(-hf * 0.3f, 0, -hf * 0.45f); at.y = c.H(at.x, at.z) + 2f; rig("CameraRig_Aerial_Oblique", ap, at); }
             foreach (var t in c.targets)
             {
                 Vector3 look; Vector3 cp = PickOrbitCam(c, t, out look);
@@ -844,29 +850,55 @@ namespace Crane.Drones.Environment.Editor
             }
         }
 
-        /// <summary>Chooses a camera pose around a target: the body must be partially occluded by colliders (about 0.35-0.8 visible), the camera must not sit in or near geometry, and the target is centred.</summary>
+        /// <summary>World-space centroids of every alpha-cutout (foliage) triangle within radius of a point: all trees, saplings, legacy shrubs, mid-story, cover shrubs and ferns. Thinned to maxPts.</summary>
+        static List<Vector3> FoliagePoints(Vector3 around, float radius, int maxPts)
+        {
+            var pts = new List<Vector3>(); var cache = new Dictionary<Mesh, Dictionary<int, Vector3[]>>();
+            foreach (var mr in UnityEngine.Object.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None))
+            {
+                if (mr.gameObject.layer == FarLayer) continue; var b = mr.bounds; if ((b.ClosestPoint(around) - around).sqrMagnitude > radius * radius) continue;
+                var mf = mr.GetComponent<MeshFilter>(); if (mf == null || mf.sharedMesh == null) continue; var mats = mr.sharedMaterials; var mesh = mf.sharedMesh;
+                for (int mi = 0; mi < mats.Length && mi < mesh.subMeshCount; mi++)
+                {
+                    var m = mats[mi]; if (m == null || !m.HasProperty("_AlphaCutoffEnable") || m.GetFloat("_AlphaCutoffEnable") < 0.5f || m.name.StartsWith("Understory_Grass")) continue;
+                    Dictionary<int, Vector3[]> per; if (!cache.TryGetValue(mesh, out per)) { per = new Dictionary<int, Vector3[]>(); cache[mesh] = per; }
+                    Vector3[] loc;
+                    if (!per.TryGetValue(mi, out loc))
+                    {
+                        var tr = mesh.GetTriangles(mi); var vv = mesh.vertices; loc = new Vector3[tr.Length / 3];
+                        for (int t = 0; t < loc.Length; t++) loc[t] = (vv[tr[t * 3]] + vv[tr[t * 3 + 1]] + vv[tr[t * 3 + 2]]) / 3f; per[mi] = loc;
+                    }
+                    var l2w = mr.transform.localToWorldMatrix;
+                    foreach (var q in loc) { var w = l2w.MultiplyPoint3x4(q); if ((w - around).sqrMagnitude <= radius * radius) pts.Add(w); }
+                }
+            }
+            if (pts.Count > maxPts) { int stride = Mathf.CeilToInt(pts.Count / (float)maxPts); var th = new List<Vector3>(); for (int i = 0; i < pts.Count; i += stride) th.Add(pts[i]); pts = th; }
+            return pts;
+        }
+
+        /// <summary>Chooses a camera pose around a target: the body must be partially occluded by colliders and by ALL vegetation (foliage cards of trees, saplings, shrubs, mid-story, cover shrubs and ferns; 0.35-0.8 visible), the camera must not sit in or near geometry or leaf cards, and the target is centred.</summary>
         static Vector3 PickOrbitCam(Ctx c, TargetRec t, out Vector3 look)
         {
             Physics.SyncTransforms(); var go = GameObject.Find(t.name); var mf = go.GetComponent<MeshFilter>().sharedMesh; var vs = mf.vertices; var r = new System.Random(c.spec.seed + 777 + t.id);
             var samples = new List<Vector3>(); for (int i = 0; i < 48; i++) samples.Add(go.transform.TransformPoint(vs[r.Next(vs.Length)]));
-            // foliage has no colliders: approximate cover ferns and mid-story crowns as spheres for the view test
-            var spheres = new List<Vector4>(); foreach (var m in c.mids) spheres.Add(new Vector4(m.pos.x, m.pos.y + m.height * 0.5f, m.pos.z, m.crownR * (m.kind == "shrub" ? 0.85f : 0.7f)));
-            var cov = GameObject.Find("TargetCover"); if (cov != null) foreach (Transform ch in cov.transform) if (ch.name == "CoverFern") spheres.Add(new Vector4(ch.position.x, ch.position.y + 0.35f, ch.position.z, 0.55f * ch.lossyScale.x));
-            Func<Vector3, Vector3, bool> soft = (a, b) => { foreach (var sp in spheres) { Vector3 ctr = new Vector3(sp.x, sp.y, sp.z); Vector3 ab = b - a; float tt = Mathf.Clamp01(Vector3.Dot(ctr - a, ab) / Mathf.Max(1e-4f, ab.sqrMagnitude)); if ((a + ab * tt - ctr).sqrMagnitude < sp.w * sp.w) return true; } return false; };
+            var foliage = FoliagePoints(go.transform.position + Vector3.up, 12f, 5000); float lineR = 0.3f + 0.1f * Mathf.Max(0f, Mathf.Log(Mathf.Max(1, foliage.Count) / 1500f + 1f, 2f));
+            Func<Vector3, Vector3, bool> soft = (a, b) => { Vector3 ab = b - a; float inv = 1f / Mathf.Max(1e-4f, ab.sqrMagnitude); float r2 = lineR * lineR; foreach (var pnt in foliage) { float tt = Mathf.Clamp01(Vector3.Dot(pnt - a, ab) * inv); if (tt > 0.97f) continue; if ((a + ab * tt - pnt).sqrMagnitude < r2) return true; } return false; };
+            Func<Vector3, bool> nearLeaf = cp => { foreach (var pnt in foliage) if ((pnt - cp).sqrMagnitude < 0.8f * 0.8f) return true; return false; };
             look = go.GetComponent<MeshRenderer>().bounds.center; Vector3 tp = t.pos; Vector3 back = (new Vector3(c.spawn.x, 0, c.spawn.y) - new Vector3(tp.x, 0, tp.z)).normalized; float baseAng = Mathf.Atan2(back.z, back.x);
-            Vector3 best = tp + back * 5f + Vector3.up * 2f; float bestScore = -1e9f; int mask = 1 << EnvLayer;
-            foreach (float dist in new[] { 3.6f, 4.4f, 5.2f, 6.2f }) foreach (float hh in new[] { 1.6f, 2.2f, 2.8f, 3.4f }) for (int k = 0; k < 36; k++)
+            Vector3 best = tp + back * 5f + Vector3.up * 2f; float bestScore = -1e9f; int mask = 1 << EnvLayer; Vector3 bestSafe = best; float bestSafeScore = -1e9f;
+            foreach (float dist in new[] { 3.4f, 4.0f, 4.8f, 5.6f, 6.6f }) foreach (float hh in new[] { 1.3f, 1.9f, 2.5f, 3.1f }) for (int k = 0; k < 36; k++)
                     {
                         float ang = k * 10f * Mathf.Deg2Rad; Vector3 cp = tp + new Vector3(Mathf.Cos(ang), 0, Mathf.Sin(ang)) * dist; cp.y = c.H(cp.x, cp.z) + hh;
                         if (Mathf.Abs(cp.x) > c.spec.areaSize * 0.5f - 3f || Mathf.Abs(cp.z) > c.spec.areaSize * 0.5f - 3f) continue;
-                        if (Physics.CheckSphere(cp, 0.7f, mask)) continue; bool nearFoliage = false; foreach (var sp in spheres) if ((new Vector3(sp.x, sp.y, sp.z) - cp).magnitude < sp.w + 0.8f) { nearFoliage = true; break; }
-                        if (nearFoliage) continue;
-                        int vis = 0; foreach (var sp in samples) { RaycastHit hit; if ((!Physics.Linecast(cp, sp + (cp - sp).normalized * 0.02f, out hit, mask) || hit.collider.transform == go.transform) && !soft(cp, sp)) vis++; }
-                        float vf = vis / (float)samples.Count; if (vf < 0.3f || vf > 0.85f) continue;
-                        float d = Mathf.Abs(Mathf.DeltaAngle(ang * Mathf.Rad2Deg, baseAng * Mathf.Rad2Deg)) / 180f;
-                        float score = -Mathf.Abs(vf - 0.55f) * 3f - d * 0.5f - Mathf.Abs(dist - 4.4f) * 0.05f - (soft(cp, look) ? 1.5f : 0f);
+                        if (Physics.CheckSphere(cp, 0.7f, mask) || nearLeaf(cp)) continue;
+                        int vis = 0; foreach (var sp in samples) { RaycastHit hit; if (!Physics.Linecast(cp, sp + (cp - sp).normalized * 0.02f, out hit, mask) || hit.collider.transform == go.transform) { if (!soft(cp, sp)) vis++; } }
+                        float vf = vis / (float)samples.Count; float d = Mathf.Abs(Mathf.DeltaAngle(ang * Mathf.Rad2Deg, baseAng * Mathf.Rad2Deg)) / 180f;
+                        float score = -Mathf.Abs(vf - 0.6f) * 3f - d * 0.4f - Mathf.Abs(dist - 4.4f) * 0.05f - (soft(cp, look) ? 1.5f : 0f);
+                        if (vf >= 0.2f && score > bestSafeScore) { bestSafeScore = score; bestSafe = cp; }
+                        if (vf < 0.35f || vf > 0.85f) continue;
                         if (score > bestScore) { bestScore = score; best = cp; }
                     }
+            if (bestScore < -1e8f) { Debug.LogWarning("[DroneForest] orbit pose for " + t.name + ": no pose in the 0.35-0.85 window, using best clear pose"); best = bestSafe; }
             return best;
         }
 

@@ -1,0 +1,833 @@
+{
+ "source": "/home/lunarz/.cache/research/treegen_work/lib_seed7/library_manifest.json",
+ "trees": [
+  {
+   "tree_id": 0,
+   "species": "beech",
+   "variant": "live",
+   "height_m": 12.174,
+   "dbh_m": 0.1545,
+   "crown_base_m": 1.269,
+   "crown_ratio": 0.896,
+   "crown_radius_m": 5.308,
+   "nodes": 1285,
+   "dead_nodes": 88,
+   "max_order": 5,
+   "branch_angle_median_deg_by_order": {
+    "1": 48.1,
+    "2": 54.9,
+    "3": 50.0,
+    "4": 48.2,
+    "5": 47.0
+   },
+   "n_branches_by_order": {
+    "1": 19,
+    "2": 102,
+    "3": 162,
+    "4": 114,
+    "5": 76
+   },
+   "pipe_exponent_fit": 2.3,
+   "pipe_exponent_preset": 2.3,
+   "checks": {
+    "height": true,
+    "dbh": true,
+    "crown_ratio": true,
+    "branch_angle_order1": true
+   },
+   "wytham_similar_dbh_n": 173,
+   "wytham_height_percentile": 26.0,
+   "wytham_height_p10_p90": [
+    9.7,
+    17.9
+   ]
+  },
+  {
+   "tree_id": 1,
+   "species": "beech",
+   "variant": "live",
+   "height_m": 18.757,
+   "dbh_m": 0.328,
+   "crown_base_m": 3.816,
+   "crown_ratio": 0.797,
+   "crown_radius_m": 9.635,
+   "nodes": 3279,
+   "dead_nodes": 203,
+   "max_order": 5,
+   "branch_angle_median_deg_by_order": {
+    "1": 49.3,
+    "2": 54.5,
+    "3": 49.0,
+    "4": 50.5,
+    "5": 49.6
+   },
+   "n_branches_by_order": {
+    "1": 27,
+    "2": 165,
+    "3": 342,
+    "4": 362,
+    "5": 272
+   },
+   "pipe_exponent_fit": 2.3,
+   "pipe_exponent_preset": 2.3,
+   "checks": {
+    "height": true,
+    "dbh": true,
+    "crown_ratio": true,
+    "branch_angle_order1": true
+   },
+   "wytham_similar_dbh_n": 177,
+   "wytham_height_percentile": 19.8,
+   "wytham_height_p10_p90": [
+    17.4,
+    23.8
+   ]
+  },
+  {
+   "tree_id": 2,
+   "species": "beech",
+   "variant": "live",
+   "height_m": 21.181,
+   "dbh_m": 0.5892,
+   "crown_base_m": 4.988,
+   "crown_ratio": 0.764,
+   "crown_radius_m": 12.351,
+   "nodes": 7441,
+   "dead_nodes": 529,
+   "max_order": 5,
+   "branch_angle_median_deg_by_order": {
+    "1": 49.5,
+    "2": 55.1,
+    "3": 49.2,
+    "4": 48.9,
+    "5": 49.5
+   },
+   "n_branches_by_order": {
+    "1": 30,
+    "2": 241,
+    "3": 593,
+    "4": 743,
+    "5": 727
+   },
+   "pipe_exponent_fit": 2.26,
+   "pipe_exponent_preset": 2.3,
+   "checks": {
+    "height": true,
+    "dbh": true,
+    "crown_ratio": true,
+    "branch_angle_order1": true
+   },
+   "wytham_similar_dbh_n": 68,
+   "wytham_height_percentile": 41.2,
+   "wytham_height_p10_p90": [
+    18.0,
+    24.5
+   ]
+  },
+  {
+   "tree_id": 3,
+   "species": "beech",
+   "variant": "live",
+   "height_m": 24.159,
+   "dbh_m": 0.8218,
+   "crown_base_m": 2.865,
+   "crown_ratio": 0.881,
+   "crown_radius_m": 14.334,
+   "nodes": 16301,
+   "dead_nodes": 1033,
+   "max_order": 5,
+   "branch_angle_median_deg_by_order": {
+    "1": 49.7,
+    "2": 56.0,
+    "3": 50.0,
+    "4": 49.7,
+    "5": 49.4
+   },
+   "n_branches_by_order": {
+    "1": 22,
+    "2": 168,
+    "3": 540,
+    "4": 1140,
+    "5": 2266
+   },
+   "pipe_exponent_fit": 2.22,
+   "pipe_exponent_preset": 2.3,
+   "checks": {
+    "height": true,
+    "dbh": false,
+    "crown_ratio": true,
+    "branch_angle_order1": true
+   },
+   "wytham_similar_dbh_n": 30,
+   "wytham_height_percentile": 73.3,
+   "wytham_height_p10_p90": [
+    19.0,
+    25.4
+   ]
+  },
+  {
+   "tree_id": 4,
+   "species": "beech",
+   "variant": "live",
+   "height_m": 23.53,
+   "dbh_m": 0.8504,
+   "crown_base_m": 3.547,
+   "crown_ratio": 0.849,
+   "crown_radius_m": 13.775,
+   "nodes": 16345,
+   "dead_nodes": 1121,
+   "max_order": 5,
+   "branch_angle_median_deg_by_order": {
+    "1": 51.8,
+    "2": 54.5,
+    "3": 49.5,
+    "4": 49.6,
+    "5": 49.5
+   },
+   "n_branches_by_order": {
+    "1": 28,
+    "2": 188,
+    "3": 539,
+    "4": 1176,
+    "5": 2204
+   },
+   "pipe_exponent_fit": 2.22,
+   "pipe_exponent_preset": 2.3,
+   "checks": {
+    "height": true,
+    "dbh": false,
+    "crown_ratio": true,
+    "branch_angle_order1": true
+   },
+   "wytham_similar_dbh_n": 28,
+   "wytham_height_percentile": 64.3,
+   "wytham_height_p10_p90": [
+    19.0,
+    25.6
+   ]
+  },
+  {
+   "tree_id": 5,
+   "species": "spruce",
+   "variant": "live",
+   "height_m": 10.641,
+   "dbh_m": 0.0888,
+   "crown_base_m": 0.667,
+   "crown_ratio": 0.937,
+   "crown_radius_m": 6.83,
+   "nodes": 1366,
+   "dead_nodes": 250,
+   "max_order": 4,
+   "branch_angle_median_deg_by_order": {
+    "1": 81.3,
+    "2": 54.5,
+    "3": 49.5,
+    "4": 50.4
+   },
+   "n_branches_by_order": {
+    "1": 33,
+    "2": 163,
+    "3": 215,
+    "4": 78
+   },
+   "pipe_exponent_fit": 2.5,
+   "pipe_exponent_preset": 2.5,
+   "checks": {
+    "height": true,
+    "dbh": false,
+    "crown_ratio": true,
+    "branch_angle_order1": true
+   },
+   "wytham_similar_dbh_n": 165,
+   "wytham_height_percentile": 74.5,
+   "wytham_height_p10_p90": [
+    5.2,
+    11.7
+   ]
+  },
+  {
+   "tree_id": 6,
+   "species": "spruce",
+   "variant": "live",
+   "height_m": 15.061,
+   "dbh_m": 0.1784,
+   "crown_base_m": 0.543,
+   "crown_ratio": 0.964,
+   "crown_radius_m": 7.21,
+   "nodes": 6517,
+   "dead_nodes": 1139,
+   "max_order": 4,
+   "branch_angle_median_deg_by_order": {
+    "1": 82.2,
+    "2": 54.6,
+    "3": 49.6,
+    "4": 50.0
+   },
+   "n_branches_by_order": {
+    "1": 38,
+    "2": 252,
+    "3": 562,
+    "4": 864
+   },
+   "pipe_exponent_fit": 2.5,
+   "pipe_exponent_preset": 2.5,
+   "checks": {
+    "height": true,
+    "dbh": true,
+    "crown_ratio": true,
+    "branch_angle_order1": true
+   },
+   "wytham_similar_dbh_n": 174,
+   "wytham_height_percentile": 43.7,
+   "wytham_height_p10_p90": [
+    10.7,
+    20.7
+   ]
+  },
+  {
+   "tree_id": 7,
+   "species": "spruce",
+   "variant": "live",
+   "height_m": 19.669,
+   "dbh_m": 0.3911,
+   "crown_base_m": 0.034,
+   "crown_ratio": 0.998,
+   "crown_radius_m": 8.469,
+   "nodes": 12753,
+   "dead_nodes": 2530,
+   "max_order": 4,
+   "branch_angle_median_deg_by_order": {
+    "1": 81.0,
+    "2": 55.2,
+    "3": 49.6,
+    "4": 49.9
+   },
+   "n_branches_by_order": {
+    "1": 41,
+    "2": 238,
+    "3": 698,
+    "4": 1447
+   },
+   "pipe_exponent_fit": 2.33,
+   "pipe_exponent_preset": 2.5,
+   "checks": {
+    "height": true,
+    "dbh": true,
+    "crown_ratio": true,
+    "branch_angle_order1": true
+   },
+   "wytham_similar_dbh_n": 131,
+   "wytham_height_percentile": 20.6,
+   "wytham_height_p10_p90": [
+    18.5,
+    24.3
+   ]
+  },
+  {
+   "tree_id": 8,
+   "species": "spruce",
+   "variant": "live",
+   "height_m": 22.424,
+   "dbh_m": 0.4595,
+   "crown_base_m": 0.968,
+   "crown_ratio": 0.957,
+   "crown_radius_m": 9.338,
+   "nodes": 14080,
+   "dead_nodes": 3018,
+   "max_order": 4,
+   "branch_angle_median_deg_by_order": {
+    "1": 79.2,
+    "2": 54.3,
+    "3": 50.0,
+    "4": 49.7
+   },
+   "n_branches_by_order": {
+    "1": 41,
+    "2": 265,
+    "3": 686,
+    "4": 1434
+   },
+   "pipe_exponent_fit": 2.27,
+   "pipe_exponent_preset": 2.5,
+   "checks": {
+    "height": true,
+    "dbh": true,
+    "crown_ratio": true,
+    "branch_angle_order1": true
+   },
+   "wytham_similar_dbh_n": 105,
+   "wytham_height_percentile": 61.9,
+   "wytham_height_p10_p90": [
+    18.5,
+    24.4
+   ]
+  },
+  {
+   "tree_id": 9,
+   "species": "spruce",
+   "variant": "live",
+   "height_m": 22.833,
+   "dbh_m": 0.5374,
+   "crown_base_m": 1.222,
+   "crown_ratio": 0.946,
+   "crown_radius_m": 9.046,
+   "nodes": 17982,
+   "dead_nodes": 3844,
+   "max_order": 4,
+   "branch_angle_median_deg_by_order": {
+    "1": 80.9,
+    "2": 55.4,
+    "3": 49.7,
+    "4": 49.9
+   },
+   "n_branches_by_order": {
+    "1": 39,
+    "2": 321,
+    "3": 898,
+    "4": 2022
+   },
+   "pipe_exponent_fit": 2.3,
+   "pipe_exponent_preset": 2.5,
+   "checks": {
+    "height": true,
+    "dbh": true,
+    "crown_ratio": true,
+    "branch_angle_order1": true
+   },
+   "wytham_similar_dbh_n": 76,
+   "wytham_height_percentile": 65.8,
+   "wytham_height_p10_p90": [
+    18.4,
+    24.9
+   ]
+  },
+  {
+   "tree_id": 10,
+   "species": "birch",
+   "variant": "live",
+   "height_m": 8.415,
+   "dbh_m": 0.0627,
+   "crown_base_m": 5.311,
+   "crown_ratio": 0.369,
+   "crown_radius_m": 1.38,
+   "nodes": 75,
+   "dead_nodes": 3,
+   "max_order": 2,
+   "branch_angle_median_deg_by_order": {
+    "1": 39.5,
+    "2": 47.5
+   },
+   "n_branches_by_order": {
+    "1": 10,
+    "2": 14
+   },
+   "pipe_exponent_fit": 1.96,
+   "pipe_exponent_preset": 2.0,
+   "checks": {
+    "height": true,
+    "dbh": true,
+    "crown_ratio": true,
+    "branch_angle_order1": true
+   },
+   "wytham_similar_dbh_n": 125,
+   "wytham_height_percentile": 77.6,
+   "wytham_height_p10_p90": [
+    3.9,
+    9.3
+   ]
+  },
+  {
+   "tree_id": 11,
+   "species": "birch",
+   "variant": "live",
+   "height_m": 11.898,
+   "dbh_m": 0.1186,
+   "crown_base_m": 3.101,
+   "crown_ratio": 0.739,
+   "crown_radius_m": 5.122,
+   "nodes": 390,
+   "dead_nodes": 7,
+   "max_order": 4,
+   "branch_angle_median_deg_by_order": {
+    "1": 36.0,
+    "2": 46.3,
+    "3": 48.9,
+    "4": 52.4
+   },
+   "n_branches_by_order": {
+    "1": 13,
+    "2": 45,
+    "3": 48,
+    "4": 14
+   },
+   "pipe_exponent_fit": 1.97,
+   "pipe_exponent_preset": 2.0,
+   "checks": {
+    "height": true,
+    "dbh": true,
+    "crown_ratio": true,
+    "branch_angle_order1": true
+   },
+   "wytham_similar_dbh_n": 181,
+   "wytham_height_percentile": 63.0,
+   "wytham_height_p10_p90": [
+    8.2,
+    14.8
+   ]
+  },
+  {
+   "tree_id": 12,
+   "species": "birch",
+   "variant": "live",
+   "height_m": 14.603,
+   "dbh_m": 0.1477,
+   "crown_base_m": -0.079,
+   "crown_ratio": 1.005,
+   "crown_radius_m": 4.947,
+   "nodes": 801,
+   "dead_nodes": 18,
+   "max_order": 5,
+   "branch_angle_median_deg_by_order": {
+    "1": 38.8,
+    "2": 44.3,
+    "3": 49.8,
+    "4": 48.6,
+    "5": 49.2
+   },
+   "n_branches_by_order": {
+    "1": 15,
+    "2": 62,
+    "3": 88,
+    "4": 50,
+    "5": 30
+   },
+   "pipe_exponent_fit": 1.98,
+   "pipe_exponent_preset": 2.0,
+   "checks": {
+    "height": true,
+    "dbh": true,
+    "crown_ratio": false,
+    "branch_angle_order1": true
+   },
+   "wytham_similar_dbh_n": 185,
+   "wytham_height_percentile": 63.8,
+   "wytham_height_p10_p90": [
+    9.1,
+    17.1
+   ]
+  },
+  {
+   "tree_id": 13,
+   "species": "birch",
+   "variant": "live",
+   "height_m": 16.566,
+   "dbh_m": 0.258,
+   "crown_base_m": 2.624,
+   "crown_ratio": 0.842,
+   "crown_radius_m": 7.071,
+   "nodes": 1108,
+   "dead_nodes": 21,
+   "max_order": 5,
+   "branch_angle_median_deg_by_order": {
+    "1": 37.1,
+    "2": 48.7,
+    "3": 50.6,
+    "4": 50.1,
+    "5": 50.7
+   },
+   "n_branches_by_order": {
+    "1": 14,
+    "2": 67,
+    "3": 131,
+    "4": 100,
+    "5": 29
+   },
+   "pipe_exponent_fit": 1.97,
+   "pipe_exponent_preset": 2.0,
+   "checks": {
+    "height": true,
+    "dbh": true,
+    "crown_ratio": false,
+    "branch_angle_order1": true
+   },
+   "wytham_similar_dbh_n": 185,
+   "wytham_height_percentile": 15.7,
+   "wytham_height_p10_p90": [
+    15.5,
+    23.0
+   ]
+  },
+  {
+   "tree_id": 14,
+   "species": "birch",
+   "variant": "live",
+   "height_m": 16.381,
+   "dbh_m": 0.2303,
+   "crown_base_m": 4.15,
+   "crown_ratio": 0.747,
+   "crown_radius_m": 6.316,
+   "nodes": 1024,
+   "dead_nodes": 18,
+   "max_order": 5,
+   "branch_angle_median_deg_by_order": {
+    "1": 38.9,
+    "2": 43.9,
+    "3": 48.1,
+    "4": 50.1,
+    "5": 48.5
+   },
+   "n_branches_by_order": {
+    "1": 14,
+    "2": 65,
+    "3": 116,
+    "4": 98,
+    "5": 44
+   },
+   "pipe_exponent_fit": 1.95,
+   "pipe_exponent_preset": 2.0,
+   "checks": {
+    "height": true,
+    "dbh": true,
+    "crown_ratio": true,
+    "branch_angle_order1": true
+   },
+   "wytham_similar_dbh_n": 177,
+   "wytham_height_percentile": 24.9,
+   "wytham_height_p10_p90": [
+    14.2,
+    22.4
+   ]
+  },
+  {
+   "tree_id": 15,
+   "species": "snag",
+   "variant": "snag",
+   "height_m": 17.052,
+   "dbh_m": 0.7576,
+   "crown_base_m": NaN,
+   "crown_ratio": NaN,
+   "crown_radius_m": 0.0,
+   "nodes": 155,
+   "dead_nodes": 155,
+   "max_order": 3,
+   "branch_angle_median_deg_by_order": {
+    "1": 47.8,
+    "2": 58.0,
+    "3": 47.5
+   },
+   "n_branches_by_order": {},
+   "pipe_exponent_fit": 2.0,
+   "pipe_exponent_preset": 2.3,
+   "checks": {}
+  },
+  {
+   "tree_id": 16,
+   "species": "snag",
+   "variant": "snag",
+   "height_m": 13.832,
+   "dbh_m": 0.8485,
+   "crown_base_m": NaN,
+   "crown_ratio": NaN,
+   "crown_radius_m": 0.0,
+   "nodes": 135,
+   "dead_nodes": 135,
+   "max_order": 3,
+   "branch_angle_median_deg_by_order": {
+    "1": 53.1,
+    "2": 55.6,
+    "3": 46.7
+   },
+   "n_branches_by_order": {},
+   "pipe_exponent_fit": 2.0,
+   "pipe_exponent_preset": 2.3,
+   "checks": {}
+  },
+  {
+   "tree_id": 17,
+   "species": "snag",
+   "variant": "snag",
+   "height_m": 14.427,
+   "dbh_m": 0.7143,
+   "crown_base_m": NaN,
+   "crown_ratio": NaN,
+   "crown_radius_m": 0.0,
+   "nodes": 113,
+   "dead_nodes": 113,
+   "max_order": 3,
+   "branch_angle_median_deg_by_order": {
+    "1": 47.4,
+    "2": 52.0,
+    "3": 38.4
+   },
+   "n_branches_by_order": {},
+   "pipe_exponent_fit": 2.0,
+   "pipe_exponent_preset": 2.3,
+   "checks": {}
+  },
+  {
+   "tree_id": 18,
+   "species": "snag",
+   "variant": "snag",
+   "height_m": 12.043,
+   "dbh_m": 0.7595,
+   "crown_base_m": NaN,
+   "crown_ratio": NaN,
+   "crown_radius_m": 0.0,
+   "nodes": 85,
+   "dead_nodes": 85,
+   "max_order": 1,
+   "branch_angle_median_deg_by_order": {
+    "1": 49.5
+   },
+   "n_branches_by_order": {},
+   "pipe_exponent_fit": 2.0,
+   "pipe_exponent_preset": 2.3,
+   "checks": {}
+  },
+  {
+   "tree_id": 19,
+   "species": "snag",
+   "variant": "snag",
+   "height_m": 18.906,
+   "dbh_m": 0.7292,
+   "crown_base_m": NaN,
+   "crown_ratio": NaN,
+   "crown_radius_m": 0.0,
+   "nodes": 166,
+   "dead_nodes": 166,
+   "max_order": 2,
+   "branch_angle_median_deg_by_order": {
+    "1": 50.7,
+    "2": 51.5
+   },
+   "n_branches_by_order": {},
+   "pipe_exponent_fit": 2.0,
+   "pipe_exponent_preset": 2.3,
+   "checks": {}
+  },
+  {
+   "tree_id": 20,
+   "species": "fallen_log",
+   "variant": "fallen_log",
+   "height_m": 0.304,
+   "dbh_m": NaN,
+   "crown_base_m": NaN,
+   "crown_ratio": NaN,
+   "crown_radius_m": 0.0,
+   "nodes": 64,
+   "dead_nodes": 64,
+   "max_order": 1,
+   "branch_angle_median_deg_by_order": {
+    "1": 79.4
+   },
+   "n_branches_by_order": {},
+   "pipe_exponent_fit": 1.98,
+   "pipe_exponent_preset": 2.5,
+   "checks": {}
+  },
+  {
+   "tree_id": 21,
+   "species": "fallen_log",
+   "variant": "fallen_log",
+   "height_m": 0.341,
+   "dbh_m": NaN,
+   "crown_base_m": NaN,
+   "crown_ratio": NaN,
+   "crown_radius_m": 0.0,
+   "nodes": 52,
+   "dead_nodes": 52,
+   "max_order": 1,
+   "branch_angle_median_deg_by_order": {
+    "1": 81.1
+   },
+   "n_branches_by_order": {},
+   "pipe_exponent_fit": 1.99,
+   "pipe_exponent_preset": 2.5,
+   "checks": {}
+  },
+  {
+   "tree_id": 22,
+   "species": "fallen_log",
+   "variant": "fallen_log",
+   "height_m": 0.328,
+   "dbh_m": NaN,
+   "crown_base_m": NaN,
+   "crown_ratio": NaN,
+   "crown_radius_m": 0.0,
+   "nodes": 57,
+   "dead_nodes": 57,
+   "max_order": 1,
+   "branch_angle_median_deg_by_order": {
+    "1": 78.3
+   },
+   "n_branches_by_order": {},
+   "pipe_exponent_fit": 1.98,
+   "pipe_exponent_preset": 2.5,
+   "checks": {}
+  },
+  {
+   "tree_id": 23,
+   "species": "fallen_log",
+   "variant": "fallen_log",
+   "height_m": 0.346,
+   "dbh_m": NaN,
+   "crown_base_m": NaN,
+   "crown_ratio": NaN,
+   "crown_radius_m": 0.0,
+   "nodes": 69,
+   "dead_nodes": 69,
+   "max_order": 1,
+   "branch_angle_median_deg_by_order": {
+    "1": 80.4
+   },
+   "n_branches_by_order": {},
+   "pipe_exponent_fit": 1.98,
+   "pipe_exponent_preset": 2.5,
+   "checks": {}
+  },
+  {
+   "tree_id": 24,
+   "species": "fallen_log",
+   "variant": "fallen_log",
+   "height_m": 0.68,
+   "dbh_m": NaN,
+   "crown_base_m": NaN,
+   "crown_ratio": NaN,
+   "crown_radius_m": 0.0,
+   "nodes": 55,
+   "dead_nodes": 55,
+   "max_order": 1,
+   "branch_angle_median_deg_by_order": {
+    "1": 82.7
+   },
+   "n_branches_by_order": {},
+   "pipe_exponent_fit": 1.99,
+   "pipe_exponent_preset": 2.5,
+   "checks": {}
+  }
+ ],
+ "wytham": {
+  "n_trees": 815,
+  "volume_share_by_diameter_class_mm": {
+   "0-25": 0.0306,
+   "25-50": 0.134,
+   "50-75": 0.112,
+   "75-100": 0.0682,
+   "100-200": 0.1645,
+   "200-500": 0.3224,
+   "500-1000": 0.1505,
+   ">1000": 0.0178
+  },
+  "generated_volume_share_by_diameter_class_mm": {
+   "0-25": 0.0549,
+   "25-50": 0.0567,
+   "50-75": 0.0552,
+   "75-100": 0.0565,
+   "100-200": 0.2253,
+   "200-500": 0.3386,
+   "500-1000": 0.1915,
+   ">1000": 0.0214
+  },
+  "note": "Wytham is a mature 1.4 ha broadleaf stand (max DBH > 1 m); generated trees are 26-36 seasons old, so large classes are expected to be under-represented. QSM < 5-10 cm is unreliable [U]."
+ }
+}

@@ -10,7 +10,10 @@ P=/home/lunarz/.cache/research/fs-venv/bin/python
 fsrun $P Tools/TreeGen/treegen_cli.py library --out OUT --species beech,spruce,birch,snag,fallen_log --count 2 --seed 7
 fsrun $P Tools/TreeGen/treegen_cli.py stand   --out OUT --seed 7 --n 20 --size 30 [--layout cluster] [--config stand.json]
 fsrun $P Tools/TreeGen/treegen_cli.py preview --out PNGDIR --stand OUT   (or --library OUT)
+fsrun $P Tools/TreeGen/treegen_cli.py atlas   --out Assets/Drones/TreeGen/Textures/treegen_leaf_atlas.png
 ```
+`library --age-classes 0.45,0.65,0.85,1,1` cycles the live variants of each species through those fractions of the
+preset's seasons (young, mid, mature), which gives the forest provider one tree per size class.
 `--no-obj` skips the OBJ copies. Same seed and preset give byte-identical skeletons (golden hashes
 in the tests). Presets live in `Tools/TreeGen/presets/*.json`. A stand config is a JSON object that
 overrides any key of `treegen.forest.DEFAULT_STAND`.
@@ -108,6 +111,12 @@ Internode i is the cylinder/frustum from `pos[parent[i]]` (radius `radius[parent
 - Leaf UV: a 2x2 atlas. Tile 0 (u 0–0.5, v 0–0.5) is a broadleaf, tile 1 a needle spray, tile 2 a
   small broadleaf (birch), and tile 3 a foliage clump (used by LOD2). The card's long axis runs
   along V, and the card hangs from the twig at v=0.
+- Twig sprays (generator 0.2.0): every leaf-bearing internode also gets `leaf.twigs_per_node` Weber-Penn style
+  twigs (`twig_len`, `twig_down_deg`, `twig_rotate_deg`, `twig_gravity`, `twig_planar` for conifers), each with
+  `leaves_per_twig` cards plus a terminal card (`spray_card_size`, `leaf_down_deg`, `leaf_droop`). Twig tubes
+  (3-sided, 1.8 to 0.9 mm radius) are appended to the LOD0 `bark` mesh only. They are visual only: thinner than
+  `soft_min_d`, never in the skeleton, colliders or hashes (own RNG stream `twigs`).
+- Leaf atlas texture: `treegen_cli.py atlas` draws the 2x2 RGBA atlas described above (procedural, GPL).
 - LODs: LOD0 is full. LOD1 drops branches with radius < 1 cm and keeps 40% of the leaf cards at
   1.55x size. LOD2 keeps branches >= 3 cm plus crossed-quad foliage clumps. Suggested
   LODGroup screen heights are 0.5 / 0.2 / 0.05, with culling below 0.01. LOD3 impostors are
@@ -115,6 +124,14 @@ Internode i is the cylinder/frustum from `pos[parent[i]]` (radius `radius[parent
 - Junctions: each lateral tube starts with a collar ring centred on its parent node, so the
   base is buried inside the parent tube. Tips have apex caps and the stem base has a fan.
   Tubes are closed but not boolean-unioned, so expect "watertight-ish" junctions.
+
+## 7b. Radii (generator 0.2.0)
+`radius` = max(pipe-model radius, cambial radius), then the stem flare. The cambial radius comes from light-driven
+secondary growth: each season every live internode adds ring area `cambium_k * Q_sub^cambium_beta`, where Q_sub is
+the bud light exposure flowing through it (Pressler's law), so shaded trees thicken less. A final pass keeps every
+parent at least as thick as its children. The pipe radius is unchanged and never feeds back into growth, so
+topology is identical to 0.1.0 for the same seed (test `test_thickening_preserves_topology`); `skeleton_hash` does
+change because radii change.
 
 ## 8. Stability promises
 - Field names and meanings above are stable within schema_version 1. New optional fields may

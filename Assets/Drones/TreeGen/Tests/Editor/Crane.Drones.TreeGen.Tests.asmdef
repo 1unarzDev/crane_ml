@@ -1,0 +1,11 @@
+{
+    "name": "Crane.Drones.TreeGen.Tests",
+    "rootNamespace": "Crane.Drones.TreeGenImport.Tests",
+    "references": [
+        "Crane.Drones.TreeGen",
+        "Crane.Drones.TreeGen.Editor"
+    ],
+    "includePlatforms": [ "Editor" ],
+    "excludePlatforms": [],
+    "optionalUnityReferences": [ "TestAssemblies" ]
+}

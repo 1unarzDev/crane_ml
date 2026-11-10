@@ -1,0 +1,23 @@
+{
+    "name": "Crane.Drones.TreeGen.Editor",
+    "rootNamespace": "Crane.Drones.TreeGenImport.Editor",
+    "references": [
+        "Crane.Drones.TreeGen",
+        "Crane.Drones.Environment",
+        "Crane.Drones.Environment.Editor",
+        "Unity.RenderPipelines.HighDefinition.Runtime",
+        "Unity.RenderPipelines.HighDefinition.Editor",
+        "Unity.RenderPipelines.Core.Runtime"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

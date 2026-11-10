@@ -35,7 +35,7 @@
  "p_regen": 0.01,
  "n_pipe": 2.3,
  "r_tip": 0.0035,
- "height_max": 30.0,
+ "height_max": 25.0,
  "crown_radius_max": 9.0,
  "flare": 0.45,
  "flare_height": 0.5,
@@ -45,7 +45,16 @@
   "max_age": 2,
   "max_radius": 0.012,
   "atlas_index": 0,
-  "aspect": 1.0
+  "aspect": 1.0,
+  "twigs_per_node": 2,
+  "twig_len": 0.2,
+  "twig_down_deg": 50,
+  "twig_rotate_deg": 140,
+  "twig_gravity": 0.05,
+  "leaves_per_twig": 4,
+  "spray_card_size": 0.24,
+  "leaf_down_deg": 60,
+  "leaf_droop": 0.1
  },
  "bark_tile_m": 0.6,
  "bark_color": [
@@ -76,5 +85,7 @@
    75
   ]
  },
- "leader_min_metamers": 1
+ "leader_min_metamers": 1,
+ "cambium_k": 1.8e-05,
+ "_doc_thickening": "cambium_k: m^2 of new ring area per unit of bud light Q flowing through an internode per season (Pressler-style light-driven secondary growth); calibrated on stand seed 7 against the Wytham DBH-height relation (validate.py). height_max lowered so the asymptote sits inside Wytham's 20-25 m canopy."
 }

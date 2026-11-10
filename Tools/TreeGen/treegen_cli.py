@@ -5,6 +5,7 @@
   python treegen_cli.py library --out DIR [--species beech,spruce,birch,snag,fallen_log] [--count 2] [--seed 7]
   python treegen_cli.py stand   --out DIR [--config stand.json] [--seed 7] [--n 20] [--layout poisson|cluster]
   python treegen_cli.py preview --out PNG_DIR (--stand DIR | --library DIR)
+  python treegen_cli.py atlas   --out leaf_atlas.png [--size 1024]
 Run under the compute policy wrapper: fsrun <python> treegen_cli.py ...
 """
 from __future__ import annotations
@@ -26,9 +27,9 @@ from treegen.species import load_species  # noqa: E402
 from treegen.variants import make_log, make_snag  # noqa: E402
 
 
-def grow_variant(name, seed, tid):
+def grow_variant(name, seed, tid, seasons=None):
     sp = load_species(name)
-    sk = grow_tree(sp, seed, tid)
+    sk = grow_tree(sp, seed, tid, seasons=seasons)
     v = sp.get("variant", "live")
     if v == "snag":
         sk = make_snag(sk, seed, tid)
@@ -43,10 +44,14 @@ def cmd_library(a):
     os.makedirs(a.out, exist_ok=True)
     trees = []
     tid = 0
+    ages = [float(x) for x in a.age_classes.split(",")] if a.age_classes else [1.0]
     for name in a.species.split(","):
         for k in range(a.count):
             t0 = time.time()
-            sp, sk = grow_variant(name, a.seed, tid)
+            base = load_species(name)
+            f = ages[k % len(ages)] if base.get("variant", "live") == "live" else 1.0
+            seasons = max(6, int(round(base["seasons"] * f))) if f != 1.0 else None
+            sp, sk = grow_variant(name, a.seed, tid, seasons)
             tg = time.time() - t0
             tdir = f"trees/tree_{tid:04d}"
             info = export_tree(sk, sp, os.path.join(a.out, tdir), a.seed, tid, write_obj_files=not a.no_obj)
@@ -111,6 +116,13 @@ def cmd_preview(a):
                          f"crown ratio {m['crown_ratio']}, nodes {m['nodes']}")
 
 
+def cmd_atlas(a):
+    from treegen.atlas import make_atlas
+    os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
+    make_atlas(a.out, a.size)
+    print(f"atlas -> {a.out}")
+
+
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -120,6 +132,8 @@ def main(argv=None):
     l.add_argument("--count", type=int, default=1)
     l.add_argument("--seed", type=int, default=7)
     l.add_argument("--no-obj", action="store_true")
+    l.add_argument("--age-classes", help="comma list of season fractions cycled over the live variants of each species, "
+                   "e.g. 0.45,0.7,1,1 gives young, mid and two mature trees (size classes for the forest provider)")
     s = sub.add_parser("stand")
     s.add_argument("--out", required=True)
     s.add_argument("--config")
@@ -132,8 +146,11 @@ def main(argv=None):
     v.add_argument("--out", required=True)
     v.add_argument("--stand")
     v.add_argument("--library")
+    t = sub.add_parser("atlas")
+    t.add_argument("--out", required=True)
+    t.add_argument("--size", type=int, default=1024)
     a = p.parse_args(argv)
-    {"library": cmd_library, "stand": cmd_stand, "preview": cmd_preview}[a.cmd](a)
+    {"library": cmd_library, "stand": cmd_stand, "preview": cmd_preview, "atlas": cmd_atlas}[a.cmd](a)
 
 
 if __name__ == "__main__":

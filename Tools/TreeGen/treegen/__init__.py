@@ -4,5 +4,5 @@
 Pure numpy, headless, deterministic. See Tools/TreeGen/CONTRACT.md for the output formats.
 """
 GENERATOR_NAME = "crane-treegen"
-GENERATOR_VERSION = "0.1.0"
+GENERATOR_VERSION = "0.2.0"
 SCHEMA_VERSION = 1

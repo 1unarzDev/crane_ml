@@ -49,6 +49,7 @@ class TreeGrower:
         "is_main": (None, bool), "birth": (None, np.int64), "dead_since": (None, np.int64),
         "decay_at": (None, np.int64), "radius": (None, np.float64), "shed_pipe": (None, np.float64),
         "light": (None, np.float64), "phyl": (None, np.float64), "depth": (None, np.int64),
+        "cambium": (None, np.float64),
     }
     BUD_FIELDS = {
         "b_node": (None, np.int64), "b_kind": (None, np.int64), "b_dir": (3, np.float64),
@@ -129,6 +130,7 @@ class TreeGrower:
         self.decay_at[s] = -1
         self.radius[s] = self.sp["r_tip"]
         self.shed_pipe[s] = 0.0
+        self.cambium[s] = 0.0
         self.light[s] = 1.0
         self.phyl[s] = phyl
         self.depth[s] = np.where(parent >= 0, self.depth[np.maximum(parent, 0)] + 1, 0)
@@ -216,6 +218,13 @@ class TreeGrower:
         Qsub = self._accumulate_up(Qn, levels)
         alive = self.alive[:n]
         cnt_sub = self._accumulate_up(alive.astype(np.float64), levels)
+        # light-driven secondary growth (Pressler's law): each live internode lays down a ring whose
+        # area is proportional to the photosynthate (bud exposure) flowing through it this season.
+        # Kept apart from the pipe radius so it never feeds back into topology.
+        kc = float(sp.get("cambium_k", 0.0))
+        if kc > 0:
+            beta = float(sp.get("cambium_beta", 1.0))
+            self.cambium[:n] += kc * np.maximum(Qsub, 0.0) ** beta * alive
 
         # ---- 3. acropetal Borchert-Honda allocation
         par = self.parent[:n]
@@ -521,7 +530,16 @@ class TreeGrower:
     def to_skeleton(self, extra_meta: dict | None = None) -> Skeleton:
         n = self.n
         sp = self.sp
-        r = self.radius[:n].copy()
+        pipe = self.radius[:n].copy()
+        r_camb = np.sqrt(float(sp["r_tip"]) ** 2 + self.cambium[:n] / np.pi)
+        r = np.maximum(pipe, r_camb)
+        # a parent is never thinner than any child (dead-parent edge cases)
+        par = self.parent[:n]
+        o, bounds = self._levels()
+        for d in range(len(bounds) - 2, 0, -1):
+            ids = o[bounds[d]:bounds[d + 1]]
+            if len(ids):
+                np.maximum.at(r, par[ids], r[ids])
         z = self.pos[:n, 2]
         f = float(sp.get("flare", 0.0))
         hf = float(sp.get("flare_height", 0.6))
@@ -548,6 +566,7 @@ class TreeGrower:
                       self.dead_since[:n].astype(np.int16), self.light[:n].astype(np.float32), meta)
         sk.shed_pipe = self.shed_pipe[:n].copy()
         sk.pipe_radius = self.radius[:n].copy()
+        sk.cambium_radius = r_camb
         return sk
 
 

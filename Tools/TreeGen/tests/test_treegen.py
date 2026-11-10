@@ -18,12 +18,13 @@ from treegen.species import load_species
 from treegen.variants import make_log, make_snag
 
 SMALL = {"seasons": 14}
-# Golden skeleton hashes (forest_seed=11, tree_id=3, seasons=14). Regenerate deliberately with
+# Golden skeleton hashes (forest_seed=11, tree_id=3, seasons=14), v0.2 (light-driven thickening changes radii; the
+# v0.1 values are kept in GOLDEN_PIPE_V01 below as a topology check). Regenerate deliberately with
 #   python -c "from tests.test_treegen import print_golden; print_golden()"  (from Tools/TreeGen)
 GOLDEN = {
-    "beech": "2d0a0e7fc2578500e14734d81f23e096f4c281e08bfed90e4ac1313a8abc2c30",
-    "spruce": "9a554082942c755b219271b8c634616029ac6d4d6dd3b4d590841eb5203f2caf",
-    "birch": "1070900c58f69652572b6b5a9a6979b02edbcd137d9df3bf41fc90f510f4c8c9",
+    "beech": "8845f9a28e10743ae2d21e33d91d080f3ec1a3e67cd1febbc1457ee24111ca04",
+    "spruce": "29767aafc0d8d6b64e5e21bc11378b4788382f5f41a3f2e08ff57491a8b26f11",
+    "birch": "441daa10b87d1da82cb40443230769bb3334c1549229e9cf5224a8e72a2682d5",
 }
 
 
@@ -258,3 +259,117 @@ def test_performance_full_tree(name, tmp_path):
     te = time.time() - t
     print(f"PERF {name}: nodes={sk.n} grow={tg:.2f}s export(glb+json)={te:.2f}s")
     assert tg < 30 and te < 30
+
+
+# ------------------------------------------------------------------ light-driven thickening, sprays, atlas (v0.2)
+# Hashes of the same trees computed on the flared *pipe* radii: equal to the schema-1 (v0.1) goldens, which proves
+# that cambial thickening only changes radii and never feeds back into topology.
+GOLDEN_PIPE_V01 = {
+    "beech": "2d0a0e7fc2578500e14734d81f23e096f4c281e08bfed90e4ac1313a8abc2c30",
+    "spruce": "9a554082942c755b219271b8c634616029ac6d4d6dd3b4d590841eb5203f2caf",
+    "birch": "1070900c58f69652572b6b5a9a6979b02edbcd137d9df3bf41fc90f510f4c8c9",
+}
+
+
+def _flared(sk, r):
+    z = sk.pos[:, 2]
+    out = r.copy()
+    stem = sk.order == 0
+    out[stem] *= 1.0 + sk.meta["flare"] * np.exp(-np.maximum(z[stem], 0) / sk.meta["flare_height"])
+    return out
+
+
+# 0.2.0 also lowered height_max (beech 30 -> 25 m, birch 22 -> 20 m); restore it to compare against 0.1.0
+HEIGHT_MAX_V01 = {"beech": 30.0, "spruce": 32.0, "birch": 22.0}
+
+
+@pytest.mark.parametrize("name", ["beech", "spruce", "birch"])
+def test_thickening_preserves_topology(name):
+    sk = grow_tree(load_species(name, {**SMALL, "height_max": HEIGHT_MAX_V01[name]}), 11, 3)
+    pipe = sk.copy()
+    pipe.radius = _flared(sk, sk.pipe_radius)
+    assert pipe.topology_hash() == GOLDEN_PIPE_V01[name]
+
+
+@pytest.mark.parametrize("name", ["beech", "spruce", "birch"])
+def test_thickening_monotone_and_thicker(trees, name):
+    sk = trees[name]
+    assert np.all(sk.radius[1:] <= sk.radius[sk.parent[1:]] * (1 + 1e-9)), "child thicker than parent"
+    assert np.all(sk.radius >= _flared(sk, sk.pipe_radius) - 1e-12), "thickening may only add wood"
+    sp0 = load_species(name, {**SMALL, "cambium_k": 0.0})
+    sk0 = grow_tree(sp0, 11, 3)
+    assert np.array_equal(sk0.parent, sk.parent) and np.allclose(sk0.pos, sk.pos)
+    assert metrics.dbh(sk) > metrics.dbh(sk0) or not np.isfinite(metrics.dbh(sk0))
+
+
+def test_thickening_is_light_driven():
+    """Same tree in the open vs. shaded by a dense canopy overhead: less light -> thinner stem."""
+    from treegen.growth import TreeGrower, make_grid
+    sp = load_species("birch", SMALL)
+    res = []
+    for shade in (False, True):
+        grid = make_grid((-8, -8, -0.5), (8, 8, 30))
+        tg = TreeGrower(sp, 3, 11)
+        roof = np.stack(np.meshgrid(np.linspace(-6, 6, 25), np.linspace(-6, 6, 25), [9.0]), -1).reshape(-1, 3)
+        for s in range(sp["seasons"]):
+            buds = tg.active_bud_world_positions()
+            grid.compute(np.concatenate([buds, np.repeat(roof, 3, 0)]) if shade else buds)
+            tg.step(s, grid)
+        res.append(tg.to_skeleton())
+    open_r, shade_r = (s.radius[0] for s in res)
+    assert shade_r < open_r
+
+
+def test_twig_sprays_dense_and_deterministic(trees):
+    from treegen.mesh import twig_sprays
+    sk = trees["beech"]
+    sp = load_species("beech")
+    tw1, lv1, c1 = twig_sprays(sk, sp, 11, 3)
+    tw2, lv2, c2 = twig_sprays(sk, sp, 11, 3)
+    assert np.array_equal(lv1.pos, lv2.pos) and np.array_equal(tw1.pos, tw2.pos)
+    h0 = sk.topology_hash()
+    sp_none = load_species("beech", {"leaf": {"twigs_per_node": 0}})
+    _, lv0, _ = twig_sprays(sk, sp_none, 11, 3)
+    assert sk.topology_hash() == h0
+    # sprays add (twigs_per_node * (leaves_per_twig + 1)) cards per anchor on top of the direct cards
+    assert len(lv1.tri) > 3 * len(lv0.tri)
+    _check_part(tw1)
+    _check_part(lv1)
+    # spray cards stay near the crown: within twig + card reach of a live node
+    reach = sp["leaf"]["twig_len"] * 2.5 + sp["leaf"]["spray_card_size"] * 2
+    d = np.min(np.linalg.norm(c1[::50, None, :] - sk.pos[None, sk.alive], axis=2), axis=1)
+    assert np.all(d < reach)
+
+
+def test_conifer_sprays_planar(trees):
+    from treegen.mesh import twig_sprays
+    sk = trees["spruce"]
+    sp = load_species("spruce")
+    tw, lv, c = twig_sprays(sk, sp, 11, 3)
+    assert len(lv.tri) and len(tw.tri)
+    assert np.all(lv.uv[:, 0] >= 0.5 - 1e-6) and np.all(lv.uv[:, 1] <= 0.5 + 1e-6), "spruce uses atlas tile 1"
+
+
+def test_library_age_classes(tmp_path):
+    import treegen_cli
+    treegen_cli.main(["library", "--out", str(tmp_path), "--species", "birch", "--count", "2", "--seed", "3",
+                      "--age-classes", "0.4,1", "--no-obj"])
+    man = json.loads((tmp_path / "library_manifest.json").read_text())
+    h = [t["metrics"]["height_m"] for t in man["trees"]]
+    assert len(h) == 2 and h[0] < 0.8 * h[1]
+
+
+def test_leaf_atlas(tmp_path):
+    pytest.importorskip("PIL")
+    from PIL import Image
+    from treegen.atlas import make_atlas
+    p = make_atlas(str(tmp_path / "a.png"), size=256)
+    im = np.asarray(Image.open(p))
+    assert im.shape == (256, 256, 4)
+    q = 128
+    # every tile has opaque leaf texels and transparent background; v=0 (image bottom) is where sprigs attach
+    for r0, c0 in ((q, 0), (q, q), (0, 0), (0, q)):
+        a = im[r0:r0 + q, c0:c0 + q, 3]
+        assert 0.05 < (a > 128).mean() < 0.9
+    bottom_mid = im[q + q - 6:q + q, q // 2 - 6:q // 2 + 6, 3]
+    assert bottom_mid.max() > 128, "tile 0 sprig must start at the bottom centre"

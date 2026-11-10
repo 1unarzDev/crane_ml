@@ -1,0 +1,14 @@
+{
+    "name": "Crane.Drones.TreeGen",
+    "rootNamespace": "Crane.Drones.TreeGenImport",
+    "references": [],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
