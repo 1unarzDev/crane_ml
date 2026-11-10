@@ -19,14 +19,14 @@ The tests locate `Tools/Fleet/spec/*.json` by walking up from the test binary. T
 | Path | Contents |
 |---|---|
 | `Core/MathTypes.cs` | `Vec3`, `Mat3`, `Pose` (`x_parent = R x_child + P`), small dense `Matrix`, deterministic `Rng` with named substreams |
-| `Core/FleetProfile.cs` | loader/validator for `fleet_profile_v0.json`; every `{value, provenance}` leaf is kept in `Leaves` and per-sensor `Provenance` dictionaries; throws `ProfileException` with all errors |
+| `Core/FleetProfile.cs` | loader/validator for `fleet_profile_v0.json` and `_v1.json` (see "Profile versions"); every `{value, provenance}` leaf is kept in `Leaves` and per-sensor `Provenance` dictionaries; throws `ProfileException` with all errors |
 | `Core/Scenario.cs` | `warehouse_a_v0.json` to `Obb` boxes (obstacles, divider wall split at the doorway with lintel, outer walls), overhead camera poses and modes |
 | `Geometry/CameraAndTag.cs` | `CameraIntrinsics` from resolution and hfov, `CameraMount`, `TagSpec` (planar square, four corners), `RoverGeometry` (tags on active faces and top, derived from the profile) |
 | `Geometry/Visibility.cs` | `TagVisibility.Evaluate`: view angle, behind camera, all-four-corners-in-image, minimum range, minimum projected size, line of sight on all four corners |
 | `Observation/PlanarPnP.cs` | DLT homography, rigid decomposition, flip initialisation, Levenberg-Marquardt on reprojection error; both minima kept; Gauss-Newton covariance |
 | `Observation/TagObserver.cs` | corner noise (base, obliquity, motion blur), dropout, latency jitter, `FrameSchedule` rate limiting |
 | `Observation/RelPoseObservation.cs` | `RelPoseObservation`, `ObservationAging.Age`, `PoseUncertainty` (covariance composition) |
-| `Sensors/Sensors.cs` | `SensorSuite.ForRover`, mecanum kinematics, `EncoderModel`, `ImuModel`, `TofModel`, `LidarModel` |
+| `Sensors/Sensors.cs` | `SensorSuite.ForRover`, mecanum kinematics, `EncoderModel`, `ImuModel`, `TofModel`, `LidarModel`, `DepthModel` (D435 depth) |
 | `Rover/IObservationProvider.cs` | rover-facing API: `IObservationProvider`, `IObservationBackend`, `RoverObservationProvider` |
 | `Evaluator/*.cs` | truth side: `EvaluatorTruth`, `Trajectories`, `ObservationScorer`, `FleetSimulator` (implements the backend) |
 
@@ -120,3 +120,21 @@ Calibration: among unflagged solutions the normalised error squared has mean 5.9
 * No payload or other dynamic occluders besides rover bodies; the elevated beam in `warehouse_a_v0` only hides ground-level points from the overhead cameras at ranges beyond about 6.5 m (far outside decode range at 12 cm and 1920 px), so with the scenario as written the beam does not change any overhead outcome.
 * The IMU has gyro-z only (no accelerometer model); the encoder does not model backlash or per-wheel scale error.
 * Peer observation delivery is broadcast to every other rover; there is no radio loss model.
+
+## Profile versions (v0 and v1)
+
+`FleetProfile.Parse` reads both `fleet_profile_v0.json` (values unchanged; locked by the golden test `parity/profile_v0_golden.txt`, regenerate only deliberately with `CRANE_WRITE_GOLDEN=1`) and `fleet_profile_v1.json` (CAD v1 rovers).
+
+**Numeric versus descriptive leaves.** A `{value, provenance}` leaf is numeric (a number or an array of numbers) unless its path is listed in `FleetProfile.DescriptivePathPatterns` (`chassis.wheel.motor`, `docking.magnet`, `docking.partner_acquisition`, `roles.*.compute`, `roles.*.mcu`, `roles.*.lifter_option`, `roles.*.arm_proxy.servo`). Descriptive leaves are kept verbatim, with provenance and source, in `FleetProfile.Metadata` (`Meta(path)`, `Text(path)`); they never enter `Leaves`, and `Num`/`Vec` on them throw. A non-numeric value on any other leaf fails with `ProfileException` naming the path (`path: value is not numeric ...`, or `path: value[i] ...` for arrays). An unlisted new descriptive field therefore fails loudly until the schema list is extended. Numeric leaves now also carry `Provenanced.Source`.
+
+**Sensors.** Role tokens accepted: `wheel_encoder`, `imu`, `lidar_2d` (an optional parenthesised model name is informational), `stereo`, `mono_camera_ov9281(front|rear|mast)`, `range_tof(front|rear)`, `realsense_d435(depth + infra1/infra2 + color)` (streams checked). `roles.*.required_sensor_frames` and `stereo_pair` are parsed into `RoleSpec`; `SensorSuite.SensorIds()` returns exactly those ids per role (v1 test).
+
+| Sensor | Model | Datasheet values (profile, with source in `Sources`) |
+|---|---|---|
+| RealSense D435 depth | `DepthMount` + `DepthModel`: ray cast on a strided grid, z along the axis, sigma_z = z^2 * 0.08 px / (fx * baseline) (ASSUMPTION: subpixel RMS from the D400 whitepaper), 1 mm quantisation, invalid outside 0.3-3.0 m | 1280x720, 87 deg H, 30 Hz (up to 90), 0.3-3 m, 16UC1. https://www.intel.com/content/www/us/en/products/sku/128255/intel-realsense-depth-camera-d435/specifications.html ; https://www.mouser.com/datasheet/2/612/Intel_3_28_2023_D435if_Launch_Deck-3135151.pdf |
+| D435 infra1/infra2 | two MONO `CameraMount3` (`stereo_left`, `stereo_right`, like the v0 pair), 50 mm apart, global shutter, 1280x720, 87 deg | same sources; baseline `sensors.realsense_d435_body.ir_baseline` must equal `sensors.stereo_baseline` |
+| D435 colour | declared only (`SensorSuite.Unsimulated`, `camera_color`): rolling shutter, provisional values | no model |
+| RPLIDAR C1 | existing `LidarMount`/`LidarModel`: 12 m (white; 6 m on black), 10 Hz (8-12), 500 points (5 kHz, 0.72 deg), model name in `LidarSpec.Model` | https://www.slamtec.com/en/C1/Spec (also: min range 0.05 m, accuracy +-30 mm, TTL UART) |
+| Mast camera | Arducam OV9281 mono global shutter `CameraMount3` named `cam_front`, 1280x800, 70 deg H, 60 Hz, pitched down by `roles.lifter.mast_camera_pitch` | https://cdn.robotshop.com/media/A/Adu/RB-Adu-256/pdf/arducam-1mp-ov9281-usb-camera-120fps-global-shutter-uvc-low-distortion-m12-lens-datasheet.pdf |
+
+**Mount poses.** The profile has no mounting poses, so for a profile with a D435 (v1) the mounts come from `SensorSuite.CadV1`, transcribed from `Tools/Fleet/assets/cad_v1/urdf/*.urdf`: scout D435 `camera_link` (0.1508, 0.0175, 0.1025) (infra1 = depth origin, infra2 50 mm to -y), scout laser (-0.122, -0.072, 0.1517), lifter mast camera (0.0986, -0.04, 0.1262), cargo front camera (0.1698, 0, 0.104). v0 keeps its provisional mounts. Replace with the manifest import when the manifests are available here.

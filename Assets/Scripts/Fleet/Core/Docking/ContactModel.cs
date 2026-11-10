@@ -39,7 +39,9 @@ namespace Crane.Fleet.Docking
     /// <summary>
     /// SIMPLIFIED, UNCALIBRATED contact and force model for one face pair. Every number comes from the profile
     /// (guide, magnet, hooks, compliance) or from <see cref="DockingAssumptions"/>. Pure functions of its inputs.
-    /// Hook A sits at +hookHalfSpan on the lateral axis (left), hook B at -hookHalfSpan.
+    /// Two-hooks-per-face (v0): hook A sits at +hookHalfSpan on the lateral axis (left), hook B at -hookHalfSpan.
+    /// Reciprocal (v1): HOOK_A is the initiating rover's own hook at -hookHalfSpan, HOOK_B the partner's hook at +hookHalfSpan
+    /// (Rz(pi) maps each face's -y hook onto the partner's +y pin); see <see cref="HookASide"/>.
     /// </summary>
     public sealed class ContactModel
     {
@@ -49,6 +51,9 @@ namespace Crane.Fleet.Docking
         public double MagnetHoldForce { get; }
         public double HookHalfSpan { get; }
         public double HookSpacing => 2 * HookHalfSpan;
+        /// <summary>Lateral side of HOOK_A: +1 (v0) or -1 (reciprocal v1). HOOK_B is the opposite side.</summary>
+        public double HookASide { get; }
+        public bool Reciprocal => HookASide < 0;
         public double TolPosition { get; }
         public double TolYaw { get; }
         public double HookRatedLoad { get; }
@@ -61,11 +66,13 @@ namespace Crane.Fleet.Docking
         public ContactModel(DockingProfile p, DockingAssumptions assume)
             : this(p.GuideHalfWidth, p.GuideAcceptanceHalfAngle, p.MagnetPullInRange, p.MagnetHoldForce, p.HookHalfSpan,
                    p.HookPositionTolerance, p.HookYawTolerance, p.HookRatedLoad, p.ConnectorComplianceLateral,
-                   p.HookActuationTime, assume) { }
+                   p.HookActuationTime, assume, p.HookASide) { }
 
         public ContactModel(double guideHalfWidth, double acceptHalfAngle, double magnetRange, double holdForce, double hookHalfSpan,
-                            double tolPos, double tolYaw, double ratedLoad, double compliance, double actuationTime, DockingAssumptions assume)
+                            double tolPos, double tolYaw, double ratedLoad, double compliance, double actuationTime, DockingAssumptions assume,
+                            double hookASide = +1.0)
         {
+            HookASide = hookASide < 0 ? -1.0 : +1.0;
             GuideHalfWidth = guideHalfWidth; AcceptanceHalfAngle = acceptHalfAngle; MagnetRange = magnetRange; MagnetHoldForce = holdForce;
             HookHalfSpan = hookHalfSpan; TolPosition = tolPos; TolYaw = tolYaw; HookRatedLoad = ratedLoad; Compliance = compliance;
             HookActuationTime = actuationTime; Assume = assume;
@@ -122,13 +129,16 @@ namespace Crane.Fleet.Docking
         }
 
         // ------------------------------------------------------------------ hook seating
-        /// <summary>Hook index sign: +1 for hook A (left), -1 for hook B (right).</summary>
+        /// <summary>v0 hook index sign: +1 for hook A (left), -1 for hook B (right). Use <see cref="SideOf"/> for the model's actual mode.</summary>
         public static double Side(int hook) => hook == 0 ? +1.0 : -1.0;
+
+        /// <summary>Lateral side (+1 left, -1 right in the docking frame) of hook index 0 (A) or 1 (B) in this model's face mode.</summary>
+        public double SideOf(int hook) => hook == 0 ? HookASide : -HookASide;
 
         /// <summary>Residual seen by one hook: lateral offset at the hook = lateral + side*halfSpan*sin(yaw). Seats iff position (lateral+height as norm) and yaw are within tolerance.</summary>
         public HookGeometry HookResidual(Residual r, int hook)
         {
-            double lat = r.Lateral + Side(hook) * HookHalfSpan * Math.Sin(r.Yaw);
+            double lat = r.Lateral + SideOf(hook) * HookHalfSpan * Math.Sin(r.Yaw);
             double pos = Math.Sqrt(lat * lat + r.Height * r.Height);
             double ratio = Math.Max(pos / TolPosition, Math.Abs(r.Yaw) / TolYaw);
             return new HookGeometry { LateralAtHook = lat, Height = r.Height, Yaw = r.Yaw, Ratio = ratio, WithinTolerance = ratio <= 1.0 };
@@ -150,7 +160,7 @@ namespace Crane.Fleet.Docking
         private static double Mag(double a, double b) => Math.Sqrt(a * a + b * b);
 
         /// <summary>
-        /// Statically determinate split. Tension T (+ pulls apart), shear V, moment M about the vertical axis (+ loads hook A).
+        /// Statically determinate split. Tension T (+ pulls apart), shear V, moment M about the vertical axis (+ loads the hook at +lateral: A in v0, B in reciprocal mode).
         /// Tension on hook i = T/2 +- M/spacing (negative = bearing on the face, hook carries 0); shear V/2 each.
         /// Unseated side: carried by magnets only: tension capacity hold/2, shear capacity friction*hold (shared with any seated hook is NOT assumed).
         /// With one hook seated it takes all the shear and its tension share per the same couple formula.
@@ -158,7 +168,8 @@ namespace Crane.Fleet.Docking
         public HookLoads StaticSplit(LoadCase l, bool seatedA, bool seatedB)
         {
             double d = HookSpacing;
-            double tA = l.Tension / 2 + l.Moment / d, tB = l.Tension / 2 - l.Moment / d;
+            double mA = HookASide * l.Moment / d;
+            double tA = l.Tension / 2 + mA, tB = l.Tension / 2 - mA;
             return Assemble(l, seatedA, seatedB, tA, tB, seatedA && seatedB ? l.Shear / 2 : l.Shear, seatedA && seatedB ? l.Shear / 2 : l.Shear);
         }
 
@@ -172,7 +183,7 @@ namespace Crane.Fleet.Docking
             double sA = Math.Abs(HookResidual(r, 0).LateralAtHook), sB = Math.Abs(HookResidual(r, 1).LateralAtHook);
             Share(Math.Max(l.Tension, 0), sA, sB, out double tA, out double tB);
             Share(Math.Abs(l.Shear), sA, sB, out double vA, out double vB);
-            double c = l.Moment / HookSpacing;
+            double c = HookASide * l.Moment / HookSpacing;
             // negative tension (compression) is borne by the face, not the hooks
             return Assemble(l, true, true, tA + c, tB - c, vA, vB);
         }

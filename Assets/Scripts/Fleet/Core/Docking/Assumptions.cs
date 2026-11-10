@@ -62,6 +62,12 @@ namespace Crane.Fleet.Docking
         /// <summary>Obstruction flag must persist this long to declare OBSTRUCTED (s).</summary>
         public double ObstructionDebounce = 0.3;
 
+        // ---- reciprocal (v1) connection-level observation; ignored in two-hooks-per-face (v0) mode
+        /// <summary>Latency (s) of the connection-level report that carries the partner's hook state (and the partner close command) between the two rovers. Each rover senses only its own hook.</summary>
+        public double PartnerLinkLatency = 0.1;
+        /// <summary>If no partner report arrives for this long (s) the partner hook is treated as NOT engaged (fail-safe), and release of a verified connection is refused.</summary>
+        public double PartnerObservationMaxAge = 0.5;
+
         // ---- misc
         public double Gravity = 9.81;
         /// <summary>Friction coefficient between mated faces; capacity of a magnet-only (unseated) side against shear = mu * hold force.</summary>
@@ -124,6 +130,8 @@ namespace Crane.Fleet.Docking
             new Entry(nameof(JamPosition), "0.6", "Hook CAD: where a mis-seated hook hits the face"),
             new Entry(nameof(LoadConsistencyMinFraction), "0.75", "Repeatability of measured connection stiffness over >=50 good latches"),
             new Entry(nameof(VerificationLossFactor), "1.5", "Noise/hysteresis of the pose monitor in the latched state"),
+            new Entry(nameof(PartnerLinkLatency), "0.1 s", "Measured rover-to-rover (or fleet-hub) message latency for the connection-level hook report; v1 reciprocal mode only"),
+            new Entry(nameof(PartnerObservationMaxAge), "0.5 s", "Link dropout statistics and the safety policy on stale partner reports; v1 reciprocal mode only"),
             new Entry(nameof(Gravity), "9.81 m/s^2", "Constant"),
             new Entry(nameof(DeckContactInset), "0.03 m", "CAD: where payload actually bears on the deck"),
             new Entry(nameof(SupportMargin), "0.02 m", "Payload slide/tip tests on deck; safety policy"),

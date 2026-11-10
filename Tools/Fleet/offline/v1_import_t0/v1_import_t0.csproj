@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- T0 checks of Crane.Fleet.TractivePlant without Unity: dotnet run -c Release (from this directory; bin/obj go to ~/.cache via the command in README) -->
   <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><Nullable>disable</Nullable><LangVersion>9.0</LangVersion><EnableDefaultCompileItems>false</EnableDefaultCompileItems></PropertyGroup>
-  <ItemGroup><Compile Include="../../../../Assets/Scripts/Fleet/Core/**/*.cs" /><Compile Include="Program.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../../../../Assets/Scripts/Fleet/Core/**/*.cs" /><Compile Include="../../../../Assets/Scripts/Fleet/Perception/**/*.cs" /><Compile Include="Program.cs" /></ItemGroup>
 </Project>

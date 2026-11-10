@@ -62,7 +62,7 @@ namespace Crane.Fleet
             if (role != null && p.Roles.TryGetValue(role, out var rs))
             {
                 foreach (var t in rs.Sensors)
-                    if (t.Kind == SensorKind.MonoCamera || t.Kind == SensorKind.StereoPair)
+                    if (t.Kind == SensorKind.MonoCamera || t.Kind == SensorKind.StereoPair || t.Kind == SensorKind.RealSenseD435)
                     {
                         if (t.Facing == "rear") s.HasRearCamera = true; else s.HasFrontCamera = true;
                     }

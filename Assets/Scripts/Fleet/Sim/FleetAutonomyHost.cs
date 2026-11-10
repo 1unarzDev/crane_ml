@@ -178,6 +178,7 @@ namespace Crane.Fleet.Sim {
             public FacePose Pose;
             public double PrevGap = double.NaN, Closing;
             public FixedJoint Joint;
+            public bool LinkUp = true;
             public RequestedAction LastAction;
         }
 
@@ -260,7 +261,11 @@ namespace Crane.Fleet.Sim {
                 c.Pose = Relative(c.A.Frames["face_" + c.FaceA], c.B.Frames["face_" + c.FaceB]);
                 c.Closing = double.IsNaN(c.PrevGap) ? 0 : (c.PrevGap - c.Pose.Gap) / dt;
                 c.PrevGap = c.Pose.Gap;
-                var res = c.Machine.Step(dt, new ConnectorInputs { Pose = c.Pose, ClosingSpeed = c.Closing, Command = c.Cmd, ReleaseAuthorized = true });
+                // partner link (reciprocal v1 faces): the partner's hook report reaches the connector only while both rovers' links are up; the docking
+                // core applies the link latency and fails safe when the report goes stale (not engaged; release of a verified connection refused).
+                bool linkUp = !c.A.LinkLost && !c.B.LinkLost;
+                if (linkUp != c.LinkUp) { c.LinkUp = linkUp; run.Event(linkUp ? "partner_link_up" : "partner_link_down", c.A.D.Id, new Dictionary<string, object> { ["coupling"] = c.Id, ["reciprocal"] = Reciprocal }); }
+                var res = c.Machine.Step(dt, new ConnectorInputs { Pose = c.Pose, ClosingSpeed = c.Closing, Command = c.Cmd, ReleaseAuthorized = true, PartnerLinkUp = linkUp });
                 foreach (var e in res.Events)
                     run.Event("connector", c.A.D.Id, new Dictionary<string, object> { ["coupling"] = c.Id, ["event"] = e.Kind.ToString(), ["from"] = ConnectorStateNames.ToProfileName(e.From),
                         ["to"] = ConnectorStateNames.ToProfileName(e.To), ["trigger"] = e.Trigger?.ToString(), ["detail"] = e.Detail, ["gap"] = c.Pose.Gap, ["lateral"] = c.Pose.Lateral, ["yaw"] = c.Pose.Yaw });

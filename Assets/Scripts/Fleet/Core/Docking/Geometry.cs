@@ -87,5 +87,36 @@ namespace Crane.Fleet
         }
     }
 
-    // DeterministicRng removed on import into CRANE: the single RNG is Crane.Fleet.FleetRng (Mecanum.cs).
+    /// <summary>
+    /// Small deterministic RNG (SplitMix64 + Box-Muller) so results are identical across .NET, Mono and IL2CPP;
+    /// System.Random(seed) is not specified to be stable across runtimes.
+    /// </summary>
+    public sealed class DeterministicRng
+    {
+        private ulong _s;
+        public DeterministicRng(ulong seed) { _s = seed; }
+
+        public ulong NextU64()
+        {
+            unchecked
+            {
+                _s += 0x9E3779B97F4A7C15UL;
+                ulong z = _s;
+                z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9UL;
+                z = (z ^ (z >> 27)) * 0x94D049BB133111EBUL;
+                return z ^ (z >> 31);
+            }
+        }
+
+        /// <summary>Uniform in [0,1).</summary>
+        public double NextDouble() => (NextU64() >> 11) * (1.0 / 9007199254740992.0);
+
+        /// <summary>Standard normal (always consumes exactly two uniforms).</summary>
+        public double NextGaussian()
+        {
+            double u1 = NextDouble(), u2 = NextDouble();
+            if (u1 < 1e-300) u1 = 1e-300;
+            return Math.Sqrt(-2.0 * Math.Log(u1)) * Math.Cos(2.0 * Math.PI * u2);
+        }
+    }
 }

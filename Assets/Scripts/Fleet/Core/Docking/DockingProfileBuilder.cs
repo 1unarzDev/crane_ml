@@ -27,6 +27,18 @@ namespace Crane.Fleet.Docking {
             p.MagnetPullInRange = Scalar(d, "magnet_pull_in_range");
             p.MagnetHoldForce = Scalar(d, "magnet_hold_force");
             p.HookCount = Scalar(d, "hook_count");
+            // v1 (mirrors the core's ProfileLoader, 2026-11-10): optional hook open angle, numeric magnet geometry, descriptive metadata, per-role faces
+            if (d.Has("hook_open_angle")) p.HookOpenAngle = Scalar(d, "hook_open_angle");
+            if (d.Has("magnet")) {
+                var mg = d["magnet"]; var v = new JsonNode(mg.Unwrapped, mg.Path + ".value");
+                p.Magnet = new MagnetGeometry(v["diameter"].Double, v["thickness"].Double, v["face_y"].Double, v["face_z"].Double, Prov(mg));
+                if (v.Has("polarity")) p.Metadata["docking.magnet.polarity"] = v["polarity"].String;
+            }
+            foreach (string dn in new[] { "partner_acquisition", "states_mapping_v1", "partner_acquisition_proposal" })
+                if (d.Has(dn)) p.Metadata["docking." + dn] = d[dn].Unwrapped is string str ? str : FleetJson.Write(d[dn].Unwrapped);
+            if (root.Has("roles"))
+                foreach (var r in root["roles"].Members)
+                    if (r.Value.Has("active_faces")) { var l = new List<string>(); foreach (var n in r.Value["active_faces"].Items) l.Add(n.String); p.RoleActiveFaces[r.Key] = l; }
             p.HookLateralSpacing = Scalar(d, "hook_lateral_spacing");
             p.HookPositionTolerance = Scalar(d, "hook_position_tolerance");
             p.HookYawTolerance = Scalar(d, "hook_yaw_tolerance");

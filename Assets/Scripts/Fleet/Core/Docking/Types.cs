@@ -110,7 +110,7 @@ namespace Crane.Fleet.Docking
     }
 
     /// <summary>Load on the coupling in the face frame. Tension: along the normal (+ pulls apart). Shear: in-plane (lateral or vertical).
-    /// Moment: about the vertical axis through the face centre; + raises the load on hook A (the +lateral hook).</summary>
+    /// Moment: about the vertical axis through the face centre; + raises the load on the +lateral hook (hook A in v0, hook B in reciprocal v1).</summary>
     public struct LoadCase
     {
         public double Tension, Shear, Moment;
@@ -127,6 +127,8 @@ namespace Crane.Fleet.Docking
         public DockingCommand Command = DockingCommand.None;
         public HookDrive HookA = HookDrive.Normal, HookB = HookDrive.Normal;
         public bool Obstruction;
+        /// <summary>Reciprocal mode only: whether the connection-level link carrying the partner's hook state is up this step. Default true.</summary>
+        public bool PartnerLinkUp = true;
         /// <summary>From ModuleGraph.CanRelease. Defaults to false so a forgotten wiring refuses to release verified couplings.</summary>
         public bool ReleaseAuthorized;
         public LoadCase AppliedLoad;

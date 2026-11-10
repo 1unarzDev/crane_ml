@@ -48,7 +48,8 @@ namespace Crane.Fleet.Sim {
         public string Launcher = "unknown";
         public IFleetMission Mission;
         /// <summary>Injected failures: "rover:target:mode@t;..." with target wheel_fl|wheel_fr|wheel_rl|wheel_rr (dead_free, dead_locked, weak, ok),
-        /// camera (lost), encoders (lost). Applied when run time reaches t; each is logged as a failure_injected event.</summary>
+        /// camera (lost), encoders (lost), link (lost | ok: the rover-to-rover link carrying the reciprocal connector's partner-hook report).
+        /// Applied when run time reaches t; each is logged as a failure_injected event.</summary>
         public string Failures = "";
         /// <summary>Extra labels merged over the defaults in manifest.json "labels" (harness: configuration id/hash, etc.).</summary>
         public Dictionary<string, object> Labels = new Dictionary<string, object>();
@@ -262,6 +263,7 @@ namespace Crane.Fleet.Sim {
                 }
                 else if (f.target == "camera") r.CameraLost = f.mode == "lost";
                 else if (f.target == "encoders") r.EncodersLost = f.mode == "lost";
+                else if (f.target == "link") r.LinkLost = f.mode == "lost";
                 else throw new FormatException("failure target " + f.target);
                 Event("failure_injected", f.rover, new Dictionary<string, object> { ["target"] = f.target, ["mode"] = f.mode, ["scheduled_t"] = f.t });
             }

@@ -36,6 +36,8 @@ namespace Crane.Fleet.Sim {
         public readonly AssetVisual Visual;   // null for primitives
         public double Lift, GripperOpening = double.NaN;
         public bool CameraLost, EncodersLost;
+        /// <summary>Rover-to-rover link down (injected failure target "link"): the connector's partner-hook report (reciprocal v1 faces) is not delivered.</summary>
+        public bool LinkLost;
         public IRoverSampleSink SampleSink;
         Vector3 prevVel; bool havePrevVel;
         readonly long[] prevTicks;

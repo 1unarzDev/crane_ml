@@ -9,6 +9,15 @@ namespace Crane.Fleet.Perception
     {
         public string Name; public string Facing; public Pose OpticalInRover; public CameraIntrinsics K; public double RateHz, LatencyS;
         public string Provenance = "provisional";
+        /// <summary>Sensor id as listed in the profile's roles.*.required_sensor_frames (v1; null for v0 mounts).</summary>
+        public string SensorId;
+    }
+
+    /// <summary>Depth imager mount (RealSense D435 depth stream). Optical frame like <see cref="CameraMount3"/>.</summary>
+    public sealed class DepthMount
+    {
+        public string Name, SensorId; public Pose OpticalInRover; public CameraIntrinsics K;
+        public double MinRange, MaxRange, RateHz, LatencyS, BaselineM; public string Encoding, Provenance = "provisional";
     }
 
     public sealed class RangeMount { public string Name; public Pose InRover; public double MaxRange, ConeHalfAngle, RateHz; }
@@ -23,6 +32,33 @@ namespace Crane.Fleet.Perception
         public List<RangeMount> Tofs = new List<RangeMount>();
         public LidarMount Lidar;
         public double StereoBaseline;
+        public List<DepthMount> Depths = new List<DepthMount>();
+        /// <summary>Sensor ids the profile declares for this rover but which have no simulation model (D435 colour: rolling shutter, provisional).</summary>
+        public List<string> Unsimulated = new List<string>();
+
+        /// <summary>Every sensor id this rover exposes (simulated and declared-only), in profile vocabulary (roles.*.required_sensor_frames keys).</summary>
+        public IEnumerable<string> SensorIds()
+        {
+            if (HasImu) yield return "imu";
+            if (Lidar != null) yield return "lidar";
+            foreach (var c in Cameras) if (c.SensorId != null) yield return c.SensorId;
+            foreach (var dm in Depths) yield return dm.SensorId;
+            foreach (var u in Unsimulated) yield return u;
+        }
+
+        /// <summary>
+        /// CAD v1 mount poses in base_link (origin = body underside centre), transcribed from Tools/Fleet/assets/cad_v1/urdf/*.urdf (provenance cad:
+        /// the profile carries no mounting poses; replace by the manifest import when it is available to this library).
+        /// Used only when the profile declares a D435 (v1); v0 keeps its placeholder mounts.
+        /// </summary>
+        public static class CadV1
+        {
+            public static readonly Vec3 ScoutD435Link = new Vec3(0.1508, 0.0175, 0.1025);   // scout.urdf camera_link (= depth origin = left imager, infra1)
+            public const double ColorOffsetY = 0.015;                                        // scout.urdf camera_color_frame, relative to camera_link
+            public static readonly Vec3 ScoutLaser = new Vec3(-0.122, -0.072, 0.1516925);    // scout.urdf laser frame (RPLIDAR C1 scan plane)
+            public static readonly Vec3 LifterMastCamera = new Vec3(0.09859958, -0.04, 0.126210623);  // lifter.urdf front_camera_link; pitch from profile roles.lifter.mast_camera_pitch
+            public static readonly Vec3 CargoFrontCamera = new Vec3(0.1698, 0.0, 0.104);     // cargo.urdf front_camera_link
+        }
 
         public static SensorSuite ForRover(FleetProfile p, string roverId)
         {
@@ -31,6 +67,7 @@ namespace Crane.Fleet.Perception
             var s = new SensorSuite { RoverId = roverId, Role = m.Role, StereoBaseline = p.StereoBaseline };
             double bodyH = p.BodySizeLwh[2], halfL = p.BodySizeLwh[0] / 2;
             var K = p.Camera.Intrinsics;
+            bool cad = p.D435 != null;      // v1 profile: CAD mounts
             foreach (var t in role.Sensors)
             {
                 switch (t.Kind)
@@ -38,15 +75,26 @@ namespace Crane.Fleet.Perception
                     case SensorKind.WheelEncoder: s.HasEncoders = true; break;
                     case SensorKind.Imu: s.HasImu = true; break;
                     case SensorKind.Lidar2D:
-                        s.Lidar = new LidarMount { Name = "lidar", InRover = Pose.FromYaw(0.0, 0.0, bodyH + role.MastHeight, 0), MaxRange = p.Lidar.MaxRange, RateHz = p.Lidar.RateHz, Points = p.Lidar.Points };
+                        var lpos = cad && m.Role == "scout" ? CadV1.ScoutLaser : new Vec3(0.0, 0.0, bodyH + role.MastHeight);
+                        s.Lidar = new LidarMount { Name = "lidar", InRover = Pose.FromYaw(lpos.X, lpos.Y, lpos.Z, 0), MaxRange = p.Lidar.MaxRange, RateHz = p.Lidar.RateHz, Points = p.Lidar.Points };
                         break;
                     case SensorKind.StereoPair:
                         foreach (int side in new[] { +1, -1 })
                             s.Cameras.Add(Cam(p, K, side > 0 ? "stereo_left" : "stereo_right", "front", new Vec3(halfL - 0.02, side * p.StereoBaseline / 2, bodyH + role.MastHeight), 0));
                         break;
+                    case SensorKind.RealSenseD435:
+                        AddD435(s, p, t);
+                        break;
                     case SensorKind.MonoCamera:
                         bool rear = t.Facing == "rear";
-                        s.Cameras.Add(Cam(p, K, "cam_" + t.Facing, t.Facing, new Vec3((rear ? -1 : 1) * (halfL - 0.01), 0, role.MastHeight > 0 ? bodyH + role.MastHeight : bodyH * 0.8), rear ? Math.PI : 0));
+                        string facing = t.Facing == "mast" ? "front" : t.Facing;    // the mast camera looks forward
+                        Vec3 cpos; double pitch = 0;
+                        if (cad && t.Facing == "mast") { cpos = CadV1.LifterMastCamera; if (p.Leaves.ContainsKey($"roles.{m.Role}.mast_camera_pitch")) pitch = p.Num($"roles.{m.Role}.mast_camera_pitch"); }
+                        else if (cad && t.Facing == "front" && m.Role == "cargo") cpos = CadV1.CargoFrontCamera;
+                        else cpos = new Vec3((rear ? -1 : 1) * (halfL - 0.01), 0, role.MastHeight > 0 ? bodyH + role.MastHeight : bodyH * 0.8);
+                        var cm = Cam(p, K, "cam_" + facing, facing, cpos, rear ? Math.PI : 0, pitch);
+                        if (cad) cm.SensorId = "cam_" + facing;
+                        s.Cameras.Add(cm);
                         break;
                     case SensorKind.RangeTof:
                         bool r2 = t.Facing == "rear";
@@ -57,9 +105,43 @@ namespace Crane.Fleet.Perception
             return s;
         }
 
-        private static CameraMount3 Cam(FleetProfile p, CameraIntrinsics K, string name, string facing, Vec3 pos, double yaw) => new CameraMount3
+        /// <summary>
+        /// D435 as modelled for stereo today: infra1 and infra2 are two MONO imagers (names stereo_left / stereo_right, like the v0 pair) separated by the
+        /// profile baseline (50 mm); infra1 (left, +y) sits at the depth origin. Depth is a separate <see cref="DepthMount"/>; colour is declared only.
+        /// </summary>
+        private static void AddD435(SensorSuite s, FleetProfile p, SensorToken t)
         {
-            Name = name, Facing = facing, OpticalInRover = CameraMount.InRover(pos, yaw), K = K, RateHz = p.Camera.RateHz, LatencyS = p.Camera.Latency,
+            var d = p.D435; var origin = CadV1.ScoutD435Link; double b = d.IrBaseline;
+            var Kir = d.Infra.Intrinsics;
+            foreach (var st in t.Streams)
+            {
+                switch (st)
+                {
+                    case "infra1":
+                    case "infra2":
+                        bool left = st == "infra1";
+                        s.Cameras.Add(new CameraMount3
+                        {
+                            Name = left ? "stereo_left" : "stereo_right", SensorId = "camera_" + st, Facing = "front",
+                            OpticalInRover = CameraMount.InRover(new Vec3(origin.X, origin.Y - (left ? 0 : b), origin.Z), 0), K = Kir, RateHz = d.Infra.RateHz, LatencyS = d.Infra.Latency,
+                            Provenance = d.Infra.Provenance["hfov"] == "measured" ? "measured" : d.Infra.Provenance["hfov"]
+                        });
+                        break;
+                    case "depth":
+                        s.Depths.Add(new DepthMount
+                        {
+                            Name = "depth", SensorId = "camera_depth", OpticalInRover = CameraMount.InRover(origin, 0), K = d.Depth.Intrinsics, MinRange = d.Depth.MinRange, MaxRange = d.Depth.MaxRange,
+                            RateHz = d.Depth.RateHz, LatencyS = d.Depth.Latency, BaselineM = b, Encoding = d.Depth.Encoding, Provenance = d.Depth.Provenance["hfov"]
+                        });
+                        break;
+                    case "color": s.Unsimulated.Add("camera_color"); break;
+                }
+            }
+        }
+
+        private static CameraMount3 Cam(FleetProfile p, CameraIntrinsics K, string name, string facing, Vec3 pos, double yaw, double pitchDown = 0) => new CameraMount3
+        {
+            Name = name, Facing = facing, OpticalInRover = CameraMount.InRover(pos, yaw, pitchDown), K = K, RateHz = p.Camera.RateHz, LatencyS = p.Camera.Latency,
             Provenance = p.Camera.Provenance["hfov"] == "measured" ? "measured" : "provisional"
         };
     }
@@ -163,6 +245,46 @@ namespace Crane.Fleet.Perception
             r = Math.Round(r / Quantum) * Quantum;
             if (r < 0 || r > _m.MaxRange) return rd;
             rd.Valid = true; rd.Range = r; return rd;
+        }
+    }
+
+    // ------------------------------------------------------------------ depth (RealSense D435)
+    /// <summary>Depth image on a strided pixel grid (stride x stride pixel blocks sampled at the block centre). Z in metres along the optical axis; 0 = invalid (16UC1 convention).</summary>
+    public sealed class DepthFrame { public double Stamp; public int Width, Height, Stride; public double[] Z; public double MinRange, MaxRange; }
+
+    /// <summary>
+    /// Stereo-depth model for the D435 depth stream. Ray cast against the scenario boxes per sampled pixel; z = range * cos(angle off axis).
+    /// Noise: sigma_z = z^2 * SubpixelSigma / (fx * baseline) (stereo triangulation error; Intel D400 series whitepaper quotes subpixel RMS
+    /// error of about 0.08 px, ASSUMPTION used here, not a measurement), quantised to 1 mm (16UC1 in mm), invalid outside [MinRange, MaxRange] or on dropout.
+    /// Occlusion shadows, IR texture dependence and projector effects are NOT modelled.
+    /// </summary>
+    public sealed class DepthModel
+    {
+        public double SubpixelSigma = 0.08, Quantum = 0.001, Dropout = 0.01; public int Stride = 16;
+        private readonly DepthMount _m;
+        public DepthModel(DepthMount m) { _m = m; }
+        public double SigmaZ(double z) => z * z * SubpixelSigma / (_m.K.Fx * _m.BaselineM);
+
+        public DepthFrame Sample(Pose roverWorld, IReadOnlyList<Obb> obstacles, double t, Rng rng)
+        {
+            Pose cw = roverWorld.Compose(_m.OpticalInRover);
+            int w = _m.K.Width / Stride, h = _m.K.Height / Stride;
+            var f = new DepthFrame { Stamp = t, Width = w, Height = h, Stride = Stride, Z = new double[w * h], MinRange = _m.MinRange, MaxRange = _m.MaxRange };
+            for (int j = 0; j < h; j++)
+                for (int i = 0; i < w; i++)
+                {
+                    double u = (i + 0.5) * Stride, v = (j + 0.5) * Stride;
+                    var dirOpt = new Vec3((u - _m.K.Cx) / _m.K.Fx, (v - _m.K.Cy) / _m.K.Fy, 1.0);
+                    double norm = dirOpt.Norm;
+                    double r = LidarModel.CastRay(cw.P, cw.R * dirOpt, _m.MaxRange * norm + 0.5, obstacles);
+                    double g = rng.Gaussian(), uu = rng.NextDouble();
+                    if (double.IsInfinity(r) || uu < Dropout) continue;
+                    double z = r / norm;
+                    z += SigmaZ(z) * g; z = Math.Round(z / Quantum) * Quantum;
+                    if (z < _m.MinRange || z > _m.MaxRange) continue;
+                    f.Z[j * w + i] = z;
+                }
+            return f;
         }
     }
 

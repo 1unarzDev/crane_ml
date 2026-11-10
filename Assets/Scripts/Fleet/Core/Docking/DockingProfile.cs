@@ -4,8 +4,30 @@ using Crane.Fleet.Docking;
 
 namespace Crane.Fleet.Profile
 {
-    /// <summary>Provenance label carried with every profile number (matches fleet_profile_v0.json provenance_levels).</summary>
-    public enum Provenance { Provisional, Cad, Measured }
+    /// <summary>
+    /// Provenance label carried with every profile number. Names match the profile's provenance_levels (case-insensitive).
+    /// Concept and Datasheet were added for fleet_profile_v1.json; appended so the v0 ordinals are unchanged.
+    /// </summary>
+    public enum Provenance { Provisional, Cad, Measured, Concept, Datasheet }
+
+    /// <summary>
+    /// How a face carries its hooks. TwoHooksPerFace (v0, profile hook_count = 2): hook A at +half-span, hook B at -half-span of ONE face.
+    /// Reciprocal (v1, hook_count = 1): each face has one J-hook (face -y) and one catch pin (face +y); a mated connection still has two hooks,
+    /// one per rover. In the docking frame the initiator's own hook (HOOK_A) is at -half-span and the partner's (HOOK_B) at +half-span.
+    /// </summary>
+    public enum FaceMode { TwoHooksPerFace, Reciprocal }
+
+    /// <summary>Numeric magnet geometry (v1 docking.magnet), metres in the face frame. The polarity text is in <see cref="DockingProfile.Metadata"/>.</summary>
+    public sealed class MagnetGeometry
+    {
+        public double Diameter { get; }
+        public double Thickness { get; }
+        /// <summary>|y| of the two magnets on the face (they sit at +-FaceY with opposite poles).</summary>
+        public double FaceY { get; }
+        public double FaceZ { get; }
+        public Provenance Provenance { get; }
+        public MagnetGeometry(double d, double t, double y, double z, Provenance p) { Diameter = d; Thickness = t; FaceY = y; FaceZ = z; Provenance = p; }
+    }
 
     /// <summary>A scalar from the profile: value in the file's units plus its provenance label.</summary>
     public sealed class Param
@@ -66,6 +88,14 @@ namespace Crane.Fleet.Profile
         public Param MagnetPullInRange { get; set; }
         public Param MagnetHoldForce { get; set; }
         public Param HookCount { get; set; }
+        /// <summary>Optional (v1): hook open angle, rad.</summary>
+        public Param HookOpenAngle { get; set; }
+        /// <summary>Optional (v1): magnet geometry.</summary>
+        public MagnetGeometry Magnet { get; set; }
+        /// <summary>Per-role docking faces (roles.*.active_faces), when present. A face a role lacks (e.g. the lifter's gripper front) is not a dock.</summary>
+        public Dictionary<string, List<string>> RoleActiveFaces { get; set; } = new Dictionary<string, List<string>>();
+        /// <summary>Descriptive docking fields (never coerced to numbers), keyed by profile path: docking.magnet.polarity, docking.partner_acquisition, docking.states_mapping_v1, ...</summary>
+        public Dictionary<string, string> Metadata { get; set; } = new Dictionary<string, string>();
         public Param HookLateralSpacing { get; set; }
         public Param HookPositionTolerance { get; set; }
         public Param HookYawTolerance { get; set; }
@@ -79,8 +109,14 @@ namespace Crane.Fleet.Profile
         public Param BaseMass { get; set; }
         public Dictionary<string, PayloadSpec> Payloads { get; set; } = new Dictionary<string, PayloadSpec>();
 
-        /// <summary>Half the hook spacing; hook A sits at +this (left), hook B at -this.</summary>
+        /// <summary>Half the hook spacing (v1: half the hook-to-pin spacing of one face; the mated hooks are still 2*this apart).</summary>
         public double HookHalfSpan => HookLateralSpacing.Value * 0.5;
+
+        /// <summary>Selected by hook_count: 2 = two hooks on one face (v0), 1 = reciprocal hook + pin (v1). Defaults to v0 when hook_count is absent (Validate reports that).</summary>
+        public FaceMode Mode => HookCount != null && HookCount.Value == 1 ? FaceMode.Reciprocal : FaceMode.TwoHooksPerFace;
+
+        /// <summary>Lateral side of HOOK_A in the docking frame: +1 (left) in v0; -1 in reciprocal mode (the initiator's own hook at its face -y). HOOK_B is the opposite side.</summary>
+        public double HookASide => Mode == FaceMode.Reciprocal ? -1.0 : +1.0;
 
         /// <summary>Every provenance label in the profile, by path (for audit: how much of a result rests on provisional numbers).</summary>
         public IEnumerable<KeyValuePair<string, Provenance>> AllProvenance()
@@ -96,6 +132,8 @@ namespace Crane.Fleet.Profile
                 ("docking.connector_compliance_lateral", ConnectorComplianceLateral), ("chassis.base_mass", BaseMass),
             };
             foreach (var (n, p) in named) if (p != null) yield return new KeyValuePair<string, Provenance>(n, p.Provenance);
+            if (HookOpenAngle != null) yield return new KeyValuePair<string, Provenance>("docking.hook_open_angle", HookOpenAngle.Provenance);
+            if (Magnet != null) yield return new KeyValuePair<string, Provenance>("docking.magnet", Magnet.Provenance);
             if (BodySizeLwh != null) yield return new KeyValuePair<string, Provenance>("chassis.body_size_lwh", BodySizeLwh.Provenance);
             foreach (var kv in Payloads)
             {
@@ -121,7 +159,14 @@ namespace Crane.Fleet.Profile
             Req(MagnetPullInRange, "docking.magnet_pull_in_range");
             Req(MagnetHoldForce, "docking.magnet_hold_force");
             Req(HookCount, "docking.hook_count");
-            if (HookCount != null && HookCount.Value != 2) e.Add(new ProfileError("docking.hook_count", "this library models exactly two hooks"));
+            if (HookCount != null && HookCount.Value != 2 && HookCount.Value != 1)
+                e.Add(new ProfileError("docking.hook_count", "supported: 2 (two hooks per face) or 1 (reciprocal hook + pin per face; mated connection has two hooks)"));
+            if (HookOpenAngle != null && !(HookOpenAngle.Value > 0)) e.Add(new ProfileError("docking.hook_open_angle", "must be > 0"));
+            if (Magnet != null && !(Magnet.Diameter > 0 && Magnet.Thickness > 0))
+                e.Add(new ProfileError("docking.magnet.value", "diameter and thickness must be > 0"));
+            foreach (var kv in RoleActiveFaces)
+                foreach (string a in kv.Value)
+                    if (!FaceFrames.ContainsKey(a)) e.Add(new ProfileError("roles." + kv.Key + ".active_faces", $"unknown face '{a}'"));
             Req(HookLateralSpacing, "docking.hook_lateral_spacing");
             Req(HookPositionTolerance, "docking.hook_position_tolerance");
             Req(HookYawTolerance, "docking.hook_yaw_tolerance");

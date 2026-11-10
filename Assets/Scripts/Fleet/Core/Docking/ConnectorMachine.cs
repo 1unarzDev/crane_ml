@@ -52,21 +52,27 @@ namespace Crane.Fleet.Docking
         public bool SensedB { get; private set; }
         public Residual Settled { get; private set; }
         public bool Captured { get; private set; }
+        /// <summary>Reciprocal mode: true while the partner-hook report is fresh (link up within PartnerObservationMaxAge). Always true in two-hooks-per-face mode.</summary>
+        public bool PartnerObservationFresh => !Model.Reciprocal || Time - _lastLinkTime <= A.PartnerObservationMaxAge + 1e-9;
         public AttemptSummary Summary => BuildSummary();
         public IReadOnlyList<DockingEvent> Log => _log;
 
-        private readonly FleetRng _rng;   // CRANE import: single RNG (was DeterministicRng)
+        private readonly DeterministicRng _rng;
         private readonly List<DockingEvent> _log = new List<DockingEvent>();
         private DockingCommand _lastCmd = DockingCommand.None;
         private double _engageTimer, _releaseTimer, _obstructionTimer;
         private bool _engaging, _everCaptured, _everObstructed, _verified, _loadValidated, _falseDeclared;
         private bool _seatedA, _seatedB;
+        // reciprocal mode: connection-level observation of the partner's hook (HOOK_B) and the partner close command, delayed by A.PartnerLinkLatency
+        private readonly List<KeyValuePair<double, bool>> _bLine = new List<KeyValuePair<double, bool>>();
+        private bool _bHeld;
+        private double _lastLinkTime, _partnerCmdAge;
         private StepResult _cur;
         private ConnectorInputs _in;
 
         public ConnectorMachine(ContactModel model, ulong seed, string id = "c0")
         {
-            Model = model; _rng = new FleetRng(seed); Id = id;
+            Model = model; _rng = new DeterministicRng(seed); Id = id;
         }
 
         // ================================================================= transition table
@@ -85,7 +91,7 @@ namespace Crane.Fleet.Docking
                 Vl = ConnectorState.VerificationLost, Sh = ConnectorState.StuckHook;
             Func<GuardContext, bool> notExhausted = c => !c.M.RetriesExhausted;
             Func<GuardContext, bool> clear = c => !c.In.Obstruction && !c.M.RetriesExhausted;
-            Func<GuardContext, bool> authorized = c => c.In.ReleaseAuthorized;
+            Func<GuardContext, bool> authorized = c => c.In.ReleaseAuthorized && c.M.PartnerObservationFresh;
             Func<GuardContext, bool> relBudget = c => c.M.ReleaseAttempts <= c.M.A.MaxRetries;
             Func<GuardContext, bool> anyHook = c => c.M.SensedA || c.M.SensedB;
             Func<GuardContext, bool> noHook = c => !c.M.SensedA && !c.M.SensedB;
@@ -221,6 +227,7 @@ namespace Crane.Fleet.Docking
             _in = inputs ?? new ConnectorInputs();
             _cur = new StepResult { Attempt = FailedAttempts };
             Time += dt;
+            if (_in.PartnerLinkUp) _lastLinkTime = Time;
 
             // 1. commands (edge-triggered)
             var cmd = _in.Command;
@@ -287,9 +294,9 @@ namespace Crane.Fleet.Docking
             if (inside && _in.ClosingSpeed <= A.MaxClosingSpeed)
             {
                 var bands = new Bands(
-                    Math.Abs(_rng.Gaussian()) * Model.Compliance * A.StictionBandScale,
-                    Math.Abs(_rng.Gaussian()) * A.YawBandSd,
-                    Math.Abs(_rng.Gaussian()) * A.HeightBandSd);
+                    Math.Abs(_rng.NextGaussian()) * Model.Compliance * A.StictionBandScale,
+                    Math.Abs(_rng.NextGaussian()) * A.YawBandSd,
+                    Math.Abs(_rng.NextGaussian()) * A.HeightBandSd);
                 Settled = Model.Settle(p.Lateral, p.Yaw, p.Height, bands);
                 Captured = _everCaptured = true;
                 Emit(EventKind.Capture, State, ConnectorState.MagnetCaptured, Trigger.Captured, $"settled lat={Settled.Lateral:0.0000} yaw={Settled.Yaw:0.0000} h={Settled.Height:0.0000}");
@@ -317,10 +324,33 @@ namespace Crane.Fleet.Docking
             bool closeCmd = _engaging && (State == ConnectorState.MagnetCaptured || State == ConnectorState.HookAEngaged ||
                                            State == ConnectorState.HookBEngaged || State == ConnectorState.Partial);
             bool open = State == ConnectorState.ReleaseRequested;
+            bool closeB = closeCmd;
+            if (Model.Reciprocal)
+            {
+                // the partner's close command crosses the link: its hook starts latency seconds after ours
+                _partnerCmdAge = closeCmd ? _partnerCmdAge + dt : 0;
+                closeB = closeCmd && _partnerCmdAge >= A.PartnerLinkLatency;
+            }
             MoveHook(0, _in.HookA, closeCmd, open, rate);
-            MoveHook(1, _in.HookB, closeCmd, open, rate);
+            MoveHook(1, _in.HookB, closeB, open, rate);
             HookPosA = _pos[0]; HookPosB = _pos[1];
-            SensedA = ReadSensor(0); SensedB = ReadSensor(1);
+            ObserveSensors();
+        }
+
+        /// <summary>Own hook (A) is read directly. In reciprocal mode HOOK_B is the partner's hook: its state is sampled each step, sent over the link
+        /// (dropped while the link is down), and applied latency seconds later; a stale report reads as not engaged. Idempotent within a step.</summary>
+        private void ObserveSensors()
+        {
+            SensedA = ReadSensor(0);
+            bool raw = ReadSensor(1);
+            if (!Model.Reciprocal) { SensedB = raw; return; }
+            if (_in.PartnerLinkUp)
+            {
+                if (_bLine.Count > 0 && _bLine[_bLine.Count - 1].Key == Time) _bLine.RemoveAt(_bLine.Count - 1);
+                _bLine.Add(new KeyValuePair<double, bool>(Time, raw));
+            }
+            while (_bLine.Count > 0 && _bLine[0].Key + A.PartnerLinkLatency <= Time + 1e-9) { _bHeld = _bLine[0].Value; _bLine.RemoveAt(0); }
+            SensedB = _bHeld && PartnerObservationFresh;
         }
 
         private void MoveHook(int h, HookDrive drive, bool close, bool open, double rate)
@@ -338,7 +368,7 @@ namespace Crane.Fleet.Docking
             {
                 // decide, once per close, what this hook will do given the geometry now (2 uniforms, always drawn)
                 var g = Model.HookResidual(EffectiveResidual(), h);
-                double uMiss = _rng.Uniform(); _uFp[h] = _rng.Uniform();
+                double uMiss = _rng.NextDouble(); _uFp[h] = _rng.NextDouble();
                 _plan[h] = Model.Seat(g, uMiss);
                 _planRatio[h] = g.Ratio;
             }
@@ -402,9 +432,9 @@ namespace Crane.Fleet.Docking
         private Residual Measure()
         {
             var r = EffectiveResidual();
-            return new Residual(r.Lateral + _rng.Gaussian() * A.PoseMeasureSdLateral,
-                                r.Yaw + _rng.Gaussian() * A.PoseMeasureSdYaw,
-                                r.Height + _rng.Gaussian() * A.PoseMeasureSdHeight);
+            return new Residual(r.Lateral + _rng.NextGaussian() * A.PoseMeasureSdLateral,
+                                r.Yaw + _rng.NextGaussian() * A.PoseMeasureSdYaw,
+                                r.Height + _rng.NextGaussian() * A.PoseMeasureSdHeight);
         }
 
         private double WorstRatio(Residual r) => Math.Max(Model.HookResidual(r, 0).Ratio, Model.HookResidual(r, 1).Ratio);
@@ -438,7 +468,7 @@ namespace Crane.Fleet.Docking
                 if (loads.OverloadA) { Emit(EventKind.HookOverload, State, State, null, $"hook A load {loads.A:0.0} N > rated {Model.HookRatedLoad} N: slips"); SlipHook(0); }
                 if (loads.OverloadB) { Emit(EventKind.HookOverload, State, State, null, $"hook B load {loads.B:0.0} N > rated {Model.HookRatedLoad} N: slips"); SlipHook(1); }
             }
-            SensedA = ReadSensor(0); SensedB = ReadSensor(1);
+            ObserveSensors();
             bool lost = !(SensedA && SensedB);
             if (!lost) lost = WorstRatio(Measure()) > A.VerificationLossFactor;
             if (lost) { _verified = false; _loadValidated = false; FireInternal(Trigger.VerificationLostDetected); }
@@ -475,7 +505,7 @@ namespace Crane.Fleet.Docking
             _prevSensedA = _prevSensedB = false; _engaging = false;
             _verified = false; _loadValidated = false;
             ClearHook(0); ClearHook(1);
-            SensedA = SensedB = false;
+            SensedA = SensedB = false; _bLine.Clear(); _bHeld = false;
         }
         // (hooks are already open when RELEASED is entered)
 
