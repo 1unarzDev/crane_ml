@@ -191,7 +191,7 @@ namespace Crane.Fleet
     /// <summary>Approach a located object, align at the grasp pose, close the gripper and lift.</summary>
     public sealed class LiftBehavior : TaskBehavior
     {
-        private Navigator _nav; private double _t;
+        private Navigator _nav; private double _t; private Pose2 _graspObj;
         public override IEnumerable<string> Rovers() { yield return S.Str("agent"); }
         public override TaskState Tick(double dt)
         {
@@ -226,6 +226,7 @@ namespace Crane.Fleet
                 _t += dt; var ag = F.AgentOf(rover); ag.Command = ag.Tracker.Hold(Twist2.Zero, dt); ag.CommandSet = true;
                 if (_t < 1.0) return TaskState.Running;
                 if (!F.Blackboard.TryGetValue(obj, out var op2)) { var g = S.Nums("object_pose"); op2 = new Pose2(g[0], g[1], g.Length > 2 ? g[2] : 0); }
+                _graspObj = op2;
                 double off = S.Num("grasp_offset", 0.30);
                 // the grasp pose overlaps the object by design (gripper envelope): the object is not an obstacle for this move
                 _nav = new Navigator(F, rover, Se2.Compose(op2, new Pose2(-off, 0, 0)), F.A.CruiseFraction * 0.4, S.Id) { PosTol = 0.02, YawTol = 0.04, Ignore = new[] { obj }, IgnoreObstacles = new[] { obj } };
@@ -247,7 +248,14 @@ namespace Crane.Fleet
             }
             if (Phase == "lift")
             {
-                if (ch.Lift.Height >= S.Num("height", 0.12) - 0.01) return ch.Lift.HoldingObject ? TaskState.Succeeded : Fail(FailureClass.Geometry, "object lost while lifting");
+                if (ch.Lift.Height >= S.Num("height", 0.12) - 0.01)
+                {
+                    if (!ch.Lift.HoldingObject) return Fail(FailureClass.Geometry, "object lost while lifting");
+                    // held: the object now travels with the carrier (its map box leaves the map, the carrier's footprint grows)
+                    var rel = new Pose2(S.Num("grasp_offset", 0.30), 0, Se2.Wrap(_graspObj.Yaw - F.AgentOf(rover).MemberPose(rover).Yaw));
+                    F.ObjectPicked(obj, rover, rel, S.Str("payload_type"));
+                    return TaskState.Succeeded;
+                }
                 if (_t > 10) return Fail(FailureClass.Timeout, "lift did not reach height");
             }
             return TaskState.Running;
@@ -346,6 +354,7 @@ namespace Crane.Fleet
                 if (!ch.Lift.HoldingObject)
                 {
                     _releasedAt = F.Now;
+                    F.ObjectReleased(S.Str("payload"), null);   // leaves the lifter's footprint; the decks' footprint takes it on confirmation
                     if (!F.Config.PostReleaseSupportCheck) { AddBelief(Offset()); }
                     var back = Se2.Compose(F.AgentOf(from).MemberPose(from), new Pose2(-S.Num("clear_distance", 0.55), 0, 0));   // far enough to see the payload tag over the deck
                     _nav = new Navigator(F, from, back, F.A.CruiseFraction * 0.5, S.Id) { PosTol = 0.06, YawTol = 0.1, Ignore = S.Strs("supporters") };
@@ -383,6 +392,7 @@ namespace Crane.Fleet
                     double mx = Math.Abs(pIn.X), my = Math.Abs(pIn.Y);
                     bool onDeck = S.Strs("supporters").Count > 1 ? CheckMulti(pIn) : (mx <= spec.DeckLength / 2 - 0.03 && my <= spec.DeckWidth / 2 - 0.02);
                     if (onDeck) { AddBelief(pIn); F.Log("support_confirmed", S.Id, from, $"payload seen at ({pIn.X:0.000}, {pIn.Y:0.000}) on {PlaceOn}"); return TaskState.Succeeded; }
+                    F.ReinsertObstacle(pid, Se2.Compose(F.AgentOf(from).MemberPose(from), _payInLifter));
                     return Fail(FailureClass.Support, $"payload {pid} observed off the decks at ({pIn.X:0.000}, {pIn.Y:0.000}) in {PlaceOn} frame");
                 }
                 if (_t > F.A.HandoffConfirmTimeout) return Fail(FailureClass.Support, $"support of {pid} not confirmed after release (no deck load signal, payload tag not seen)");

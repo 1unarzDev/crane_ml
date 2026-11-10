@@ -209,6 +209,13 @@ failing (back-offs up to 0.5 m along -x, +-10 cm lateral, +-0.3 rad), and a `goa
 plans with the grasped object excluded (`PlanRequest.IgnoreObstacleIds`). Harness tests `LiftGeometryTests` reproduce the CRANE
 geometry: the old goals collide, and the lift now succeeds.
 
+Held objects (CRANE seed 4, carry plan `start_in_collision`): once a lift is confirmed, `FleetAutonomy.ObjectPicked` removes the
+object's box from the planning map and adds it to the carrier's footprint (`held:<id>`, at the grasp pose) for every plan until
+release. `ObjectReleased` drops it from the footprint at release. A payload confirmed on the decks then rides in the receiving
+assembly's footprint; a payload observed elsewhere is re-inserted into the map at its observed pose (`ReinsertObstacle`). If the
+map has no box for the object, the lift task's optional `payload_type` gives its size. No interface change: CRANE keeps the
+payload in the map.
+
 ## Known gaps
 
 No dynamic obstacle avoidance between moving agents (other agents are static obstacles at plan time; tasks own their rovers

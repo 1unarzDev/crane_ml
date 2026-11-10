@@ -172,6 +172,53 @@ namespace Crane.Fleet
             Executive = new MissionExecutive(this, m);
         }
 
+        /// <summary>Objects currently held by a lifter: their planning-map box (removed from the map while held) and the carrier.</summary>
+        public readonly Dictionary<string, (string carrier, Box2 box)> Held = new Dictionary<string, (string, Box2)>();
+
+        /// <summary>A lift was confirmed: the object's static box leaves the planning map and the carrier's footprint is inflated by it
+        /// (at <paramref name="objInCarrier"/>, the object's pose in the carrier's base frame) for every plan until release.</summary>
+        public void ObjectPicked(string obj, string carrier, Pose2 objInCarrier, string payloadType = null)
+        {
+            Box2 box = default; bool found = false;
+            var obs = Config.Map.Obstacles;
+            for (int i = obs.Count - 1; i >= 0; i--) if (obs[i].Id == obj) { box = obs[i]; obs.RemoveAt(i); found = true; }
+            if (!found && payloadType != null && Config.DockingProfile != null && Config.DockingProfile.Payloads.TryGetValue(payloadType, out var ps))
+            { var sz = ps.SizeLwh.Value; box = new Box2(obj, 0, 0, 0, sz[0] / 2, sz[1] / 2); found = true; }
+            if (!found) { Log("object_picked", null, carrier, obj + " (no size known: footprint unchanged)"); return; }
+            Held[obj] = (carrier, box);
+            var ag = AgentOf(carrier);
+            var inAgent = Se2.Compose(ag.Model.ModulePose(carrier), objInCarrier);
+            ag.Model.ExtraFootprint.Add(new Box2("held:" + obj, inAgent.X, inAgent.Y, inAgent.Yaw, box.Hx, box.Hy));
+            ag.Model.Version++;
+            RebuildCapability(ag, "holding " + obj);
+            Log("object_picked", null, carrier, $"{obj}: map box removed, footprint +{2 * box.Hx:0.00} x {2 * box.Hy:0.00} m");
+        }
+
+        /// <summary>The held object was released: it leaves the carrier's footprint; with <paramref name="reinsertAt"/> it is put back in
+        /// the planning map at that world pose (observed pose, when it did not end up on a deck).</summary>
+        public void ObjectReleased(string obj, Pose2? reinsertAt)
+        {
+            if (obj == null || !Held.TryGetValue(obj, out var h)) return;
+            Held.Remove(obj);
+            var ag = AgentOf(h.carrier);
+            ag.Model.ExtraFootprint.RemoveAll(b => b.Id == "held:" + obj);
+            ag.Model.Version++;
+            RebuildCapability(ag, "released " + obj);
+            _released[obj] = h.box;
+            if (reinsertAt.HasValue) ReinsertObstacle(obj, reinsertAt.Value);
+        }
+
+        private readonly Dictionary<string, Box2> _released = new Dictionary<string, Box2>();
+
+        /// <summary>Put a released object back into the planning map as a static box at its (observed) world pose.</summary>
+        public void ReinsertObstacle(string obj, Pose2 world)
+        {
+            if (!_released.TryGetValue(obj, out var b)) return;
+            Config.Map.Obstacles.RemoveAll(o => o.Id == obj);
+            Config.Map.Obstacles.Add(new Box2(obj, world.X, world.Y, world.Yaw, b.Hx, b.Hy));
+            Log("object_reinserted", null, null, $"{obj} at ({world.X:0.000}, {world.Y:0.000})");
+        }
+
         public void AddPayload(string id, string type, List<string> supporters, Pose2 comWorld)
         {
             if (Belief == null) return;
