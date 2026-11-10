@@ -15,3 +15,5 @@
 | N-agent results | nagent_pilot.md | exploratory |
 | Joint planner on held-out cells | joint_heldout.md, joint_heldout_all.md | exploratory |
 | Silent fixes for the joint planner (none closes the gap) | joint_silent.md | exploratory |
+| Original lead analysis (§7 example 0.751/0.757/0.779/0.781) | sweep_summary.md (5x5, 'both', burst30_L10_d1) | exploratory, superseded |
+| Dev-seed event curves (λ-by-λ deltas, bytes) | curve_dev.md | exploratory (dev seeds 100–102) |
