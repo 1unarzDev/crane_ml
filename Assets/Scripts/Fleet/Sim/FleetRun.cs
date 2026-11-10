@@ -28,6 +28,14 @@ namespace Crane.Fleet.Sim {
         IDictionary<string, object> Labels { get; }
     }
 
+    /// <summary>A mission that brings its own fleet (module graphs) instead of the profile's fleet_default.</summary>
+    public interface IFleetComposer {
+        /// <summary>Rover descriptions in spawn order, with each one's initial wheel health (null = all ok).</summary>
+        IEnumerable<(RoverDescription d, WheelHealth[] health, double[] gain)> Fleet(FleetSpec spec);
+        string Configuration { get; }
+        string ConfigurationHash { get; }
+    }
+
     public sealed class FleetRunOptions {
         public long Seed = 1;
         public string Variant;            // default: overlay qualification.variant
@@ -114,12 +122,17 @@ namespace Crane.Fleet.Sim {
             FloorProperties floor = Spec.Floor();
             var jitter = FleetRng.For(Opt.Seed, "start_jitter");
             double jxy = Spec.O["qualification.start_jitter_xy"].Double, jyaw = Spec.O["qualification.start_jitter_yaw"].Double;
-            foreach (var (id, role) in Spec.FleetDefault()) {
+            var fleet = new List<(RoverDescription d, WheelHealth[] health, double[] gain)>();
+            if (M is IFleetComposer comp) fleet.AddRange(comp.Fleet(Spec));
+            else foreach (var (fid, frole) in Spec.FleetDefault()) fleet.Add((Spec.Describe(fid, frole), null, null));
+            foreach (var (desc, health0, gain0) in fleet) {
+                string id = desc.Id;
                 Pose2 nominal;
                 if (M != null) nominal = M.StartPose(id);
                 else { double[] s = Spec.O["qualification.rovers." + id + ".start"].Doubles; nominal = new Pose2(s[0], s[1], s[2]); }
                 var pose = new Pose2(nominal.X + jitter.Uniform(-jxy, jxy), nominal.Y + jitter.Uniform(-jxy, jxy), nominal.Yaw + jitter.Uniform(-jyaw, jyaw));
-                var rig = new RoverRig(Spec, Spec.Describe(id, role), floor, Opt.Seed, World.Root.transform, pose);
+                var rig = new RoverRig(Spec, desc, floor, Opt.Seed, World.Root.transform, pose);
+                if (health0 != null) for (int i = 0; i < health0.Length; i++) { rig.Plant.Health[i] = health0[i]; if (gain0 != null) rig.Plant.HealthGain[i] = gain0[i]; }
                 Rovers.Add(rig);
                 foreach (var c in rig.Root.GetComponentsInChildren<Collider>()) { byCollider[c] = rig; c.providesContacts = true; }
                 saturated[id] = false;
@@ -238,11 +251,14 @@ namespace Crane.Fleet.Sim {
                 if (T < f.t - 1e-9) continue;
                 failures.RemoveAt(i);
                 var r = Rover(f.rover);
-                string[] wheels = { "wheel_fl", "wheel_fr", "wheel_rl", "wheel_rr" };
-                int wi = Array.IndexOf(wheels, f.target);
+                int wi = r.D.Wheels.FindIndex(w => "wheel_" + w.Name == f.target);
                 if (wi >= 0) {
-                    r.Plant.Health[wi] = f.mode switch { "dead_free" => WheelHealth.DeadFree, "dead_locked" => WheelHealth.DeadLocked, "weak" => WheelHealth.Weak,
+                    // mode: dead_free | dead_locked | ok | weak | weak=<gain> (gain for the tractive plant; the body-level mecanum plant has one fraction)
+                    string mode = f.mode; double gain = double.NaN;
+                    if (mode.StartsWith("weak=")) { gain = double.Parse(mode.Substring(5), CultureInfo.InvariantCulture); mode = "weak"; }
+                    r.Plant.Health[wi] = mode switch { "dead_free" => WheelHealth.DeadFree, "dead_locked" => WheelHealth.DeadLocked, "weak" => WheelHealth.Weak,
                         "ok" => WheelHealth.Ok, _ => throw new FormatException("wheel failure mode " + f.mode) };
+                    if (r.Tractive != null && mode == "weak") r.Tractive.Gain[wi] = double.IsNaN(gain) ? r.Tractive.P.DefaultWeakGain : gain;
                 }
                 else if (f.target == "camera") r.CameraLost = f.mode == "lost";
                 else if (f.target == "encoders") r.EncodersLost = f.mode == "lost";
@@ -254,7 +270,8 @@ namespace Crane.Fleet.Sim {
         Dictionary<string, object> Labels() {
             var l = new Dictionary<string, object> {
                 ["scenario_id"] = Spec.S["scenario_id"].String, ["scenario_sha256"] = Spec.Scenario.Sha256,
-                ["configuration"] = "profile:" + Spec.P["profile_id"].String + ":fleet_default", ["configuration_hash"] = Spec.Profile.Sha256,
+                ["configuration"] = M is IFleetComposer fc ? fc.Configuration : "profile:" + Spec.P["profile_id"].String + ":fleet_default",
+                ["configuration_hash"] = M is IFleetComposer fh ? fh.ConfigurationHash : Spec.Profile.Sha256,
                 ["variant"] = Opt.Variant, ["seed"] = Opt.Seed, ["floor"] = Spec.S["arena.floor"].String,
                 ["failure_state"] = string.IsNullOrEmpty(Opt.Failures) ? "none" : Opt.Failures,
                 ["mission"] = M != null ? M.GetType().Name : "qualification", ["controller_input"] = M != null ? M.ControllerInput : "evaluator_truth"
@@ -355,7 +372,7 @@ namespace Crane.Fleet.Sim {
         void DetectJams() {
             foreach (var r in Rovers) {
                 double cmd = 0;
-                for (int i = 0; i < 4; i++) cmd = Math.Max(cmd, Math.Abs(r.Plant.WheelCommand[i]));
+                for (int i = 0; i < r.Plant.WheelCount; i++) cmd = Math.Max(cmd, Math.Abs(r.Plant.WheelCommand[i]));
                 var tw = FleetFrames.BodyTwist(r.Body);
                 bool still = Math.Sqrt(tw.Vx * tw.Vx + tw.Vy * tw.Vy) < JamSpeed && Math.Abs(tw.Wz) < JamYawRate;
                 bool stalled = cmd > JamWheelRate && still;
@@ -414,18 +431,29 @@ namespace Crane.Fleet.Sim {
                 var o = r.Odometry;
                 b.Append(FleetJson.Quote(r.D.Id)).Append(":{\"x\":").Append(N(o.X)).Append(",\"y\":").Append(N(o.Y)).Append(",\"yaw\":").Append(N(o.Yaw))
                     .Append(",\"vx\":").Append(N(o.LastTwist.Vx)).Append(",\"vy\":").Append(N(o.LastTwist.Vy)).Append(",\"wz\":").Append(N(o.LastTwist.Wz))
-                    .Append(",\"gyro_wz\":").Append(N(r.Gyro.Last)).Append(",\"ticks\":[")
-                    .Append(r.Encoders.Ticks[0]).Append(',').Append(r.Encoders.Ticks[1]).Append(',').Append(r.Encoders.Ticks[2]).Append(',').Append(r.Encoders.Ticks[3]).Append("]}");
+                    .Append(",\"gyro_wz\":").Append(N(r.Gyro.Last)).Append(",\"ticks\":[");
+                for (int k = 0; k < r.Encoders.Ticks.Length; k++) { if (k > 0) b.Append(','); b.Append(r.Encoders.Ticks[k]); }
+                b.Append("]}");
             }
             b.Append("},\"actuation\":{");
             for (int i = 0; i < Rovers.Count; i++) {
                 var r = Rovers[i];
-                var p = r.Plant;
                 if (i > 0) b.Append(',');
-                b.Append(FleetJson.Quote(r.D.Id)).Append(":{\"cmd\":[").Append(N(r.Command.Vx)).Append(',').Append(N(r.Command.Vy)).Append(',').Append(N(r.Command.Wz))
-                    .Append("],\"wheel_cmd\":").Append(Arr(p.WheelCommand)).Append(",\"wheel\":").Append(Arr(p.WheelSpeed))
-                    .Append(",\"slip\":").Append(Arr(p.SlipFactor)).Append(",\"normal_load\":").Append(Arr(p.NormalLoad))
-                    .Append(",\"traction_scale\":").Append(N(p.TractionScale)).Append(",\"step\":").Append(FleetJson.Quote(StepOf(r))).Append('}');
+                b.Append(FleetJson.Quote(r.D.Id)).Append(":{\"cmd\":[").Append(N(r.Command.Vx)).Append(',').Append(N(r.Command.Vy)).Append(',').Append(N(r.Command.Wz)).Append(']');
+                if (r.Plant is MecanumPlant p)
+                    b.Append(",\"wheel_cmd\":").Append(Arr(p.WheelCommand)).Append(",\"wheel\":").Append(Arr(p.WheelSpeed))
+                        .Append(",\"slip\":").Append(Arr(p.SlipFactor)).Append(",\"normal_load\":").Append(Arr(p.NormalLoad));
+                else {
+                    var tp = r.Tractive;
+                    var f = new double[2 * tp.N];
+                    for (int k = 0; k < tp.N; k++) { f[2 * k] = tp.Fx[k]; f[2 * k + 1] = tp.Fy[k]; }
+                    b.Append(",\"wheel_cmd\":").Append(Arr(tp.WheelCommand)).Append(",\"wheel\":").Append(Arr(tp.WheelSpeed))
+                        .Append(",\"normal_load\":").Append(Arr(tp.NormalLoad)).Append(",\"force_xy\":").Append(Arr(f))
+                        .Append(",\"health\":[");
+                    for (int k = 0; k < tp.N; k++) { if (k > 0) b.Append(','); b.Append(FleetJson.Quote(tp.Health[k] == WheelHealth.Weak ? "weak=" + N(tp.Gain[k]) : tp.Health[k].ToString())); }
+                    b.Append(']');
+                }
+                b.Append(",\"traction_scale\":").Append(N(r.Plant.TractionScale)).Append(",\"step\":").Append(FleetJson.Quote(StepOf(r))).Append('}');
             }
             b.Append('}');
             if (M != null) { b.Append(",\"mission\":{"); M.LogState(b); b.Append('}'); }
@@ -484,7 +512,9 @@ namespace Crane.Fleet.Sim {
             var rovers = new List<object>();
             foreach (var r in Rovers)
                 rovers.Add(new Dictionary<string, object> { ["id"] = r.D.Id, ["role"] = r.D.Role, ["namespace"] = r.D.Namespace, ["mass"] = r.D.Mass,
-                    ["render"] = r.RenderSource, ["mesh_manifest"] = r.D.MeshManifestPath, ["mesh_manifest_present"] = r.D.MeshManifestPresent });
+                    ["render"] = r.RenderSource, ["mesh_manifest"] = r.D.MeshManifestPath, ["mesh_manifest_present"] = r.D.MeshManifestPresent,
+                    ["plant_model"] = r.D.PlantModel, ["module_type"] = r.D.ModuleType, ["type_hash"] = r.D.TypeHash,
+                    ["wheels"] = r.D.WheelUnits.ConvertAll(w => (object)(w.Name + ":" + w.Kind.ToString().ToLowerInvariant())) });
             var m = new Dictionary<string, object> {
                 ["schema"] = "crane.fleet_run_manifest/v0",
                 ["run_id"] = RunId, ["seed"] = Opt.Seed, ["variant"] = Opt.Variant,

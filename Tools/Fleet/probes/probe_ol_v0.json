@@ -1,0 +1,17 @@
+{
+ "schema": "crane.fleet_probe/v0",
+ "variant": "probe_ol_v0",
+ "note": "Open-loop segments in the spirit of xval/XVAL_PROTOCOL.md OL1-OL4 (straight, strafe, spin, arc), each followed by a stop. Every module gets the same body-twist command; wheel speeds come from each module's ideal-rolling inverse kinematics.",
+ "tip_limit_rad": 0.5,
+ "max_duration_s": 40.0,
+ "segments": [
+  {"name": "fwd", "duration": 3.0, "twist": [0.2, 0.0, 0.0]},
+  {"name": "stop1", "duration": 1.0, "twist": [0.0, 0.0, 0.0]},
+  {"name": "strafe", "duration": 3.0, "twist": [0.0, 0.15, 0.0]},
+  {"name": "stop2", "duration": 1.0, "twist": [0.0, 0.0, 0.0]},
+  {"name": "spin", "duration": 3.0, "twist": [0.0, 0.0, 1.0]},
+  {"name": "stop3", "duration": 1.0, "twist": [0.0, 0.0, 0.0]},
+  {"name": "arc", "duration": 3.0, "twist": [0.15, 0.0, 0.5]},
+  {"name": "stop4", "duration": 1.0, "twist": [0.0, 0.0, 0.0]}
+ ]
+}

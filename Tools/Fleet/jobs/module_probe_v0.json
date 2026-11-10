@@ -1,0 +1,7 @@
+{
+ "out": "/home/lunarz/.cache/crane-fleet/jobs/module_probe_v0",
+ "jobs": [
+  {"id": "probe_ol_s1", "seed": 1, "config": {"graph": "/home/lunarz/worktrees/crane-fleet/Tools/Fleet/probes/probe_graph_v0.json", "origin": [7.0, 0.7, 0.0]}, "mission_file": "/home/lunarz/worktrees/crane-fleet/Tools/Fleet/probes/probe_ol_v0.json"},
+  {"id": "probe_coupled_refused", "seed": 1, "config": {"graph": {"schema": "capplan.module_graph/v0", "modules": [{"id": "a", "type": "x"}], "couplings": [{"a": "a", "b": "b"}], "types": {}}, "origin": [7, 1, 0]}, "mission_file": "/home/lunarz/worktrees/crane-fleet/Tools/Fleet/probes/probe_ol_v0.json"}
+ ]
+}

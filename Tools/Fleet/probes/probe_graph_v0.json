@@ -1,0 +1,767 @@
+{
+ "couplings": [],
+ "meta": {
+  "generator": "Tools/Fleet/capplan_types/make_probe_graph.py",
+  "note": "CRANE open-loop probe, uncoupled"
+ },
+ "modules": [
+  {
+   "act_gain": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "act_health": [
+    "ok",
+    "ok",
+    "ok",
+    "ok"
+   ],
+   "face_blocked": {},
+   "id": "dc_ok",
+   "sensor_health": [
+    "ok",
+    "ok"
+   ],
+   "sensor_noise": [
+    1.0,
+    1.0
+   ],
+   "type": "diff_carrier",
+   "x": 0.0,
+   "y": 0.0,
+   "yaw": 0.0
+  },
+  {
+   "act_gain": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "act_health": [
+    "dead_free",
+    "ok",
+    "ok",
+    "ok"
+   ],
+   "face_blocked": {},
+   "id": "dc_free0",
+   "sensor_health": [
+    "ok",
+    "ok"
+   ],
+   "sensor_noise": [
+    1.0,
+    1.0
+   ],
+   "type": "diff_carrier",
+   "x": 0.0,
+   "y": 1.1,
+   "yaw": 0.0
+  },
+  {
+   "act_gain": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "act_health": [
+    "ok",
+    "ok",
+    "ok",
+    "ok"
+   ],
+   "face_blocked": {},
+   "id": "lift_ok",
+   "sensor_health": [
+    "ok",
+    "ok",
+    "ok",
+    "ok"
+   ],
+   "sensor_noise": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "type": "lifter",
+   "x": 0.0,
+   "y": 2.2,
+   "yaw": 0.0
+  },
+  {
+   "act_gain": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "act_health": [
+    "dead_locked",
+    "ok",
+    "ok",
+    "ok"
+   ],
+   "face_blocked": {},
+   "id": "lift_lockfl",
+   "sensor_health": [
+    "ok",
+    "ok",
+    "ok",
+    "ok"
+   ],
+   "sensor_noise": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "type": "lifter",
+   "x": 0.0,
+   "y": 3.3,
+   "yaw": 0.0
+  },
+  {
+   "act_gain": [
+    1.0,
+    1.0,
+    1.0,
+    1.0
+   ],
+   "act_health": [
+    "dead_free",
+    "ok",
+    "ok",
+    "ok"
+   ],
+   "face_blocked": {},
+   "id": "mec_freefl",
+   "sensor_health": [
+    "ok",
+    "ok"
+   ],
+   "sensor_noise": [
+    1.0,
+    1.0
+   ],
+   "type": "mecanum_pod",
+   "x": 0.0,
+   "y": 4.4,
+   "yaw": 0.0
+  },
+  {
+   "act_gain": [],
+   "act_health": [],
+   "face_blocked": {},
+   "id": "mast",
+   "sensor_health": [
+    "ok",
+    "ok"
+   ],
+   "sensor_noise": [
+    1.0,
+    1.0
+   ],
+   "type": "sensor_mast",
+   "x": 0.0,
+   "y": 5.5,
+   "yaw": 0.0
+  }
+ ],
+ "schema": "capplan.module_graph/v0",
+ "types": {
+  "diff_carrier": {
+   "decks": [
+    {
+     "capacity": 8.0,
+     "lx": 0.4,
+     "ly": 0.3,
+     "x": 0.0,
+     "y": 0.0,
+     "z": 0.14
+    }
+   ],
+   "faces": {
+    "front": {
+     "approach_len": 0.1,
+     "couplable": true,
+     "guide_lat": 0.01,
+     "guide_yaw": 0.087,
+     "hook_spacing": 0.12,
+     "hooks": 2,
+     "magnet": true,
+     "rating": 60.0,
+     "type": "A",
+     "x": 0.21,
+     "y": 0.0,
+     "yaw": 0.0,
+     "z": 0.06
+    },
+    "left": {
+     "approach_len": 0.1,
+     "couplable": true,
+     "guide_lat": 0.01,
+     "guide_yaw": 0.087,
+     "hook_spacing": 0.12,
+     "hooks": 2,
+     "magnet": true,
+     "rating": 60.0,
+     "type": "A",
+     "x": 0.0,
+     "y": 0.2,
+     "yaw": 1.5707963267948966,
+     "z": 0.06
+    },
+    "rear": {
+     "approach_len": 0.1,
+     "couplable": true,
+     "guide_lat": 0.01,
+     "guide_yaw": 0.087,
+     "hook_spacing": 0.12,
+     "hooks": 2,
+     "magnet": true,
+     "rating": 60.0,
+     "type": "B",
+     "x": -0.21,
+     "y": 0.0,
+     "yaw": 3.141592653589793,
+     "z": 0.06
+    },
+    "right": {
+     "approach_len": 0.1,
+     "couplable": true,
+     "guide_lat": 0.01,
+     "guide_yaw": 0.087,
+     "hook_spacing": 0.12,
+     "hooks": 2,
+     "magnet": true,
+     "rating": 60.0,
+     "type": "B",
+     "x": 0.0,
+     "y": -0.2,
+     "yaw": -1.5707963267948966,
+     "z": 0.06
+    }
+   },
+   "family": "diff_carrier",
+   "height": 0.14,
+   "heldout_family": false,
+   "mass": 5.0,
+   "name": "diff_carrier",
+   "provenance": "assumed",
+   "sensors": [
+    {
+     "kind": "imu",
+     "x": 0.0,
+     "y": 0.0,
+     "yaw": 0.0
+    },
+    {
+     "kind": "wheel_encoder",
+     "x": 0.0,
+     "y": 0.0,
+     "yaw": 0.0
+    }
+   ],
+   "size": [
+    0.42,
+    0.4
+   ],
+   "sym180": null,
+   "tools": [],
+   "wheels": [
+    {
+     "e": [
+      1.0,
+      0.0
+     ],
+     "hand": 0,
+     "kind": "wheel_conventional",
+     "lateral": "skid",
+     "phi_max": 12.0,
+     "radius": 0.0485,
+     "tau_max": 1.2,
+     "x": 0.0,
+     "y": 0.175,
+     "yaw": 0.0
+    },
+    {
+     "e": [
+      1.0,
+      0.0
+     ],
+     "hand": 0,
+     "kind": "wheel_conventional",
+     "lateral": "skid",
+     "phi_max": 12.0,
+     "radius": 0.0485,
+     "tau_max": 1.2,
+     "x": 0.0,
+     "y": -0.175,
+     "yaw": 0.0
+    },
+    {
+     "hand": 0,
+     "kind": "wheel_caster",
+     "lateral": "skid",
+     "phi_max": 12.0,
+     "radius": 0.0485,
+     "tau_max": 1.2,
+     "x": 0.15,
+     "y": 0.0,
+     "yaw": 0.0
+    },
+    {
+     "hand": 0,
+     "kind": "wheel_caster",
+     "lateral": "skid",
+     "phi_max": 12.0,
+     "radius": 0.0485,
+     "tau_max": 1.2,
+     "x": -0.15,
+     "y": 0.0,
+     "yaw": 0.0
+    }
+   ]
+  },
+  "lifter": {
+   "decks": [],
+   "faces": {
+    "front": {
+     "approach_len": 0.1,
+     "couplable": false,
+     "guide_lat": 0.01,
+     "guide_yaw": 0.087,
+     "hook_spacing": 0.12,
+     "hooks": 2,
+     "magnet": true,
+     "rating": 60.0,
+     "type": "A",
+     "x": 0.21,
+     "y": 0.0,
+     "yaw": 0.0,
+     "z": 0.06
+    },
+    "left": {
+     "approach_len": 0.1,
+     "couplable": true,
+     "guide_lat": 0.01,
+     "guide_yaw": 0.087,
+     "hook_spacing": 0.12,
+     "hooks": 2,
+     "magnet": true,
+     "rating": 60.0,
+     "type": "A",
+     "x": 0.0,
+     "y": 0.2,
+     "yaw": 1.5707963267948966,
+     "z": 0.06
+    },
+    "rear": {
+     "approach_len": 0.1,
+     "couplable": true,
+     "guide_lat": 0.01,
+     "guide_yaw": 0.087,
+     "hook_spacing": 0.12,
+     "hooks": 2,
+     "magnet": true,
+     "rating": 60.0,
+     "type": "B",
+     "x": -0.21,
+     "y": 0.0,
+     "yaw": 3.141592653589793,
+     "z": 0.06
+    },
+    "right": {
+     "approach_len": 0.1,
+     "couplable": true,
+     "guide_lat": 0.01,
+     "guide_yaw": 0.087,
+     "hook_spacing": 0.12,
+     "hooks": 2,
+     "magnet": true,
+     "rating": 60.0,
+     "type": "B",
+     "x": 0.0,
+     "y": -0.2,
+     "yaw": -1.5707963267948966,
+     "z": 0.06
+    }
+   },
+   "family": "lifter",
+   "height": 0.2,
+   "heldout_family": false,
+   "mass": 8.0,
+   "name": "lifter",
+   "provenance": "profile lifter role",
+   "sensors": [
+    {
+     "kind": "imu",
+     "x": 0.0,
+     "y": 0.0,
+     "yaw": 0.0
+    },
+    {
+     "kind": "wheel_encoder",
+     "x": 0.0,
+     "y": 0.0,
+     "yaw": 0.0
+    },
+    {
+     "elevated": false,
+     "fov": 1.4,
+     "kind": "camera",
+     "range": 3.0,
+     "x": 0.21,
+     "y": 0.0,
+     "yaw": 0.0
+    },
+    {
+     "fov": 0.44,
+     "kind": "tof",
+     "range": 2.0,
+     "x": 0.21,
+     "y": 0.0,
+     "yaw": 0.0
+    }
+   ],
+   "size": [
+    0.42,
+    0.4
+   ],
+   "sym180": null,
+   "tools": [
+    {
+     "capacity": 5.0,
+     "face": "front",
+     "kind": "lift",
+     "speed": 0.05,
+     "travel": 0.15
+    },
+    {
+     "close_time": 1.0,
+     "face": "front",
+     "kind": "gripper",
+     "opening": 0.3
+    }
+   ],
+   "wheels": [
+    {
+     "d": [
+      0.707106781187,
+      -0.707106781187
+     ],
+     "hand": -1,
+     "kind": "wheel_mecanum",
+     "lateral": "skid",
+     "phi_max": 12.0,
+     "radius": 0.0485,
+     "tau_max": 1.2,
+     "x": 0.14,
+     "y": 0.175,
+     "yaw": 0.0
+    },
+    {
+     "d": [
+      0.707106781187,
+      0.707106781187
+     ],
+     "hand": 1,
+     "kind": "wheel_mecanum",
+     "lateral": "skid",
+     "phi_max": 12.0,
+     "radius": 0.0485,
+     "tau_max": 1.2,
+     "x": 0.14,
+     "y": -0.175,
+     "yaw": 0.0
+    },
+    {
+     "d": [
+      0.707106781187,
+      0.707106781187
+     ],
+     "hand": 1,
+     "kind": "wheel_mecanum",
+     "lateral": "skid",
+     "phi_max": 12.0,
+     "radius": 0.0485,
+     "tau_max": 1.2,
+     "x": -0.14,
+     "y": 0.175,
+     "yaw": 0.0
+    },
+    {
+     "d": [
+      0.707106781187,
+      -0.707106781187
+     ],
+     "hand": -1,
+     "kind": "wheel_mecanum",
+     "lateral": "skid",
+     "phi_max": 12.0,
+     "radius": 0.0485,
+     "tau_max": 1.2,
+     "x": -0.14,
+     "y": -0.175,
+     "yaw": 0.0
+    }
+   ]
+  },
+  "mecanum_pod": {
+   "decks": [],
+   "faces": {
+    "front": {
+     "approach_len": 0.1,
+     "couplable": true,
+     "guide_lat": 0.01,
+     "guide_yaw": 0.087,
+     "hook_spacing": 0.12,
+     "hooks": 2,
+     "magnet": true,
+     "rating": 60.0,
+     "type": "A",
+     "x": 0.21,
+     "y": 0.0,
+     "yaw": 0.0,
+     "z": 0.06
+    },
+    "left": {
+     "approach_len": 0.1,
+     "couplable": true,
+     "guide_lat": 0.01,
+     "guide_yaw": 0.087,
+     "hook_spacing": 0.12,
+     "hooks": 2,
+     "magnet": true,
+     "rating": 60.0,
+     "type": "A",
+     "x": 0.0,
+     "y": 0.2,
+     "yaw": 1.5707963267948966,
+     "z": 0.06
+    },
+    "rear": {
+     "approach_len": 0.1,
+     "couplable": true,
+     "guide_lat": 0.01,
+     "guide_yaw": 0.087,
+     "hook_spacing": 0.12,
+     "hooks": 2,
+     "magnet": true,
+     "rating": 60.0,
+     "type": "B",
+     "x": -0.21,
+     "y": 0.0,
+     "yaw": 3.141592653589793,
+     "z": 0.06
+    },
+    "right": {
+     "approach_len": 0.1,
+     "couplable": true,
+     "guide_lat": 0.01,
+     "guide_yaw": 0.087,
+     "hook_spacing": 0.12,
+     "hooks": 2,
+     "magnet": true,
+     "rating": 60.0,
+     "type": "B",
+     "x": 0.0,
+     "y": -0.2,
+     "yaw": -1.5707963267948966,
+     "z": 0.06
+    }
+   },
+   "family": "mecanum_pod",
+   "height": 0.14,
+   "heldout_family": false,
+   "mass": 6.0,
+   "name": "mecanum_pod",
+   "provenance": "profile chassis",
+   "sensors": [
+    {
+     "kind": "imu",
+     "x": 0.0,
+     "y": 0.0,
+     "yaw": 0.0
+    },
+    {
+     "kind": "wheel_encoder",
+     "x": 0.0,
+     "y": 0.0,
+     "yaw": 0.0
+    }
+   ],
+   "size": [
+    0.42,
+    0.4
+   ],
+   "sym180": null,
+   "tools": [],
+   "wheels": [
+    {
+     "d": [
+      0.707106781187,
+      -0.707106781187
+     ],
+     "hand": -1,
+     "kind": "wheel_mecanum",
+     "lateral": "skid",
+     "phi_max": 12.0,
+     "radius": 0.0485,
+     "tau_max": 1.2,
+     "x": 0.14,
+     "y": 0.175,
+     "yaw": 0.0
+    },
+    {
+     "d": [
+      0.707106781187,
+      0.707106781187
+     ],
+     "hand": 1,
+     "kind": "wheel_mecanum",
+     "lateral": "skid",
+     "phi_max": 12.0,
+     "radius": 0.0485,
+     "tau_max": 1.2,
+     "x": 0.14,
+     "y": -0.175,
+     "yaw": 0.0
+    },
+    {
+     "d": [
+      0.707106781187,
+      0.707106781187
+     ],
+     "hand": 1,
+     "kind": "wheel_mecanum",
+     "lateral": "skid",
+     "phi_max": 12.0,
+     "radius": 0.0485,
+     "tau_max": 1.2,
+     "x": -0.14,
+     "y": 0.175,
+     "yaw": 0.0
+    },
+    {
+     "d": [
+      0.707106781187,
+      -0.707106781187
+     ],
+     "hand": -1,
+     "kind": "wheel_mecanum",
+     "lateral": "skid",
+     "phi_max": 12.0,
+     "radius": 0.0485,
+     "tau_max": 1.2,
+     "x": -0.14,
+     "y": -0.175,
+     "yaw": 0.0
+    }
+   ]
+  },
+  "sensor_mast": {
+   "decks": [],
+   "faces": {
+    "front": {
+     "approach_len": 0.1,
+     "couplable": true,
+     "guide_lat": 0.01,
+     "guide_yaw": 0.087,
+     "hook_spacing": 0.12,
+     "hooks": 2,
+     "magnet": true,
+     "rating": 60.0,
+     "type": "A",
+     "x": 0.15,
+     "y": 0.0,
+     "yaw": 0.0,
+     "z": 0.06
+    },
+    "left": {
+     "approach_len": 0.1,
+     "couplable": true,
+     "guide_lat": 0.01,
+     "guide_yaw": 0.087,
+     "hook_spacing": 0.12,
+     "hooks": 2,
+     "magnet": true,
+     "rating": 60.0,
+     "type": "A",
+     "x": 0.0,
+     "y": 0.15,
+     "yaw": 1.5707963267948966,
+     "z": 0.06
+    },
+    "rear": {
+     "approach_len": 0.1,
+     "couplable": true,
+     "guide_lat": 0.01,
+     "guide_yaw": 0.087,
+     "hook_spacing": 0.12,
+     "hooks": 2,
+     "magnet": true,
+     "rating": 60.0,
+     "type": "B",
+     "x": -0.15,
+     "y": 0.0,
+     "yaw": 3.141592653589793,
+     "z": 0.06
+    },
+    "right": {
+     "approach_len": 0.1,
+     "couplable": true,
+     "guide_lat": 0.01,
+     "guide_yaw": 0.087,
+     "hook_spacing": 0.12,
+     "hooks": 2,
+     "magnet": true,
+     "rating": 60.0,
+     "type": "B",
+     "x": 0.0,
+     "y": -0.15,
+     "yaw": -1.5707963267948966,
+     "z": 0.06
+    }
+   },
+   "family": "sensor_mast",
+   "height": 0.45,
+   "heldout_family": true,
+   "mass": 2.5,
+   "name": "sensor_mast",
+   "provenance": "assumed",
+   "sensors": [
+    {
+     "elevated": true,
+     "fov": 6.283185307179586,
+     "kind": "lidar",
+     "range": 12.0,
+     "x": 0.0,
+     "y": 0.0,
+     "yaw": 0.0
+    },
+    {
+     "elevated": true,
+     "fov": 1.4,
+     "kind": "camera",
+     "range": 3.0,
+     "x": 0.15,
+     "y": 0.0,
+     "yaw": 0.0
+    }
+   ],
+   "size": [
+    0.3,
+    0.3
+   ],
+   "sym180": null,
+   "tools": [],
+   "wheels": []
+  }
+ }
+}

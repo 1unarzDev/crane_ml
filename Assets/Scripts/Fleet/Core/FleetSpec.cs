@@ -147,7 +147,14 @@ namespace Crane.Fleet {
         public Dictionary<string, double> Payload = new Dictionary<string, double>();
         public Dictionary<string, string> Provenance = new Dictionary<string, string>();
 
-        public MecanumGeometry Geometry;
+        public MecanumGeometry Geometry;          // the 4-wheel mecanum set (null for other wheel arrays)
+        /// <summary>Every wheel with its kind, for the per-wheel <see cref="TractivePlant"/> (profile rovers: the mecanum set).</summary>
+        public List<WheelUnit> WheelUnits = new List<WheelUnit>();
+        /// <summary>"mecanum_body" (body-level <see cref="MecanumPlant"/>, the validated profile-rover path) or "tractive" (per-wheel forces).</summary>
+        public string PlantModel = "mecanum_body";
+        public string ModuleType, TypeHash;       // capplan module type when spawned from a module graph
+        public int CountsPerRev;
+        public double MaxSpeedXy, MaxYawRate;
         /// <summary>Height of the chassis origin above a level floor when the rover rests on its wheels
         /// (overlay frame_convention.origin: "body_underside" = ground_clearance, "floor" = 0).</summary>
         public double OriginHeight;
@@ -200,6 +207,12 @@ namespace Crane.Fleet {
             d.Wheels.Add(new WheelFrame { Name = "rl", Axle = new FramePose(-lx, ly, r - g), Radius = r, Width = w });
             d.Wheels.Add(new WheelFrame { Name = "rr", Axle = new FramePose(-lx, -ly, r - g), Radius = r, Width = w });
             d.WheelContact = o["physics.wheel_contact"].String;
+            int[] hands = { -1, 1, 1, -1 };   // X roller pattern (library.py mecanum_set)
+            for (int i = 0; i < 4; i++)
+                d.WheelUnits.Add(new WheelUnit { Name = d.Wheels[i].Name, Kind = WheelKind.Mecanum, X = d.Wheels[i].Axle.X, Y = d.Wheels[i].Axle.Y, Hand = hands[i],
+                    Radius = r, MaxSpeed = d.Geometry.MaxWheelSpeed, MaxTorque = d.Geometry.MaxWheelTorque });
+            d.PlantModel = o.TryGet("plant.model")?.String ?? "mecanum_body";
+            d.CountsPerRev = d.Geometry.CountsPerRev; d.MaxSpeedXy = d.Geometry.MaxSpeedXy; d.MaxYawRate = d.Geometry.MaxYawRate;
 
             // docking faces
             var active = new HashSet<string>();

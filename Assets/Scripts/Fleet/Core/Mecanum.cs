@@ -139,7 +139,7 @@ namespace Crane.Fleet {
     /// per wheel by traction mu*N_i (N_i from the centre of mass, with load transfer from the last
     /// acceleration) and by motor torque / radius. The simulator applies the acceleration to a rigid body.
     /// </summary>
-    public sealed class MecanumPlant {
+    public sealed class MecanumPlant : IWheelPlant {
         public readonly MecanumGeometry G;
         public readonly PlantParams P;
         readonly FleetRng rng;
@@ -161,6 +161,17 @@ namespace Crane.Fleet {
         public bool Healthy => Health[0] == WheelHealth.Ok && Health[1] == WheelHealth.Ok && Health[2] == WheelHealth.Ok && Health[3] == WheelHealth.Ok;
         public double SpeedScale = 1;                            // 1 = no wheel-speed limit hit
         double lastAx, lastAy;
+
+        static readonly int[] driven4 = { 0, 1, 2, 3 };
+        int IWheelPlant.WheelCount => 4;
+        double[] IWheelPlant.WheelCommand => WheelCommand;
+        double[] IWheelPlant.WheelAngle => WheelAngle;
+        WheelHealth[] IWheelPlant.Health => Health;
+        double[] IWheelPlant.HealthGain => new[] { WeakFraction, WeakFraction, WeakFraction, WeakFraction };
+        double IWheelPlant.TractionScale => TractionScale;
+        double[] IWheelPlant.WheelCommandOverride { get => WheelCommandOverride; set => WheelCommandOverride = value; }
+        int[] IWheelPlant.Driven => driven4;
+        public Twist ForwardDriven(double[] w) => G.Forward(w);
 
         public MecanumPlant(MecanumGeometry g, PlantParams p, FleetRng rng) {
             G = g; P = p; this.rng = rng;
@@ -240,11 +251,11 @@ namespace Crane.Fleet {
     /// <summary>Quantized incremental encoders on the four wheels (counts per revolution from the profile).</summary>
     public sealed class WheelEncoders {
         readonly int cpr;
-        public readonly long[] Ticks = new long[4];
-        public WheelEncoders(int countsPerRev) { cpr = countsPerRev; }
+        public readonly long[] Ticks;
+        public WheelEncoders(int countsPerRev, int wheels = 4) { cpr = countsPerRev; Ticks = new long[wheels]; }
 
         public void Sample(double[] wheelAngle) {
-            for (int i = 0; i < 4; i++) Ticks[i] = (long)Math.Floor(wheelAngle[i] * cpr / (2 * Math.PI));
+            for (int i = 0; i < Ticks.Length; i++) Ticks[i] = (long)Math.Floor(wheelAngle[i] * cpr / (2 * Math.PI));
         }
         public double TicksToRad(long ticks) => ticks * 2 * Math.PI / cpr;
     }
@@ -270,22 +281,25 @@ namespace Crane.Fleet {
     /// <summary>The rover's own pose estimate: wheel-encoder translation (ideal kinematics, no knowledge of slip or
     /// lateral efficiency) and gyro-integrated heading. Never reads truth after initialisation.</summary>
     public sealed class WheelOdometry {
-        readonly MecanumGeometry g;
+        readonly Func<double[], Twist> forward;
         readonly WheelEncoders enc;
-        readonly long[] last = new long[4];
+        readonly long[] last;
         public double X, Y, Yaw;
         public Twist LastTwist;
 
-        public WheelOdometry(MecanumGeometry g, WheelEncoders enc, double x, double y, double yaw) {
-            this.g = g; this.enc = enc; X = x; Y = y; Yaw = yaw;
+        public WheelOdometry(MecanumGeometry g, WheelEncoders enc, double x, double y, double yaw) : this(g.Forward, enc, x, y, yaw) { }
+
+        /// <summary>Any wheel array: <paramref name="forward"/> maps encoder wheel speeds (encoder order) to the body twist.</summary>
+        public WheelOdometry(Func<double[], Twist> forward, WheelEncoders enc, double x, double y, double yaw) {
+            this.forward = forward; this.enc = enc; X = x; Y = y; Yaw = yaw; last = new long[enc.Ticks.Length];
         }
 
         public void IntegrateGyro(double rate, double dt) { Yaw += rate * dt; }
 
         public void IntegrateEncoders(double dt) {
-            var dw = new double[4];
-            for (int i = 0; i < 4; i++) { dw[i] = enc.TicksToRad(enc.Ticks[i] - last[i]); last[i] = enc.Ticks[i]; }
-            Twist d = g.Forward(dw);   // displacement in the body frame over the interval
+            var dw = new double[last.Length];
+            for (int i = 0; i < dw.Length; i++) { dw[i] = enc.TicksToRad(enc.Ticks[i] - last[i]); last[i] = enc.Ticks[i]; }
+            Twist d = forward(dw);   // displacement in the body frame over the interval
             LastTwist = new Twist(d.Vx / dt, d.Vy / dt, d.Wz / dt);
             double c = Math.Cos(Yaw), s = Math.Sin(Yaw);
             X += c * d.Vx - s * d.Vy;

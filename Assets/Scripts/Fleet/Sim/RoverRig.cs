@@ -20,7 +20,11 @@ namespace Crane.Fleet.Sim {
         public readonly RoverDescription D;
         public readonly GameObject Root;
         public readonly Rigidbody Body;
-        public readonly MecanumPlant Plant;
+        /// <summary>The wheel plant: body-level <see cref="MecanumPlant"/> (profile rovers) or per-wheel <see cref="TractivePlant"/> (module types,
+        /// or profile rovers with overlay plant.model = "tractive").</summary>
+        public readonly IWheelPlant Plant;
+        public MecanumPlant Mecanum => Plant as MecanumPlant;
+        public TractivePlant Tractive => Plant as TractivePlant;
         public readonly WheelEncoders Encoders;
         public readonly YawGyro Gyro;
         public WheelOdometry Odometry;
@@ -34,7 +38,7 @@ namespace Crane.Fleet.Sim {
         public bool CameraLost, EncodersLost;
         public IRoverSampleSink SampleSink;
         Vector3 prevVel; bool havePrevVel;
-        readonly long[] prevTicks = new long[4];
+        readonly long[] prevTicks;
         FleetRng accelRng; double accelNoise;   // the autonomy source receives the rover's own samples as they are produced   // injected sensor failures (rover side sees no tags / frozen encoders)   // lifter state (m), render and payload carry
 
         readonly int imuEvery, encEvery;
@@ -114,8 +118,14 @@ namespace Crane.Fleet.Sim {
             AddFrame(frames, "com", new FramePose(d.ComOffset[0], d.ComOffset[1], d.ComOffset[2]));
 
             // plant and the rover's own sensors (independent seeded streams per rover)
-            Plant = new MecanumPlant(d.Geometry, PlantParams.From(spec, d, floor), FleetRng.For(seed, d.Id + "/slip"));
-            Encoders = new WheelEncoders(d.Geometry.CountsPerRev);
+            if (d.PlantModel == "mecanum_body") {
+                if (d.Geometry == null) throw new NotSupportedException(d.Id + ": mecanum_body plant needs a 4-wheel mecanum set");
+                Plant = new MecanumPlant(d.Geometry, PlantParams.From(spec, d, floor), FleetRng.For(seed, d.Id + "/slip"));
+            }
+            else if (d.PlantModel == "tractive") Plant = new TractivePlant(d.WheelUnits, TractionParams.From(spec, d, floor));
+            else throw new NotSupportedException(d.Id + ": plant model " + d.PlantModel);
+            Encoders = new WheelEncoders(d.CountsPerRev, Plant.Driven.Length);
+            prevTicks = new long[Plant.Driven.Length];
             Gyro = new YawGyro(FleetRng.For(seed, d.Id + "/imu"), p["sensors.imu.gyro_noise_density"].Double,
                 p["sensors.imu.gyro_bias_instability"].Double, o["plant.imu_initial_bias_sigma"].Double);
             accelRng = FleetRng.For(seed, d.Id + "/accel");
@@ -142,13 +152,40 @@ namespace Crane.Fleet.Sim {
             return t;
         }
 
-        /// <summary>Plant step with the current command; applies the planar force and yaw torque at the CoM.</summary>
+        /// <summary>Plant step with the current command. Body-level mecanum: planar force and yaw torque at the CoM. Tractive: each wheel's
+        /// horizontal contact force (chassis frame) at its floor contact point, so the engine also sees the pitch/roll moments.</summary>
         public void ApplyPlant() {
-            Twist measured = FleetFrames.BodyTwist(Body);
-            Plant.Step(Command, measured, dt);
-            float m = Body.mass;
-            Body.AddRelativeForce(new Vector3((float)(-Plant.Ay * m), 0f, (float)(Plant.Ax * m)), ForceMode.Force);
-            Body.AddRelativeTorque(new Vector3(0f, (float)(-Plant.Alpha * Plant.P.Izz), 0f), ForceMode.Force);
+            Twist com = FleetFrames.BodyTwist(Body);   // rigid-body (CoM) velocity in the chassis frame
+            if (Plant is MecanumPlant mp) {
+                mp.Step(Command, com, dt);
+                float m = Body.mass;
+                Body.AddRelativeForce(new Vector3((float)(-mp.Ay * m), 0f, (float)(mp.Ax * m)), ForceMode.Force);
+                Body.AddRelativeTorque(new Vector3(0f, (float)(-mp.Alpha * mp.P.Izz), 0f), ForceMode.Force);
+                return;
+            }
+            var tp = (TractivePlant)Plant;
+            // base_link twist from the CoM twist (v_o = v_c - w x c)
+            var measured = new Twist(com.Vx + com.Wz * D.ComOffset[1], com.Vy - com.Wz * D.ComOffset[0], com.Wz);
+            tp.Step(Command, measured, dt);
+            Transform tr = Root.transform;
+            for (int i = 0; i < tp.N; i++) {
+                if (tp.Fx[i] == 0 && tp.Fy[i] == 0) continue;
+                Vector3 at = tr.TransformPoint(FleetFrames.Local(new[] { tp.W[i].X, tp.W[i].Y, -D.OriginHeight }));
+                Vector3 f = tr.TransformDirection(FleetFrames.Local(new[] { tp.Fx[i], tp.Fy[i], 0.0 }));
+                Body.AddForceAtPosition(f, at, ForceMode.Force);
+            }
+        }
+
+        /// <summary>Angles of the driven (encoder) wheels, in encoder order.</summary>
+        double[] DrivenAngles() {
+            var idx = Plant.Driven; var a = new double[idx.Length];
+            for (int k = 0; k < idx.Length; k++) a[k] = Plant.WheelAngle[idx[k]];
+            return a;
+        }
+        double[] DrivenCommands() {
+            var idx = Plant.Driven; var a = new double[idx.Length];
+            for (int k = 0; k < idx.Length; k++) a[k] = Plant.WheelCommand[idx[k]];
+            return a;
         }
 
         /// <summary>Sensors after the physics step <paramref name="step"/> (0-based count of steps since t = 0).</summary>
@@ -169,13 +206,13 @@ namespace Crane.Fleet.Sim {
                 }
             }
             if (step % encEvery == 0 && !EncodersLost) {
-                Encoders.Sample(Plant.WheelAngle);
+                Encoders.Sample(DrivenAngles());
                 Odometry?.IntegrateEncoders(encEvery * dt);
                 SampleSink?.OnEncoder(step * dt, (long[])Encoders.Ticks.Clone());
                 if (SampleSink != null) {
-                    var meas = new double[4];
-                    for (int i = 0; i < 4; i++) { meas[i] = Encoders.TicksToRad(Encoders.Ticks[i] - prevTicks[i]) / (encEvery * dt); prevTicks[i] = Encoders.Ticks[i]; }
-                    SampleSink.OnWheelRates(step * dt, (double[])Plant.WheelCommand.Clone(), meas);
+                    var meas = new double[prevTicks.Length];
+                    for (int i = 0; i < meas.Length; i++) { meas[i] = Encoders.TicksToRad(Encoders.Ticks[i] - prevTicks[i]) / (encEvery * dt); prevTicks[i] = Encoders.Ticks[i]; }
+                    SampleSink.OnWheelRates(step * dt, DrivenCommands(), meas);
                 }
             }
         }
@@ -192,8 +229,8 @@ namespace Crane.Fleet.Sim {
 
         public void StartOdometry() {
             RoverTruth t = Truth();
-            Encoders.Sample(Plant.WheelAngle);
-            Odometry = new WheelOdometry(D.Geometry, Encoders, t.X, t.Y, t.Yaw);
+            Encoders.Sample(DrivenAngles());
+            Odometry = new WheelOdometry(Plant.ForwardDriven, Encoders, t.X, t.Y, t.Yaw);
             Odometry.IntegrateEncoders(dt);  // absorb ticks accumulated during settling
             Odometry.X = t.X; Odometry.Y = t.Y;
         }

@@ -67,6 +67,51 @@
       "value": 0.002,
       "provenance": "provisional",
       "note": "m/s^2/sqrt(Hz); the profile has no accelerometer entry"
+    },
+    "model": "mecanum_body",
+    "model_note": "profile rovers: mecanum_body (body-level MecanumPlant, the validated path) or tractive (per-wheel TractivePlant); module-graph modules always use tractive",
+    "tractive": {
+      "note": "per-wheel tractive plant (Core TractivePlant, CRANE_MODULAR_PLAN P1). Longitudinal mu is the floor mu_long. Ranges from capplan/truth/README.md parameter ranges (randomize.py), ASSUMED; none measured",
+      "mu_lat_ratio": {
+        "value": 0.9,
+        "provenance": "provisional",
+        "note": "conventional wheel lateral/longitudinal mu; truth isotropic regime 0.8-1.0"
+      },
+      "slip_velocity": {
+        "value": 0.02,
+        "provenance": "provisional",
+        "note": "m/s; tanh slip-curve scale"
+      },
+      "roller_drag": {
+        "value": 0.02,
+        "provenance": "provisional",
+        "note": "mecanum/omni free-direction drag, fraction of N at full slip"
+      },
+      "rolling_resistance": {
+        "value": 0.01,
+        "provenance": "provisional",
+        "note": "fraction of N; casters and wheel rolling direction"
+      },
+      "motor_gain": {
+        "value": 0.6,
+        "provenance": "provisional",
+        "note": "N m per rad/s speed error (velocity P loop), saturating at the wheel tau_max"
+      },
+      "backdrive_torque": {
+        "value": 0.05,
+        "provenance": "provisional",
+        "note": "N m Coulomb torque of an unpowered motor; truth log-uniform 0.01-0.6"
+      },
+      "backdrive_speed": {
+        "value": 0.5,
+        "provenance": "provisional",
+        "note": "rad/s smoothing of the back-drive torque"
+      },
+      "weak_gain_default": {
+        "value": 0.3,
+        "provenance": "provisional",
+        "note": "weak without explicit gain; same fraction as the mecanum plant"
+      }
     }
   },
   "logging": {
@@ -200,7 +245,12 @@
     "led_nits": {
       "value": 8.0,
       "provenance": "provisional"
-    }
+    },
+    "module_color": [
+      0.6,
+      0.6,
+      0.65
+    ]
   },
   "sensor_mounts": {
     "note": "Placeholder mounting poses [x, y, z, yaw, pitch] in the chassis frame; the shared profile lists sensors but not their poses. Stereo pairs are split by the profile's stereo_baseline.",
@@ -1613,5 +1663,13 @@
         ]
       }
     ]
+  },
+  "module_sensor_models": {
+    "note": "capplan sensor kinds -> profile sensor models for modules spawned from a module graph",
+    "imu": "imu",
+    "camera": "mono_camera_ov9281",
+    "stereo": "mono_camera_ov9281",
+    "tof": "range_tof",
+    "lidar": "lidar_2d"
   }
 }

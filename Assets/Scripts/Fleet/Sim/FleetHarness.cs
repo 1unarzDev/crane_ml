@@ -34,11 +34,14 @@ namespace Crane.Fleet.Sim {
             var byId = new Dictionary<string, JobResult>();
             using var summary = new StreamWriter(Path.Combine(outDir, "summary.jsonl"), false) { NewLine = "\n" };
             foreach (var j in root["jobs"].Items) {
-                string cfg = j.Has("config") && j["config"].Unwrapped is string cs ? cs : "profile";
-                if (cfg != "profile") {
-                    // module graphs from the shared generator cannot be spawned yet: refuse explicitly rather than run a different fleet
+                string cfg = !j.Has("config") ? "profile" : j["config"].Unwrapped is string cs ? cs : j["config"].Has("graph") ? "module_graph" : "unknown";
+                string refusal = cfg == "profile" ? null
+                    : cfg == "module_graph" ? ModuleProbeMission.Unsupported(j["config"]) ?? (IsProbe(j) ? null : "a module graph runs only with a crane.fleet_probe mission_file")
+                    : "config " + cfg + ": use \"profile\" or {\"graph\": capplan.module_graph/v0, \"origin\": [x, y, yaw]}";
+                if (refusal != null) {
+                    // refuse explicitly rather than run a different fleet
                     summary.WriteLine(FleetJson.Write(new Dictionary<string, object> { ["id"] = j["id"].String, ["success"] = false, ["outcome"] = "unsupported_configuration",
-                        ["reason"] = "spawning from a module graph is not implemented yet; only config=profile (fleet_default) runs", ["config"] = cfg }));
+                        ["reason"] = refusal, ["config"] = cfg }));
                     summary.Flush();
                     Debug.Log($"CRANE_FLEET_JOB id={j["id"].String} success=False outcome=unsupported_configuration");
                     continue;
@@ -66,17 +69,29 @@ namespace Crane.Fleet.Sim {
             };
             string mission = j.Has("mission") ? j["mission"].String : "qual";
             JsonNode mf = j.Has("mission_file") ? JsonNode.FromText(File.ReadAllText(j["mission_file"].String)) : null;
-            if (mf != null) mission = mf.Has("schema") && mf["schema"].String.StartsWith("crane.fleet_mission/") ? "autonomy" : mf["mission"].String;
+            if (mf != null) mission = mf.Has("schema") && mf["schema"].String.StartsWith("crane.fleet_mission/") ? "autonomy"
+                : mf.Has("schema") && mf["schema"].String.StartsWith("crane.fleet_probe/") ? "probe" : mf["mission"].String;
             if (mission == "demo") { o.Mission = new DemoMission(spec); o.MaxDuration = spec.O["demo.max_duration_s"].Double; }
             else if (mission == "autonomy") {
                 o.Mission = new AutonomyMission(spec, j["mission_file"].String);
                 o.MaxDuration = mf.Has("crane_max_duration_s") ? mf["crane_max_duration_s"].Double : 300.0;
+            }
+            else if (mission == "probe") {
+                var pm = new ModuleProbeMission(j["config"], j["mission_file"].String);
+                o.Mission = pm;
+                o.MaxDuration = mf["max_duration_s"].Double;
             }
             else if (mission != "qual") throw new ArgumentException("unknown mission " + mission);
             if (j.Has("labels")) foreach (var kv in j["labels"].Members) o.Labels[kv.Key] = kv.Value.Raw;
             o.Labels["harness_job"] = j["id"].String;
             if (j.Has("max_duration_s")) o.MaxDuration = j["max_duration_s"].Double;
             return o;
+        }
+
+        static bool IsProbe(JsonNode j) {
+            if (!j.Has("mission_file")) return false;
+            try { var mf = JsonNode.FromText(File.ReadAllText(j["mission_file"].String)); return mf.Has("schema") && mf["schema"].String.StartsWith("crane.fleet_probe/"); }
+            catch (IOException) { return false; }
         }
 
         public static FleetSpec SpecFor(string specDir, JsonNode j) =>
@@ -105,6 +120,13 @@ namespace Crane.Fleet.Sim {
                 res.Success = truth == "delivered";
                 res.Outcome = "truth:" + truth;
                 res.Reason = (a != null && a.Has("summary") ? a["summary"].String : "") + $" | end={run.EndReason}";
+            }
+            else if (run.Opt.Mission is ModuleProbeMission) {
+                var p = results["probe"];
+                bool complete = p["complete"].Bool; int tipped = p["tipped"].Items.Count;
+                res.Success = complete && tipped == 0;
+                res.Outcome = complete ? (tipped == 0 ? "probe_complete" : "probe_tipped") : "probe_incomplete";
+                res.Reason = $"segments {p["segments_completed"].Double}/{p["segments_total"].Double}, tipped {tipped} | end={run.EndReason}";
             }
             else if (run.Opt.Mission is DemoMission) {
                 var demo = results.TryGet("demo");
