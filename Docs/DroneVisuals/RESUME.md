@@ -10,7 +10,7 @@ _Written 2026-11-10 before a usage cutoff. Read this first, then `STATUS.md` (dr
 - `~/worktrees/crane-drones` on `research/drone-sim`: CRANE drone simulator and the SAR studies.
 - MHSeals repos are READ-ONLY. Never push main. Never command hardware.
 
-**Compute:** innovation is shared. The modular pilot campaign was running about 14 h from ~01:00 on 11-10.
+**Compute:** innovation is shared. The modular pilot (28 trials of about 40 min) is expected to end around 2026-11-11 04:00 CST; the cluster session will message. Until then: one pre-approved Unity job only, via `UNITY_SHARE_SLOT=1 UNITY_NICE=15 UNITY_MAX_LOAD=22 UNITY_TIMEOUT_S=1500 unity-drones --render ...` (the iter4 forest render batch). The modular pilot campaign was running about 14 h from ~01:00 on 11-10.
 - **Unity:** only via `~/.cache/research/fs-scripts/unity-drones [--render] LOG ...`. It enforces a project flock, waits until no heavy unity slot is held machine-wide and MemAvailable ≥ 8 GiB, runs at nice 10, and does a post-grant race check. `/tmp/crane-drones-unity-hold`, if present, blocks it.
 - **CPU:** `~/.cache/research/fs-scripts/fsrun CMD` (long jobs; slots reduced to 2 during the pilot; restore to 3 by editing `for i in 1 2` → `1 2 3`). `fsrun-quick CMD` is one extra slot, 10-minute timeout, short jobs only.
 - **Python venvs:**
@@ -138,3 +138,16 @@ Session cron jobs die with the session. Recreate them with CronCreate if needed.
   `~/.cache/frontier/crane/harness`, binary `~/.cache/frontier/crane/bin`); `Tools/Frontier/ops/recfeas.py` makes staged recfeas specs and the
   paired analysis; `Tools/Frontier/canary/` is the GPU canary (spec only, NOT submitted; blocked on a user decision about a PyTorch backend).
 - Compute: only fsrun/fsrun-quick, one job at a time per agent; no Unity until the pilot ends.
+
+## 5. Post-pilot queue (decided 11-10 ~13:50; the pilot is expected to end around 11-11 04:00 CST, and research-cluster-35 will message)
+Restore fsrun to 3 slots and resume RoleSpec (`kill -CONT 1339976`). Then run Unity one job at a time through `unity-drones`:
+1. Forest iteration 5: `-executeMethod Crane.Drones.Environment.Iter4.IterFourRender.RenderBatchFocused`. The log goes to `~/.cache/drones-env/iter5_render.log` and the frames to `environment/iter5/`. It covers season-kit diagnostics, night, stars and the defect views.
+2. AOS 7 V5 URDF import and rotor-spinner check, per `Tools/DroneCAD/aos7v5/UNITY_CHECK.md`.
+3. The M6 autonomous-flight render, then the full 69 s demo, then 16 vision reruns.
+
+.NET (fsrun):
+- Recfeas fix ≤ 4 m/s regression check on the CAD profile.
+- Recfeas fix vs legacy at 5–8 m/s on the CAD profile.
+- If both are clean, switch `RecursiveFeasibility`/`BrakeAlongPath` to default-on.
+
+Evidence so far: on v1, the fix had 2 collisions vs 14 for legacy across 45 pairs at 5/6/8 m/s (`frontier/recfeas/`).
