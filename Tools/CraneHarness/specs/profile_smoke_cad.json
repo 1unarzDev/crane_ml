@@ -1,0 +1,35 @@
+{
+ "schema": "crane-experiment/1",
+ "split": "dev",
+ "forests": [
+  {
+   "seed": 1337,
+   "manifest": "Assets/Drones/Environment/Manifests/forest_seed1337_manifest.json"
+  }
+ ],
+ "missions": {
+  "cross": 2,
+  "corridor": false
+ },
+ "speeds": [
+  3,
+  6
+ ],
+ "run_seeds": [
+  1
+ ],
+ "planner": "map_rhp",
+ "wind": "calm",
+ "lighting": "GoldenHour",
+ "logs": "events",
+ "label_failures": true,
+ "bundle_failures": false,
+ "name": "profile_smoke_cad",
+ "_note": "Smoke: does the cad AOS7 profile load and fly in the .NET plant (2 cross missions x 3,6 m/s x seed 1).",
+ "config": {
+  "RecursiveFeasibility": false,
+  "BrakeAlongPath": false,
+  "TurnBrakeTable": false
+ },
+ "profile": "Tools/Aerial/profiles/aos7_v5_f90_6s.json"
+}

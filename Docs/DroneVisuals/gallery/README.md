@@ -1,6 +1,8 @@
 # CRANE drone simulator: visual gallery (as of 2026-11-10)
 
-![overview](overview_2026-11-10.jpg)
+![overview](overview_2026-11-10b.jpg)
+
+_Current sheet: `overview_2026-11-10b.jpg` (adds the AOS 7 V5 CAD model). `overview_2026-11-10.jpg` is the earlier one._
 
 Everything here comes from the CRANE Unity simulator: Unity 6000.5.10f1 with HDRP 17.5, rendered through the Theater aerial director. All images are from seeded runs: forest seed 1337 unless noted, with TreeGen stand seed 7.
 
@@ -9,7 +11,8 @@ Everything here comes from the CRANE Unity simulator: Unity 6000.5.10f1 with HDR
 | Area | State | Images |
 |---|---|---|
 | **Procedural forest** (`Assets/Drones/Environment`) | **Iteration 1:** seeded scene with lighting presets and post-processing.<br>**Iteration 2:** denser crowns, mid-story, root flares, layered ground, cloud presets, far landscape.<br>**Iteration 3 (in progress):** fixes for far-terrain streaks, speckled crowns, target occlusion, grass and the dusk grade. | [`environment/`](../environment/) (iteration 1), [`iter2/`](../environment/iter2/), [`iter3/`](../environment/iter3/), with side-by-side comparisons in `iter3/compare/` |
-| **AOS 7 V5 quad model** (`Assets/Drones/Models`) | Modelled to measured dimensions, with Unitree L2 dome, Orin heatsink, OAK-D S2 bar, antennas and F90 motors | [`model/`](../model/) (7 views) |
+| **AOS 7 V5 CAD + URDF (current)** (`Tools/DroneCAD/aos7v5`, `Assets/Robot Descriptions/aos7v5`) | Three-iteration concept-to-CAD loop against the build's reference picture. Parametric source, STEP/GLB/OBJ, URDF with per-component inertia, PX4-ordered rotors and sensor frames, plus a physics sidecar. 1.843 kg; its profile is now CRANE's live `aos7_v5_f90_6s` (old one kept as `_v1`). | [`model/cad_iter3/`](../model/cad_iter3/) (iso, top, front, side, side-by-side vs reference); iterations in `cad_iter1/`, `cad_iter2/` |
+| **AOS 7 V5 visual mesh (earlier)** (`Assets/Drones/Models`) | Procedural Unity mesh used by the demo renders so far, with Unitree L2 dome, Orin heatsink, OAK-D S2 bar, antennas and F90 motors | [`model/`](../model/) (7 `swpreview_*` views) |
 | **TreeGen** (our own space-colonisation and pipe-model grower) | v0.2: light-driven thickening, twig sprays, 25-variant library (beech, spruce, birch, snag, fallen log), Unity importer. The forest provider is opt-in. | [`treegen/`](../treegen/), [`treegen/previews_v02/`](../treegen/previews_v02/) |
 | **Demo director** (`Assets/Scripts/Theater/Aerial`) | Cinematic and onboard camera profiles kept separate. 69 s six-shot sequence. Headless capture through the real aerial plant. | [`demo/smoke_orbit/stills/`](../demo/smoke_orbit/stills/) (smoke test of shot 5) |
 | **Autonomous flight renders** (M6) | The lockstep C# autonomy flies the forest corridor. Third-person and onboard stills come from the same run at t = 6, 18 and 32 s. | [`autonomy_m6/`](../autonomy_m6/) |

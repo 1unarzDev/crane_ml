@@ -27,7 +27,7 @@ import aerial_model as am  # noqa: E402
 from aerial_profiles import PROFILE_DIR, load_vehicle  # noqa: E402
 
 OUT = HERE / "parity" / "aos7_substep_parity.json"
-PROFILE = "aos7_v5_f90_6s"
+PROFILE = "aos7_v5_f90_6s_v1"  # parity fixture pinned to v1
 REF_DT = 1e-4
 PLANT_DT = 1e-3
 UNITY_DT = 0.02

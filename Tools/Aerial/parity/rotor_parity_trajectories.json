@@ -8935,7 +8935,7 @@
 },
 {
 "name": "aos7_battery_ige_wind",
-"profile": "aos7_v5_f90_6s",
+"profile": "aos7_v5_f90_6s_v1",
 "profileSha256": "24641b03a4db3e986bef3dd8d443abb2d252b5169a6fbd1e48ef4fd923ade807",
 "battery": true,
 "groundEffect": true,

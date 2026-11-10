@@ -46,7 +46,7 @@ SCENARIOS = [
     dict(name="crane_reference_normalized", profile="crane_reference_quad", battery=False, ground=False,
          dt=0.02, p=[0, 0, 5.0], q=[1, 0, 0, 0], omega=[0, 0, 0], wind=[1.0, 0.0, 0.0],
          hover_frac=None, schedule=[(100, [0.65] * 4), (100, [0.8, 0.6, 0.8, 0.6])]),
-    dict(name="aos7_battery_ige_wind", profile="aos7_v5_f90_6s", battery=True, ground=True,
+    dict(name="aos7_battery_ige_wind", profile="aos7_v5_f90_6s_v1", battery=True, ground=True,
          dt=0.001, p=[0.0, 0.0, 0.3], q=[1, 0, 0, 0], omega=[0, 0, 0], wind=[1.5, 0.5, 0.0], hover_frac=None,
          schedule=[(300, [0.40] * 4), (300, [0.45, 0.35, 0.35, 0.45]), (300, [1.0, 0.2, 1.0, 0.2])]),
     dict(name="hex_firefly_battery", profile="rotors_firefly_hex", battery=True, ground=False,

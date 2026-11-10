@@ -26,7 +26,7 @@ namespace Sim.Tests.Aerial {
     public class AerialSubstepParityTests {
         static string Root => Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
         static string FixturePath => Path.Combine(Root, "Tools", "Aerial", "parity", "aos7_substep_parity.json");
-        static string ProfilePath => Path.Combine(Root, "Tools", "Aerial", "profiles", "aos7_v5_f90_6s.json");
+        static string ProfilePath => Path.Combine(Root, "Tools", "Aerial", "profiles", "aos7_v5_f90_6s_v1.json");
 
         // RMS bounds vs the 10 kHz reference: (pos m, att rad, rate rad/s, rotor rad/s). Observed
         // values are in Docs/DroneVisuals/PHYSICS.md; bounds are ~3x observed (non-smooth scenarios)

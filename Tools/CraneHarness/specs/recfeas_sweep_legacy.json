@@ -36,5 +36,6 @@
   "RecursiveFeasibility": false,
   "BrakeAlongPath": false,
   "TurnBrakeTable": false
- }
+ },
+ "profile": "Tools/Aerial/profiles/aos7_v5_f90_6s_v1.json"
 }

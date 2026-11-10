@@ -14,7 +14,7 @@ from pathlib import Path
 import numpy as np
 
 HERE = Path(__file__).resolve().parent
-OUT = HERE / "profiles" / "aos7_v5_f90_6s.json"
+OUT = HERE / "profiles" / "aos7_v5_f90_6s_v1.json"  # v1 (pre-CAD); the live profile is the CAD one
 
 TMOTOR_URL = "https://store.tmotor.com/product/f90-fpv-motor.html"
 TMOTOR_ARCHIVE = "http://web.archive.org/web/20250524125822/https://store.tmotor.com/product/f90-fpv-motor.html"

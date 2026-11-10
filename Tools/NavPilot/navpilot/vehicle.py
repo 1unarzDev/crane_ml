@@ -16,7 +16,7 @@ import os
 
 G = 9.80665
 _PROFILE = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "Aerial",
-                                         "profiles", "aos7_v5_f90_6s.json"))
+                                         "profiles", "aos7_v5_f90_6s_v1.json"))  # frozen E2/E3 use v1; pass profile_path for the CAD profile
 
 WIND = {  # under-canopy wind velocity statistics [U: canopy attenuates open-field wind ~3-5x]
     "calm": (0.0, 0.0, 2.0),

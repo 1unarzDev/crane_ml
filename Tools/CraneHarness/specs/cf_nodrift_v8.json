@@ -33,5 +33,6 @@
  },
  "logs": "none",
  "label_failures": true,
- "bundle_failures": false
+ "bundle_failures": false,
+ "profile": "Tools/Aerial/profiles/aos7_v5_f90_6s_v1.json"
 }

@@ -10,7 +10,7 @@ namespace Sim.Tests.Aerial {
     [Category("AerialPlantFeatures")]
     public class AerialPlantFeatureTests {
         static string Root => Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
-        static string ProfilePath => Path.Combine(Root, "Tools", "Aerial", "profiles", "aos7_v5_f90_6s.json");
+        static string ProfilePath => Path.Combine(Root, "Tools", "Aerial", "profiles", "aos7_v5_f90_6s_v1.json");
         static VehicleSpecV2 Aos(bool battery = true, bool ground = true) => CraneAerialProfile.LoadFile(ProfilePath, battery, ground).Vehicle;
 
         // ---- profile -------------------------------------------------------------------------

@@ -1,11 +1,27 @@
 {
-  "schema": "crane-experiment/1",
-  "name": "fidelity_dev",
-  "split": "dev",
-  "_note": "Fidelity scenario family: the 10 straight cross_k missions of DEV forest 1337 at the lead's sweep speeds, run seed 1, default stack, calm. The CRANE side is bit-identical to the lead's /tmp/ah_swA,/tmp/ah_swB,/tmp/ah_m5a rows (checked with test-lead); the NavPilot twin uses the exported stands.",
-  "forests": [1337],
-  "missions": {"cross": 10, "corridor": false},
-  "speeds": [2, 2.5, 3, 4, 5, 6, 8],
-  "run_seeds": [1],
-  "logs": "none"
+ "schema": "crane-experiment/1",
+ "name": "fidelity_dev",
+ "split": "dev",
+ "_note": "Fidelity scenario family: the 10 straight cross_k missions of DEV forest 1337 at the lead's sweep speeds, run seed 1, default stack, calm. The CRANE side is bit-identical to the lead's /tmp/ah_swA,/tmp/ah_swB,/tmp/ah_m5a rows (checked with test-lead); the NavPilot twin uses the exported stands.",
+ "forests": [
+  1337
+ ],
+ "missions": {
+  "cross": 10,
+  "corridor": false
+ },
+ "speeds": [
+  2,
+  2.5,
+  3,
+  4,
+  5,
+  6,
+  8
+ ],
+ "run_seeds": [
+  1
+ ],
+ "logs": "none",
+ "profile": "Tools/Aerial/profiles/aos7_v5_f90_6s_v1.json"
 }

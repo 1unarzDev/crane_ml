@@ -64,7 +64,7 @@ def write(path, links, props, report):
     rot = d["rot"]
     def e(v, unit, status, source, note=""):
         return dict(value=v, unit=unit, status=status, source=source, **({"note": note} if note else {}))
-    old = json.loads((REPO / "Tools" / "Aerial" / "profiles" / "aos7_v5_f90_6s.json").read_text())
+    old = json.loads((REPO / "Tools" / "Aerial" / "profiles" / "aos7_v5_f90_6s_v1.json").read_text())
     doc = {
         "schema": "crane-aos7v5-multirotor-sidecar-v1",
         "urdf": "aos7v5.urdf",
@@ -101,7 +101,7 @@ def write(path, links, props, report):
                     "thrust_to_weight": 4 * rot["thrust_max_n"] / (d["m"] * G), "hover_thrust_per_rotor_n": d["m"] * G / 4,
                     "hover_throttle_datasheet": d["thr_h"], "hover_thrust_fraction_model": (d["w_h"] / rot["omega_max"]) ** 2},
         "reconciliation_with_crane_aos7_profile": {
-            "profile": "Tools/Aerial/profiles/aos7_v5_f90_6s.json (id aos7-v5-f90-1300kv-6s)",
+            "profile": "Tools/Aerial/profiles/aos7_v5_f90_6s_v1.json (id aos7-v5-f90-1300kv-6s, the pre-CAD profile)",
             "same": ["kf", "km", "omega_max", "rotor_radius", "motor kv/R", "battery_v_nominal", "spin order FR RL FL RR"],
             "changed": {"mass_kg": [old["parameters"]["mass"]["value"], round(d["m"], 4)],
                         "rotor_xy": "old: true-X square 0.318 m wheelbase (+-0.11243 m); CAD: 254 x 184 mm stretched X (+-0.127, +-0.092 m, DATASHEET)",
@@ -121,13 +121,15 @@ def write(path, links, props, report):
     setp("rotor_inertia", float(f"{d['j_rot']:.5e}"), "ESTIMATED", "CAD rotor Izz")
     setp("rotor_drag", d["lam1"], "ESTIMATED", "0.35 1/s x CAD mass / (4 w_hover)")
     setp("drag_quadratic", d["cdq"], "ESTIMATED", "CAD frontal area")
-    setp("battery_capacity_ah", P.BATTERY["capacity_ah"], "DATASHEET", "Tattu 6S 3500 mAh")
+    setp("battery_capacity_ah", P.BATTERY["capacity_ah"], "ASSUMED", "Tattu 6S 3500 mAh, user-reported pack label (no datasheet fetched)")
     setp("battery_resistance", P.BATTERY["resistance_ohm"], "ESTIMATED", "25C-class pack")
-    new["rotors"] = [dict(name=r["name"], position=r["position_rel_com_m"], spin=r["spin"], source="CAD",
+    new["rotors"] = [dict(name=r["name"], position=r["position_rel_com_m"], spin=r["spin"], source="AOS7V5_CAD",
                           locator="aos7v5.urdf rotor link origin minus CAD CoM") for r in d["rotors"]]
     new["derived"]["com_offset_from_frame_center_flu"] = [round(float(x), 6) for x in d["com"]]
+    new["sources"]["AOS7V5_CAD"] = {"path": "Tools/DroneCAD/aos7v5 (params.py, build.py) and Assets/Robot Descriptions/aos7v5/aos7v5.urdf",
+                                    "note": "own parametric CAD of the AOS 7 V5 build; frame geometry per SPEC.md", "license": "GPL-3.0 (this repository)"}
     new["id"] = "aos7-v5-f90-1300kv-6s-cad"
-    new["description"] = "PROPOSED (not installed): AOS 7 V5 profile with CAD mass properties. " + old["description"]
+    new["description"] = "AOS 7 V5 profile with CAD mass properties (Tools/DroneCAD/aos7v5); installed as the live aos7_v5_f90_6s on 2026-11-10, previous profile kept as aos7_v5_f90_6s_v1. " + old["description"]
     new["massBudget"] = [dict(item=n, mass_kg=round(p["mass"], 5), status="see SPEC.md", position_flu=[round(float(x), 5) for x in p["com"]])
                          for n, p in props.items()]
     new["derived"]["thrust_to_weight"] = 4 * rot["thrust_max_n"] / (d["m"] * G)

@@ -1,14 +1,33 @@
 {
-  "schema": "crane-experiment/1",
-  "name": "attrib_v8",
-  "split": "dev",
-  "_note": "Collision attribution for the lead's .NET speed sweep (AUTONOMY_STATUS M5, /tmp/ah_swA,/tmp/ah_swB): the colliding (mission, v_lim, seed 1) runs, default AutonomyConfig, calm, no DR/faults. Runs must be bit-identical to the lead's rows.",
-  "forests": [{"seed": 1337, "manifest": "Assets/Drones/Environment/Manifests/forest_seed1337_manifest.json"}],
-  "missions": {"cross": 10, "corridor": true, "only": ["cross_1","cross_2","cross_4","cross_8"]},
-  "speeds": [8],
-  "run_seeds": [1],
-  "planner": "map_rhp",
-  "wind": "calm",
-  "lighting": "GoldenHour",
-  "logs": "events"
+ "schema": "crane-experiment/1",
+ "name": "attrib_v8",
+ "split": "dev",
+ "_note": "Collision attribution for the lead's .NET speed sweep (AUTONOMY_STATUS M5, /tmp/ah_swA,/tmp/ah_swB): the colliding (mission, v_lim, seed 1) runs, default AutonomyConfig, calm, no DR/faults. Runs must be bit-identical to the lead's rows.",
+ "forests": [
+  {
+   "seed": 1337,
+   "manifest": "Assets/Drones/Environment/Manifests/forest_seed1337_manifest.json"
+  }
+ ],
+ "missions": {
+  "cross": 10,
+  "corridor": true,
+  "only": [
+   "cross_1",
+   "cross_2",
+   "cross_4",
+   "cross_8"
+  ]
+ },
+ "speeds": [
+  8
+ ],
+ "run_seeds": [
+  1
+ ],
+ "planner": "map_rhp",
+ "wind": "calm",
+ "lighting": "GoldenHour",
+ "logs": "events",
+ "profile": "Tools/Aerial/profiles/aos7_v5_f90_6s_v1.json"
 }
