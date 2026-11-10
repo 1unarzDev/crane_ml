@@ -60,6 +60,7 @@ namespace Crane.Fleet
         public double Duration => Points.Count == 0 ? 0 : Points[Points.Count - 1].T;
         public double Length => Points.Count == 0 ? 0 : Points[Points.Count - 1].S;
         public int CapabilityVersion;
+        public Pose2 GoalUsed; public bool GoalAdjusted;
     }
 
     public sealed class PlanRequest
@@ -70,6 +71,12 @@ namespace Crane.Fleet
         public IReadOnlyList<Box2> ExtraObstacles;  // other rovers' estimated footprints (world)
         public double PosTol = double.NaN, YawTol = double.NaN;
         public double Margin = double.NaN;
+        /// <summary>Map boxes (by id) that do not count as obstacles for this request, e.g. the object a lifter is about to grasp: its
+        /// gripper envelope overlaps the object by design.</summary>
+        public ICollection<string> IgnoreObstacleIds;
+        /// <summary>If the goal is in collision, search nearby goals (backed off along the goal's -x, small lateral shifts and heading
+        /// changes) before failing; the pose used is reported in <see cref="PlannedPath.GoalUsed"/>.</summary>
+        public bool GoalSearch;
     }
 
     /// <summary>One motion primitive: a constant body twist held for a duration (an arc of the exponential map).</summary>
@@ -144,6 +151,47 @@ namespace Crane.Fleet
         private struct Node { public Pose2 Pose; public double G; public int Parent; public int Prim; }
 
         public PlannedPath Plan(PlanRequest req)
+        {
+            if (req.IgnoreObstacleIds != null && req.IgnoreObstacleIds.Count > 0)
+            {
+                var m = new PlanMap(_map.MinX, _map.MinY, _map.MaxX, _map.MaxY);
+                foreach (var o in _map.Obstacles) if (!req.IgnoreObstacleIds.Contains(o.Id)) m.Obstacles.Add(o);
+                var sub = new PlanRequest { Start = req.Start, Goal = req.Goal, Capability = req.Capability, CruiseFraction = req.CruiseFraction, ExtraObstacles = req.ExtraObstacles, PosTol = req.PosTol, YawTol = req.YawTol, Margin = req.Margin, GoalSearch = req.GoalSearch };
+                return new LatticePlanner(m, _a).Plan(sub);
+            }
+            if (req.GoalSearch)
+            {
+                double margin0 = double.IsNaN(req.Margin) ? _a.PlanMargin : req.Margin;
+                if (req.Capability.ActuatedRank < 3) margin0 += _a.ReducedMobilityExtraMargin;
+                if (_map.Collides(req.Goal, req.Capability.Footprint, margin0, req.ExtraObstacles))
+                {
+                    var best = FindFreeGoal(req.Goal, req.Capability.Footprint, margin0, req.ExtraObstacles, out bool found);
+                    if (!found) return new PlannedPath { Failure = "goal_in_collision", CapabilityVersion = req.Capability.Version, GoalUsed = req.Goal };
+                    var adj = new PlanRequest { Start = req.Start, Goal = best, Capability = req.Capability, CruiseFraction = req.CruiseFraction, ExtraObstacles = req.ExtraObstacles, PosTol = req.PosTol, YawTol = req.YawTol, Margin = req.Margin };
+                    var r = Plan(adj); r.GoalAdjusted = true; r.GoalUsed = best; return r;
+                }
+            }
+            var res0 = PlanCore(req); res0.GoalUsed = req.Goal; return res0;
+        }
+
+        /// <summary>Nearest collision-free variant of a goal: back-offs along its -x (up to 0.5 m), lateral shifts (10 cm) and heading
+        /// changes (0.3 rad), cheapest first (back-off counts 1, lateral 2, heading 0.3 per rad... as metres).</summary>
+        public Pose2 FindFreeGoal(Pose2 goal, IReadOnlyList<Box2> fp, double margin, IReadOnlyList<Box2> extra, out bool found)
+        {
+            var cands = new List<(double cost, Pose2 p)>();
+            for (int b = 0; b <= 10; b++)
+                foreach (double lat in new[] { 0.0, 0.05, -0.05, 0.10, -0.10 })
+                    foreach (double dy in new[] { 0.0, 0.15, -0.15, 0.3, -0.3 })
+                    {
+                        var p = Se2.Compose(goal, new Pose2(-0.05 * b, lat, dy));
+                        cands.Add((0.05 * b + 2 * Math.Abs(lat) + 0.3 * Math.Abs(dy), p));
+                    }
+            cands.Sort((x, y) => x.cost.CompareTo(y.cost));
+            foreach (var c in cands) if (!_map.Collides(c.p, fp, margin, extra)) { found = true; return c.p; }
+            found = false; return goal;
+        }
+
+        private PlannedPath PlanCore(PlanRequest req)
         {
             var res = new PlannedPath { CapabilityVersion = req.Capability.Version };
             var cap = req.Capability;

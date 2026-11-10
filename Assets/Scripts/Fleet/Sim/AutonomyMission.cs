@@ -196,9 +196,12 @@ namespace Crane.Fleet.Sim {
                 if (door != null && door["in_wall"].String == w["id"].String)
                     map.AddWallWithDoor(w["id"].String, a[0], w["thickness"].Double, door["centre_y"].Double, run.World.DoorwayWidth);
             }
-            // The payload is NOT a static map obstacle: it is a movable object the library locates by its tag (a static box at its start pose
-            // would also stay in the map after pickup), and the library's Navigator.Ignore exempts rovers only, so a payload in the map made
-            // the grasp goal "goal_in_collision" once the planning margin was applied (v2 seed 2, 2026-11-10).
+            // The payload is a map obstacle under its object id; the library excludes the grasped object from the final grasp plan by that id
+            // (PlanRequest.IgnoreObstacleIds), so the id here must equal the mission object id (library fix for v2 seed 2, 2026-11-10).
+            if (Payload != null) {
+                var c = FleetFrames.Planar(Payload.transform);
+                map.AddBox(payloadId, c.X, c.Y, payloadSize[0], payloadSize[1], c.Yaw);
+            }
             return map;
         }
 

@@ -198,6 +198,17 @@ any absolute fix -> stalls repeatedly and fails `Traction`, never claims success
 off -> payload falls, believed complete, host rejects; on -> 3/3 placed and confirmed by the payload tag, and by load cells; tag
 alignment off but support check on -> `Support` failure instead of success. Scan-match fixes re-localise a confident 0.5 m error.
 
+## Lift geometry (CRANE v2 seed 2, "goal_in_collision" twice)
+
+Cause: CRANE puts the payload (box_long, 0.80 x 0.25 m) into the planning map. The lift task planned a fixed 0.6 m pre-grasp pose
+and the grasp pose (`grasp_offset` 0.237 m) with that box as an obstacle. The pre-grasp lifter body reached 1 cm into the
+0.40 m half-length, inside the 3 cm margin; the grasp pose overlaps the object by design (the lifter's gripper envelope reaches it).
+It was not a neighbour or footprint inflation. Fix: the pre-grasp standoff is now object half-length + lifter half-length + margin +
+0.12 m (at least 0.6 m). Navigation to it uses `PlanRequest.GoalSearch`: if a goal is in collision, nearby goals are tried before
+failing (back-offs up to 0.5 m along -x, +-10 cm lateral, +-0.3 rad), and a `goal_adjusted` event is logged. The final grasp move
+plans with the grasped object excluded (`PlanRequest.IgnoreObstacleIds`). Harness tests `LiftGeometryTests` reproduce the CRANE
+geometry: the old goals collide, and the lift now succeeds.
+
 ## Known gaps
 
 No dynamic obstacle avoidance between moving agents (other agents are static obstacles at plan time; tasks own their rovers

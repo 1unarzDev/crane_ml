@@ -18,6 +18,7 @@ namespace Crane.Fleet
         private int _capVersion = -1, _relocEpoch; private Agent _agent; private bool _planned;
         public PlannedPath Path { get; private set; }
         public double PosTol = double.NaN, YawTol = double.NaN;
+        public ICollection<string> IgnoreObstacles; public bool GoalSearch;
 
         public Navigator(FleetAutonomy f, string rover, Pose2 goal, double cruise, string task)
         { _f = f; _rover = rover; Goal = goal; Cruise = cruise; _task = task; }
@@ -27,7 +28,7 @@ namespace Crane.Fleet
             var ag = _f.AgentOf(_rover);
             _agent = ag;
             var goalAgent = Se2.Compose(Goal, Se2.Inverse(ag.Model.ModulePose(_rover)));
-            var req = new PlanRequest { Start = ag.Pose, Goal = goalAgent, Capability = ag.Cap, CruiseFraction = Cruise, ExtraObstacles = _f.OtherFootprints(ag, Ignore) };
+            var req = new PlanRequest { Start = ag.Pose, Goal = goalAgent, Capability = ag.Cap, CruiseFraction = Cruise, ExtraObstacles = _f.OtherFootprints(ag, Ignore), IgnoreObstacleIds = IgnoreObstacles, GoalSearch = GoalSearch };
             var p = _f.Planner.Plan(req);
             if (!p.Ok)
             {
@@ -37,6 +38,7 @@ namespace Crane.Fleet
                 if (p2.Ok) p = p2;
             }
             Path = p; _capVersion = ag.Cap.Version;
+            if (p.Ok && p.GoalAdjusted) { Goal = Se2.Compose(p.GoalUsed, ag.Model.ModulePose(_rover)); _f.Log("goal_adjusted", _task, ag.Id, $"goal in collision; using ({Goal.X:0.000}, {Goal.Y:0.000}, {Goal.Yaw:0.000})"); }
             _f.Log("plan", _task, ag.Id, p.Ok ? $"ok {p.Points.Count} pts {p.Duration:0.0}s rank={ag.Cap.ActuatedRank} exp={p.Expansions}" : "failed " + p.Failure + $" rank={ag.Cap.ActuatedRank}");
             if (!p.Ok) { Failure = p.Failure; FailClass = p.Failure == "no_feasible_primitive" ? FailureClass.Traction : FailureClass.Geometry; return false; }
             ag.Tracker.SetPath(p, ag.Cap);
@@ -204,8 +206,12 @@ namespace Crane.Fleet
                     if (given == null) return Fail(FailureClass.Perception, "object " + obj + " not located");
                     op = new Pose2(given[0], given[1], given.Length > 2 ? given[2] : 0);
                 }
-                // pre-grasp view 0.6 m in front of the object (the close view refines the object's pose on the blackboard)
-                _nav = new Navigator(F, rover, Se2.Compose(op, new Pose2(-0.6, 0, 0)), F.A.CruiseFraction * 0.7, S.Id) { PosTol = 0.05, YawTol = 0.08 };
+                // pre-grasp view in front of the object, clear of it (the close view refines the object's pose on the blackboard).
+                // The standoff accounts for the object's own extent when the map carries it as an obstacle box.
+                double halfObj = 0;
+                foreach (var o in F.Config.Map.Obstacles) if (o.Id == obj) halfObj = o.Hx;
+                double standoff = Math.Max(0.6, halfObj + F.Channel(rover).Spec.BodyLength / 2 + F.A.PlanMargin + 0.12);
+                _nav = new Navigator(F, rover, Se2.Compose(op, new Pose2(-standoff, 0, 0)), F.A.CruiseFraction * 0.7, S.Id) { PosTol = 0.05, YawTol = 0.08, GoalSearch = true };
                 SetPhase("pregrasp");
             }
             if (Phase == "pregrasp")
@@ -221,7 +227,8 @@ namespace Crane.Fleet
                 if (_t < 1.0) return TaskState.Running;
                 if (!F.Blackboard.TryGetValue(obj, out var op2)) { var g = S.Nums("object_pose"); op2 = new Pose2(g[0], g[1], g.Length > 2 ? g[2] : 0); }
                 double off = S.Num("grasp_offset", 0.30);
-                _nav = new Navigator(F, rover, Se2.Compose(op2, new Pose2(-off, 0, 0)), F.A.CruiseFraction * 0.4, S.Id) { PosTol = 0.02, YawTol = 0.04, Ignore = new[] { obj } };
+                // the grasp pose overlaps the object by design (gripper envelope): the object is not an obstacle for this move
+                _nav = new Navigator(F, rover, Se2.Compose(op2, new Pose2(-off, 0, 0)), F.A.CruiseFraction * 0.4, S.Id) { PosTol = 0.02, YawTol = 0.04, Ignore = new[] { obj }, IgnoreObstacles = new[] { obj } };
                 SetPhase("approach");
             }
             if (Phase == "approach")
