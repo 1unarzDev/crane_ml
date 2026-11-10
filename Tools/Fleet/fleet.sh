@@ -22,12 +22,30 @@ stamp=$(date +%Y%m%d-%H%M%S)
 commit=$(git -C "$root" rev-parse HEAD)
 dirty=$([[ -n "$(git -C "$root" status --porcelain --untracked-files=no)" ]] && echo true || echo false)
 
+# Memory guard (coordinator, 2026-11-10): never launch Unity with less than CRANE_FLEET_MIN_MEM_GB available.
+memwait() {
+    local need=${CRANE_FLEET_MIN_MEM_GB:-12} avail
+    while true; do
+        avail=$(awk '/MemAvailable/ {printf "%d", $2/1048576}' /proc/meminfo)
+        # operator rule: at most one Unity process on the machine across all sessions
+        if "$heavy" status 2>/dev/null | grep -E '^unity\.[0-9]+ ' | grep -vq ' free'; then
+            echo "fleet.sh: waiting: a unity slot is held ($(date +%T))" >&2
+            sleep 30; continue
+        fi
+        (( avail >= need )) && return 0
+        echo "fleet.sh: waiting for memory (${avail} GB available < ${need} GB)" >&2
+        sleep 30
+    done
+}
+
 ed() {  # ed LOG args...
     local log=$1; shift
+    memwait
     flock "$cache/unity.lock" "$heavy" unity "$editor" -batchmode -nographics -projectPath "$root" -logFile "$log" "$@"
 }
 pl() {  # pl LOG args...  (player, no graphics)
     local log=$1; shift
+    memwait
     ( unset DISPLAY WAYLAND_DISPLAY; export SDL_VIDEODRIVER=dummy
       flock "$cache/unity.lock" "$heavy" unity "$player" -batchmode -nographics -logFile "$log" --crane-fleet-spec "$spec" "$@" )
 }
@@ -66,6 +84,7 @@ case "$cmd" in
     still)
         seed=${1:?seed}; dir=${2:-$cache/stills/seed$seed-$stamp}
         mkdir -p "$dir"
+        memwait
         ( unset WAYLAND_DISPLAY
           flock "$cache/unity.lock" xvfb-run -a -s "-screen 0 1280x720x24" "$heavy" unity "$player" -batchmode \
             -screen-fullscreen 0 -screen-width 320 -screen-height 180 -logFile "$dir/player.log" \
