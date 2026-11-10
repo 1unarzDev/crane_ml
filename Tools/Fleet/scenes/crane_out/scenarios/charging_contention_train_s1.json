@@ -155,7 +155,7 @@
  },
  "deadline_s": 115.0,
  "x_v1": {
-  "source_sha256": "111d1ce4c9d32b3c8a4864ec2dc5d07830317d7c888fbde176c88acb9f8a95f4",
+  "source_sha256": "8de3bd1f607b1a4b96bcd084ac3f78d5d5a0a5f0d3e933b41a6b652a5980b82b",
   "family": {
    "id": "charging_contention",
    "seed": 1,
@@ -271,7 +271,7 @@
     "config_hash": "d0b9ad389bac696b",
     "start": [
      2.9,
-     1.05,
+     0.8,
      3.142
     ],
     "soc": 0.233,

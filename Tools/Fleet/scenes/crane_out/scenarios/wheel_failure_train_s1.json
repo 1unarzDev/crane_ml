@@ -117,19 +117,19 @@
  },
  "deadline_s": 150.0,
  "x_v1": {
-  "source_sha256": "36013c135dc5ac2ab0435bc40475ed6c4aca82d8e9edde40df960e3dba8a9e38",
+  "source_sha256": "e32c408d2b74f114010fd9ce673f3b4a8c9779d75d7cb9e0238d53e6ff9ccea7",
   "family": {
    "id": "wheel_failure",
    "seed": 1,
    "split": "train",
    "params": {
     "n_faults": 1,
-    "t_fail": 22.52,
+    "t_fail": 15.68,
     "mode": "dead_locked",
     "door_w": 1.291
    },
    "generator": "families_v1.0",
-   "rule": "n_faults == 1 and t_fail <= 35"
+   "rule": "n_faults == 1 and t_fail <= 24"
   },
   "doors": [
    {
@@ -290,7 +290,7 @@
     "module": "m0",
     "target": "wheel_fl",
     "mode": "dead_locked",
-    "t_s": 22.52
+    "t_s": 15.68
    }
   ],
   "gaps": [

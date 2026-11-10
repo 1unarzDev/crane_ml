@@ -155,6 +155,21 @@ def scenario_problems(scn):
             sx1, sy1 = max(p[0] for p in pts), max(p[1] for p in pts)
             if ux0 < sx1 and sx0 < ux1 and uy0 < sy1 and sy0 < uy1:
                 errs.append("unit %s starts inside %s" % (u["id"], s.id))
+    boxes = {}
+    for u in scn["fleet"]["units"]:
+        c = cat.get(u["catalog"])
+        if c is None:
+            continue
+        x0, y0, x1, y1 = c["aabb"]
+        for _ in range(int(round(u["start"][2] / (math.pi / 2))) % 4):
+            x0, y0, x1, y1 = -y1, x0, -y0, x1
+        boxes[u["id"]] = (u["start"][0] + x0, u["start"][1] + y0, u["start"][0] + x1, u["start"][1] + y1)
+    ids = sorted(boxes)
+    for i, a in enumerate(ids):
+        for b in ids[i + 1:]:
+            A, B = boxes[a], boxes[b]
+            if A[0] < B[2] and B[0] < A[2] and A[1] < B[3] and B[1] < A[3]:
+                errs.append("units %s and %s start overlapping" % (a, b))
     for p in scn["payloads"]:
         if p["spawn"].get("zone") and p["spawn"]["zone"] not in zones:
             errs.append("payload %s: unknown zone %s" % (p["id"], p["spawn"]["zone"]))

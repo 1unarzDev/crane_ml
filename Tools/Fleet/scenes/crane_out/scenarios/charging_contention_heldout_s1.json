@@ -223,7 +223,7 @@
  },
  "deadline_s": 155.0,
  "x_v1": {
-  "source_sha256": "8e62f6a9a64999cf87425244d381e97618a97fd48cb363a51a705ff6e768d616",
+  "source_sha256": "65c245af17c16e366fafd2aa3ea57ce4ab28f628e79838642244c53252365fae",
   "family": {
    "id": "charging_contention",
    "seed": 1,
@@ -393,7 +393,7 @@
     "config_hash": "d0b9ad389bac696b",
     "start": [
      2.9,
-     1.05,
+     0.8,
      3.142
     ],
     "soc": 0.19,
@@ -425,7 +425,7 @@
     "config_hash": "d0b9ad389bac696b",
     "start": [
      2.2,
-     1.65,
+     1.4,
      3.142
     ],
     "soc": 0.259,

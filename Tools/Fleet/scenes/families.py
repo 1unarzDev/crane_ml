@@ -72,8 +72,8 @@ RULES = {
                             "heldout": "n_units > 3 or n_bays != 2"},
     "blocked_faces": {"train": "n_blocked == 1",
                       "heldout": "n_blocked >= 2"},
-    "wheel_failure": {"train": "n_faults == 1 and t_fail <= 35",
-                      "heldout": "n_faults == 2 or t_fail > 35"},
+    "wheel_failure": {"train": "n_faults == 1 and t_fail <= 24",
+                      "heldout": "n_faults == 2 or t_fail > 24"},
     "clutter_observer": {"train": "overhead in ('working', 'occluded') and n_clutter <= 6",
                          "heldout": "overhead == 'disabled' or n_clutter > 6"},
 }
@@ -97,7 +97,7 @@ def in_split(family, p):
     elif f == "blocked_faces":
         tr = p["n_blocked"] == 1
     elif f == "wheel_failure":
-        tr = p["n_faults"] == 1 and p["t_fail"] <= 35
+        tr = p["n_faults"] == 1 and p["t_fail"] <= 24
     elif f == "clutter_observer":
         tr = p["overhead"] in ("working", "occluded") and p["n_clutter"] <= 6
     else:
@@ -458,7 +458,7 @@ def charging_contention(seed, split):
     for i in range(p["n_units"]):
         uid = "c%d" % i
         # the robots arrive clustered near the first bay (so nearest-bay greedy piles up there)
-        sc.unit(uid, "carrier", (2.2 + 0.7 * (i % 3), 0.8 + 0.6 * (i // 3) + 0.25 * (i % 2), math.pi), soc=socs[i])
+        sc.unit(uid, "carrier", (2.2 + 0.7 * (i % 3), 0.8 + 0.6 * (i // 3), math.pi), soc=socs[i])
         h = (Y - 1.2) / p["n_units"]
         sc.zone("work_%s" % uid, "delivery", [8.4, 0.6 + i * h, 9.4, 0.6 + (i + 1) * h - 0.1])
         steps_near += [{"id": "charge_%s" % uid, "kind": "charge", "unit": uid, "bays": bays, "policy": "nearest",
@@ -516,9 +516,9 @@ def wheel_failure(seed, split):
     rng = np.random.default_rng([8, seed, 0 if split == "train" else 1])
     for _ in range(100):
         if split == "train":
-            p = {"n_faults": 1, "t_fail": round(_u(rng, 20.0, 35.0), 2)}
+            p = {"n_faults": 1, "t_fail": round(_u(rng, 14.0, 24.0), 2)}     # during the carry (pickup ends ~11 s)
         else:
-            p = {"n_faults": int(rng.choice([1, 2])), "t_fail": round(_u(rng, 30.0, 45.0), 2)}
+            p = {"n_faults": int(rng.choice([1, 2])), "t_fail": round(_u(rng, 22.0, 30.0), 2)}   # late in the carry
         p["mode"] = str(rng.choice(["dead_locked", "weak"]))
         p["door_w"] = round(_u(rng, 1.2, 1.6), 3)   # wide: a robot that dies in it does not plug it
         if in_split("wheel_failure", p) == split:
@@ -534,7 +534,7 @@ def wheel_failure(seed, split):
     sc.unit("cargo_2", "carrier", (1.2, 1.0, 0.0))
     sc.fault("cargo_1", "wheel_fl", p["mode"], p["t_fail"])
     if p["n_faults"] == 2:
-        sc.fault("cargo_2", "wheel_fl", "weak", p["t_fail"] + 10.0)
+        sc.fault("cargo_2", "wheel_fl", "weak", p["t_fail"] + 5.0)
     base = [{"id": "pick", "kind": "pickup", "unit": "cargo_1", "payload": "p1"}]
     plans = {
         "continue": {"expected": "fail" if p["mode"] == "dead_locked" else "depends",

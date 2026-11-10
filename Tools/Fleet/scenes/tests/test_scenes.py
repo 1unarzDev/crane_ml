@@ -202,5 +202,5 @@ def test_previews_exist_and_are_small():
     if not prev.exists():
         pytest.skip("previews not rendered")
     for f in GENERATORS:
-        p = prev / ("%s.png" % f)
+        p = prev / ("%s.jpg" % f)
         assert p.exists() and p.stat().st_size <= 300 * 1024, p

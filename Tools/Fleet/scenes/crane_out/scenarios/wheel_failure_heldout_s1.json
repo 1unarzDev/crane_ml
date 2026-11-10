@@ -15,7 +15,7 @@
   "in_wall": "(lowered: no wall carries a door; geometry is in obstacles)",
   "centre_y": 3.5,
   "width": {
-   "default": 1.399
+   "default": 1.523
   },
   "height": 2.0,
   "v1_door": "door_main"
@@ -55,12 +55,12 @@
    "type": "box",
    "centre": [
     6.0,
-    1.40025,
+    1.36925,
     1.4
    ],
    "size": [
     0.12,
-    2.8005,
+    2.7385,
     2.8
    ],
    "v1_kind": "wall",
@@ -76,7 +76,7 @@
    ],
    "size": [
     0.12,
-    1.399,
+    1.523,
     0.8
    ],
    "v1_kind": "lintel",
@@ -87,12 +87,12 @@
    "type": "box",
    "centre": [
     6.0,
-    5.59975,
+    5.63075,
     1.4
    ],
    "size": [
     0.12,
-    2.8005,
+    2.7385,
     2.8
    ],
    "v1_kind": "wall",
@@ -117,26 +117,26 @@
  },
  "deadline_s": 150.0,
  "x_v1": {
-  "source_sha256": "34d5b50f55f72c1998720e0d7b249b62c68f5e3c4bae2f72705aa35c3fe2b170",
+  "source_sha256": "74dfeb16dfe31876bf08d9d1d8f23f3b5b2271f48e97a2b3e15cc203bd24355d",
   "family": {
    "id": "wheel_failure",
    "seed": 1,
    "split": "heldout",
    "params": {
-    "n_faults": 2,
-    "t_fail": 40.32,
+    "n_faults": 1,
+    "t_fail": 24.01,
     "mode": "weak",
-    "door_w": 1.399
+    "door_w": 1.523
    },
    "generator": "families_v1.0",
-   "rule": "n_faults == 2 or t_fail > 35"
+   "rule": "n_faults == 2 or t_fail > 24"
   },
   "doors": [
    {
     "id": "door_main",
     "wall": "divider",
     "centre": 3.5,
-    "width": 1.399,
+    "width": 1.523,
     "height": 2.0,
     "threshold_height": 0.0,
     "threshold_depth": 0.12
@@ -150,7 +150,7 @@
     "name": "lm_door_main_w_lo",
     "pose": [
      5.938,
-     2.601,
+     2.538,
      3.141593
     ],
     "z": 0.3,
@@ -162,7 +162,7 @@
     "name": "lm_door_main_w_hi",
     "pose": [
      5.938,
-     4.399,
+     4.462,
      3.141593
     ],
     "z": 0.3,
@@ -174,7 +174,7 @@
     "name": "lm_door_main_e_lo",
     "pose": [
      6.062,
-     2.601,
+     2.538,
      0.0
     ],
     "z": 0.3,
@@ -186,7 +186,7 @@
     "name": "lm_door_main_e_hi",
     "pose": [
      6.062,
-     4.399,
+     4.462,
      0.0
     ],
     "z": 0.3,
@@ -290,14 +290,7 @@
     "module": "m0",
     "target": "wheel_fl",
     "mode": "weak",
-    "t_s": 40.32
-   },
-   {
-    "unit": "cargo_2",
-    "module": "m0",
-    "target": "wheel_fl",
-    "mode": "weak",
-    "t_s": 50.32
+    "t_s": 24.01
    }
   ],
   "gaps": [

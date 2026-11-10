@@ -619,8 +619,7 @@ class Step:
         if e.clock["now"] - self.t_hand >= HANDLING["handoff"]:
             e.release(p)
             e.attach(p, b)
-            e.contact_exempt.discard(frozenset((a.id, b.id)))
-            self.finish("done")
+            self.finish("done")   # the pair stays exempt until it has separated (FleetEngine.tick)
 
     def _observe(self):
         e = self.e
@@ -1223,6 +1222,15 @@ class FleetEngine:
         self.see()
         self.check_contacts()
         self.release_aisles()
+        # exemptions (handoff and undock partners) end once the two units are 0.12 m apart; docking pairs merge
+        busy = {u for st in self.steps.values() if st.state == "running" and st.kind in ("dock", "handoff") for u in st.units()}
+        for pair in list(self.contact_exempt):
+            a, b = sorted(pair)
+            if a in busy or b in busy:
+                continue
+            ua, ub = self.units.get(a), self.units.get(b)
+            if ua is None or ub is None or min(poly_clearance(x, y) for x in ua.polys() for y in ub.polys()) > 0.12:
+                self.contact_exempt.discard(pair)
         self.resolve_traffic(now)
         for bay, uid in list(self.leaving.items()):
             u = self.units.get(uid)

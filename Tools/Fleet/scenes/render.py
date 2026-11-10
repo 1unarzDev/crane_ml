@@ -1,7 +1,7 @@
 """Top-down previews of scenes (PIL only), optionally with fastsim unit traces from a run's fleet.json.
 
-    python3 -m scenes.render --all [--runs DIR]       # previews/<family>.png for every family (train seed 1) + index sheet
-    python3 -m scenes.render --family F --split S --seed N [--fleet RUN/fleet.json] --out FILE.png
+    python3 -m scenes.render --all [--runs DIR]       # previews/<family>.jpg for every family (train seed 1) + index sheet
+    python3 -m scenes.render --family F --split S --seed N [--fleet RUN/fleet.json] --out FILE.jpg
 
 Every file is checked to be at most 300 KB.
 """
@@ -143,10 +143,13 @@ def draw(scn, task, fleet=None, plan=None):
 
 
 def save(img, path):
+    """JPEG (the README curator takes JPEG only), quality 88, at most 300 KB; a .png path writes an indexed PNG."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    img = img.convert("P", palette=Image.ADAPTIVE, colors=128)
-    img.save(path, optimize=True)
+    if path.suffix.lower() == ".png":
+        img.convert("P", palette=Image.ADAPTIVE, colors=128).save(path, optimize=True)
+    else:
+        img.convert("RGB").save(path, "JPEG", quality=88, optimize=True, progressive=True)
     size = path.stat().st_size
     if size > 300 * 1024:
         raise ValueError("%s is %d bytes (> 300 KB)" % (path, size))
@@ -164,8 +167,8 @@ def render_all(runs=None, seed=1, split="train"):
             if fj.exists():
                 fleet = json.loads(fj.read_text())
         img = draw(scn, task, fleet, plan)
-        n = save(img, PREVIEWS / ("%s.png" % f))
-        print("%s.png %d bytes" % (f, n))
+        n = save(img, PREVIEWS / ("%s.jpg" % f))
+        print("%s.jpg %d bytes" % (f, n))
         thumbs.append(img)
     # index sheet: 3 x 3 thumbnails
     tw = 420
@@ -173,8 +176,8 @@ def render_all(runs=None, seed=1, split="train"):
     sheet = Image.new("RGB", (3 * tw, 3 * th), (255, 255, 255))
     for i, im in enumerate(thumbs):
         sheet.paste(im.resize((tw, int(im.height * tw / im.width))), ((i % 3) * tw, (i // 3) * th))
-    n = save(sheet, PREVIEWS / "index.png")
-    print("index.png %d bytes" % n)
+    n = save(sheet, PREVIEWS / "index.jpg")
+    print("index.jpg %d bytes" % n)
 
 
 def main(argv=None):
@@ -192,7 +195,7 @@ def main(argv=None):
         return render_all(a.runs)
     scn, task = generate(a.family, a.seed, a.split)
     fleet = json.loads(Path(a.fleet).read_text()) if a.fleet else None
-    print(save(draw(scn, task, fleet, a.plan), a.out or PREVIEWS / ("%s_%s_s%d.png" % (a.family, a.split, a.seed))))
+    print(save(draw(scn, task, fleet, a.plan), a.out or PREVIEWS / ("%s_%s_s%d.jpg" % (a.family, a.split, a.seed))))
 
 
 if __name__ == "__main__":

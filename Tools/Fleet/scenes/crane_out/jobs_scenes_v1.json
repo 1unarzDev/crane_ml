@@ -317,7 +317,7 @@
    "variant": "scenes_v1_continue",
    "scenario": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/scenarios/wheel_failure_train_s1.json",
    "mission_file": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/missions/wheel_failure_train_s1.continue.json",
-   "failures": "cargo_1:wheel_fl:dead_locked@22.52",
+   "failures": "cargo_1:wheel_fl:dead_locked@15.68",
    "labels": {
     "scenes_v1_family": "wheel_failure",
     "split": "train",
@@ -331,7 +331,7 @@
    "variant": "scenes_v1_reassign",
    "scenario": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/scenarios/wheel_failure_train_s1.json",
    "mission_file": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/missions/wheel_failure_train_s1.reassign.json",
-   "failures": "cargo_1:wheel_fl:dead_locked@22.52",
+   "failures": "cargo_1:wheel_fl:dead_locked@15.68",
    "labels": {
     "scenes_v1_family": "wheel_failure",
     "split": "train",
@@ -345,7 +345,7 @@
    "variant": "scenes_v1_continue",
    "scenario": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/scenarios/wheel_failure_heldout_s1.json",
    "mission_file": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/missions/wheel_failure_heldout_s1.continue.json",
-   "failures": "cargo_1:wheel_fl:weak@40.32;cargo_2:wheel_fl:weak@50.32",
+   "failures": "cargo_1:wheel_fl:weak@24.01",
    "labels": {
     "scenes_v1_family": "wheel_failure",
     "split": "heldout",
@@ -359,7 +359,7 @@
    "variant": "scenes_v1_reassign",
    "scenario": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/scenarios/wheel_failure_heldout_s1.json",
    "mission_file": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/missions/wheel_failure_heldout_s1.reassign.json",
-   "failures": "cargo_1:wheel_fl:weak@40.32;cargo_2:wheel_fl:weak@50.32",
+   "failures": "cargo_1:wheel_fl:weak@24.01",
    "labels": {
     "scenes_v1_family": "wheel_failure",
     "split": "heldout",
