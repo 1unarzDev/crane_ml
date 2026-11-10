@@ -120,7 +120,9 @@ namespace Crane.Theater.RoboBoat {
             }
         }
 
-        static int Rank(Component c) => c is MonoBehaviour ? 0 : c is Joint ? 1 : c is Collider ? 2 : c is Rigidbody || c is ArticulationBody ? 3 : 4;
+        // scripts that [RequireComponent] another go before the rest, so a required component (e.g. Submersion, which
+        // Buoyancy/Current/GeneralDynamics require) is never destroyed while a dependent still exists (Unity logs an error)
+        static int Rank(Component c) => c is MonoBehaviour ? (Attribute.IsDefined(c.GetType(), typeof(RequireComponent), true) ? -1 : 0) : c is Joint ? 1 : c is Collider ? 2 : c is Rigidbody || c is ArticulationBody ? 3 : 4;
         static int Depth(Transform t) { int d = 0; while (t.parent != null) { d++; t = t.parent; } return d; }
     }
 }
