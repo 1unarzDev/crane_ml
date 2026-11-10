@@ -117,8 +117,9 @@ namespace Crane.Fleet.Sim {
                 var a = results.TryGet("autonomy");
                 string truth = a != null && a.Has("truth_outcome") ? a["truth_outcome"].String : "unknown";
                 bool libOk = a != null && a["succeeded"].Bool;
-                res.Success = truth == "delivered";
-                res.Outcome = "truth:" + truth;
+                bool flagged = a != null && a.Has("load_statics") && a["load_statics"].Has("flagged") && a["load_statics.flagged"].Bool;
+                res.Success = truth == "delivered" && !flagged;   // a delivery with a load-statics margin under the threshold is flagged, not passed
+                res.Outcome = "truth:" + truth + (flagged ? " (FLAGGED: load statics margin)" : "");
                 res.Reason = (a != null && a.Has("summary") ? a["summary"].String : "") + $" | end={run.EndReason}";
             }
             else if (run.Opt.Mission is ModuleProbeMission) {

@@ -149,6 +149,7 @@ namespace Crane.Fleet.Sim {
             liftForceMax = lr["lift_capacity"].Double * spec.Gravity * spec.O["lift_load.force_margin"].Double;
             liftOffHeight = spec.O["lift_load.lift_off_height"].Double; tipLimit = spec.O["lift_load.tip_limit_rad"].Double;
             if (spec.O.TryGet("lift_load.carry_accel_cap") != null) carryAccelCap = spec.O["lift_load.carry_accel_cap"].Double;
+            staticsAccel = spec.O["lift_load.statics_accel"].Double; staticsMinRel = spec.O["lift_load.statics_min_rel"].Double;
             coverTopTags = spec.O.TryGet("profiles." + spec.ProfileKey + ".payload_covers_top_tag")?.Bool == true;
             liftSpeed = lr["lift_speed"].Double; gripMax = lr["gripper_opening"].Double;
             foreach (var rv in r.Rovers) if (rv.D.Role == "lifter") { rv.Lift = 0; rv.GripperOpening = gripMax; gripMin = rv.Visual?.Manifest.GripperOpeningRange?[0] ?? 0.04; }
@@ -394,6 +395,36 @@ namespace Crane.Fleet.Sim {
         }
         double carryAccelCap = double.NaN, maxCarryAccel; int carryAccelEvents; bool haveCarryVel, carryOver, coverTopTags; Vector3 prevCarryVel;
 
+        /// <summary>Evaluator statics of the loaded carrier while the payload rests on decks (every 10 steps, truth): support polygon = wheel contacts of
+        /// the supporting rovers and every rover rigidly jointed to them; masses = those rovers and the payload; margin under the library's
+        /// acceleration limit (lift_load.statics_accel) must stay above lift_load.statics_min_rel, else the run is FLAGGED (not passed).</summary>
+        void CheckLoadStatics(FleetRun r) {
+            var pt = PayloadTruth();
+            if (pt == null || (string)pt["state"] != "on_decks") return;
+            var group = new List<RoverRig>();
+            foreach (var o in (List<object>)pt["supporters"]) group.Add(r.Rover((string)o));
+            for (bool grew = true; grew; ) {
+                grew = false;
+                foreach (var c in couplings.All)
+                    if (c.Joint != null && (group.Contains(c.A) != group.Contains(c.B))) { group.Add(group.Contains(c.A) ? c.B : c.A); grew = true; }
+            }
+            var contacts = new List<(double, double)>(); var masses = new List<LoadStatics.Mass>();
+            foreach (var rv in group) {
+                foreach (var w in rv.D.Wheels) { var p = rv.Frames["wheel_" + w.Name].position; contacts.Add((p.x, p.z)); }
+                var com = rv.Body.worldCenterOfMass; masses.Add(new LoadStatics.Mass(rv.Body.mass, com.x, com.z, com.y));
+            }
+            var pc = Payload.worldCenterOfMass; masses.Add(new LoadStatics.Mass(Payload.mass, pc.x, pc.z, pc.y));
+            var res = LoadStatics.Evaluate(contacts, masses, staticsAccel, spec.Gravity);
+            staticsSamples++;
+            if (!staticsWorst.HasValue || res.RelAtAccel < staticsWorst.Value.RelAtAccel) { staticsWorst = res; staticsWorstT = r.T; staticsGroup = string.Join("+", group.ConvertAll(x => x.D.Id)); }
+            if (res.Flagged(staticsMinRel) && !staticsFlagged) {
+                staticsFlagged = true;
+                run.Event("load_statics_flag", group[0].D.Id, new Dictionary<string, object> { ["rel_margin_at_accel"] = res.RelAtAccel, ["rel_margin_static"] = res.RelStatic,
+                    ["tip_accel"] = res.TipAccel, ["min_rel"] = staticsMinRel, ["group"] = staticsGroup, ["evaluator_only"] = true });
+            }
+        }
+        LoadStatics.Result? staticsWorst; double staticsWorstT, staticsAccel, staticsMinRel; int staticsSamples; bool staticsFlagged; string staticsGroup;
+
         void CheckTip(FleetRun r) {
             foreach (var rv in r.Rovers) {
                 if (rv.D.Role != "lifter") continue;
@@ -431,6 +462,7 @@ namespace Crane.Fleet.Sim {
                 }
             }
             if (loadModel == "physical") CheckCarryAccel(r);
+            if (Payload != null && run.Step % 10 == 0) CheckLoadStatics(r);
             perception.Record(r.T, r.Rovers);
             if (Payload != null) perception.RecordObject(r.T, payloadId, PayloadBase(), payloadTag);
         }
@@ -569,6 +601,11 @@ namespace Crane.Fleet.Sim {
                 ["payload_mass_source"] = payloadMassSource, ["lift_force_max_n"] = liftForceMax, ["lift_stalled"] = liftStalled, ["load_applied"] = loadEverApplied, ["load_model"] = "composite rigid body while lifted",
                 ["lifter_tipped"] = lifterTipped, ["max_lifter_tilt_rad"] = maxCarrierTilt,
                 ["carry_accel_cap"] = double.IsNaN(carryAccelCap) ? null : (object)carryAccelCap, ["max_carry_accel"] = maxCarryAccel, ["carry_accel_events"] = carryAccelEvents };
+            results["load_statics"] = !staticsWorst.HasValue ? new Dictionary<string, object> { ["samples"] = 0 } : new Dictionary<string, object> {
+                ["samples"] = staticsSamples, ["group"] = staticsGroup, ["worst_t"] = staticsWorstT, ["accel"] = staticsAccel, ["min_rel"] = staticsMinRel,
+                ["rel_margin_static"] = staticsWorst.Value.RelStatic, ["margin_static_m"] = staticsWorst.Value.MarginStatic, ["rel_margin_at_accel"] = staticsWorst.Value.RelAtAccel,
+                ["tip_accel"] = staticsWorst.Value.TipAccel, ["supports"] = staticsWorst.Value.Supports, ["flagged"] = staticsFlagged,
+                ["note"] = "quasi-static on level ground (rigid bodies, worst-direction CoM shift h a / g); evaluator-only" };
             if (Payload != null) {
                 var c = FleetFrames.Planar(Payload.transform);
                 double[] z = spec.S["zones.delivery.rect"].Doubles;
@@ -584,7 +621,8 @@ namespace Crane.Fleet.Sim {
             results["truth_outcome"] = delivered ? "delivered" : pt == null ? "no_payload" : "not_delivered: payload " + pt["state"];
             results["summary"] = $"library believed: {(fleet.Executive.BelievedComplete ? "complete" : "not complete (" + fleet.Executive.FirstFailureClass + ")")}, host verdict {(hostVerdictGiven ? (fleet.Executive.Succeeded ? "accepted" : "rejected") : "not requested")}; " +
                 $"truth: {results["truth_outcome"]}; {disagreements} disputed claims; {run.Jams.Count} jams"
-                + (liftStalled ? "; lift stalled (payload over the lift force limit)" : "") + (lifterTipped ? "; lifter tipped" : "");
+                + (liftStalled ? "; lift stalled (payload over the lift force limit)" : "") + (lifterTipped ? "; lifter tipped" : "")
+                + (staticsWorst.HasValue ? $"; load statics margin {staticsWorst.Value.RelAtAccel:P0} at {staticsAccel} m/s^2{(staticsFlagged ? " FLAGGED" : "")}" : "");
             res["autonomy"] = results;
         }
 

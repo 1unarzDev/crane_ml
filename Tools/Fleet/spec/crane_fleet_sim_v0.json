@@ -1700,6 +1700,16 @@
       "value": 2.0,
       "provenance": "provisional",
       "note": "evaluator check while the lifter holds a lifted payload (CAD v1 D90 assumption; braking limit 2.45 m/s^2 at full stroke)"
+    },
+    "statics_accel": {
+      "value": 0.5,
+      "provenance": "provisional",
+      "note": "library acceleration limit used for the loaded-carrier statics check"
+    },
+    "statics_min_rel": {
+      "value": 0.2,
+      "provenance": "provisional",
+      "note": "relative CoM margin under statics_accel below which a delivered run is flagged (coordinator, 2026-11-10)"
     }
   },
   "profiles": {
