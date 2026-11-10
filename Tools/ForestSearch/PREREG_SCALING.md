@@ -108,3 +108,12 @@ Does the value of communication (VoC) scale consistently across N ∈ {2, 3, 5, 
 - **Task order:** travel 1 with N = 2, 3, 5, 10, then travel 0 with N = 2, 3, 5, 10.
 - **If compute runs out:** finished tasks are analysed and reported. Unfinished ones are listed as NOT RUN, and the affected families are reported as INCOMPLETE, never as PASS.
 - **Every cell is reported:** §1 of `results/nscale_heldout.md` covers all cells, including failures and results against our claims. Any follow-up is labelled exploratory.
+
+## Amendment 1 (2026-11-10 01:20, before any held-out run; no held-out data exists)
+- **Bug:** `nscale.py params` crashed with UnboundLocalError. A function-local `import hashlib, os` in `main()`'s `run` branch shadowed the module-level `os`.
+- **Fix:** that one line was deleted. No semantics changed; the import is redundant with the module-level imports.
+- **Superseded hashes** (from the first freeze, 00:43): nscale.py 6a5e2f19…f2a6b, this file 9c357c3b…7231e. The manifest is regenerated with the new hashes.
+- **Visible at amendment time:** the dev scan output on dev seeds 1000–1003 only, consisting of horizons, ms/episode, and rollout-lite P on 2 dev seeds.
+  - Horizons chosen by the frozen rule: travel 0 → H = 12 (N = 2, 3, 5) and 16 (N = 10); travel 1 → H = 24 (N = 2, 3, 5) and 32 (N = 10).
+- **Correction to the design text:** rollout-lite is in fact cheap, 10–100 ms per episode. Even so, the confirmatory design is NOT changed: greedy only, budget 90 CPU-min.
+- **Exploratory add-on:** rollout-lite cells on seeds 3000–3015 may be run after the confirmatory run. They are labelled EXPLORATORY and are not judged against S1–S4.

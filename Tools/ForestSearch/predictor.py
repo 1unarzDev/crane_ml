@@ -201,7 +201,7 @@ class ExactCR:
         return [make(p0), make(p1)]
 
 
-def exact_task(out_json=None):
+def exact_task(out_json=None, part="all"):
     from .exact_dec import TinyModel, base_instance
     from .theory_extra import base2, paper_rates, reviewer_instance
     rows = []
@@ -213,12 +213,14 @@ def exact_task(out_json=None):
         print({k: (round(v, 8) if isinstance(v, float) else v) for k, v in r.items()}, flush=True)
 
     cases = []
-    for n, k in ((2, 2), (3, 2), (2, 3)):
+    for n, k in ([] if part == "death" else ((2, 2), (3, 2), (2, 3))):
         for hints in ("none", "weak", "strong", "noisy"):
             for ab in (0.0, 0.2):
                 if (n, k) == (2, 3) and hints in ("strong", "noisy") and ab > 0:
                     continue
                 cases.append((f"n{n}-{hints}-ab{ab}", base_instance(n, hints, ab), k))
+    if part == "death":
+        cases = []
     cases.append(("paper-lam1", base2(**paper_rates(1.0)), 2))
     cases.append(("adversarial", reviewer_instance(), 2))
     cases.append(("adversarial", reviewer_instance(), 3))
@@ -470,7 +472,7 @@ CONDS = {
     "n4_l3": (4, "A", 3.0, {}, "healthy", "d0_loss0"),
 }
 # conditions that differ from another only in the link: ORACLE / IMPLICIT are link-free
-LINK_DUP = {"perm_d1", "perm_d3", "perm_burst"}
+LINK_DUP = {"perm_d1", "perm_d3", "perm_burst", "total", "beacon_lost"}  # same ORACLE/IMPLICIT as perm
 SPLITS = {"dev": list(range(1000, 1012)), "heldout": list(range(4000, 4016))}
 
 
@@ -492,7 +494,7 @@ def run_condition(name, seeds, eps, budget, with_dev=True):
                 rd = run_d(ctx, "DEV", ep, S, fault, link) if with_dev else None
                 rows.append(dict(imp=int(ri.detected), ora=int(ro.detected), hea=int(rh.detected),
                                  dev=int(rd.detected) if rd else None,
-                                 dev_frames=int(rd.msgs) if rd else None, hea_bytes=int(rh.bytes_sent),
+                                 dev_frames=int(rd.msgs_sent) if rd else None, hea_bytes=int(rh.bytes_sent),
                                  hints=int(ri.hints), aborts=int(ri.aborts), lossrate=lossrate,
                                  ttd=int(ri.ttd), **{k: v for k, v in pr.items()}))
             out[sd] = rows
@@ -578,15 +580,21 @@ LAM = {nm: c[2] * (1.0 if not c[3] else (0.0 if c[3].get("abort") == 0.0 and Fal
 def cond_table(res, names, rng=None, idx=None):
     """Condition-level means; ``idx`` = per-condition resampled instance keys."""
     T = {}
+    cache = _IM.setdefault(id(res), {})
     for nm in names:
         R = res[nm]
+        if nm not in cache:      # per-instance means (equal episodes per instance)
+            cache[nm] = {k: {**{f: float(np.nanmean([FEATS[f](x) for x in R[k]])) for f in FEATS},
+                             **{g: float(np.nanmean([TARGETS[g](x) for x in R[k]])) for g in TARGETS}}
+                         for k in R}
         keys = idx[nm] if idx is not None else sorted(R)
-        rows = [x for k in keys for x in R[k]]
-        d = {f: float(np.nanmean([FEATS[f](x) for x in rows])) for f in FEATS}
-        d.update({g: float(np.nanmean([TARGETS[g](x) for x in rows])) for g in TARGETS})
+        d = {f: float(np.mean([cache[nm][k][f] for k in keys])) for f in list(FEATS) + list(TARGETS)}
         d["lam"] = CONDS[nm][2]
         T[nm] = d
     return T
+
+
+_IM: dict = {}
 
 
 def boot_cond(res, names, stat, B=1000, seed=7):
@@ -595,7 +603,7 @@ def boot_cond(res, names, stat, B=1000, seed=7):
     vals = []
     for _ in range(B):
         nms = list(rng.choice(names, len(names)))
-        idx = {nm: list(rng.choice(sorted(res[nm]), len(res[nm]))) for nm in set(nms)}
+        idx = {nm: list(rng.choice(sorted(res[nm]), len(res[nm]))) for nm in sorted(set(nms))}
         T = cond_table(res, sorted(set(nms)), idx=idx)
         v = stat([T[n] for n in nms])
         if v is not None and not np.isnan(v):
@@ -785,13 +793,14 @@ def main():
     ap.add_argument("--budget", type=int, default=6)
     ap.add_argument("--names", nargs="+", default=list(CONDS))
     ap.add_argument("--no-dev", action="store_true")
+    ap.add_argument("--part", default="all", choices=["all", "death"])
     ap.add_argument("--dev", default=None)
     ap.add_argument("--heldout", default=None)
     ap.add_argument("--fig", default=None)
     ap.add_argument("--out", default=None)
     a = ap.parse_args()
     if a.task == "exact":
-        exact_task(a.out)
+        exact_task(a.out, a.part)
     elif a.task == "sim":
         sim_task(a.split, a.episodes, a.budget, a.names, a.out, not a.no_dev)
     else:

@@ -1004,7 +1004,6 @@ def main():
         return
     if a.cmd == "run":
         if any(3000 <= s <= 3015 for s in a.seeds):
-            import hashlib, os
             here = os.path.dirname(os.path.abspath(__file__))
             pr = os.path.join(here, "PREREG_SCALING.md")
             if not os.path.exists(pr):
