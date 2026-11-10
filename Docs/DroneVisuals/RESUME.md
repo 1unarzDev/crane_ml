@@ -23,9 +23,11 @@ _Written 2026-11-10 before a usage cutoff. Read this first, then `STATUS.md` (dr
 ## 1. Paused processes (SIGSTOP; state kept). Resume ONLY after the pilot finishes or the cluster OKs it
 
 ```
-kill -CONT 2096101   # NavPilot E3 held-out (max safe speed), 58/800 done, ~85 min on 1 slot
-kill -CONT 2079546   # RoleSpec dev explore (+ queue in Tools/RoleSpec/scratch/queue, ~35 CPU-min)
+kill -CONT 1339976   # RoleSpec dev explore (side grid; queue in Tools/RoleSpec/scratch/queue). Re-paused 11-10 09:42 at cluster request. Also restore fsrun to "1 2 3".
 ```
+
+_Update 2026-11-10 (ops agent): PID 2096101 (NavPilot E3 held-out) is gone because the run finished: 800/800 rows, report at
+`Tools/NavPilot/results/E3_heldout.md`. 2079546 was resumed by the orchestrator after the cluster session's OK and holds an fsrun slot._
 
 If the PIDs are gone (reboot), restart from the scripts in section 3. The NavPilot E2 held-out (pid 2009703) was still running.
 
@@ -76,7 +78,7 @@ Session cron jobs die with the session. Recreate them with CronCreate if needed.
 - **Next:**
   - re-run the speed sweep via the harness
   - M6 rendered flight
-  - multi-forest validation, once `BuildManifestOnly` from the forest agent lands
+  - multi-forest validation: `BuildDroneForest.BuildManifestOnly` exists in the tree but has NEVER been run (no manifest produced by it); first run needs a Unity slot (pilot-gated)
   - PX4 SITL seam
   - two-drone missions
 - **Relaunch brief:** "You lead CRANE autonomy. Read AUTONOMY_STATUS.md, HARNESS.md, AGENT_RULES.md. Implement the feasibility/fallback fix if not done, unit-test in the .NET harness (`Assets/Scripts/Drones/Autonomy/Harness~`), then re-run the speed sweep spec with CraneExperiment via fsrun, then M6 render via `unity-drones --render`. No commits; report."
@@ -88,11 +90,11 @@ Session cron jobs die with the session. Recreate them with CronCreate if needed.
 
 ### D. Navigation research (NavPilot): `Tools/NavPilot`
 - **E2:** held-out report: `fsrun python Tools/NavPilot/experiments/e2.py report --plan heldout` → `results/E2_heldout.md`. Do NOT re-run held-out.
-- **E3 (max safe speed, `PREREG_SPEED.md` frozen):** resume pid 2096101 (above), then `fsrun python Tools/NavPilot/experiments/e3.py report --plan heldout` → `results/E3_heldout.md`. Fill the Q1–Q4 outcome rows in `Docs/DroneVisuals/mission/PREDICTIONS.md`.
+- **E3 (max safe speed, `PREREG_SPEED.md` frozen):** **DONE** (800/800 rows; report `Tools/NavPilot/results/E3_heldout.md`). Still to do: fill the Q1–Q4 outcome rows in `Docs/DroneVisuals/mission/PREDICTIONS.md`.
 - **Lead candidate to transfer to CRANE:** `pas_full`, i.e. trust free space for the braking stop only if confirmed at close range near structure.
 
 ### E. Mission SAR (two-drone find/verify/report): `Tools/MissionSim`, `Tools/MissionExact`
-- **MissionSim:** E1/E3/ablation/P7 shards may have been queued. After they finish:
+- **MissionSim:** DONE 2026-11-10: reports `Tools/MissionSim/results/{E1,E3,P7,ablations}.md` (val shards complete). Reference commands, only if a rerun is needed:
   - `fsrun $PY experiments.py report --exp E1,E3,ABL,P7 --split val`
   - `fsrun $PY experiments.py logs --seed 7` (decision logs for the demo)
   - If success ≤5%, tune difficulty on DEV first.
@@ -113,8 +115,8 @@ Session cron jobs die with the session. Recreate them with CronCreate if needed.
 
 ### H. Visuals (lower priority than autonomy): `Assets/Drones/Environment`
 - **State:** forest iteration 3 agent mid-run; its uncommitted edits are in Environment/**, Profiles and the scene.
-- **Iteration 3 goals:** fix aerial far-terrain cliff streaks, speckled crowns from above, target-rig occlusion, grass, the dusk grade. Also add `BuildDroneForest.BuildManifestOnly` for the autonomy team.
-- **Relaunch brief if lost:** "Finish forest iteration 3 per Docs/DroneVisuals/STATUS.md: render seed 1337 rigs into environment/iter3 plus a second aerial angle, composites vs iter2, and implement and test BuildManifestOnly. Rules: AGENT_RULES.md."
+- **Iteration 3 goals:** fix aerial far-terrain cliff streaks, speckled crowns from above, target-rig occlusion, grass, the dusk grade. `BuildDroneForest.BuildManifestOnly` was added (never run yet).
+- **Relaunch brief if lost:** "Finish forest iteration 3 per Docs/DroneVisuals/STATUS.md: render seed 1337 rigs into environment/iter3 plus a second aerial angle, composites vs iter2, and run BuildManifestOnly once to test it. Rules: AGENT_RULES.md."
 - **Deferred until after the pilot:**
   - TreeGen comparison render (command in `Docs/DroneVisuals/treegen/README.md`, density 0.5)
   - the full 69 s demo render
@@ -122,5 +124,17 @@ Session cron jobs die with the session. Recreate them with CronCreate if needed.
 
 ## 4. Committing hygiene
 - Commit only compiled, finished work. Never commit `.vscode/settings.json`, `Tools/NavPilot/results/raw`, `Tools/RoleSpec/scratch`, or `Assets/Drones/Environment/Generated` / `TreeGen/Imported` (gitignored).
+- **research/forest-sar is published ONLY via `~/.cache/research/fs-scripts/publish-forest-sar --push`** (double-blind filter: no paper/title/venue; direct pushes are blocked by a dead pushRemote).
 - **`git add` with a missing path aborts the whole add,** so add paths individually or check that they exist.
-- Commit messages end with `Co-Authored-By: Claude <noreply@anthropic.com>`.
+- Commit messages carry NO Claude attribution trailer (no Co-Authored-By / "Generated with"): the user asked on 11-10 (relayed by the DecisionCal session) to remove Claude attribution from crane_ml. A history rewrite is being coordinated by that session; do not rewrite or force-push yourself.
+
+## 5. Frontier program (compute-efficient research, started 2026-11-10)
+
+- Plan: `/home/lunarz/.claude/plans/steady-yawning-crayon.md` (section 1 = compute audit and revised queue; section 2 = `Tools/Frontier/`;
+  section 3 = directions D1-D4 with 10 steps each).
+- Working docs: `Docs/DroneVisuals/frontier/` (`OPS_LOG.md` = every ops job with command, times, cost, outputs; `SEEDS.md` = seed ledger).
+- Costs: `Tools/Frontier/costs.jsonl` (`{sim, fidelity, config, seed, wall_s, cpu_s}`), results cache under `~/.cache/frontier/` (never /tmp).
+- Ops tooling: `Tools/CraneHarness/run_pending_stages.sh "2 3"` runs chosen stages of `run_pending.sh` without editing it (outputs under
+  `~/.cache/frontier/crane/harness`, binary `~/.cache/frontier/crane/bin`); `Tools/Frontier/ops/recfeas.py` makes staged recfeas specs and the
+  paired analysis; `Tools/Frontier/canary/` is the GPU canary (spec only, NOT submitted; blocked on a user decision about a PyTorch backend).
+- Compute: only fsrun/fsrun-quick, one job at a time per agent; no Unity until the pilot ends.
