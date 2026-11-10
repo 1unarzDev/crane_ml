@@ -68,6 +68,7 @@ namespace Crane.Fleet.Sim {
             ["payload_kg"] = Payload != null ? (object)(double)Payload.mass : null, ["lift_load_model"] = spec.O["lift_load.model"].String,
             ["interface_pair_types"] = "hermaphroditic_hook2_magnet+hermaphroditic_hook2_magnet" };
         public string PayloadMode => payloadMode;
+        string TruthGoal => missionJson.Has("crane_truth_goal") ? missionJson["crane_truth_goal"].String : "on_decks";
         public FleetAutonomy Fleet => fleet;
         public CouplingManager Couplings => couplings;
 
@@ -255,7 +256,7 @@ namespace Crane.Fleet.Sim {
                 // "At rest" is part of the check, so wait (up to 3 s) for the payload to settle after the last motion.
                 if (double.IsNaN(believedAt)) believedAt = r.T;
                 var pt = PayloadTruth();
-                bool settled = pt == null || (double)pt["speed"] < 0.01 && (string)pt["state"] != "carried";
+                bool settled = pt == null || (double)pt["speed"] < 0.01 && ((string)pt["state"] != "carried" || TruthGoal == "carried_in_zone");
                 if (settled || r.T - believedAt > 3.0) {
                     hostVerdictGiven = true;
                     bool ok = pt == null || (bool)pt["delivered"];
@@ -432,7 +433,10 @@ namespace Crane.Fleet.Sim {
             string state = lifted ? "carried" : onDecks ? "on_decks" : floor ? "on_floor" : pallet && tilt < 0.1 ? "on_pallet" : "unsupported_or_tilted";
             return new Dictionary<string, object> { ["state"] = state, ["gripped"] = gripped, ["supporters"] = sup, ["touches_floor"] = floor, ["x"] = c.X, ["y"] = c.Y,
                 ["bottom_height"] = (double)Payload.position.y, ["tilt"] = tilt, ["speed"] = (double)Payload.linearVelocity.magnitude,
-                ["in_delivery_zone"] = inZone, ["delivered"] = inZone && onDecks && Payload.linearVelocity.magnitude < 0.01 };
+                ["in_delivery_zone"] = inZone,
+                // truth goal: "on_decks" (default: at rest on cargo decks in the zone) or "carried_in_zone" (mission crane_truth_goal; CAD v1, where the
+                // lifter's 45 mm lift cannot reach the 150 mm deck: the lifter itself holds the lifted payload inside the zone)
+                ["delivered"] = TruthGoal == "carried_in_zone" ? inZone && lifted : inZone && onDecks && Payload.linearVelocity.magnitude < 0.01, ["truth_goal"] = TruthGoal };
         }
 
         /// <summary>The library declared a task succeeded: check the same claim against evaluator truth and log any disagreement.</summary>

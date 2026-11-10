@@ -1,0 +1,27 @@
+{
+ "note": "CAD v1 (profile v1): closed-loop lifter carry + reciprocal docking, seeds 1-3 (after the scripted v1 stills). UNITY-PENDING.",
+ "out": "/home/lunarz/.cache/crane-fleet/jobs/cad_v1_closed_loop",
+ "jobs": [
+  {
+   "id": "cad_v1_s1",
+   "seed": 1,
+   "variant": "cad_v1_carry",
+   "profile": "v1",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet/Tools/Fleet/missions/autonomy_cad_v1_lifter_carry.json"
+  },
+  {
+   "id": "cad_v1_s2",
+   "seed": 2,
+   "variant": "cad_v1_carry",
+   "profile": "v1",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet/Tools/Fleet/missions/autonomy_cad_v1_lifter_carry.json"
+  },
+  {
+   "id": "cad_v1_s3",
+   "seed": 3,
+   "variant": "cad_v1_carry",
+   "profile": "v1",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet/Tools/Fleet/missions/autonomy_cad_v1_lifter_carry.json"
+  }
+ ]
+}

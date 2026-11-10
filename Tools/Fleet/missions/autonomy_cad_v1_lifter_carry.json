@@ -1,0 +1,124 @@
+{
+  "schema": "crane.fleet_mission/v0",
+  "mission_id": "warehouse_a_closed_loop_cad_v1_lifter_carry",
+  "note": "CAD v1 closed-loop mission (run with job \"profile\": \"v1\"). The v1 lifter lifts 45 mm and its jaws open 0.06-0.21 m; the v1 cargo deck is at 0.150 m, so a lifter-to-deck handoff is geometrically impossible (open design question, see the fleet handoff). This mission therefore: the scout finds box_small, the lifter picks it (grasp_offset 0.126 = v1 finger line 0.186 m - 0.06 m, lift 0.04 m) and carries it into the delivery zone; in parallel the cargo pair rendezvous and dock front-to-rear with the reciprocal v1 faces (bevel tags). Truth goal: crane_truth_goal = carried_in_zone (payload lifted, held by the lifter, centre inside the delivery zone). Pallet 10 mm so the v1 finger line (16 mm above the floor at lift 0) is inside the box side. Jaw clearance on the 0.20 m box is 5 mm per side.",
+  "crane_payload": {
+    "id": "payload_box_small",
+    "type": "box_small",
+    "pose": [
+      3.65,
+      6.0,
+      3.14159265
+    ],
+    "pallet_height": 0.01
+  },
+  "crane_max_duration_s": 320,
+  "tasks": [
+    {
+      "id": "settle",
+      "type": "wait",
+      "agents": [
+        "scout_1",
+        "lifter_1",
+        "cargo_1",
+        "cargo_2"
+      ],
+      "duration": 1.5
+    },
+    {
+      "id": "find",
+      "type": "explore",
+      "agent": "scout_1",
+      "region": [
+        3.2,
+        5.5,
+        4.2,
+        6.5
+      ],
+      "target": "payload_box_small",
+      "viewpoints": [
+        4.9,
+        5.4,
+        2.53,
+        4.6,
+        5.0,
+        2.2
+      ],
+      "dwell": 1.5,
+      "after": [
+        "settle"
+      ],
+      "retries": 1
+    },
+    {
+      "id": "watch",
+      "type": "goto",
+      "agent": "scout_1",
+      "goal": [
+        7.3,
+        4.9,
+        -2.09
+      ],
+      "after": [
+        "find"
+      ],
+      "retries": 1
+    },
+    {
+      "id": "pick",
+      "type": "lift",
+      "agent": "lifter_1",
+      "object": "payload_box_small",
+      "grasp_offset": 0.126,
+      "height": 0.04,
+      "after": [
+        "find"
+      ],
+      "retries": 1
+    },
+    {
+      "id": "meet",
+      "type": "rendezvous",
+      "target": "cargo_1",
+      "docker": "cargo_2",
+      "target_face": "rear",
+      "docker_face": "front",
+      "meeting_pose": [
+        4.8,
+        3.5,
+        0.0
+      ],
+      "after": [
+        "settle"
+      ],
+      "retries": 1
+    },
+    {
+      "id": "couple",
+      "type": "dock",
+      "docker": "cargo_2",
+      "docker_face": "front",
+      "target": "cargo_1",
+      "target_face": "rear",
+      "after": [
+        "meet"
+      ],
+      "retries": 2
+    },
+    {
+      "id": "carry",
+      "type": "goto",
+      "agent": "lifter_1",
+      "goal": [
+        8.9,
+        3.5,
+        0.0
+      ],
+      "after": [
+        "pick"
+      ],
+      "retries": 1
+    }
+  ],
+  "crane_truth_goal": "carried_in_zone"
+}
