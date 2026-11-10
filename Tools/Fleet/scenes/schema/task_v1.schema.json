@@ -1,0 +1,323 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "crane.fleet_task/v1",
+ "title": "CRANE fleet task v1: a task graph (alternative plans) and outcome rules over one scenario v1",
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "schema",
+  "task_id",
+  "scenario_id",
+  "scenario_sha256",
+  "ego",
+  "deadline_s",
+  "plans",
+  "default_plan",
+  "outcomes"
+ ],
+ "properties": {
+  "schema": {
+   "const": "crane.fleet_task/v1"
+  },
+  "task_id": {
+   "type": "string"
+  },
+  "scenario_id": {
+   "type": "string"
+  },
+  "scenario_sha256": {
+   "type": "string"
+  },
+  "stresses": {
+   "type": "object",
+   "properties": {
+    "capability": {
+     "type": "string"
+    },
+    "decision": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "capability",
+    "decision"
+   ],
+   "additionalProperties": false
+  },
+  "ego": {
+   "type": "string",
+   "description": "the unit fastsim's core plant drives (per plan override: plans.<p>.ego)"
+  },
+  "deadline_s": {
+   "type": "number",
+   "exclusiveMinimum": 0
+  },
+  "stuck_s": {
+   "type": "number",
+   "exclusiveMinimum": 0
+  },
+  "believed_floor": {
+   "type": "string"
+  },
+  "planner_margin_m": {
+   "type": "number"
+  },
+  "plans": {
+   "type": "object",
+   "minProperties": 1,
+   "additionalProperties": {
+    "type": "object",
+    "properties": {
+     "expected": {
+      "enum": [
+       "success",
+       "fail",
+       "depends"
+      ]
+     },
+     "note": {
+      "type": "string"
+     },
+     "ego": {
+      "type": "string"
+     },
+     "traffic": {
+      "enum": [
+       "none",
+       "yield",
+       "reserved"
+      ]
+     },
+     "steps": {
+      "type": "array",
+      "items": {
+       "type": "object",
+       "properties": {
+        "id": {
+         "type": "string"
+        },
+        "kind": {
+         "enum": [
+          "goto",
+          "pickup",
+          "deliver",
+          "dock",
+          "undock",
+          "charge",
+          "observe",
+          "handoff",
+          "wait"
+         ]
+        },
+        "unit": {
+         "type": "string"
+        },
+        "units": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         }
+        },
+        "docker": {
+         "type": "string"
+        },
+        "target": {
+         "type": "string"
+        },
+        "docker_face": {
+         "enum": [
+          "front",
+          "rear",
+          "left",
+          "right"
+         ]
+        },
+        "target_face": {
+         "enum": [
+          "front",
+          "rear",
+          "left",
+          "right"
+         ]
+        },
+        "docker_module": {
+         "type": "string"
+        },
+        "target_module": {
+         "type": "string"
+        },
+        "as": {
+         "type": [
+          "string",
+          "array"
+         ]
+        },
+        "as_catalog": {
+         "type": "string"
+        },
+        "part": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         }
+        },
+        "catalogs": {
+         "type": "array",
+         "items": {
+          "type": [
+           "string",
+           "null"
+          ]
+         }
+        },
+        "from": {
+         "type": "string"
+        },
+        "to": {
+         "type": "string"
+        },
+        "payload": {
+         "type": "string"
+        },
+        "zone": {
+         "type": "string"
+        },
+        "goal": {
+         "type": "array",
+         "items": {
+          "type": "number"
+         },
+         "minItems": 3,
+         "maxItems": 3
+        },
+        "yaw": {
+         "type": "number"
+        },
+        "via": {
+         "type": "array",
+         "items": {
+          "type": "array",
+          "items": {
+           "type": "number"
+          },
+          "minItems": 2,
+          "maxItems": 2
+         }
+        },
+        "via_aisle": {
+         "type": "string"
+        },
+        "bays": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         }
+        },
+        "bay": {
+         "type": "string"
+        },
+        "policy": {
+         "enum": [
+          "nearest",
+          "assigned"
+         ]
+        },
+        "target_soc": {
+         "type": "number"
+        },
+        "then_zone": {
+         "type": "string"
+        },
+        "viewpoints": {
+         "type": "array",
+         "items": {
+          "type": "array",
+          "items": {
+           "type": "number"
+          },
+          "minItems": 3,
+          "maxItems": 3
+         }
+        },
+        "dwell_s": {
+         "type": "number"
+        },
+        "duration_s": {
+         "type": "number"
+        },
+        "deadline_s": {
+         "type": "number"
+        },
+        "after": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         }
+        },
+        "when": {
+         "type": "object",
+         "properties": {
+          "fault": {
+           "type": "string"
+          }
+         },
+         "required": [
+          "fault"
+         ],
+         "additionalProperties": false
+        },
+        "abort_on_fault": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "id",
+        "kind"
+       ],
+       "additionalProperties": false
+      },
+      "minItems": 1
+     }
+    },
+    "required": [
+     "steps"
+    ],
+    "additionalProperties": false
+   }
+  },
+  "default_plan": {
+   "type": "string"
+  },
+  "outcomes": {
+   "type": "object",
+   "properties": {
+    "success": {
+     "type": "array",
+     "items": {
+      "type": "object"
+     },
+     "minItems": 1
+    },
+    "fail_on": {
+     "type": "array",
+     "items": {
+      "enum": [
+       "collision",
+       "deadline",
+       "stuck",
+       "step_failed"
+      ]
+     }
+    },
+    "collision_tol_m": {
+     "type": "number",
+     "minimum": 0
+    }
+   },
+   "required": [
+    "success"
+   ],
+   "additionalProperties": false
+  }
+ }
+}

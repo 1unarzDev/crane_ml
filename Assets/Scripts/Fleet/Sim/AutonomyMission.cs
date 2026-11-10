@@ -78,6 +78,17 @@ namespace Crane.Fleet.Sim {
             return sb.ToString();
         }
 
+        /// <summary>Landmark tags: the scenario's scenes-v1 tags (x_v1.tags: door jambs, bays, slots) when it has them, else the
+        /// overlay's warehouse_a door-jamb tags. (scenes v1; untested in Unity at the time of writing.)</summary>
+        IEnumerable<(string name, double[] pose)> LandmarkTags() {
+            var v1 = spec.V1();
+            if (v1.Present && v1.Tags.Count > 0) {
+                foreach (var t in v1.Landmarks()) yield return (t.Name, new[] { t.X, t.Y, t.Yaw });
+                yield break;
+            }
+            foreach (var lm in spec.O["landmarks.tags"].Items) yield return (lm["name"].String, lm["pose"].Doubles);
+        }
+
         public Pose2 StartPose(string id) {
             // the start slot the rover believes in (the mission's initial_estimates, else the demo start slots)
             JsonNode ie = missionJson.TryGet("crane_start." + id) ?? spec.O["demo.rovers." + id + ".start"];
@@ -141,9 +152,8 @@ namespace Crane.Fleet.Sim {
             gripRate = (gripMax - gripMin) / lr["gripper_close_time"].Double;
             // render-only landmark plates (white with a black frame; not a decodable tag image)
             double ls = spec.O["landmarks.size"].Double, lh = spec.O["landmarks.height"].Double;
-            foreach (var lm in spec.O["landmarks.tags"].Items) {
-                double[] lp = lm["pose"].Doubles;
-                var go = new GameObject("landmark_" + lm["name"].String);
+            foreach (var (lmName, lp) in LandmarkTags()) {
+                var go = new GameObject("landmark_" + lmName);
                 go.transform.SetPositionAndRotation(FleetFrames.World(lp[0], lp[1], 0), FleetFrames.WorldYaw(lp[2]));
                 FleetGeometry.Visual(PrimitiveType.Cube, "frame", go.transform, FleetFrames.Local(0.002, 0, lh), Quaternion.identity, FleetFrames.LocalScale(0.004, ls * 1.25, ls * 1.25), Color.black);
                 FleetGeometry.Visual(PrimitiveType.Cube, "face", go.transform, FleetFrames.Local(0.004, 0, lh), Quaternion.identity, FleetFrames.LocalScale(0.002, ls * 0.75, ls * 0.75), Color.white);
@@ -177,11 +187,10 @@ namespace Crane.Fleet.Sim {
             }
             // landmark tags (door jambs): known poses for the library, detections through the perception host's object channel
             int lmId = 950;
-            foreach (var lm in spec.O["landmarks.tags"].Items) {
-                double[] p = lm["pose"].Doubles;
+            foreach (var (lmName, p) in LandmarkTags()) {
                 var pose = new Pose2(p[0], p[1], p[2]);
-                cfg.Landmarks[lm["name"].String] = pose;
-                perception.RecordObject(r.T, lm["name"].String, pose, new TagSpec { Id = lmId++, OwnerId = lm["name"].String, Name = "landmark",
+                cfg.Landmarks[lmName] = pose;
+                perception.RecordObject(r.T, lmName, pose, new TagSpec { Id = lmId++, OwnerId = lmName, Name = "landmark",
                     Size = spec.O["landmarks.size"].Double, MountInOwner = TagSpec.OnVerticalFace(new Vec3(0.002, 0, spec.O["landmarks.height"].Double), 0) });
             }
             if (missionJson.Has("crane_initial_sigma")) { double[] sg = missionJson["crane_initial_sigma"].Doubles; cfg.InitialPosSigma = sg[0]; cfg.InitialYawSigma = sg[1]; }

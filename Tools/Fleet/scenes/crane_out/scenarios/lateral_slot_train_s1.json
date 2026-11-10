@@ -1,0 +1,295 @@
+{
+ "schema": "crane.fleet_scenario/v0",
+ "scenario_id": "fleet/scenes_v1/lateral_slot/train/s1",
+ "note": "compiled from fleet/scenes_v1/lateral_slot/train/s1 by scenes.crane_compile; the v1 source is authoritative",
+ "arena": {
+  "size_xy": [
+   10.0,
+   7.0
+  ],
+  "wall_height": 2.8,
+  "floor": "hard_tile"
+ },
+ "walls": [],
+ "doorway": {
+  "in_wall": "(none)",
+  "centre_y": 3.5,
+  "width": {
+   "default": 1.0
+  },
+  "height": 2.0
+ },
+ "zones": {
+  "staging": {
+   "rect": [
+    0.5,
+    0.5,
+    2.5,
+    2.5
+   ],
+   "kind": "staging"
+  },
+  "loading": {
+   "rect": [
+    0.5,
+    3.5,
+    2.0,
+    5.0
+   ],
+   "kind": "loading"
+  },
+  "slot": {
+   "rect": [
+    5.754,
+    6.494,
+    6.294,
+    7.0
+   ],
+   "kind": "slot"
+  },
+  "delivery": {
+   "rect": [
+    5.754,
+    6.494,
+    6.294,
+    7.0
+   ],
+   "kind": "delivery",
+   "alias_of": "slot"
+  }
+ },
+ "obstacles": [
+  {
+   "id": "shelf_a",
+   "type": "box",
+   "centre": [
+    5.154,
+    6.747,
+    0.9
+   ],
+   "size": [
+    1.2,
+    0.506,
+    1.8
+   ],
+   "v1_kind": "shelf",
+   "v1_source": "shelf_a"
+  },
+  {
+   "id": "shelf_b",
+   "type": "box",
+   "centre": [
+    6.894,
+    6.747,
+    0.9
+   ],
+   "size": [
+    1.2,
+    0.506,
+    1.8
+   ],
+   "v1_kind": "shelf",
+   "v1_source": "shelf_b"
+  }
+ ],
+ "overhead_cameras": [
+  {
+   "id": "oh_centre",
+   "position": [
+    5.0,
+    3.5,
+    2.6
+   ],
+   "look_at": [
+    6.0,
+    5.5,
+    0.0
+   ]
+  }
+ ],
+ "overhead_modes": [
+  "working",
+  "occluded",
+  "disabled"
+ ],
+ "payload_spawn": {
+  "zone": "loading",
+  "types": [
+   "box_small"
+  ]
+ },
+ "mission_default": "which unit to assign: a mecanum carrier succeeds, a differential carrier cannot reach the slot pose",
+ "outcomes": {
+  "delivered": "payload centre inside zones.delivery, at rest, supported, within the deadline"
+ },
+ "deadline_s": 200.0,
+ "x_v1": {
+  "source_sha256": "7e02ac8a4748c7f476fd0f9b6c8546a659c609ec6967315903f45793da5b844b",
+  "family": {
+   "id": "lateral_slot",
+   "seed": 1,
+   "split": "train",
+   "params": {
+    "slot_wall": "north",
+    "slot_w": 0.54,
+    "slot_d": 0.506
+   },
+   "generator": "families_v1.0",
+   "rule": "slot_wall == 'north' and slot_w >= 0.52"
+  },
+  "doors": [],
+  "thresholds": [],
+  "floor_patches": [],
+  "tags": [
+   {
+    "id": 950,
+    "name": "lm_slot",
+    "pose": [
+     6.024,
+     6.998,
+     -1.570796
+    ],
+    "z": 0.25,
+    "size": 0.12,
+    "on": "shelf"
+   }
+  ],
+  "zones": [
+   {
+    "id": "staging",
+    "kind": "staging",
+    "rect": [
+     0.5,
+     0.5,
+     2.5,
+     2.5
+    ]
+   },
+   {
+    "id": "loading",
+    "kind": "loading",
+    "rect": [
+     0.5,
+     3.5,
+     2.0,
+     5.0
+    ]
+   },
+   {
+    "id": "slot",
+    "kind": "slot",
+    "rect": [
+     5.754,
+     6.494,
+     6.294,
+     7.0
+    ],
+    "required_yaw": 0.0
+   }
+  ],
+  "overhead_cameras": [
+   {
+    "id": "oh_centre",
+    "position": [
+     5.0,
+     3.5,
+     2.6
+    ],
+    "look_at": [
+     6.0,
+     5.5,
+     0.0
+    ],
+    "hfov_deg": 90.0,
+    "range_m": 8.0,
+    "mode": "working"
+   }
+  ],
+  "payloads": [
+   {
+    "id": "p1",
+    "type": "box_small",
+    "size_lwh": [
+     0.3,
+     0.2,
+     0.15
+    ],
+    "mass_kg": 2.0,
+    "unknown_mass": false,
+    "pallet_height": 0.03,
+    "spawn": {
+     "zone": "loading",
+     "pose": [
+      1.25,
+      4.25,
+      0.0
+     ],
+     "pose_known": true
+    }
+   }
+  ],
+  "units": [
+   {
+    "id": "mec",
+    "catalog": "carrier",
+    "module_graph": {
+     "manifest": "train_v1",
+     "config_hash": "d0b9ad389bac696b"
+    },
+    "config_hash": "d0b9ad389bac696b",
+    "start": [
+     1.0,
+     1.0,
+     0.0
+    ],
+    "soc": 1.0,
+    "crane_role": "cargo"
+   },
+   {
+    "id": "diff",
+    "catalog": "diff_carrier",
+    "module_graph": {
+     "manifest": "train_v1",
+     "config_hash": "dd124db40db92d29"
+    },
+    "config_hash": "dd124db40db92d29",
+    "start": [
+     1.0,
+     2.0,
+     0.0
+    ],
+    "soc": 1.0,
+    "crane_role": null
+   }
+  ],
+  "faults": [],
+  "gaps": [
+   {
+    "field": "zones.required_yaw",
+    "status": "ignored",
+    "detail": "the truth check tests the payload centre only"
+   }
+  ],
+  "plan_gaps": {
+   "mecanum": [
+    {
+     "field": "fleet.units.diff",
+     "status": "omitted",
+     "detail": "diff (diff_carrier) is idle in plan mecanum and not buildable in CRANE: left out (it is still an obstacle in fastsim)"
+    },
+    {
+     "field": "task.pick",
+     "status": "approximated",
+     "detail": "a deck pickup is a lifter lift + handoff in CRANE (fastsim loads the deck kinematically); provisional grasp/hold offsets"
+    }
+   ],
+   "diffdrive": [
+    {
+     "field": "fleet.units.diff",
+     "status": "unsupported",
+     "detail": "diff (diff_carrier, differential_like) has no CRANE profile role or no free profile rover; autonomy missions spawn only scout_1, lifter_1, cargo_1, cargo_2 (module graphs spawn only in probe missions, uncoupled)"
+    }
+   ]
+  }
+ }
+}

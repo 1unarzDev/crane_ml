@@ -1,0 +1,336 @@
+{
+ "schema": "crane.fleet_scenario/v0",
+ "scenario_id": "fleet/scenes_v1/aisle_traffic/train/s1",
+ "note": "compiled from fleet/scenes_v1/aisle_traffic/train/s1 by scenes.crane_compile; the v1 source is authoritative",
+ "arena": {
+  "size_xy": [
+   10.0,
+   7.0
+  ],
+  "wall_height": 2.8,
+  "floor": "hard_tile"
+ },
+ "walls": [],
+ "doorway": {
+  "in_wall": "(none)",
+  "centre_y": 3.5,
+  "width": {
+   "default": 1.0
+  },
+  "height": 2.0
+ },
+ "zones": {
+  "aisle_0": {
+   "rect": [
+    2.6,
+    2.113,
+    7.4,
+    2.743
+   ],
+   "kind": "aisle"
+  },
+  "aisle_1": {
+   "rect": [
+    2.6,
+    4.257,
+    7.4,
+    4.887
+   ],
+   "kind": "aisle"
+  },
+  "west_hall": {
+   "rect": [
+    0.3,
+    0.3,
+    2.3,
+    6.7
+   ],
+   "kind": "staging"
+  },
+  "east_hall": {
+   "rect": [
+    7.7,
+    0.3,
+    9.7,
+    6.7
+   ],
+   "kind": "delivery"
+  },
+  "goal_r0": {
+   "rect": [
+    8.65,
+    0.65,
+    9.35,
+    1.35
+   ],
+   "kind": "delivery"
+  },
+  "goal_r1": {
+   "rect": [
+    0.65,
+    0.65,
+    1.35,
+    1.35
+   ],
+   "kind": "staging"
+  },
+  "goal_r2": {
+   "rect": [
+    8.65,
+    5.65,
+    9.35,
+    6.35
+   ],
+   "kind": "delivery"
+  }
+ },
+ "obstacles": [
+  {
+   "id": "row_0",
+   "type": "box",
+   "centre": [
+    5.0,
+    1.357,
+    0.9
+   ],
+   "size": [
+    4.0,
+    1.513,
+    1.8
+   ],
+   "v1_kind": "shelf",
+   "v1_source": "row_0"
+  },
+  {
+   "id": "row_1",
+   "type": "box",
+   "centre": [
+    5.0,
+    3.5,
+    0.9
+   ],
+   "size": [
+    4.0,
+    1.513,
+    1.8
+   ],
+   "v1_kind": "shelf",
+   "v1_source": "row_1"
+  },
+  {
+   "id": "row_2",
+   "type": "box",
+   "centre": [
+    5.0,
+    5.643,
+    0.9
+   ],
+   "size": [
+    4.0,
+    1.513,
+    1.8
+   ],
+   "v1_kind": "shelf",
+   "v1_source": "row_2"
+  }
+ ],
+ "overhead_cameras": [],
+ "overhead_modes": [
+  "working",
+  "occluded",
+  "disabled"
+ ],
+ "payload_spawn": {
+  "zone": null,
+  "types": []
+ },
+ "mission_default": "multi-robot coordination (WoMAPF stand-in): aisle reservations vs independent motion",
+ "outcomes": {
+  "delivered": "payload centre inside zones.delivery, at rest, supported, within the deadline"
+ },
+ "deadline_s": 200.0,
+ "x_v1": {
+  "source_sha256": "e24a347bcd9d9f6b79ddfa9a60b7bfa822f82b7aa715f7920fbd4204241336c0",
+  "family": {
+   "id": "aisle_traffic",
+   "seed": 1,
+   "split": "train",
+   "params": {
+    "n_aisles": 2,
+    "n_units": 3,
+    "aisle_w": 0.63
+   },
+   "generator": "families_v1.0",
+   "rule": "n_aisles == 2 and n_units <= 4"
+  },
+  "doors": [],
+  "thresholds": [],
+  "floor_patches": [],
+  "tags": [],
+  "zones": [
+   {
+    "id": "aisle_0",
+    "kind": "aisle",
+    "rect": [
+     2.6,
+     2.113,
+     7.4,
+     2.743
+    ],
+    "capacity": 1
+   },
+   {
+    "id": "aisle_1",
+    "kind": "aisle",
+    "rect": [
+     2.6,
+     4.257,
+     7.4,
+     4.887
+    ],
+    "capacity": 1
+   },
+   {
+    "id": "west_hall",
+    "kind": "staging",
+    "rect": [
+     0.3,
+     0.3,
+     2.3,
+     6.7
+    ]
+   },
+   {
+    "id": "east_hall",
+    "kind": "delivery",
+    "rect": [
+     7.7,
+     0.3,
+     9.7,
+     6.7
+    ]
+   },
+   {
+    "id": "goal_r0",
+    "kind": "delivery",
+    "rect": [
+     8.65,
+     0.65,
+     9.35,
+     1.35
+    ]
+   },
+   {
+    "id": "goal_r1",
+    "kind": "staging",
+    "rect": [
+     0.65,
+     0.65,
+     1.35,
+     1.35
+    ]
+   },
+   {
+    "id": "goal_r2",
+    "kind": "delivery",
+    "rect": [
+     8.65,
+     5.65,
+     9.35,
+     6.35
+    ]
+   }
+  ],
+  "overhead_cameras": [],
+  "payloads": [],
+  "units": [
+   {
+    "id": "r0",
+    "catalog": "carrier",
+    "module_graph": {
+     "manifest": "train_v1",
+     "config_hash": "d0b9ad389bac696b"
+    },
+    "config_hash": "d0b9ad389bac696b",
+    "start": [
+     1.0,
+     3.5,
+     0.0
+    ],
+    "soc": 1.0,
+    "crane_role": "cargo"
+   },
+   {
+    "id": "r1",
+    "catalog": "carrier",
+    "module_graph": {
+     "manifest": "train_v1",
+     "config_hash": "d0b9ad389bac696b"
+    },
+    "config_hash": "d0b9ad389bac696b",
+    "start": [
+     9.0,
+     6.0,
+     3.142
+    ],
+    "soc": 1.0,
+    "crane_role": "cargo"
+   },
+   {
+    "id": "r2",
+    "catalog": "carrier",
+    "module_graph": {
+     "manifest": "train_v1",
+     "config_hash": "d0b9ad389bac696b"
+    },
+    "config_hash": "d0b9ad389bac696b",
+    "start": [
+     1.0,
+     1.0,
+     0.0
+    ],
+    "soc": 1.0,
+    "crane_role": "cargo"
+   }
+  ],
+  "faults": [],
+  "gaps": [
+   {
+    "field": "zones",
+    "status": "approximated",
+    "detail": "the CRANE truth check uses zones.delivery only (None)"
+   },
+   {
+    "field": "zones.aisle",
+    "status": "ignored",
+    "detail": "no aisle reservation in Crane.Fleet.Autonomy"
+   }
+  ],
+  "plan_gaps": {
+   "reserved": [
+    {
+     "field": "fleet.units.r2",
+     "status": "approximated",
+     "detail": "role substitution: r2 (cargo) runs as lifter_1 (same mecanum chassis; role mass and sensors differ); it only drives in this plan"
+    },
+    {
+     "field": "plans.traffic",
+     "status": "ignored",
+     "detail": "CRANE's executive has its own deconfliction; policy reserved not mapped"
+    }
+   ],
+   "none": [
+    {
+     "field": "fleet.units.r2",
+     "status": "approximated",
+     "detail": "role substitution: r2 (cargo) runs as lifter_1 (same mecanum chassis; role mass and sensors differ); it only drives in this plan"
+    },
+    {
+     "field": "plans.traffic",
+     "status": "ignored",
+     "detail": "CRANE's executive has its own deconfliction; policy none not mapped"
+    }
+   ]
+  }
+ }
+}

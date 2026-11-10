@@ -1,0 +1,506 @@
+{
+ "schema": "crane.fleet_scenario/v0",
+ "scenario_id": "fleet/scenes_v1/charging_contention/heldout/s1",
+ "note": "compiled from fleet/scenes_v1/charging_contention/heldout/s1 by scenes.crane_compile; the v1 source is authoritative",
+ "arena": {
+  "size_xy": [
+   10.0,
+   7.0
+  ],
+  "wall_height": 2.8,
+  "floor": "hard_tile"
+ },
+ "walls": [],
+ "doorway": {
+  "in_wall": "(none)",
+  "centre_y": 3.5,
+  "width": {
+   "default": 1.0
+  },
+  "height": 2.0
+ },
+ "zones": {
+  "bay_0": {
+   "rect": [
+    0.15,
+    0.9,
+    0.75,
+    1.5
+   ],
+   "kind": "charging"
+  },
+  "bay_1": {
+   "rect": [
+    0.15,
+    3.2,
+    0.75,
+    3.8
+   ],
+   "kind": "charging"
+  },
+  "bay_2": {
+   "rect": [
+    0.15,
+    5.5,
+    0.75,
+    6.1
+   ],
+   "kind": "charging"
+  },
+  "work_c0": {
+   "rect": [
+    8.4,
+    0.6,
+    9.4,
+    1.66
+   ],
+   "kind": "delivery"
+  },
+  "work_c1": {
+   "rect": [
+    8.4,
+    1.76,
+    9.4,
+    2.82
+   ],
+   "kind": "delivery"
+  },
+  "work_c2": {
+   "rect": [
+    8.4,
+    2.92,
+    9.4,
+    3.98
+   ],
+   "kind": "delivery"
+  },
+  "work_c3": {
+   "rect": [
+    8.4,
+    4.08,
+    9.4,
+    5.14
+   ],
+   "kind": "delivery"
+  },
+  "work_c4": {
+   "rect": [
+    8.4,
+    5.24,
+    9.4,
+    6.3
+   ],
+   "kind": "delivery"
+  }
+ },
+ "obstacles": [
+  {
+   "id": "bay_post_0_s",
+   "type": "box",
+   "centre": [
+    0.125,
+    0.83,
+    0.3
+   ],
+   "size": [
+    0.25,
+    0.1,
+    0.6
+   ],
+   "v1_kind": "charger",
+   "v1_source": "bay_post_0_s"
+  },
+  {
+   "id": "bay_post_0_n",
+   "type": "box",
+   "centre": [
+    0.125,
+    1.57,
+    0.3
+   ],
+   "size": [
+    0.25,
+    0.1,
+    0.6
+   ],
+   "v1_kind": "charger",
+   "v1_source": "bay_post_0_n"
+  },
+  {
+   "id": "bay_post_1_s",
+   "type": "box",
+   "centre": [
+    0.125,
+    3.13,
+    0.3
+   ],
+   "size": [
+    0.25,
+    0.1,
+    0.6
+   ],
+   "v1_kind": "charger",
+   "v1_source": "bay_post_1_s"
+  },
+  {
+   "id": "bay_post_1_n",
+   "type": "box",
+   "centre": [
+    0.125,
+    3.87,
+    0.3
+   ],
+   "size": [
+    0.25,
+    0.1,
+    0.6
+   ],
+   "v1_kind": "charger",
+   "v1_source": "bay_post_1_n"
+  },
+  {
+   "id": "bay_post_2_s",
+   "type": "box",
+   "centre": [
+    0.125,
+    5.43,
+    0.3
+   ],
+   "size": [
+    0.25,
+    0.1,
+    0.6
+   ],
+   "v1_kind": "charger",
+   "v1_source": "bay_post_2_s"
+  },
+  {
+   "id": "bay_post_2_n",
+   "type": "box",
+   "centre": [
+    0.125,
+    6.17,
+    0.3
+   ],
+   "size": [
+    0.25,
+    0.1,
+    0.6
+   ],
+   "v1_kind": "charger",
+   "v1_source": "bay_post_2_n"
+  },
+  {
+   "id": "rack_mid",
+   "type": "box",
+   "centre": [
+    5.5,
+    3.5,
+    0.75
+   ],
+   "size": [
+    1.0,
+    1.4,
+    1.5
+   ],
+   "v1_kind": "rack",
+   "v1_source": "rack_mid"
+  }
+ ],
+ "overhead_cameras": [],
+ "overhead_modes": [
+  "working",
+  "occluded",
+  "disabled"
+ ],
+ "payload_spawn": {
+  "zone": null,
+  "types": []
+ },
+ "mission_default": "bay assignment: nearest-bay greedy queueing vs balanced assignment",
+ "outcomes": {
+  "delivered": "payload centre inside zones.delivery, at rest, supported, within the deadline"
+ },
+ "deadline_s": 155.0,
+ "x_v1": {
+  "source_sha256": "65c245af17c16e366fafd2aa3ea57ce4ab28f628e79838642244c53252365fae",
+  "family": {
+   "id": "charging_contention",
+   "seed": 1,
+   "split": "heldout",
+   "params": {
+    "n_units": 5,
+    "n_bays": 3
+   },
+   "generator": "families_v1.0",
+   "rule": "n_units > 3 or n_bays != 2"
+  },
+  "doors": [],
+  "thresholds": [],
+  "floor_patches": [],
+  "tags": [
+   {
+    "id": 950,
+    "name": "lm_bay_0",
+    "pose": [
+     0.002,
+     1.2,
+     0.0
+    ],
+    "z": 0.2,
+    "size": 0.12,
+    "on": "bay"
+   },
+   {
+    "id": 951,
+    "name": "lm_bay_1",
+    "pose": [
+     0.002,
+     3.5,
+     0.0
+    ],
+    "z": 0.2,
+    "size": 0.12,
+    "on": "bay"
+   },
+   {
+    "id": 952,
+    "name": "lm_bay_2",
+    "pose": [
+     0.002,
+     5.8,
+     0.0
+    ],
+    "z": 0.2,
+    "size": 0.12,
+    "on": "bay"
+   }
+  ],
+  "zones": [
+   {
+    "id": "bay_0",
+    "kind": "charging",
+    "rect": [
+     0.15,
+     0.9,
+     0.75,
+     1.5
+    ],
+    "capacity": 1,
+    "required_yaw": 0.0
+   },
+   {
+    "id": "bay_1",
+    "kind": "charging",
+    "rect": [
+     0.15,
+     3.2,
+     0.75,
+     3.8
+    ],
+    "capacity": 1,
+    "required_yaw": 0.0
+   },
+   {
+    "id": "bay_2",
+    "kind": "charging",
+    "rect": [
+     0.15,
+     5.5,
+     0.75,
+     6.1
+    ],
+    "capacity": 1,
+    "required_yaw": 0.0
+   },
+   {
+    "id": "work_c0",
+    "kind": "delivery",
+    "rect": [
+     8.4,
+     0.6,
+     9.4,
+     1.66
+    ]
+   },
+   {
+    "id": "work_c1",
+    "kind": "delivery",
+    "rect": [
+     8.4,
+     1.76,
+     9.4,
+     2.82
+    ]
+   },
+   {
+    "id": "work_c2",
+    "kind": "delivery",
+    "rect": [
+     8.4,
+     2.92,
+     9.4,
+     3.98
+    ]
+   },
+   {
+    "id": "work_c3",
+    "kind": "delivery",
+    "rect": [
+     8.4,
+     4.08,
+     9.4,
+     5.14
+    ]
+   },
+   {
+    "id": "work_c4",
+    "kind": "delivery",
+    "rect": [
+     8.4,
+     5.24,
+     9.4,
+     6.3
+    ]
+   }
+  ],
+  "overhead_cameras": [],
+  "payloads": [],
+  "units": [
+   {
+    "id": "c0",
+    "catalog": "carrier",
+    "module_graph": {
+     "manifest": "train_v1",
+     "config_hash": "d0b9ad389bac696b"
+    },
+    "config_hash": "d0b9ad389bac696b",
+    "start": [
+     2.2,
+     0.8,
+     3.142
+    ],
+    "soc": 0.156,
+    "crane_role": "cargo"
+   },
+   {
+    "id": "c1",
+    "catalog": "carrier",
+    "module_graph": {
+     "manifest": "train_v1",
+     "config_hash": "d0b9ad389bac696b"
+    },
+    "config_hash": "d0b9ad389bac696b",
+    "start": [
+     2.9,
+     0.8,
+     3.142
+    ],
+    "soc": 0.19,
+    "crane_role": "cargo"
+   },
+   {
+    "id": "c2",
+    "catalog": "carrier",
+    "module_graph": {
+     "manifest": "train_v1",
+     "config_hash": "d0b9ad389bac696b"
+    },
+    "config_hash": "d0b9ad389bac696b",
+    "start": [
+     3.6,
+     0.8,
+     3.142
+    ],
+    "soc": 0.236,
+    "crane_role": "cargo"
+   },
+   {
+    "id": "c3",
+    "catalog": "carrier",
+    "module_graph": {
+     "manifest": "train_v1",
+     "config_hash": "d0b9ad389bac696b"
+    },
+    "config_hash": "d0b9ad389bac696b",
+    "start": [
+     2.2,
+     1.4,
+     3.142
+    ],
+    "soc": 0.259,
+    "crane_role": "cargo"
+   },
+   {
+    "id": "c4",
+    "catalog": "carrier",
+    "module_graph": {
+     "manifest": "train_v1",
+     "config_hash": "d0b9ad389bac696b"
+    },
+    "config_hash": "d0b9ad389bac696b",
+    "start": [
+     2.9,
+     1.4,
+     3.142
+    ],
+    "soc": 0.263,
+    "crane_role": "cargo"
+   }
+  ],
+  "faults": [],
+  "gaps": [
+   {
+    "field": "zones",
+    "status": "approximated",
+    "detail": "the CRANE truth check uses zones.delivery only (None)"
+   },
+   {
+    "field": "zones.required_yaw",
+    "status": "ignored",
+    "detail": "the truth check tests the payload centre only"
+   },
+   {
+    "field": "zones.charging",
+    "status": "approximated",
+    "detail": "a charging zone is a floor patch; CRANE has no battery model"
+   }
+  ],
+  "plan_gaps": {
+   "nearest": [
+    {
+     "field": "fleet.units.c2",
+     "status": "unsupported",
+     "detail": "c2 (carrier, omnidirectional) has no CRANE profile role or no free profile rover; autonomy missions spawn only scout_1, lifter_1, cargo_1, cargo_2 (module graphs spawn only in probe missions, uncoupled)"
+    },
+    {
+     "field": "fleet.units.c3",
+     "status": "unsupported",
+     "detail": "c3 (carrier, omnidirectional) has no CRANE profile role or no free profile rover; autonomy missions spawn only scout_1, lifter_1, cargo_1, cargo_2 (module graphs spawn only in probe missions, uncoupled)"
+    },
+    {
+     "field": "fleet.units.c4",
+     "status": "unsupported",
+     "detail": "c4 (carrier, omnidirectional) has no CRANE profile role or no free profile rover; autonomy missions spawn only scout_1, lifter_1, cargo_1, cargo_2 (module graphs spawn only in probe missions, uncoupled)"
+    }
+   ],
+   "assigned": [
+    {
+     "field": "fleet.units.c2",
+     "status": "unsupported",
+     "detail": "c2 (carrier, omnidirectional) has no CRANE profile role or no free profile rover; autonomy missions spawn only scout_1, lifter_1, cargo_1, cargo_2 (module graphs spawn only in probe missions, uncoupled)"
+    },
+    {
+     "field": "fleet.units.c3",
+     "status": "unsupported",
+     "detail": "c3 (carrier, omnidirectional) has no CRANE profile role or no free profile rover; autonomy missions spawn only scout_1, lifter_1, cargo_1, cargo_2 (module graphs spawn only in probe missions, uncoupled)"
+    },
+    {
+     "field": "fleet.units.c4",
+     "status": "unsupported",
+     "detail": "c4 (carrier, omnidirectional) has no CRANE profile role or no free profile rover; autonomy missions spawn only scout_1, lifter_1, cargo_1, cargo_2 (module graphs spawn only in probe missions, uncoupled)"
+    }
+   ]
+  }
+ }
+}

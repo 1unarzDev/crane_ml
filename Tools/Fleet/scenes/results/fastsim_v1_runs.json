@@ -1,0 +1,990 @@
+{
+ "aisle_traffic/heldout/none": [
+  {
+   "seed": 1,
+   "outcome": "FAILED",
+   "t": 10.9,
+   "reason": "collision r0/r2 at t=10.9 (-0.028 m)"
+  },
+  {
+   "seed": 2,
+   "outcome": "FAILED",
+   "t": 4.5,
+   "reason": "collision r3/r5 at t=4.5 (-0.050 m)"
+  },
+  {
+   "seed": 3,
+   "outcome": "FAILED",
+   "t": 4.4,
+   "reason": "collision r1/r3 at t=4.4 (-0.030 m)"
+  }
+ ],
+ "aisle_traffic/heldout/reserved": [
+  {
+   "seed": 1,
+   "outcome": "SUCCEEDED",
+   "t": 50.4,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 2,
+   "outcome": "FAILED",
+   "t": 8.6,
+   "reason": "collision r0/r2 at t=8.6 (-0.047 m)"
+  },
+  {
+   "seed": 3,
+   "outcome": "FAILED",
+   "t": 84.9,
+   "reason": "stuck 60 s (running ['go_r0', 'go_r1', 'go_r2', 'go_r3', 'go_r4', 'go_r5']; [])"
+  }
+ ],
+ "aisle_traffic/train/none": [
+  {
+   "seed": 1,
+   "outcome": "SUCCEEDED",
+   "t": 30.7,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 2,
+   "outcome": "SUCCEEDED",
+   "t": 31.4,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 3,
+   "outcome": "FAILED",
+   "t": 7.0,
+   "reason": "collision r1/r3 at t=7.0 (-0.014 m)"
+  },
+  {
+   "seed": 4,
+   "outcome": "SUCCEEDED",
+   "t": 32.3,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 5,
+   "outcome": "SUCCEEDED",
+   "t": 33.4,
+   "reason": "all success rules hold"
+  }
+ ],
+ "aisle_traffic/train/reserved": [
+  {
+   "seed": 1,
+   "outcome": "SUCCEEDED",
+   "t": 43.2,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 2,
+   "outcome": "SUCCEEDED",
+   "t": 45.4,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 3,
+   "outcome": "FAILED",
+   "t": 92.9,
+   "reason": "stuck 60 s (running ['go_r1', 'go_r3']; [])"
+  },
+  {
+   "seed": 4,
+   "outcome": "SUCCEEDED",
+   "t": 44.7,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 5,
+   "outcome": "FAILED",
+   "t": 16.7,
+   "reason": "collision r2/r3 at t=16.7 (-0.032 m)"
+  }
+ ],
+ "blocked_faces/heldout/fixed_face": [
+  {
+   "seed": 1,
+   "outcome": "FAILED",
+   "t": 0.0,
+   "reason": "step couple: face_blocked: cargo_1.rear approach corridor obstructed"
+  },
+  {
+   "seed": 2,
+   "outcome": "FAILED",
+   "t": 0.0,
+   "reason": "step couple: face_blocked: cargo_1.rear approach corridor obstructed"
+  },
+  {
+   "seed": 3,
+   "outcome": "FAILED",
+   "t": 0.0,
+   "reason": "step couple: face_blocked: cargo_1.rear approach corridor obstructed"
+  }
+ ],
+ "blocked_faces/heldout/free_face": [
+  {
+   "seed": 1,
+   "outcome": "SUCCEEDED",
+   "t": 68.7,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 2,
+   "outcome": "SUCCEEDED",
+   "t": 69.4,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 3,
+   "outcome": "SUCCEEDED",
+   "t": 68.7,
+   "reason": "all success rules hold"
+  }
+ ],
+ "blocked_faces/heldout/move_target": [
+  {
+   "seed": 1,
+   "outcome": "SUCCEEDED",
+   "t": 76.7,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 2,
+   "outcome": "SUCCEEDED",
+   "t": 78.3,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 3,
+   "outcome": "SUCCEEDED",
+   "t": 78.1,
+   "reason": "all success rules hold"
+  }
+ ],
+ "blocked_faces/train/fixed_face": [
+  {
+   "seed": 1,
+   "outcome": "FAILED",
+   "t": 0.0,
+   "reason": "step couple: face_blocked: cargo_1.rear approach corridor obstructed"
+  },
+  {
+   "seed": 2,
+   "outcome": "FAILED",
+   "t": 0.0,
+   "reason": "step couple: face_blocked: cargo_1.rear approach corridor obstructed"
+  },
+  {
+   "seed": 3,
+   "outcome": "FAILED",
+   "t": 0.0,
+   "reason": "step couple: face_blocked: cargo_1.rear approach corridor obstructed"
+  },
+  {
+   "seed": 4,
+   "outcome": "FAILED",
+   "t": 0.0,
+   "reason": "step couple: face_blocked: cargo_1.rear approach corridor obstructed"
+  },
+  {
+   "seed": 5,
+   "outcome": "FAILED",
+   "t": 0.0,
+   "reason": "step couple: face_blocked: cargo_1.rear approach corridor obstructed"
+  }
+ ],
+ "blocked_faces/train/free_face": [
+  {
+   "seed": 1,
+   "outcome": "SUCCEEDED",
+   "t": 68.9,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 2,
+   "outcome": "SUCCEEDED",
+   "t": 69.1,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 3,
+   "outcome": "SUCCEEDED",
+   "t": 68.9,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 4,
+   "outcome": "SUCCEEDED",
+   "t": 68.8,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 5,
+   "outcome": "SUCCEEDED",
+   "t": 69.0,
+   "reason": "all success rules hold"
+  }
+ ],
+ "blocked_faces/train/move_target": [
+  {
+   "seed": 1,
+   "outcome": "SUCCEEDED",
+   "t": 76.1,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 2,
+   "outcome": "SUCCEEDED",
+   "t": 76.2,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 3,
+   "outcome": "SUCCEEDED",
+   "t": 75.5,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 4,
+   "outcome": "SUCCEEDED",
+   "t": 77.1,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 5,
+   "outcome": "SUCCEEDED",
+   "t": 77.7,
+   "reason": "all success rules hold"
+  }
+ ],
+ "charging_contention/heldout/assigned": [
+  {
+   "seed": 1,
+   "outcome": "SUCCEEDED",
+   "t": 142.4,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 2,
+   "outcome": "SUCCEEDED",
+   "t": 117.3,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 3,
+   "outcome": "SUCCEEDED",
+   "t": 121.3,
+   "reason": "all success rules hold"
+  }
+ ],
+ "charging_contention/heldout/nearest": [
+  {
+   "seed": 1,
+   "outcome": "FAILED",
+   "t": 155.1,
+   "reason": "deadline 155 s"
+  },
+  {
+   "seed": 2,
+   "outcome": "FAILED",
+   "t": 155.1,
+   "reason": "deadline 155 s"
+  },
+  {
+   "seed": 3,
+   "outcome": "FAILED",
+   "t": 155.1,
+   "reason": "deadline 155 s"
+  }
+ ],
+ "charging_contention/train/assigned": [
+  {
+   "seed": 1,
+   "outcome": "SUCCEEDED",
+   "t": 73.3,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 2,
+   "outcome": "SUCCEEDED",
+   "t": 123.5,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 3,
+   "outcome": "SUCCEEDED",
+   "t": 76.8,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 4,
+   "outcome": "SUCCEEDED",
+   "t": 72.8,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 5,
+   "outcome": "SUCCEEDED",
+   "t": 70.3,
+   "reason": "all success rules hold"
+  }
+ ],
+ "charging_contention/train/nearest": [
+  {
+   "seed": 1,
+   "outcome": "FAILED",
+   "t": 115.1,
+   "reason": "deadline 115 s"
+  },
+  {
+   "seed": 2,
+   "outcome": "FAILED",
+   "t": 155.1,
+   "reason": "deadline 155 s"
+  },
+  {
+   "seed": 3,
+   "outcome": "FAILED",
+   "t": 115.1,
+   "reason": "deadline 115 s"
+  },
+  {
+   "seed": 4,
+   "outcome": "FAILED",
+   "t": 115.1,
+   "reason": "deadline 115 s"
+  },
+  {
+   "seed": 5,
+   "outcome": "FAILED",
+   "t": 115.1,
+   "reason": "deadline 115 s"
+  }
+ ],
+ "clutter_observer/heldout/observer": [
+  {
+   "seed": 1,
+   "outcome": "SUCCEEDED",
+   "t": 53.8,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 2,
+   "outcome": "SUCCEEDED",
+   "t": 51.4,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 3,
+   "outcome": "SUCCEEDED",
+   "t": 57.8,
+   "reason": "all success rules hold"
+  }
+ ],
+ "clutter_observer/heldout/self_search": [
+  {
+   "seed": 1,
+   "outcome": "SUCCEEDED",
+   "t": 53.8,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 2,
+   "outcome": "FAILED",
+   "t": 31.1,
+   "reason": "step look: not_found: cargo_1 did not see p1 from 2 viewpoints"
+  },
+  {
+   "seed": 3,
+   "outcome": "SUCCEEDED",
+   "t": 65.3,
+   "reason": "all success rules hold"
+  }
+ ],
+ "clutter_observer/train/observer": [
+  {
+   "seed": 1,
+   "outcome": "SUCCEEDED",
+   "t": 54.0,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 2,
+   "outcome": "SUCCEEDED",
+   "t": 48.3,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 3,
+   "outcome": "SUCCEEDED",
+   "t": 75.2,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 4,
+   "outcome": "SUCCEEDED",
+   "t": 56.4,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 5,
+   "outcome": "SUCCEEDED",
+   "t": 55.4,
+   "reason": "all success rules hold"
+  }
+ ],
+ "clutter_observer/train/self_search": [
+  {
+   "seed": 1,
+   "outcome": "SUCCEEDED",
+   "t": 54.0,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 2,
+   "outcome": "SUCCEEDED",
+   "t": 48.3,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 3,
+   "outcome": "SUCCEEDED",
+   "t": 63.7,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 4,
+   "outcome": "SUCCEEDED",
+   "t": 52.6,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 5,
+   "outcome": "SUCCEEDED",
+   "t": 55.4,
+   "reason": "all success rules hold"
+  }
+ ],
+ "friction_patches/heldout/around": [
+  {
+   "seed": 1,
+   "outcome": "FAILED",
+   "t": 43.3,
+   "reason": "deadline 43 s"
+  },
+  {
+   "seed": 2,
+   "outcome": "FAILED",
+   "t": 42.4,
+   "reason": "deadline 42 s"
+  },
+  {
+   "seed": 3,
+   "outcome": "SUCCEEDED",
+   "t": 44.2,
+   "reason": "all success rules hold"
+  }
+ ],
+ "friction_patches/heldout/through": [
+  {
+   "seed": 1,
+   "outcome": "SUCCEEDED",
+   "t": 33.9,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 2,
+   "outcome": "SUCCEEDED",
+   "t": 33.9,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 3,
+   "outcome": "SUCCEEDED",
+   "t": 34.5,
+   "reason": "all success rules hold"
+  }
+ ],
+ "friction_patches/train/around": [
+  {
+   "seed": 1,
+   "outcome": "SUCCEEDED",
+   "t": 43.6,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 2,
+   "outcome": "SUCCEEDED",
+   "t": 45.1,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 3,
+   "outcome": "SUCCEEDED",
+   "t": 44.4,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 4,
+   "outcome": "SUCCEEDED",
+   "t": 44.7,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 5,
+   "outcome": "FAILED",
+   "t": 43.6,
+   "reason": "deadline 44 s"
+  }
+ ],
+ "friction_patches/train/through": [
+  {
+   "seed": 1,
+   "outcome": "SUCCEEDED",
+   "t": 33.5,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 2,
+   "outcome": "SUCCEEDED",
+   "t": 33.5,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 3,
+   "outcome": "SUCCEEDED",
+   "t": 33.5,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 4,
+   "outcome": "SUCCEEDED",
+   "t": 33.4,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 5,
+   "outcome": "SUCCEEDED",
+   "t": 33.9,
+   "reason": "all success rules hold"
+  }
+ ],
+ "lateral_slot/heldout/diffdrive": [
+  {
+   "seed": 1,
+   "outcome": "FAILED",
+   "t": 14.3,
+   "reason": "step place: diff: no_path to (9.74, 3.93)"
+  },
+  {
+   "seed": 2,
+   "outcome": "FAILED",
+   "t": 14.3,
+   "reason": "step place: diff: no_path to (9.74, 4.27)"
+  },
+  {
+   "seed": 3,
+   "outcome": "FAILED",
+   "t": 14.2,
+   "reason": "step place: diff: no_path to (9.75, 4.92)"
+  }
+ ],
+ "lateral_slot/heldout/mecanum": [
+  {
+   "seed": 1,
+   "outcome": "SUCCEEDED",
+   "t": 40.5,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 2,
+   "outcome": "SUCCEEDED",
+   "t": 41.3,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 3,
+   "outcome": "SUCCEEDED",
+   "t": 42.8,
+   "reason": "all success rules hold"
+  }
+ ],
+ "lateral_slot/train/diffdrive": [
+  {
+   "seed": 1,
+   "outcome": "FAILED",
+   "t": 14.3,
+   "reason": "step place: diff: no_path to (6.02, 6.75)"
+  },
+  {
+   "seed": 2,
+   "outcome": "FAILED",
+   "t": 14.3,
+   "reason": "step place: diff: no_path to (7.44, 6.74)"
+  },
+  {
+   "seed": 3,
+   "outcome": "FAILED",
+   "t": 14.2,
+   "reason": "step place: diff: no_path to (8.00, 6.75)"
+  },
+  {
+   "seed": 4,
+   "outcome": "FAILED",
+   "t": 14.3,
+   "reason": "step place: diff: no_path to (5.35, 6.75)"
+  },
+  {
+   "seed": 5,
+   "outcome": "FAILED",
+   "t": 14.3,
+   "reason": "step place: diff: no_path to (7.70, 6.74)"
+  }
+ ],
+ "lateral_slot/train/mecanum": [
+  {
+   "seed": 1,
+   "outcome": "SUCCEEDED",
+   "t": 42.2,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 2,
+   "outcome": "SUCCEEDED",
+   "t": 45.0,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 3,
+   "outcome": "SUCCEEDED",
+   "t": 46.1,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 4,
+   "outcome": "SUCCEEDED",
+   "t": 41.0,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 5,
+   "outcome": "SUCCEEDED",
+   "t": 45.5,
+   "reason": "all success rules hold"
+  }
+ ],
+ "long_payload_door/heldout/keep": [
+  {
+   "seed": 1,
+   "outcome": "FAILED",
+   "t": 0.0,
+   "reason": "step go: asm: no_path to (8.65, 3.50)"
+  },
+  {
+   "seed": 2,
+   "outcome": "FAILED",
+   "t": 0.0,
+   "reason": "step go: asm: no_path to (9.10, 3.50)"
+  },
+  {
+   "seed": 3,
+   "outcome": "FAILED",
+   "t": 0.0,
+   "reason": "step go: asm: no_path to (9.10, 3.50)"
+  }
+ ],
+ "long_payload_door/heldout/reconfigure": [
+  {
+   "seed": 1,
+   "outcome": "SUCCEEDED",
+   "t": 53.2,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 2,
+   "outcome": "SUCCEEDED",
+   "t": 58.0,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 3,
+   "outcome": "SUCCEEDED",
+   "t": 57.9,
+   "reason": "all success rules hold"
+  }
+ ],
+ "long_payload_door/train/keep": [
+  {
+   "seed": 1,
+   "outcome": "FAILED",
+   "t": 0.0,
+   "reason": "step go: asm: no_path to (8.65, 3.50)"
+  },
+  {
+   "seed": 2,
+   "outcome": "FAILED",
+   "t": 0.0,
+   "reason": "step go: asm: no_path to (8.65, 3.50)"
+  },
+  {
+   "seed": 3,
+   "outcome": "FAILED",
+   "t": 0.0,
+   "reason": "step go: asm: no_path to (8.65, 3.50)"
+  },
+  {
+   "seed": 4,
+   "outcome": "FAILED",
+   "t": 0.0,
+   "reason": "step go: asm: no_path to (8.65, 3.50)"
+  },
+  {
+   "seed": 5,
+   "outcome": "FAILED",
+   "t": 0.0,
+   "reason": "step go: asm: no_path to (8.65, 3.50)"
+  }
+ ],
+ "long_payload_door/train/reconfigure": [
+  {
+   "seed": 1,
+   "outcome": "SUCCEEDED",
+   "t": 52.0,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 2,
+   "outcome": "SUCCEEDED",
+   "t": 51.1,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 3,
+   "outcome": "SUCCEEDED",
+   "t": 52.5,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 4,
+   "outcome": "SUCCEEDED",
+   "t": 52.0,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 5,
+   "outcome": "SUCCEEDED",
+   "t": 51.8,
+   "reason": "all success rules hold"
+  }
+ ],
+ "narrow_door/heldout/couple_chain": [
+  {
+   "seed": 1,
+   "outcome": "FAILED",
+   "t": 48.3,
+   "reason": "step go: pair: no_path to (8.75, 3.50)"
+  },
+  {
+   "seed": 2,
+   "outcome": "FAILED",
+   "t": 49.4,
+   "reason": "step go: pair: no_path to (8.75, 3.50)"
+  },
+  {
+   "seed": 3,
+   "outcome": "FAILED",
+   "t": 49.4,
+   "reason": "step go: pair: no_path to (8.75, 3.50)"
+  }
+ ],
+ "narrow_door/heldout/single": [
+  {
+   "seed": 1,
+   "outcome": "SUCCEEDED",
+   "t": 51.6,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 2,
+   "outcome": "SUCCEEDED",
+   "t": 56.0,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 3,
+   "outcome": "SUCCEEDED",
+   "t": 57.7,
+   "reason": "all success rules hold"
+  }
+ ],
+ "narrow_door/train/couple_chain": [
+  {
+   "seed": 1,
+   "outcome": "FAILED",
+   "t": 47.7,
+   "reason": "step go: pair: no_path to (8.75, 3.50)"
+  },
+  {
+   "seed": 2,
+   "outcome": "FAILED",
+   "t": 48.7,
+   "reason": "step go: pair: no_path to (8.75, 3.50)"
+  },
+  {
+   "seed": 3,
+   "outcome": "FAILED",
+   "t": 48.9,
+   "reason": "step go: pair: no_path to (8.75, 3.50)"
+  },
+  {
+   "seed": 4,
+   "outcome": "FAILED",
+   "t": 48.0,
+   "reason": "step go: pair: no_path to (8.75, 3.50)"
+  },
+  {
+   "seed": 5,
+   "outcome": "FAILED",
+   "t": 49.3,
+   "reason": "step go: pair: no_path to (8.75, 3.50)"
+  }
+ ],
+ "narrow_door/train/single": [
+  {
+   "seed": 1,
+   "outcome": "SUCCEEDED",
+   "t": 54.8,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 2,
+   "outcome": "SUCCEEDED",
+   "t": 56.2,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 3,
+   "outcome": "SUCCEEDED",
+   "t": 55.3,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 4,
+   "outcome": "SUCCEEDED",
+   "t": 56.4,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 5,
+   "outcome": "SUCCEEDED",
+   "t": 57.5,
+   "reason": "all success rules hold"
+  }
+ ],
+ "wheel_failure/heldout/continue": [
+  {
+   "seed": 1,
+   "outcome": "SUCCEEDED",
+   "t": 43.2,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 2,
+   "outcome": "SUCCEEDED",
+   "t": 40.8,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 3,
+   "outcome": "FAILED",
+   "t": 34.8,
+   "reason": "step go: cargo_1 could not reach delivery"
+  }
+ ],
+ "wheel_failure/heldout/reassign": [
+  {
+   "seed": 1,
+   "outcome": "SUCCEEDED",
+   "t": 75.5,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 2,
+   "outcome": "SUCCEEDED",
+   "t": 79.6,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 3,
+   "outcome": "SUCCEEDED",
+   "t": 73.7,
+   "reason": "all success rules hold"
+  }
+ ],
+ "wheel_failure/train/continue": [
+  {
+   "seed": 1,
+   "outcome": "FAILED",
+   "t": 23.9,
+   "reason": "step go: cargo_1 could not reach delivery"
+  },
+  {
+   "seed": 2,
+   "outcome": "FAILED",
+   "t": 26.5,
+   "reason": "step go: cargo_1 could not reach delivery"
+  },
+  {
+   "seed": 3,
+   "outcome": "FAILED",
+   "t": 31.8,
+   "reason": "step go: cargo_1 could not reach delivery"
+  },
+  {
+   "seed": 4,
+   "outcome": "SUCCEEDED",
+   "t": 47.0,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 5,
+   "outcome": "SUCCEEDED",
+   "t": 44.8,
+   "reason": "all success rules hold"
+  }
+ ],
+ "wheel_failure/train/reassign": [
+  {
+   "seed": 1,
+   "outcome": "SUCCEEDED",
+   "t": 64.0,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 2,
+   "outcome": "SUCCEEDED",
+   "t": 66.5,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 3,
+   "outcome": "SUCCEEDED",
+   "t": 76.2,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 4,
+   "outcome": "SUCCEEDED",
+   "t": 66.0,
+   "reason": "all success rules hold"
+  },
+  {
+   "seed": 5,
+   "outcome": "SUCCEEDED",
+   "t": 66.7,
+   "reason": "all success rules hold"
+  }
+ ]
+}

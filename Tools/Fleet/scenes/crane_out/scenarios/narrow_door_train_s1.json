@@ -1,0 +1,572 @@
+{
+ "schema": "crane.fleet_scenario/v0",
+ "scenario_id": "fleet/scenes_v1/narrow_door/train/s1",
+ "note": "compiled from fleet/scenes_v1/narrow_door/train/s1 by scenes.crane_compile; the v1 source is authoritative",
+ "arena": {
+  "size_xy": [
+   10.0,
+   7.0
+  ],
+  "wall_height": 2.8,
+  "floor": "hard_tile"
+ },
+ "walls": [],
+ "doorway": {
+  "in_wall": "(lowered: no wall carries a door; geometry is in obstacles)",
+  "centre_y": 1.528,
+  "width": {
+   "default": 0.616
+  },
+  "height": 2.0,
+  "v1_door": "door_a"
+ },
+ "zones": {
+  "staging": {
+   "rect": [
+    0.5,
+    0.5,
+    2.5,
+    2.2
+   ],
+   "kind": "staging"
+  },
+  "loading": {
+   "rect": [
+    2.8,
+    4.5,
+    4.4,
+    6.3
+   ],
+   "kind": "loading"
+  },
+  "assembly": {
+   "rect": [
+    2.6,
+    2.6,
+    4.4,
+    4.2
+   ],
+   "kind": "assembly"
+  },
+  "delivery": {
+   "rect": [
+    8.0,
+    2.5,
+    9.5,
+    4.5
+   ],
+   "kind": "delivery"
+  },
+  "charging": {
+   "rect": [
+    0.5,
+    5.6,
+    1.3,
+    6.5
+   ],
+   "kind": "charging"
+  }
+ },
+ "obstacles": [
+  {
+   "id": "wall_a_0",
+   "type": "box",
+   "centre": [
+    5.0,
+    0.61,
+    1.4
+   ],
+   "size": [
+    0.12,
+    1.22,
+    2.8
+   ],
+   "v1_kind": "wall",
+   "v1_source": "wall_a"
+  },
+  {
+   "id": "door_a_lintel",
+   "type": "box",
+   "centre": [
+    5.0,
+    1.528,
+    2.4
+   ],
+   "size": [
+    0.12,
+    0.616,
+    0.8
+   ],
+   "v1_kind": "lintel",
+   "v1_source": "door_a"
+  },
+  {
+   "id": "wall_a_1",
+   "type": "box",
+   "centre": [
+    5.0,
+    4.418,
+    1.4
+   ],
+   "size": [
+    0.12,
+    5.164,
+    2.8
+   ],
+   "v1_kind": "wall",
+   "v1_source": "wall_a"
+  },
+  {
+   "id": "wall_b_0",
+   "type": "box",
+   "centre": [
+    5.792,
+    1.5145,
+    1.4
+   ],
+   "size": [
+    0.12,
+    3.029,
+    2.8
+   ],
+   "v1_kind": "wall",
+   "v1_source": "wall_b"
+  },
+  {
+   "id": "door_b_lintel",
+   "type": "box",
+   "centre": [
+    5.792,
+    3.337,
+    2.4
+   ],
+   "size": [
+    0.12,
+    0.616,
+    0.8
+   ],
+   "v1_kind": "lintel",
+   "v1_source": "door_b"
+  },
+  {
+   "id": "wall_b_1",
+   "type": "box",
+   "centre": [
+    5.792,
+    5.3225,
+    1.4
+   ],
+   "size": [
+    0.12,
+    3.355,
+    2.8
+   ],
+   "v1_kind": "wall",
+   "v1_source": "wall_b"
+  },
+  {
+   "id": "shelf_w",
+   "type": "box",
+   "centre": [
+    0.65,
+    4.2,
+    0.9
+   ],
+   "size": [
+    0.5,
+    2.0,
+    1.8
+   ],
+   "v1_kind": "shelf",
+   "v1_source": "shelf_w"
+  }
+ ],
+ "overhead_cameras": [
+  {
+   "id": "oh_west",
+   "position": [
+    2.5,
+    3.5,
+    2.6
+   ],
+   "look_at": [
+    3.5,
+    4.5,
+    0.0
+   ]
+  },
+  {
+   "id": "oh_east",
+   "position": [
+    8.0,
+    3.5,
+    2.6
+   ],
+   "look_at": [
+    8.5,
+    3.5,
+    0.0
+   ]
+  }
+ ],
+ "overhead_modes": [
+  "working",
+  "occluded",
+  "disabled"
+ ],
+ "payload_spawn": {
+  "zone": "loading",
+  "types": [
+   "box_small"
+  ]
+ },
+ "mission_default": "reconfiguration HARMFUL: coupling two carriers (e.g. for an unknown-mass payload) makes a unit that cannot turn in the gap; the single carrier passes",
+ "outcomes": {
+  "delivered": "payload centre inside zones.delivery, at rest, supported, within the deadline"
+ },
+ "deadline_s": 240.0,
+ "x_v1": {
+  "source_sha256": "8c51321b05cbf424d2e2df8b038fa6cc7d7cb2a4d8c54ccefe3fa3ec4859aa1b",
+  "family": {
+   "id": "narrow_door",
+   "seed": 1,
+   "split": "train",
+   "params": {
+    "door_w": 0.616,
+    "gap": 0.672,
+    "offset": 1.809,
+    "threshold_h": 0.01,
+    "mass_true": 5.118
+   },
+   "generator": "families_v1.0",
+   "rule": "min(door_w, gap) >= 0.55 and threshold_h <= 0.02"
+  },
+  "doors": [
+   {
+    "id": "door_a",
+    "wall": "wall_a",
+    "centre": 1.528,
+    "width": 0.616,
+    "height": 2.0,
+    "threshold_height": 0.01,
+    "threshold_depth": 0.12
+   },
+   {
+    "id": "door_b",
+    "wall": "wall_b",
+    "centre": 3.337,
+    "width": 0.616,
+    "height": 2.0,
+    "threshold_height": 0.01,
+    "threshold_depth": 0.12
+   }
+  ],
+  "thresholds": [
+   {
+    "id": "door_a_threshold",
+    "kind": "threshold",
+    "cx": 5.0,
+    "cy": 1.528,
+    "cz": 0.005,
+    "sx": 0.12,
+    "sy": 0.616,
+    "sz": 0.01,
+    "yaw": 0.0,
+    "drive_block": false,
+    "view_block": false,
+    "source": "door_a"
+   },
+   {
+    "id": "door_b_threshold",
+    "kind": "threshold",
+    "cx": 5.792,
+    "cy": 3.337,
+    "cz": 0.005,
+    "sx": 0.12,
+    "sy": 0.616,
+    "sz": 0.01,
+    "yaw": 0.0,
+    "drive_block": false,
+    "view_block": false,
+    "source": "door_b"
+   }
+  ],
+  "floor_patches": [],
+  "tags": [
+   {
+    "id": 950,
+    "name": "lm_door_a_w_lo",
+    "pose": [
+     4.938,
+     1.02,
+     3.141593
+    ],
+    "z": 0.3,
+    "size": 0.12,
+    "on": "door"
+   },
+   {
+    "id": 951,
+    "name": "lm_door_a_w_hi",
+    "pose": [
+     4.938,
+     2.036,
+     3.141593
+    ],
+    "z": 0.3,
+    "size": 0.12,
+    "on": "door"
+   },
+   {
+    "id": 952,
+    "name": "lm_door_a_e_lo",
+    "pose": [
+     5.062,
+     1.02,
+     0.0
+    ],
+    "z": 0.3,
+    "size": 0.12,
+    "on": "door"
+   },
+   {
+    "id": 953,
+    "name": "lm_door_a_e_hi",
+    "pose": [
+     5.062,
+     2.036,
+     0.0
+    ],
+    "z": 0.3,
+    "size": 0.12,
+    "on": "door"
+   },
+   {
+    "id": 954,
+    "name": "lm_door_b_w_lo",
+    "pose": [
+     5.73,
+     2.829,
+     3.141593
+    ],
+    "z": 0.3,
+    "size": 0.12,
+    "on": "door"
+   },
+   {
+    "id": 955,
+    "name": "lm_door_b_w_hi",
+    "pose": [
+     5.73,
+     3.845,
+     3.141593
+    ],
+    "z": 0.3,
+    "size": 0.12,
+    "on": "door"
+   },
+   {
+    "id": 956,
+    "name": "lm_door_b_e_lo",
+    "pose": [
+     5.854,
+     2.829,
+     0.0
+    ],
+    "z": 0.3,
+    "size": 0.12,
+    "on": "door"
+   },
+   {
+    "id": 957,
+    "name": "lm_door_b_e_hi",
+    "pose": [
+     5.854,
+     3.845,
+     0.0
+    ],
+    "z": 0.3,
+    "size": 0.12,
+    "on": "door"
+   }
+  ],
+  "zones": [
+   {
+    "id": "staging",
+    "kind": "staging",
+    "rect": [
+     0.5,
+     0.5,
+     2.5,
+     2.2
+    ]
+   },
+   {
+    "id": "loading",
+    "kind": "loading",
+    "rect": [
+     2.8,
+     4.5,
+     4.4,
+     6.3
+    ]
+   },
+   {
+    "id": "assembly",
+    "kind": "assembly",
+    "rect": [
+     2.6,
+     2.6,
+     4.4,
+     4.2
+    ]
+   },
+   {
+    "id": "delivery",
+    "kind": "delivery",
+    "rect": [
+     8.0,
+     2.5,
+     9.5,
+     4.5
+    ]
+   },
+   {
+    "id": "charging",
+    "kind": "charging",
+    "rect": [
+     0.5,
+     5.6,
+     1.3,
+     6.5
+    ],
+    "capacity": 1
+   }
+  ],
+  "overhead_cameras": [
+   {
+    "id": "oh_west",
+    "position": [
+     2.5,
+     3.5,
+     2.6
+    ],
+    "look_at": [
+     3.5,
+     4.5,
+     0.0
+    ],
+    "hfov_deg": 90.0,
+    "range_m": 8.0,
+    "mode": "working"
+   },
+   {
+    "id": "oh_east",
+    "position": [
+     8.0,
+     3.5,
+     2.6
+    ],
+    "look_at": [
+     8.5,
+     3.5,
+     0.0
+    ],
+    "hfov_deg": 90.0,
+    "range_m": 8.0,
+    "mode": "working"
+   }
+  ],
+  "payloads": [
+   {
+    "id": "p1",
+    "type": "box_small",
+    "size_lwh": [
+     0.3,
+     0.2,
+     0.15
+    ],
+    "mass_kg": 5.118,
+    "unknown_mass": true,
+    "pallet_height": 0.03,
+    "spawn": {
+     "zone": "loading",
+     "pose": [
+      3.261,
+      5.337,
+      0.0
+     ],
+     "pose_known": true
+    }
+   }
+  ],
+  "units": [
+   {
+    "id": "cargo_1",
+    "catalog": "carrier",
+    "module_graph": {
+     "manifest": "train_v1",
+     "config_hash": "d0b9ad389bac696b"
+    },
+    "config_hash": "d0b9ad389bac696b",
+    "start": [
+     1.2,
+     1.0,
+     0.0
+    ],
+    "soc": 1.0,
+    "crane_role": "cargo"
+   },
+   {
+    "id": "cargo_2",
+    "catalog": "carrier",
+    "module_graph": {
+     "manifest": "train_v1",
+     "config_hash": "d0b9ad389bac696b"
+    },
+    "config_hash": "d0b9ad389bac696b",
+    "start": [
+     1.2,
+     1.7,
+     0.0
+    ],
+    "soc": 1.0,
+    "crane_role": "cargo"
+   }
+  ],
+  "faults": [],
+  "gaps": [
+   {
+    "field": "doors",
+    "status": "approximated",
+    "detail": "2 door(s) lowered to wall-segment and lintel boxes; v0 doorway is a stub (narrowest door door_a)"
+   },
+   {
+    "field": "doors.threshold_height",
+    "status": "ignored",
+    "detail": "2 threshold(s) in x_v1.thresholds only; CRANE builds no sill (needs the v1 loader: a traversable solid, excluded from PlanMap)"
+   },
+   {
+    "field": "zones.charging",
+    "status": "approximated",
+    "detail": "a charging zone is a floor patch; CRANE has no battery model"
+   }
+  ],
+  "plan_gaps": {
+   "single": [
+    {
+     "field": "task.pick",
+     "status": "approximated",
+     "detail": "a deck pickup is a lifter lift + handoff in CRANE (fastsim loads the deck kinematically); provisional grasp/hold offsets"
+    }
+   ],
+   "couple_chain": [
+    {
+     "field": "task.pick",
+     "status": "approximated",
+     "detail": "a deck pickup is a lifter lift + handoff in CRANE (fastsim loads the deck kinematically); provisional grasp/hold offsets"
+    }
+   ]
+  }
+ }
+}

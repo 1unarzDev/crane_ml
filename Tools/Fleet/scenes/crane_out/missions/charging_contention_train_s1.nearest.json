@@ -1,0 +1,119 @@
+{
+ "schema": "crane.fleet_mission/v0",
+ "mission_id": "fleet/scenes_v1/charging_contention/train/s1/nearest",
+ "note": "compiled by scenes.crane_compile from task fleet/scenes_v1/charging_contention/train/s1/task plan nearest; crane_* keys are CRANE setup",
+ "crane_start": {
+  "cargo_1": [
+   2.2,
+   0.8,
+   3.142
+  ],
+  "cargo_2": [
+   2.9,
+   0.8,
+   3.142
+  ],
+  "scout_1": [
+   0.75,
+   6.25,
+   0.0
+  ],
+  "lifter_1": [
+   1.95,
+   6.25,
+   0.0
+  ]
+ },
+ "crane_unit_map": {
+  "c0": "cargo_1",
+  "c1": "cargo_2"
+ },
+ "crane_max_duration_s": 145.0,
+ "tasks": [
+  {
+   "id": "settle",
+   "type": "wait",
+   "agents": [
+    "cargo_1",
+    "cargo_2",
+    "lifter_1",
+    "scout_1"
+   ],
+   "duration": 1.5
+  },
+  {
+   "id": "charge_c0_go",
+   "after": [
+    "settle"
+   ],
+   "type": "goto",
+   "agent": "cargo_1",
+   "goal": [
+    0.45,
+    1.2,
+    0.0
+   ]
+  },
+  {
+   "id": "charge_c0",
+   "type": "wait",
+   "agents": [
+    "cargo_1"
+   ],
+   "duration": 31.2,
+   "after": [
+    "charge_c0_go"
+   ]
+  },
+  {
+   "id": "charge_c0_then",
+   "type": "goto",
+   "agent": "cargo_1",
+   "goal": [
+    8.9,
+    2.0,
+    0.0
+   ],
+   "after": [
+    "charge_c0"
+   ]
+  },
+  {
+   "id": "charge_c1_go",
+   "after": [
+    "settle"
+   ],
+   "type": "goto",
+   "agent": "cargo_2",
+   "goal": [
+    0.45,
+    1.2,
+    0.0
+   ]
+  },
+  {
+   "id": "charge_c1",
+   "type": "wait",
+   "agents": [
+    "cargo_2"
+   ],
+   "duration": 28.4,
+   "after": [
+    "charge_c1_go"
+   ]
+  },
+  {
+   "id": "charge_c1_then",
+   "type": "goto",
+   "agent": "cargo_2",
+   "goal": [
+    8.9,
+    4.9,
+    0.0
+   ],
+   "after": [
+    "charge_c1"
+   ]
+  }
+ ]
+}

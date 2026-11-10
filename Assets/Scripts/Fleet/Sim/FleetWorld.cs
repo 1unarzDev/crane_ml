@@ -151,7 +151,17 @@ namespace Crane.Fleet.Sim {
                 Box(ob["id"].String, c[0], c[1], c[2], sz[0], sz[1], sz[2], obstacleC);
             }
 
+            // scenes v1 (x_v1): door thresholds as solid sills (AutonomyMission.BuildMap reads only "obstacles", so they stay
+            // traversable for planning) and floor patches as render-only plates. Untested in Unity at the time of writing.
+            var v1 = ScenarioV1.From(s);
+            foreach (var th in v1.Thresholds) Box(th.Id, th.Cx, th.Cy, th.Cz, th.Sx, th.Sy, th.Sz, new Color(0.85f, 0.7f, 0.1f));
             double patch = o["visual.zone_patch_thickness"].Double;
+            foreach (var fp in v1.FloorPatches) {
+                Color pc = fp.FrictionClass == "carpet" ? new Color(0.62f, 0.5f, 0.7f) : fp.FrictionClass == "rubber" ? new Color(0.3f, 0.3f, 0.32f)
+                    : fp.FrictionClass == "polished" ? new Color(0.75f, 0.88f, 0.95f) : FleetFrames.Rgb(o["visual.floor_color"].Doubles);
+                FleetGeometry.Visual(PrimitiveType.Cube, "floor_patch_" + fp.Id, t, FleetFrames.World((fp.X0 + fp.X1) / 2, (fp.Y0 + fp.Y1) / 2, patch / 4),
+                    Quaternion.identity, FleetFrames.WorldScale(fp.X1 - fp.X0, fp.Y1 - fp.Y0, patch / 2), pc);
+            }
             var zoneColors = o["visual.zone_colors"];
             foreach (var kv in s["zones"].Members) {
                 double[] r = kv.Value["rect"].Doubles;  // x0, y0, x1, y1

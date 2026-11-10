@@ -1,0 +1,427 @@
+{
+ "note": "scenes v1 in CRANE (compiled by scenes.crane_compile --library). Run with Tools/Fleet/fleet.sh jobs <this file> after the integration agent has built and tested the v1 loader; the v0 subset needs no C#.",
+ "out": "/home/lunarz/.cache/crane-fleet/jobs/scenes_v1",
+ "divergence_tol": 0.001,
+ "jobs": [
+  {
+   "id": "narrow_door_train_s1.single",
+   "seed": 1,
+   "variant": "scenes_v1_single",
+   "scenario": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/scenarios/narrow_door_train_s1.json",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/missions/narrow_door_train_s1.single.json",
+   "failures": "",
+   "labels": {
+    "scenes_v1_family": "narrow_door",
+    "split": "train",
+    "plan": "single",
+    "expected_fastsim": "success"
+   }
+  },
+  {
+   "id": "narrow_door_train_s1.couple_chain",
+   "seed": 1,
+   "variant": "scenes_v1_couple_chain",
+   "scenario": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/scenarios/narrow_door_train_s1.json",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/missions/narrow_door_train_s1.couple_chain.json",
+   "failures": "",
+   "labels": {
+    "scenes_v1_family": "narrow_door",
+    "split": "train",
+    "plan": "couple_chain",
+    "expected_fastsim": "fail"
+   }
+  },
+  {
+   "id": "narrow_door_heldout_s1.single",
+   "seed": 1,
+   "variant": "scenes_v1_single",
+   "scenario": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/scenarios/narrow_door_heldout_s1.json",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/missions/narrow_door_heldout_s1.single.json",
+   "failures": "",
+   "labels": {
+    "scenes_v1_family": "narrow_door",
+    "split": "heldout",
+    "plan": "single",
+    "expected_fastsim": "success"
+   }
+  },
+  {
+   "id": "narrow_door_heldout_s1.couple_chain",
+   "seed": 1,
+   "variant": "scenes_v1_couple_chain",
+   "scenario": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/scenarios/narrow_door_heldout_s1.json",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/missions/narrow_door_heldout_s1.couple_chain.json",
+   "failures": "",
+   "labels": {
+    "scenes_v1_family": "narrow_door",
+    "split": "heldout",
+    "plan": "couple_chain",
+    "expected_fastsim": "fail"
+   }
+  },
+  {
+   "id": "long_payload_door_train_s1.reconfigure",
+   "seed": 1,
+   "variant": "scenes_v1_reconfigure",
+   "scenario": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/scenarios/long_payload_door_train_s1.json",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/missions/long_payload_door_train_s1.reconfigure.json",
+   "failures": "",
+   "labels": {
+    "scenes_v1_family": "long_payload_door",
+    "split": "train",
+    "plan": "reconfigure",
+    "expected_fastsim": "success"
+   }
+  },
+  {
+   "id": "long_payload_door_heldout_s1.reconfigure",
+   "seed": 1,
+   "variant": "scenes_v1_reconfigure",
+   "scenario": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/scenarios/long_payload_door_heldout_s1.json",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/missions/long_payload_door_heldout_s1.reconfigure.json",
+   "failures": "",
+   "labels": {
+    "scenes_v1_family": "long_payload_door",
+    "split": "heldout",
+    "plan": "reconfigure",
+    "expected_fastsim": "success"
+   }
+  },
+  {
+   "id": "lateral_slot_train_s1.mecanum",
+   "seed": 1,
+   "variant": "scenes_v1_mecanum",
+   "scenario": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/scenarios/lateral_slot_train_s1.json",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/missions/lateral_slot_train_s1.mecanum.json",
+   "failures": "",
+   "labels": {
+    "scenes_v1_family": "lateral_slot",
+    "split": "train",
+    "plan": "mecanum",
+    "expected_fastsim": "success"
+   }
+  },
+  {
+   "id": "lateral_slot_heldout_s1.mecanum",
+   "seed": 1,
+   "variant": "scenes_v1_mecanum",
+   "scenario": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/scenarios/lateral_slot_heldout_s1.json",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/missions/lateral_slot_heldout_s1.mecanum.json",
+   "failures": "",
+   "labels": {
+    "scenes_v1_family": "lateral_slot",
+    "split": "heldout",
+    "plan": "mecanum",
+    "expected_fastsim": "success"
+   }
+  },
+  {
+   "id": "friction_patches_train_s1.through",
+   "seed": 1,
+   "variant": "scenes_v1_through",
+   "scenario": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/scenarios/friction_patches_train_s1.json",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/missions/friction_patches_train_s1.through.json",
+   "failures": "",
+   "labels": {
+    "scenes_v1_family": "friction_patches",
+    "split": "train",
+    "plan": "through",
+    "expected_fastsim": "depends"
+   }
+  },
+  {
+   "id": "friction_patches_train_s1.around",
+   "seed": 1,
+   "variant": "scenes_v1_around",
+   "scenario": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/scenarios/friction_patches_train_s1.json",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/missions/friction_patches_train_s1.around.json",
+   "failures": "",
+   "labels": {
+    "scenes_v1_family": "friction_patches",
+    "split": "train",
+    "plan": "around",
+    "expected_fastsim": "depends"
+   }
+  },
+  {
+   "id": "friction_patches_heldout_s1.through",
+   "seed": 1,
+   "variant": "scenes_v1_through",
+   "scenario": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/scenarios/friction_patches_heldout_s1.json",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/missions/friction_patches_heldout_s1.through.json",
+   "failures": "",
+   "labels": {
+    "scenes_v1_family": "friction_patches",
+    "split": "heldout",
+    "plan": "through",
+    "expected_fastsim": "depends"
+   }
+  },
+  {
+   "id": "friction_patches_heldout_s1.around",
+   "seed": 1,
+   "variant": "scenes_v1_around",
+   "scenario": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/scenarios/friction_patches_heldout_s1.json",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/missions/friction_patches_heldout_s1.around.json",
+   "failures": "",
+   "labels": {
+    "scenes_v1_family": "friction_patches",
+    "split": "heldout",
+    "plan": "around",
+    "expected_fastsim": "depends"
+   }
+  },
+  {
+   "id": "aisle_traffic_train_s1.reserved",
+   "seed": 1,
+   "variant": "scenes_v1_reserved",
+   "scenario": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/scenarios/aisle_traffic_train_s1.json",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/missions/aisle_traffic_train_s1.reserved.json",
+   "failures": "",
+   "labels": {
+    "scenes_v1_family": "aisle_traffic",
+    "split": "train",
+    "plan": "reserved",
+    "expected_fastsim": "success"
+   }
+  },
+  {
+   "id": "aisle_traffic_train_s1.none",
+   "seed": 1,
+   "variant": "scenes_v1_none",
+   "scenario": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/scenarios/aisle_traffic_train_s1.json",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/missions/aisle_traffic_train_s1.none.json",
+   "failures": "",
+   "labels": {
+    "scenes_v1_family": "aisle_traffic",
+    "split": "train",
+    "plan": "none",
+    "expected_fastsim": "fail"
+   }
+  },
+  {
+   "id": "charging_contention_train_s1.nearest",
+   "seed": 1,
+   "variant": "scenes_v1_nearest",
+   "scenario": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/scenarios/charging_contention_train_s1.json",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/missions/charging_contention_train_s1.nearest.json",
+   "failures": "",
+   "labels": {
+    "scenes_v1_family": "charging_contention",
+    "split": "train",
+    "plan": "nearest",
+    "expected_fastsim": "fail"
+   }
+  },
+  {
+   "id": "charging_contention_train_s1.assigned",
+   "seed": 1,
+   "variant": "scenes_v1_assigned",
+   "scenario": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/scenarios/charging_contention_train_s1.json",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/missions/charging_contention_train_s1.assigned.json",
+   "failures": "",
+   "labels": {
+    "scenes_v1_family": "charging_contention",
+    "split": "train",
+    "plan": "assigned",
+    "expected_fastsim": "success"
+   }
+  },
+  {
+   "id": "blocked_faces_train_s1.fixed_face",
+   "seed": 1,
+   "variant": "scenes_v1_fixed_face",
+   "scenario": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/scenarios/blocked_faces_train_s1.json",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/missions/blocked_faces_train_s1.fixed_face.json",
+   "failures": "",
+   "labels": {
+    "scenes_v1_family": "blocked_faces",
+    "split": "train",
+    "plan": "fixed_face",
+    "expected_fastsim": "fail"
+   }
+  },
+  {
+   "id": "blocked_faces_train_s1.free_face",
+   "seed": 1,
+   "variant": "scenes_v1_free_face",
+   "scenario": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/scenarios/blocked_faces_train_s1.json",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/missions/blocked_faces_train_s1.free_face.json",
+   "failures": "",
+   "labels": {
+    "scenes_v1_family": "blocked_faces",
+    "split": "train",
+    "plan": "free_face",
+    "expected_fastsim": "success"
+   }
+  },
+  {
+   "id": "blocked_faces_train_s1.move_target",
+   "seed": 1,
+   "variant": "scenes_v1_move_target",
+   "scenario": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/scenarios/blocked_faces_train_s1.json",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/missions/blocked_faces_train_s1.move_target.json",
+   "failures": "",
+   "labels": {
+    "scenes_v1_family": "blocked_faces",
+    "split": "train",
+    "plan": "move_target",
+    "expected_fastsim": "success"
+   }
+  },
+  {
+   "id": "blocked_faces_heldout_s1.fixed_face",
+   "seed": 1,
+   "variant": "scenes_v1_fixed_face",
+   "scenario": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/scenarios/blocked_faces_heldout_s1.json",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/missions/blocked_faces_heldout_s1.fixed_face.json",
+   "failures": "",
+   "labels": {
+    "scenes_v1_family": "blocked_faces",
+    "split": "heldout",
+    "plan": "fixed_face",
+    "expected_fastsim": "fail"
+   }
+  },
+  {
+   "id": "blocked_faces_heldout_s1.free_face",
+   "seed": 1,
+   "variant": "scenes_v1_free_face",
+   "scenario": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/scenarios/blocked_faces_heldout_s1.json",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/missions/blocked_faces_heldout_s1.free_face.json",
+   "failures": "",
+   "labels": {
+    "scenes_v1_family": "blocked_faces",
+    "split": "heldout",
+    "plan": "free_face",
+    "expected_fastsim": "success"
+   }
+  },
+  {
+   "id": "blocked_faces_heldout_s1.move_target",
+   "seed": 1,
+   "variant": "scenes_v1_move_target",
+   "scenario": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/scenarios/blocked_faces_heldout_s1.json",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/missions/blocked_faces_heldout_s1.move_target.json",
+   "failures": "",
+   "labels": {
+    "scenes_v1_family": "blocked_faces",
+    "split": "heldout",
+    "plan": "move_target",
+    "expected_fastsim": "success"
+   }
+  },
+  {
+   "id": "wheel_failure_train_s1.continue",
+   "seed": 1,
+   "variant": "scenes_v1_continue",
+   "scenario": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/scenarios/wheel_failure_train_s1.json",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/missions/wheel_failure_train_s1.continue.json",
+   "failures": "cargo_1:wheel_fl:dead_locked@15.68",
+   "labels": {
+    "scenes_v1_family": "wheel_failure",
+    "split": "train",
+    "plan": "continue",
+    "expected_fastsim": "fail"
+   }
+  },
+  {
+   "id": "wheel_failure_train_s1.reassign",
+   "seed": 1,
+   "variant": "scenes_v1_reassign",
+   "scenario": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/scenarios/wheel_failure_train_s1.json",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/missions/wheel_failure_train_s1.reassign.json",
+   "failures": "cargo_1:wheel_fl:dead_locked@15.68",
+   "labels": {
+    "scenes_v1_family": "wheel_failure",
+    "split": "train",
+    "plan": "reassign",
+    "expected_fastsim": "success"
+   }
+  },
+  {
+   "id": "wheel_failure_heldout_s1.continue",
+   "seed": 1,
+   "variant": "scenes_v1_continue",
+   "scenario": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/scenarios/wheel_failure_heldout_s1.json",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/missions/wheel_failure_heldout_s1.continue.json",
+   "failures": "cargo_1:wheel_fl:weak@24.01",
+   "labels": {
+    "scenes_v1_family": "wheel_failure",
+    "split": "heldout",
+    "plan": "continue",
+    "expected_fastsim": "depends"
+   }
+  },
+  {
+   "id": "wheel_failure_heldout_s1.reassign",
+   "seed": 1,
+   "variant": "scenes_v1_reassign",
+   "scenario": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/scenarios/wheel_failure_heldout_s1.json",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/missions/wheel_failure_heldout_s1.reassign.json",
+   "failures": "cargo_1:wheel_fl:weak@24.01",
+   "labels": {
+    "scenes_v1_family": "wheel_failure",
+    "split": "heldout",
+    "plan": "reassign",
+    "expected_fastsim": "success"
+   }
+  },
+  {
+   "id": "clutter_observer_train_s1.observer",
+   "seed": 1,
+   "variant": "scenes_v1_observer",
+   "scenario": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/scenarios/clutter_observer_train_s1.json",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/missions/clutter_observer_train_s1.observer.json",
+   "failures": "",
+   "labels": {
+    "scenes_v1_family": "clutter_observer",
+    "split": "train",
+    "plan": "observer",
+    "expected_fastsim": "depends"
+   }
+  },
+  {
+   "id": "clutter_observer_train_s1.self_search",
+   "seed": 1,
+   "variant": "scenes_v1_self_search",
+   "scenario": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/scenarios/clutter_observer_train_s1.json",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/missions/clutter_observer_train_s1.self_search.json",
+   "failures": "",
+   "labels": {
+    "scenes_v1_family": "clutter_observer",
+    "split": "train",
+    "plan": "self_search",
+    "expected_fastsim": "depends"
+   }
+  },
+  {
+   "id": "clutter_observer_heldout_s1.observer",
+   "seed": 1,
+   "variant": "scenes_v1_observer",
+   "scenario": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/scenarios/clutter_observer_heldout_s1.json",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/missions/clutter_observer_heldout_s1.observer.json",
+   "failures": "",
+   "labels": {
+    "scenes_v1_family": "clutter_observer",
+    "split": "heldout",
+    "plan": "observer",
+    "expected_fastsim": "depends"
+   }
+  },
+  {
+   "id": "clutter_observer_heldout_s1.self_search",
+   "seed": 1,
+   "variant": "scenes_v1_self_search",
+   "scenario": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/scenarios/clutter_observer_heldout_s1.json",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet-scenes/Tools/Fleet/scenes/crane_out/missions/clutter_observer_heldout_s1.self_search.json",
+   "failures": "",
+   "labels": {
+    "scenes_v1_family": "clutter_observer",
+    "split": "heldout",
+    "plan": "self_search",
+    "expected_fastsim": "depends"
+   }
+  }
+ ]
+}

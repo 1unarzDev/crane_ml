@@ -1,0 +1,3872 @@
+{
+ "schema": "crane.fleet_scene_splits/v1",
+ "generator": "families_v1.0",
+ "generator_code_sha": "897664d5bf82df9b",
+ "code_files": [
+  "families.py",
+  "common.py",
+  "catalog.py"
+ ],
+ "catalog_hash": "242200d907e04a9f",
+ "rules": {
+  "narrow_door": {
+   "train": "min(door_w, gap) >= 0.55 and threshold_h <= 0.02",
+   "heldout": "min(door_w, gap) < 0.55 or threshold_h > 0.02"
+  },
+  "long_payload_door": {
+   "train": "door_w >= 0.55 and n_doors == 1",
+   "heldout": "door_w < 0.55 or n_doors == 2"
+  },
+  "lateral_slot": {
+   "train": "slot_wall == 'north' and slot_w >= 0.52",
+   "heldout": "slot_wall == 'east' or slot_w < 0.52"
+  },
+  "friction_patches": {
+   "train": "patch_class in ('carpet', 'rubber')",
+   "heldout": "patch_class == 'polished'  (an unseen floor class)"
+  },
+  "aisle_traffic": {
+   "train": "n_aisles == 2 and n_units <= 4",
+   "heldout": "n_aisles == 3 or n_units > 4"
+  },
+  "charging_contention": {
+   "train": "n_units <= 3 and n_bays == 2",
+   "heldout": "n_units > 3 or n_bays != 2"
+  },
+  "blocked_faces": {
+   "train": "n_blocked == 1",
+   "heldout": "n_blocked >= 2"
+  },
+  "wheel_failure": {
+   "train": "n_faults == 1 and t_fail <= 24",
+   "heldout": "n_faults == 2 or t_fail > 24"
+  },
+  "clutter_observer": {
+   "train": "overhead in ('working', 'occluded') and n_clutter <= 6",
+   "heldout": "overhead == 'disabled' or n_clutter > 6"
+  }
+ },
+ "control": "H7: environment/task families held out by rule; every fleet uses capplan train_v1 / train-pool configurations only (CONFIG_SPACE.md section 4)",
+ "frozen": "2026-11-10",
+ "families": {
+  "narrow_door": {
+   "train": [
+    {
+     "seed": 1,
+     "params": {
+      "door_w": 0.616,
+      "gap": 0.672,
+      "offset": 1.809,
+      "threshold_h": 0.01,
+      "mass_true": 5.118
+     },
+     "scene_hash": "466ce0126da179c2",
+     "plans": [
+      "couple_chain",
+      "single"
+     ]
+    },
+    {
+     "seed": 2,
+     "params": {
+      "door_w": 0.64,
+      "gap": 0.636,
+      "offset": 1.704,
+      "threshold_h": 0.0,
+      "mass_true": 5.199
+     },
+     "scene_hash": "eeb895a1a3ecdb3c",
+     "plans": [
+      "couple_chain",
+      "single"
+     ]
+    },
+    {
+     "seed": 3,
+     "params": {
+      "door_w": 0.553,
+      "gap": 0.577,
+      "offset": 1.747,
+      "threshold_h": 0.02,
+      "mass_true": 5.266
+     },
+     "scene_hash": "13354e3671e5f25c",
+     "plans": [
+      "couple_chain",
+      "single"
+     ]
+    },
+    {
+     "seed": 4,
+     "params": {
+      "door_w": 0.629,
+      "gap": 0.72,
+      "offset": 2.307,
+      "threshold_h": 0.02,
+      "mass_true": 5.262
+     },
+     "scene_hash": "fdf7bcbcd14a134d",
+     "plans": [
+      "couple_chain",
+      "single"
+     ]
+    },
+    {
+     "seed": 5,
+     "params": {
+      "door_w": 0.627,
+      "gap": 0.734,
+      "offset": 2.243,
+      "threshold_h": 0.0,
+      "mass_true": 4.067
+     },
+     "scene_hash": "905ff0ee2c74b52a",
+     "plans": [
+      "couple_chain",
+      "single"
+     ]
+    },
+    {
+     "seed": 6,
+     "params": {
+      "door_w": 0.579,
+      "gap": 0.733,
+      "offset": 2.168,
+      "threshold_h": 0.01,
+      "mass_true": 5.911
+     },
+     "scene_hash": "9f3dd5a1753aaaa5",
+     "plans": [
+      "couple_chain",
+      "single"
+     ]
+    },
+    {
+     "seed": 7,
+     "params": {
+      "door_w": 0.622,
+      "gap": 0.673,
+      "offset": 1.974,
+      "threshold_h": 0.02,
+      "mass_true": 5.423
+     },
+     "scene_hash": "7363fff08c5559c1",
+     "plans": [
+      "couple_chain",
+      "single"
+     ]
+    },
+    {
+     "seed": 8,
+     "params": {
+      "door_w": 0.658,
+      "gap": 0.737,
+      "offset": 2.014,
+      "threshold_h": 0.01,
+      "mass_true": 4.717
+     },
+     "scene_hash": "f56e484c810a7108",
+     "plans": [
+      "couple_chain",
+      "single"
+     ]
+    },
+    {
+     "seed": 9,
+     "params": {
+      "door_w": 0.686,
+      "gap": 0.651,
+      "offset": 1.642,
+      "threshold_h": 0.0,
+      "mass_true": 2.123
+     },
+     "scene_hash": "43a687f00c78128e",
+     "plans": [
+      "couple_chain",
+      "single"
+     ]
+    },
+    {
+     "seed": 10,
+     "params": {
+      "door_w": 0.709,
+      "gap": 0.587,
+      "offset": 1.602,
+      "threshold_h": 0.02,
+      "mass_true": 3.758
+     },
+     "scene_hash": "b3a71c291996cab2",
+     "plans": [
+      "couple_chain",
+      "single"
+     ]
+    },
+    {
+     "seed": 11,
+     "params": {
+      "door_w": 0.561,
+      "gap": 0.65,
+      "offset": 2.054,
+      "threshold_h": 0.01,
+      "mass_true": 4.302
+     },
+     "scene_hash": "463d1549e37be4e2",
+     "plans": [
+      "couple_chain",
+      "single"
+     ]
+    },
+    {
+     "seed": 12,
+     "params": {
+      "door_w": 0.684,
+      "gap": 0.648,
+      "offset": 1.243,
+      "threshold_h": 0.01,
+      "mass_true": 4.209
+     },
+     "scene_hash": "112fcfd915ec8c78",
+     "plans": [
+      "couple_chain",
+      "single"
+     ]
+    },
+    {
+     "seed": 13,
+     "params": {
+      "door_w": 0.739,
+      "gap": 0.733,
+      "offset": 1.333,
+      "threshold_h": 0.0,
+      "mass_true": 2.798
+     },
+     "scene_hash": "d7c75e4dae7ca5ef",
+     "plans": [
+      "couple_chain",
+      "single"
+     ]
+    },
+    {
+     "seed": 14,
+     "params": {
+      "door_w": 0.667,
+      "gap": 0.704,
+      "offset": 1.807,
+      "threshold_h": 0.01,
+      "mass_true": 4.361
+     },
+     "scene_hash": "ce421854867d594b",
+     "plans": [
+      "couple_chain",
+      "single"
+     ]
+    },
+    {
+     "seed": 15,
+     "params": {
+      "door_w": 0.741,
+      "gap": 0.676,
+      "offset": 2.065,
+      "threshold_h": 0.01,
+      "mass_true": 5.071
+     },
+     "scene_hash": "2ba1ac5e0d6dda98",
+     "plans": [
+      "couple_chain",
+      "single"
+     ]
+    },
+    {
+     "seed": 16,
+     "params": {
+      "door_w": 0.587,
+      "gap": 0.683,
+      "offset": 1.694,
+      "threshold_h": 0.0,
+      "mass_true": 3.424
+     },
+     "scene_hash": "c1e9047ecf417af7",
+     "plans": [
+      "couple_chain",
+      "single"
+     ]
+    },
+    {
+     "seed": 17,
+     "params": {
+      "door_w": 0.686,
+      "gap": 0.614,
+      "offset": 2.039,
+      "threshold_h": 0.0,
+      "mass_true": 1.608
+     },
+     "scene_hash": "1d852d80e30a3d2c",
+     "plans": [
+      "couple_chain",
+      "single"
+     ]
+    },
+    {
+     "seed": 18,
+     "params": {
+      "door_w": 0.553,
+      "gap": 0.66,
+      "offset": 1.548,
+      "threshold_h": 0.01,
+      "mass_true": 4.562
+     },
+     "scene_hash": "07706334a6fdf825",
+     "plans": [
+      "couple_chain",
+      "single"
+     ]
+    },
+    {
+     "seed": 19,
+     "params": {
+      "door_w": 0.645,
+      "gap": 0.718,
+      "offset": 2.082,
+      "threshold_h": 0.0,
+      "mass_true": 3.932
+     },
+     "scene_hash": "8553bdef4d8ed20a",
+     "plans": [
+      "couple_chain",
+      "single"
+     ]
+    },
+    {
+     "seed": 20,
+     "params": {
+      "door_w": 0.667,
+      "gap": 0.595,
+      "offset": 2.126,
+      "threshold_h": 0.0,
+      "mass_true": 4.684
+     },
+     "scene_hash": "4e3b747e5b85838e",
+     "plans": [
+      "couple_chain",
+      "single"
+     ]
+    }
+   ],
+   "heldout": [
+    {
+     "seed": 1,
+     "params": {
+      "door_w": 0.569,
+      "gap": 0.55,
+      "offset": 1.244,
+      "threshold_h": 0.03,
+      "mass_true": 3.271
+     },
+     "scene_hash": "bd9356cffd99cd57",
+     "plans": [
+      "couple_chain",
+      "single"
+     ]
+    },
+    {
+     "seed": 2,
+     "params": {
+      "door_w": 0.592,
+      "gap": 0.525,
+      "offset": 2.077,
+      "threshold_h": 0.03,
+      "mass_true": 3.337
+     },
+     "scene_hash": "86552bbdd96df19b",
+     "plans": [
+      "couple_chain",
+      "single"
+     ]
+    },
+    {
+     "seed": 3,
+     "params": {
+      "door_w": 0.522,
+      "gap": 0.599,
+      "offset": 2.32,
+      "threshold_h": 0.02,
+      "mass_true": 4.196
+     },
+     "scene_hash": "59d7534dd1808828",
+     "plans": [
+      "couple_chain",
+      "single"
+     ]
+    },
+    {
+     "seed": 4,
+     "params": {
+      "door_w": 0.584,
+      "gap": 0.566,
+      "offset": 2.386,
+      "threshold_h": 0.03,
+      "mass_true": 2.054
+     },
+     "scene_hash": "9b87ce023e58725e",
+     "plans": [
+      "couple_chain",
+      "single"
+     ]
+    },
+    {
+     "seed": 5,
+     "params": {
+      "door_w": 0.55,
+      "gap": 0.537,
+      "offset": 1.445,
+      "threshold_h": 0.03,
+      "mass_true": 4.98
+     },
+     "scene_hash": "151a55920bd42f16",
+     "plans": [
+      "couple_chain",
+      "single"
+     ]
+    },
+    {
+     "seed": 6,
+     "params": {
+      "door_w": 0.555,
+      "gap": 0.582,
+      "offset": 2.152,
+      "threshold_h": 0.03,
+      "mass_true": 3.978
+     },
+     "scene_hash": "1062f7c812a8f504",
+     "plans": [
+      "couple_chain",
+      "single"
+     ]
+    },
+    {
+     "seed": 7,
+     "params": {
+      "door_w": 0.583,
+      "gap": 0.541,
+      "offset": 1.725,
+      "threshold_h": 0.0,
+      "mass_true": 3.987
+     },
+     "scene_hash": "72ea19cef1c9ee44",
+     "plans": [
+      "couple_chain",
+      "single"
+     ]
+    },
+    {
+     "seed": 8,
+     "params": {
+      "door_w": 0.543,
+      "gap": 0.588,
+      "offset": 1.938,
+      "threshold_h": 0.0,
+      "mass_true": 5.284
+     },
+     "scene_hash": "89960af8de8bac29",
+     "plans": [
+      "couple_chain",
+      "single"
+     ]
+    },
+    {
+     "seed": 9,
+     "params": {
+      "door_w": 0.576,
+      "gap": 0.536,
+      "offset": 1.324,
+      "threshold_h": 0.0,
+      "mass_true": 4.239
+     },
+     "scene_hash": "eea077a8acb39492",
+     "plans": [
+      "couple_chain",
+      "single"
+     ]
+    },
+    {
+     "seed": 10,
+     "params": {
+      "door_w": 0.549,
+      "gap": 0.598,
+      "offset": 2.159,
+      "threshold_h": 0.02,
+      "mass_true": 2.49
+     },
+     "scene_hash": "78f6276669eb62c7",
+     "plans": [
+      "couple_chain",
+      "single"
+     ]
+    }
+   ]
+  },
+  "long_payload_door": {
+   "train": [
+    {
+     "seed": 1,
+     "params": {
+      "door_w": 0.729,
+      "n_doors": 1,
+      "detour": 0,
+      "door_y": 2.911
+     },
+     "scene_hash": "c6d14cac9d0564b7",
+     "plans": [
+      "keep",
+      "reconfigure"
+     ]
+    },
+    {
+     "seed": 2,
+     "params": {
+      "door_w": 0.72,
+      "n_doors": 1,
+      "detour": 0,
+      "door_y": 3.261
+     },
+     "scene_hash": "298cfdd5be91b802",
+     "plans": [
+      "keep",
+      "reconfigure"
+     ]
+    },
+    {
+     "seed": 3,
+     "params": {
+      "door_w": 0.62,
+      "n_doors": 1,
+      "detour": 0,
+      "door_y": 3.577
+     },
+     "scene_hash": "e5916cb44828c6ef",
+     "plans": [
+      "keep",
+      "reconfigure"
+     ]
+    },
+    {
+     "seed": 4,
+     "params": {
+      "door_w": 0.653,
+      "n_doors": 1,
+      "detour": 0,
+      "door_y": 3.158
+     },
+     "scene_hash": "190da8afca9b5c53",
+     "plans": [
+      "keep",
+      "reconfigure"
+     ]
+    },
+    {
+     "seed": 5,
+     "params": {
+      "door_w": 0.714,
+      "n_doors": 1,
+      "detour": 0,
+      "door_y": 3.528
+     },
+     "scene_hash": "87443064f7329e44",
+     "plans": [
+      "keep",
+      "reconfigure"
+     ]
+    },
+    {
+     "seed": 6,
+     "params": {
+      "door_w": 0.727,
+      "n_doors": 1,
+      "detour": 1,
+      "door_y": 3.299
+     },
+     "scene_hash": "8be599f101017c03",
+     "plans": [
+      "keep",
+      "reconfigure"
+     ]
+    },
+    {
+     "seed": 7,
+     "params": {
+      "door_w": 0.574,
+      "n_doors": 1,
+      "detour": 0,
+      "door_y": 4.311
+     },
+     "scene_hash": "e53167b27f2d240f",
+     "plans": [
+      "keep",
+      "reconfigure"
+     ]
+    },
+    {
+     "seed": 8,
+     "params": {
+      "door_w": 0.584,
+      "n_doors": 1,
+      "detour": 1,
+      "door_y": 2.894
+     },
+     "scene_hash": "3f2bd7fa82d79eaf",
+     "plans": [
+      "keep",
+      "reconfigure"
+     ]
+    },
+    {
+     "seed": 9,
+     "params": {
+      "door_w": 0.652,
+      "n_doors": 1,
+      "detour": 1,
+      "door_y": 3.015
+     },
+     "scene_hash": "650e5af16d3bc3e5",
+     "plans": [
+      "keep",
+      "reconfigure"
+     ]
+    },
+    {
+     "seed": 10,
+     "params": {
+      "door_w": 0.716,
+      "n_doors": 1,
+      "detour": 1,
+      "door_y": 3.315
+     },
+     "scene_hash": "7da323e3a128439a",
+     "plans": [
+      "keep",
+      "reconfigure"
+     ]
+    },
+    {
+     "seed": 11,
+     "params": {
+      "door_w": 0.598,
+      "n_doors": 1,
+      "detour": 1,
+      "door_y": 3.136
+     },
+     "scene_hash": "5cb9e470aacc5a78",
+     "plans": [
+      "keep",
+      "reconfigure"
+     ]
+    },
+    {
+     "seed": 12,
+     "params": {
+      "door_w": 0.713,
+      "n_doors": 1,
+      "detour": 1,
+      "door_y": 3.429
+     },
+     "scene_hash": "84ed199ee271c2c8",
+     "plans": [
+      "keep",
+      "reconfigure"
+     ]
+    },
+    {
+     "seed": 13,
+     "params": {
+      "door_w": 0.72,
+      "n_doors": 1,
+      "detour": 1,
+      "door_y": 3.478
+     },
+     "scene_hash": "b3622c0fb7b1d799",
+     "plans": [
+      "keep",
+      "reconfigure"
+     ]
+    },
+    {
+     "seed": 14,
+     "params": {
+      "door_w": 0.551,
+      "n_doors": 1,
+      "detour": 0,
+      "door_y": 3.904
+     },
+     "scene_hash": "4c8b9576d485de7a",
+     "plans": [
+      "keep",
+      "reconfigure"
+     ]
+    },
+    {
+     "seed": 15,
+     "params": {
+      "door_w": 0.598,
+      "n_doors": 1,
+      "detour": 1,
+      "door_y": 3.683
+     },
+     "scene_hash": "7ac0b861d094009b",
+     "plans": [
+      "keep",
+      "reconfigure"
+     ]
+    },
+    {
+     "seed": 16,
+     "params": {
+      "door_w": 0.608,
+      "n_doors": 1,
+      "detour": 0,
+      "door_y": 3.422
+     },
+     "scene_hash": "c553bf80aa821d89",
+     "plans": [
+      "keep",
+      "reconfigure"
+     ]
+    },
+    {
+     "seed": 17,
+     "params": {
+      "door_w": 0.682,
+      "n_doors": 1,
+      "detour": 0,
+      "door_y": 4.087
+     },
+     "scene_hash": "7b5993e47429b793",
+     "plans": [
+      "keep",
+      "reconfigure"
+     ]
+    },
+    {
+     "seed": 18,
+     "params": {
+      "door_w": 0.554,
+      "n_doors": 1,
+      "detour": 1,
+      "door_y": 4.041
+     },
+     "scene_hash": "a82641087f150f55",
+     "plans": [
+      "keep",
+      "reconfigure"
+     ]
+    },
+    {
+     "seed": 19,
+     "params": {
+      "door_w": 0.66,
+      "n_doors": 1,
+      "detour": 1,
+      "door_y": 3.946
+     },
+     "scene_hash": "384cbcbd73bbe101",
+     "plans": [
+      "keep",
+      "reconfigure"
+     ]
+    },
+    {
+     "seed": 20,
+     "params": {
+      "door_w": 0.611,
+      "n_doors": 1,
+      "detour": 0,
+      "door_y": 3.907
+     },
+     "scene_hash": "2f862b05bb5f7fee",
+     "plans": [
+      "keep",
+      "reconfigure"
+     ]
+    }
+   ],
+   "heldout": [
+    {
+     "seed": 1,
+     "params": {
+      "door_w": 0.515,
+      "n_doors": 1,
+      "detour": 0,
+      "door_y": 3.603
+     },
+     "scene_hash": "53f552183f1efeb8",
+     "plans": [
+      "keep",
+      "reconfigure"
+     ]
+    },
+    {
+     "seed": 2,
+     "params": {
+      "door_w": 0.554,
+      "n_doors": 2,
+      "detour": 0,
+      "door_y": 3.474
+     },
+     "scene_hash": "6703e2470cb8e58e",
+     "plans": [
+      "keep",
+      "reconfigure"
+     ]
+    },
+    {
+     "seed": 3,
+     "params": {
+      "door_w": 0.505,
+      "n_doors": 2,
+      "detour": 0,
+      "door_y": 3.309
+     },
+     "scene_hash": "403798b7cd6b5b77",
+     "plans": [
+      "keep",
+      "reconfigure"
+     ]
+    },
+    {
+     "seed": 4,
+     "params": {
+      "door_w": 0.657,
+      "n_doors": 2,
+      "detour": 0,
+      "door_y": 2.986
+     },
+     "scene_hash": "3b507a86087f1585",
+     "plans": [
+      "keep",
+      "reconfigure"
+     ]
+    },
+    {
+     "seed": 5,
+     "params": {
+      "door_w": 0.629,
+      "n_doors": 2,
+      "detour": 1,
+      "door_y": 2.798
+     },
+     "scene_hash": "8fb1a1d4b3cd47aa",
+     "plans": [
+      "keep",
+      "reconfigure"
+     ]
+    },
+    {
+     "seed": 6,
+     "params": {
+      "door_w": 0.547,
+      "n_doors": 2,
+      "detour": 1,
+      "door_y": 3.162
+     },
+     "scene_hash": "36fe5aded0d615aa",
+     "plans": [
+      "keep",
+      "reconfigure"
+     ]
+    },
+    {
+     "seed": 7,
+     "params": {
+      "door_w": 0.547,
+      "n_doors": 1,
+      "detour": 1,
+      "door_y": 3.468
+     },
+     "scene_hash": "6a3aea354a057eb7",
+     "plans": [
+      "keep",
+      "reconfigure"
+     ]
+    },
+    {
+     "seed": 8,
+     "params": {
+      "door_w": 0.625,
+      "n_doors": 2,
+      "detour": 1,
+      "door_y": 4.27
+     },
+     "scene_hash": "1c94241a0b70ae7e",
+     "plans": [
+      "keep",
+      "reconfigure"
+     ]
+    },
+    {
+     "seed": 9,
+     "params": {
+      "door_w": 0.516,
+      "n_doors": 1,
+      "detour": 1,
+      "door_y": 3.45
+     },
+     "scene_hash": "545f016002f79d38",
+     "plans": [
+      "keep",
+      "reconfigure"
+     ]
+    },
+    {
+     "seed": 10,
+     "params": {
+      "door_w": 0.617,
+      "n_doors": 2,
+      "detour": 1,
+      "door_y": 3.29
+     },
+     "scene_hash": "43eb9bca92b83714",
+     "plans": [
+      "keep",
+      "reconfigure"
+     ]
+    }
+   ]
+  },
+  "lateral_slot": {
+   "train": [
+    {
+     "seed": 1,
+     "params": {
+      "slot_wall": "north",
+      "slot_w": 0.54,
+      "slot_d": 0.506
+     },
+     "scene_hash": "1385cc7dbfb57b29",
+     "plans": [
+      "diffdrive",
+      "mecanum"
+     ]
+    },
+    {
+     "seed": 2,
+     "params": {
+      "slot_wall": "north",
+      "slot_w": 0.522,
+      "slot_d": 0.52
+     },
+     "scene_hash": "c65c45313ed52498",
+     "plans": [
+      "diffdrive",
+      "mecanum"
+     ]
+    },
+    {
+     "seed": 3,
+     "params": {
+      "slot_wall": "north",
+      "slot_w": 0.528,
+      "slot_d": 0.503
+     },
+     "scene_hash": "b72c629cf591e37e",
+     "plans": [
+      "diffdrive",
+      "mecanum"
+     ]
+    },
+    {
+     "seed": 4,
+     "params": {
+      "slot_wall": "north",
+      "slot_w": 0.592,
+      "slot_d": 0.508
+     },
+     "scene_hash": "4a2c63c5e77de167",
+     "plans": [
+      "diffdrive",
+      "mecanum"
+     ]
+    },
+    {
+     "seed": 5,
+     "params": {
+      "slot_wall": "north",
+      "slot_w": 0.531,
+      "slot_d": 0.525
+     },
+     "scene_hash": "046a96edaf34145f",
+     "plans": [
+      "diffdrive",
+      "mecanum"
+     ]
+    },
+    {
+     "seed": 6,
+     "params": {
+      "slot_wall": "north",
+      "slot_w": 0.557,
+      "slot_d": 0.523
+     },
+     "scene_hash": "e2105c79e757fe86",
+     "plans": [
+      "diffdrive",
+      "mecanum"
+     ]
+    },
+    {
+     "seed": 7,
+     "params": {
+      "slot_wall": "north",
+      "slot_w": 0.575,
+      "slot_d": 0.514
+     },
+     "scene_hash": "3f453a77d4c532e5",
+     "plans": [
+      "diffdrive",
+      "mecanum"
+     ]
+    },
+    {
+     "seed": 8,
+     "params": {
+      "slot_wall": "north",
+      "slot_w": 0.548,
+      "slot_d": 0.528
+     },
+     "scene_hash": "c755e0e8a020d8b0",
+     "plans": [
+      "diffdrive",
+      "mecanum"
+     ]
+    },
+    {
+     "seed": 9,
+     "params": {
+      "slot_wall": "north",
+      "slot_w": 0.598,
+      "slot_d": 0.506
+     },
+     "scene_hash": "f5f8fb25f00e580f",
+     "plans": [
+      "diffdrive",
+      "mecanum"
+     ]
+    },
+    {
+     "seed": 10,
+     "params": {
+      "slot_wall": "north",
+      "slot_w": 0.582,
+      "slot_d": 0.503
+     },
+     "scene_hash": "93cb49366813e3d4",
+     "plans": [
+      "diffdrive",
+      "mecanum"
+     ]
+    },
+    {
+     "seed": 11,
+     "params": {
+      "slot_wall": "north",
+      "slot_w": 0.575,
+      "slot_d": 0.494
+     },
+     "scene_hash": "2b377ec7aeab6809",
+     "plans": [
+      "diffdrive",
+      "mecanum"
+     ]
+    },
+    {
+     "seed": 12,
+     "params": {
+      "slot_wall": "north",
+      "slot_w": 0.537,
+      "slot_d": 0.516
+     },
+     "scene_hash": "5070c4b67fd2c1de",
+     "plans": [
+      "diffdrive",
+      "mecanum"
+     ]
+    },
+    {
+     "seed": 13,
+     "params": {
+      "slot_wall": "north",
+      "slot_w": 0.555,
+      "slot_d": 0.498
+     },
+     "scene_hash": "c28aced05245b4d2",
+     "plans": [
+      "diffdrive",
+      "mecanum"
+     ]
+    },
+    {
+     "seed": 14,
+     "params": {
+      "slot_wall": "north",
+      "slot_w": 0.595,
+      "slot_d": 0.495
+     },
+     "scene_hash": "53268f5746f1d1cb",
+     "plans": [
+      "diffdrive",
+      "mecanum"
+     ]
+    },
+    {
+     "seed": 15,
+     "params": {
+      "slot_wall": "north",
+      "slot_w": 0.55,
+      "slot_d": 0.497
+     },
+     "scene_hash": "cc9331e6c5b8c821",
+     "plans": [
+      "diffdrive",
+      "mecanum"
+     ]
+    },
+    {
+     "seed": 16,
+     "params": {
+      "slot_wall": "north",
+      "slot_w": 0.595,
+      "slot_d": 0.513
+     },
+     "scene_hash": "ab99b045517a650f",
+     "plans": [
+      "diffdrive",
+      "mecanum"
+     ]
+    },
+    {
+     "seed": 17,
+     "params": {
+      "slot_wall": "north",
+      "slot_w": 0.54,
+      "slot_d": 0.521
+     },
+     "scene_hash": "c2628be94dc5c2cd",
+     "plans": [
+      "diffdrive",
+      "mecanum"
+     ]
+    },
+    {
+     "seed": 18,
+     "params": {
+      "slot_wall": "north",
+      "slot_w": 0.549,
+      "slot_d": 0.508
+     },
+     "scene_hash": "dc9167534f84090d",
+     "plans": [
+      "diffdrive",
+      "mecanum"
+     ]
+    },
+    {
+     "seed": 19,
+     "params": {
+      "slot_wall": "north",
+      "slot_w": 0.532,
+      "slot_d": 0.526
+     },
+     "scene_hash": "1eb4ec4f881dc8c8",
+     "plans": [
+      "diffdrive",
+      "mecanum"
+     ]
+    },
+    {
+     "seed": 20,
+     "params": {
+      "slot_wall": "north",
+      "slot_w": 0.544,
+      "slot_d": 0.511
+     },
+     "scene_hash": "0772f4520231df31",
+     "plans": [
+      "diffdrive",
+      "mecanum"
+     ]
+    }
+   ],
+   "heldout": [
+    {
+     "seed": 1,
+     "params": {
+      "slot_wall": "east",
+      "slot_w": 0.509,
+      "slot_d": 0.529
+     },
+     "scene_hash": "3f645f45ce5ec5ee",
+     "plans": [
+      "diffdrive",
+      "mecanum"
+     ]
+    },
+    {
+     "seed": 2,
+     "params": {
+      "slot_wall": "east",
+      "slot_w": 0.524,
+      "slot_d": 0.527
+     },
+     "scene_hash": "4ca6a2f57a7185e1",
+     "plans": [
+      "diffdrive",
+      "mecanum"
+     ]
+    },
+    {
+     "seed": 3,
+     "params": {
+      "slot_wall": "east",
+      "slot_w": 0.512,
+      "slot_d": 0.509
+     },
+     "scene_hash": "a19baa90b33ea55a",
+     "plans": [
+      "diffdrive",
+      "mecanum"
+     ]
+    },
+    {
+     "seed": 4,
+     "params": {
+      "slot_wall": "east",
+      "slot_w": 0.519,
+      "slot_d": 0.509
+     },
+     "scene_hash": "8c3558b901a2e899",
+     "plans": [
+      "diffdrive",
+      "mecanum"
+     ]
+    },
+    {
+     "seed": 5,
+     "params": {
+      "slot_wall": "east",
+      "slot_w": 0.519,
+      "slot_d": 0.508
+     },
+     "scene_hash": "41cbec46cdceec5c",
+     "plans": [
+      "diffdrive",
+      "mecanum"
+     ]
+    },
+    {
+     "seed": 6,
+     "params": {
+      "slot_wall": "east",
+      "slot_w": 0.52,
+      "slot_d": 0.505
+     },
+     "scene_hash": "e1ec624cc9779463",
+     "plans": [
+      "diffdrive",
+      "mecanum"
+     ]
+    },
+    {
+     "seed": 7,
+     "params": {
+      "slot_wall": "north",
+      "slot_w": 0.512,
+      "slot_d": 0.5
+     },
+     "scene_hash": "cf1d1a89518688c5",
+     "plans": [
+      "diffdrive",
+      "mecanum"
+     ]
+    },
+    {
+     "seed": 8,
+     "params": {
+      "slot_wall": "east",
+      "slot_w": 0.518,
+      "slot_d": 0.525
+     },
+     "scene_hash": "91fc376cc97d3ed8",
+     "plans": [
+      "diffdrive",
+      "mecanum"
+     ]
+    },
+    {
+     "seed": 9,
+     "params": {
+      "slot_wall": "east",
+      "slot_w": 0.528,
+      "slot_d": 0.5
+     },
+     "scene_hash": "abbc8350a2bead76",
+     "plans": [
+      "diffdrive",
+      "mecanum"
+     ]
+    },
+    {
+     "seed": 10,
+     "params": {
+      "slot_wall": "east",
+      "slot_w": 0.52,
+      "slot_d": 0.525
+     },
+     "scene_hash": "370695543fd3c8ab",
+     "plans": [
+      "diffdrive",
+      "mecanum"
+     ]
+    }
+   ]
+  },
+  "friction_patches": {
+   "train": [
+    {
+     "seed": 1,
+     "params": {
+      "patch_class": "carpet",
+      "patch_x0": 3.434,
+      "patch_w": 2.145,
+      "bypass_y": 5.637,
+      "deadline_factor": 1.247
+     },
+     "scene_hash": "018d435d2cc86539",
+     "plans": [
+      "around",
+      "through"
+     ]
+    },
+    {
+     "seed": 2,
+     "params": {
+      "patch_class": "carpet",
+      "patch_x0": 3.722,
+      "patch_w": 2.154,
+      "bypass_y": 6.026,
+      "deadline_factor": 1.286
+     },
+     "scene_hash": "65bd3c68ddf0d4c6",
+     "plans": [
+      "around",
+      "through"
+     ]
+    },
+    {
+     "seed": 3,
+     "params": {
+      "patch_class": "carpet",
+      "patch_x0": 3.261,
+      "patch_w": 2.136,
+      "bypass_y": 5.835,
+      "deadline_factor": 1.223
+     },
+     "scene_hash": "2e097d5c02d8a12b",
+     "plans": [
+      "around",
+      "through"
+     ]
+    },
+    {
+     "seed": 4,
+     "params": {
+      "patch_class": "carpet",
+      "patch_x0": 3.282,
+      "patch_w": 2.049,
+      "bypass_y": 5.943,
+      "deadline_factor": 1.25
+     },
+     "scene_hash": "9c9190dfc15b951d",
+     "plans": [
+      "around",
+      "through"
+     ]
+    },
+    {
+     "seed": 5,
+     "params": {
+      "patch_class": "carpet",
+      "patch_x0": 3.404,
+      "patch_w": 2.613,
+      "bypass_y": 5.666,
+      "deadline_factor": 1.144
+     },
+     "scene_hash": "ebd850446a9c1ece",
+     "plans": [
+      "around",
+      "through"
+     ]
+    },
+    {
+     "seed": 6,
+     "params": {
+      "patch_class": "carpet",
+      "patch_x0": 3.205,
+      "patch_w": 2.143,
+      "bypass_y": 5.775,
+      "deadline_factor": 1.268
+     },
+     "scene_hash": "b07032b9de79bbbd",
+     "plans": [
+      "around",
+      "through"
+     ]
+    },
+    {
+     "seed": 7,
+     "params": {
+      "patch_class": "rubber",
+      "patch_x0": 3.347,
+      "patch_w": 2.205,
+      "bypass_y": 5.659,
+      "deadline_factor": 1.102
+     },
+     "scene_hash": "89459d07da696783",
+     "plans": [
+      "around",
+      "through"
+     ]
+    },
+    {
+     "seed": 8,
+     "params": {
+      "patch_class": "carpet",
+      "patch_x0": 3.928,
+      "patch_w": 2.33,
+      "bypass_y": 5.729,
+      "deadline_factor": 1.221
+     },
+     "scene_hash": "124a9871890a9ff6",
+     "plans": [
+      "around",
+      "through"
+     ]
+    },
+    {
+     "seed": 9,
+     "params": {
+      "patch_class": "carpet",
+      "patch_x0": 3.326,
+      "patch_w": 2.954,
+      "bypass_y": 5.648,
+      "deadline_factor": 1.141
+     },
+     "scene_hash": "67bdcc98976d70f6",
+     "plans": [
+      "around",
+      "through"
+     ]
+    },
+    {
+     "seed": 10,
+     "params": {
+      "patch_class": "rubber",
+      "patch_x0": 3.085,
+      "patch_w": 2.541,
+      "bypass_y": 5.851,
+      "deadline_factor": 1.102
+     },
+     "scene_hash": "aecda5a85e9fb386",
+     "plans": [
+      "around",
+      "through"
+     ]
+    },
+    {
+     "seed": 11,
+     "params": {
+      "patch_class": "rubber",
+      "patch_x0": 3.371,
+      "patch_w": 2.033,
+      "bypass_y": 6.052,
+      "deadline_factor": 1.249
+     },
+     "scene_hash": "8ee2d7747e81773d",
+     "plans": [
+      "around",
+      "through"
+     ]
+    },
+    {
+     "seed": 12,
+     "params": {
+      "patch_class": "carpet",
+      "patch_x0": 3.975,
+      "patch_w": 2.87,
+      "bypass_y": 5.994,
+      "deadline_factor": 1.264
+     },
+     "scene_hash": "a08103861b32f4e0",
+     "plans": [
+      "around",
+      "through"
+     ]
+    },
+    {
+     "seed": 13,
+     "params": {
+      "patch_class": "carpet",
+      "patch_x0": 3.392,
+      "patch_w": 2.931,
+      "bypass_y": 6.064,
+      "deadline_factor": 1.174
+     },
+     "scene_hash": "272fef2e82ce88bb",
+     "plans": [
+      "around",
+      "through"
+     ]
+    },
+    {
+     "seed": 14,
+     "params": {
+      "patch_class": "rubber",
+      "patch_x0": 3.23,
+      "patch_w": 2.242,
+      "bypass_y": 5.742,
+      "deadline_factor": 1.252
+     },
+     "scene_hash": "b7fa51eb32a5a9dd",
+     "plans": [
+      "around",
+      "through"
+     ]
+    },
+    {
+     "seed": 15,
+     "params": {
+      "patch_class": "carpet",
+      "patch_x0": 3.575,
+      "patch_w": 2.51,
+      "bypass_y": 5.974,
+      "deadline_factor": 1.269
+     },
+     "scene_hash": "c8767a423f7a0b03",
+     "plans": [
+      "around",
+      "through"
+     ]
+    },
+    {
+     "seed": 16,
+     "params": {
+      "patch_class": "rubber",
+      "patch_x0": 3.224,
+      "patch_w": 2.247,
+      "bypass_y": 5.763,
+      "deadline_factor": 1.282
+     },
+     "scene_hash": "76eae0078c1cc058",
+     "plans": [
+      "around",
+      "through"
+     ]
+    },
+    {
+     "seed": 17,
+     "params": {
+      "patch_class": "carpet",
+      "patch_x0": 3.719,
+      "patch_w": 2.02,
+      "bypass_y": 5.636,
+      "deadline_factor": 1.294
+     },
+     "scene_hash": "ce2d2370fe29a445",
+     "plans": [
+      "around",
+      "through"
+     ]
+    },
+    {
+     "seed": 18,
+     "params": {
+      "patch_class": "rubber",
+      "patch_x0": 3.674,
+      "patch_w": 2.816,
+      "bypass_y": 6.141,
+      "deadline_factor": 1.14
+     },
+     "scene_hash": "c2717bcb7530b079",
+     "plans": [
+      "around",
+      "through"
+     ]
+    },
+    {
+     "seed": 19,
+     "params": {
+      "patch_class": "rubber",
+      "patch_x0": 3.102,
+      "patch_w": 2.068,
+      "bypass_y": 5.9,
+      "deadline_factor": 1.169
+     },
+     "scene_hash": "cd79d8473078f7d0",
+     "plans": [
+      "around",
+      "through"
+     ]
+    },
+    {
+     "seed": 20,
+     "params": {
+      "patch_class": "rubber",
+      "patch_x0": 3.656,
+      "patch_w": 2.23,
+      "bypass_y": 5.888,
+      "deadline_factor": 1.203
+     },
+     "scene_hash": "6281b741b522d3af",
+     "plans": [
+      "around",
+      "through"
+     ]
+    }
+   ],
+   "heldout": [
+    {
+     "seed": 1,
+     "params": {
+      "patch_class": "polished",
+      "patch_x0": 3.293,
+      "patch_w": 2.207,
+      "bypass_y": 5.959,
+      "deadline_factor": 1.138
+     },
+     "scene_hash": "2cd8695fa9f6bdb5",
+     "plans": [
+      "around",
+      "through"
+     ]
+    },
+    {
+     "seed": 2,
+     "params": {
+      "patch_class": "polished",
+      "patch_x0": 3.189,
+      "patch_w": 2.049,
+      "bypass_y": 6.098,
+      "deadline_factor": 1.112
+     },
+     "scene_hash": "4e26b021d0d5d6a5",
+     "plans": [
+      "around",
+      "through"
+     ]
+    },
+    {
+     "seed": 3,
+     "params": {
+      "patch_class": "polished",
+      "patch_x0": 3.791,
+      "patch_w": 2.856,
+      "bypass_y": 5.756,
+      "deadline_factor": 1.187
+     },
+     "scene_hash": "062494fab97904f8",
+     "plans": [
+      "around",
+      "through"
+     ]
+    },
+    {
+     "seed": 4,
+     "params": {
+      "patch_class": "polished",
+      "patch_x0": 3.706,
+      "patch_w": 2.237,
+      "bypass_y": 5.624,
+      "deadline_factor": 1.136
+     },
+     "scene_hash": "37710a2f831d8f45",
+     "plans": [
+      "around",
+      "through"
+     ]
+    },
+    {
+     "seed": 5,
+     "params": {
+      "patch_class": "polished",
+      "patch_x0": 3.931,
+      "patch_w": 2.293,
+      "bypass_y": 6.131,
+      "deadline_factor": 1.26
+     },
+     "scene_hash": "38c1ef16da29ee85",
+     "plans": [
+      "around",
+      "through"
+     ]
+    },
+    {
+     "seed": 6,
+     "params": {
+      "patch_class": "polished",
+      "patch_x0": 3.953,
+      "patch_w": 2.946,
+      "bypass_y": 6.029,
+      "deadline_factor": 1.185
+     },
+     "scene_hash": "4427210de6d55ee7",
+     "plans": [
+      "around",
+      "through"
+     ]
+    },
+    {
+     "seed": 7,
+     "params": {
+      "patch_class": "polished",
+      "patch_x0": 3.857,
+      "patch_w": 2.816,
+      "bypass_y": 6.072,
+      "deadline_factor": 1.173
+     },
+     "scene_hash": "114d185c782fd51d",
+     "plans": [
+      "around",
+      "through"
+     ]
+    },
+    {
+     "seed": 8,
+     "params": {
+      "patch_class": "polished",
+      "patch_x0": 3.234,
+      "patch_w": 2.915,
+      "bypass_y": 5.666,
+      "deadline_factor": 1.194
+     },
+     "scene_hash": "bfeeadeb5ff046c5",
+     "plans": [
+      "around",
+      "through"
+     ]
+    },
+    {
+     "seed": 9,
+     "params": {
+      "patch_class": "polished",
+      "patch_x0": 3.315,
+      "patch_w": 2.629,
+      "bypass_y": 5.785,
+      "deadline_factor": 1.283
+     },
+     "scene_hash": "d5900cd47f696e73",
+     "plans": [
+      "around",
+      "through"
+     ]
+    },
+    {
+     "seed": 10,
+     "params": {
+      "patch_class": "polished",
+      "patch_x0": 3.111,
+      "patch_w": 2.062,
+      "bypass_y": 5.83,
+      "deadline_factor": 1.298
+     },
+     "scene_hash": "c0d31ed8af233a4f",
+     "plans": [
+      "around",
+      "through"
+     ]
+    }
+   ]
+  },
+  "aisle_traffic": {
+   "train": [
+    {
+     "seed": 1,
+     "params": {
+      "n_aisles": 2,
+      "n_units": 3,
+      "aisle_w": 0.63
+     },
+     "scene_hash": "69d7570517be454a",
+     "plans": [
+      "none",
+      "reserved"
+     ]
+    },
+    {
+     "seed": 2,
+     "params": {
+      "n_aisles": 2,
+      "n_units": 4,
+      "aisle_w": 0.623
+     },
+     "scene_hash": "1da2ffab89c273e2",
+     "plans": [
+      "none",
+      "reserved"
+     ]
+    },
+    {
+     "seed": 3,
+     "params": {
+      "n_aisles": 2,
+      "n_units": 4,
+      "aisle_w": 0.558
+     },
+     "scene_hash": "d7f80f5f6342be03",
+     "plans": [
+      "none",
+      "reserved"
+     ]
+    },
+    {
+     "seed": 4,
+     "params": {
+      "n_aisles": 2,
+      "n_units": 4,
+      "aisle_w": 0.556
+     },
+     "scene_hash": "d2904194fb441fe3",
+     "plans": [
+      "none",
+      "reserved"
+     ]
+    },
+    {
+     "seed": 5,
+     "params": {
+      "n_aisles": 2,
+      "n_units": 4,
+      "aisle_w": 0.697
+     },
+     "scene_hash": "9b4bf25c1de7bd7b",
+     "plans": [
+      "none",
+      "reserved"
+     ]
+    },
+    {
+     "seed": 6,
+     "params": {
+      "n_aisles": 2,
+      "n_units": 3,
+      "aisle_w": 0.596
+     },
+     "scene_hash": "8242bed8601489c3",
+     "plans": [
+      "none",
+      "reserved"
+     ]
+    },
+    {
+     "seed": 7,
+     "params": {
+      "n_aisles": 2,
+      "n_units": 3,
+      "aisle_w": 0.6
+     },
+     "scene_hash": "25dcb37744a6dcf0",
+     "plans": [
+      "none",
+      "reserved"
+     ]
+    },
+    {
+     "seed": 8,
+     "params": {
+      "n_aisles": 2,
+      "n_units": 3,
+      "aisle_w": 0.624
+     },
+     "scene_hash": "881da2e784468bcf",
+     "plans": [
+      "none",
+      "reserved"
+     ]
+    },
+    {
+     "seed": 9,
+     "params": {
+      "n_aisles": 2,
+      "n_units": 4,
+      "aisle_w": 0.68
+     },
+     "scene_hash": "214a067c437e3fc2",
+     "plans": [
+      "none",
+      "reserved"
+     ]
+    },
+    {
+     "seed": 10,
+     "params": {
+      "n_aisles": 2,
+      "n_units": 3,
+      "aisle_w": 0.712
+     },
+     "scene_hash": "4806bb9f2e91f55e",
+     "plans": [
+      "none",
+      "reserved"
+     ]
+    },
+    {
+     "seed": 11,
+     "params": {
+      "n_aisles": 2,
+      "n_units": 3,
+      "aisle_w": 0.605
+     },
+     "scene_hash": "45de5670d9d3680b",
+     "plans": [
+      "none",
+      "reserved"
+     ]
+    },
+    {
+     "seed": 12,
+     "params": {
+      "n_aisles": 2,
+      "n_units": 4,
+      "aisle_w": 0.704
+     },
+     "scene_hash": "87aadc23c1bdc73c",
+     "plans": [
+      "none",
+      "reserved"
+     ]
+    },
+    {
+     "seed": 13,
+     "params": {
+      "n_aisles": 2,
+      "n_units": 4,
+      "aisle_w": 0.614
+     },
+     "scene_hash": "84a86c115744bb48",
+     "plans": [
+      "none",
+      "reserved"
+     ]
+    },
+    {
+     "seed": 14,
+     "params": {
+      "n_aisles": 2,
+      "n_units": 3,
+      "aisle_w": 0.674
+     },
+     "scene_hash": "92ca99b65319c232",
+     "plans": [
+      "none",
+      "reserved"
+     ]
+    },
+    {
+     "seed": 15,
+     "params": {
+      "n_aisles": 2,
+      "n_units": 4,
+      "aisle_w": 0.709
+     },
+     "scene_hash": "2beb27832b3d2be6",
+     "plans": [
+      "none",
+      "reserved"
+     ]
+    },
+    {
+     "seed": 16,
+     "params": {
+      "n_aisles": 2,
+      "n_units": 4,
+      "aisle_w": 0.624
+     },
+     "scene_hash": "efd5376e34b3d3e1",
+     "plans": [
+      "none",
+      "reserved"
+     ]
+    },
+    {
+     "seed": 17,
+     "params": {
+      "n_aisles": 2,
+      "n_units": 4,
+      "aisle_w": 0.618
+     },
+     "scene_hash": "4ffe4212cbf582d4",
+     "plans": [
+      "none",
+      "reserved"
+     ]
+    },
+    {
+     "seed": 18,
+     "params": {
+      "n_aisles": 2,
+      "n_units": 3,
+      "aisle_w": 0.585
+     },
+     "scene_hash": "b3986cbf59829425",
+     "plans": [
+      "none",
+      "reserved"
+     ]
+    },
+    {
+     "seed": 19,
+     "params": {
+      "n_aisles": 2,
+      "n_units": 3,
+      "aisle_w": 0.641
+     },
+     "scene_hash": "5304e77e662e786a",
+     "plans": [
+      "none",
+      "reserved"
+     ]
+    },
+    {
+     "seed": 20,
+     "params": {
+      "n_aisles": 2,
+      "n_units": 4,
+      "aisle_w": 0.695
+     },
+     "scene_hash": "1716939fae7123c1",
+     "plans": [
+      "none",
+      "reserved"
+     ]
+    }
+   ],
+   "heldout": [
+    {
+     "seed": 1,
+     "params": {
+      "n_aisles": 3,
+      "n_units": 6,
+      "aisle_w": 0.644
+     },
+     "scene_hash": "e1d8f1b725fba241",
+     "plans": [
+      "none",
+      "reserved"
+     ]
+    },
+    {
+     "seed": 2,
+     "params": {
+      "n_aisles": 3,
+      "n_units": 6,
+      "aisle_w": 0.645
+     },
+     "scene_hash": "a51810619c2878b5",
+     "plans": [
+      "none",
+      "reserved"
+     ]
+    },
+    {
+     "seed": 3,
+     "params": {
+      "n_aisles": 2,
+      "n_units": 6,
+      "aisle_w": 0.693
+     },
+     "scene_hash": "e2990f9851b53a13",
+     "plans": [
+      "none",
+      "reserved"
+     ]
+    },
+    {
+     "seed": 4,
+     "params": {
+      "n_aisles": 3,
+      "n_units": 6,
+      "aisle_w": 0.577
+     },
+     "scene_hash": "529dd6903eda05dc",
+     "plans": [
+      "none",
+      "reserved"
+     ]
+    },
+    {
+     "seed": 5,
+     "params": {
+      "n_aisles": 3,
+      "n_units": 4,
+      "aisle_w": 0.671
+     },
+     "scene_hash": "1d03947b2885bd45",
+     "plans": [
+      "none",
+      "reserved"
+     ]
+    },
+    {
+     "seed": 6,
+     "params": {
+      "n_aisles": 3,
+      "n_units": 5,
+      "aisle_w": 0.665
+     },
+     "scene_hash": "4437a326936a613e",
+     "plans": [
+      "none",
+      "reserved"
+     ]
+    },
+    {
+     "seed": 7,
+     "params": {
+      "n_aisles": 2,
+      "n_units": 6,
+      "aisle_w": 0.658
+     },
+     "scene_hash": "d7d77e6c58ab3d5a",
+     "plans": [
+      "none",
+      "reserved"
+     ]
+    },
+    {
+     "seed": 8,
+     "params": {
+      "n_aisles": 3,
+      "n_units": 6,
+      "aisle_w": 0.688
+     },
+     "scene_hash": "00003b130c51f7e2",
+     "plans": [
+      "none",
+      "reserved"
+     ]
+    },
+    {
+     "seed": 9,
+     "params": {
+      "n_aisles": 2,
+      "n_units": 5,
+      "aisle_w": 0.709
+     },
+     "scene_hash": "f58159a889737855",
+     "plans": [
+      "none",
+      "reserved"
+     ]
+    },
+    {
+     "seed": 10,
+     "params": {
+      "n_aisles": 2,
+      "n_units": 6,
+      "aisle_w": 0.582
+     },
+     "scene_hash": "b8c05d86b9374fa3",
+     "plans": [
+      "none",
+      "reserved"
+     ]
+    }
+   ]
+  },
+  "charging_contention": {
+   "train": [
+    {
+     "seed": 1,
+     "params": {
+      "n_units": 2,
+      "n_bays": 2
+     },
+     "scene_hash": "17a100266cfc6105",
+     "plans": [
+      "assigned",
+      "nearest"
+     ]
+    },
+    {
+     "seed": 2,
+     "params": {
+      "n_units": 3,
+      "n_bays": 2
+     },
+     "scene_hash": "3831512559d085f3",
+     "plans": [
+      "assigned",
+      "nearest"
+     ]
+    },
+    {
+     "seed": 3,
+     "params": {
+      "n_units": 2,
+      "n_bays": 2
+     },
+     "scene_hash": "17a100266cfc6105",
+     "plans": [
+      "assigned",
+      "nearest"
+     ]
+    },
+    {
+     "seed": 4,
+     "params": {
+      "n_units": 2,
+      "n_bays": 2
+     },
+     "scene_hash": "17a100266cfc6105",
+     "plans": [
+      "assigned",
+      "nearest"
+     ]
+    },
+    {
+     "seed": 5,
+     "params": {
+      "n_units": 2,
+      "n_bays": 2
+     },
+     "scene_hash": "17a100266cfc6105",
+     "plans": [
+      "assigned",
+      "nearest"
+     ]
+    },
+    {
+     "seed": 6,
+     "params": {
+      "n_units": 3,
+      "n_bays": 2
+     },
+     "scene_hash": "3831512559d085f3",
+     "plans": [
+      "assigned",
+      "nearest"
+     ]
+    },
+    {
+     "seed": 7,
+     "params": {
+      "n_units": 3,
+      "n_bays": 2
+     },
+     "scene_hash": "3831512559d085f3",
+     "plans": [
+      "assigned",
+      "nearest"
+     ]
+    },
+    {
+     "seed": 8,
+     "params": {
+      "n_units": 2,
+      "n_bays": 2
+     },
+     "scene_hash": "17a100266cfc6105",
+     "plans": [
+      "assigned",
+      "nearest"
+     ]
+    },
+    {
+     "seed": 9,
+     "params": {
+      "n_units": 3,
+      "n_bays": 2
+     },
+     "scene_hash": "3831512559d085f3",
+     "plans": [
+      "assigned",
+      "nearest"
+     ]
+    },
+    {
+     "seed": 10,
+     "params": {
+      "n_units": 2,
+      "n_bays": 2
+     },
+     "scene_hash": "17a100266cfc6105",
+     "plans": [
+      "assigned",
+      "nearest"
+     ]
+    },
+    {
+     "seed": 11,
+     "params": {
+      "n_units": 3,
+      "n_bays": 2
+     },
+     "scene_hash": "3831512559d085f3",
+     "plans": [
+      "assigned",
+      "nearest"
+     ]
+    },
+    {
+     "seed": 12,
+     "params": {
+      "n_units": 2,
+      "n_bays": 2
+     },
+     "scene_hash": "17a100266cfc6105",
+     "plans": [
+      "assigned",
+      "nearest"
+     ]
+    },
+    {
+     "seed": 13,
+     "params": {
+      "n_units": 2,
+      "n_bays": 2
+     },
+     "scene_hash": "17a100266cfc6105",
+     "plans": [
+      "assigned",
+      "nearest"
+     ]
+    },
+    {
+     "seed": 14,
+     "params": {
+      "n_units": 3,
+      "n_bays": 2
+     },
+     "scene_hash": "3831512559d085f3",
+     "plans": [
+      "assigned",
+      "nearest"
+     ]
+    },
+    {
+     "seed": 15,
+     "params": {
+      "n_units": 3,
+      "n_bays": 2
+     },
+     "scene_hash": "3831512559d085f3",
+     "plans": [
+      "assigned",
+      "nearest"
+     ]
+    },
+    {
+     "seed": 16,
+     "params": {
+      "n_units": 2,
+      "n_bays": 2
+     },
+     "scene_hash": "17a100266cfc6105",
+     "plans": [
+      "assigned",
+      "nearest"
+     ]
+    },
+    {
+     "seed": 17,
+     "params": {
+      "n_units": 3,
+      "n_bays": 2
+     },
+     "scene_hash": "3831512559d085f3",
+     "plans": [
+      "assigned",
+      "nearest"
+     ]
+    },
+    {
+     "seed": 18,
+     "params": {
+      "n_units": 2,
+      "n_bays": 2
+     },
+     "scene_hash": "17a100266cfc6105",
+     "plans": [
+      "assigned",
+      "nearest"
+     ]
+    },
+    {
+     "seed": 19,
+     "params": {
+      "n_units": 3,
+      "n_bays": 2
+     },
+     "scene_hash": "3831512559d085f3",
+     "plans": [
+      "assigned",
+      "nearest"
+     ]
+    },
+    {
+     "seed": 20,
+     "params": {
+      "n_units": 3,
+      "n_bays": 2
+     },
+     "scene_hash": "3831512559d085f3",
+     "plans": [
+      "assigned",
+      "nearest"
+     ]
+    }
+   ],
+   "heldout": [
+    {
+     "seed": 1,
+     "params": {
+      "n_units": 5,
+      "n_bays": 3
+     },
+     "scene_hash": "35b7c03d0e9d3356",
+     "plans": [
+      "assigned",
+      "nearest"
+     ]
+    },
+    {
+     "seed": 2,
+     "params": {
+      "n_units": 4,
+      "n_bays": 3
+     },
+     "scene_hash": "5320055c27f0a052",
+     "plans": [
+      "assigned",
+      "nearest"
+     ]
+    },
+    {
+     "seed": 3,
+     "params": {
+      "n_units": 4,
+      "n_bays": 3
+     },
+     "scene_hash": "5320055c27f0a052",
+     "plans": [
+      "assigned",
+      "nearest"
+     ]
+    },
+    {
+     "seed": 4,
+     "params": {
+      "n_units": 4,
+      "n_bays": 2
+     },
+     "scene_hash": "863ba4cd5c852d39",
+     "plans": [
+      "assigned",
+      "nearest"
+     ]
+    },
+    {
+     "seed": 5,
+     "params": {
+      "n_units": 5,
+      "n_bays": 3
+     },
+     "scene_hash": "35b7c03d0e9d3356",
+     "plans": [
+      "assigned",
+      "nearest"
+     ]
+    },
+    {
+     "seed": 6,
+     "params": {
+      "n_units": 5,
+      "n_bays": 2
+     },
+     "scene_hash": "4b31cbdc2b99ab2f",
+     "plans": [
+      "assigned",
+      "nearest"
+     ]
+    },
+    {
+     "seed": 7,
+     "params": {
+      "n_units": 5,
+      "n_bays": 3
+     },
+     "scene_hash": "35b7c03d0e9d3356",
+     "plans": [
+      "assigned",
+      "nearest"
+     ]
+    },
+    {
+     "seed": 8,
+     "params": {
+      "n_units": 4,
+      "n_bays": 3
+     },
+     "scene_hash": "5320055c27f0a052",
+     "plans": [
+      "assigned",
+      "nearest"
+     ]
+    },
+    {
+     "seed": 9,
+     "params": {
+      "n_units": 4,
+      "n_bays": 3
+     },
+     "scene_hash": "5320055c27f0a052",
+     "plans": [
+      "assigned",
+      "nearest"
+     ]
+    },
+    {
+     "seed": 10,
+     "params": {
+      "n_units": 5,
+      "n_bays": 3
+     },
+     "scene_hash": "35b7c03d0e9d3356",
+     "plans": [
+      "assigned",
+      "nearest"
+     ]
+    }
+   ]
+  },
+  "blocked_faces": {
+   "train": [
+    {
+     "seed": 1,
+     "params": {
+      "n_blocked": 1,
+      "tx": 4.655,
+      "ty": 2.724,
+      "blocked": [
+       "rear"
+      ]
+     },
+     "scene_hash": "f6cf9a93d49729b2",
+     "plans": [
+      "fixed_face",
+      "free_face",
+      "move_target"
+     ]
+    },
+    {
+     "seed": 2,
+     "params": {
+      "n_blocked": 1,
+      "tx": 3.917,
+      "ty": 3.39,
+      "blocked": [
+       "rear"
+      ]
+     },
+     "scene_hash": "d77beb5adb82617a",
+     "plans": [
+      "fixed_face",
+      "free_face",
+      "move_target"
+     ]
+    },
+    {
+     "seed": 3,
+     "params": {
+      "n_blocked": 1,
+      "tx": 4.963,
+      "ty": 4.269,
+      "blocked": [
+       "rear"
+      ]
+     },
+     "scene_hash": "97420d8dbbf28370",
+     "plans": [
+      "fixed_face",
+      "free_face",
+      "move_target"
+     ]
+    },
+    {
+     "seed": 4,
+     "params": {
+      "n_blocked": 1,
+      "tx": 3.807,
+      "ty": 3.076,
+      "blocked": [
+       "rear"
+      ]
+     },
+     "scene_hash": "260449dd42373904",
+     "plans": [
+      "fixed_face",
+      "free_face",
+      "move_target"
+     ]
+    },
+    {
+     "seed": 5,
+     "params": {
+      "n_blocked": 1,
+      "tx": 3.529,
+      "ty": 3.833,
+      "blocked": [
+       "rear"
+      ]
+     },
+     "scene_hash": "c6397250b352403c",
+     "plans": [
+      "fixed_face",
+      "free_face",
+      "move_target"
+     ]
+    },
+    {
+     "seed": 6,
+     "params": {
+      "n_blocked": 1,
+      "tx": 4.228,
+      "ty": 3.688,
+      "blocked": [
+       "rear"
+      ]
+     },
+     "scene_hash": "6b69402d16fe1eca",
+     "plans": [
+      "fixed_face",
+      "free_face",
+      "move_target"
+     ]
+    },
+    {
+     "seed": 7,
+     "params": {
+      "n_blocked": 1,
+      "tx": 3.753,
+      "ty": 2.736,
+      "blocked": [
+       "rear"
+      ]
+     },
+     "scene_hash": "1a92f20d1b0f3bcc",
+     "plans": [
+      "fixed_face",
+      "free_face",
+      "move_target"
+     ]
+    },
+    {
+     "seed": 8,
+     "params": {
+      "n_blocked": 1,
+      "tx": 4.573,
+      "ty": 3.657,
+      "blocked": [
+       "rear"
+      ]
+     },
+     "scene_hash": "9a1285db59e570c1",
+     "plans": [
+      "fixed_face",
+      "free_face",
+      "move_target"
+     ]
+    },
+    {
+     "seed": 9,
+     "params": {
+      "n_blocked": 1,
+      "tx": 4.661,
+      "ty": 4.439,
+      "blocked": [
+       "rear"
+      ]
+     },
+     "scene_hash": "ae1f37687c14d7e0",
+     "plans": [
+      "fixed_face",
+      "free_face",
+      "move_target"
+     ]
+    },
+    {
+     "seed": 10,
+     "params": {
+      "n_blocked": 1,
+      "tx": 4.476,
+      "ty": 3.939,
+      "blocked": [
+       "rear"
+      ]
+     },
+     "scene_hash": "d9f436ed18825d94",
+     "plans": [
+      "fixed_face",
+      "free_face",
+      "move_target"
+     ]
+    },
+    {
+     "seed": 11,
+     "params": {
+      "n_blocked": 1,
+      "tx": 3.738,
+      "ty": 3.485,
+      "blocked": [
+       "rear"
+      ]
+     },
+     "scene_hash": "4a8232f5173789c1",
+     "plans": [
+      "fixed_face",
+      "free_face",
+      "move_target"
+     ]
+    },
+    {
+     "seed": 12,
+     "params": {
+      "n_blocked": 1,
+      "tx": 3.745,
+      "ty": 3.727,
+      "blocked": [
+       "rear"
+      ]
+     },
+     "scene_hash": "4b626dcbda7676da",
+     "plans": [
+      "fixed_face",
+      "free_face",
+      "move_target"
+     ]
+    },
+    {
+     "seed": 13,
+     "params": {
+      "n_blocked": 1,
+      "tx": 4.051,
+      "ty": 2.667,
+      "blocked": [
+       "rear"
+      ]
+     },
+     "scene_hash": "a3bcc124267ce937",
+     "plans": [
+      "fixed_face",
+      "free_face",
+      "move_target"
+     ]
+    },
+    {
+     "seed": 14,
+     "params": {
+      "n_blocked": 1,
+      "tx": 4.315,
+      "ty": 3.288,
+      "blocked": [
+       "rear"
+      ]
+     },
+     "scene_hash": "b845e027b1e80627",
+     "plans": [
+      "fixed_face",
+      "free_face",
+      "move_target"
+     ]
+    },
+    {
+     "seed": 15,
+     "params": {
+      "n_blocked": 1,
+      "tx": 4.433,
+      "ty": 2.958,
+      "blocked": [
+       "rear"
+      ]
+     },
+     "scene_hash": "54020ad63114061a",
+     "plans": [
+      "fixed_face",
+      "free_face",
+      "move_target"
+     ]
+    },
+    {
+     "seed": 16,
+     "params": {
+      "n_blocked": 1,
+      "tx": 4.44,
+      "ty": 2.742,
+      "blocked": [
+       "rear"
+      ]
+     },
+     "scene_hash": "9871c9fb922ce52e",
+     "plans": [
+      "fixed_face",
+      "free_face",
+      "move_target"
+     ]
+    },
+    {
+     "seed": 17,
+     "params": {
+      "n_blocked": 1,
+      "tx": 4.612,
+      "ty": 3.406,
+      "blocked": [
+       "rear"
+      ]
+     },
+     "scene_hash": "f9dd44024cfae236",
+     "plans": [
+      "fixed_face",
+      "free_face",
+      "move_target"
+     ]
+    },
+    {
+     "seed": 18,
+     "params": {
+      "n_blocked": 1,
+      "tx": 4.798,
+      "ty": 3.202,
+      "blocked": [
+       "rear"
+      ]
+     },
+     "scene_hash": "a4035694809cd186",
+     "plans": [
+      "fixed_face",
+      "free_face",
+      "move_target"
+     ]
+    },
+    {
+     "seed": 19,
+     "params": {
+      "n_blocked": 1,
+      "tx": 4.872,
+      "ty": 2.871,
+      "blocked": [
+       "rear"
+      ]
+     },
+     "scene_hash": "c728d44dc7e7dc5f",
+     "plans": [
+      "fixed_face",
+      "free_face",
+      "move_target"
+     ]
+    },
+    {
+     "seed": 20,
+     "params": {
+      "n_blocked": 1,
+      "tx": 4.289,
+      "ty": 4.339,
+      "blocked": [
+       "rear"
+      ]
+     },
+     "scene_hash": "71e3f5ce8ed09237",
+     "plans": [
+      "fixed_face",
+      "free_face",
+      "move_target"
+     ]
+    }
+   ],
+   "heldout": [
+    {
+     "seed": 1,
+     "params": {
+      "n_blocked": 2,
+      "tx": 4.436,
+      "ty": 2.726,
+      "blocked": [
+       "rear",
+       "left"
+      ]
+     },
+     "scene_hash": "3b90a0a78e3dd420",
+     "plans": [
+      "fixed_face",
+      "free_face",
+      "move_target"
+     ]
+    },
+    {
+     "seed": 2,
+     "params": {
+      "n_blocked": 2,
+      "tx": 3.675,
+      "ty": 2.678,
+      "blocked": [
+       "rear",
+       "left"
+      ]
+     },
+     "scene_hash": "77ec1d9d2f06df1e",
+     "plans": [
+      "fixed_face",
+      "free_face",
+      "move_target"
+     ]
+    },
+    {
+     "seed": 3,
+     "params": {
+      "n_blocked": 3,
+      "tx": 3.578,
+      "ty": 4.078,
+      "blocked": [
+       "rear",
+       "left",
+       "right"
+      ]
+     },
+     "scene_hash": "e74b2d524f44425a",
+     "plans": [
+      "fixed_face",
+      "free_face",
+      "move_target"
+     ]
+    },
+    {
+     "seed": 4,
+     "params": {
+      "n_blocked": 3,
+      "tx": 3.871,
+      "ty": 3.552,
+      "blocked": [
+       "rear",
+       "left",
+       "right"
+      ]
+     },
+     "scene_hash": "bbe59fabfd1ac1d5",
+     "plans": [
+      "fixed_face",
+      "free_face",
+      "move_target"
+     ]
+    },
+    {
+     "seed": 5,
+     "params": {
+      "n_blocked": 3,
+      "tx": 4.941,
+      "ty": 4.354,
+      "blocked": [
+       "rear",
+       "left",
+       "right"
+      ]
+     },
+     "scene_hash": "730825140459c28f",
+     "plans": [
+      "fixed_face",
+      "free_face",
+      "move_target"
+     ]
+    },
+    {
+     "seed": 6,
+     "params": {
+      "n_blocked": 2,
+      "tx": 4.132,
+      "ty": 2.778,
+      "blocked": [
+       "rear",
+       "left"
+      ]
+     },
+     "scene_hash": "d16e80d101b072d1",
+     "plans": [
+      "fixed_face",
+      "free_face",
+      "move_target"
+     ]
+    },
+    {
+     "seed": 7,
+     "params": {
+      "n_blocked": 2,
+      "tx": 4.522,
+      "ty": 3.849,
+      "blocked": [
+       "rear",
+       "left"
+      ]
+     },
+     "scene_hash": "2f96a8df112b345f",
+     "plans": [
+      "fixed_face",
+      "free_face",
+      "move_target"
+     ]
+    },
+    {
+     "seed": 8,
+     "params": {
+      "n_blocked": 3,
+      "tx": 3.609,
+      "ty": 4.276,
+      "blocked": [
+       "rear",
+       "left",
+       "right"
+      ]
+     },
+     "scene_hash": "5d51e28caab244e0",
+     "plans": [
+      "fixed_face",
+      "free_face",
+      "move_target"
+     ]
+    },
+    {
+     "seed": 9,
+     "params": {
+      "n_blocked": 2,
+      "tx": 3.907,
+      "ty": 4.334,
+      "blocked": [
+       "rear",
+       "left"
+      ]
+     },
+     "scene_hash": "1e84e5a3cc670120",
+     "plans": [
+      "fixed_face",
+      "free_face",
+      "move_target"
+     ]
+    },
+    {
+     "seed": 10,
+     "params": {
+      "n_blocked": 2,
+      "tx": 3.758,
+      "ty": 4.177,
+      "blocked": [
+       "rear",
+       "left"
+      ]
+     },
+     "scene_hash": "0e5a0be8d7170bc6",
+     "plans": [
+      "fixed_face",
+      "free_face",
+      "move_target"
+     ]
+    }
+   ]
+  },
+  "wheel_failure": {
+   "train": [
+    {
+     "seed": 1,
+     "params": {
+      "n_faults": 1,
+      "t_fail": 15.68,
+      "mode": "dead_locked",
+      "door_w": 1.291
+     },
+     "scene_hash": "35ecb5cbbd24a147",
+     "plans": [
+      "continue",
+      "reassign"
+     ]
+    },
+    {
+     "seed": 2,
+     "params": {
+      "n_faults": 1,
+      "t_fail": 18.17,
+      "mode": "dead_locked",
+      "door_w": 1.357
+     },
+     "scene_hash": "9f84df5c94dd1ac5",
+     "plans": [
+      "continue",
+      "reassign"
+     ]
+    },
+    {
+     "seed": 3,
+     "params": {
+      "n_faults": 1,
+      "t_fail": 23.6,
+      "mode": "dead_locked",
+      "door_w": 1.436
+     },
+     "scene_hash": "e2f54d646ae4535e",
+     "plans": [
+      "continue",
+      "reassign"
+     ]
+    },
+    {
+     "seed": 4,
+     "params": {
+      "n_faults": 1,
+      "t_fail": 17.73,
+      "mode": "weak",
+      "door_w": 1.364
+     },
+     "scene_hash": "ce70640fd7e3cdf8",
+     "plans": [
+      "continue",
+      "reassign"
+     ]
+    },
+    {
+     "seed": 5,
+     "params": {
+      "n_faults": 1,
+      "t_fail": 20.99,
+      "mode": "weak",
+      "door_w": 1.482
+     },
+     "scene_hash": "6569f47fa06b125b",
+     "plans": [
+      "continue",
+      "reassign"
+     ]
+    },
+    {
+     "seed": 6,
+     "params": {
+      "n_faults": 1,
+      "t_fail": 23.99,
+      "mode": "weak",
+      "door_w": 1.526
+     },
+     "scene_hash": "9d75c995d6dd4252",
+     "plans": [
+      "continue",
+      "reassign"
+     ]
+    },
+    {
+     "seed": 7,
+     "params": {
+      "n_faults": 1,
+      "t_fail": 15.3,
+      "mode": "weak",
+      "door_w": 1.266
+     },
+     "scene_hash": "314feb969c5a0386",
+     "plans": [
+      "continue",
+      "reassign"
+     ]
+    },
+    {
+     "seed": 8,
+     "params": {
+      "n_faults": 1,
+      "t_fail": 15.66,
+      "mode": "weak",
+      "door_w": 1.217
+     },
+     "scene_hash": "d308a1e31022df02",
+     "plans": [
+      "continue",
+      "reassign"
+     ]
+    },
+    {
+     "seed": 9,
+     "params": {
+      "n_faults": 1,
+      "t_fail": 15.56,
+      "mode": "weak",
+      "door_w": 1.479
+     },
+     "scene_hash": "402166e839a4b261",
+     "plans": [
+      "continue",
+      "reassign"
+     ]
+    },
+    {
+     "seed": 10,
+     "params": {
+      "n_faults": 1,
+      "t_fail": 18.82,
+      "mode": "weak",
+      "door_w": 1.492
+     },
+     "scene_hash": "c2e8afb127334f95",
+     "plans": [
+      "continue",
+      "reassign"
+     ]
+    },
+    {
+     "seed": 11,
+     "params": {
+      "n_faults": 1,
+      "t_fail": 22.11,
+      "mode": "weak",
+      "door_w": 1.497
+     },
+     "scene_hash": "4fbde3b70aea2004",
+     "plans": [
+      "continue",
+      "reassign"
+     ]
+    },
+    {
+     "seed": 12,
+     "params": {
+      "n_faults": 1,
+      "t_fail": 14.96,
+      "mode": "dead_locked",
+      "door_w": 1.302
+     },
+     "scene_hash": "fce437c575b9764e",
+     "plans": [
+      "continue",
+      "reassign"
+     ]
+    },
+    {
+     "seed": 13,
+     "params": {
+      "n_faults": 1,
+      "t_fail": 14.81,
+      "mode": "dead_locked",
+      "door_w": 1.585
+     },
+     "scene_hash": "1333a7764b355a49",
+     "plans": [
+      "continue",
+      "reassign"
+     ]
+    },
+    {
+     "seed": 14,
+     "params": {
+      "n_faults": 1,
+      "t_fail": 23.82,
+      "mode": "dead_locked",
+      "door_w": 1.421
+     },
+     "scene_hash": "8d34b731c55c6d28",
+     "plans": [
+      "continue",
+      "reassign"
+     ]
+    },
+    {
+     "seed": 15,
+     "params": {
+      "n_faults": 1,
+      "t_fail": 21.42,
+      "mode": "dead_locked",
+      "door_w": 1.55
+     },
+     "scene_hash": "88987f20ec9d1172",
+     "plans": [
+      "continue",
+      "reassign"
+     ]
+    },
+    {
+     "seed": 16,
+     "params": {
+      "n_faults": 1,
+      "t_fail": 14.81,
+      "mode": "dead_locked",
+      "door_w": 1.352
+     },
+     "scene_hash": "c1e8f7960b4c6a17",
+     "plans": [
+      "continue",
+      "reassign"
+     ]
+    },
+    {
+     "seed": 17,
+     "params": {
+      "n_faults": 1,
+      "t_fail": 15.11,
+      "mode": "dead_locked",
+      "door_w": 1.44
+     },
+     "scene_hash": "244bb2ae95d2fd64",
+     "plans": [
+      "continue",
+      "reassign"
+     ]
+    },
+    {
+     "seed": 18,
+     "params": {
+      "n_faults": 1,
+      "t_fail": 21.82,
+      "mode": "weak",
+      "door_w": 1.254
+     },
+     "scene_hash": "1780f9e1f486cf91",
+     "plans": [
+      "continue",
+      "reassign"
+     ]
+    },
+    {
+     "seed": 19,
+     "params": {
+      "n_faults": 1,
+      "t_fail": 23.97,
+      "mode": "dead_locked",
+      "door_w": 1.512
+     },
+     "scene_hash": "80dd385dccdcbae6",
+     "plans": [
+      "continue",
+      "reassign"
+     ]
+    },
+    {
+     "seed": 20,
+     "params": {
+      "n_faults": 1,
+      "t_fail": 22.42,
+      "mode": "dead_locked",
+      "door_w": 1.323
+     },
+     "scene_hash": "a41a12e12dbbce14",
+     "plans": [
+      "continue",
+      "reassign"
+     ]
+    }
+   ],
+   "heldout": [
+    {
+     "seed": 1,
+     "params": {
+      "n_faults": 1,
+      "t_fail": 24.01,
+      "mode": "weak",
+      "door_w": 1.523
+     },
+     "scene_hash": "af07fe062d359203",
+     "plans": [
+      "continue",
+      "reassign"
+     ]
+    },
+    {
+     "seed": 2,
+     "params": {
+      "n_faults": 1,
+      "t_fail": 28.9,
+      "mode": "weak",
+      "door_w": 1.465
+     },
+     "scene_hash": "be4aaa41492675a4",
+     "plans": [
+      "continue",
+      "reassign"
+     ]
+    },
+    {
+     "seed": 3,
+     "params": {
+      "n_faults": 1,
+      "t_fail": 26.28,
+      "mode": "dead_locked",
+      "door_w": 1.549
+     },
+     "scene_hash": "aa2ed14fbb87b341",
+     "plans": [
+      "continue",
+      "reassign"
+     ]
+    },
+    {
+     "seed": 4,
+     "params": {
+      "n_faults": 2,
+      "t_fail": 22.04,
+      "mode": "dead_locked",
+      "door_w": 1.508
+     },
+     "scene_hash": "995603c411fb6a57",
+     "plans": [
+      "continue",
+      "reassign"
+     ]
+    },
+    {
+     "seed": 5,
+     "params": {
+      "n_faults": 1,
+      "t_fail": 25.41,
+      "mode": "weak",
+      "door_w": 1.392
+     },
+     "scene_hash": "041562fc4693bddb",
+     "plans": [
+      "continue",
+      "reassign"
+     ]
+    },
+    {
+     "seed": 6,
+     "params": {
+      "n_faults": 2,
+      "t_fail": 26.76,
+      "mode": "dead_locked",
+      "door_w": 1.292
+     },
+     "scene_hash": "594ee0cf1801d594",
+     "plans": [
+      "continue",
+      "reassign"
+     ]
+    },
+    {
+     "seed": 7,
+     "params": {
+      "n_faults": 1,
+      "t_fail": 24.29,
+      "mode": "dead_locked",
+      "door_w": 1.334
+     },
+     "scene_hash": "d85de603c6a29515",
+     "plans": [
+      "continue",
+      "reassign"
+     ]
+    },
+    {
+     "seed": 8,
+     "params": {
+      "n_faults": 1,
+      "t_fail": 24.39,
+      "mode": "weak",
+      "door_w": 1.545
+     },
+     "scene_hash": "eda0b1be8d9a6314",
+     "plans": [
+      "continue",
+      "reassign"
+     ]
+    },
+    {
+     "seed": 9,
+     "params": {
+      "n_faults": 2,
+      "t_fail": 24.8,
+      "mode": "weak",
+      "door_w": 1.208
+     },
+     "scene_hash": "561d47e5b8dbdd6c",
+     "plans": [
+      "continue",
+      "reassign"
+     ]
+    },
+    {
+     "seed": 10,
+     "params": {
+      "n_faults": 2,
+      "t_fail": 29.01,
+      "mode": "weak",
+      "door_w": 1.354
+     },
+     "scene_hash": "72dca26c31609fc6",
+     "plans": [
+      "continue",
+      "reassign"
+     ]
+    }
+   ]
+  },
+  "clutter_observer": {
+   "train": [
+    {
+     "seed": 1,
+     "params": {
+      "overhead": "working",
+      "n_clutter": 6
+     },
+     "scene_hash": "e91cbc385d308342",
+     "plans": [
+      "observer",
+      "self_search"
+     ]
+    },
+    {
+     "seed": 2,
+     "params": {
+      "overhead": "working",
+      "n_clutter": 4
+     },
+     "scene_hash": "fa817e183b53a374",
+     "plans": [
+      "observer",
+      "self_search"
+     ]
+    },
+    {
+     "seed": 3,
+     "params": {
+      "overhead": "occluded",
+      "n_clutter": 4
+     },
+     "scene_hash": "d66b0ef919d00d78",
+     "plans": [
+      "observer",
+      "self_search"
+     ]
+    },
+    {
+     "seed": 4,
+     "params": {
+      "overhead": "occluded",
+      "n_clutter": 6
+     },
+     "scene_hash": "0b1300d6a6e493e5",
+     "plans": [
+      "observer",
+      "self_search"
+     ]
+    },
+    {
+     "seed": 5,
+     "params": {
+      "overhead": "working",
+      "n_clutter": 5
+     },
+     "scene_hash": "3d8a55475540be33",
+     "plans": [
+      "observer",
+      "self_search"
+     ]
+    },
+    {
+     "seed": 6,
+     "params": {
+      "overhead": "working",
+      "n_clutter": 6
+     },
+     "scene_hash": "8f23fea1eacc37f9",
+     "plans": [
+      "observer",
+      "self_search"
+     ]
+    },
+    {
+     "seed": 7,
+     "params": {
+      "overhead": "occluded",
+      "n_clutter": 5
+     },
+     "scene_hash": "14f98cb2fae6c171",
+     "plans": [
+      "observer",
+      "self_search"
+     ]
+    },
+    {
+     "seed": 8,
+     "params": {
+      "overhead": "working",
+      "n_clutter": 4
+     },
+     "scene_hash": "ec3e1a003cfcb1e1",
+     "plans": [
+      "observer",
+      "self_search"
+     ]
+    },
+    {
+     "seed": 9,
+     "params": {
+      "overhead": "working",
+      "n_clutter": 5
+     },
+     "scene_hash": "ae987e290455fd4b",
+     "plans": [
+      "observer",
+      "self_search"
+     ]
+    },
+    {
+     "seed": 10,
+     "params": {
+      "overhead": "working",
+      "n_clutter": 4
+     },
+     "scene_hash": "15b36fc07a89b9d1",
+     "plans": [
+      "observer",
+      "self_search"
+     ]
+    },
+    {
+     "seed": 11,
+     "params": {
+      "overhead": "occluded",
+      "n_clutter": 4
+     },
+     "scene_hash": "712ebd531e6c366b",
+     "plans": [
+      "observer",
+      "self_search"
+     ]
+    },
+    {
+     "seed": 12,
+     "params": {
+      "overhead": "working",
+      "n_clutter": 6
+     },
+     "scene_hash": "df41017c8cfcc03f",
+     "plans": [
+      "observer",
+      "self_search"
+     ]
+    },
+    {
+     "seed": 13,
+     "params": {
+      "overhead": "working",
+      "n_clutter": 4
+     },
+     "scene_hash": "3825bb241dec2d85",
+     "plans": [
+      "observer",
+      "self_search"
+     ]
+    },
+    {
+     "seed": 14,
+     "params": {
+      "overhead": "occluded",
+      "n_clutter": 4
+     },
+     "scene_hash": "13382fabe2c94d9f",
+     "plans": [
+      "observer",
+      "self_search"
+     ]
+    },
+    {
+     "seed": 15,
+     "params": {
+      "overhead": "occluded",
+      "n_clutter": 6
+     },
+     "scene_hash": "0a65d5feaec9bf2c",
+     "plans": [
+      "observer",
+      "self_search"
+     ]
+    },
+    {
+     "seed": 16,
+     "params": {
+      "overhead": "occluded",
+      "n_clutter": 5
+     },
+     "scene_hash": "70ff32464517fb6f",
+     "plans": [
+      "observer",
+      "self_search"
+     ]
+    },
+    {
+     "seed": 17,
+     "params": {
+      "overhead": "working",
+      "n_clutter": 4
+     },
+     "scene_hash": "9fc6ac2f08bf3814",
+     "plans": [
+      "observer",
+      "self_search"
+     ]
+    },
+    {
+     "seed": 18,
+     "params": {
+      "overhead": "occluded",
+      "n_clutter": 5
+     },
+     "scene_hash": "11493f2729074fbc",
+     "plans": [
+      "observer",
+      "self_search"
+     ]
+    },
+    {
+     "seed": 19,
+     "params": {
+      "overhead": "working",
+      "n_clutter": 4
+     },
+     "scene_hash": "c5fed19ab1777740",
+     "plans": [
+      "observer",
+      "self_search"
+     ]
+    },
+    {
+     "seed": 20,
+     "params": {
+      "overhead": "occluded",
+      "n_clutter": 6
+     },
+     "scene_hash": "e507e6eee2436a2c",
+     "plans": [
+      "observer",
+      "self_search"
+     ]
+    }
+   ],
+   "heldout": [
+    {
+     "seed": 1,
+     "params": {
+      "overhead": "working",
+      "n_clutter": 7
+     },
+     "scene_hash": "11e8496db9c8e142",
+     "plans": [
+      "observer",
+      "self_search"
+     ]
+    },
+    {
+     "seed": 2,
+     "params": {
+      "overhead": "disabled",
+      "n_clutter": 5
+     },
+     "scene_hash": "63f972d0d82be11c",
+     "plans": [
+      "observer",
+      "self_search"
+     ]
+    },
+    {
+     "seed": 3,
+     "params": {
+      "overhead": "disabled",
+      "n_clutter": 5
+     },
+     "scene_hash": "8c379a9a9659ee83",
+     "plans": [
+      "observer",
+      "self_search"
+     ]
+    },
+    {
+     "seed": 4,
+     "params": {
+      "overhead": "disabled",
+      "n_clutter": 5
+     },
+     "scene_hash": "1487b8e0f5084832",
+     "plans": [
+      "observer",
+      "self_search"
+     ]
+    },
+    {
+     "seed": 5,
+     "params": {
+      "overhead": "disabled",
+      "n_clutter": 6
+     },
+     "scene_hash": "f79fd7d8b92b0a79",
+     "plans": [
+      "observer",
+      "self_search"
+     ]
+    },
+    {
+     "seed": 6,
+     "params": {
+      "overhead": "disabled",
+      "n_clutter": 5
+     },
+     "scene_hash": "a04a5831275b252d",
+     "plans": [
+      "observer",
+      "self_search"
+     ]
+    },
+    {
+     "seed": 7,
+     "params": {
+      "overhead": "disabled",
+      "n_clutter": 8
+     },
+     "scene_hash": "1e6e5f155e42be50",
+     "plans": [
+      "observer",
+      "self_search"
+     ]
+    },
+    {
+     "seed": 8,
+     "params": {
+      "overhead": "disabled",
+      "n_clutter": 5
+     },
+     "scene_hash": "ca70340fdbd15864",
+     "plans": [
+      "observer",
+      "self_search"
+     ]
+    },
+    {
+     "seed": 9,
+     "params": {
+      "overhead": "disabled",
+      "n_clutter": 6
+     },
+     "scene_hash": "42977bd0e11cd1d3",
+     "plans": [
+      "observer",
+      "self_search"
+     ]
+    },
+    {
+     "seed": 10,
+     "params": {
+      "overhead": "disabled",
+      "n_clutter": 6
+     },
+     "scene_hash": "a33237a1875c58c4",
+     "plans": [
+      "observer",
+      "self_search"
+     ]
+    }
+   ]
+  }
+ },
+ "manifest_hash": "7bdc86b6a600157a"
+}

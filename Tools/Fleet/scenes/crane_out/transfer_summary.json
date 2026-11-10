@@ -1,0 +1,384 @@
+{
+ "narrow_door_train_s1": {
+  "scene_gaps": [
+   "doors:approximated",
+   "doors.threshold_height:ignored",
+   "zones.charging:approximated"
+  ],
+  "plans": {
+   "single": {
+    "mission": true,
+    "gaps": [
+     "task.pick:approximated"
+    ]
+   },
+   "couple_chain": {
+    "mission": true,
+    "gaps": [
+     "task.pick:approximated"
+    ]
+   }
+  }
+ },
+ "narrow_door_heldout_s1": {
+  "scene_gaps": [
+   "doors:approximated",
+   "doors.threshold_height:ignored",
+   "zones.charging:approximated"
+  ],
+  "plans": {
+   "single": {
+    "mission": true,
+    "gaps": [
+     "task.pick:approximated"
+    ]
+   },
+   "couple_chain": {
+    "mission": true,
+    "gaps": [
+     "task.pick:approximated"
+    ]
+   }
+  }
+ },
+ "long_payload_door_train_s1": {
+  "scene_gaps": [
+   "doors:approximated"
+  ],
+  "plans": {
+   "keep": {
+    "mission": false,
+    "gaps": [
+     "fleet.units.asm:unsupported"
+    ]
+   },
+   "reconfigure": {
+    "mission": true,
+    "gaps": [
+     "fleet.units.asm:unsupported",
+     "fleet.units.asm:approximated",
+     "payloads.spawn.on_unit:approximated"
+    ]
+   }
+  }
+ },
+ "long_payload_door_heldout_s1": {
+  "scene_gaps": [
+   "doors:approximated"
+  ],
+  "plans": {
+   "keep": {
+    "mission": false,
+    "gaps": [
+     "fleet.units.asm:unsupported"
+    ]
+   },
+   "reconfigure": {
+    "mission": true,
+    "gaps": [
+     "fleet.units.asm:unsupported",
+     "fleet.units.asm:approximated",
+     "payloads.spawn.on_unit:approximated"
+    ]
+   }
+  }
+ },
+ "lateral_slot_train_s1": {
+  "scene_gaps": [
+   "zones.required_yaw:ignored"
+  ],
+  "plans": {
+   "mecanum": {
+    "mission": true,
+    "gaps": [
+     "fleet.units.diff:omitted",
+     "task.pick:approximated"
+    ]
+   },
+   "diffdrive": {
+    "mission": false,
+    "gaps": [
+     "fleet.units.diff:unsupported"
+    ]
+   }
+  }
+ },
+ "lateral_slot_heldout_s1": {
+  "scene_gaps": [
+   "zones.required_yaw:ignored"
+  ],
+  "plans": {
+   "mecanum": {
+    "mission": true,
+    "gaps": [
+     "fleet.units.diff:omitted",
+     "task.pick:approximated"
+    ]
+   },
+   "diffdrive": {
+    "mission": false,
+    "gaps": [
+     "fleet.units.diff:unsupported"
+    ]
+   }
+  }
+ },
+ "friction_patches_train_s1": {
+  "scene_gaps": [
+   "floor_patches:ignored"
+  ],
+  "plans": {
+   "through": {
+    "mission": true,
+    "gaps": [
+     "task.pick:approximated"
+    ]
+   },
+   "around": {
+    "mission": true,
+    "gaps": [
+     "task.pick:approximated"
+    ]
+   }
+  }
+ },
+ "friction_patches_heldout_s1": {
+  "scene_gaps": [
+   "floor_patches:ignored"
+  ],
+  "plans": {
+   "through": {
+    "mission": true,
+    "gaps": [
+     "task.pick:approximated"
+    ]
+   },
+   "around": {
+    "mission": true,
+    "gaps": [
+     "task.pick:approximated"
+    ]
+   }
+  }
+ },
+ "aisle_traffic_train_s1": {
+  "scene_gaps": [
+   "zones:approximated",
+   "zones.aisle:ignored"
+  ],
+  "plans": {
+   "reserved": {
+    "mission": true,
+    "gaps": [
+     "fleet.units.r2:approximated",
+     "plans.traffic:ignored"
+    ]
+   },
+   "none": {
+    "mission": true,
+    "gaps": [
+     "fleet.units.r2:approximated",
+     "plans.traffic:ignored"
+    ]
+   }
+  }
+ },
+ "aisle_traffic_heldout_s1": {
+  "scene_gaps": [
+   "zones:approximated",
+   "zones.aisle:ignored"
+  ],
+  "plans": {
+   "reserved": {
+    "mission": false,
+    "gaps": [
+     "fleet.units.r2:approximated",
+     "fleet.units.r3:approximated",
+     "fleet.units.r4:unsupported",
+     "fleet.units.r5:unsupported"
+    ]
+   },
+   "none": {
+    "mission": false,
+    "gaps": [
+     "fleet.units.r2:approximated",
+     "fleet.units.r3:approximated",
+     "fleet.units.r4:unsupported",
+     "fleet.units.r5:unsupported"
+    ]
+   }
+  }
+ },
+ "charging_contention_train_s1": {
+  "scene_gaps": [
+   "zones:approximated",
+   "zones.required_yaw:ignored",
+   "zones.charging:approximated"
+  ],
+  "plans": {
+   "nearest": {
+    "mission": true,
+    "gaps": [
+     "task.charge_c0:approximated",
+     "task.charge_c1:approximated"
+    ]
+   },
+   "assigned": {
+    "mission": true,
+    "gaps": [
+     "task.charge_c0:approximated",
+     "task.charge_c1:approximated"
+    ]
+   }
+  }
+ },
+ "charging_contention_heldout_s1": {
+  "scene_gaps": [
+   "zones:approximated",
+   "zones.required_yaw:ignored",
+   "zones.charging:approximated"
+  ],
+  "plans": {
+   "nearest": {
+    "mission": false,
+    "gaps": [
+     "fleet.units.c2:unsupported",
+     "fleet.units.c3:unsupported",
+     "fleet.units.c4:unsupported"
+    ]
+   },
+   "assigned": {
+    "mission": false,
+    "gaps": [
+     "fleet.units.c2:unsupported",
+     "fleet.units.c3:unsupported",
+     "fleet.units.c4:unsupported"
+    ]
+   }
+  }
+ },
+ "blocked_faces_train_s1": {
+  "scene_gaps": [],
+  "plans": {
+   "fixed_face": {
+    "mission": true,
+    "gaps": [
+     "task.pick:approximated"
+    ]
+   },
+   "free_face": {
+    "mission": true,
+    "gaps": [
+     "task.pick:approximated"
+    ]
+   },
+   "move_target": {
+    "mission": true,
+    "gaps": [
+     "task.pick:approximated"
+    ]
+   }
+  }
+ },
+ "blocked_faces_heldout_s1": {
+  "scene_gaps": [],
+  "plans": {
+   "fixed_face": {
+    "mission": true,
+    "gaps": [
+     "task.pick:approximated"
+    ]
+   },
+   "free_face": {
+    "mission": true,
+    "gaps": [
+     "task.pick:approximated"
+    ]
+   },
+   "move_target": {
+    "mission": true,
+    "gaps": [
+     "task.pick:approximated"
+    ]
+   }
+  }
+ },
+ "wheel_failure_train_s1": {
+  "scene_gaps": [
+   "doors:approximated"
+  ],
+  "plans": {
+   "continue": {
+    "mission": true,
+    "gaps": [
+     "task.pick:approximated"
+    ]
+   },
+   "reassign": {
+    "mission": true,
+    "gaps": [
+     "task.pick:approximated",
+     "task.when:unsupported"
+    ]
+   }
+  }
+ },
+ "wheel_failure_heldout_s1": {
+  "scene_gaps": [
+   "doors:approximated"
+  ],
+  "plans": {
+   "continue": {
+    "mission": true,
+    "gaps": [
+     "task.pick:approximated"
+    ]
+   },
+   "reassign": {
+    "mission": true,
+    "gaps": [
+     "task.pick:approximated",
+     "task.when:unsupported"
+    ]
+   }
+  }
+ },
+ "clutter_observer_train_s1": {
+  "scene_gaps": [
+   "payloads.spawn.pose_known:approximated"
+  ],
+  "plans": {
+   "observer": {
+    "mission": true,
+    "gaps": [
+     "task.pick:approximated"
+    ]
+   },
+   "self_search": {
+    "mission": true,
+    "gaps": [
+     "task.pick:approximated"
+    ]
+   }
+  }
+ },
+ "clutter_observer_heldout_s1": {
+  "scene_gaps": [
+   "payloads.spawn.pose_known:approximated"
+  ],
+  "plans": {
+   "observer": {
+    "mission": true,
+    "gaps": [
+     "task.pick:approximated"
+    ]
+   },
+   "self_search": {
+    "mission": true,
+    "gaps": [
+     "task.pick:approximated"
+    ]
+   }
+  }
+ }
+}

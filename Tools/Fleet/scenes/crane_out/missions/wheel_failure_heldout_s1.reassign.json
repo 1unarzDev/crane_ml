@@ -1,0 +1,120 @@
+{
+ "schema": "crane.fleet_mission/v0",
+ "mission_id": "fleet/scenes_v1/wheel_failure/heldout/s1/reassign",
+ "note": "compiled by scenes.crane_compile from task fleet/scenes_v1/wheel_failure/heldout/s1/task plan reassign; crane_* keys are CRANE setup",
+ "crane_start": {
+  "cargo_1": [
+   1.2,
+   3.2,
+   1.571
+  ],
+  "cargo_2": [
+   1.2,
+   1.0,
+   0.0
+  ],
+  "scout_1": [
+   2.85,
+   6.25,
+   0.0
+  ],
+  "lifter_1": [
+   4.35,
+   6.25,
+   0.0
+  ]
+ },
+ "crane_unit_map": {
+  "cargo_1": "cargo_1",
+  "cargo_2": "cargo_2"
+ },
+ "crane_max_duration_s": 180.0,
+ "tasks": [
+  {
+   "id": "settle",
+   "type": "wait",
+   "agents": [
+    "cargo_1",
+    "cargo_2",
+    "lifter_1",
+    "scout_1"
+   ],
+   "duration": 1.5
+  },
+  {
+   "id": "pick_lift",
+   "after": [
+    "settle"
+   ],
+   "type": "lift",
+   "agent": "lifter_1",
+   "object": "p1",
+   "grasp_offset": -0.013,
+   "height": 0.15
+  },
+  {
+   "id": "pick",
+   "type": "handoff",
+   "from": "lifter_1",
+   "supporters": [
+    "cargo_1"
+   ],
+   "payload": "p1",
+   "payload_type": "box_small",
+   "hold_offset": 0.5,
+   "after": [
+    "pick_lift",
+    "settle"
+   ],
+   "place_on": "cargo_1",
+   "place_offset": [
+    0.0,
+    0.0,
+    3.141592653589793
+   ]
+  },
+  {
+   "id": "pick_clear",
+   "type": "goto",
+   "agent": "lifter_1",
+   "goal": [
+    6.75,
+    6.25,
+    0.0
+   ],
+   "after": [
+    "pick"
+   ]
+  },
+  {
+   "id": "go",
+   "after": [
+    "pick",
+    "pick_clear"
+   ],
+   "type": "transport",
+   "agent": "cargo_1",
+   "goal": [
+    8.9,
+    3.5,
+    0.0
+   ],
+   "payload": "p1",
+   "tol": [
+    0.05,
+    0.08
+   ]
+  }
+ ],
+ "crane_payload": {
+  "id": "p1",
+  "type": "box_small",
+  "pose": [
+   1.3,
+   5.2,
+   0.0
+  ],
+  "pallet_height": 0.03,
+  "mass_kg": 2.0
+ }
+}

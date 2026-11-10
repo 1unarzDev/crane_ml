@@ -1,0 +1,223 @@
+{
+ "schema": "crane.fleet_scenario/v0",
+ "scenario_id": "fleet/scenes_v1/blocked_faces/train/s1",
+ "note": "compiled from fleet/scenes_v1/blocked_faces/train/s1 by scenes.crane_compile; the v1 source is authoritative",
+ "arena": {
+  "size_xy": [
+   10.0,
+   7.0
+  ],
+  "wall_height": 2.8,
+  "floor": "hard_tile"
+ },
+ "walls": [],
+ "doorway": {
+  "in_wall": "(none)",
+  "centre_y": 3.5,
+  "width": {
+   "default": 1.0
+  },
+  "height": 2.0
+ },
+ "zones": {
+  "staging": {
+   "rect": [
+    0.5,
+    0.5,
+    2.5,
+    2.0
+   ],
+   "kind": "staging"
+  },
+  "loading": {
+   "rect": [
+    6.5,
+    5.3,
+    8.0,
+    6.5
+   ],
+   "kind": "loading"
+  },
+  "delivery": {
+   "rect": [
+    8.2,
+    1.0,
+    9.6,
+    3.0
+   ],
+   "kind": "delivery"
+  }
+ },
+ "obstacles": [
+  {
+   "id": "pallet_rear",
+   "type": "box",
+   "centre": [
+    4.015,
+    2.724,
+    0.45
+   ],
+   "size": [
+    0.5,
+    0.7,
+    0.9
+   ],
+   "v1_kind": "pallet",
+   "v1_source": "pallet_rear"
+  }
+ ],
+ "overhead_cameras": [],
+ "overhead_modes": [
+  "working",
+  "occluded",
+  "disabled"
+ ],
+ "payload_spawn": {
+  "zone": "loading",
+  "types": [
+   "box_long"
+  ]
+ },
+ "mission_default": "which face pair to mate, or move the target first",
+ "outcomes": {
+  "delivered": "payload centre inside zones.delivery, at rest, supported, within the deadline"
+ },
+ "deadline_s": 260.0,
+ "x_v1": {
+  "source_sha256": "a263a01139a892c4fd1e3580fe72b4bcd8e7b31fbce717483a2ab75af612ad36",
+  "family": {
+   "id": "blocked_faces",
+   "seed": 1,
+   "split": "train",
+   "params": {
+    "n_blocked": 1,
+    "tx": 4.655,
+    "ty": 2.724,
+    "blocked": [
+     "rear"
+    ]
+   },
+   "generator": "families_v1.0",
+   "rule": "n_blocked == 1"
+  },
+  "doors": [],
+  "thresholds": [],
+  "floor_patches": [],
+  "tags": [],
+  "zones": [
+   {
+    "id": "staging",
+    "kind": "staging",
+    "rect": [
+     0.5,
+     0.5,
+     2.5,
+     2.0
+    ]
+   },
+   {
+    "id": "loading",
+    "kind": "loading",
+    "rect": [
+     6.5,
+     5.3,
+     8.0,
+     6.5
+    ]
+   },
+   {
+    "id": "delivery",
+    "kind": "delivery",
+    "rect": [
+     8.2,
+     1.0,
+     9.6,
+     3.0
+    ]
+   }
+  ],
+  "overhead_cameras": [],
+  "payloads": [
+   {
+    "id": "p1",
+    "type": "box_long",
+    "size_lwh": [
+     0.8,
+     0.25,
+     0.15
+    ],
+    "mass_kg": 6.0,
+    "unknown_mass": false,
+    "pallet_height": 0.03,
+    "spawn": {
+     "zone": "loading",
+     "pose": [
+      7.25,
+      5.9,
+      0.0
+     ],
+     "pose_known": true
+    }
+   }
+  ],
+  "units": [
+   {
+    "id": "cargo_1",
+    "catalog": "carrier",
+    "module_graph": {
+     "manifest": "train_v1",
+     "config_hash": "d0b9ad389bac696b"
+    },
+    "config_hash": "d0b9ad389bac696b",
+    "start": [
+     4.655,
+     2.724,
+     0.0
+    ],
+    "soc": 1.0,
+    "crane_role": "cargo"
+   },
+   {
+    "id": "cargo_2",
+    "catalog": "carrier",
+    "module_graph": {
+     "manifest": "train_v1",
+     "config_hash": "d0b9ad389bac696b"
+    },
+    "config_hash": "d0b9ad389bac696b",
+    "start": [
+     1.2,
+     1.2,
+     0.0
+    ],
+    "soc": 1.0,
+    "crane_role": "cargo"
+   }
+  ],
+  "faults": [],
+  "gaps": [],
+  "plan_gaps": {
+   "fixed_face": [
+    {
+     "field": "task.pick",
+     "status": "approximated",
+     "detail": "a deck pickup is a lifter lift + handoff in CRANE (fastsim loads the deck kinematically); demo offsets"
+    }
+   ],
+   "free_face": [
+    {
+     "field": "task.pick",
+     "status": "approximated",
+     "detail": "a deck pickup is a lifter lift + handoff in CRANE (fastsim loads the deck kinematically); demo offsets"
+    }
+   ],
+   "move_target": [
+    {
+     "field": "task.pick",
+     "status": "approximated",
+     "detail": "a deck pickup is a lifter lift + handoff in CRANE (fastsim loads the deck kinematically); demo offsets"
+    }
+   ]
+  }
+ }
+}

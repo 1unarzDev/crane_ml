@@ -1,0 +1,683 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$id": "crane.fleet_scenario/v1",
+ "title": "CRANE fleet scenario v1 (one source spec for fastsim, CRANE and the mf levels)",
+ "description": "Metres, radians; x east, y north, origin at the south-west inside corner of the arena. Extends crane.fleet_scenario/v0 (warehouse_a_v0): several walls and doors, door thresholds, floor patches, zone kinds, tags, payload spawns, fleet start from capplan module graphs, faults.",
+ "$defs": {
+  "rect": {
+   "type": "array",
+   "items": {
+    "type": "number"
+   },
+   "minItems": 4,
+   "maxItems": 4,
+   "description": "[x0, y0, x1, y1], x0 < x1, y0 < y1"
+  },
+  "graph_ref": {
+   "type": "object",
+   "description": "a capplan module graph: an item of a frozen manifest, or a composition of train-pool types",
+   "oneOf": [
+    {
+     "type": "object",
+     "properties": {
+      "manifest": {
+       "type": "string"
+      },
+      "config_hash": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "manifest",
+      "config_hash"
+     ],
+     "additionalProperties": false
+    },
+    {
+     "type": "object",
+     "properties": {
+      "compose": {
+       "type": "object",
+       "properties": {
+        "types": {
+         "type": "array",
+         "items": {
+          "type": "string"
+         },
+         "minItems": 1
+        },
+        "topology": {
+         "enum": [
+          "single",
+          "chain",
+          "side",
+          "L"
+         ]
+        }
+       },
+       "required": [
+        "types",
+        "topology"
+       ],
+       "additionalProperties": false
+      }
+     },
+     "required": [
+      "compose"
+     ],
+     "additionalProperties": false
+    }
+   ]
+  }
+ },
+ "type": "object",
+ "additionalProperties": false,
+ "required": [
+  "schema",
+  "scenario_id",
+  "family",
+  "arena",
+  "walls",
+  "doors",
+  "obstacles",
+  "floor_patches",
+  "zones",
+  "tags",
+  "overhead_cameras",
+  "payloads",
+  "fleet"
+ ],
+ "properties": {
+  "schema": {
+   "const": "crane.fleet_scenario/v1"
+  },
+  "scenario_id": {
+   "type": "string"
+  },
+  "note": {
+   "type": "string"
+  },
+  "family": {
+   "type": "object",
+   "properties": {
+    "id": {
+     "type": "string"
+    },
+    "seed": {
+     "type": "integer"
+    },
+    "split": {
+     "enum": [
+      "train",
+      "heldout",
+      "manual"
+     ]
+    },
+    "params": {
+     "type": "object"
+    },
+    "generator": {
+     "type": "string"
+    },
+    "rule": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "id",
+    "seed",
+    "split",
+    "params"
+   ],
+   "additionalProperties": false
+  },
+  "arena": {
+   "type": "object",
+   "properties": {
+    "size_xy": {
+     "type": "array",
+     "items": {
+      "type": "number"
+     },
+     "minItems": 2,
+     "maxItems": 2
+    },
+    "wall_height": {
+     "type": "number",
+     "exclusiveMinimum": 0
+    },
+    "floor": {
+     "enum": [
+      "hard_tile",
+      "carpet",
+      "rubber",
+      "polished"
+     ]
+    },
+    "outer_wall_thickness": {
+     "type": "number",
+     "exclusiveMinimum": 0
+    }
+   },
+   "required": [
+    "size_xy",
+    "wall_height",
+    "floor"
+   ],
+   "additionalProperties": false
+  },
+  "walls": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string"
+     },
+     "from": {
+      "type": "array",
+      "items": {
+       "type": "number"
+      },
+      "minItems": 2,
+      "maxItems": 2
+     },
+     "to": {
+      "type": "array",
+      "items": {
+       "type": "number"
+      },
+      "minItems": 2,
+      "maxItems": 2
+     },
+     "thickness": {
+      "type": "number",
+      "exclusiveMinimum": 0
+     },
+     "height": {
+      "type": "number",
+      "exclusiveMinimum": 0
+     }
+    },
+    "required": [
+     "id",
+     "from",
+     "to",
+     "thickness"
+    ],
+    "additionalProperties": false
+   }
+  },
+  "doors": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string"
+     },
+     "wall": {
+      "type": "string"
+     },
+     "centre": {
+      "type": "number",
+      "description": "along the wall: y for a wall of constant x, x for a wall of constant y"
+     },
+     "width": {
+      "type": "number",
+      "exclusiveMinimum": 0
+     },
+     "height": {
+      "type": "number",
+      "exclusiveMinimum": 0
+     },
+     "threshold_height": {
+      "type": "number",
+      "minimum": 0
+     },
+     "threshold_depth": {
+      "type": "number",
+      "minimum": 0
+     }
+    },
+    "required": [
+     "id",
+     "wall",
+     "centre",
+     "width",
+     "height"
+    ],
+    "additionalProperties": false
+   }
+  },
+  "obstacles": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string"
+     },
+     "kind": {
+      "enum": [
+       "shelf",
+       "box",
+       "pallet",
+       "pillar",
+       "beam",
+       "clutter",
+       "rack",
+       "charger",
+       "banner"
+      ]
+     },
+     "centre": {
+      "type": "array",
+      "items": {
+       "type": "number"
+      },
+      "minItems": 3,
+      "maxItems": 3
+     },
+     "size": {
+      "type": "array",
+      "items": {
+       "type": "number"
+      },
+      "minItems": 3,
+      "maxItems": 3
+     },
+     "yaw": {
+      "type": "number"
+     },
+     "blocks_view": {
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "id",
+     "kind",
+     "centre",
+     "size"
+    ],
+    "additionalProperties": false
+   }
+  },
+  "floor_patches": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string"
+     },
+     "rect": {
+      "$ref": "#/$defs/rect"
+     },
+     "friction_class": {
+      "enum": [
+       "hard_tile",
+       "carpet",
+       "rubber",
+       "polished"
+      ]
+     }
+    },
+    "required": [
+     "id",
+     "rect",
+     "friction_class"
+    ],
+    "additionalProperties": false
+   }
+  },
+  "zones": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string"
+     },
+     "kind": {
+      "enum": [
+       "staging",
+       "loading",
+       "assembly",
+       "delivery",
+       "charging",
+       "slot",
+       "parking",
+       "aisle"
+      ]
+     },
+     "rect": {
+      "$ref": "#/$defs/rect"
+     },
+     "capacity": {
+      "type": "integer",
+      "minimum": 1
+     },
+     "required_yaw": {
+      "type": "number"
+     },
+     "queue_pose": {
+      "type": "array",
+      "items": {
+       "type": "number"
+      },
+      "minItems": 3,
+      "maxItems": 3
+     }
+    },
+    "required": [
+     "id",
+     "kind",
+     "rect"
+    ],
+    "additionalProperties": false
+   }
+  },
+  "tags": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "integer"
+     },
+     "name": {
+      "type": "string"
+     },
+     "pose": {
+      "type": "array",
+      "items": {
+       "type": "number"
+      },
+      "minItems": 3,
+      "maxItems": 3
+     },
+     "z": {
+      "type": "number"
+     },
+     "size": {
+      "type": "number",
+      "exclusiveMinimum": 0
+     },
+     "on": {
+      "enum": [
+       "door",
+       "wall",
+       "shelf",
+       "bay",
+       "payload",
+       "dock"
+      ]
+     }
+    },
+    "required": [
+     "id",
+     "name",
+     "pose",
+     "size"
+    ],
+    "additionalProperties": false
+   }
+  },
+  "overhead_cameras": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string"
+     },
+     "position": {
+      "type": "array",
+      "items": {
+       "type": "number"
+      },
+      "minItems": 3,
+      "maxItems": 3
+     },
+     "look_at": {
+      "type": "array",
+      "items": {
+       "type": "number"
+      },
+      "minItems": 3,
+      "maxItems": 3
+     },
+     "hfov_deg": {
+      "type": "number",
+      "exclusiveMinimum": 0
+     },
+     "range_m": {
+      "type": "number",
+      "exclusiveMinimum": 0
+     },
+     "mode": {
+      "enum": [
+       "working",
+       "occluded",
+       "disabled"
+      ]
+     },
+     "mode_declared": {
+      "enum": [
+       "working",
+       "occluded",
+       "disabled"
+      ]
+     }
+    },
+    "required": [
+     "id",
+     "position",
+     "look_at",
+     "mode"
+    ],
+    "additionalProperties": false
+   }
+  },
+  "payloads": {
+   "type": "array",
+   "items": {
+    "type": "object",
+    "properties": {
+     "id": {
+      "type": "string"
+     },
+     "type": {
+      "enum": [
+       "box_small",
+       "box_long",
+       "tray_wide"
+      ]
+     },
+     "size_lwh": {
+      "type": "array",
+      "items": {
+       "type": "number"
+      },
+      "minItems": 3,
+      "maxItems": 3
+     },
+     "mass_kg": {
+      "type": "number",
+      "exclusiveMinimum": 0
+     },
+     "unknown_mass": {
+      "type": "boolean"
+     },
+     "pallet_height": {
+      "type": "number",
+      "minimum": 0
+     },
+     "spawn": {
+      "type": "object",
+      "properties": {
+       "zone": {
+        "type": [
+         "string",
+         "null"
+        ]
+       },
+       "pose": {
+        "type": "array",
+        "items": {
+         "type": "number"
+        },
+        "minItems": 3,
+        "maxItems": 3
+       },
+       "pose_known": {
+        "type": "boolean"
+       },
+       "on_unit": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "pose"
+      ],
+      "additionalProperties": false
+     }
+    },
+    "required": [
+     "id",
+     "type",
+     "mass_kg",
+     "spawn"
+    ],
+    "additionalProperties": false
+   }
+  },
+  "fleet": {
+   "type": "object",
+   "properties": {
+    "units": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "id": {
+        "type": "string"
+       },
+       "catalog": {
+        "type": "string"
+       },
+       "module_graph": {
+        "$ref": "#/$defs/graph_ref"
+       },
+       "config_hash": {
+        "type": "string"
+       },
+       "start": {
+        "type": "array",
+        "items": {
+         "type": "number"
+        },
+        "minItems": 3,
+        "maxItems": 3
+       },
+       "soc": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1
+       },
+       "crane_role": {
+        "type": [
+         "string",
+         "null"
+        ]
+       }
+      },
+      "required": [
+       "id",
+       "catalog",
+       "module_graph",
+       "config_hash",
+       "start"
+      ],
+      "additionalProperties": false
+     },
+     "minItems": 1
+    },
+    "faults": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "unit": {
+        "type": "string"
+       },
+       "module": {
+        "type": "string"
+       },
+       "target": {
+        "enum": [
+         "wheel_fl",
+         "wheel_fr",
+         "wheel_rl",
+         "wheel_rr",
+         "camera",
+         "encoders"
+        ]
+       },
+       "mode": {
+        "enum": [
+         "dead_free",
+         "dead_locked",
+         "weak",
+         "ok",
+         "lost"
+        ]
+       },
+       "t_s": {
+        "type": "number",
+        "minimum": 0
+       }
+      },
+      "required": [
+       "unit",
+       "target",
+       "mode",
+       "t_s"
+      ],
+      "additionalProperties": false
+     }
+    },
+    "initial_couplings": {
+     "type": "array",
+     "items": {
+      "type": "object",
+      "properties": {
+       "docker": {
+        "type": "string"
+       },
+       "docker_face": {
+        "type": "string"
+       },
+       "target": {
+        "type": "string"
+       },
+       "target_face": {
+        "type": "string"
+       }
+      },
+      "required": [
+       "docker",
+       "target"
+      ],
+      "additionalProperties": false
+     }
+    }
+   },
+   "required": [
+    "units"
+   ],
+   "additionalProperties": false
+  }
+ }
+}

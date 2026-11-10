@@ -1,0 +1,163 @@
+{
+ "schema": "crane.fleet_mission/v0",
+ "mission_id": "fleet/scenes_v1/blocked_faces/heldout/s1/move_target",
+ "note": "compiled by scenes.crane_compile from task fleet/scenes_v1/blocked_faces/heldout/s1/task plan move_target; crane_* keys are CRANE setup",
+ "crane_start": {
+  "cargo_1": [
+   4.436,
+   2.726,
+   0.0
+  ],
+  "cargo_2": [
+   1.2,
+   1.2,
+   0.0
+  ],
+  "scout_1": [
+   0.75,
+   6.25,
+   0.0
+  ],
+  "lifter_1": [
+   1.95,
+   6.25,
+   0.0
+  ]
+ },
+ "crane_unit_map": {
+  "cargo_1": "cargo_1",
+  "cargo_2": "cargo_2"
+ },
+ "crane_max_duration_s": 290.0,
+ "tasks": [
+  {
+   "id": "settle",
+   "type": "wait",
+   "agents": [
+    "cargo_1",
+    "cargo_2",
+    "lifter_1",
+    "scout_1"
+   ],
+   "duration": 1.5
+  },
+  {
+   "id": "clear",
+   "after": [
+    "settle"
+   ],
+   "type": "goto",
+   "agent": "cargo_1",
+   "goal": [
+    6.0,
+    3.5,
+    0.0
+   ]
+  },
+  {
+   "id": "couple_meet",
+   "after": [
+    "clear"
+   ],
+   "type": "rendezvous",
+   "target": "cargo_1",
+   "docker": "cargo_2",
+   "target_face": "rear",
+   "docker_face": "front",
+   "meeting_pose": [
+    6.0,
+    3.5,
+    0.0
+   ],
+   "retries": 1
+  },
+  {
+   "id": "couple",
+   "type": "dock",
+   "docker": "cargo_2",
+   "docker_face": "front",
+   "target": "cargo_1",
+   "target_face": "rear",
+   "after": [
+    "couple_meet"
+   ],
+   "retries": 2
+  },
+  {
+   "id": "pick_lift",
+   "after": [
+    "couple"
+   ],
+   "type": "lift",
+   "agent": "lifter_1",
+   "object": "p1",
+   "grasp_offset": 0.237,
+   "height": 0.15
+  },
+  {
+   "id": "pick",
+   "type": "handoff",
+   "from": "lifter_1",
+   "supporters": [
+    "cargo_1",
+    "cargo_2"
+   ],
+   "payload": "p1",
+   "payload_type": "box_long",
+   "hold_offset": 0.637,
+   "after": [
+    "pick_lift",
+    "couple"
+   ],
+   "place_on": "cargo_1",
+   "place_offset": [
+    -0.17,
+    0.0,
+    3.141592653589793
+   ]
+  },
+  {
+   "id": "pick_clear",
+   "type": "goto",
+   "agent": "lifter_1",
+   "goal": [
+    3.15,
+    6.25,
+    0.0
+   ],
+   "after": [
+    "pick"
+   ]
+  },
+  {
+   "id": "go",
+   "after": [
+    "pick",
+    "pick_clear"
+   ],
+   "type": "transport",
+   "agent": "cargo_1",
+   "goal": [
+    8.9,
+    2.0,
+    0.0
+   ],
+   "payload": "p1",
+   "tol": [
+    0.05,
+    0.08
+   ]
+  }
+ ],
+ "crane_payload": {
+  "id": "p1",
+  "type": "box_long",
+  "pose": [
+   7.25,
+   5.9,
+   0.0
+  ],
+  "pallet_height": 0.03,
+  "mass_kg": 6.0
+ }
+}

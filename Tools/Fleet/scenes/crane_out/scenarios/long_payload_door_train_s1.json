@@ -1,0 +1,360 @@
+{
+ "schema": "crane.fleet_scenario/v0",
+ "scenario_id": "fleet/scenes_v1/long_payload_door/train/s1",
+ "note": "compiled from fleet/scenes_v1/long_payload_door/train/s1 by scenes.crane_compile; the v1 source is authoritative",
+ "arena": {
+  "size_xy": [
+   10.0,
+   7.0
+  ],
+  "wall_height": 2.8,
+  "floor": "hard_tile"
+ },
+ "walls": [],
+ "doorway": {
+  "in_wall": "(lowered: no wall carries a door; geometry is in obstacles)",
+  "centre_y": 2.911,
+  "width": {
+   "default": 0.729
+  },
+  "height": 2.0,
+  "v1_door": "door_main"
+ },
+ "zones": {
+  "staging": {
+   "rect": [
+    0.6,
+    0.6,
+    3.0,
+    2.8
+   ],
+   "kind": "staging"
+  },
+  "delivery": {
+   "rect": [
+    7.8,
+    2.5,
+    9.5,
+    4.5
+   ],
+   "kind": "delivery"
+  },
+  "parking": {
+   "rect": [
+    6.8,
+    5.2,
+    7.8,
+    6.2
+   ],
+   "kind": "parking"
+  }
+ },
+ "obstacles": [
+  {
+   "id": "divider_0",
+   "type": "box",
+   "centre": [
+    6.0,
+    1.27325,
+    1.4
+   ],
+   "size": [
+    0.12,
+    2.5465,
+    2.8
+   ],
+   "v1_kind": "wall",
+   "v1_source": "divider"
+  },
+  {
+   "id": "door_main_lintel",
+   "type": "box",
+   "centre": [
+    6.0,
+    2.911,
+    2.4
+   ],
+   "size": [
+    0.12,
+    0.729,
+    0.8
+   ],
+   "v1_kind": "lintel",
+   "v1_source": "door_main"
+  },
+  {
+   "id": "divider_1",
+   "type": "box",
+   "centre": [
+    6.0,
+    5.13775,
+    1.4
+   ],
+   "size": [
+    0.12,
+    3.7245,
+    2.8
+   ],
+   "v1_kind": "wall",
+   "v1_source": "divider"
+  },
+  {
+   "id": "pallet_stack",
+   "type": "box",
+   "centre": [
+    4.1,
+    5.0,
+    0.5
+   ],
+   "size": [
+    1.0,
+    0.8,
+    1.0
+   ],
+   "v1_kind": "pallet",
+   "v1_source": "pallet_stack"
+  }
+ ],
+ "overhead_cameras": [
+  {
+   "id": "oh_west",
+   "position": [
+    3.0,
+    3.5,
+    2.6
+   ],
+   "look_at": [
+    3.5,
+    3.5,
+    0.0
+   ]
+  }
+ ],
+ "overhead_modes": [
+  "working",
+  "occluded",
+  "disabled"
+ ],
+ "payload_spawn": {
+  "zone": null,
+  "types": [
+   "box_long"
+  ]
+ },
+ "mission_default": "reconfiguration BENEFICIAL: the pre-assembled L of three carriers (min width 0.80 m) cannot pass the door; undocking one module leaves a chain that passes with the payload",
+ "outcomes": {
+  "delivered": "payload centre inside zones.delivery, at rest, supported, within the deadline"
+ },
+ "deadline_s": 150.0,
+ "x_v1": {
+  "source_sha256": "5aa8bd50ebf47b2cf7272eb2cb925066ce5393a7b3fa33982d2d4b297c5d7f86",
+  "family": {
+   "id": "long_payload_door",
+   "seed": 1,
+   "split": "train",
+   "params": {
+    "door_w": 0.729,
+    "n_doors": 1,
+    "detour": 0,
+    "door_y": 2.911
+   },
+   "generator": "families_v1.0",
+   "rule": "door_w >= 0.55 and n_doors == 1"
+  },
+  "doors": [
+   {
+    "id": "door_main",
+    "wall": "divider",
+    "centre": 2.911,
+    "width": 0.729,
+    "height": 2.0,
+    "threshold_height": 0.0,
+    "threshold_depth": 0.12
+   }
+  ],
+  "thresholds": [],
+  "floor_patches": [],
+  "tags": [
+   {
+    "id": 950,
+    "name": "lm_door_main_w_lo",
+    "pose": [
+     5.938,
+     2.346,
+     3.141593
+    ],
+    "z": 0.3,
+    "size": 0.12,
+    "on": "door"
+   },
+   {
+    "id": 951,
+    "name": "lm_door_main_w_hi",
+    "pose": [
+     5.938,
+     3.476,
+     3.141593
+    ],
+    "z": 0.3,
+    "size": 0.12,
+    "on": "door"
+   },
+   {
+    "id": 952,
+    "name": "lm_door_main_e_lo",
+    "pose": [
+     6.062,
+     2.346,
+     0.0
+    ],
+    "z": 0.3,
+    "size": 0.12,
+    "on": "door"
+   },
+   {
+    "id": 953,
+    "name": "lm_door_main_e_hi",
+    "pose": [
+     6.062,
+     3.476,
+     0.0
+    ],
+    "z": 0.3,
+    "size": 0.12,
+    "on": "door"
+   }
+  ],
+  "zones": [
+   {
+    "id": "staging",
+    "kind": "staging",
+    "rect": [
+     0.6,
+     0.6,
+     3.0,
+     2.8
+    ]
+   },
+   {
+    "id": "delivery",
+    "kind": "delivery",
+    "rect": [
+     7.8,
+     2.5,
+     9.5,
+     4.5
+    ]
+   },
+   {
+    "id": "parking",
+    "kind": "parking",
+    "rect": [
+     6.8,
+     5.2,
+     7.8,
+     6.2
+    ]
+   }
+  ],
+  "overhead_cameras": [
+   {
+    "id": "oh_west",
+    "position": [
+     3.0,
+     3.5,
+     2.6
+    ],
+    "look_at": [
+     3.5,
+     3.5,
+     0.0
+    ],
+    "hfov_deg": 90.0,
+    "range_m": 8.0,
+    "mode": "working"
+   }
+  ],
+  "payloads": [
+   {
+    "id": "p1",
+    "type": "box_long",
+    "size_lwh": [
+     0.8,
+     0.25,
+     0.15
+    ],
+    "mass_kg": 6.0,
+    "unknown_mass": false,
+    "pallet_height": 0.03,
+    "spawn": {
+     "zone": null,
+     "pose": [
+      1.87,
+      1.567,
+      0.0
+     ],
+     "pose_known": true,
+     "on_unit": "asm"
+    }
+   }
+  ],
+  "units": [
+   {
+    "id": "asm",
+    "catalog": "l3_carrier",
+    "module_graph": {
+     "compose": {
+      "types": [
+       "carrier",
+       "carrier",
+       "carrier"
+      ],
+      "topology": "L"
+     }
+    },
+    "config_hash": "222989c3208d8692",
+    "start": [
+     1.8,
+     1.7,
+     0.0
+    ],
+    "soc": 1.0,
+    "crane_role": null
+   }
+  ],
+  "faults": [],
+  "gaps": [
+   {
+    "field": "doors",
+    "status": "approximated",
+    "detail": "1 door(s) lowered to wall-segment and lintel boxes; v0 doorway is a stub (narrowest door door_main)"
+   }
+  ],
+  "plan_gaps": {
+   "keep": [
+    {
+     "field": "fleet.units.asm",
+     "status": "unsupported",
+     "detail": "asm (l3_carrier, omnidirectional) has no CRANE profile role or no free profile rover; autonomy missions spawn only scout_1, lifter_1, cargo_1, cargo_2 (module graphs spawn only in probe missions, uncoupled)"
+    }
+   ],
+   "reconfigure": [
+    {
+     "field": "fleet.units.asm",
+     "status": "unsupported",
+     "detail": "asm (l3_carrier, omnidirectional) has no CRANE profile role or no free profile rover; autonomy missions spawn only scout_1, lifter_1, cargo_1, cargo_2 (module graphs spawn only in probe missions, uncoupled)"
+    },
+    {
+     "field": "fleet.units.asm",
+     "status": "approximated",
+     "detail": "pre-assembled l3_carrier (3 modules) is not spawnable in CRANE; the chain's modules start as cargo_1/cargo_2 and dock at t0, the third module is omitted"
+    },
+    {
+     "field": "payloads.spawn.on_unit",
+     "status": "approximated",
+     "detail": "the payload starts on a pallet beside the chain and is loaded by lifter_1 (demo v2 handoff); in v1 it starts on the assembly"
+    }
+   ]
+  }
+ }
+}

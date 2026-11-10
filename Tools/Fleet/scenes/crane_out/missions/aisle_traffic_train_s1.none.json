@@ -1,0 +1,103 @@
+{
+ "schema": "crane.fleet_mission/v0",
+ "mission_id": "fleet/scenes_v1/aisle_traffic/train/s1/none",
+ "note": "compiled by scenes.crane_compile from task fleet/scenes_v1/aisle_traffic/train/s1/task plan none; crane_* keys are CRANE setup",
+ "crane_start": {
+  "cargo_1": [
+   1.0,
+   3.5,
+   0.0
+  ],
+  "cargo_2": [
+   9.0,
+   6.0,
+   3.142
+  ],
+  "lifter_1": [
+   1.0,
+   1.0,
+   0.0
+  ],
+  "scout_1": [
+   0.75,
+   6.25,
+   0.0
+  ]
+ },
+ "crane_unit_map": {
+  "r0": "cargo_1",
+  "r1": "cargo_2",
+  "r2": "lifter_1"
+ },
+ "crane_max_duration_s": 230.0,
+ "tasks": [
+  {
+   "id": "settle",
+   "type": "wait",
+   "agents": [
+    "cargo_1",
+    "cargo_2",
+    "lifter_1",
+    "scout_1"
+   ],
+   "duration": 1.5
+  },
+  {
+   "id": "go_r0",
+   "after": [
+    "settle"
+   ],
+   "type": "goto",
+   "agent": "cargo_1",
+   "goal": [
+    9.0,
+    1.0,
+    0.0
+   ],
+   "route": [
+    [
+     2.05,
+     4.122
+    ]
+   ]
+  },
+  {
+   "id": "go_r1",
+   "after": [
+    "settle"
+   ],
+   "type": "goto",
+   "agent": "cargo_2",
+   "goal": [
+    1.0,
+    1.0,
+    0.0
+   ],
+   "route": [
+    [
+     7.95,
+     5.022
+    ]
+   ]
+  },
+  {
+   "id": "go_r2",
+   "after": [
+    "settle"
+   ],
+   "type": "goto",
+   "agent": "lifter_1",
+   "goal": [
+    9.0,
+    6.0,
+    0.0
+   ],
+   "route": [
+    [
+     2.05,
+     4.122
+    ]
+   ]
+  }
+ ]
+}
