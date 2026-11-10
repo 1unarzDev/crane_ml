@@ -15,6 +15,8 @@ cache="${CRANE_FLEET_CACHE:-$HOME/.cache/crane-fleet}"
 heavy=/home/lunarz/astro_dock/src/mhseals_agents/tools/heavy
 editor=/home/lunarz/Unity/Hub/Editor/6000.5.10f1/Editor/Unity
 player="$root/Builds/CRANE-Fleet/CRANE.x86_64"
+# players read the worktree spec (so data edits need no rebuild); override with CRANE_FLEET_SPEC
+spec="${CRANE_FLEET_SPEC:-$root/Assets/StreamingAssets/Fleet}"
 mkdir -p "$cache/logs" "$cache/runs" "$cache/stills" "$cache/check"
 stamp=$(date +%Y%m%d-%H%M%S)
 commit=$(git -C "$root" rev-parse HEAD)
@@ -27,7 +29,7 @@ ed() {  # ed LOG args...
 pl() {  # pl LOG args...  (player, no graphics)
     local log=$1; shift
     ( unset DISPLAY WAYLAND_DISPLAY; export SDL_VIDEODRIVER=dummy
-      flock "$cache/unity.lock" "$heavy" unity "$player" -batchmode -nographics -logFile "$log" "$@" )
+      flock "$cache/unity.lock" "$heavy" unity "$player" -batchmode -nographics -logFile "$log" --crane-fleet-spec "$spec" "$@" )
 }
 
 cmd=${1:?command}; shift || true
@@ -67,7 +69,7 @@ case "$cmd" in
         ( unset WAYLAND_DISPLAY
           flock "$cache/unity.lock" xvfb-run -a -s "-screen 0 1280x720x24" "$heavy" unity "$player" -batchmode \
             -screen-fullscreen 0 -screen-width 320 -screen-height 180 -logFile "$dir/player.log" \
-            --crane-disable-ros --crane-disable-sitl --crane-fleet-still "$dir" --crane-seed "$seed" \
+            --crane-disable-ros --crane-disable-sitl --crane-fleet-spec "$spec" --crane-fleet-still "$dir" --crane-seed "$seed" \
             --crane-source-commit "$commit" --crane-source-dirty "$dirty" ) || true
         grep -h "CRANE_FLEET_STILL\|CRANE_FLEET_EXIT\|CRANE_FLEET_FAILED\|CRANE_FLEET_SPEC" "$dir/player.log" ;;
     *) echo "unknown command $cmd" >&2; exit 2 ;;
