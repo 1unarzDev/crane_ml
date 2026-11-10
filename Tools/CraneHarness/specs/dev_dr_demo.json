@@ -1,0 +1,18 @@
+{
+  "schema": "crane-experiment/1",
+  "name": "dev_dr_demo",
+  "split": "dev",
+  "_note": "Smoke of every harness dimension on DEV: dev_stress DR family (thin-branch, exposure, latency, stall tail, drift, branch thinning, wind), a perception stall and a drift burst, lossy comms with a 2-drone lockstep pair. Never reported.",
+  "forests": [1337],
+  "missions": {"cross": 10, "corridor": false, "only": ["cross_3", "cross_5"]},
+  "speeds": [4.0],
+  "run_seeds": [1],
+  "dr": {"family": "dev_stress", "samples": 2, "seed": 11},
+  "faults": [
+    {"kind": "sensor_delay", "sensor": "all", "t0": 6.0, "t1": 6.6, "extra_s": 0.35},
+    {"kind": "drift_burst", "t0": 9.0, "t1": 12.0, "scale": 6.0}
+  ],
+  "comms": {"drop_p": 0.05, "delay_s": 0.03, "jitter_s": 0.02, "heartbeat_hz": 2.0, "failsafe_timeout_s": 0.0, "outages": [[4.0, 7.0]]},
+  "n_drones": 2,
+  "logs": "full"
+}

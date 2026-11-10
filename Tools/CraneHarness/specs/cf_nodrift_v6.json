@@ -1,0 +1,38 @@
+{
+ "schema": "crane-experiment/1",
+ "name": "cf_nodrift_v6",
+ "split": "dev",
+ "_note": "Counterfactual replay of the lead's colliding sweep runs with one factor removed (nodrift); same seeds, everything else identical.",
+ "forests": [
+  {
+   "seed": 1337,
+   "manifest": "Assets/Drones/Environment/Manifests/forest_seed1337_manifest.json"
+  }
+ ],
+ "missions": {
+  "cross": 10,
+  "corridor": true,
+  "only": [
+   "corridor_rev",
+   "cross_1",
+   "cross_3",
+   "cross_4",
+   "cross_8"
+  ]
+ },
+ "speeds": [
+  6
+ ],
+ "run_seeds": [
+  1
+ ],
+ "config": {
+  "LocalDriftSigma": 0.0,
+  "LocalDriftSigmaZ": 0.0,
+  "YawDriftSigma": 0.0,
+  "VelNoiseSigma": 0.0
+ },
+ "logs": "none",
+ "label_failures": true,
+ "bundle_failures": false
+}

@@ -1,0 +1,13 @@
+{
+ "source": "navpilot.forest stands, seeds 11-13, 150 sight lines each, range 3-10 m, vis>=0.6",
+ "stems_per_ha": [
+  400.0,
+  800.0,
+  1400.0
+ ],
+ "p_good": [
+  0.8822222222222222,
+  0.8288888888888889,
+  0.6933333333333334
+ ]
+}

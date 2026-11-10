@@ -1,0 +1,553 @@
+[
+ {
+  "inst": {
+   "tt": [
+    [
+     0,
+     1,
+     2
+    ],
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     2,
+     1,
+     0
+    ]
+   ],
+   "link": [
+    true,
+    false,
+    false
+   ],
+   "prior": [
+    0.0,
+    0.8,
+    0.19999999999999996
+   ],
+   "g": [
+    [
+     0.5,
+     0.5
+    ],
+    [
+     0.5,
+     0.5
+    ],
+    [
+     0.5,
+     0.5
+    ]
+   ],
+   "pc": [
+    0.5,
+    0.9
+   ],
+   "pw": [
+    0.4,
+    0.05
+   ],
+   "wb": [
+    0.3,
+    0.3
+   ],
+   "alpha": 0.2,
+   "dur": [
+    1,
+    2
+   ],
+   "starts": [
+    0,
+    0
+   ],
+   "T": 5,
+   "d": 0,
+   "name": "Q3 prior(n1)=0.8 T=5"
+  },
+  "oracle": 0.58152,
+  "after_weak": [
+   [
+    4,
+    0.12722560975609756,
+    "no useful action"
+   ],
+   [
+    4,
+    0.12722560975609756,
+    "no useful action"
+   ],
+   [
+    2,
+    0.13199999999999998,
+    "WEAK at n1 view0 (fast) -> D0@n1: look(n1, view0, slow); D1@n1: look(n1, view1, slow)"
+   ],
+   [
+    2,
+    0.13199999999999998,
+    "WEAK at n1 view0 (fast) -> D0@n1: look(n1, view0, slow); D1@n1: look(n1, view1, slow)"
+   ]
+  ],
+  "tree": [
+   "t=0: D0@n0: fly->n1; D1@n0: fly->n1   [value 0.5815]",
+   "t=1: D0@n1: look(n1, view0, fast); D1@n1: look(n1, view0, fast)   [value 0.5815]",
+   "  look n1/v0: null+null (p=0.328):",
+   "    t=2: D0@n1: look(n1, view1, slow); D1@n1: look(n1, view1, slow)   [value 0.3018]",
+   "      look n1/v1: null+null (p=0.400):",
+   "        t=4: (no useful action before deadline)",
+   "      look n1/v1: null+WEAK (p=0.127):",
+   "        t=4: (no useful action before deadline)",
+   "      look n1/v1: null+WEAK (p=0.127):",
+   "        t=4: (no useful action before deadline)",
+   "      some look CONF (p=0.247) -> CONFIRMED, report value 1",
+   "  look n1/v0: null+WEAK (p=0.132):",
+   "    t=2: D0@n1: look(n1, view0, slow); D1@n1: look(n1, view1, slow)   [value 0.4009]",
+   "      look n1/v0: null; look n1/v1: null (p=0.324):",
+   "        t=4: (no useful action before deadline)",
+   "      some look CONF (p=0.203) -> CONFIRMED, report value 1",
+   "  look n1/v0: null+WEAK (p=0.132):",
+   "    t=2: D0@n1: look(n1, view0, slow); D1@n1: look(n1, view1, slow)   [value 0.4009]",
+   "      look n1/v0: null; look n1/v1: null (p=0.324):",
+   "        t=4: (no useful action before deadline)",
+   "      some look CONF (p=0.203) -> CONFIRMED, report value 1",
+   "  look n1/v0: WEAK+WEAK (p=0.108):",
+   "    t=2: D0@n1: look(n1, view0, slow); D1@n1: look(n1, view1, slow)   [value 0.7100]",
+   "      some look CONF (p=0.200) -> CONFIRMED, report value 1",
+   "      some look CONF (p=0.240) -> CONFIRMED, report value 1",
+   "  some look CONF (p=0.080) -> CONFIRMED, report value 1",
+   "  some look CONF (p=0.080) -> CONFIRMED, report value 1",
+   "  some look CONF (p=0.100) -> CONFIRMED, report value 1"
+  ]
+ },
+ {
+  "inst": {
+   "tt": [
+    [
+     0,
+     1,
+     2
+    ],
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     2,
+     1,
+     0
+    ]
+   ],
+   "link": [
+    true,
+    false,
+    false
+   ],
+   "prior": [
+    0.0,
+    0.8,
+    0.19999999999999996
+   ],
+   "g": [
+    [
+     0.5,
+     0.5
+    ],
+    [
+     0.5,
+     0.5
+    ],
+    [
+     0.5,
+     0.5
+    ]
+   ],
+   "pc": [
+    0.5,
+    0.9
+   ],
+   "pw": [
+    0.4,
+    0.05
+   ],
+   "wb": [
+    0.3,
+    0.3
+   ],
+   "alpha": 0.2,
+   "dur": [
+    1,
+    2
+   ],
+   "starts": [
+    0,
+    0
+   ],
+   "T": 7,
+   "d": 0,
+   "name": "Q3 prior(n1)=0.8 T=7"
+  },
+  "oracle": 0.6944104,
+  "after_weak": [
+   [
+    6,
+    0.15288461538461537,
+    "no useful action"
+   ],
+   [
+    6,
+    0.19423076923076926,
+    "no useful action"
+   ],
+   [
+    5,
+    0.1902439024390244,
+    "WEAK at n2 view1 (slow) -> D1@n2: look(n2, view0, fast)"
+   ],
+   [
+    4,
+    0.275,
+    "WEAK at n1 view0 (fast) -> D0@n1: look(n1, view0, fast)"
+   ],
+   [
+    3,
+    0.14666666666666667,
+    "WEAK at n2 view0 (fast) -> D0@n1: fly->n2; D1@n2: look(n2, view0, slow)"
+   ],
+   [
+    3,
+    0.21333333333333337,
+    "WEAK at n1 view1 (fast) -> D0@n1: look(n1, view0, fast); D1@n2: look(n2, view1, fast)"
+   ],
+   [
+    2,
+    0.32,
+    "WEAK at n1 view0 (fast) -> D0@n1: look(n1, view1, slow); D1@n2: look(n2, view0, fast)"
+   ]
+  ],
+  "tree": [
+   "t=0: D0@n0: fly->n1; D1@n0: fly->n1   [value 0.6944]",
+   "t=1: D0@n1: look(n1, view0, fast); D1@n1: fly->n2   [value 0.6944]",
+   "  look n1/v0: null (p=0.480):",
+   "    t=2: D0@n1: look(n1, view1, fast); D1@n2: look(n2, view0, fast)   [value 0.5488]",
+   "      look n1/v1: null; look n2/v0: null (p=0.320):",
+   "        t=3: D0@n1: look(n1, view0, fast); D1@n2: look(n2, view1, slow)   [value 0.2697]",
+   "          look n1/v0: null (p=0.683):",
+   "            t=4: D0@n1: look(n1, view1, slow)   [value 0.2442]",
+   "              look n2/v1: null (p=0.634):",
+   "                t=5: D1@n2: look(n2, view0, fast)   [value 0.0865]",
+   "                  look n1/v1: null; look n2/v0: null (p=0.496):",
+   "                    t=6: (no useful action before deadline)",
+   "          look n1/v0: WEAK (p=0.275):",
+   "            t=4: D0@n1: look(n1, view0, fast)   [value 0.2225]",
+   "      look n1/v1: null; look n2/v0: WEAK (p=0.147):",
+   "        t=3: D0@n1: fly->n2; D1@n2: look(n2, view0, slow)   [value 0.4045]",
+   "        t=4: D0@n2: look(n2, view1, fast)   [value 0.4045]",
+   "          look n2/v1: null; look n2/v0: null (p=0.316):",
+   "            t=5: D0@n2: look(n2, view0, fast); D1@n2: look(n2, view0, fast)   [value 0.0000]",
+   "      some look CONF (p=0.067) -> CONFIRMED, report value 1",
+   "      look n1/v1: WEAK; look n2/v0: null (p=0.213):",
+   "        t=3: D0@n1: look(n1, view0, fast); D1@n2: look(n2, view1, fast)   [value 0.5413]",
+   "          look n1/v0: null; look n2/v1: null (p=0.477):",
+   "            t=4: D0@n1: look(n1, view1, slow); D1@n2: fly->n1   [value 0.4974]",
+   "            t=5: D1@n1: look(n1, view1, slow)   [value 0.4974]",
+   "          look n1/v0: WEAK; look n2/v1: null (p=0.229):",
+   "            t=4: D0@n1: look(n1, view1, slow); D1@n2: fly->n1   [value 0.5290]",
+   "            t=5: D1@n1: look(n1, view1, slow)   [value 0.5290]",
+   "      look n1/v1: WEAK; look n2/v0: WEAK (p=0.070):",
+   "        t=3: D0@n1: look(n1, view1, slow); D1@n2: look(n2, view0, slow)   [value 0.5375]",
+   "      some look CONF (p=0.133) -> CONFIRMED, report value 1",
+   "  look n1/v0: WEAK (p=0.320):",
+   "    t=2: D0@n1: look(n1, view1, slow); D1@n2: look(n2, view0, fast)   [value 0.7219]",
+   "      look n2/v0: null (p=0.750):",
+   "        t=3: D1@n2: look(n2, view1, fast)   [value 0.7199]",
+   "          look n1/v1: null; look n2/v1: null (p=0.301):",
+   "            t=4: D0@n1: look(n1, view0, slow); D1@n2: fly->n1   [value 0.5044]",
+   "            t=5: D1@n1: look(n1, view0, slow)   [value 0.5044]",
+   "          look n1/v1: null; look n2/v1: WEAK (p=0.089):",
+   "            t=4: D0@n1: look(n1, view0, slow); D1@n2: look(n2, view1, fast)   [value 0.4662]",
+   "          look n1/v1: WEAK; look n2/v1: null (p=0.136):",
+   "            t=4: D0@n1: look(n1, view0, slow); D1@n2: fly->n1   [value 0.5275]",
+   "            t=5: D1@n1: look(n1, view0, slow)   [value 0.5275]",
+   "          some look CONF (p=0.336) -> CONFIRMED, report value 1",
+   "          some look CONF (p=0.084) -> CONFIRMED, report value 1",
+   "      look n2/v0: WEAK (p=0.219):",
+   "        t=3: D1@n2: look(n2, view0, slow)   [value 0.6891]",
+   "          look n1/v1: null (p=0.460):",
+   "            t=4: D0@n1: look(n1, view0, slow)   [value 0.5143]",
+   "              look n2/v0: null (p=0.636):",
+   "                t=5: D1@n2: look(n2, view0, fast)   [value 0.4219]",
+   "          some look CONF (p=0.360) -> CONFIRMED, report value 1",
+   "  some look CONF (p=0.200) -> CONFIRMED, report value 1"
+  ]
+ },
+ {
+  "inst": {
+   "tt": [
+    [
+     0,
+     1,
+     2
+    ],
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     2,
+     1,
+     0
+    ]
+   ],
+   "link": [
+    true,
+    false,
+    false
+   ],
+   "prior": [
+    0.0,
+    0.2,
+    0.8
+   ],
+   "g": [
+    [
+     0.5,
+     0.5
+    ],
+    [
+     0.5,
+     0.5
+    ],
+    [
+     0.5,
+     0.5
+    ]
+   ],
+   "pc": [
+    0.5,
+    0.9
+   ],
+   "pw": [
+    0.4,
+    0.05
+   ],
+   "wb": [
+    0.3,
+    0.3
+   ],
+   "alpha": 0.2,
+   "dur": [
+    1,
+    2
+   ],
+   "starts": [
+    0,
+    0
+   ],
+   "T": 5,
+   "d": 0,
+   "name": "Q3 prior(n1)=0.2 T=5"
+  },
+  "oracle": 0.35,
+  "after_weak": [
+   [
+    4,
+    0.174375,
+    "no useful action"
+   ],
+   [
+    4,
+    0.174375,
+    "no useful action"
+   ],
+   [
+    3,
+    0.144,
+    "WEAK at n2 view1 (fast) -> D0@n2: look(n2, view0, fast); D1@n2: look(n2, view0, fast)"
+   ],
+   [
+    3,
+    0.144,
+    "WEAK at n2 view0 (fast) -> D0@n2: look(n2, view0, fast); D1@n2: look(n2, view0, fast)"
+   ]
+  ],
+  "tree": [
+   "t=0: D0@n0: fly->n1; D1@n0: fly->n1   [value 0.3500]",
+   "t=1: D0@n1: fly->n2; D1@n1: fly->n2   [value 0.3500]",
+   "t=2: D0@n2: look(n2, view0, fast); D1@n2: look(n2, view1, fast)   [value 0.3500]",
+   "  look n2/v0: null; look n2/v1: null (p=0.256):",
+   "    t=3: D0@n2: look(n2, view0, fast); D1@n2: look(n2, view0, fast)   [value 0.0000]",
+   "      look n2/v0: null+null (p=0.535):",
+   "        t=4: (no useful action before deadline)",
+   "      look n2/v0: null+WEAK (p=0.174):",
+   "        t=4: (no useful action before deadline)",
+   "      look n2/v0: null+WEAK (p=0.174):",
+   "        t=4: (no useful action before deadline)",
+   "  look n2/v0: null; look n2/v1: WEAK (p=0.144):",
+   "    t=3: D0@n2: look(n2, view0, fast); D1@n2: look(n2, view0, fast)   [value 0.0000]",
+   "      look n2/v0: null+null (p=0.477):",
+   "        t=4: (no useful action before deadline)",
+   "      look n2/v0: null+WEAK (p=0.182):",
+   "        t=4: (no useful action before deadline)",
+   "      look n2/v0: null+WEAK (p=0.182):",
+   "        t=4: (no useful action before deadline)",
+   "  some look CONF (p=0.080) -> CONFIRMED, report value 1",
+   "  look n2/v0: WEAK; look n2/v1: null (p=0.144):",
+   "    t=3: D0@n2: look(n2, view0, fast); D1@n2: look(n2, view0, fast)   [value 0.0000]",
+   "      look n2/v0: null+null (p=0.310):",
+   "        t=4: (no useful action before deadline)",
+   "  look n2/v0: WEAK; look n2/v1: WEAK (p=0.106):",
+   "    t=3: D0@n2: look(n2, view0, fast); D1@n2: look(n2, view0, fast)   [value 0.0000]",
+   "      look n2/v0: null+null (p=0.248):",
+   "        t=4: (no useful action before deadline)",
+   "  some look CONF (p=0.070) -> CONFIRMED, report value 1",
+   "  some look CONF (p=0.080) -> CONFIRMED, report value 1",
+   "  some look CONF (p=0.070) -> CONFIRMED, report value 1",
+   "  some look CONF (p=0.050) -> CONFIRMED, report value 1"
+  ]
+ },
+ {
+  "inst": {
+   "tt": [
+    [
+     0,
+     1,
+     2
+    ],
+    [
+     1,
+     0,
+     1
+    ],
+    [
+     2,
+     1,
+     0
+    ]
+   ],
+   "link": [
+    true,
+    false,
+    false
+   ],
+   "prior": [
+    0.0,
+    0.2,
+    0.8
+   ],
+   "g": [
+    [
+     0.5,
+     0.5
+    ],
+    [
+     0.5,
+     0.5
+    ],
+    [
+     0.5,
+     0.5
+    ]
+   ],
+   "pc": [
+    0.5,
+    0.9
+   ],
+   "pw": [
+    0.4,
+    0.05
+   ],
+   "wb": [
+    0.3,
+    0.3
+   ],
+   "alpha": 0.2,
+   "dur": [
+    1,
+    2
+   ],
+   "starts": [
+    0,
+    0
+   ],
+   "T": 7,
+   "d": 0,
+   "name": "Q3 prior(n1)=0.2 T=7"
+  },
+  "oracle": 0.6683950000000002,
+  "after_weak": [
+   [
+    6,
+    0.13021739130434784,
+    "no useful action"
+   ],
+   [
+    6,
+    0.18913043478260866,
+    "no useful action"
+   ],
+   [
+    5,
+    0.18000000000000002,
+    "WEAK at n2 view1 (slow) -> D1@n2: look(n2, view1, slow)"
+   ],
+   [
+    3,
+    0.3333333333333333,
+    "WEAK at n2 view0 (fast) -> D0@n2: look(n2, view0, slow); D1@n2: look(n2, view1, slow)"
+   ],
+   [
+    2,
+    0.23000000000000004,
+    "WEAK at n1 view0 (fast) -> D0@n1: look(n1, view0, fast); D1@n2: look(n2, view0, fast)"
+   ]
+  ],
+  "tree": [
+   "t=0: D0@n0: fly->n1; D1@n0: fly->n1   [value 0.6684]",
+   "t=1: D0@n1: look(n1, view0, fast); D1@n1: fly->n2   [value 0.6684]",
+   "  look n1/v0: null (p=0.720):",
+   "    t=2: D0@n1: fly->n2; D1@n2: look(n2, view0, fast)   [value 0.6502]",
+   "      look n2/v0: null (p=0.444):",
+   "        t=3: D0@n2: look(n2, view1, slow); D1@n2: fly->n1   [value 0.4500]",
+   "        t=4: D1@n1: look(n1, view1, slow)   [value 0.4500]",
+   "          look n2/v1: null (p=0.460):",
+   "            t=5: D1@n2: look(n2, view1, slow)   [value 0.1565]",
+   "              look n2/v0: null; look n1/v1: null (p=0.430):",
+   "                t=6: (no useful action before deadline)",
+   "              look n2/v0: WEAK; look n1/v1: null (p=0.189):",
+   "                t=6: (no useful action before deadline)",
+   "          look n2/v1: WEAK (p=0.180):",
+   "            t=5: D1@n2: look(n2, view1, slow)   [value 0.1000]",
+   "              look n2/v0: null; look n1/v1: null (p=0.456):",
+   "                t=6: (no useful action before deadline)",
+   "          some look CONF (p=0.360) -> CONFIRMED, report value 1",
+   "      look n2/v0: WEAK (p=0.333):",
+   "        t=3: D0@n2: look(n2, view0, slow); D1@n2: look(n2, view1, slow)   [value 0.6840]",
+   "          look n2/v0: null; look n2/v1: null (p=0.158):",
+   "            t=5: D0@n2: look(n2, view0, fast); D1@n2: look(n2, view0, fast)   [value 0.0000]",
+   "          some look CONF (p=0.138) -> CONFIRMED, report value 1",
+   "          some look CONF (p=0.180) -> CONFIRMED, report value 1",
+   "          some look CONF (p=0.084) -> CONFIRMED, report value 1",
+   "          some look CONF (p=0.216) -> CONFIRMED, report value 1",
+   "      some look CONF (p=0.222) -> CONFIRMED, report value 1",
+   "  look n1/v0: WEAK (p=0.230):",
+   "    t=2: D0@n1: look(n1, view0, fast); D1@n2: look(n2, view0, fast)   [value 0.6532]",
+   "      look n1/v0: null; look n2/v0: null (p=0.310):",
+   "        t=3: D0@n1: look(n1, view0, fast); D1@n2: look(n2, view1, slow)   [value 0.4624]",
+   "          look n1/v0: null (p=0.745):",
+   "            t=4: D0@n1: look(n1, view1, slow)   [value 0.4500]",
+   "              look n2/v1: null (p=0.472):",
+   "                t=5: D1@n2: look(n2, view0, fast)   [value 0.1738]",
+   "      look n1/v0: null; look n2/v0: WEAK (p=0.217):",
+   "        t=3: D0@n1: fly->n2; D1@n2: look(n2, view0, slow)   [value 0.5719]",
+   "        t=4: D0@n2: look(n2, view1, fast)   [value 0.5719]",
+   "      some look CONF (p=0.139) -> CONFIRMED, report value 1",
+   "      look n1/v0: WEAK; look n2/v0: null (p=0.143):",
+   "        t=3: D0@n1: look(n1, view0, fast); D1@n2: look(n2, view1, slow)   [value 0.5979]",
+   "  some look CONF (p=0.050) -> CONFIRMED, report value 1"
+  ]
+ }
+]

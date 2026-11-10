@@ -1,0 +1,90 @@
+{
+  "schema": "crane-dr-families/1",
+  "policy": "Domain-randomization families for the CRANE experiment harness. Each family belongs to exactly one split of Tools/DroneData/splits.json and may only be used with forest seeds of that split. Values in the 'heldout_reserved' intervals are refused for every non-heldout family and for explicit config overrides (no leakage by hand-tuning into the reserved tails). Wind and lighting names are the splits.json disturbance values. All ranges are [U] priors (vendor sheets, NavPilot, first principles), not calibrated. Do not move a range into a reserved interval after the first dataset is generated.",
+  "wind_presets": {
+    "_note": "under-canopy flight-height mean wind [m/s] and Dryden W20 gust intensity [m/s] driving CraneDrydenTurbulence at true AGL; [U]",
+    "calm": {"mean_mps": 0.0, "w20_mps": 0.0},
+    "light_breeze": {"mean_mps": 1.5, "w20_mps": 1.5},
+    "gusty": {"mean_mps": 2.5, "w20_mps": 5.0},
+    "moderate_gusty": {"mean_mps": 4.0, "w20_mps": 6.0},
+    "strong_steady": {"mean_mps": 7.0, "w20_mps": 2.0},
+    "storm_gust": {"mean_mps": 8.0, "w20_mps": 12.0},
+    "turbulent_shear": {"mean_mps": 5.0, "w20_mps": 10.0}
+  },
+  "heldout_reserved": {
+    "ThinW50Px": [4.2, 6.0],
+    "DispSigmaPx": [0.40, 1.0],
+    "InvalidP": [0.15, 0.4],
+    "PlanPStall": [0.03, 0.1],
+    "PlanStallMinS": [0.15, 0.5],
+    "LocalDriftSigma": [0.10, 0.3],
+    "YawDriftSigma": [0.004, 0.02],
+    "DepthLatencyS": [0.11, 0.25],
+    "forest_keep_branches": [0.0, 0.35]
+  },
+  "families": {
+    "dev_nominal": {"split": "dev", "wind": ["calm", "light_breeze"], "lighting": ["GoldenHour"], "dims": {
+      "DispSigmaPx": {"dist": "uniform", "lo": 0.10, "hi": 0.20},
+      "InvalidP": {"dist": "uniform", "lo": 0.02, "hi": 0.05},
+      "ThinW50Px": {"dist": "uniform", "lo": 2.6, "hi": 3.4},
+      "LidarDropP": {"dist": "uniform", "lo": 0.01, "hi": 0.04},
+      "PlanPStall": {"dist": "uniform", "lo": 0.001, "hi": 0.006},
+      "LocalDriftSigma": {"dist": "uniform", "lo": 0.02, "hi": 0.04},
+      "wind": {"dist": "choice", "values": ["calm", "light_breeze"]}
+    }},
+    "dev_stress": {"split": "dev", "wind": ["calm", "light_breeze"], "lighting": ["GoldenHour"], "dims": {
+      "ThinW50Px": {"dist": "uniform", "lo": 3.0, "hi": 4.0},
+      "ExposureS": {"dist": "uniform", "lo": 0.006, "hi": 0.016},
+      "DepthLatencyS": {"dist": "uniform", "lo": 0.04, "hi": 0.09},
+      "PlanPStall": {"dist": "uniform", "lo": 0.003, "hi": 0.02},
+      "PlanStallMinS": {"dist": "uniform", "lo": 0.04, "hi": 0.12},
+      "LocalDriftSigma": {"dist": "uniform", "lo": 0.03, "hi": 0.08},
+      "forest_keep_branches": {"dist": "uniform", "lo": 0.6, "hi": 1.0},
+      "wind": {"dist": "choice", "values": ["calm", "light_breeze"]}
+    }},
+    "train_wide": {"split": "train", "wind": ["calm", "light_breeze", "gusty"], "lighting": ["GoldenHour", "Overcast"], "dims": {
+      "DispSigmaPx": {"dist": "uniform", "lo": 0.08, "hi": 0.35},
+      "InvalidP": {"dist": "uniform", "lo": 0.01, "hi": 0.12},
+      "ThinW50Px": {"dist": "uniform", "lo": 2.2, "hi": 4.0},
+      "ThinWScalePx": {"dist": "uniform", "lo": 0.5, "hi": 1.2},
+      "ExposureS": {"dist": "loguniform", "lo": 0.004, "hi": 0.02},
+      "LidarDropP": {"dist": "uniform", "lo": 0.0, "hi": 0.08},
+      "LidarRangeSigma": {"dist": "uniform", "lo": 0.01, "hi": 0.04},
+      "DepthLatencyS": {"dist": "uniform", "lo": 0.03, "hi": 0.10},
+      "LidarLatencyS": {"dist": "uniform", "lo": 0.04, "hi": 0.10},
+      "PlanMedianS": {"dist": "uniform", "lo": 0.015, "hi": 0.04},
+      "PlanPStall": {"dist": "loguniform", "lo": 0.001, "hi": 0.025},
+      "PlanStallMinS": {"dist": "uniform", "lo": 0.03, "hi": 0.14},
+      "LocalDriftSigma": {"dist": "uniform", "lo": 0.01, "hi": 0.09},
+      "YawDriftSigma": {"dist": "loguniform", "lo": 0.0002, "hi": 0.003},
+      "forest_keep_stems": {"dist": "uniform", "lo": 0.7, "hi": 1.0},
+      "forest_keep_branches": {"dist": "uniform", "lo": 0.4, "hi": 1.0},
+      "wind": {"dist": "choice", "values": ["calm", "light_breeze", "gusty"]},
+      "wind_dir_deg": {"dist": "uniform", "lo": 0.0, "hi": 360.0},
+      "lighting": {"dist": "choice", "values": ["GoldenHour", "Overcast"]}
+    }},
+    "val_shift": {"split": "val", "wind": ["moderate_gusty"], "lighting": ["Dusk"], "dims": {
+      "DispSigmaPx": {"dist": "uniform", "lo": 0.2, "hi": 0.38},
+      "ThinW50Px": {"dist": "uniform", "lo": 3.4, "hi": 4.1},
+      "PlanPStall": {"dist": "uniform", "lo": 0.01, "hi": 0.028},
+      "wind": {"dist": "choice", "values": ["moderate_gusty"]},
+      "lighting": {"dist": "choice", "values": ["Dusk"]}
+    }},
+    "test_shift": {"split": "test", "wind": ["strong_steady"], "lighting": ["Noon"], "dims": {
+      "LocalDriftSigma": {"dist": "uniform", "lo": 0.05, "hi": 0.095},
+      "DepthLatencyS": {"dist": "uniform", "lo": 0.07, "hi": 0.105},
+      "wind": {"dist": "choice", "values": ["strong_steady"]},
+      "lighting": {"dist": "choice", "values": ["Noon"]}
+    }},
+    "heldout_tails": {"split": "heldout", "wind": ["storm_gust", "turbulent_shear"], "lighting": ["LowSunGlare", "HeavyFog"], "dims": {
+      "ThinW50Px": {"dist": "uniform", "lo": 4.2, "hi": 5.5},
+      "DispSigmaPx": {"dist": "uniform", "lo": 0.4, "hi": 0.8},
+      "PlanPStall": {"dist": "uniform", "lo": 0.03, "hi": 0.08},
+      "PlanStallMinS": {"dist": "uniform", "lo": 0.15, "hi": 0.4},
+      "LocalDriftSigma": {"dist": "uniform", "lo": 0.1, "hi": 0.25},
+      "forest_keep_branches": {"dist": "uniform", "lo": 0.0, "hi": 0.3},
+      "wind": {"dist": "choice", "values": ["storm_gust", "turbulent_shear"]},
+      "lighting": {"dist": "choice", "values": ["LowSunGlare", "HeavyFog"]}
+    }}
+  }
+}

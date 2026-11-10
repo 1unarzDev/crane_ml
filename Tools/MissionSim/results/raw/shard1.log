@@ -1,0 +1,15 @@
+shard 1 0/192 1s
+shard 1 50/192 15s
+shard 1 100/192 27s
+shard 1 150/192 40s
+done /home/lunarz/worktrees/crane-drones/Tools/MissionSim/results/raw/E1forced_val_s1.jsonl 54.63356852531433
+shard 1 0/44 0s
+done /home/lunarz/worktrees/crane-drones/Tools/MissionSim/results/raw/E1nat_val_s1.jsonl 22.890811443328857
+shard 1 0/28 1s
+done /home/lunarz/worktrees/crane-drones/Tools/MissionSim/results/raw/E3_val_s1.jsonl 24.448695421218872
+shard 1 0/53 1s
+shard 1 50/53 17s
+done /home/lunarz/worktrees/crane-drones/Tools/MissionSim/results/raw/P7_val_s1.jsonl 17.549582481384277
+shard 1 0/93 0s
+shard 1 50/93 19s
+done /home/lunarz/worktrees/crane-drones/Tools/MissionSim/results/raw/ABL_val_s1.jsonl 39.05600142478943

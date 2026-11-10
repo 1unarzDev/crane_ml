@@ -1,0 +1,12 @@
+{
+    "name": "Crane.Drones.Harness.Tests",
+    "rootNamespace": "Crane.Drones.Harness.Tests",
+    "references": [
+        "Crane.Drones.Harness",
+        "Crane.Drones.Autonomy",
+        "Crane.Aerial.Physics"
+    ],
+    "includePlatforms": [ "Editor" ],
+    "excludePlatforms": [],
+    "optionalUnityReferences": [ "TestAssemblies" ]
+}

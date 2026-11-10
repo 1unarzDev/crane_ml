@@ -1,0 +1,32 @@
+{
+ "schema": "crane-experiment/1",
+ "name": "cf_infl25_v5",
+ "split": "dev",
+ "_note": "Counterfactual replay of the lead's colliding sweep runs with one factor removed (infl25); same seeds, everything else identical.",
+ "forests": [
+  {
+   "seed": 1337,
+   "manifest": "Assets/Drones/Environment/Manifests/forest_seed1337_manifest.json"
+  }
+ ],
+ "missions": {
+  "cross": 10,
+  "corridor": true,
+  "only": [
+   "corridor_rev",
+   "cross_2"
+  ]
+ },
+ "speeds": [
+  5
+ ],
+ "run_seeds": [
+  1
+ ],
+ "config": {
+  "InflateExtra": 0.25
+ },
+ "logs": "none",
+ "label_failures": true,
+ "bundle_failures": false
+}

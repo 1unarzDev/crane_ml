@@ -114,7 +114,7 @@ namespace `Crane.Drones.Autonomy`.
 | M3 | Map: sparse log-odds voxels, raycast clearing with conservative miss, window ESDF; prior from the manifest (stale/incomplete options) | IMPLEMENTED, FIXTURE_VALIDATED |
 | M4 | Local planning: MAP_RHP 3D primitives, NavPilot safety layer (p99 age plus simulated brake table), REACTIVE fallback, corridor route plus wavefront cost-to-go | IMPLEMENTED; closed loop validated in M5 |
 | M4b | Safety recovery: stall watchdog, brake-to-hover, "no safe maneuver" stop, recovery and replan after a near miss | IMPLEMENTED, FIXTURE_VALIDATED (arbiter test); exercised in every M5 run |
-| M5 | End-to-end validation, ≥ 20 DEV flights at 2–3 m/s, then a speed sweep | DONE in .NET (24 flights at 2.5 m/s: 22/24 success, 0 collisions; 77-flight sweep). Unity collider world LIVE_SIM_VALIDATED partial (7/7 at report time, batch still running) |
+| M5 | End-to-end validation, ≥ 20 DEV flights at 2–3 m/s, then a speed sweep | DONE in .NET (24 flights at 2.5 m/s: 22/24 success, 0 collisions; 84-flight sweep). Unity collider world LIVE_SIM_VALIDATED partial (7/7 at report time, batch still running) |
 | M6 | One rendered autonomous flight (onboard plus third-person stills) | PENDING (last step of the running Unity batch) |
 | next | Reliable low speed → high-speed operation → two-drone missions (independent stacks, `ICommsLink` events) | planned |
 
@@ -292,7 +292,7 @@ Label: **LIVE_SIM_VALIDATED (partial, n = 7)** for low-speed flight in the Unity
 
 | VLimit | n | success | 95% CI | collisions | stuck/timeout | progress mean | min hard clearance (min / p10) [m] | twig contacts / run | mean speed [m/s] | age p50 / p99 / max [ms] | no-safe stops / run | watchdog / run | margin viol. [%] |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| 2 | 5 | 5/5 | 0.57-1.00 | 0 | 0 | 1.00 | 0.30 / 0.31 | 0.0 | 1.85 | 98 / 137 / 212 | 2.2 | 1.0 | 0.00 |
+| 2 | 12 | 12/12 | 0.76-1.00 | 0 | 0 | 1.00 | 0.22 / 0.30 | 0.0 | 1.81 | 98 / 141 / 212 | 2.2 | 1.0 | 0.00 |
 | 2.5 | 12 | 11/12 | 0.65-0.99 | 0 | 1 | 0.99 | 0.24 / 0.26 | 0.0 | 2.24 | 99 / 139 / 212 | 3.2 | 0.8 | 0.02 |
 | 3 | 12 | 10/12 | 0.55-0.95 | 0 | 2 | 0.90 | 0.20 / 0.24 | 0.4 | 2.48 | 99 / 140 / 212 | 3.0 | 0.7 | 0.03 |
 | 4 | 12 | 12/12 | 0.76-1.00 | 0 | 0 | 1.00 | 0.11 / 0.19 | 1.1 | 3.38 | 99 / 141 / 212 | 4.8 | 0.6 | 0.13 |
@@ -300,10 +300,10 @@ Label: **LIVE_SIM_VALIDATED (partial, n = 7)** for low-speed flight in the Unity
 | 6 | 12 | 6/12 | 0.25-0.75 | 5 | 1 | 0.80 | -0.04 / -0.02 | 3.6 | 4.44 | 100 / 141 / 212 | 5.7 | 0.2 | 1.38 |
 | 8 | 12 | 7/12 | 0.32-0.81 | 4 | 1 | 0.77 | -0.04 / -0.03 | 3.6 | 5.05 | 102 / 138 / 212 | 5.0 | 0.1 | 1.39 |
 
-The 2.5 m/s row is seed 1 only. The 2.0 m/s row was still running at report time (5 of 12 missions).
+The 2.5 m/s row is seed 1 only.
 
 **Where reliability drops:**
-- Up to 4 m/s there are **no collisions** (41/41 non-collision; stuck failures only).
+- Up to 4 m/s there are **no collisions** (0 in 48 flights; stuck failures only).
 - Minimum hard clearance shrinks with speed: 0.30 m at 2 m/s, 0.24 at 2.5, 0.11 at 4.
 - True stopping-margin violations rise from ≤ 0.03 % to 0.13 % of moving ticks.
 - **Collisions start at v_lim = 5 m/s** (2/12). They are frequent at 6 (5/12) and 8 (4/12).
@@ -317,7 +317,7 @@ The 2.5 m/s row is seed 1 only. The 2.0 m/s row was still running at report time
 - The margin-violation rate at 5–8 m/s (0.5–1.4 %) shows the belief and the truth disagreeing near obstacles.
 - Leading hypotheses, NOT yet attributed: inflation of only 0.15 m plus half a voxel at 0.2 m resolution; thin-limb see-through under motion blur; ESDF truncation at 0.6 m.
 
-**Conservative operating point for the shared infrastructure, on this forest: v_lim ≤ 4 m/s** (0/41 collisions, 95 % upper bound about 8.6 %).
+**Conservative operating point for the shared infrastructure, on this forest: v_lim ≤ 4 m/s** (0/48 collisions, 95 % upper bound about 7.4 %).
 
 
 ## M6 Rendered flight
