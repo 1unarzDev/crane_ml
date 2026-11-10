@@ -1,0 +1,67 @@
+{
+ "note": "Post-04:00 box_small rerun (v0 profile, physical load model, library with the handoff-carry fix), seeds 1-10; seed 2 also renders success story frames (lift, carry, set-down, delivered) for the README. Failures render replays as before.",
+ "out": "/home/lunarz/.cache/crane-fleet/requests/load5_box_small_s1-10",
+ "jobs": [
+  {
+   "id": "load5_box_small_1",
+   "seed": 1,
+   "variant": "load5_box_small",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet/Tools/Fleet/missions/autonomy_demo_v2_box_small.json"
+  },
+  {
+   "id": "load5_box_small_2",
+   "seed": 2,
+   "variant": "load5_box_small",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet/Tools/Fleet/missions/autonomy_demo_v2_box_small.json",
+   "render": "story"
+  },
+  {
+   "id": "load5_box_small_3",
+   "seed": 3,
+   "variant": "load5_box_small",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet/Tools/Fleet/missions/autonomy_demo_v2_box_small.json"
+  },
+  {
+   "id": "load5_box_small_4",
+   "seed": 4,
+   "variant": "load5_box_small",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet/Tools/Fleet/missions/autonomy_demo_v2_box_small.json"
+  },
+  {
+   "id": "load5_box_small_5",
+   "seed": 5,
+   "variant": "load5_box_small",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet/Tools/Fleet/missions/autonomy_demo_v2_box_small.json"
+  },
+  {
+   "id": "load5_box_small_6",
+   "seed": 6,
+   "variant": "load5_box_small",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet/Tools/Fleet/missions/autonomy_demo_v2_box_small.json"
+  },
+  {
+   "id": "load5_box_small_7",
+   "seed": 7,
+   "variant": "load5_box_small",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet/Tools/Fleet/missions/autonomy_demo_v2_box_small.json"
+  },
+  {
+   "id": "load5_box_small_8",
+   "seed": 8,
+   "variant": "load5_box_small",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet/Tools/Fleet/missions/autonomy_demo_v2_box_small.json"
+  },
+  {
+   "id": "load5_box_small_9",
+   "seed": 9,
+   "variant": "load5_box_small",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet/Tools/Fleet/missions/autonomy_demo_v2_box_small.json"
+  },
+  {
+   "id": "load5_box_small_10",
+   "seed": 10,
+   "variant": "load5_box_small",
+   "mission_file": "/home/lunarz/worktrees/crane-fleet/Tools/Fleet/missions/autonomy_demo_v2_box_small.json"
+  }
+ ]
+}

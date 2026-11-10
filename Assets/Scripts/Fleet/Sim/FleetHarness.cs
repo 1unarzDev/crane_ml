@@ -200,6 +200,63 @@ namespace Crane.Fleet.Sim {
         }
 
         /// <summary>Player with a GPU: re-run a failed job and render frames around its divergence (or its last seconds), aimed at the rover.</summary>
+        /// <summary>Story frames for a SUCCESSFUL job (jobs key "render": "story"): the lift, the carry, the set-down on the deck and delivered, at fixed
+        /// offsets after the run's own events (payload_gripped + 1.5 s, payload_load_on + 3 s, payload_released + 0.5 s, host_verdict + 0.3 s).
+        /// Same rerun, cameras and file naming (replays/ID/frames/replay_NN_tT.png) as the failure replays; the camera follows the rover that
+        /// holds the payload at each moment (lifter for lift/carry, place_on rover for set-down and delivered).</summary>
+        public static List<(double t, string rover, string label)> StoryTimes(string eventsPath, string receiverFromMission = null) {
+            var r = new List<(double, string, string)>();
+            double grip = double.NaN, loadOn = double.NaN, rel = double.NaN, verdict = double.NaN; string lifter = null, receiver = receiverFromMission;
+            foreach (var line in File.ReadLines(eventsPath)) {
+                var e = JsonNode.FromText(line); string k = e["kind"].String; double t = e["t"].Double;
+                if (k == "payload_gripped" && double.IsNaN(grip)) { grip = t; lifter = e["rover"].String; }
+                else if (k == "payload_load_on" && double.IsNaN(loadOn)) loadOn = t;
+                else if (k == "payload_released" && double.IsNaN(rel)) rel = t;
+                else if (k == "host_verdict" && double.IsNaN(verdict)) verdict = t;
+                else if (k == "top_tag_covered" && receiver == null && e["rover"].String != lifter) receiver = e["rover"].String;
+            }
+            if (!double.IsNaN(grip)) r.Add((grip + 1.5, lifter, "lift"));
+            if (!double.IsNaN(loadOn)) r.Add((loadOn + 3.0, lifter, "carry"));
+            if (!double.IsNaN(rel)) r.Add((rel + 0.5, receiver ?? lifter, "set_down"));
+            if (!double.IsNaN(verdict)) r.Add((verdict + 0.3, receiver ?? lifter, "delivered"));
+            return r;
+        }
+
+        public static IEnumerator RenderStory(string specDir, JsonNode j, JobResult res, string outDir, string launcher, string commit, bool dirty) {
+            string receiver = null;   // the handoff task's place_on (else its first supporter)
+            if (j.Has("mission_file")) {
+                var mf = JsonNode.FromText(File.ReadAllText(j["mission_file"].String));
+                if (mf.Has("tasks")) foreach (var t in mf["tasks"].Items)
+                    if (t.Has("type") && t["type"].String == "handoff") receiver = t.Has("place_on") ? t["place_on"].String : t["supporters"].Items[0].String;
+            }
+            var story = StoryTimes(Path.Combine(res.Dir, "events.jsonl"), receiver);
+            var spec = SpecFor(specDir, j);
+            var opt = Options(spec, j, Path.Combine(outDir, "replays", res.Id, "rerun"), launcher, commit, dirty);
+            opt.OutDir = Path.Combine(outDir, "replays", res.Id, "rerun");
+            var run = new FleetRun(spec, opt);
+            var shots = new List<object>();
+            int k = 0;
+            foreach (var (t, rover, label) in story)
+                shots.Add(new Dictionary<string, object> { ["name"] = $"replay_{k++:D2}_t{t:0.0}", ["label"] = label, ["t"] = t, ["fov"] = 45.0,
+                    ["camera"] = new Dictionary<string, object> { ["target"] = "rover:" + (rover ?? "lifter_1"), ["position"] = new[] { -1.2, -1.6, 1.4 }, ["look_at"] = new[] { 0.0, 0.0, 0.1 } } });
+            string json = FleetJson.Write(new Dictionary<string, object> { ["size"] = new[] { 960, 540 }, ["look"] = true, ["shots"] = shots });
+            var fs = new FleetShots(spec, run, Path.Combine(outDir, "replays", res.Id, "frames"), JsonNode.FromText(json));
+            double end = story.Count > 0 ? story[story.Count - 1].t + 0.5 : 5;
+            run.Setup();
+            fs.Begin();
+            while (true) {
+                while (fs.Due()) yield return fs.RenderNext();
+                if (!run.Advance() || run.T > end) break;
+            }
+            while (fs.Pending) yield return fs.RenderNext(force: true);
+            run.Finish();
+            fs.Finish();
+            run.Dispose();
+            File.WriteAllText(Path.Combine(outDir, "replays", res.Id, "story.json"), FleetJson.Write(new Dictionary<string, object> {
+                ["schema"] = "crane.fleet_success_story/v0", ["job"] = res.Id, ["outcome"] = res.Outcome, ["run_dir"] = res.Dir,
+                ["frames"] = story.ConvertAll(x => (object)new Dictionary<string, object> { ["t"] = x.t, ["rover"] = x.rover, ["label"] = x.label }) }, true) + "\n");
+        }
+
         public static IEnumerator RenderReplay(string specDir, JsonNode j, JobResult res, string outDir, string launcher, string commit, bool dirty) {
             double end = double.IsNaN(res.DivergenceT) || double.IsInfinity(res.DivergenceT) ? double.NaN : res.DivergenceT;
             string focusRover = res.DivergenceRover;

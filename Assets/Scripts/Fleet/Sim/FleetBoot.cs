@@ -106,8 +106,11 @@ namespace Crane.Fleet.Sim {
                     var root = JsonNode.FromText(File.ReadAllText(jobs));
                     var byId = new Dictionary<string, JsonNode>();
                     foreach (var j in root["jobs"].Items) byId[j["id"].String] = j;
-                    foreach (var r in res)
+                    foreach (var r in res) {
                         if (!r.Success) yield return FleetHarness.RenderReplay(specDir, byId[r.Id], r, Path.GetFullPath(root["out"].String), "player", commit, dirty);
+                        else if (byId[r.Id].Has("render") && byId[r.Id]["render"].String == "story")
+                            yield return FleetHarness.RenderStory(specDir, byId[r.Id], r, Path.GetFullPath(root["out"].String), "player", commit, dirty);
+                    }
                 }
                 exit(0);
                 yield break;
