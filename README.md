@@ -19,7 +19,7 @@ nothing here is measured on hardware.
   <tr>
     <td><img src="Docs/media/readme/fleet_warehouse_start.jpg" alt="Four rovers in a warehouse"><br><sub><b>Ground.</b> Four-rover mecanum fleet at the start of a warehouse mission.</sub></td>
     <td><img src="Docs/media/readme/fleet_dock_latched.jpg" alt="Docking hooks latched"><br><sub><b>Ground.</b> Rover-to-rover docking: hooks latched.</sub></td>
-    <td><img src="Docs/media/readme/fleet_payload_on_decks.jpg" alt="Payload across two coupled rovers"><br><sub><b>Ground.</b> Payload carried across two coupled decks.</sub></td>
+    <td><img src="Docs/media/readme/fleet_payload_on_decks.jpg" alt="Payload across two coupled rovers"><br><sub><b>Ground.</b> Payload supported across two coupled decks (deck carry; the earlier lifter step was kinematic).</sub></td>
   </tr>
   <tr>
     <td><img src="Docs/media/readme/forest_aerial_wide.jpg" alt="Procedural forest from the air"><br><sub><b>Aerial.</b> Procedural forest, wide aerial view.</sub></td>
@@ -48,6 +48,23 @@ More frames, with run identifiers and render notes, live on the research branche
 [`research/fleet`](../../tree/research/fleet/Docs/Fleet/media) (ground) and
 [`research/drone-sim`](../../tree/research/drone-sim/Docs/DroneVisuals) (aerial).
 
+## Modular fleet (CRANE)
+
+These pictures show the modular mecanum ground fleet in CRANE: the CAD v1 rover design, physical-load runs and the modular-robotics test scenes. **Simulation only;** the CAD is at concept/datasheet level, not measured. Frame notes are in [`Docs/Fleet/media/README.md`](../../tree/research/fleet/Docs/Fleet/media) on `research/fleet`.
+
+<table>
+  <tr>
+    <td width="33%"><img src="Docs/Fleet/media/cad_v1/compare_scout.jpg" alt="Scout concept beside CAD v1"><br><sub><b>Design.</b> Scout: concept (left) and parametric CAD v1 (right), with a lidar, a depth camera and a proxy arm.</sub></td>
+    <td width="33%"><img src="Docs/Fleet/media/cad_v1/compare_lifter.jpg" alt="Lifter concept beside CAD v1"><br><sub><b>Design.</b> Lifter: 342 × 260 mm chassis, mecanum wheels, reciprocal hook-and-pin docks.</sub></td>
+    <td width="33%"><img src="Docs/Fleet/media/cad_v1/compare_cargo.jpg" alt="Cargo concept beside CAD v1"><br><sub><b>Design.</b> Cargo rover with a raised deck on standoffs.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="Docs/Fleet/media/cad_v1/lifter_places_box_small_on_cargo.jpg" alt="Lifter placing a box on a cargo deck"><br><sub><b>Design.</b> The 170 mm lift sets a 2 kg box side-on onto a cargo deck (static CAD check).</sub></td>
+    <td><img src="Docs/Fleet/media/runs/box_long6kg_seed1_t68.8_capacity_crop.jpg" alt="Lifter refusing an over-capacity box"><br><sub><b>Run.</b> A box over the lift rating: the lift stalls, the autonomy refuses it as over capacity and returns it.</sub></td>
+    <td><img src="Docs/Fleet/media/scenes/scenes_v1_index.jpg" alt="Modular-robotics test scene families"><br><sub><b>Scenes.</b> Test scene families (narrow doors, a strafe-only shelf slot, wheel failure, ...) that compile to fastsim and CRANE.</sub></td>
+  </tr>
+</table>
+
 The project is currently strongest in aquatic simulation. Its production scenes use Unity
 HDRP water for both the rendered environment and physical water queries used by buoyancy and
 hydrodynamics. The same component model also supports land and aerial robots through reusable
@@ -56,13 +73,6 @@ physics-body, actuator, controller, sensor, and ROS abstractions.
 CRANE is being developed as a research and training tool. Its performance target is **valid
 simulated experience per wall-clock second**, including correct physics, sensor timing, and
 controller synchronization. Frame rate alone is not a useful throughput metric.
-
-The [CRANE-Fidelity evidence record](Docs/CRANE-Fidelity-PilotEvidence.md) tracks the measurement-
-calibration research path, public physical-data pilot, simulation repeatability, and remaining
-hardware gates. Public data from another platform does not establish calibration or sim-to-real
-validity for CRANE's robots. The maintained [current state](Docs/CRANE_FIDELITY_CURRENT_STATE.md),
-[claims register](Docs/CRANE_FIDELITY_CLAIMS.md), and [blocker/action register](Docs/CRANE_FIDELITY_BLOCKERS.md)
-make those evidence boundaries explicit.
 
 Runtime intent is selected with a named profile rather than by changing scenes or physics code:
 
@@ -295,3 +305,7 @@ environments. Read the documentation before treating a run as training-valid.
 - [Architecture and design](Docs/ArchitectureAndDesign.md)
 - [Simulation physics, conventions, and runtime modes](Docs/SimulationPhysicsAndRuntimeModes.md)
 - [Performance engineering and benchmark results](Docs/PerformanceEngineering.md)
+- Experiment cluster (coordinator, workers, staged hypothesis promotion, dashboard): moved on 2026-11-03 to its own
+  private repository, [1unarzDev/research-cluster](https://github.com/1unarzDev/research-cluster), with its history.
+  crane's backends for it stay here as the plugin package [`crane_backends/`](crane_backends/__init__.py)
+  (entry points in `pyproject.toml`)
