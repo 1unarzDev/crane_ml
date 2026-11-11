@@ -151,3 +151,16 @@ Restore fsrun to 3 slots and resume RoleSpec (`kill -CONT 1339976`). Then run Un
 - If both are clean, switch `RecursiveFeasibility`/`BrakeAlongPath` to default-on.
 
 Evidence so far: on v1, the fix had 2 collisions vs 14 for legacy across 45 pairs at 5/6/8 m/s (`frontier/recfeas/`).
+
+## 6. PAUSED by the user (2026-11-10 ~19:40 CST): "don't start back up research, we will resume in around a day"
+- **Checkpoint crons:** all cancelled (h24–h72 sprint and frontier H12/H24). Recreate them on resume.
+- **[workshop] improvement round** (target: independent raters ≥ 7.5). Its three agents died on API 503 at about 19:02 and were NOT restarted. Partial, untested files are in `~/worktrees/crane-forest-sar/Tools/ForestSearch/`:
+  - `diagnosis.py`: beacon self-diagnosis protocols
+  - `mechanism3.py` and `test_mechanism3.py`: delay mechanism
+  - `replicate.py` and `analyze_replication.py`: larger preregistered replication
+  - No results files and no `PREREG_REPLICATION.md` yet.
+  - Relaunch with the three briefs recorded in `Tools/ForestSearch/STATUS.md` (2026-11-10 improvement round).
+  - The OpenTimestamps client is at `~/.cache/research/ots-venv/bin/ots`; the user approved OTS for prereg timing.
+- **Forest iteration 5:** code ready (seasons with ground cover, night, stars, defects). It waits for "Unity OK" after the pilot; see section 5.
+- **CAD:** parts-accurate AOS 7 V5 is committed. Waiting on the user for: the exact motor and KV, the Jetson STEP download (needs NVIDIA login), and a CoM fix choice.
+- **Pilot:** the modular pilot (`owp1-rest-23` of 26 at 19:37) is expected to end around 04:00 CST. The cluster session (research-cluster-35) will message.
