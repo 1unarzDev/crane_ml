@@ -32,11 +32,6 @@ nothing here is measured on hardware.
     <td><img src="Docs/media/readme/forest_tod_1830.jpg" alt="Procedural forest at 18:30 golden hour"><br><sub><b>Environment.</b> 18:30, golden hour. Simulation renders; only sky, sun, fog and grade change.</sub></td>
   </tr>
   <tr>
-    <td><img src="Docs/media/readme/rover_cad_scout.jpg" alt="Scout rover: concept beside parametric CAD"><br><sub><b>Design.</b> Modular rover CAD v1, scout: concept (left) and parametric CAD (right). Concept and datasheet level, not measured.</sub></td>
-    <td><img src="Docs/media/readme/rover_cad_lifter.jpg" alt="Lifter rover: concept beside parametric CAD"><br><sub><b>Design.</b> Modular rover CAD v1, lifter, with reciprocal hook-and-pin docks.</sub></td>
-    <td><img src="Docs/media/readme/rover_cad_cargo.jpg" alt="Cargo rover: concept beside parametric CAD"><br><sub><b>Design.</b> Modular rover CAD v1, cargo deck.</sub></td>
-  </tr>
-  <tr>
     <td><img src="Docs/media/readme/drone_cad_vs_reference.jpg" alt="Reference concept beside the CAD model"><br><sub><b>Design.</b> AOS 7 V5 search drone: reference layout (left) and our CAD model (right).</sub></td>
     <td><img src="Docs/media/readme/drone_cad_iso.jpg" alt="CAD model iso view"><br><sub><b>Design.</b> CAD model: 1.784 kg, two decks, L2, Orin, OAK-D S2, Cube Orange; exported to URDF for simulation.</sub></td>
     <td><img src="Docs/media/readme/drone_cad_top.jpg" alt="CAD model stack close-up"><br><sub><b>Design.</b> Stack close-up: L2, Jetson deck on M3 standoffs, Cube Mini carrier, radio and antennas.</sub></td>
