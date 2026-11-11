@@ -50,17 +50,18 @@ More frames, with run identifiers and render notes, live on the research branche
 
 ## Modular fleet (CRANE)
 
-These figures cover the modular ground fleet: CAD v1 rovers, physical-load runs in CRANE, and test scenes. **Simulation only.** CAD is at concept/datasheet level. Frame notes and critiques are in [`Docs/Fleet/media/README.md`](../../tree/research/fleet/Docs/Fleet/media) on `research/fleet`.
+These pictures show the modular mecanum ground fleet in CRANE: the CAD v1 rover design, physical-load runs and the modular-robotics test scenes. **Simulation only;** the CAD is at concept/datasheet level, not measured. Frame notes are in [`Docs/Fleet/media/README.md`](../../tree/research/fleet/Docs/Fleet/media) on `research/fleet`.
 
 <table>
   <tr>
-    <td width="33%"><img src="Docs/Fleet/media/cad_v1/compare_lifter.jpg" alt="Lifter concept beside CAD v1"><br><sub><b>Design.</b> CAD v1 lifter: concept (left) and parametric CAD (right). 342 × 260 mm chassis, mecanum wheels, reciprocal docks.</sub></td>
-    <td width="33%"><img src="Docs/Fleet/media/cad_v1/lifter_places_box_small_on_cargo.jpg" alt="Lifter placing box_small on a cargo deck"><br><sub><b>Design.</b> 170 mm lift sets the 2 kg box side-on onto a cargo deck. Static CAD check; rating 2.0 kg at SF 1.51.</sub></td>
-    <td width="33%"><img src="Docs/Fleet/media/runs/box_long6kg_seed1_t68.8_capacity_crop.jpg" alt="Lifter refusing an over-capacity box"><br><sub><b>Run.</b> 6 kg box over the 5 kg rating: the lift stalls, the library refuses with Capacity and returns the box (seed 1).</sub></td>
+    <td width="33%"><img src="Docs/Fleet/media/cad_v1/compare_scout.jpg" alt="Scout concept beside CAD v1"><br><sub><b>Design.</b> Scout: concept (left) and parametric CAD v1 (right), with a lidar, a depth camera and a proxy arm.</sub></td>
+    <td width="33%"><img src="Docs/Fleet/media/cad_v1/compare_lifter.jpg" alt="Lifter concept beside CAD v1"><br><sub><b>Design.</b> Lifter: 342 × 260 mm chassis, mecanum wheels, reciprocal hook-and-pin docks.</sub></td>
+    <td width="33%"><img src="Docs/Fleet/media/cad_v1/compare_cargo.jpg" alt="Cargo concept beside CAD v1"><br><sub><b>Design.</b> Cargo rover with a raised deck on standoffs.</sub></td>
   </tr>
   <tr>
-    <td><img src="Docs/Fleet/media/runs/box_small_seed1_t104.7_perception.jpg" alt="Lifter carrying a box toward two coupled cargo rovers"><br><sub><b>Run.</b> Physical lift: the lifter carries a 2 kg box toward two coupled cargo rovers (seed 1; this run ended in a perception failure before handoff).</sub></td>
-    <td><img src="Docs/Fleet/media/scenes/scenes_v1_index.jpg" alt="Nine modular-robotics test scene families"><br><sub><b>Scenes.</b> Scenes v1: nine test families (narrow door, lateral slot, wheel failure, ...), fastsim top-down previews.</sub></td>
+    <td><img src="Docs/Fleet/media/cad_v1/lifter_places_box_small_on_cargo.jpg" alt="Lifter placing a box on a cargo deck"><br><sub><b>Design.</b> The 170 mm lift sets a 2 kg box side-on onto a cargo deck (static CAD check).</sub></td>
+    <td><img src="Docs/Fleet/media/runs/box_long6kg_seed1_t68.8_capacity_crop.jpg" alt="Lifter refusing an over-capacity box"><br><sub><b>Run.</b> A box over the lift rating: the lift stalls, the autonomy refuses it as over capacity and returns it.</sub></td>
+    <td><img src="Docs/Fleet/media/scenes/scenes_v1_index.jpg" alt="Modular-robotics test scene families"><br><sub><b>Scenes.</b> Test scene families (narrow doors, a strafe-only shelf slot, wheel failure, ...) that compile to fastsim and CRANE.</sub></td>
   </tr>
 </table>
 
