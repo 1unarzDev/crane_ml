@@ -6,8 +6,8 @@ using Sim.Utils;
 
 namespace Sim.Physics.Water.Dynamics {
     /// <summary>
-    /// DEPRECATED, replaced by <see cref="MarineHydrodynamics"/> in the plant. It applies +M_A·ν̇
-    /// (wrong sign), keeps pre-reset state and reads surge from the mesh's sway axis (I1 V1/V2).
+    /// DEPRECATED, replaced by <see cref="MarineHydrodynamics"/> in the plant. It applied +M_A·ν̇
+    /// (wrong sign; now −M_A·ν̇ if re-enabled), keeps pre-reset state and reads surge from the mesh's sway axis (I1 V1/V2).
     /// The boat bootstrap disables it at runtime; delete it once Blastoise.prefab drops it.
     /// </summary>
     public class FossenDynamics : MonoBehaviour {
@@ -96,8 +96,10 @@ namespace Sim.Physics.Water.Dynamics {
             float CoriolisFactor = Coriolis ? 1.0f : 0.0f;
             float AddedMassFactor = AddedMass ? 1.0f : 0.0f;
 
-            Vector3 F = DampingFactor * Fd + CoriolisFactor * Fc + AddedMassFactor * Fma;
-            Vector3 T = DampingFactor * Td + CoriolisFactor * Tc + AddedMassFactor * Tma;
+            // Unity already integrates M_RB, so the added-mass reaction is -M_A * nuDot (total (M_RB + M_A) nuDot = tau).
+            // It was +M_A * nuDot, which made the hull respond (M_RB - M_A) faster than rigid-body (I1 V1).
+            Vector3 F = DampingFactor * Fd + CoriolisFactor * Fc - AddedMassFactor * Fma;
+            Vector3 T = DampingFactor * Td + CoriolisFactor * Tc - AddedMassFactor * Tma;
 
             // Convert from right-handed, z-up to left-handed, y-up (Unity's coordinate system)
             F = new Vector3(-F.y, F.z, F.x); // Switch y and z, negate new y
