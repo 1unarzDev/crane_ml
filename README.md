@@ -7,58 +7,63 @@ sensors; ROS 2 supplies the planning, navigation, estimation, and control stack.
 
 ## Screenshots
 
-All frames are rendered by CRANE (Unity HDRP) from recorded or live simulation runs. Simulation only;
-nothing here is measured on hardware.
+<p align="center"><img src="Docs/media/readme/render_master.jpg" alt="Boat, AUV and drone in one scene" width="80%"></p>
+
+Two kinds of picture are shown and each caption says which. **Sim** frames are rendered by CRANE
+(Unity HDRP) from recorded or live simulation runs. **Render** frames are offline key art
+(Blender Cycles) built from the same CAD and URDF assets; they are illustrations, not simulation
+output. Nothing here is measured on hardware.
 
 <table>
   <tr>
-    <td width="33%"><img src="Docs/media/readme/roboboat_route_wide.jpg" alt="RoboBoat route from above"><br><sub><b>Surface.</b> Gate, U-turn and slip dock: one recorded run replayed with HDRP water.</sub></td>
-    <td width="33%"><img src="Docs/media/readme/roboboat_dock_close.jpg" alt="Boat entering the slip"><br><sub><b>Surface.</b> Final approach into the slip, close view.</sub></td>
-    <td width="33%"><img src="Docs/media/readme/roboboat_unity_vs_numpy.jpg" alt="Unity and NumPy plants overlaid"><br><sub><b>Surface.</b> Unity plant (gold) against the fast NumPy plant (silver), same controller and seed.</sub></td>
+    <td width="33%"><img src="Docs/media/readme/roboboat_route_wide.jpg" alt="RoboBoat route from above"><br><sub><b>Surface · sim.</b> Gate, U-turn and slip dock: one recorded run replayed with HDRP water.</sub></td>
+    <td width="33%"><img src="Docs/media/readme/roboboat_dock_close.jpg" alt="Boat entering the slip"><br><sub><b>Surface · sim.</b> Final approach into the slip, close view.</sub></td>
+    <td width="33%"><img src="Docs/media/readme/roboboat_unity_vs_numpy.jpg" alt="Unity and NumPy plants overlaid"><br><sub><b>Surface · sim.</b> Unity plant (gold) against the fast NumPy plant (silver), same controller and seed.</sub></td>
   </tr>
   <tr>
-    <td><img src="Docs/media/readme/fleet_warehouse_start.jpg" alt="Four rovers in a warehouse"><br><sub><b>Ground.</b> Four-rover mecanum fleet at the start of a warehouse mission.</sub></td>
-    <td><img src="Docs/media/readme/fleet_dock_latched.jpg" alt="Docking hooks latched"><br><sub><b>Ground.</b> Rover-to-rover docking: hooks latched.</sub></td>
-    <td><img src="Docs/media/readme/fleet_payload_on_decks.jpg" alt="Payload across two coupled rovers"><br><sub><b>Ground.</b> Payload supported across two coupled decks (deck carry; the earlier lifter step was kinematic).</sub></td>
+    <td><img src="Docs/media/readme/render_boat_golden.jpg" alt="RoboBoat at golden hour in a buoy course"><br><sub><b>Surface · render.</b> The team boat in a RoboBoat-style course at golden hour.</sub></td>
+    <td><img src="Docs/media/readme/render_boat_dock_night.jpg" alt="RoboBoat docking at night"><br><sub><b>Surface · render.</b> Night docking with harbour lights.</sub></td>
+    <td><img src="Docs/media/readme/render_boat_uncertainty.jpg" alt="RoboBoat in rain with uncertainty rings along its route"><br><sub><b>Surface · render.</b> Position uncertainty drawn along the planned route, in rain (illustrative).</sub></td>
   </tr>
   <tr>
-    <td><img src="Docs/media/readme/forest_aerial_wide.jpg" alt="Procedural forest from the air"><br><sub><b>Aerial.</b> Procedural forest, wide aerial view.</sub></td>
-    <td><img src="Docs/media/readme/forest_search_orbit.jpg" alt="Drone search orbit with a detection"><br><sub><b>Aerial.</b> Forest search: orbit around a detected person.</sub></td>
-    <td><img src="Docs/media/readme/forest_onboard_rgb.jpg" alt="Onboard camera view under the canopy"><br><sub><b>Aerial.</b> Onboard RGB camera under the canopy.</sub></td>
+    <td><img src="Docs/media/readme/sub_course_top.jpg" alt="RoboSub course in a pool from above"><br><sub><b>Underwater · sim.</b> RoboSub-style course in CRANE-Sub: gate, slalom, bins and octagon, from above.</sub></td>
+    <td><img src="Docs/media/readme/sub_rov_pool.jpg" alt="BlueROV2 Heavy in the pool"><br><sub><b>Underwater · sim.</b> BlueROV2 Heavy in the competition pool.</sub></td>
+    <td><img src="Docs/media/readme/sub_course_view.jpg" alt="Underwater course view with slalom poles"><br><sub><b>Underwater · sim.</b> Course view at depth: slalom poles, task boards, octagon.</sub></td>
   </tr>
   <tr>
-    <td><img src="Docs/media/readme/forest_tod_0900.jpg" alt="Procedural forest at 09:00"><br><sub><b>Environment.</b> One procedural forest at three simulated times of day: 09:00, crisp morning sun.</sub></td>
-    <td><img src="Docs/media/readme/forest_tod_1600.jpg" alt="Procedural forest at 16:00 with light shafts"><br><sub><b>Environment.</b> 16:00, same camera and seed: sun glare and light shafts through the canopy.</sub></td>
-    <td><img src="Docs/media/readme/forest_tod_1830.jpg" alt="Procedural forest at 18:30 golden hour"><br><sub><b>Environment.</b> 18:30, golden hour. Simulation renders; only sky, sun, fog and grade change.</sub></td>
+    <td><img src="Docs/media/readme/render_sub_gate.jpg" alt="Two AUVs passing a gate"><br><sub><b>Underwater · render.</b> The team AUV and a BlueROV2 Heavy at the gate task.</sub></td>
+    <td><img src="Docs/media/readme/render_sub_window.jpg" alt="AUVs seen from below through Snell's window"><br><sub><b>Underwater · render.</b> Seen from below, through Snell's window.</sub></td>
+    <td><img src="Docs/media/readme/render_sub_split.jpg" alt="Split-waterline view of an AUV"><br><sub><b>Underwater · render.</b> Split waterline, open water.</sub></td>
   </tr>
   <tr>
-    <td><img src="Docs/media/readme/drone_cad_vs_reference.jpg" alt="Reference concept beside the CAD model"><br><sub><b>Design.</b> AOS 7 V5 search drone: reference layout (left) and our CAD model (right).</sub></td>
-    <td><img src="Docs/media/readme/drone_cad_iso.jpg" alt="CAD model iso view"><br><sub><b>Design.</b> CAD model: 1.784 kg, two decks, L2, Orin, OAK-D S2, Cube Orange; exported to URDF for simulation.</sub></td>
-    <td><img src="Docs/media/readme/drone_cad_top.jpg" alt="CAD model stack close-up"><br><sub><b>Design.</b> Stack close-up: L2, Jetson deck on M3 standoffs, Cube Mini carrier, radio and antennas.</sub></td>
+    <td><img src="Docs/media/readme/forest_aerial_wide.jpg" alt="Procedural forest from the air"><br><sub><b>Aerial · sim.</b> Procedural forest, wide aerial view.</sub></td>
+    <td><img src="Docs/media/readme/forest_search_orbit.jpg" alt="Drone search orbit with a detection"><br><sub><b>Aerial · sim.</b> Forest search: orbit around a detected person.</sub></td>
+    <td><img src="Docs/media/readme/forest_onboard_rgb.jpg" alt="Onboard camera view under the canopy"><br><sub><b>Aerial · sim.</b> Onboard RGB camera under the canopy.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="Docs/media/readme/render_drone_chase.jpg" alt="Quadrotor flying through a pine forest"><br><sub><b>Aerial · render.</b> AOS 7 V5 search drone threading a pine forest.</sub></td>
+    <td><img src="Docs/media/readme/render_drone_hero.jpg" alt="Quadrotor studio shot"><br><sub><b>Aerial · render.</b> The drone from its parts-level CAD (1.784 kg).</sub></td>
+    <td><img src="Docs/media/readme/render_drone_exploded.jpg" alt="Exploded view of the drone"><br><sub><b>Aerial · render.</b> Exploded view: frame, flight controller, Jetson, depth camera, lidar, motors.</sub></td>
+  </tr>
+  <tr>
+    <td><img src="Docs/media/readme/render_real_to_sim.jpg" alt="Drone half rendered, half as a point-cloud twin"><br><sub><b>Digital twin · render.</b> One drone, split between its model and its point-cloud twin.</sub></td>
+    <td><img src="Docs/media/readme/render_lidar.jpg" alt="Forest lidar point cloud with a flight path"><br><sub><b>Data art · render.</b> Forest lidar point cloud coloured by height, with a flight path.</sub></td>
+    <td><img src="Docs/media/readme/render_search_routes.jpg" alt="Two drones with route ribbons over a forest"><br><sub><b>Multi-robot · render.</b> Two search drones' routes over the canopy, a beacon at the found person (illustrative).</sub></td>
   </tr>
 </table>
 
 More frames, with run identifiers and render notes, live on the research branches:
 [`research/decisioncal`](../../tree/research/decisioncal/Tools/DecisionCal/sprint/images) (surface),
-[`research/fleet`](../../tree/research/fleet/Docs/Fleet/media) (ground) and
-[`research/drone-sim`](../../tree/research/drone-sim/Docs/DroneVisuals) (aerial).
+[`research/drone-sim`](../../tree/research/drone-sim/Docs/DroneVisuals) (aerial) and
+[`research/crane-sub`](../../tree/research/crane-sub) (underwater).
 
 ## Modular fleet (CRANE)
 
-These pictures show the modular mecanum ground fleet in CRANE: the CAD v1 rover design, physical-load runs and the modular-robotics test scenes. **Simulation only;** the CAD is at concept/datasheet level, not measured. Frame notes are in [`Docs/Fleet/media/README.md`](../../tree/research/fleet/Docs/Fleet/media) on `research/fleet`.
-
-<table>
-  <tr>
-    <td width="33%"><img src="Docs/Fleet/media/cad_v1/compare_scout.jpg" alt="Scout concept beside CAD v1"><br><sub><b>Design.</b> Scout: concept (left) and parametric CAD v1 (right), with a lidar, a depth camera and a proxy arm.</sub></td>
-    <td width="33%"><img src="Docs/Fleet/media/cad_v1/compare_lifter.jpg" alt="Lifter concept beside CAD v1"><br><sub><b>Design.</b> Lifter: 342 × 260 mm chassis, mecanum wheels, reciprocal hook-and-pin docks.</sub></td>
-    <td width="33%"><img src="Docs/Fleet/media/cad_v1/compare_cargo.jpg" alt="Cargo concept beside CAD v1"><br><sub><b>Design.</b> Cargo rover with a raised deck on standoffs.</sub></td>
-  </tr>
-  <tr>
-    <td><img src="Docs/Fleet/media/cad_v1/lifter_places_box_small_on_cargo.jpg" alt="Lifter placing a box on a cargo deck"><br><sub><b>Design.</b> The 170 mm lift sets a 2 kg box side-on onto a cargo deck (static CAD check).</sub></td>
-    <td><img src="Docs/Fleet/media/runs/box_long6kg_seed1_t68.8_capacity_crop.jpg" alt="Lifter refusing an over-capacity box"><br><sub><b>Run.</b> A box over the lift rating: the lift stalls, the autonomy refuses it as over capacity and returns it.</sub></td>
-    <td><img src="Docs/Fleet/media/scenes/scenes_v1_index.jpg" alt="Modular-robotics test scene families"><br><sub><b>Scenes.</b> Test scene families (narrow doors, a strafe-only shelf slot, wheel failure, ...) that compile to fastsim and CRANE.</sub></td>
-  </tr>
-</table>
+The modular mecanum ground fleet (docking, coupled carry, reconfiguration) is simulated in CRANE and in
+a fast Python model. Its pictures are withdrawn while the rover CAD is revised. Code:
+[`research/fleet`](../../tree/research/fleet) (CRANE integration),
+[`research/fleet-cad`](../../tree/research/fleet-cad) (CAD, URDFs, C# capability and docking libraries) and
+[`research/fleet-scenes`](../../tree/research/fleet-scenes) (test scene families).
 
 The project is currently strongest in aquatic simulation. Its production scenes use Unity
 HDRP water for both the rendered environment and physical water queries used by buoyancy and
