@@ -42,7 +42,7 @@ output. Nothing here is measured on hardware.
   </tr>
   <tr>
     <td><img src="Docs/media/readme/render_drone_chase.jpg" alt="Quadrotor flying through a pine forest"><br><sub><b>Aerial · render.</b> AOS 7 V5 search drone threading a pine forest.</sub></td>
-    <td><img src="Docs/media/readme/render_drone_hero.jpg" alt="Quadrotor studio shot"><br><sub><b>Aerial · render.</b> The drone from its parts-level CAD (1.784 kg).</sub></td>
+    <td><img src="Docs/media/readme/render_drone_hero.jpg" alt="Quadrotor studio shot"><br><sub><b>Aerial · render.</b> The search drone, studio render.</sub></td>
     <td><img src="Docs/media/readme/render_drone_exploded.jpg" alt="Exploded view of the drone"><br><sub><b>Aerial · render.</b> Exploded view: frame, flight controller, Jetson, depth camera, lidar, motors.</sub></td>
   </tr>
   <tr>

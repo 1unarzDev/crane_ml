@@ -189,9 +189,8 @@ The earlier controller-X full-effort test reached 1.246 m/s peak and 1.216 m/s t
 17.47 m, then coasted 0.655 m after release. That controller axis is imported-body `+Z`, not the
 visible bow, so it is evidence for plant response but not a valid visible-forward top-speed test.
 The corrected ROS surge loop accurately realizes requests through 1.0 m/s, which is also the
-current adapter clamp. No physics change or claim about the reported 1.8 m/s bow speed is justified
-until a corrected full-effort bow-axis test is compared with real mass, full-throttle speed,
-propulsor thrust/RPM, and hull scale.
+current adapter clamp. A corrected full-effort bow-axis test is still needed before any claim about
+bow top speed.
 
 ## Geometry and frames
 
