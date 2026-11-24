@@ -25,7 +25,6 @@ import validate  # noqa: E402
 
 SPEC = json.loads((HERE.parent / 'constraints' / 'roboboat_2026.json').read_text())
 BASE = json.loads((HERE / 'fixtures' / 'roboboat_2026-s1.json').read_text())
-TESTING = Path('/home/lunarz/astro_dock/src/mhseals_testing')
 
 
 def failed_rows(truth):
@@ -362,16 +361,6 @@ class Referee(unittest.TestCase):
                     {'tasks': {'marina': {'tier': 'green'}, 'x': {'sweep': 250.0}}, 'contacts': []},
                     {'tasks': {'marina': {'tier': 'green'}, 'x': {'sweep': 380.4}}, 'contacts': ['a']}):
             self.assertTrue(mismatches(got, want), got)
-
-    @unittest.skipUnless(TESTING.is_dir(), 'mhseals_testing not checked out')
-    def test_mhseals_testing_referee_reads_generated_truth(self):
-        sys.path.insert(0, str(TESTING))
-        from mhseals_testing.analysis import referee
-        case = HERE / 'referee' / 'entry_out_and_back'
-        track = [(r['t'], r['x'], r['y'], r['yaw']) for r in course_truth.read_jsonl(case / 'track.jsonl')]
-        for task in ('nav_channel', 'docking', 'speed_challenge', 'entry_gates'):
-            verdict = referee.judge(task, BASE, track, banner='banner_1')
-            self.assertIn(verdict['verdict'], ('PASS', 'FAIL', 'N/A'))
 
 
 class Allowlist(unittest.TestCase):

@@ -13,8 +13,8 @@ import import_yaml as I
 import plant as P
 import synthetic as S
 
-SIM_YAML = "/home/lunarz/astro_dock/src/mhseals_testing/config/sim/hardware_crane.yaml"
 HERE = os.path.dirname(os.path.abspath(__file__))
+SIM_YAML = os.path.join(HERE, "fixtures", "sim_hardware.yaml")
 
 
 def physical(profile):
@@ -67,7 +67,6 @@ def run_import(tmp_path, paths, base=None, extra=()):
     return json.loads(out.read_text()), json.loads(rep.read_text()), str(rep)
 
 
-@pytest.mark.skipif(not os.path.exists(SIM_YAML), reason=f"{SIM_YAML} not present (mhseals_testing not checked out)")
 def test_sim_yaml_imports_as_ideal_with_sim_derived(tmp_path):
     prof, rep, rep_path = run_import(tmp_path, {"yaml": SIM_YAML})
     assert physical(prof) == physical(P.IDEAL)
