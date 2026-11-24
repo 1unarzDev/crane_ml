@@ -154,3 +154,46 @@ def load(folder=DEFAULT_DIR, thruster_names=('front_left', 'front_right', 'rear_
     if log:
         log(f'{len(segs)} segments in {len(prov["sessions"])} sessions; skipped {len(skipped)}')
     return Evidence(segs, prov)
+
+
+# ---- astro bundles: one Segment per open-loop hold ----------------------------------------------------
+
+def hold_segment(*, session, tier, name, odom, pwm_t, q, t_on, t_cut, baseline_s, coast_s=2.0, source_sha=''):
+    """A Segment of one open-loop hold (astro's speed and couple tests) from decoded streams on one clock.
+
+    ``odom``: {t, x, y, yaw, vx, vy, wz} arrays (pose in the odometry frame, twist in the body);
+    ``pwm_t``, ``q``: the thruster commands as normalised q per family thruster (zero-order hold);
+    the hold's command starts at ``t_on`` after ``baseline_s`` of neutral and ends at ``t_cut``.
+    Translation truth is the odometry here (flag ``translation_from_odometry``; on 10-18 it was dead
+    reckoning, so check a field bag's odometry source before trusting translation). The current is the
+    baseline's mean world velocity (flag ``current_from_drift``). Returns (Segment, 'ok') or (None, why)."""
+    lo, hi = t_on - baseline_s - 1.0, t_cut + coast_s
+    to = np.asarray(odom['t'], float)
+    if to[0] > t_on - baseline_s or to[-1] < t_cut:
+        return None, 'odometry does not cover the hold'
+    lo, hi = max(lo, to[0]), min(hi, to[-1])
+    grid = np.arange(lo, hi, DT)
+    psi = np.interp(grid, to, np.unwrap(odom['yaw']))
+    x0, y0 = np.interp(lo, to, odom['x']), np.interp(lo, to, odom['y'])
+    X = np.stack([np.interp(grid, to, odom['x']) - x0, np.interp(grid, to, odom['y']) - y0, psi,
+                  np.interp(grid, to, odom['vx']), np.interp(grid, to, odom['vy']),
+                  np.interp(grid, to, odom['wz'])], -1)
+    pwm_t = np.asarray(pwm_t, float)
+    if len(pwm_t) == 0 or pwm_t[0] > t_on or pwm_t[-1] < t_cut - 0.5:
+        return None, 'no thruster commands over the hold'
+    idx = np.clip(np.searchsorted(pwm_t, grid, side='right') - 1, 0, len(pwm_t) - 1)
+    U = np.asarray(q, float)[idx]
+    bw = (grid >= t_on - baseline_s) & (grid < t_on)
+    if bw.sum() < 5:
+        return None, 'baseline shorter than 5 samples'
+    c, s = np.cos(X[bw, 2]), np.sin(X[bw, 2])
+    world = np.stack([c * X[bw, 3] - s * X[bw, 4], s * X[bw, 3] + c * X[bw, 4]], -1)
+    t0 = grid[0]
+    seg = Segment(session=session, tier=tier, t=grid - t0, x=X, u=U, u_kind='pwm_q',
+                  quality={'odom_samples': int(((to >= lo) & (to <= hi)).sum())}, labels=[name],
+                  meta={'current': tuple(float(v) for v in world.mean(0)),
+                        'current_sd': float(np.sqrt(world.var(0).mean())),
+                        'fit_window': (t_on - baseline_s - t0, hi - t0), 'pulse_s': float(t_cut - t_on),
+                        'flags': ['current_from_drift', 'translation_from_odometry']},
+                  name=name, source_sha=source_sha, t_event=float(t_on - t0))
+    return seg, 'ok'

@@ -1,4 +1,4 @@
-"""mhseals_physics.py: an mhseals.physics/1 survey record (characterization-v2) through the adapter,
+"""survey.py: a survey record (crane.survey/1, the older mhseals.physics/1 too; characterization-v2) through the adapter,
 the gate and import_yaml. The fixture writes what mhseals_testing physics_record.write and
 procedures/physics.survey write (record, compact samples sidecar with its sha256, config-history),
 with the survey run on the exact Ideal twin."""
@@ -14,7 +14,7 @@ import yaml
 
 import gate as G
 import import_yaml as I
-import mhseals_physics as MP
+import survey as MP
 import plant as P
 import synthetic as S
 

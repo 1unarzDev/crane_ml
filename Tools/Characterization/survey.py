@@ -1,7 +1,8 @@
-"""Adapter: an mhseals_testing ``mhseals.physics/1`` survey record (characterization-v2) to the gate's
-four inputs (yaml, provenance, run, snapshot). import_yaml.py calls it for such a record.
+"""Adapter: a survey record (``crane.survey/1``; the older ``mhseals.physics/1`` reads the same,
+characterization-v2) to the gate's four inputs (yaml, provenance, run, snapshot). import_yaml.py calls it for
+such a record.
 
-    <root>/characterization/<fit>-survey.yaml          the record (mhseals_testing physics_record.py)
+    <root>/characterization/<fit>-survey.yaml          the record
     <root>/characterization/<fit>-survey.samples.json  odometry [[t, vx, vy, wz, yaw]] and segments
     <root>/config-history/{changes.jsonl, versions/hardware/<sha>.json}
 
@@ -22,13 +23,14 @@ import os
 
 import numpy as np
 
-from gate import AXES, TOLERANCE  # gate never imports this module
+from gate import AXES, CALIBRATION, TOLERANCE  # gate never imports this module
 
-SCHEMA = "mhseals.physics/1"
+SCHEMA = "crane.survey/1"
+SCHEMAS = (SCHEMA, "mhseals.physics/1")     # the older name reads the same
 
 
 def is_record(doc) -> bool:
-    return isinstance(doc, dict) and doc.get("schema") == SCHEMA
+    return isinstance(doc, dict) and doc.get("schema") in SCHEMAS
 
 
 def snapshot_by_id(history_dir, history):
@@ -102,7 +104,7 @@ def adapt(record_path, history_dir=None):
                           "sim_derived": bool(hw.get("sim_derived"))},
              "gate": {"muted": bool(rec.get("gate_muted"))}, "battery_v": rec.get("battery_v"),
              "conditions": rec.get("conditions")}
-    provenance = {"schema": "mhseals.calibration/1", "software": rec.get("software") or {},
+    provenance = {"schema": CALIBRATION, "software": rec.get("software") or {},
                   "directions": {a + s: entry for a in AXES for s in "+-"}}
     run = {"procedure": SCHEMA, "holds": holds, "coastdowns": coasts, "neutral": neutral,
            "conditions": rec.get("conditions"), "holds_rejected": [], "directions": cross_responses(rec),

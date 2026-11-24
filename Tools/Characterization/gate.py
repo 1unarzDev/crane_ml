@@ -1,4 +1,4 @@
-"""Data-quality gate for importing an mhseals_testing characterization (design section 4).
+"""Data-quality gate for importing a vessel characterization (design section 4).
 
 Every check returns ``ok`` or ``abstain(reason, **evidence)`` (estimators.abstain); an abstain carries
 a severity: ``reject`` (the parameter stays at its prior) or ``warn`` (capped at provisional).
@@ -6,12 +6,15 @@ Signatures (attribution, section 4) are reported and never change a parameter by
 
 Inputs (paths or already-parsed dicts):
   yaml        hardware YAML holding ``characterization`` (version 2: speed_curves, t95, wave_floor,
-              motion_limits); a bare characterization block is accepted too
-  provenance  calibration/current.json, schema ``mhseals.calibration/1``:
+              motion_limits); a bare characterization block is accepted too. Version 1 (astro's
+              speed tests) is mapped to 2 by ``characterization_v2`` when the run carries the speed
+              holds' samples; otherwise the gate abstains naming what version 2 adds.
+  provenance  schema ``crane.calibration/1`` (``mhseals.calibration/1`` is read as the same):
               directions.<dir>.{fit:{id,time,session,run,config}, hardware:{hash,epoch,verify},
-              gate:{muted}, battery_v, conditions, dead}. The mhseals_testing sha is read from
-              ``software.mhseals_testing`` (top level) or ``fit.mhseals_testing`` (per direction);
-              today's writer stores neither, so a real record is PROVENANCE_MISSING until it does.
+              gate:{muted}, battery_v, conditions, dead}. The software sha is any commit in
+              ``software: {repo: sha}`` (top level) or ``fit.software`` (per direction); the older
+              ``software.mhseals_testing`` / ``fit.mhseals_testing`` keys read the same. Without
+              one a record is PROVENANCE_MISSING.
   run         the characterization run record (procedure, directions, holds, conditions,
               holds_rejected, ...). The gate needs per-hold samples, which today's record does not
               keep (procedure handoff section 9). Extension read here:
@@ -19,6 +22,9 @@ Inputs (paths or already-parsed dicts):
                                     t_sensor?: [s]}  body-frame odometry from settle start to hold
                                     end; t_sensor (header stamps) enables the clock-skew check
                 holds[i].override  true when an operator override touched the hold
+                holds[i].settle    the neutral (baseline) seconds before ``start`` (default settings.settle_s)
+                holds[i].transient seconds after ``start`` before the steady window (default
+                                   settings.transient_s)
                 settings           {transient_s, coast_s, settle_s} (characterize.yaml defaults)
                 neutral            [{start, end, samples}] neutral windows (gyro bias, drift)
                 coastdowns         [{axis, sign, start, end, samples}] unforced decays from speed
@@ -44,6 +50,11 @@ import estimators as E
 import plant as P
 
 SCHEMA = "crane.characterization_gate/1"
+CALIBRATION = "crane.calibration/1"
+CALIBRATION_SCHEMAS = (CALIBRATION, "mhseals.calibration/1")   # the older name reads the same
+LEGACY_SOFTWARE_KEYS = ("mhseals_testing", "mhseals_hardware", "commit")
+V2_ADDS = ("t95 of the high-amplitude + hold of each axis (version 1 keeps the median over every hold)",
+           "wave_floor [yaw, surge, sway]", "identified_at", "sample_count", "motion_limits.measured_at_effort")
 DIRECTIONS = ("surge+", "surge-", "sway+", "sway-", "yaw+", "yaw-")
 AXES = ("surge", "sway", "yaw")
 CHANNELS = ("vx", "vy", "wz")
@@ -55,6 +66,18 @@ REJECT, WARN = "reject", "warn"
 # Thresholds. Sources: design section 4; mhseals_testing config/conditions.yaml (verdict.good),
 # config/characterize.yaml (transient/coast/settle, min_response, tolerance), calibration.py.
 CEILING_GOOD, DRIFT_TRUST_GOOD = 0.90, 0.80
+
+
+def ceiling_good(ceiling):
+    """A run's conditions ceiling is good: a fraction >= CEILING_GOOD, or a control-layer label (astro's
+    ``L<n>``: the highest layer the conditions support) at the top layer L7, i.e. calm and steady. None is not
+    evidence against."""
+    if ceiling is None:
+        return True
+    if isinstance(ceiling, str):
+        m = ceiling.strip().upper()
+        return m.startswith("L") and m[1:].isdigit() and int(m[1:]) >= 7
+    return float(ceiling) >= CEILING_GOOD
 BATTERY_TOLERANCE_V = 0.8
 MAX_GAP_S, MIN_SAMPLES, MAX_SKEW_S, MIN_COVERAGE = 0.25, 30, 0.006, 0.5
 MIN_RESPONSE = 0.03
@@ -104,6 +127,20 @@ def sha256_file(path):
         return hashlib.sha256(f.read()).hexdigest()
 
 
+def software_sha(sw):
+    """The commit a ``software`` record names: ``{repo: sha}`` (any repo; the older ``mhseals_testing`` key
+    included), a bare string, or None. ``dirty`` is a flag, not a repo."""
+    if isinstance(sw, str):
+        return sw or None
+    if not isinstance(sw, dict):
+        return None
+    for key in (*LEGACY_SOFTWARE_KEYS, *sorted(sw)):
+        value = sw.get(key)
+        if key != "dirty" and isinstance(value, str) and value:
+            return value
+    return None
+
+
 def characterization_block(doc):
     if not doc:
         return {}
@@ -147,6 +184,18 @@ def parse_direction(name):
     return AXES.index(axis), sign
 
 
+def command_efforts(command):
+    """Per-axis efforts of a hold command: a list as is, or astro's ``{axis, sign, level, efforts}``."""
+    if isinstance(command, dict):
+        if command.get("efforts") is not None:
+            return [float(x) for x in command["efforts"]]
+        out = [0.0] * len(AXES)
+        if command.get("axis") in AXES:
+            out[AXES.index(command["axis"])] = float(command.get("sign") or 1) * float(command.get("level") or 0)
+        return out
+    return command
+
+
 def direction_of(command):
     """(direction name, amplitude) of a hold command: the axis with the largest |effort|."""
     c = [float(x) for x in command]
@@ -162,11 +211,20 @@ def yaw_arm(t):
     return abs(t["x"] * math.sin(a) - t["y"] * math.cos(a))
 
 
+def mixer_matrix(m):
+    """Mixer rows FL, FR, RR, RL x (surge, sway, yaw) from rows or the hardware file's flat 12 values."""
+    if not m:
+        return DEFAULT_MATRIX
+    if all(isinstance(v, (int, float)) for v in m):
+        return [[float(v) for v in m[i:i + 3]] for i in range(0, len(m), 3)]
+    return m
+
+
 def axis_gains(profile, hardware=None):
     """k_j^+- = sum_i K_i^{sgn q_i} M_ij^2 |d_i . e_j| [N per unit e|e|], with the mixer row signs and
     the ``reversed`` flags of the fit-time hardware config. Also returns forward/reverse counts."""
     hw = hardware or {}
-    matrix = hw.get("thruster_matrix") or DEFAULT_MATRIX
+    matrix = mixer_matrix(hw.get("thruster_matrix"))
     reversed_ = hw.get("reversed") or [False] * len(matrix)
     by_name = {t["name"]: t for t in profile["thrusters"]}
     out = {}
@@ -264,10 +322,10 @@ class Hold:
     def __init__(self, index, rec, settings):
         self.index = index
         self.rec = rec
-        self.direction, self.amplitude = direction_of(rec.get("command", [0, 0, 0]))
+        self.direction, self.amplitude = direction_of(command_efforts(rec.get("command", [0, 0, 0])))
         self.start, self.end = float(rec.get("start", 0.0)), float(rec.get("end", 0.0))
         self.settings = settings
-        self.samples = rec.get("samples")
+        self.samples = _clean_samples(rec.get("samples"))
         self.result = None      # per-hold check result
         self.delta = None       # 3-vector, hold mean - baseline mean
         self.se = None          # 3-vector standard error of delta
@@ -278,8 +336,27 @@ class Hold:
     def windows(self):
         s = self.settings
         settle = float(self.rec.get("settle", s["settle_s"]))
+        transient = float(self.rec.get("transient", s["transient_s"]))
         b0 = self.start - settle + min(s["coast_s"], 0.5 * settle)
-        return (b0, self.start), (self.start + s["transient_s"], self.end)
+        return (b0, self.start), (self.start + transient, self.end)
+
+
+def _clean_samples(samples):
+    """Sample columns with the rows any of t, vx, vy, wz misses (None) dropped; optional columns that are
+    all None (``yaw``, ``t_sensor`` from an odometry without them) are left out."""
+    if not samples or "t" not in samples:
+        return samples
+    cols = {k: list(v) for k, v in samples.items() if isinstance(v, list)}
+    n = len(cols["t"])
+    if any(len(v) != n for v in cols.values()):
+        return samples
+    keep = [i for i in range(n) if all(cols[k][i] is not None for k in ("t", *CHANNELS) if k in cols)]
+    out = {}
+    for k, v in cols.items():
+        vals = [v[i] for i in keep]
+        if k in ("t", *CHANNELS) or all(x is not None for x in vals):
+            out[k] = vals
+    return out
 
 
 def check_hold(h: Hold, est, rejected, median_rate):
@@ -404,10 +481,10 @@ def run_gate(yaml_doc, provenance=None, run=None, snapshot=None, *, yaml_path=No
     est = est or E.Estimators()
     base = base_profile or P.IDEAL
     yaml_doc, provenance, run, snapshot = (load_doc(x) for x in (yaml_doc, provenance, run, snapshot))
-    char = characterization_block(yaml_doc)
-    curves = char.get("speed_curves") or {}
     run = run or {}
     settings = {**DEFAULT_SETTINGS, **(run.get("settings") or {})}
+    char, mapping = characterization_v2(characterization_block(yaml_doc), run, settings)
+    curves = char.get("speed_curves") or {}
     hardware = snapshot_hardware(snapshot)
     rep = Report()
     gains = axis_gains(base, hardware)
@@ -417,7 +494,7 @@ def run_gate(yaml_doc, provenance=None, run=None, snapshot=None, *, yaml_path=No
     path_norm = (yaml_path or "").replace(os.sep, "/")
     sim_path = "/config/sim/" in "/" + path_norm or path_norm.startswith("config/sim/")
     prov_dirs = (provenance or {}).get("directions") or {}
-    software_sha = ((provenance or {}).get("software") or {}).get("mhseals_testing")
+    top_sha = software_sha((provenance or {}).get("software"))
     for name in DIRECTIONS:
         scope = f"provenance:{name}"
         entry = prov_dirs.get(name)
@@ -428,15 +505,16 @@ def run_gate(yaml_doc, provenance=None, run=None, snapshot=None, *, yaml_path=No
                                                   hardware_hash=hw_rec.get("hash"), epoch=hw_rec.get("epoch")))
         fit = (entry or {}).get("fit") or {}
         missing = [k for k in ("id", "session", "run") if not fit.get(k)]
-        sha = fit.get("mhseals_testing") or software_sha
+        sha = software_sha(fit.get("software")) or fit.get("mhseals_testing") or top_sha
         if char.get("version") != 2:
-            missing.append("characterization.version==2")
+            missing.append(mapping.get("missing") or "characterization.version==2")
         if not sha:
-            missing.append("mhseals_testing sha")
-        if ((provenance or {}).get("software") or {}).get("dirty") is True or fit.get("dirty") is True:
-            missing.append("clean mhseals_testing tree (software.dirty)")
-        if provenance is not None and provenance.get("schema", "mhseals.calibration/1") != "mhseals.calibration/1":
-            missing.append("schema mhseals.calibration/1")
+            missing.append("software sha (software: {repo: commit})")
+        top_sw = (provenance or {}).get("software")
+        if (isinstance(top_sw, dict) and top_sw.get("dirty") is True) or fit.get("dirty") is True:
+            missing.append("clean software tree (software.dirty)")
+        if provenance is not None and provenance.get("schema", CALIBRATION) not in CALIBRATION_SCHEMAS:
+            missing.append(f"schema {CALIBRATION}")
         if entry is None or missing:
             rep.add("provenance_complete", scope, abstain("PROVENANCE_MISSING", missing=missing,
                                                           direction_recorded=entry is not None))
@@ -466,7 +544,7 @@ def run_gate(yaml_doc, provenance=None, run=None, snapshot=None, *, yaml_path=No
     if not cond or cond.get("verdict") in (None, "unknown"):
         rep.add("conditions", "conditions", abstain("CONDITIONS_UNKNOWN", WARN, summary=cond))
     else:
-        poor = (cond.get("verdict") != "good" or (cond.get("ceiling") is not None and cond["ceiling"] < CEILING_GOOD)
+        poor = (cond.get("verdict") != "good" or not ceiling_good(cond.get("ceiling"))
                 or (cond.get("drift_trust") is not None and cond["drift_trust"] < DRIFT_TRUST_GOOD))
         if poor:
             rep.add("conditions", "conditions", abstain("CONDITIONS_POOR", verdict=cond.get("verdict"),
@@ -501,7 +579,57 @@ def run_gate(yaml_doc, provenance=None, run=None, snapshot=None, *, yaml_path=No
         meff[axis] = check_t95(axis, j, char, curves.get(axis + "+"), holds, gains[axis + "+"]["k"], base, lags, rep)
 
     signatures(run, curves, dir_fit, holds, wave_floor, meff, char, rep, est)
-    return outcome(rep, curves, gains, meff, char, base, yaml_path)
+    report = outcome(rep, curves, gains, meff, char, base, yaml_path)
+    if mapping:
+        report["characterization_mapping"] = _jsonable(mapping)
+    return report
+
+
+def characterization_v2(char, run, settings=None):
+    """(characterization, mapping) with a version-1 block mapped to version 2, or unchanged.
+
+    Version 1 (astro's speed tests) has the same signed curves (e^2 = d1 v + d2 v|v| per direction) and
+    motion_limits.velocity; its t95 is the median rise over every hold, where version 2's is the rise of
+    the high-amplitude + hold. That rise is recomputed here from the run's holds (astro's definition:
+    95 % of the change from the mean before the command to the mean over the hold's last third). An
+    axis whose + hold has no samples loses its t95 (M_eff then stays prior, UNDERDETERMINED). A
+    version-1 block whose curves are not signed d1/d2 pairs cannot be mapped: ``mapping['missing']``
+    says what version 2 adds."""
+    if not char or char.get("version") != 1:
+        return char, {}
+    curves = char.get("speed_curves") or {}
+    bad = sorted(k for k, c in curves.items()
+                 if k not in DIRECTIONS or not isinstance(c, dict) or not {"d1", "d2"} <= set(c))
+    if bad or not curves:
+        return char, {"from": 1, "mapped": False, "missing": (
+            f"characterization.version==2 (version 1 cannot be mapped: speed_curves {bad or 'missing'} are not "
+            f"signed d1/d2 curves; version 2 adds {'; '.join(V2_ADDS)})")}
+    import astro_tests as A   # astro's rise-time definition
+    settings = {**DEFAULT_SETTINGS, **(settings or {})}
+    t95, notes = {}, []
+    for j, axis in enumerate(AXES):
+        best = None
+        for i, rec in enumerate(run.get("holds") or []):
+            h = Hold(i, rec, settings)
+            if h.direction != axis + "+" or not h.samples or "t" not in h.samples:
+                continue
+            if best is None or h.amplitude > best.amplitude:
+                best = h
+        rise = None
+        if best is not None:
+            (b0, _), _ = best.windows()
+            t = np.asarray(best.samples["t"], float)
+            y = np.asarray(best.samples[CHANNELS[j]], float)
+            keep = t >= b0
+            rise = A.t95(t[keep], y[keep], best.start, best.end)
+        if rise is not None:
+            t95[axis] = round(float(rise), 3)
+        else:
+            notes.append(f"t95.{axis}: no {axis}+ hold with samples (version 1's median dropped)")
+    out = {k: v for k, v in char.items() if k != "t95"}
+    out.update(version=2, mapped_from=1, t95=t95)
+    return out, {"from": 1, "mapped": True, "t95": t95, "t95_v1": char.get("t95"), "notes": notes,
+                 "not_in_v1": ["wave_floor", "identified_at", "sample_count", "motion_limits.measured_at_effort"]}
 
 
 def check_direction(name, holds, curve, wave_floor, run, rep, est):

@@ -32,7 +32,7 @@
 #
 # Settings (environment): ROS_DOMAIN_ID (from astro), ASTRO_DOCK (default ~/astro_dock), ASTRO_PROFILES (else ~/.config/astro/profiles.env,
 # else $ASTRO_DOCK/profiles), SIM_UP_VESSEL (sim), CRANE_PLAYER (a player with the flags above), HEAVY (the
-# heavy guard; none runs bare on purpose), ASTRO_IMAGE (else the dev compose default), SIM_UP_READY_S (300).
+# heavy guard, default crane's bin/heavy; none runs bare on purpose), ASTRO_IMAGE (else the dev compose default), SIM_UP_READY_S (300).
 # Runtime files: ~/.cache/sim_up (pids, logs, course truth). Never kills a tmux server or another container.
 set -euo pipefail
 
@@ -149,7 +149,8 @@ up() {
     if [ -t 0 ] && [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then mode=window; else mode=headless; fi
   fi
   if alive player || ros_up; then status; die "already up; sim_up down first"; fi
-  local heavy=${HEAVY:-$DOCK/.handoff/tools/heavy} guard=()
+  local heavy=${HEAVY:-} guard=()
+  [ -n "$heavy" ] || { heavy=$crane/bin/heavy; [ -x "$heavy" ] || heavy=$DOCK/.handoff/tools/heavy; }   # crane owns the guard
   if [ "$heavy" != none ]; then [ -x "$heavy" ] || die "no heavy guard at $heavy (HEAVY=none runs bare)"; guard=("$heavy" unity); fi
   player=$(find_player)
   local d img port; d=$(domain); port=$((10000 + d)); img=$(image)
@@ -164,9 +165,15 @@ up() {
   # astro on sim works in this container like in the boat's dev container: the state (~/.config/mhseals, which
   # astro apply writes), the operator config, the workspace (tools/bin/astro on PATH via dev.bashrc, the data dir)
   mkdir -p "$HOME/.config/mhseals" "$HOME/.config/astro" "$DOCK/bags/sim"
+  # the state astro exports (ASTRO_STATE, MHSEALS_HARDWARE_CONFIG) as seen in here, so Nav2 and the drivers
+  # read the sim's state file, never a boat's
+  local state_env=() v
+  for v in ASTRO_STATE MHSEALS_HARDWARE_CONFIG; do
+    [ -n "${!v:-}" ] && state_env+=(-e "$v=${!v/#$HOME//home/roboboat}")
+  done
   local overrides="{\"parts\": {\"sensors\": {\"args\": {\"ros_port\": \"$port\"}}}}"
   docker run -d --name "$CONTAINER" --label sim_up=1 --init --network host --ipc host --user roboboat \
-    -e ROS_DOMAIN_ID="$d" -e ROS_WS="$WS" -e BASH_ENV="$WS/.devcontainer/dev.bashrc" \
+    -e ROS_DOMAIN_ID="$d" -e ROS_WS="$WS" -e BASH_ENV="$WS/.devcontainer/dev.bashrc" "${state_env[@]}" \
     -e FASTRTPS_DEFAULT_PROFILES_FILE="$WS/config/fastdds.xml" -e FASTDDS_DEFAULT_PROFILES_FILE="$WS/config/fastdds.xml" \
     -v "$DOCK:$WS" -v "$RUN:$RUN" -w "$WS" \
     -v "$HOME/.config/mhseals:/home/roboboat/.config/mhseals" -v "$HOME/.config/astro:/home/roboboat/.config/astro" \

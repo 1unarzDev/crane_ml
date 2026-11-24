@@ -96,3 +96,34 @@ def steady_state(builder, wrench, seconds=30.0, window=2.0):
     w = int(round(window / m.dt))
     return (float(np.mean(log.u[-w:])), float(np.mean(log.v[-w:])), float(np.mean(log.r[-w:])),
             m.allocate(wrench))
+
+
+# ---- astro's test programs (the tests file's timing; astro_tests.py runs them) ----------------------------
+
+def astro_levels(room, amplitude):
+    """A space's effort levels, scaled when the amplitude differs from the space's own (astro's _levels)."""
+    levels = [float(v) for v in room.get("levels") or [amplitude]]
+    if amplitude is not None and room.get("amp") and amplitude != float(room["amp"]):
+        scale = amplitude / max(levels)
+        levels = [round(v * scale, 3) for v in levels]
+    return levels
+
+
+def astro_holds(kind, axis, n, levels, signs, test):
+    """The holds of one astro test, in astro's order: for each level, each sign, one command on ``axis``
+    (an effort, or a velocity for ``steps``) with the test's timing. Each hold is a neutral baseline
+    (``baseline_s``, after the coast), the command for ``settle_s`` then ``measure_s`` (``steps``: one
+    ``step_s``), then ``coast_s`` of neutral."""
+    t = {k: float(test.get(k, d)) for k, d in (("baseline_s", 2), ("settle_s", 5 if kind == "speed" else 4),
+                                               ("measure_s", 3), ("coast_s", 4 if kind == "speed" else 3),
+                                               ("step_s", 6))}
+    out = []
+    for level in levels:
+        for sign in signs:
+            command = [0.0] * n
+            command[axis] = sign * level
+            hold = {"command": command, "main": (None, sign, level), **t}
+            if kind == "steps":
+                hold["settle_s"], hold["measure_s"] = t["step_s"], 0.0
+            out.append(hold)
+    return out

@@ -1,111 +1,24 @@
 #!/usr/bin/env python3
-"""Turn an `astro bundle` into a crane boat profile JSON for `sim_up --profile-json`.
+"""Turn an `astro bundle` into a crane boat profile JSON for `sim_up --profile-json` (bundle.py reads it).
 
     Tools/Characterization/from_bundle BUNDLE.tgz --out profile.json [--report gate.json] [--base ideal.json]
 
-The bundle holds the vessel's hardware state (hardware*.yaml), results/<test>-<HHMMSS>.yaml and log.txt.
-from_bundle derives the gate's inputs from what the bundle records, and nothing else:
-  yaml        the state's characterization block (version 2 when it has the v2 keys: speed_curves)
-  provenance  mhseals.calibration/1: per direction the result that measured it (fit id/session/run),
-              the state's hardware hash (thruster_matrix, reversed, hardware_epoch) and verify hash
-              (channel_map, pwm_channels); the software sha only when a result records one
-              (software/commit), so a bundle without it abstains as PROVENANCE_MISSING
-  run         the results' holds (command, start, end, samples) when they carry them; without
-              per-hold samples the gate cannot re-fit a curve and abstains UNDERDETERMINED
-  snapshot    the bundled state itself
-A state whose characterization source says sim is flagged sim_derived (SIM_DERIVED: never imported).
-Then it runs import_yaml.py: parameters the gate identifies or marks provisional overwrite the base
-(Ideal); the rest stay prior. It prints each parameter's status and reason. The derived inputs are kept
-beside the profile (<out>.inputs/) so the import can be re-run and audited.
+The gate's inputs come from what the bundle records and nothing else (bundle.py says what from where). Then
+import_yaml.py runs: parameters the gate identifies or marks provisional overwrite the base (Ideal); the rest
+stay prior. It prints each parameter's status and reason. The derived inputs stay beside the profile
+(<out>.inputs/). `crane fit` runs the same import and adds the plant-card fit.
 """
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import sys
-import tarfile
 import tempfile
 from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import bundle as B  # noqa: E402
 import gate as G  # noqa: E402
-import import_yaml  # noqa: E402
-
-import yaml  # noqa: E402
-
-V2_KEYS = ("speed_curves",)
-
-
-def unpack(bundle, into):
-    with tarfile.open(bundle) as tar:
-        tar.extractall(into, filter="data")
-    return Path(into)
-
-
-def find_state(root):
-    found = sorted(root.rglob("hardware*.yaml"), key=lambda p: (len(p.parts), p.name))
-    found = [p for p in found if ".bak" not in p.name]
-    if not found:
-        sys.exit(f"from_bundle: no hardware*.yaml in the bundle ({root})")
-    return found[0]
-
-
-def load_results(root):
-    out = []
-    for path in sorted(root.rglob("results/*.yaml")):
-        try:
-            doc = yaml.safe_load(path.read_text())
-        except yaml.YAMLError:
-            continue
-        if isinstance(doc, dict) and doc.get("test"):
-            out.append((path, doc))
-    return out
-
-
-def software_of(doc):
-    sw = doc.get("software")
-    if isinstance(sw, dict):
-        return sw.get("mhseals_testing") or sw.get("mhseals_hardware") or sw.get("commit")
-    return sw or doc.get("commit")
-
-
-def derive(root, bundle_name):
-    state_path = find_state(root)
-    state = yaml.safe_load(state_path.read_text()) or {}
-    char = dict(G.characterization_block(state))
-    if not char.get("speed_curves"):
-        sys.exit(f"from_bundle: {state_path.name} has no characterization.speed_curves; run and apply astro test speed-*")
-    if "version" not in char and all(k in char for k in V2_KEYS):
-        char["version"] = 2
-    sim = str(char.get("source", "")).lower().startswith("sim")
-    results = load_results(root)
-    hardware = {"hash": G.dependency_hash(state, G.DEP_INVALID), "epoch": state.get("hardware_epoch", 0),
-                "verify": G.dependency_hash(state, G.DEP_VERIFY), "sim_derived": sim}
-    directions, holds, sha = {}, [], None
-    for path, doc in results:
-        sha = software_of(doc) or sha
-        for hold in doc.get("holds") or []:
-            if isinstance(hold, dict) and hold.get("samples") and "command" in hold:
-                holds.append({k: hold[k] for k in ("command", "start", "end", "samples", "settle", "override")
-                              if k in hold})
-        test = str(doc["test"])
-        if not test.startswith("speed-"):
-            continue
-        axis = test.split("-", 1)[1]
-        for sign in "+-":
-            if f"{axis}{sign}" in char["speed_curves"]:
-                directions[f"{axis}{sign}"] = {
-                    "fit": {"id": path.stem, "time": f"{doc.get('date', '')} {doc.get('time', '')}".strip(),
-                            "session": bundle_name, "run": str(path.relative_to(root)),
-                            "config": doc.get("state"),
-                            **({"mhseals_testing": software_of(doc)} if software_of(doc) else {})},
-                    "hardware": hardware}
-    provenance = {"schema": "mhseals.calibration/1", "directions": directions}
-    if sha:
-        provenance["software"] = {"mhseals_testing": sha}
-    run = {"holds": holds}
-    return state_path, {"characterization": char}, provenance, run, state
 
 
 def main(argv=None):
@@ -115,30 +28,18 @@ def main(argv=None):
     ap.add_argument("--report", help="gate report JSON (default <out>.gate.json)")
     ap.add_argument("--base", default=None, help="base profile (default Ideal)")
     a = ap.parse_args(argv)
-    out = Path(a.out).resolve()
-    report = Path(a.report).resolve() if a.report else out.with_suffix(".gate.json")
-    inputs = Path(str(out) + ".inputs")
-    inputs.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="from_bundle-") as tmp:
-        root = unpack(a.bundle, tmp)
-        state_path, char, provenance, run, state = derive(root, Path(a.bundle).name)
-    files = {}
-    for name, doc in (("characterization", char), ("provenance", provenance), ("run", run), ("snapshot", state)):
-        files[name] = inputs / f"{name}.json"
-        files[name].write_text(json.dumps(doc, indent=2, default=str) + "\n")
-    args = ["--yaml", str(files["characterization"]), "--provenance", str(files["provenance"]),
-            "--run", str(files["run"]), "--config-snapshot", str(files["snapshot"]),
-            "--out-profile", str(out), "--out-report", str(report)]
-    if a.base:
-        args += ["--base", a.base]
-    print(f"from_bundle: state {state_path.name}, {len(provenance['directions'])} directions with a speed result, "
-          f"{len(run['holds'])} holds with samples; inputs {inputs}")
-    import_yaml.main(args)
-    prof = json.loads(out.read_text())
+        b = B.open_bundle(a.bundle, tmp)
+        if not (G.characterization_block(b.state) or {}).get("speed_curves"):
+            sys.exit(f"from_bundle: {b.state_path.name if b.state_path else 'the bundle'} has no "
+                     "characterization.speed_curves; run and apply astro test speed-*")
+        prof, _, notes = B.import_profile(b, a.out, a.report, a.base)
+    for note in notes:
+        print(f"  note: {note}")
     for p in prof["provenance"]["parameters"]:
         if p["name"] in G.DIRECTIONS or p["name"].startswith("addedMass."):
             print(f"  {p['name']:<14} {p['status']:<11} {p['reason']}")
-    print(f"from_bundle: wrote {out} (sim_up --profile-json {out})")
+    print(f"from_bundle: wrote {Path(a.out).resolve()} (sim_up --profile-json {Path(a.out).resolve()})")
     return 0
 
 

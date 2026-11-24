@@ -1,6 +1,12 @@
-"""The local run store behind ``python -m viewer serve``: crane-traj/1 runs, course truths and judge reports
-found under a set of roots, served in the coordinator's feed shapes (research-cluster ``coordinator/src/replay.ts``) so
-one page reads both. Run ids are the header's ``run_id`` (else the file's path under its root)."""
+"""The local run store behind ``python -m viewer serve`` (``crane board``): runs found under a set of roots, served
+in the coordinator's feed shapes (research-cluster ``coordinator/src/replay.ts``) so one page reads both.
+
+A run is a crane.run/1 record (a directory with ``crane.run.json`` or ``run.json`` of that schema) or a bare
+``.ctraj``. A record is served as one crane-traj/1 file: its trajectory (an event-kind run gets an empty one) with
+the meta's identity, tier, kind, domain and frame in the header, its constraint layers (``layers``; from the meta
+or ``layers.json``), the domain's vehicle outline, and its ``events.jsonl`` merged into the events, each with a
+``lane`` (``log`` lines included). Course truths, judge reports and the bare files' headers are used as they are.
+Run ids are the meta's ``run_id``, else the header's, else the file's path under its root."""
 
 from __future__ import annotations
 
@@ -78,22 +84,42 @@ def rank_agreement(pairs) -> dict | None:
 
 
 class Run:
-    __slots__ = ('id', 'path', 'lod', 'header', '_sha', '_lsha')
+    """One served run: a bare ``.ctraj`` (``path``, its ``.lod.ctraj`` beside it) or a crane.run/1 record whose
+    served bytes are composed on first use (``compose``)."""
+    __slots__ = ('id', 'path', 'lod', 'header', 'compose', '_data', '_lod', '_sha', '_lsha')
 
-    def __init__(self, rid, path, lod, header):
-        self.id, self.path, self.lod, self.header = rid, path, lod, header
-        self._sha = self._lsha = None
+    def __init__(self, rid, path, lod, header, compose=None):
+        self.id, self.path, self.lod, self.header, self.compose = rid, path, lod, header, compose
+        self._data = self._lod = self._sha = self._lsha = None
+
+    def data(self) -> bytes:
+        if self.compose is None:
+            return self.path.read_bytes()
+        if self._data is None:
+            self._data = self.compose()
+        return self._data
+
+    def lod_data(self) -> bytes | None:
+        if self.compose is None:
+            return self.lod.read_bytes() if self.lod else None
+        if self._lod is None:
+            self._lod = ctraj.lod(self.data())
+        return self._lod
+
+    @property
+    def has_lod(self) -> bool:
+        return self.compose is not None or self.lod is not None
 
     @property
     def sha(self):
         if self._sha is None:
-            self._sha = hashlib.sha256(self.path.read_bytes()).hexdigest()
+            self._sha = hashlib.sha256(self.data()).hexdigest()
         return self._sha
 
     @property
     def lod_sha(self):
-        if self.lod and self._lsha is None:
-            self._lsha = hashlib.sha256(self.lod.read_bytes()).hexdigest()
+        if self.has_lod and self._lsha is None:
+            self._lsha = hashlib.sha256(self.lod_data()).hexdigest()
         return self._lsha
 
     def brief(self) -> dict:
@@ -120,8 +146,24 @@ class Store:
         runs, courses, reports = {}, {}, {}
         for root in self.roots:
             files = [root] if root.is_file() else sorted(root.rglob('*'))
+            claimed = set()
+            for p in files:          # crane.run/1 records first: their trajectory is served through them
+                if p.name in (SIDECAR, META) and p.is_file() and p.parent not in claimed:
+                    rec = _record(p.parent)
+                    if rec is None:
+                        continue
+                    claimed.add(p.parent)
+                    traj = rec.file('traj')
+                    if traj is not None and traj.is_file():
+                        claimed.add(traj)
+                    h, compose = record_header(rec, root), _composer(rec, root)
+                    runs[h['run_id']] = Run(h['run_id'], traj if traj and traj.is_file() else None, None, h, compose)
+                    sha = (h.get('course') or {}).get('truth_sha256')
+                    sc = _scenario_file(rec)
+                    if sha and sc:
+                        courses.setdefault(sha, sc)
             for p in files:
-                if not p.is_file():
+                if not p.is_file() or p in claimed:
                     continue
                 n = p.name
                 if n.endswith('.ctraj') and not n.endswith('.lod.ctraj'):
@@ -247,4 +289,83 @@ class Store:
         return {'study': study, 'iterations': its, 'runs': [x.brief() for x in rows], 'pack_sha256': sha}
 
     def fleet_pack(self, study, **kw) -> bytes:
-        return ctraj.fleet_pack([(x.lod or x.path).read_bytes() for x in self.fleet_rows(study, **kw)])
+        return ctraj.fleet_pack([x.lod_data() or x.data() for x in self.fleet_rows(study, **kw)])
+
+
+# ---- crane.run/1 records ---------------------------------------------------------------------------------------
+
+SIDECAR, META, RUN_SCHEMA = 'crane.run.json', 'run.json', 'crane.run/1'
+OUTCOMES = {'SUCCEEDED': 'finished', 'TIMEOUT': 'timeout', 'FAILED': 'failed', 'ERROR': 'failed'}
+
+
+def _record(d: Path):
+    """The crane.run/1 record of a directory, else None (another schema's run.json is not one)."""
+    from crane import record
+    try:
+        return record.read_run(d)
+    except (record.RecordError, ValueError, OSError):
+        return None
+
+
+def _scenario_file(rec):
+    for name in ((rec.meta.get('scenario') or {}).get('file'), 'course_truth.json'):
+        if name and (rec.path / name).is_file():
+            return rec.path / name
+    return None
+
+
+def record_header(rec, root: Path) -> dict:
+    """The header a record is served with (no trajectory is decoded; ``_composer`` adds the box and ticks)."""
+    from crane.view import spec as vspec
+    m = rec.meta
+    traj = rec.file('traj')
+    h = dict(ctraj.read_header(traj)) if traj is not None and traj.is_file() else {}
+    prov = m.get('provenance') or {}
+    try:
+        rel = rec.path.relative_to(root).parts
+    except ValueError:
+        rel = ()
+    h.update(run_id=m['run_id'], tier=m.get('tier'), kind=m.get('kind'), domain=m.get('domain') or None,
+             crane_run={k: m.get(k) for k in ('schema', 'frame', 'clock', 'timing', 'card', 'backend') if m.get(k)})
+    h.setdefault('seed', m.get('seed'))
+    # OUT/<variant>/s<seed> (a batch) is study OUT; ROOT/<study>/<run> is that study
+    batch = len(rel) > 1 and rel[0] == prov.get('variant')
+    h.setdefault('study', prov.get('study') or (rel[0] if len(rel) > 1 and not batch else root.name))
+    h.setdefault('arm', prov.get('variant') or m.get('tier'))
+    if 'outcome' not in h and m.get('outcome'):
+        h['outcome'] = OUTCOMES.get(str(m['outcome']).upper(), 'unknown')
+    if rec.metrics and isinstance(rec.metrics.get('score'), (int, float)):
+        h.setdefault('score', rec.metrics['score'])
+    try:
+        from crane.view import layers as vlayers
+        lay = vlayers.of_run(rec.path, m)
+    except ValueError:
+        lay = []
+    if lay:
+        h['layers'] = lay
+    spec = vspec.view_spec(m.get('domain') or None)
+    h['outline'] = spec['outline']
+    h['lanes'] = spec['lanes']
+    return {k: v for k, v in h.items() if v is not None}
+
+
+def _composer(rec, root):
+    def compose() -> bytes:
+        from crane.view import spec as vspec
+        h = record_header(rec, root)
+        t = rec.traj
+        lanes = h.get('lanes') or {}
+        seen, events = set(), []
+        for e in list(t.events if t is not None else []) + rec.events:
+            if not isinstance(e, dict) or e.get('t') is None or not e.get('kind'):
+                continue
+            key = (round(float(e['t']), 3), str(e['kind']), str(e.get('text', e.get('id', ''))))
+            if key not in seen:
+                seen.add(key)
+                events.append({**e, 'lane': vspec.lane_of(e, lanes)})
+        events.sort(key=lambda e: e['t'])
+        keep = {k: v for k, v in h.items() if k not in ('ticks', 'duration_s', 'columns', 'box', 'schema')}
+        if t is None:
+            return ctraj.encode(keep, {}, events, hz=1.0, t0_s=0.0)
+        return ctraj.encode(keep, t.columns, events, hz=t.hz, t0_s=float(t.header.get('t0_s', 0.0)), specs=t.specs)
+    return compose
