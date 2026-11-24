@@ -1,0 +1,24 @@
+# bin/heavy memory safety (bin/heavy --help, Memory). Every heavy, tcache and warm job runs in its own transient
+# systemd scope with OOMPolicy=stop and these limits, so an OOM kill stays inside the job; its oom_score_adj
+# makes the kernel pick it before any agent or owner session. Docker containers (the Unity player, sim stacks
+# in roboboat_*) are outside the scope: their limits are the container's.
+#   memory_max: the scope's MemoryMax (MemoryHigh is 90% of it); estimate: what admission reserves for it.
+# Sizes are systemd sizes (6G, 512M); times are seconds.
+# Measured 11-02: the preview stack ~1G at rest (container), a Unity player 2-4G, a fastsim stack 1-2G, the
+# largest pytest run seen ~1G.
+reserve: 6G            # a slot is taken only while MemAvailable >= reserve + the class estimate
+swap_max: '0'          # the scope's MemorySwapMax: a job over its limit dies at once instead of thrashing the host
+sim_slots: 2           # concurrent sim jobs (hosts raise it in ~/.config/crane/heavy.yaml); each passes the memory check
+unity_slots: 2         # at most this many unity jobs at once (each admitted on reserve + its estimate)
+preview_grace: 120     # the owner's preview has priority, not exclusivity: a unity job yields to it this long
+cluster_after: 300     # a sim/unity job that would wait longer prints its cluster alternative (HEAVY_CLUSTER)
+classes:
+  unity:   {memory_max: 10G, estimate: 4G, oom_score_adj: 800}
+  sim:     {memory_max: 6G,  estimate: 2G, oom_score_adj: 800}
+  preview: {memory_max: 8G,  estimate: 2G, oom_score_adj: 500}
+  test:    {memory_max: 4G,  estimate: 1G, oom_score_adj: 600}
+# Memory priority, highest first: while a higher class has a waiter blocked on memory, lower classes start no new
+# job (running ones continue; cluster --reserve entries are sim), so freed memory accumulates for it. A waiter
+# stuck over starve_after with nothing lower left to wait on gets a clear 'starved' reason (queuewatch shows it).
+priority: [unity, preview, sim, test]
+starve_after: 3600

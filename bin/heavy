@@ -1,0 +1,887 @@
+#!/usr/bin/env python3
+"""Host-wide concurrency guard for heavy work, so parallel agents can't freeze the machine.
+
+    heavy unity CMD...    Unity editor/build/play: up to unity_slots at once while memory admits the
+                          n-th (MemAvailable, already net of running jobs, >= reserve + estimate); each holds the GPU lock shared
+    heavy sim CMD...      up to sim_slots sim runs, replay batches or full test suites at a time
+    heavy preview CMD...  the owner's boat_tui preview: its own slot, never waits for agents' jobs. It has
+                          priority, not exclusivity (D-20261102-16): while it runs, a new unity job waits at
+                          most preview_grace and then runs alongside it if memory admits
+    heavy status          slots in use with their jobs, the queue, ages and ETAs, and where else to run
+    heavy probe CLASS     non-blocking: exit 0 if a CLASS job started now would get a slot at once (a free slot, the
+                          memory admission, no older waiter first, no preview priority), else 1 with the reason
+                          --reserve KEY [--ttl S]: also register KEY as a FIFO waiter (refreshed by each probe, gone S s,
+                          default 120, after the last): local waiters queue behind it, and when its turn comes and a
+                          slot is free the probe exits 0 and HOLDS the slot for KEY for 60 s; `heavy CLASS --reserve KEY
+                          CMD...` (same key) consumes the hold, else it is released (a cluster worker that must not starve)
+    heavy waited JOB      seconds the job tagged CRANE_JOB_ID=JOB has waited for a slot or the GPU lock (exit 1:
+                          it is not waiting), so a crane worker can give back a leased job stuck here
+    heavy contain CLASS CMD...   no slot, only the memory containment below (tcache runs tests as CLASS test)
+
+Waits for a free slot (up to HEAVY_WAIT_S, default 3 h; then exit 75), runs CMD and releases the slot. A sim or
+unity job that would wait more than cluster_after prints its cluster alternative once: HEAVY_CLUSTER (the
+exact submit command, given by the caller), else the generic one. tools/queuewatch surfaces long waits.
+Memory (config/heavy.yaml): a slot is taken only while MemAvailable >= reserve + the class estimate (the preview
+never waits), and CMD runs in its own transient systemd scope (OOMPolicy=stop, MemoryMax per class, MemoryHigh
+90%) with a raised oom_score_adj, so an OOM kills the job, never the calling session. HEAVY_MEM_MAX overrides
+the class MemoryMax; HEAVY_CONTAIN=0 runs CMD bare. Without a user systemd (a container) only oom_score_adj applies.
+HEAVY_WHO names the job in status, HEAVY_MAX_S (its expected maximum, s) gives an ETA. HEAVY_GPU_LOCK is the GPU
+lock shared with other sessions on this machine (default /tmp/aacv_gpu.lock; empty: none): unity jobs take it
+shared, so they run together, while the AAC study's local model servers take it exclusive (flock), so a server
+and Unity never share the GPU. Locks and job files
+live in HEAVY_DIR (default /tmp/heavy-<uid>).
+
+Coordinator (research-cluster docs/COORDINATION.md §1.2): with an agents token (HEAVY_RC_TOKEN, else
+~/.config/research-cluster/agents.token) a unity or sim job is a host-pinned grant job on the one queue: heavy
+submits it (kind grant, needs {host, slot, mem_gb, gpu}), blocks on the claim long-poll until the server grants
+it, takes the local slot and runs CMD exactly as above (scope, OOM, GPU lock after the grant, never before),
+heartbeats the grant and reports its exit. The server orders every host's work by one policy and surfaces long
+waits in its digest, so nobody watches this queue. Offline fallback: a server that is unreachable for 30 s (or
+answers 5xx for 60 s), or that has no grant routes, gives way to the local logic above (one line says so; an
+unsupported server is not asked again for 10 min). The preview never waits for the server. HEAVY_COORD=0 forces
+the local logic, and so does CRANE_JOB_ID (a crane worker's job: the coordinator scheduled it when it was leased). The host key is RESEARCH_HOST_KEY, ~/.config/research-cluster/host.key, else the short hostname.
+CMD gets HEAVY_SLOT and HEAVY_HOST (and HEAVY_GRANT), so `research wait` refuses to wait on its own slot.
+"""
+
+from pathlib import Path
+import fcntl
+import json
+import math
+import os
+import shutil
+import signal
+import socket
+import subprocess
+import sys
+import threading
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+
+KINDS = ('unity', 'sim', 'preview')   # slot classes; the preview always has one slot
+POLL_S = 20
+RESERVE_TTL_S = 120   # a reserved entry (heavy probe --reserve) expires this long after its last probe
+HOLD_S = 60           # a slot held for a reserved key is released if the key's job has not started by then
+BYPASS_MAX_S = 1800   # an oldest waiter stuck on memory may be bypassed once, until it has waited this long
+CLUSTER = Path.home() / '.config' / 'crane-cluster' / 'secrets.env'
+CONFIG = Path(__file__).resolve().parents[1] / 'config' / 'heavy.yaml'
+KEYS = ('reserve', 'swap_max', 'sim_slots', 'unity_slots', 'preview_grace', 'cluster_after', 'priority',
+        'starve_after', 'classes')
+
+
+def config(path=CONFIG):
+    """config/heavy.yaml (the only home of these values) with the host's local overlay; a missing file or key exits."""
+    try:
+        import yaml
+    except ImportError:
+        raise SystemExit(f'heavy: reading {path} needs PyYAML (python3 -m pip install pyyaml)')
+    try:
+        c = yaml.safe_load(path.read_text()) or {}
+    except (OSError, yaml.YAMLError) as e:
+        raise SystemExit(f'heavy: cannot read {path}: {getattr(e, "strerror", None) or e}')
+    # Host capacity (e.g. sim_slots on a big machine) lives outside the repo: ~/.config/crane/heavy.yaml (else the
+    # older ~/.config/mhseals_agents/heavy.yaml), or HEAVY_LOCAL_CONFIG ('' disables it, as the tests do).
+    local = os.environ.get('HEAVY_LOCAL_CONFIG')
+    if local is None:
+        local = next((str(p) for p in (Path.home() / '.config' / 'crane' / 'heavy.yaml',
+                                       Path.home() / '.config' / 'mhseals_agents' / 'heavy.yaml') if p.is_file()), '')
+    if local and path == CONFIG and Path(local).is_file():
+        over = yaml.safe_load(Path(local).read_text()) or {}
+        unknown = [k for k in over if k not in KEYS]
+        if unknown:
+            raise SystemExit(f'heavy: {local} has unknown {", ".join(unknown)} (the keys are in {path})')
+        base = c.get('classes') or {}
+        c = {**c, **over, 'classes': {**base, **{k: {**base.get(k, {}), **v} for k, v in (over.get('classes') or {}).items()}}}
+    have = {*c, *(f'classes.{k}.{f}' for k, v in (c.get('classes') or {}).items() for f in v or {})}
+    missing = [k for k in (*KEYS, *(f'classes.{k}.{f}' for k in (*KINDS, 'test')
+                                    for f in ('memory_max', 'estimate', 'oom_score_adj'))) if k not in have]
+    if missing:
+        raise SystemExit(f'heavy: {path} has no {", ".join(missing)}')
+    return c
+
+
+def mem_available_gb():
+    try:
+        for line in Path('/proc/meminfo').read_text().splitlines():
+            if line.startswith('MemAvailable:'):
+                return int(line.split()[1]) / 2 ** 20
+    except OSError:
+        pass
+    return float('inf')
+
+
+def slots(conf):
+    return {'unity': max(1, int(conf['unity_slots'])), 'sim': max(1, int(conf['sim_slots'])), 'preview': 1}
+
+
+def admission(kind, conf, avail=None):
+    """'' when there is memory for one more KIND job, else why it waits (the preview never waits)."""
+    if kind == 'preview':
+        return ''
+    avail = mem_available_gb() if avail is None else avail
+    # MemAvailable is already net of running jobs, so each new job needs room only for itself.
+    need = gib(conf['reserve']) + gib(conf['classes'][kind]['estimate'])
+    what = f'{kind} estimate'
+    return '' if avail >= need else f'memory: {avail:.1f}G available < {need:g}G (reserve + {what})'
+
+
+def outranking(kind, conf):
+    """Classes that rank above KIND in the memory priority (config `priority`, highest first)."""
+    order = [str(k) for k in conf.get('priority') or []]
+    return order[:order.index(kind)] if kind in order else []
+
+
+def memory_waiters(d, kinds, is_alive=None):
+    """Live waiters of the classes `kinds` blocked on raw memory (reason 'memory: ...'), oldest first."""
+    is_alive, found = is_alive or alive, []
+    for p in d.glob('wait.*'):
+        try:
+            w = json.loads(p.read_text())
+        except (OSError, ValueError):
+            continue
+        if w.get('kind') in kinds and str(w.get('reason', '')).startswith('memory:') and is_alive(w.get('pid')):
+            found.append(w)
+    return sorted(found, key=waiter_key)
+
+
+def yielding(d, kind, conf, is_alive=None):
+    """'' or why a new KIND job must not start: a higher-priority class has a waiter blocked on memory, so the
+    memory that frees up accumulates for it (running jobs continue)."""
+    above = outranking(kind, conf)
+    top = memory_waiters(d, above, is_alive) if above else []
+    if not top:
+        return ''
+    w = top[0]
+    return f"yield: memory is kept for the waiting {w.get('kind')} job {w.get('who') or 'pid %s' % w.get('pid')}"
+
+
+def starved(d, kind, conf, waited, short, is_alive=None):
+    """A clear reason once a KIND waiter has waited over starve_after on memory with no lower class left to
+    wait on (nothing running below it, no lower waiter), else ''. Only more free memory or the cluster helps."""
+    if not short.startswith('memory:') or waited <= float(conf['starve_after']):
+        return ''
+    order = conf.get('priority') or []
+    below = [k for k in order[order.index(kind) + 1:] if k in conf['classes']] if kind in order else []
+    if any(held(d / f'{k}.{i}.lock') for k in below for i in range(1, 5)) or \
+            any(older_waiters(d, k, (1 << 62, 0), is_alive) or resv_entries(d, k) for k in below):
+        return ''
+    return short + f' - starved {dur(waited)}: no lower-priority job is left to wait on; free memory by hand or use the cluster'
+
+
+def size_bytes(text):
+    text = str(text).strip().upper()
+    mult = {'K': 2 ** 10, 'M': 2 ** 20, 'G': 2 ** 30, 'T': 2 ** 40}.get(text[-1:], 1)
+    return int(float(text.rstrip('KMGT')) * mult)
+
+
+def gib(size):
+    return size_bytes(size) / 2 ** 30
+
+
+def user_systemd():
+    run = Path(os.environ.get('XDG_RUNTIME_DIR') or f'/run/user/{os.getuid()}')
+    return (run / 'systemd' / 'private').exists() and shutil.which('systemd-run') is not None
+
+
+def contained(kind, cmd, conf, systemd=None):
+    """CMD wrapped in its own transient scope with the class memory limits (CMD itself when that is off)."""
+    if os.environ.get('HEAVY_CONTAIN') == '0' or not (user_systemd() if systemd is None else systemd):
+        return list(cmd)
+    mem = os.environ.get('HEAVY_MEM_MAX') or conf['classes'][kind]['memory_max']
+    high = size_bytes(mem) * 9 // 10
+    return ['systemd-run', '--user', '--scope', '--quiet', '--collect', f'--unit=heavy-{kind}-{os.getpid()}-{time.time_ns() % 10 ** 9}',
+            '-p', 'OOMPolicy=stop', '-p', f'MemoryMax={mem}', '-p', f'MemoryHigh={high}',
+            '-p', f'MemorySwapMax={conf["swap_max"]}', '--', *cmd]
+
+
+def set_oom_score(kind, conf):
+    try:
+        Path('/proc/self/oom_score_adj').write_text(str(conf['classes'][kind]['oom_score_adj']))
+    except OSError:
+        pass
+
+
+def lock_dir():
+    d = Path(os.environ.get('HEAVY_DIR') or f'/tmp/heavy-{os.getuid()}')
+    d.mkdir(parents=True, exist_ok=True)
+    d.chmod(0o700)
+    return d
+
+
+def try_lock(path):
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return fd
+    except BlockingIOError:
+        os.close(fd)
+        return None
+
+
+def held(path):
+    """True while someone holds this lock (checked by taking it briefly, as the bash guard did)."""
+    fd = try_lock(path)
+    if fd is None:
+        return True
+    os.close(fd)
+    return False
+
+
+def write_json(path, data):
+    tmp = path.with_suffix(path.suffix + '.tmp')
+    tmp.write_text(json.dumps(data))
+    tmp.replace(path)
+
+
+def job_info(kind, cmd):
+    max_s = os.environ.get('HEAVY_MAX_S', '')
+    return {'pid': os.getpid(), 'kind': kind, 'cmd': ' '.join(cmd)[:200], 'cwd': os.getcwd(),
+            'who': os.environ.get('HEAVY_WHO', ''), 'job': os.environ.get('CRANE_JOB_ID', ''), 'since': time.time(),
+            'max_s': float(max_s) if max_s.replace('.', '', 1).isdigit() else None}
+
+
+def execute(kind, fd, cmd, conf, job=None):
+    gpu = os.environ.get('HEAVY_GPU_LOCK', '/tmp/aacv_gpu.lock') if kind == 'unity' else ''
+    if not shutil.which(cmd[0]):
+        print(f'heavy: {cmd[0]}: command not found', file=sys.stderr)
+        return 127
+    try:
+        if gpu:   # shared among unity jobs; the AAC servers take it exclusive (flock), so they never overlap Unity
+            gfd = os.open(gpu, os.O_RDONLY | os.O_CREAT, 0o666)
+            try:
+                fcntl.flock(gfd, fcntl.LOCK_SH | fcntl.LOCK_NB)
+            except BlockingIOError:
+                if job:
+                    write_json(job, dict(json.loads(job.read_text()), gpu_wait=time.time()))
+                print(f'heavy: waiting for the GPU lock {gpu} (held exclusive: an AAC model server or an older '
+                      f'unity job)', file=sys.stderr)
+                fcntl.flock(gfd, fcntl.LOCK_SH)
+                if job:
+                    data = json.loads(job.read_text())
+                    data.pop('gpu_wait', None)
+                    write_json(job, data)
+        wrapped = contained(kind, cmd, conf)
+        unit = next((a[7:] for a in wrapped if a.startswith('--unit=')), '')
+        env = dict(os.environ, HEAVY_SLOT=kind, HEAVY_HOST=host_key())
+        rc = subprocess.run(wrapped, pass_fds=(fd,), env=env,
+                            preexec_fn=lambda: set_oom_score(kind, conf)).returncode
+    except FileNotFoundError:
+        print(f'heavy: {cmd[0]}: command not found', file=sys.stderr)
+        return 127
+    except KeyboardInterrupt:
+        return 130
+    if rc == -signal.SIGKILL:
+        print(f'heavy: {kind} job killed (SIGKILL; over its MemoryMax '
+              f'{os.environ.get("HEAVY_MEM_MAX") or conf["classes"][kind]["memory_max"]}? '
+              f'journalctl --user -u {unit}.scope)', file=sys.stderr)
+    return 128 - rc if rc < 0 else rc
+
+
+def resv_file(d, key):
+    return d / ('resv.' + ''.join(c if c.isalnum() or c in '_.-' else '_' for c in key))
+
+
+def resv_entries(d, kind, now=None):
+    """Live reserved entries of this class: (path, entry). Expired ones (not probed for ttl s) lose their file; an
+    unclaimed hold is released (the entry stays a waiter, with its place in the FIFO)."""
+    now = now or time.time()
+    found = []
+    for p in sorted(d.glob('resv.*')):
+        if p.name.endswith('.tmp'):
+            continue
+        try:
+            e = json.loads(p.read_text())
+        except (OSError, ValueError):
+            continue
+        if now - e.get('seen', 0) > e.get('ttl', RESERVE_TTL_S):
+            p.unlink(missing_ok=True)
+            continue
+        if e.get('hold') and e['hold'] < now:
+            e['hold'] = None
+            write_json(p, e)
+        if e.get('kind') == kind:
+            found.append((p, e))
+    return found
+
+
+def holds_of(d, kind, skip=None, now=None):
+    """Slots held for reserved keys other than `skip`."""
+    # One worker owns all reserved keys and starts one job per lease round per free slot it actually leases, so
+    # its holds cost local waiters at most one slot (a hold on a backend with no work queued is refreshed forever).
+    return min(1, sum(1 for _, e in resv_entries(d, kind, now) if e.get('hold') and e.get('key') != skip))
+
+
+# ------------------------------------------------------------------ coordinator client (COORDINATION.md §1.2, §5.5)
+
+RC_URL = 'https://research.lunarz.dev'
+RC_TOKENS = Path.home() / '.config' / 'research-cluster'
+OFFLINE_AFTER_S = 30      # no answer this long: run on the local logic
+ERROR_AFTER_S = 60        # 5xx this long: the same
+UNSUPPORTED_S = 600       # a server without grant routes is not asked again for this long
+CLAIM_POLL_S = 25         # the server holds a claim this long at most
+HEARTBEAT_S = 30
+STATUS_EVERY_S = 60       # at most one queued line per minute
+
+
+def host_key():
+    k = (os.environ.get('RESEARCH_HOST_KEY') or '').strip()
+    if not k:
+        try:
+            k = (RC_TOKENS / 'host.key').read_text().strip()
+        except OSError:
+            k = ''
+    return k or socket.gethostname().split('.')[0]
+
+
+class Unreachable(Exception):
+    def __init__(self, msg, server_error=False):
+        super().__init__(msg)
+        self.server_error = server_error
+
+
+class Refused(Exception):
+    def __init__(self, status, msg):
+        super().__init__(f'HTTP {status}: {msg}')
+        self.status = status
+
+
+def http(url, token, method, path, body=None, timeout=40):
+    data = json.dumps(body).encode() if body is not None else None
+    req = urllib.request.Request(url.rstrip('/') + path, data=data, method=method, headers={
+        'authorization': f'Bearer {token}', 'user-agent': 'crane-heavy/2',
+        **({'content-type': 'application/json'} if data is not None else {})})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            raw = r.read()
+            return json.loads(raw) if raw else {}
+    except urllib.error.HTTPError as e:
+        raw = e.read()[:300].decode(errors='replace')
+        if e.code >= 500:
+            raise Unreachable(f'HTTP {e.code}', server_error=True) from None
+        raise Refused(e.code, raw) from None
+    except (urllib.error.URLError, TimeoutError, ConnectionError, OSError) as e:
+        raise Unreachable(str(getattr(e, 'reason', None) or e)) from None
+
+
+class Coordinator:
+    """One grant per heavy job: submit, claim (long-poll) until granted, heartbeat while CMD runs, report done.
+    run() returns CMD's exit code, or None to fall back to the local logic (no grant was taken)."""
+
+    def __init__(self, url, token, conf, d, call=http, clock=time.time, sleep=time.sleep, log=None):
+        self.url, self.token, self.conf, self.d = url, token, conf, d
+        self.call, self.clock, self.sleep = call, clock, sleep
+        self.log = log or (lambda m: print(m, file=sys.stderr))
+        self.project = 'agents'
+
+    def req(self, method, path, body=None, timeout=40):
+        return self.call(self.url, self.token, method, path, body, timeout)
+
+    def mark_unsupported(self, why):
+        write_json(self.d / 'coord.off', {'since': self.clock(), 'why': why[:200]})
+
+    def grant_job(self, kind, info, now):
+        who = ''.join(c if c.isalnum() or c in '._@:+-' else '_' for c in (info.get('who') or 'agent'))[:48]
+        est = int(info.get('max_s') or {'unity': 900, 'sim': 600}.get(kind, 600))
+        needs = {'host': host_key(), 'slot': kind, 'mem_gb': math.ceil(gib(self.conf['classes'][kind]['estimate']))}
+        if kind == 'unity':
+            needs['gpu'] = 'shared'
+        return {'schema': 'rc-job/1', 'kind': 'grant', 'job_id': f'heavy.{host_key()}.{os.getpid()}.{int(now)}',
+                'purpose': f'A local {kind} run by an agent, scheduled through the workspace heavy guard.',
+                'submitter': f'heavy:{who}', 'priority_class': 'sim', 'priority': 100, 'est_seconds': est,
+                'needs': needs, 'preemptible': False, 'max_attempts': 1}
+
+    def acquire(self, kind, info, wait_s, avail):
+        """(job id, lease id) once granted; None to fall back; raises SystemExit(75) on the HEAVY_WAIT_S timeout."""
+        start = self.clock()
+        job = self.grant_job(kind, info, start)
+        p = self.project
+        try:
+            r = self.req('POST', f'/v1/projects/{p}/jobs', {'jobs': [job]})
+        except Refused as e:
+            self.log(f'heavy: the coordinator refused the grant job ({e}); running on the local slots')
+            if e.status in (400, 404, 405, 501):
+                self.mark_unsupported(str(e))
+            return None
+        except Unreachable as e:
+            self.log(f'heavy: the coordinator is unreachable ({e}); running on the local slots')
+            return None
+        jid = ((r.get('jobs') or [{}])[0].get('job_id')) or job['job_id']
+        q = urllib.parse.quote(jid, safe='')
+        last_ok, err_since, last_line, last_why = self.clock(), None, 0.0, None
+        while True:
+            now = self.clock()
+            try:
+                g = self.req('POST', f'/v1/projects/{p}/jobs/{q}/claim',
+                             {'host': {'key': host_key(), 'mem': {'available_gb': round(avail(), 1)}}},
+                             timeout=CLAIM_POLL_S + 15)
+                last_ok, err_since = self.clock(), None
+            except Refused as e:
+                self.cancel(jid)
+                if e.status in (404, 405, 501):
+                    self.mark_unsupported(str(e))
+                    self.log('heavy: this coordinator has no grant routes yet; running on the local slots')
+                else:
+                    self.log(f'heavy: grant claim refused ({e}); running on the local slots')
+                return None
+            except Unreachable as e:
+                err_since = err_since or now
+                limit = ERROR_AFTER_S if e.server_error else OFFLINE_AFTER_S
+                if self.clock() - (err_since if e.server_error else last_ok) >= limit:
+                    self.cancel(jid)
+                    self.log(f'heavy: the coordinator is unreachable ({e}); running on the local slots (offline)')
+                    return None
+                self.sleep(5)
+                continue
+            st = g.get('status')
+            if st == 'granted':
+                self.log(f'heavy: {kind} grant {jid} from the coordinator')
+                return jid, g.get('lease_id') or ''
+            if st in ('cancelled', 'dead', 'failed', 'done'):
+                self.log(f'heavy: the grant {jid} ended ({st}) before it was granted')
+                raise SystemExit(75)
+            why = (f"#{g['position']} " if g.get('position') is not None else '') + (g.get('why') or 'queued')
+            if last_why is None or self.clock() - last_line >= STATUS_EVERY_S:
+                self.log(f'heavy: waiting for a {kind} grant ({why}; research why -p {p} {jid})')
+                last_line, last_why = self.clock(), why
+            if self.clock() - start >= wait_s:
+                self.cancel(jid)
+                self.log(f'heavy: no {kind} grant within {wait_s}s')
+                raise SystemExit(75)
+            # a server that answers at once (no long-poll) is asked again after its retry_after, else 5 s
+            if g.get('retry_after') or self.clock() - now < 2:
+                self.sleep(min(float(g.get('retry_after') or 5), CLAIM_POLL_S))
+
+    def cancel(self, jid):
+        try:
+            self.req('POST', f'/v1/projects/{self.project}/jobs/cancel', {'job_ids': [jid]}, timeout=10)
+        except (Refused, Unreachable):
+            pass
+
+    def run(self, kind, cmd, avail):
+        wait_s = int(os.environ.get('HEAVY_WAIT_S', '10800'))
+        term = signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))
+        try:
+            got = self.acquire(kind, job_info(kind, cmd), wait_s, avail)
+        except SystemExit as e:
+            return e.code if isinstance(e.code, int) else 75
+        finally:
+            signal.signal(signal.SIGTERM, term)
+        if got is None:
+            return None
+        jid, lease = got
+        q = urllib.parse.quote(jid, safe='')
+        stop = threading.Event()
+
+        def beat():
+            while not stop.wait(HEARTBEAT_S):
+                try:
+                    self.req('POST', f'/v1/projects/{self.project}/jobs/{q}/heartbeat', {'lease_id': lease}, timeout=15)
+                except (Refused, Unreachable):
+                    pass
+        t = threading.Thread(target=beat, daemon=True)
+        t.start()
+        os.environ['HEAVY_GRANT'] = jid
+        started, rc = self.clock(), 1
+        try:
+            rc = local_guard(kind, cmd, avail)   # grant first, local slot and GPU flock second (§1.2.4)
+            return rc
+        finally:
+            stop.set()
+            try:
+                self.req('POST', f'/v1/projects/{self.project}/jobs/{q}/done',
+                         {'lease_id': lease, 'exit': rc, 'seconds': round(self.clock() - started, 1)}, timeout=15)
+            except (Refused, Unreachable):
+                pass
+
+
+def coordinator_line(d, clock=time.time):
+    """One status line: whether unity/sim jobs go through the coordinator's queue."""
+    if os.environ.get('HEAVY_COORD') == '0':
+        return 'coordinator: off (HEAVY_COORD=0): local slots only'
+    if os.environ.get('CRANE_JOB_ID'):
+        return 'coordinator: this is a crane job (leased already): local slots only'
+    if not os.environ.get('HEAVY_RC_TOKEN') and not (RC_TOKENS / 'agents.token').is_file():
+        return f'coordinator: no agents token ({RC_TOKENS / "agents.token"}): local slots only'
+    try:
+        off = json.loads((d / 'coord.off').read_text())
+        left = UNSUPPORTED_S - (clock() - off.get('since', 0))
+        if left > 0:
+            return f'coordinator: local slots for {dur(left)} more ({off.get("why", "")[:80]})'
+    except (OSError, ValueError):
+        pass
+    return f'coordinator: {os.environ.get("RC_URL") or RC_URL} grants unity/sim on {host_key()} (research digest)'
+
+
+def coordinator(d=None, conf=None, clock=time.time):
+    """A Coordinator when this host should use the one queue, else None (local logic). A crane worker's job
+    (CRANE_JOB_ID) was already scheduled by the coordinator when the worker leased it: a grant would queue it twice,
+    so it takes its local slot directly."""
+    if os.environ.get('HEAVY_COORD') == '0' or os.environ.get('CRANE_JOB_ID'):
+        return None
+    token = os.environ.get('HEAVY_RC_TOKEN', '').strip()
+    if not token:
+        try:
+            token = (RC_TOKENS / 'agents.token').read_text().strip()
+        except OSError:
+            return None
+    if not token:
+        return None
+    d = d or lock_dir()
+    try:
+        off = json.loads((d / 'coord.off').read_text())
+        if clock() - off.get('since', 0) < UNSUPPORTED_S:
+            return None
+    except (OSError, ValueError):
+        pass
+    return Coordinator(os.environ.get('RC_URL') or RC_URL, token, conf or config(), d, clock=clock)
+
+
+def guard(kind, cmd, avail=mem_available_gb, reserve=None, coord=None):
+    if kind in ('unity', 'sim') and not reserve:
+        coord = coordinator() if coord is None else coord
+        if coord:
+            rc = coord.run(kind, cmd, avail)
+            if rc is not None:
+                return rc
+    return local_guard(kind, cmd, avail, reserve)
+
+
+def local_guard(kind, cmd, avail=mem_available_gb, reserve=None):
+    d = lock_dir()
+    conf = config()
+    info = job_info(kind, cmd)
+    wait_s = int(os.environ.get('HEAVY_WAIT_S', '10800'))
+    deadline = time.time() + wait_s
+    waiter = d / f'wait.{os.getpid()}'
+    n_slots, grace, after = slots(conf)[kind], conf['preview_grace'], conf['cluster_after']
+    hinted = False
+    own = None
+    if reserve:   # the entry's FIFO place carries over to this waiter; a hold still valid is consumed on start
+        own = next((e for _, e in resv_entries(d, kind) if e.get('key') == reserve), None)
+        if own:
+            info['since'] = own['since']
+        resv_file(d, reserve).unlink(missing_ok=True)
+    claimed = bool(own and own.get('hold'))
+    me = (info['since'], os.getpid())
+    term = signal.signal(signal.SIGTERM, lambda *_: sys.exit(143))   # a cancelled waiter leaves no wait file
+    try:
+        while True:
+            # the owner's preview holds preview.1.lock: it has priority, a unity job yields to it for `grace` s
+            waited = time.time() - info['since']
+            reserved = kind == 'unity' and waited < grace and held(d / 'preview.1.lock')
+            busy = [i for i in range(1, n_slots + 1) if held(d / f'{kind}.{i}.lock')]
+            held_n = holds_of(d, kind, reserve)
+            if claimed and time.time() > own['hold']:
+                claimed = False   # too late: the hold was released, wait in line like anyone
+            used = len(busy) + held_n
+            short = '' if used >= n_slots else admission(kind, conf, avail())
+            short = short or ('' if used >= n_slots else yielding(d, kind, conf))
+            short = starved(d, kind, conf, waited, short, None) or short
+            if not waiter.exists():
+                write_json(waiter, info)   # in the queue before the first slot attempt: arrival order is the key
+            older = older_waiters(d, kind, me)
+            free = n_slots - used
+            queued = '' if claimed or not older or free > len(older) or bypass(d, older[0], short) \
+                else 'queued behind an older waiter'
+            if free <= 0 and held_n and not queued:
+                queued = 'every free slot is held for a cluster job'
+            for i in range(1, (0 if reserved or short or queued or free <= 0 else n_slots) + 1):
+                fd = None if i in busy else try_lock(d / f'{kind}.{i}.lock')
+                if fd is None:
+                    continue
+                waiter.unlink(missing_ok=True)
+                signal.signal(signal.SIGTERM, term)   # a running job keeps the guard's old SIGTERM behaviour
+                print(f'heavy: {kind} slot {i} acquired', file=sys.stderr)
+                job = d / f'{kind}.{i}.job'
+                write_json(job, dict(info, slot=i, since=time.time()))
+                try:
+                    return execute(kind, fd, cmd, conf, job)
+                finally:
+                    job.unlink(missing_ok=True)
+            reason = short or queued or ('the preview has priority for %ds' % grace if reserved else '')
+            if not waiter.exists() or info.get('reason', '') != reason:
+                info['reason'] = reason
+                write_json(waiter, info)
+                print(f'heavy: waiting for a {kind} slot{" (" + reason + ")" if reason else ""} (heavy status)',
+                      file=sys.stderr)
+            if kind in ('sim', 'unity') and not hinted and long_wait(d, kind, n_slots, waited, after, short):
+                hinted = True
+                alt = os.environ.get('HEAVY_CLUSTER') or cluster_hint(busy=bool(short), kind=kind)
+                if alt:
+                    info['cluster'] = alt
+                    write_json(waiter, info)
+                    print(f'heavy: this {kind} job would wait over {dur(after)} here; cluster alternative: {alt}',
+                          file=sys.stderr)
+            if time.time() >= deadline:
+                print(f'heavy: no {kind} slot within {wait_s}s', file=sys.stderr)
+                return 75
+            time.sleep(POLL_S)
+    finally:
+        waiter.unlink(missing_ok=True)
+
+
+def probe(kind, avail=None, d=None, is_alive=None, reserve=None, ttl=None):
+    """'' when a KIND job started now would take a slot at once (guard's first pass), else why it would wait.
+    With `reserve` (a stable key) the probe also registers/refreshes a waiter entry; when it is that entry's turn and
+    a slot is free it HOLDS the slot for the key for HOLD_S, so no local job can take it before the key's job starts."""
+    d = d or lock_dir()
+    conf = config()
+    if kind == 'preview':
+        return '' if not held(d / 'preview.1.lock') else 'the preview slot is busy'
+    now = time.time()
+    path, entry = resv_file(d, reserve) if reserve else None, None
+    if reserve:
+        entry = next((e for _, e in resv_entries(d, kind, now) if e.get('key') == reserve), None) or \
+            {'key': reserve, 'kind': kind, 'since': now}
+        entry.update(seen=now, ttl=ttl or entry.get('ttl') or RESERVE_TTL_S)
+        write_json(path, entry)
+        if entry.get('hold'):
+            return ''
+    n_slots = slots(conf)[kind]
+    if kind == 'unity' and held(d / 'preview.1.lock'):
+        return 'the preview has priority'
+    busy = [i for i in range(1, n_slots + 1) if held(d / f'{kind}.{i}.lock')]
+    # Every reserved key belongs to the one cluster worker, which starts what the coordinator actually hands it:
+    # its other keys' holds are not someone else's claim (they held both free slots for backends with no work).
+    used = len(busy)
+    if used >= n_slots:
+        return f'all {n_slots} {kind} slots busy'
+    short = admission(kind, conf, (avail or mem_available_gb)()) or yielding(d, kind, conf, is_alive)
+    if short:
+        return short
+    me = (entry['since'], 0) if entry else (now, 1 << 62)
+    older = older_waiters(d, kind, me, is_alive, skip=reserve)
+    if older and n_slots - used <= len(older):
+        return f'{len(older)} older {kind} waiter(s) first'
+    if entry:
+        entry['hold'] = now + HOLD_S
+        write_json(path, entry)
+    return ''
+
+
+def waited(job_id, d=None, is_alive=None, now=None):
+    """Seconds the heavy job tagged CRANE_JOB_ID=job_id has waited (for a slot, or holding one, for the GPU
+    lock); None when it is not waiting."""
+    d, is_alive, now = d or lock_dir(), is_alive or alive, now or time.time()
+    for p in sorted(d.glob('wait.*')) + sorted(d.glob('*.job')):
+        if p.name.endswith('.tmp'):
+            continue
+        try:
+            w = json.loads(p.read_text())
+        except (OSError, ValueError):
+            continue
+        if w.get('job') != job_id or not is_alive(w.get('pid')):
+            continue
+        if p.name.startswith('wait.'):
+            return now - w.get('since', now)
+        if w.get('gpu_wait'):
+            return now - w['gpu_wait']
+    return None
+
+
+def waiter_key(w):
+    return (w.get('since', 0), w.get('pid') or 0)
+
+
+def older_waiters(d, kind, me, is_alive=None, skip=None):
+    """Live waiters of this class that arrived before `me` (since, pid), oldest first; dead ones lose their file.
+    Reserved entries (heavy probe --reserve) count as waiters, except the key `skip`."""
+    is_alive = is_alive or alive
+    found = []
+    for p in d.glob('wait.*'):
+        if p.name.endswith('.tmp'):
+            continue
+        try:
+            w = json.loads(p.read_text())
+        except (OSError, ValueError):
+            continue
+        if not is_alive(w.get('pid')):
+            p.unlink(missing_ok=True)
+            continue
+        if w.get('kind') == kind and waiter_key(w) < me:
+            found.append(w)
+    # Reserved entries all come from the one cluster worker (one key per backend it can lease), so they stand in
+    # line as ONE waiter: the oldest. A reserved probe (skip set) is that worker itself and skips them all; else
+    # a worker reserving 3 backends with work queued for only one held 3 places and deadlocked local waiters and
+    # its own probes (11-03).
+    if skip is None:
+        resv = sorted((e for _, e in resv_entries(d, kind) if not e.get('hold') and waiter_key(e) < me), key=waiter_key)
+        found += resv[:1]
+    return sorted(found, key=waiter_key)
+
+
+def bypass(d, oldest, short, now=None):
+    """One younger job may pass an oldest waiter that is stuck on memory while we have memory (short is ''),
+    only while the oldest has waited under BYPASS_MAX_S; then the oldest is next."""
+    now = now or time.time()
+    if short or not str(oldest.get('reason', '')).startswith('memory') or now - oldest.get('since', now) >= BYPASS_MAX_S:
+        return False
+    try:
+        os.close(os.open(d / f'bypass.{oldest.get("pid")}.{int(oldest.get("since", 0))}', os.O_CREAT | os.O_EXCL, 0o600))
+        return True
+    except OSError:
+        return False
+
+
+def long_wait(d, kind, n_slots, waited, after, short):
+    """True once a waiting job has waited `after` s, or when every slot's job ends later than that."""
+    if waited >= after:
+        return True
+    if short:
+        return False
+    jobs = []
+    for i in range(1, n_slots + 1):
+        try:
+            jobs.append(json.loads((d / f'{kind}.{i}.job').read_text()))
+        except (OSError, ValueError):
+            return False
+    left = [eta(j, time.time()) for j in jobs]
+    return bool(left) and None not in left and min(left) > after
+
+
+def alive(pid):
+    try:
+        os.kill(int(pid), 0)
+        return True
+    except (OSError, ValueError, TypeError):
+        return False
+
+
+def snapshot(d, is_alive=alive, conf=None):
+    """{'slots': {kind: [job or None per slot]}, 'queue': [waiter, oldest first]}; dead pids are dropped."""
+    def load(path):
+        try:
+            data = json.loads(path.read_text())
+        except (OSError, ValueError):
+            return None
+        return data if is_alive(data.get('pid')) else None
+    def slot(k, i):   # a lock held with no job file (a job of the older bash guard) is busy, not free
+        return load(d / f'{k}.{i}.job') or ({'held': True} if held(d / f'{k}.{i}.lock') else None)
+    found = {k: [slot(k, i) for i in range(1, n + 1)] for k, n in slots(conf or config()).items()}
+    queue = sorted(filter(None, (load(p) for p in d.glob('wait.*') if not p.name.endswith('.tmp'))),
+                   key=lambda w: w.get('since', 0))
+    return {'slots': found, 'queue': queue}
+
+
+def dur(s):
+    s = max(0, int(s))
+    return f'{s}s' if s < 120 else f'{s // 60}m' if s < 7200 else f'{s // 3600}h{s % 3600 // 60:02d}m'
+
+
+def label(job):
+    return f'{job.get("who") or "pid " + str(job.get("pid"))}: {job.get("cmd", "")[:70]}'
+
+
+def eta(job, now):
+    return job['since'] + job['max_s'] - now if job.get('max_s') else None
+
+
+def render(snap, now, hint=''):
+    lines = []
+    for kind, jobs in snap['slots'].items():
+        for i, job in enumerate(jobs, 1):
+            if job is None:
+                lines.append(f'{kind}.{i}  free')
+                continue
+            if job.get('held'):
+                lines.append(f'{kind}.{i}  held (no job file: a job of the older guard)')
+                continue
+            left = eta(job, now)
+            lines.append(f'{kind}.{i}  {dur(now - job["since"])}  {label(job)}'
+                         + (f'  (ends in ~{dur(left)})' if left is not None else '')
+                         + (f'  (waiting {dur(now - job["gpu_wait"])} for the GPU lock)' if job.get('gpu_wait') else ''))
+    if snap['queue']:
+        lines.append(f'queue {len(snap["queue"])}:')
+        for w in snap['queue']:
+            busy = snap['slots'].get(w.get('kind'), [])
+            etas = [eta(j, now) for j in busy if j]
+            nxt = f'  (a slot in ~{dur(min(etas))})' if etas and None not in etas and len(etas) == len(busy) else ''
+            if w.get('kind') == 'unity' and any(snap['slots'].get('preview', [])) and now - w.get('since', now) < 120:
+                nxt = '  (the preview has priority for 2m, then it runs alongside)'
+            if w.get('reason'):
+                nxt = f'  ({w["reason"]})'
+            lines.append(f'  {w.get("kind")}  waiting {dur(now - w.get("since", now))}  {label(w)}{nxt}')
+            if w.get('cluster'):
+                lines.append(f'    cluster alternative: {w["cluster"]}')
+    else:
+        lines.append('queue empty')
+    if hint and (all(snap['slots']['sim']) or hint.startswith('memory')):
+        lines.append(hint)
+    return '\n'.join(lines)
+
+
+def cluster_hint(path=CLUSTER, busy=False, kind='sim'):
+    try:
+        configured = any(line.split('=', 1)[0].strip() == 'CRANE_COORDINATOR' and line.split('=', 1)[1].strip()
+                         for line in path.read_text().splitlines() if '=' in line)
+    except OSError:
+        return ''
+    why = 'memory is short here' if busy else f'all {kind} slots busy'
+    return (f'{why}: a sim cluster is configured on this host, submit there (crane cluster / research submit)') if configured else ''
+
+
+def memory_line(conf, avail):
+    return (f'memory {avail:.1f}G available, reserve {conf["reserve"]}; MemoryMax '
+            + ' '.join(f'{k} {v["memory_max"]}' for k, v in conf['classes'].items())
+            + ('' if user_systemd() else ' (no user systemd here: oom_score_adj only)'))
+
+
+def main(argv):
+    if argv[:1] == ['status']:
+        d = lock_dir()
+        conf = config()
+        avail = mem_available_gb()
+        print(render(snapshot(d), time.time(), cluster_hint(busy=bool(admission('sim', conf, avail)))))
+        print(memory_line(conf, avail))
+        print(coordinator_line(d))
+        return 0
+    if argv[:1] == ['probe']:
+        rest, opts = argv[1:], {}
+        while len(rest) >= 2 and rest[-2] in ('--reserve', '--ttl'):
+            opts[rest[-2]] = rest[-1]
+            rest = rest[:-2]
+        if len(rest) != 1 or rest[0] not in KINDS or not str(opts.get('--ttl', '1')).isdigit():
+            print('usage: heavy probe unity|sim|preview [--reserve KEY [--ttl S]]', file=sys.stderr)
+            return 2
+        argv = ['probe', rest[0]]
+        why = probe(argv[1], reserve=opts.get('--reserve'), ttl=int(opts['--ttl']) if '--ttl' in opts else None)
+        print(why or f'{argv[1]}: a slot now')
+        return 1 if why else 0
+    if argv[:1] == ['waited']:
+        if len(argv) != 2:
+            print('usage: heavy waited JOB_ID', file=sys.stderr)
+            return 2
+        s = waited(argv[1])
+        if s is None:
+            return 1
+        print(f'{s:.0f}')
+        return 0
+    if argv[:1] == ['contain']:
+        conf = config()
+        cmd = argv[2:][1:] if argv[2:3] == ['--'] else argv[2:]
+        if len(argv) < 3 or argv[1] not in conf['classes'] or not cmd:
+            print(f'usage: heavy contain {"|".join(conf["classes"])} CMD...', file=sys.stderr)
+            return 2
+        set_oom_score(argv[1], conf)
+        wrapped = contained(argv[1], cmd, conf)
+        try:
+            os.execvp(wrapped[0], wrapped)
+        except FileNotFoundError:
+            print(f'heavy: {wrapped[0]}: command not found', file=sys.stderr)
+            return 127
+    if not argv or argv[0] not in KINDS:
+        if argv:
+            print(f"heavy: unknown kind '{argv[0]}' (unity|sim|preview|status|probe|waited)", file=sys.stderr)
+        print('usage: heavy unity|sim|preview CMD... | heavy status', file=sys.stderr)
+        return 2
+    if len(argv) < 2:
+        print('usage: heavy unity|sim|preview CMD...', file=sys.stderr)
+        return 2
+    if argv[1] == '--reserve' and len(argv) > 3:
+        return guard(argv[0], argv[3:], reserve=argv[2])
+    return guard(argv[0], argv[1:])
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))
