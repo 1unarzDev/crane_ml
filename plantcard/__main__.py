@@ -32,13 +32,15 @@ def main(argv=None):
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest='cmd', required=True)
     s = sub.add_parser('show')
-    s.add_argument('ref', nargs='?', default='roboboat/blastoise@HEAD')
+    s.add_argument('ref', nargs='?', default='roboboat/blastoise@HEAD',
+                   help='a card: FAMILY/ROBOT@HEAD, a sha prefix, or a card directory (default roboboat/blastoise@HEAD)')
     e = sub.add_parser('export')
-    e.add_argument('view')
-    e.add_argument('ref', nargs='?', default='roboboat/blastoise@HEAD')
-    e.add_argument('--particle', type=int, default=None)
-    e.add_argument('--n', type=int, default=None)
-    e.add_argument('--out', default=None)
+    e.add_argument('view', help='the tier view: unity | nlc | control | fastsim')
+    e.add_argument('ref', nargs='?', default='roboboat/blastoise@HEAD',
+                   help='a card: FAMILY/ROBOT@HEAD, a sha prefix, or a card directory (default roboboat/blastoise@HEAD)')
+    e.add_argument('--particle', type=int, default=None, help='unity/fastsim views: export stored particle K instead of the posterior point')
+    e.add_argument('--n', type=int, default=None, help='nlc view: the number of particles (a seeded resample)')
+    e.add_argument('--out', default=None, help='write the JSON here instead of stdout')
     a = ap.parse_args(argv)
     card = load(a.ref)
     if a.cmd == 'show':
