@@ -657,10 +657,12 @@ COMMANDS = [
             raw='bin/heavy unity Tools/RoboBoat/generate.sh'),
     Command(('env', 'validate'), 'Check a course file follows the course rules; exit 0 when it does.',
             'crane.wrap:course', passthrough=True, about='one row per rule, pass or fail.',
+            notes='Give it a course file, e.g. one crane env gen made.',
             details='The independent constraint check of a course truth. Options: TRUTH.json [--spec S] [--json].',
             examples=('crane env validate /tmp/c3.json',), raw='python3 Tools/RoboBoat/validate.py'),
     Command(('env', 'render'), 'Draw a course file as a picture (SVG).', 'crane.wrap:course', passthrough=True,
             about='the SVG on stdout; redirect it to a file.',
+            notes='Give it a course file; open the SVG in a web browser to look at it.',
             details='Options: TRUTH.json [--track T.jsonl] (a track to draw over it).',
             examples=('crane env render /tmp/c3.json > c3.svg',), raw='python3 Tools/RoboBoat/render.py'),
     Command(('env', 'explain'), "Describe a course file in words: its tasks, objects and checks.",
@@ -677,15 +679,15 @@ COMMANDS = [
             details='Rows per block: parameters with their sd and status; then the validation rows. --json: the card '
                     'document (robot, sha, status, blocks, validation).',
             params=(P('ref', nargs='?', description="Which card: FAMILY/ROBOT@HEAD, the first characters of its id, or "
-                      "a card folder (default the usual card)."),
+                      "a card folder (default the standard card)."),
                     _json('Print the card as one JSON document.')),
             examples=('crane card show', 'crane card show FAMILY/ROBOT@HEAD --json'), raw='python3 -m plantcard show'),
     Command(('card', 'export'), "Write a robot's plant card in the format one simulator or tool reads.",
             'crane.wrap:card', passthrough=True, export=True, about='JSON on screen, or saved with --out FILE.',
             details='Tier views: unity (T2), fastsim (T0/T1), nlc and control.',
-            params=(P('view', choices=('unity', 'nlc', 'control', 'fastsim'), description='Which format: unity, nlc, '
-                      'control or fastsim.'),
-                    P('ref', nargs='?', description='Which card (default the usual card).'),
+            params=(P('view', choices=('unity', 'nlc', 'control', 'fastsim'), description='Which format: unity (the 3-D '
+                      'simulator), fastsim (the light simulators), or control and nlc (for those tools).'),
+                    P('ref', nargs='?', description='Which card (default the standard card).'),
                     P('--out', 'path', description='Save it to this file.')),
             examples=('crane card export fastsim --out /tmp/card.json',),
             raw='python3 -m plantcard export'),
@@ -873,7 +875,7 @@ COMMANDS = [
             details='Runs the Unity player through heavy unity: one worker, or a sweep over worker counts '
                     '(summary.json per count). Player settings come from env (CRANE_PLAYER, CRANE_DURATION, '
                     'CRANE_SCENE, ...).',
-            params=(P('--worker', 'int', default=0, description='Run one copy with this id.'),
+            params=(P('--worker', 'int', default=0, description='Run a single copy, numbered with this id.'),
                     P('--sweep', 'list', nargs='*', metavar='N', description='Try these numbers of copies at once, '
                       'e.g. 1 2 4 (default from config/bench.yaml).')),
             examples=('crane bench player --sweep 1 2 4',), raw='bin/heavy unity Tools/Bench/sweep_workers.sh 1 2 4'),
@@ -1043,7 +1045,7 @@ COMMANDS = [
                     'full commit from --from (default ssh://THISHOST/REPO, CRANE_DEPLOY_FROM). local:DIR deploys into '
                     'DIR as the home (no ssh; for tests). Exit 0 ok, 1 a step or the remote doctor failed, 2 usage or '
                     'a refusal.',
-            params=(P('host', description='The computer to set up: its ssh name, e.g. innovation, or USER@HOST.'),
+            params=(P('host', description='The computer to set up: its ssh name, e.g. lab-pc, or USER@HOST.'),
                     P('--player', 'bool', description='Also copy and install the 3-D simulator.'),
                     P('--tarball', 'path', description='The packed simulator file to send (implies --player).'),
                     P('--ref', default='HEAD', description='Which code version to send: a branch or commit (default '
@@ -1087,8 +1089,9 @@ COMMANDS = [
     Command(('heavy',), 'Run a big job (Unity, a sim, a test suite) only when this computer has room, so jobs take '
             'turns instead of freezing it.', 'crane.wrap:heavy', passthrough=True,
             about="the job's own output, once it gets its turn.",
-            notes='`crane heavy status` shows what is running and waiting. A job that waits too long gives up with '
-                  'exit 75 rather than hanging.',
+            notes='Put the kind of job and the command after it, e.g. crane heavy unity CMD, or crane heavy contain '
+                  'test CMD for a test suite; crane heavy status shows what is running and waiting. A job that waits '
+                  'too long gives up with exit 75 rather than hanging.',
             details="heavy's own CLI (bin/heavy): it waits for a slot (bounded, exit 75 on timeout), runs CMD and "
                     'releases it; slots come from config/heavy.yaml. `crane heavy status` lists the slots, the queue '
                     'and ETAs.',
@@ -1179,8 +1182,7 @@ def unavailable(command):
 
 
 FLAG_PARAMS = {
-    'json': Param('--json', 'bool', description='Print the result as one JSON document instead of text, for scripts '
-                  '(one per line for streams).'),
+    'json': Param('--json', 'bool', description='Print the result as one JSON document instead of text, for scripts.'),
     'quiet': Param('--quiet', 'bool', description='Print only the results and any failures, not the progress lines.'),
     'dry_run': Param('--dry-run', 'bool', description='Show what would happen, step by step, without doing any of it.'),
 }

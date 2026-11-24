@@ -17,19 +17,19 @@ Generated from `crane/commands.py` by `crane help --write`; `crane help --check`
 
 | Selector | Meaning |
 |---|---|
-| `--domain` | A domain: config/domains/DOMAIN.yaml. |
-| `--tier` | The tier: T0 abstract, T1 dynamic, T2 unity. |
-| `--env KIND:NAME` | The world: course:NAME, scene:NAME or world:NAME. |
-| `--robot` | The domain's robot. |
-| `--card REF` | A plant card ref or a profile JSON. |
-| `--seed` | One seed. |
-| `--seeds SPEC` | Seeds: N, A:B (B exclusive), a,b,c, @FILE or block:NAME. |
-| `--set KEY=VALUE` | Override a config key; dotted keys nest, the value is YAML (repeatable). |
-| `--out` | Output dir (default ~/.cache/crane/runs/DOMAIN/TIER/STAMP). |
+| `--domain` | Which kind of robot world, e.g. boat; one file each in config/domains. |
+| `--tier` | How detailed: T0 abstract (no physics), T1 dynamic (physics) or T2 unity (the 3-D simulator). |
+| `--env KIND:NAME` | Which world, written KIND:NAME, e.g. course:roboboat_2026. |
+| `--robot` | Which robot, e.g. blastoise (default the domain's). |
+| `--card REF` | The robot's physics numbers: a card name or a profile file, e.g. characterized. |
+| `--seed` | One seed, e.g. 3. |
+| `--seeds SPEC` | Which seeds, e.g. 0:10 (0 to 9), 5, 1,4,9, @FILE (a list in a file) or block:NAME (a named group). |
+| `--set KEY=VALUE` | Change one setting, KEY=VALUE, e.g. time_limit_s=60; dots reach inside, e.g. a.b=1 (repeatable). |
+| `--out` | Where to save the output (default ~/.cache/crane/runs/DOMAIN/TIER/...). |
 
 | Global flag | Meaning |
 |---|---|
-| `--json` | Print the result as one JSON document instead of text, for scripts (one per line for streams). |
+| `--json` | Print the result as one JSON document instead of text, for scripts. |
 | `--quiet` | Print only the results and any failures, not the progress lines. |
 | `--dry-run` | Show what would happen, step by step, without doing any of it. |
 
@@ -205,7 +205,7 @@ You need --domain (or --config) and --seeds, e.g. crane run --domain toy --seeds
 | `--seeds` | str | Which seeds to run, e.g. 0:10 (0 to 9), 5, or 1,4,9 (required, except with --astro-test: 0). |
 | `--out` | path | Where to save the runs (default ~/.cache/crane/runs/DOMAIN/TIER/...). |
 | `--workers` | int | How many processes to run at once, e.g. 8 (default the config's). |
-| `--set` | str | Override a config key; dotted keys nest, the value is YAML (repeatable). |
+| `--set` | str | Change one setting, KEY=VALUE, e.g. time_limit_s=60; dots reach inside, e.g. a.b=1 (repeatable). |
 | `--variant` | str | A name for this set of settings, used in the folder name, e.g. heavier-hull (default base). (default `base`) |
 | `--generate` | bool | Make the scenarios again even if they exist (missing ones are always made). |
 | `--allow-dirty` | bool | Run even though the code has uncommitted changes. |
@@ -250,7 +250,7 @@ What you'll see: the study file on screen, or `wrote FILE` and next:.
 | `--domain` | str | Which kind of robot world its runs use, e.g. boat (default toy). |
 | `--out` | path | Save it to this file instead of printing it. |
 | `--force` | bool | Overwrite FILE if it exists. |
-| `--json` | bool | Print the result as one JSON document instead of text, for scripts (one per line for streams). |
+| `--json` | bool | Print the result as one JSON document instead of text, for scripts. |
 
 --json: `crane.study.init/1`
 
@@ -732,6 +732,8 @@ Check a course file follows the course rules; exit 0 when it does.
 
 What you'll see: one row per rule, pass or fail.
 
+Give it a course file, e.g. one crane env gen made.
+
 raw: `python3 Tools/RoboBoat/validate.py`
 
 Details: The independent constraint check of a course truth. Options: TRUTH.json [--spec S] [--json].
@@ -745,6 +747,8 @@ crane env render /tmp/c3.json > c3.svg
 Draw a course file as a picture (SVG).
 
 What you'll see: the SVG on stdout; redirect it to a file.
+
+Give it a course file; open the SVG in a web browser to look at it.
 
 raw: `python3 Tools/RoboBoat/render.py`
 
@@ -797,7 +801,7 @@ What you'll see: a table, one row per group of numbers (value, spread, status), 
 
 | Param | Type | Description |
 |---|---|---|
-| `ref` | str | Which card: FAMILY/ROBOT@HEAD, the first characters of its id, or a card folder (default the usual card). |
+| `ref` | str | Which card: FAMILY/ROBOT@HEAD, the first characters of its id, or a card folder (default the standard card). |
 | `--json` | bool | Print the card as one JSON document. |
 
 raw: `python3 -m plantcard show`; --json: `crane.card/1`
@@ -816,8 +820,8 @@ What you'll see: JSON on screen, or saved with --out FILE.
 
 | Param | Type | Description |
 |---|---|---|
-| `view` | str | Which format: unity, nlc, control or fastsim. One of `unity`, `nlc`, `control`, `fastsim`. |
-| `ref` | str | Which card (default the usual card). |
+| `view` | str | Which format: unity (the 3-D simulator), fastsim (the light simulators), or control and nlc (for those tools). One of `unity`, `nlc`, `control`, `fastsim`. |
+| `ref` | str | Which card (default the standard card). |
 | `--out` | path | Save it to this file. |
 
 raw: `python3 -m plantcard export`
@@ -992,7 +996,7 @@ Print a saved report's verdict in one line; exit 1 on FAIL.
 | Param | Type | Description |
 |---|---|---|
 | `report` | path | The report.json file. |
-| `--json` | bool | Print the result as one JSON document instead of text, for scripts (one per line for streams). |
+| `--json` | bool | Print the result as one JSON document instead of text, for scripts. |
 
 raw: `python3 -m judge oneline`
 
@@ -1205,7 +1209,7 @@ What you'll see: results per copy under PerformanceResults/ and, when trying sev
 
 | Param | Type | Description |
 |---|---|---|
-| `--worker` | int | Run one copy with this id. |
+| `--worker` | int | Run a single copy, numbered with this id. |
 | `--sweep` | list | Try these numbers of copies at once, e.g. 1 2 4 (default from config/bench.yaml). |
 
 raw: `bin/heavy unity Tools/Bench/sweep_workers.sh 1 2 4`
@@ -1443,7 +1447,7 @@ Try --dry-run first; it changes nothing there. Robot computers are refused: robo
 
 | Param | Type | Description |
 |---|---|---|
-| `host` | str | The computer to set up: its ssh name, e.g. innovation, or USER@HOST. |
+| `host` | str | The computer to set up: its ssh name, e.g. lab-pc, or USER@HOST. |
 | `--player` | bool | Also copy and install the 3-D simulator. |
 | `--tarball` | path | The packed simulator file to send (implies --player). |
 | `--ref` | str | Which code version to send: a branch or commit (default HEAD, what you have checked out). (default `HEAD`) |
@@ -1504,7 +1508,7 @@ Run a big job (Unity, a sim, a test suite) only when this computer has room, so 
 
 What you'll see: the job's own output, once it gets its turn.
 
-`crane heavy status` shows what is running and waiting. A job that waits too long gives up with exit 75 rather than hanging.
+Put the kind of job and the command after it, e.g. crane heavy unity CMD, or crane heavy contain test CMD for a test suite; crane heavy status shows what is running and waiting. A job that waits too long gives up with exit 75 rather than hanging.
 
 raw: `bin/heavy`
 

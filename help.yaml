@@ -110,7 +110,7 @@ commands:
       - {name: "--seeds", description: "Which seeds to run, e.g. 0:10 (0 to 9), 5, or 1,4,9 (required, except with --astro-test: 0)."}
       - {name: "--out", type: path, description: Where to save the runs (default ~/.cache/crane/runs/DOMAIN/TIER/...).}
       - {name: "--workers", type: int, description: "How many processes to run at once, e.g. 8 (default the config's)."}
-      - {name: "--set", description: "Override a config key; dotted keys nest, the value is YAML (repeatable)."}
+      - {name: "--set", description: "Change one setting, KEY=VALUE, e.g. time_limit_s=60; dots reach inside, e.g. a.b=1 (repeatable)."}
       - {name: "--variant", default: base, description: "A name for this set of settings, used in the folder name, e.g. heavier-hull (default base)."}
       - {name: "--generate", type: bool, description: Make the scenarios again even if they exist (missing ones are always made).}
       - {name: "--allow-dirty", type: bool, description: Run even though the code has uncommitted changes.}
@@ -144,7 +144,7 @@ commands:
     ros: python3 -m plantcard show
     details: "Rows per block: parameters with their sd and status; then the validation rows. --json: the card document (robot, sha, status, blocks, validation)."
     params:
-      - {name: ref, description: "Which card: FAMILY/ROBOT@HEAD, the first characters of its id, or a card folder (default the usual card).", required: false}
+      - {name: ref, description: "Which card: FAMILY/ROBOT@HEAD, the first characters of its id, or a card folder (default the standard card).", required: false}
       - {name: "--json", type: bool, description: Print the card as one JSON document.}
     examples:
       - crane card show
@@ -157,8 +157,8 @@ commands:
     ros: python3 -m plantcard export
     details: "Tier views: unity (T2), fastsim (T0/T1), nlc and control."
     params:
-      - {name: view, choices: [unity, nlc, control, fastsim], description: "Which format: unity, nlc, control or fastsim.", required: true}
-      - {name: ref, description: Which card (default the usual card)., required: false}
+      - {name: view, choices: [unity, nlc, control, fastsim], description: "Which format: unity (the 3-D simulator), fastsim (the light simulators), or control and nlc (for those tools).", required: true}
+      - {name: ref, description: Which card (default the standard card)., required: false}
       - {name: "--out", type: path, description: Save it to this file.}
     examples:
       - crane card export fastsim --out /tmp/card.json
@@ -263,7 +263,7 @@ commands:
     ros: bin/heavy unity Tools/Bench/sweep_workers.sh 1 2 4
     details: "Runs the Unity player through heavy unity: one worker, or a sweep over worker counts (summary.json per count). Player settings come from env (CRANE_PLAYER, CRANE_DURATION, CRANE_SCENE, ...)."
     params:
-      - {name: "--worker", type: int, description: Run one copy with this id.}
+      - {name: "--worker", type: int, description: "Run a single copy, numbered with this id."}
       - {name: "--sweep", type: list, description: "Try these numbers of copies at once, e.g. 1 2 4 (default from config/bench.yaml)."}
     examples:
       - crane bench player --sweep 1 2 4
@@ -304,7 +304,7 @@ commands:
     notes: "Try --dry-run first; it changes nothing there. Robot computers are refused: robot code goes through `astro hot`."
     details: "Over ssh: checks the host's disk, syncs the code (git fetch from this machine + ff-only, or rsync when it has no checkout), makes its .venv (install.sh), sends the T2 player with --player (sha256 checked there, current + prev kept), then runs crane doctor there. Touches only ~/crane_ml, ~/.local/bin/crane and the player store (~/.local/share/crane/player) on HOST. Refuses (exit 2) a robot computer (a host whose roles in astro's registry, ASTRO_PROFILES/*/devices.yaml, include a robot role, or whose name matches a robot pattern; config/deploy.yaml), a host with less free space than the player (tarball and unpacked) plus 1 GB, a checkout that cannot fast-forward, or a ~/crane_ml that is neither a crane checkout nor an earlier deploy. The .venv step runs install.sh --yes --no-clone --components LIST there (uv, Python 3.12) when HOST has no .venv or --components is given. The player tarball is --tarball, else the newest Builds/crane-player-*.tar.* with its .sha256 (a warn row when its commit is not the code's), else the release player; rsync --partial resumes a cut transfer. HOST fetches the full commit from --from (default ssh://THISHOST/REPO, CRANE_DEPLOY_FROM). local:DIR deploys into DIR as the home (no ssh; for tests). Exit 0 ok, 1 a step or the remote doctor failed, 2 usage or a refusal."
     params:
-      - {name: host, description: "The computer to set up: its ssh name, e.g. innovation, or USER@HOST.", required: true}
+      - {name: host, description: "The computer to set up: its ssh name, e.g. lab-pc, or USER@HOST.", required: true}
       - {name: "--player", type: bool, description: Also copy and install the 3-D simulator.}
       - {name: "--tarball", type: path, description: The packed simulator file to send (implies --player).}
       - {name: "--ref", default: HEAD, description: "Which code version to send: a branch or commit (default HEAD, what you have checked out)."}
