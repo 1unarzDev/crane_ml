@@ -18,7 +18,8 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 BACKENDS = {'fastsim': 'crane_backends.fastsim:ClusterBackend', 'unity': 'crane_backends.unity:ClusterBackend',
             'theater-render': 'crane_backends.theater:ClusterBackend',
-            'crane-command': 'crane_backends.command:ClusterBackend'}
+            'crane-command': 'crane_backends.command:ClusterBackend',
+            'crane-batch': 'crane_backends.batch:ClusterBackend'}
 HELP_NAMES = ['crane doctor', 'crane run', 'crane view', 'crane board', 'crane fit', 'crane compare',
               'crane sim check', 'crane bench', 'crane build player', 'crane card']
 

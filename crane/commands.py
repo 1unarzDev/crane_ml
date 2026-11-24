@@ -104,7 +104,8 @@ NOUNS = [
     Noun('board', 'the web replay board'),
     Noun('media', 'renders, shots and assembled videos'),
     Noun('bench', 'throughput benchmarks', export='Which benchmark.'),
-    Noun('cluster', 'research-cluster jobs'),
+    Noun('cluster', 'research-cluster jobs: submit, wait, status, fetch (other verbs go to the research CLI)',
+         owner='crane.wrap:cluster'),
     Noun('build', 'build the player, images and the wheel'),
     Noun('deploy', 'install crane and the player on a host'),
     Noun('update', 'update this checkout from a release'),
@@ -415,8 +416,31 @@ COMMANDS = [
             examples=('crane data splits /tmp/ds --by seed',
                       'crane data splits /tmp/ds --by timeline --held-out source=real --ratios train=0.8,calib=0.2',
                       'crane data splits /tmp/ds --by condition --domain boat --out /tmp/splits.json')),
-    Command(('monitor',), 'Progress of local and cluster work in one view (progress.json and the cluster feed).',
-            today='crane heavy status, and crane cluster status', examples=('crane monitor --follow',)),
+    Command(('monitor',), 'Progress of local and cluster work in one view: every progress.json under a study (or a '
+            'dir) merged with its cluster jobs, per stage, arm and block.', 'crane.monitor:main', flags=(JSON,),
+            json='crane.monitor/1',
+            about='one row per (stage, arm, block): done/total, rate, ETA, failed, jobs running/queued/done/failed, '
+                  'hosts and interim metric means (dev blocks only; held-out and other blocks show progress only), '
+                  'then failures with their reason (crashed, timed out without progress, cancelled), host and a '
+                  'traceback line, and next:. --json: {schema, at, where, study, sources, notes, finished, '
+                  'groups[{stage, arm, block, role, done, total, failed, rate_per_s, eta_s, hosts, jobs, failures, '
+                  'metrics}]}; with --follow one document per refresh (JSONL).',
+            notes='Local: progress.json with cell.json, failure.json and metrics.json beside it. Cluster: when '
+                  'OUT/STUDY/cluster/jobs.json exists, the project job list (research token) and the public feed '
+                  '(/v1/feed); unreachable means a note, not a failure. A progress.json older than 180 s counts as '
+                  'stalled. --follow refreshes every --interval s (5..300) and stops when every job has ended or '
+                  'after --timeout s (exit 75).',
+            params=(P('target', nargs='?', metavar='STUDY|DIR', description='A study name under OUT, or a dir '
+                      '(default every study under OUT).'),
+                    sel('out', description='The studies root (default CRANE_STUDIES, else ~/.cache/crane/studies).'),
+                    P('--follow', 'bool', description='Refresh until every job has ended or --timeout passes.'),
+                    P('--interval', 'float', default=30.0, description='Seconds between refreshes (5..300).'),
+                    P('--timeout', 'float', default=3600.0, description='With --follow: stop after this many seconds.'),
+                    P('--local', 'bool', description='Local progress files only; do not ask the cluster.'),
+                    P('--json', 'bool', description='One JSON document (one per refresh with --follow).')),
+            examples=('crane monitor boat01', 'crane monitor boat01 --follow --interval 60',
+                      'crane monitor ~/.cache/crane/studies/boat01 --local --json'),
+            raw='cat OUT/STUDY/**/progress.json; research status -p crane --campaign STUDY'),
 
     # ---- env (and its alias course) ---------------------------------------------------------------------------
     Command(('env', 'gen'), 'Generate course truth with the Unity course generator (headless, through heavy unity).',
@@ -600,10 +624,89 @@ COMMANDS = [
             '--seeds 0:50 --out DIR', examples=('crane bench fast --domain boat --tier T1 --seeds 0:50',)),
     Command(('bench', 'cluster'), 'Throughput and cost on the cluster.', today='python3 -m bench.fast with its '
             '--fresh-jobs, on a cluster host', examples=('crane bench cluster --domain boat',)),
-    Command(('cluster',), 'Research-cluster jobs: submit, wait, status, fetch (the research CLI).', 'crane.wrap:cluster',
-            passthrough=True, about="the research CLI's output; arguments go to it unchanged. Found at "
-            '$RESEARCH_CLUSTER/bin/research or ~/research-cluster/bin/research.',
-            examples=('crane cluster status',), raw='research'),
+    Command(('cluster', 'submit'), 'Compile a study spec to rc-job/1 jobs (one per cell x seed chunk, 5-30 min '
+            'each, pinned to the exact commit) and submit them with the research CLI; a jobs.json goes as is.',
+            'crane.cluster.submit:submit_main', flags=(JSON, DRY), json='crane.cluster.submit/1',
+            about='the plan table (stage, arm, block, role, kind, jobs, units, est per job, compute hours) and any '
+                  'warnings, then the created/exists/duplicate counts and next:. --dry-run sends nothing (with '
+                  '--json: the plan and every job body).',
+            notes='Jobs: kind crane_batch (the crane-batch backend: one slot, every core) or gpu_command for a GPU '
+                  'cell; seeds [0] with the chunk in spec.seeds; spec.run and spec.argv run python3 -m '
+                  'crane_backends.batch, which runs crane study run-cell SPEC --cell JOB --out .. (the study\'s own '
+                  'job ids and seed chunks; --confirm on held-out jobs); job ids come from the unit cache keys and '
+                  'the commit, so resubmitting the same plan is idempotent. Refused (exit 2): uncommitted changes '
+                  '(--allow-dirty runs the commit), a spec outside crane/runtime.sparse, a cell naming field data '
+                  '(~/field_corpus_*, a bag dir, .mcap/.db3/.bag), a held-out block without --confirm or whose '
+                  'targets file is not committed before now, a cell with no time estimate. The plan is saved to '
+                  'OUT/STUDY/cluster/jobs.json before research submit. An adaptive stage goes after its source: '
+                  'submit --stage A, wait, fetch, crane study promote --stage B, submit the promoted spec.',
+            params=(P('source', metavar='SPEC|JOBS.json', description='A crane.study/1 spec, or an rc-job/1 list.'),
+                    P('--stage', description='Only this stage.'),
+                    P('--block', description='Only this seed block.'),
+                    P('--est-unit-s', 'float', dest='est_unit_s', description='Seconds per (cell, seed) on one job '
+                      "(default the study's estimate)."),
+                    P('--est-from', 'path', dest='est_from', description='A bench.fast bench.json: seconds per '
+                      'episode at one worker.'),
+                    P('--measure', 'bool', description='Time one seed of the first cell locally (never for T2).'),
+                    P('--project', default='crane', description='The research-cluster project.'),
+                    P('--campaign', description='The campaign label (default the study name).'),
+                    P('--purpose', description='1-2 sentences, public on the feed (default the spec purpose:).'),
+                    P('--tag', repeat=True, description='needs.tags (repeatable; all required).'),
+                    P('--cloud', 'bool', description='Allow rented boxes: needs.tags += cloud-ok and cpu (torch for '
+                      'GPU cells); only with an approved REQUESTS.md row.'),
+                    P('--kind', description='Override the backend kind (crane_batch, gpu_command, py_command, '
+                      'crane-command).'),
+                    P('--confirm', 'bool', description='Allow held-out blocks (the study\'s guard checks its targets '
+                      'file; without a guard they are refused).'),
+                    P('--allow-dirty', 'bool', dest='allow_dirty', description='Submit with uncommitted changes '
+                      '(jobs run the commit).'),
+                    P('--no-skip-done', 'bool', dest='no_skip_done', description="Keep seeds already in the study's "
+                      'unit cache.'),
+                    sel('out', description='The studies root (default CRANE_STUDIES, else ~/.cache/crane/studies).'),
+                    P('--dry-run', 'bool', description='Print the plan; send nothing.'),
+                    P('--json', 'bool', description='One JSON document.')),
+            examples=('crane cluster submit study.yaml --dry-run', 'crane cluster submit study.yaml --est-unit-s 12',
+                      'crane cluster submit study.yaml --stage A --block dev --cloud',
+                      'crane cluster submit /tmp/jobs.json'),
+            raw='research submit -p crane OUT/STUDY/cluster/jobs.json'),
+    Command(('cluster', 'wait'), "Block until a study's jobs end, up to --timeout seconds (one research wait), then "
+            'print the status table.', 'crane.cluster.submit:wait_main', flags=(JSON,), json='crane.cluster.status/1',
+            about='one line on stderr naming the jobs and the timeout, then the status table (as cluster status). '
+                  'Exit 0 every job done, 1 some failed or were cancelled, 75 the timeout passed first (the jobs '
+                  'are untouched), 2 no plan or no research CLI.',
+            params=(P('study', nargs='?', metavar='STUDY|DIR|JOBS.json', description='A study name, its OUT dir, or '
+                      'a plan.'),
+                    P('--timeout', 'float', default=3600.0, description='Seconds to wait at most.'),
+                    sel('out', description='The studies root (default CRANE_STUDIES, else ~/.cache/crane/studies).'),
+                    P('--json', 'bool', description='The final status as one JSON document.')),
+            examples=('crane cluster wait boat01 --timeout 3600',),
+            raw='research wait -p crane JOB... --timeout 3600'),
+    Command(('cluster', 'status'), "A study's cluster jobs per stage, arm and block, counted by state, with the "
+            'failures (digest style; read-only).', 'crane.cluster.submit:status_main', flags=(JSON,),
+            json='crane.cluster.status/1',
+            about='a header with the state counts, one row per (stage, arm, block) with jobs, units and a column per '
+                  'state, then failures (state, job, last error line) and next:. --json: {schema, study, project, '
+                  'campaign, states, groups, failures, finished}. Without STUDY: research status (every job).',
+            params=(P('study', nargs='?', metavar='STUDY|DIR|JOBS.json', description='A study name, its OUT dir, or '
+                      'a plan (default: research status, every job).'),
+                    sel('out', description='The studies root (default CRANE_STUDIES, else ~/.cache/crane/studies).'),
+                    P('--json', 'bool', description='One JSON document.')),
+            examples=('crane cluster status boat01',), raw='research status -p crane --campaign STUDY'),
+    Command(('cluster', 'fetch'), "Bring a study's finished cluster outputs into OUT/STUDY/<stage>/<arm>/<cell>/, "
+            'the layout a local run writes, each file checked by sha256.', 'crane.cluster.fetch:main', flags=(JSON,),
+            json='crane.cluster.fetch/1',
+            about='one row per job not yet in place (fetched, missing, failed; rows; from a box pull or the '
+                  'cluster), the counts, and next:. Exit 1 when a file fails its sha256 check.',
+            notes="Box pulls (~/.cache/vast-out/BOX/STUDY/JOB/, CRANE_VAST_OUT) first, else the coordinator's "
+                  'artifacts (a viewer token: RC_VIEWER_TOKEN or ~/.config/research-cluster/platform-viewer.token). '
+                  "Each job lands in <cell>/parts/JOB/; the cell's manifest.json lists every part's files. Safe to "
+                  'rerun.',
+            params=(P('study', metavar='STUDY|DIR|JOBS.json', description='A study name, its OUT dir, or a plan.'),
+                    sel('out', description='The studies root (default CRANE_STUDIES, else ~/.cache/crane/studies).'),
+                    P('--boxes-only', 'bool', dest='boxes_only', description='Only box pulls; do not ask the '
+                      'coordinator.'),
+                    P('--json', 'bool', description='One JSON document.')),
+            examples=('crane cluster fetch boat01',), raw='research wait -p crane JOB... --out DIR; rsync from the box'),
     Command(('build', 'player'), 'Build the headless Linux player through heavy unity and stamp its manifest with the '
             'source commit.', 'crane.build:main', flags=(DRY,), export=True,
             about='the Unity command, then the stamped Builds/CRANE-Worker/crane-build-manifest.json and, with '

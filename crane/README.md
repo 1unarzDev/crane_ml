@@ -22,7 +22,10 @@ Every command, its params and examples: [Docs/CLI.md](../Docs/CLI.md), generated
   `crane help --check` fails when the generated files drift, `crane help --write` regenerates them. A command not
   built yet names what to use today and exits 2.
 - `crane/cli.py`: the parser built from the registry, and the dispatch. Pass-through commands (`sim`, `heavy`,
-  `judge`, `card`, `board`, `env`/`course`, `cluster`) hand every argument after their words to their tool.
+  `judge`, `card`, `board`, `env`/`course`) hand every argument after their words to their tool; `cluster` verbs
+  other than submit, wait, status and fetch go to the research CLI.
+- `crane/cluster/`, `crane/monitor.py`, `crane_backends/batch.py`: studies on the research cluster
+  ([Docs/Cluster.md](../Docs/Cluster.md)).
 - `crane/select.py`: the shared selectors (`--domain --tier --env --robot --card --seed --seeds --set --out`).
   `parse_seeds` takes `N`, `A:B`, `a,b,c`, `@FILE` and `block:NAME` (`seeds:` in `config/domains/D.yaml`, each a
   spec or `{seeds, role}`). `--out` defaults to `~/.cache/crane/runs/DOMAIN/TIER/STAMP` (`CRANE_RUNS` moves the root).
@@ -53,5 +56,6 @@ Every command, its params and examples: [Docs/CLI.md](../Docs/CLI.md), generated
 `./install.sh [--yes] [--dir D] [--components core,fast,gpu,view,field,data,setup] [--domains …] [--no-clone]
 [--dry-run]` installs uv (to `~/.local/bin`), a Python 3.12 venv at `<repo>/.venv`, `pip install -e .[extras]`
 and the link `~/.local/bin/crane`. It never uses sudo and prints each step. The extras are `fast` (numba), `gpu`
-(jax CUDA 12), `view` (PySide6, pyqtgraph, PyOpenGL), `field` (mcap), `data` (pyarrow, for parquet), `setup` (rich, questionary) and `all`. The editable
-install also registers the `research_cluster.backends` entry points (fastsim, unity, theater-render).
+(jax CUDA 12), `view` (PySide6, pyqtgraph, PyOpenGL), `field` (mcap), `data` (pyarrow, for parquet), `setup` (rich,
+questionary) and `all`. The editable install also registers the `research_cluster.backends` entry points (fastsim,
+unity, theater-render, crane-command, crane-batch).
