@@ -10,7 +10,6 @@ float64 reference. The split times each part of a step on its own (bench/batched
 Run it through ``bin/heavy sim``.
 """
 
-import json
 import math
 import os
 import time
@@ -95,7 +94,6 @@ def _numba_parts(setup, calls=200000):
     W, A = setup.W, setup.plans.A
     route = A['course'][0].copy()
     rlen = int(A['course_len'][0])
-    cam = np.array(setup.cam)
 
     @numba.njit
     def drive(k, kind, x, c, p, q, dt, tick, sub):
@@ -143,7 +141,6 @@ def _numba_parts(setup, calls=200000):
                                     cone, blockers, True)
         return s
     n = int(W.count[0])
-    nt = int(A['tmatch'][0].any(axis=1).sum())
     jobs = {'drive': (drive, (setup.vehicle.kind, x, c, p, q, setup.dt, setup.vehicle.tick_s, setup.vehicle.substeps)),
             'tracker': (tracker, (route, rlen, setup.tlim)), 'row': (row, ()),
             'clearance': (clearance, (W.xy[0], W.radius[0], W.box[0], W.box_dims[0], n, setup.foot, setup.reach))}
@@ -229,5 +226,3 @@ def markdown(r):
         lines += [f"| {k} | {v['ms_per_call']} | {v['kernels']} |" for k, v in s['steps'].items()]
     return '\n'.join(lines) + '\n'
 
-
-__all__ = ['main', 'markdown', 'measure', 'json']

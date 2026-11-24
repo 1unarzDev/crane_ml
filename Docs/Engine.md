@@ -17,6 +17,15 @@ out.summary(e), out.events(e), out.numbers(e), out.metrics(e)
 out.write(e, run_dir)                             # a crane.run/1 record, only when asked (record=k: traj too)
 ```
 
+**Which backend.** numba float64 on the CPU (the default: bit for bit the scalar path, about 3,400 boat T1
+episodes/s on this 20-thread host); JAX float32 on the GPU at E = 16,384 slots (about 4,800/s; float64 is
+compute-bound on consumer GPUs). Numbers and gates: `bench/RESULTS.md`.
+
+**On the cluster.** `crane_backends.fastsim` `FastsimBackend.run_batch(seeds)` and `ClusterBackend.run_batch(seeds)`
+return `{seed: metrics}` with the keys `metrics(run(seed))` has, from one batched call, and write
+`<out>/batch_<first>_<last>.jsonl`. The job's `engine: {backend, dtype}` picks the backend. It needs the
+`engine` directory beside the sparse checkout's, and numba (or `jax[cuda12]` for the GPU).
+
 ## Design
 
 | piece | module | what it is |

@@ -16,7 +16,6 @@ env's own RNG stream, so env i's parameters never depend on the batch.
 """
 
 import json
-import math
 
 import numba
 import numpy as np
@@ -139,5 +138,3 @@ def nb_pose(kind, x):
         return x[0], x[1], nbexact.wrap(x[2])
     return x[0], x[1], x[2]
 
-
-__all__ = ['vehicle', 'nb_drive', 'nb_pose', 'PROFILE', 'FIRST_ORDER', 'math']

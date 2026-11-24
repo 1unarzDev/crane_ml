@@ -7,7 +7,8 @@
 Per step, as fastsim/run.py: at track_hz the track row, the scoring accumulators and the footprint
 clearance; at tick_hz perception and the decision; then the idle accounting, the tracker, the plant
 and the progress checker. numpy and jax run all envs in lockstep (a finished env stops counting);
-numba runs each env's whole episode in one compiled call, envs in parallel (engine/nbepisode.py).
+numba runs each env's whole episode in one compiled call, envs in parallel (engine/nbepisode.py); jax
+runs a pool of slots refilled from the seed queue (engine/jaxrun.py).
 ``record`` keeps every record-th track row (0: none); events and metrics are always kept.
 """
 
@@ -19,7 +20,7 @@ from types import SimpleNamespace
 import numpy as np
 
 from engine import boat as BB, exact, geometry as GEO, tracker as TR
-from engine.ops import jax_ops, numpy_ops
+from engine.ops import numpy_ops
 from engine.vehicles import vehicle
 from engine.world import Worlds, footprint_reach
 from fastsim.config import merge
@@ -210,33 +211,6 @@ def run_numpy(setup, record=0, decide=None, after=None):
 
 def period(setup):
     return math.lcm(setup.track_every, setup.steps_per_tick)
-
-
-def run_jax(setup, dtype='float64', record=0, chunk_steps=500):
-    """Lockstep on the device: one scan iteration is one tick period, its steps unrolled (track and tick
-    are static per sub-step, so no device-side branch); the host checks for the end between chunks."""
-    ops = jax_ops(dtype)
-    jax, xp = ops.jax, ops.xp
-    from engine.ops import tree_map
-    C = tree_map(ops.to, consts(setup))
-    S = tree_map(ops.to, init_state(setup, record))
-    per = period(setup)
-    n = max(1, chunk_steps // per)
-
-    def one_period(S, _):
-        for k in range(per):
-            S = step_body(ops, setup, C, S, record, k % setup.track_every == 0, k % setup.steps_per_tick == 0)
-        return S, None
-
-    @jax.jit
-    def chunk(S):
-        S, _ = jax.lax.scan(one_period, S, None, length=n)
-        return S, xp.any(S['M']['outcome'] == BB.OUT_NONE)
-    more = True
-    while more:
-        S, more = chunk(S)
-        more = bool(more)
-    return tree_map(lambda a: np.asarray(a), S)
 
 
 @dataclass

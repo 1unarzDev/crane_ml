@@ -4,8 +4,6 @@
     ops = jax_ops('float32')     # jit, lax control flow, plain sums
 """
 
-from functools import partial
-
 import numpy as np
 
 from engine import exact
@@ -115,5 +113,3 @@ def tree_map(fn, tree):
         return type(tree)(tree_map(fn, v) for v in tree)
     return fn(tree)
 
-
-__all__ = ['numpy_ops', 'jax_ops', 'tree_map', 'partial']

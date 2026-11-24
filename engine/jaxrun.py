@@ -25,7 +25,7 @@ def _rows(tree, idx):
 
 def run(setup, dtype='float32', record=0, slots=None, chunk_steps=250):
     ops = jax_ops(dtype)
-    jax, xp = ops.jax, ops.xp
+    jax = ops.jax
     N = setup.E
     slots = max(1, min(N, slots or N))
     C_all = consts(setup)

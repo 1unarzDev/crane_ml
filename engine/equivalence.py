@@ -15,7 +15,6 @@ seeds both sides docked.
 
 import argparse
 import json
-import math
 from pathlib import Path
 import sys
 import tempfile
@@ -146,5 +145,3 @@ def main(argv=None):
 if __name__ == '__main__':
     sys.exit(main())
 
-
-__all__ = ['scalar', 'records', 'exact', 'paired', 'tost', 'math']

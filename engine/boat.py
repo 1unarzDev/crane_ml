@@ -21,7 +21,7 @@ import numpy as np
 
 from domains.boat import mission as BM
 from domains.boat.adapter import DOCK_TOL_M, Mission
-from engine import exact, nbexact
+from engine import nbexact
 from engine.tracker import SUCCEEDED, STATUS
 
 PHASES = Mission.PHASES
@@ -461,5 +461,3 @@ def nb_score_row(port, stbd, normal, out, ngates, cross, ccount, X, Y, x0, y0, h
                     cross[g, ccount[g]] = step
                 ccount[g] += 1
 
-
-__all__ = ['BoatPlans', 'tick', 'fairway', 'score_row', 'exact']
