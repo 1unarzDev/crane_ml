@@ -1,8 +1,9 @@
 // data.js: where runs come from. One page, two sources with the same feed routes (replay.ts):
 //   local  `python -m viewer serve` adds /v1/viewer/index (runs, studies, tier pairs) and judge reports
 //   feed   the dashboard at crane.lunarz.dev: runs, courses, ghosts and fleets only
-// A run becomes {id, header, tier, arm, seed, study, track{t,x,y,yaw,v}, events, t0, zero, channels}, with
-// every time on the run's clock from its task_started (or its first pose).
+// A run becomes {id, header, tier, arm, seed, study, track{t,x,y,yaw,v}, events, layers, outline, t0, zero, channels},
+// with every time on the run's clock from its task_started (or its first pose). Events keep the lane the server
+// gave them (crane.run/1 records: the domain's lanes, `log` for log lines), else one from their kind.
 import { decode, fleetUnpack, agents } from './ctraj.js';
 
 const enc = encodeURIComponent;
@@ -12,7 +13,7 @@ async function get(url, kind = 'json') {
   return kind === 'json' ? r.json() : new Uint8Array(await r.arrayBuffer());
 }
 
-const LANES = { decision: 'decision', goal: 'goal', behaviour: 'behaviour', contact: 'judge', near_miss: 'judge', strike: 'judge', row: 'judge', failure: 'judge' };
+const LANES = { decision: 'decision', goal: 'goal', behaviour: 'behaviour', contact: 'judge', near_miss: 'judge', strike: 'judge', row: 'judge', failure: 'judge', log: 'log' };
 const TASKISH = /^(task_|gate_|stage_|docked|undocked|returned_home|debris|species)/;
 
 function smoothSpeed(t, x, y) {
@@ -34,8 +35,10 @@ export function model(id, d, brief = {}) {
   const zero = raw.find((e) => e.kind === 'task_started')?.t ?? 0;
   const T = new Float64Array(X.length);
   for (let i = 0; i < T.length; i++) T[i] = (d.firstTick + i) / d.hz - zero;
-  const events = raw.map((e) => ({ ...e, t: e.t - zero, lane: e.lane || LANES[e.kind] || (TASKISH.test(e.kind) ? 'task' : 'other'),
-    text: e.text ?? e.reason ?? e.why ?? e.cause ?? e.id ?? e.kind, decision: e.decision ?? (e.kind === 'decision' ? e.type : undefined) }))
+  const lanes = h.lanes || {};
+  const events = raw.map((e) => ({ ...e, t: e.t - zero, t_end: Number.isFinite(e.t_end) ? e.t_end - zero : undefined,
+    lane: e.lane || lanes[e.kind] || LANES[e.kind] || (TASKISH.test(e.kind) ? 'task' : 'events'),
+    text: e.text ?? e.msg ?? e.reason ?? e.why ?? e.name ?? e.cause ?? e.id ?? e.kind, decision: e.decision ?? (e.kind === 'decision' ? e.type : undefined) }))
     .sort((a, b) => a.t - b.t);
   const ch = { ...(h.channels || {}) };
   ch.pose ??= X.length ? 'present' : 'absent';
@@ -46,7 +49,8 @@ export function model(id, d, brief = {}) {
     seed: h.seed ?? brief.seed ?? null, task: h.task ?? brief.task ?? null, iteration: h.iteration ?? brief.iteration ?? 0,
     score: h.score ?? brief.score ?? null, outcome: h.outcome ?? brief.outcome ?? 'unknown', course: h.course?.truth_sha256 ?? brief.course ?? null,
     pair: h.pair ?? brief.pair ?? null, referee: h.referee || null, fidelity: h.fidelity || null, flags: h.flags || brief.flags || [],
-    lod: !!h.lod, t0: Number(h.t0_s ?? d.t0 ?? 0), zero, hz: d.hz,
+    lod: !!h.lod, t0: Number(h.t0_s ?? d.t0 ?? 0), zero, hz: d.hz, domain: h.domain || null, kind: h.kind || null,
+    layers: (h.layers || []).filter((l) => l && l.type === 'constraint'), outline: Array.isArray(h.outline) ? h.outline : null,
     track: { t: T, x: X, y: Y, yaw: PSI, v: smoothSpeed(T, X, Y) }, events, channels: ch,
   };
 }

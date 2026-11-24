@@ -12,6 +12,7 @@ TOP_EXAMPLES = """examples:
   crane doctor                                            what is installed, what works, what to run next
   crane run --tier T0 --config DOMAIN.yaml --seeds 1:21 --out /tmp/runs
   crane sim up --headless                                 the T2 world, used like the boat (astro sim up)
+  crane view --live --domain boat --tier T1 --seed 3      the native sandbox: a live sim with sliders
   crane VERB --help                                       each verb's options, an example and what you'll see"""
 
 
@@ -83,8 +84,9 @@ def build_parser():
          'show: the card\'s summary as JSON. export VIEW: the tier view (unity | nlc | control | fastsim) as JSON.',
          'crane card show roboboat/blastoise@HEAD')
     _add(sub, 'board', 'the web replay board over local runs (python -m viewer serve)',
-         'a local URL (default http://127.0.0.1:8765) listing every *.ctraj, course and judge report under ROOTS. '
-         'The cluster dashboard deploys the same app.',
+         'a local URL (default http://127.0.0.1:8765) listing every crane.run/1 record (run.json or crane.run.json), '
+         'bare *.ctraj, course and judge report under ROOTS, with their event lanes and constraint layers. The '
+         'cluster dashboard deploys the same page.',
          'crane board /tmp/runs --port 8765')
     _add(sub, 'course', 'generate, validate or render course truth (Tools/RoboBoat)',
          'gen: the Unity course generator, headless through `heavy unity` (--family F --seed N --out T.json | '
@@ -126,7 +128,26 @@ def build_parser():
          'crane doctor')
     _add(sub, 'setup', 'the setup wizard (arrives in P7; use install.sh today)',
          'a pointer to install.sh.', './install.sh --yes --components core,fast')
-    _add(sub, 'view', 'the native sandbox window (arrives in P5)', 'a pointer to crane board.', 'crane view /tmp/runs')
+    v = _add(sub, 'view', 'the native sandbox window: replay runs, or run a sim live with sliders ([view] extra)',
+             'a window: the top-down map (world layers, constraint volumes, trails, the vehicle at its heading), the '
+             'event lanes under it, play/step/speed/scrub, and in live mode the parameter sliders, Rerun from t or 0 '
+             'and Promote (writes a crane run spec and prints the command). With --screenshot, a PNG rendered '
+             'offscreen and no window.',
+             'crane view --live --domain boat --tier T1 --seed 3')
+    v.add_argument('runs', nargs='*', metavar='RUN', help='crane.run/1 dirs, fastsim run dirs or bare .ctraj files '
+                   '(overlaid in the first one\'s frame and clock)')
+    v.add_argument('--live', action='store_true', help='run the sim in-process (T0 or T1)')
+    v.add_argument('--domain', default='boat', help='live: config/domains/DOMAIN.yaml (default boat)')
+    v.add_argument('--tier', default='T1', help='live: T0|T1 or abstract|dynamic (default T1)')
+    v.add_argument('--seed', type=int, default=0, help='live: the scenario seed (default 0)')
+    v.add_argument('--offset', action='append', metavar='S', help="run 2, 3, ...: the first run's time of its t = 0 "
+                   '(needed when a sim and a wall clock meet)')
+    v.add_argument('--transform', action='append', metavar='JSON', help='run 2, 3, ...: {from, to, xyz, yaw} '
+                   'mapping its origin onto the first run\'s (needed when origins differ)')
+    v.add_argument('--3d', dest='three_d', action='store_true', help='open in the 3-D view (6-DOF records)')
+    v.add_argument('--screenshot', metavar='OUT.png', help='render offscreen to OUT.png and exit (no window)')
+    v.add_argument('--at', type=float, help='screenshot: the playhead time (s; default the end; live: sim to it)')
+    v.add_argument('--promote-dir', default='runs/promoted', help='where Promote writes specs (default runs/promoted)')
     _add(sub, 'compare', 'tier gap, variant A/B and field-vs-sim comparison (arrives in P3/P6)',
          'a pointer to crane judge.', 'crane compare /tmp/a /tmp/b --tiers')
     _add(sub, 'fit', 'field data to plant card (arrives in P6)', 'a pointer to crane card.', 'crane fit BUNDLE')
@@ -155,6 +176,11 @@ def _build(args):
     return build.main(args)
 
 
+def _view(args):
+    from crane.view import app
+    return app.main(args)
+
+
 def _doctor(_args):
     from crane import doctor
     return doctor.main()
@@ -163,7 +189,7 @@ def _doctor(_args):
 HANDLERS = {
     'run': _run, 'bench': _bench, 'build': _build, 'doctor': _doctor,
     'setup': _stub('P7', 'the `crane setup` wizard', 'install.sh [--yes] [--components core,fast,gpu,view,field,setup]'),
-    'view': _stub('P5', '`crane view` (the native window)', 'crane board RUNS'),
+    'view': _view,
     'compare': _stub('P3/P6', '`crane compare`', 'crane judge'),
     'fit': _stub('P6', '`crane fit`', 'crane card show|export'),
 }

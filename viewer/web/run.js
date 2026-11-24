@@ -1,8 +1,10 @@
 // run.js: the chart room. One run in depth: the course, the speed-ramped track, the hull and its goal, a
 // second tier as a dashed ghost with residual whiskers between matched points, the judge's pins and spans,
-// and an eight-lane timeline. Keys: space play, j/l ±5 s, ,/. ±0.1 s, [ ] event stepping, f fit, 1-9 T R P layers.
+// constraint volumes (keep-out / keep-in), and a timeline with one lane per event lane the runs carry (task,
+// mission, decisions, goals, judge, log, ...). Keys: space play, j/l ±5 s, ,/. ±0.1 s, [ ] event stepping, f fit,
+// 1-9 T R P J C layers.
 import { sample, makeAlign, residuals, firstDivergence, ramp, SPEED, RESID, TIER, DECISION, elementColor, isStructure,
-  View, bounds, nearElements, hull, sizeCanvas, fmt, esc, lastBefore } from './core.js';
+  View, bounds, nearElements, hull, outlineHull, constraintOutline, sizeCanvas, fmt, esc, lastBefore } from './core.js';
 import { judgeFor, judgePair } from './data.js';
 
 const LAYERS = [
@@ -10,9 +12,22 @@ const LAYERS = [
   ['Course', [['course', 'Buoys and gates', '#ff5a52', '3'], ['footprints', 'Task footprints', '#22324a', '4'], ['labels', 'Element labels', null, '5']]],
   ['Vehicle', [['track', 'Track, speed ramp', `linear-gradient(90deg,${SPEED.join(',')})`, '6'], ['hull', 'Hull', '#7DD3DC', '7'], ['goal', 'Current goal', '#F2D45C', '8'], ['future', 'Path ahead', '#9ec5f4', '9']]],
   ['Tiers', [['ghost', 'Other tier (ghost)', '#C792EA', 'T'], ['whiskers', 'Residual whiskers |Δxy|', '#f28f63', 'R']]],
-  ['Judge', [['pins', 'Contacts, near misses, divergence', '#ff5a52', 'P'], ['spans', 'Judge insight spans', '#EDCB78', 'J']]],
+  ['Judge', [['pins', 'Contacts, near misses, divergence', '#ff5a52', 'P'], ['spans', 'Judge insight spans', '#EDCB78', 'J'], ['constraints', 'Constraint volumes', '#ff5a52', 'C']]],
 ];
-const TL_LANES = [['task', 'Task', 18], ['decision', 'Decisions', 18], ['behaviour', 'Behaviour', 18], ['judge', 'Judge', 22], ['speed', 'Speed m/s', 38], ['resid', '|Δxy| m', 34], ['channels', 'Perception', 12], ['real', 'Real tier', 12]];
+// Event lanes in this order when present, then any other lane a run carries; then the curves.
+const LANE_ORDER = ['task', 'mission', 'decision', 'behaviour', 'goal', 'events', 'judge', 'log'];
+const LANE_NAMES = { task: 'Task', mission: 'Mission', decision: 'Decisions', behaviour: 'Behaviour', goal: 'Goals', events: 'Events', judge: 'Judge', log: 'Log' };
+const LANE_COLOR = { mission: '#7DD3DC', goal: '#F2D45C', log: '#9ec5f4', events: '#c3c2b7' };
+function lanesOf(runs) {
+  const have = new Set(['judge']);
+  for (const r of runs) if (r) for (const e of r.events) have.add(e.lane);
+  const ev = [...LANE_ORDER.filter((k) => have.has(k)), ...[...have].filter((k) => !LANE_ORDER.includes(k)).sort()];
+  const out = ev.map((k) => [k, LANE_NAMES[k] || k, k === 'judge' ? 22 : 18]);
+  out.push(['speed', 'Speed m/s', 38]);
+  if (runs[1]) out.push(['resid', '|Δxy| m', 34]);
+  if (runs.some((r) => r && r.channels.perception)) out.push(['channels', 'Perception', 12]);
+  return out;
+}
 const LEFT = 96;
 
 export async function mount(host, ctx) {
@@ -29,9 +44,10 @@ export async function mount(host, ctx) {
   const jA = judgeFor(A, reports, B?.id), jB = B ? judgeFor(B, reports, A.id) : [];
   const jp = B ? judgePair(A.id, B.id, reports) : null;
   const L = course?.vessel?.length || 1.06, BM = course?.vessel?.beam || 0.9;
+  const TL_LANES = lanesOf([A, B]);
   const vmax = Math.max(0.5, quant(A.track.v, 0.98) * 1.05);
   const S = { t: route.q.t != null ? +route.q.t : Infinity, playing: false, speed: 4, align: route.q.align || 'event', sel: null, view: new View(), show: { a: true, b: true },
-    layers: { water: true, grid: true, course: true, footprints: true, labels: true, track: true, hull: true, goal: true, future: true, ghost: true, whiskers: true, pins: true, spans: true } };
+    layers: { water: true, grid: true, course: true, footprints: true, labels: true, track: true, hull: true, goal: true, future: true, ghost: true, whiskers: true, pins: true, spans: true, constraints: true } };
   let al, res, div, els, tmin, tmax, ripple = 0, raf = 0, alive = true;
 
   host.innerHTML = `<div class="room">
@@ -44,6 +60,7 @@ export async function mount(host, ctx) {
       <canvas id="tl" aria-label="Timeline"></canvas></footer></div>`;
   const $ = (s) => host.querySelector(`#${s}`);
   const mc = $('map'), tc = $('tl');
+  tc.style.height = `${TL_LANES.reduce((n, l) => n + l[2] + 4, 0) + 22}px`;
 
   function load() {
     al = B ? makeAlign(A, B, S.align) : null;
@@ -60,7 +77,7 @@ export async function mount(host, ctx) {
     const sc = (r, c, n) => `<span class="chip ${r.score > 0 ? 'o' : r.score < 0 || r.outcome === 'failed' ? 'f' : ''}" style="border-color:${c}66">${esc(n)} ${r.score ?? '–'} pts · ${esc(r.outcome)}</span>`;
     const tiers = `<button class="chip t" data-k="a" aria-pressed="${S.show.a}"><i style="background:${colA}"></i>${esc(tierA)}</button>` +
       (B ? `<button class="chip t" data-k="b" aria-pressed="${S.show.b}"><i style="background:${colB}"></i>${esc(tierB)}</button>` : '') +
-      `<span class="chip absent" title="No real-boat source adapter yet: the real tier is absent"><i></i>real · absent</span>`;
+      '';
     ctx.chips(tiers + sc(A, colA, tierA) + (B ? sc(B, colB, tierB) : '') + `<span class="chip">${A.seed != null ? `seed ${A.seed} · ` : ''}${esc((A.task || A.study || '').replace('_', ' '))}</span>` +
       (A.flags?.length ? `<span class="chip w">${esc(A.flags.join(' '))}</span>` : ''));
     document.querySelectorAll('#chips .chip.t').forEach((b) => (b.onclick = () => { S.show[b.dataset.k] = !S.show[b.dataset.k]; chips(); draw(); }));
@@ -86,7 +103,6 @@ export async function mount(host, ctx) {
       for (const [k, n, c, kb] of ls) h += `<label class="lyr"><input type="checkbox" data-l="${k}" ${S.layers[k] ? 'checked' : ''}>${c ? `<span class="sw" style="background:${c}"></span>` : ''}${n}<kbd>${kb}</kbd></label>`;
     }
     h += chanHTML(A, tierA, false) + (B ? chanHTML(B, tierB, true) : '');
-    h += `<h3 class="lbl">Channels · real</h3><div class="chan"><span class="st absent"></span><span class="n">all <em>absent</em></span><span></span><span class="note">no real-boat source adapter yet</span></div>`;
     $('layers').innerHTML = h;
   }
 
@@ -138,6 +154,20 @@ export async function mount(host, ctx) {
     }
     const st = course.start; if (st && v.s > 2) { c.save(); c.translate(v.sx(st[0]), v.sy(st[1])); c.fillStyle = '#F2D45C'; c.fillRect(0, -10, 1.5, 10); c.beginPath(); c.moveTo(1.5, -10); c.lineTo(9, -7); c.lineTo(1.5, -4); c.fill(); c.restore(); }
   }
+  function drawConstraints(c, v) {
+    if (!S.layers.constraints) return;
+    for (const [run, which] of [[A, 'a'], [B, 'b']]) {
+      if (!run || !S.show[which]) continue;
+      for (const k of run.layers) {
+        const pts = constraintOutline(k); if (pts.length < 2) continue;
+        const out = k.mode === 'keep_out', col = out ? '255,90,82' : '54,211,153';
+        c.beginPath(); pts.forEach((p, i) => (i ? c.lineTo(v.sx(p[0]), v.sy(p[1])) : c.moveTo(v.sx(p[0]), v.sy(p[1])))); c.closePath();
+        c.fillStyle = `rgba(${col},${out ? 0.16 : 0.05})`; c.fill();
+        c.setLineDash(out ? [] : [6, 4]); c.lineWidth = 1.4; c.strokeStyle = `rgba(${col},0.85)`; c.stroke(); c.setLineDash([]); c.lineWidth = 1;
+        if (k.label || k.id) { c.fillStyle = `rgba(${col},0.95)`; c.font = '10px Chivo, sans-serif'; c.fillText(String(k.label || k.id), v.sx(pts[0][0]) + 4, v.sy(pts[0][1]) - 4); }
+      }
+    }
+  }
   function polyline(c, v, tr, from, to) { c.beginPath(); let s = false; for (let i = from; i <= to; i++) { const x = v.sx(tr.x[i]), y = v.sy(tr.y[i]); s ? c.lineTo(x, y) : c.moveTo(x, y); s = true; } }
   function idxAt(tr, t) { let lo = 0, hi = tr.t.length - 1; if (t < tr.t[0]) return -1; while (hi - lo > 1) { const m = (lo + hi) >> 1; tr.t[m] <= t ? (lo = m) : (hi = m); } return tr.t[hi] <= t ? hi : lo; }
   function speedTrack(c, v, tr, upto) {
@@ -186,7 +216,7 @@ export async function mount(host, ctx) {
   function draw() {
     if (!alive) return;
     const [c, r] = sizeCanvas(mc), v = S.view; v.w = r.width; v.h = r.height;
-    drawWater(c, v); drawGrid(c, v); drawCourse(c, v);
+    drawWater(c, v); drawGrid(c, v); drawCourse(c, v); drawConstraints(c, v);
     const tA = S.t, tB = al ? al.map(S.t) : S.t;
     if (S.layers.whiskers && B && S.show.b && res.length) {
       c.lineWidth = 1;
@@ -218,8 +248,9 @@ export async function mount(host, ctx) {
       c.restore();
     }
     if (S.layers.hull) {
-      if (pb && S.show.b) hull(c, v, pb.x, pb.y, pb.yaw, L, BM, { stroke: colB, fill: 'rgba(30,16,44,0.7)', glow: colB, blur: 8, minPx: 12, alpha: pb.clamped ? 0.4 : 1 });
-      if (pa && S.show.a) hull(c, v, pa.x, pa.y, pa.yaw, L, BM, { stroke: '#7DD3DC', fill: '#0F1217', glow: '#3FC8E0', blur: 16, minPx: 14 });
+      const body = (run, p, o) => (run.outline ? outlineHull(c, v, p.x, p.y, p.yaw, run.outline, o) : hull(c, v, p.x, p.y, p.yaw, L, BM, o));
+      if (pb && S.show.b) body(B, pb, { stroke: colB, fill: 'rgba(30,16,44,0.7)', glow: colB, blur: 8, minPx: 12, alpha: pb.clamped ? 0.4 : 1 });
+      if (pa && S.show.a) body(A, pa, { stroke: '#7DD3DC', fill: '#0F1217', glow: '#3FC8E0', blur: 16, minPx: 14 });
     }
     const d = pa && pb ? Math.hypot(pa.x - pb.x, pa.y - pb.y) : null;
     $('hudtl').innerHTML = pa ? `${esc(tierA)} x ${pa.x.toFixed(2)} y ${pa.y.toFixed(2)} ψ ${fmt.deg(pa.yaw)} · ${fmt.ms(pa.v)}` + (pb ? `<br><span style="color:${colB}">${esc(tierB)} at ${fmt.t(tB)}${pb.clamped ? ' (ended)' : ''}</span> · |Δxy| ${fmt.m(d)}` : '') : '';
@@ -229,7 +260,7 @@ export async function mount(host, ctx) {
   }
 
   // ---------- inspector ----------
-  function rowsOf(run) { return run ? run.events.filter((e) => e.kind === 'row') : []; }
+  function rowsOf(run) { return run ? run.events.filter((e) => e.kind === 'row' && e.possible != null) : []; }
   function renderInsp(pa, pb, tB) {
     const dA = lastBefore(A.events.filter((e) => e.lane === 'decision'), S.t), dB = B ? lastBefore(B.events.filter((e) => e.lane === 'decision'), tB) : null;
     const bA = lastBefore(A.events.filter((e) => e.lane === 'behaviour'), S.t), bB = B ? lastBefore(B.events.filter((e) => e.lane === 'behaviour'), tB) : null;
@@ -287,13 +318,16 @@ export async function mount(host, ctx) {
     for (const [k, name, hgt] of TL_LANES) {
       c.fillStyle = '#8d8c85'; c.font = '10.5px Chivo, sans-serif'; c.fillText(name, 10, y + hgt / 2 + 4);
       c.fillStyle = 'rgba(255,255,255,0.025)'; c.fillRect(LEFT, y, w - LEFT - 14, hgt);
-      if (k === 'task' || k === 'decision') for (const [run, which] of [[A, 'a'], [B, 'b']]) {
+      if (k !== 'behaviour' && k !== 'judge' && k !== 'speed' && k !== 'resid' && k !== 'channels') for (const [run, which] of [[A, 'a'], [B, 'b']]) {
         if (!run || !S.show[which]) continue;
+        let lastLabel = -1e9;
         for (const e of run.events) {
           if (e.lane !== k) continue;
           const tt = which === 'a' ? e.t : toA(e.t); if (tt < tmin || tt > tmax) continue;
           const x = X(tt), cy = y + hgt / 2 + (which === 'a' ? -3 : 3);
-          c.fillStyle = k === 'decision' ? DECISION[e.decision] || '#7DD3DC' : e.kind === 'task_finished' ? (/FAIL|ABORT|GIVE/i.test(e.text) ? '#ff5a52' : '#36D399') : e.kind === 'gate_cleared' ? '#36D399' : '#c3c2b7';
+          if (Number.isFinite(e.t_end)) { const x1 = X(Math.min(tmax, which === 'a' ? e.t_end : toA(e.t_end))); c.fillStyle = 'rgba(158,197,244,0.25)'; c.fillRect(x, y + 2, Math.max(2, x1 - x), hgt - 4); }
+          c.fillStyle = k === 'decision' ? DECISION[e.decision] || '#7DD3DC' : e.kind === 'task_finished' ? (/FAIL|ABORT|GIVE/i.test(e.text) ? '#ff5a52' : '#36D399') : e.kind === 'gate_cleared' ? '#36D399' : /^(warn|error|fatal)/i.test(e.level || '') ? '#ff5a52' : LANE_COLOR[k] || '#c3c2b7';
+          if (k === 'log' && which === 'a' && x - lastLabel > 90) { c.save(); c.fillStyle = '#9ec5f4'; c.globalAlpha = 0.8; c.font = '9.5px Chivo Mono, monospace'; c.fillText(String(e.text || '').slice(0, 14), x + 6, cy + 3.5); c.restore(); lastLabel = x; }
           c.beginPath(); if (which === 'a') { c.moveTo(x, cy - 5); c.lineTo(x + 4, cy); c.lineTo(x, cy + 5); c.lineTo(x - 4, cy); } else c.arc(x, cy, 3, 0, 7); c.fill();
           if (which === 'b') { c.strokeStyle = colB; c.lineWidth = 1; c.stroke(); }
         }
@@ -312,6 +346,14 @@ export async function mount(host, ctx) {
         }
       }
       if (k === 'judge') {
+        for (const [run, which] of [[A, 'a'], [B, 'b']]) {
+          if (!run || !S.show[which]) continue;
+          for (const e of run.events) {
+            if (e.lane !== 'judge' || !Number.isFinite(e.t_end)) continue;
+            const t0 = which === 'a' ? e.t : toA(e.t), t1 = which === 'a' ? e.t_end : toA(e.t_end);
+            c.fillStyle = 'rgba(255,90,82,0.28)'; c.fillRect(X(Math.max(tmin, t0)), y + 3, Math.max(2, X(Math.min(tmax, t1)) - X(Math.max(tmin, t0))), hgt - 6);
+          }
+        }
         for (const j of S.layers.spans ? spans() : []) { const x0 = X(Math.max(tmin, j.t0)), x1 = X(Math.min(tmax, j.t1)); c.fillStyle = j.which === 'a' ? 'rgba(237,203,120,0.25)' : 'rgba(199,146,234,0.25)'; c.fillRect(x0, y + 1, Math.max(2, x1 - x0), hgt - 2); }
         for (const p of pins()) {
           const x = X(p.t); c.fillStyle = p.kind === 'div' ? '#F2D45C' : p.kind === 'near_miss' ? '#EDCB78' : '#ff5a52';
@@ -339,7 +381,6 @@ export async function mount(host, ctx) {
         c.fillStyle = '#c3c2b7'; c.font = '10px Chivo, sans-serif';
         c.fillText([[A, tierA], [B, tierB]].filter(([run]) => run).map(([run, n]) => `${n}: ${run.channels.perception || 'not declared'}`).join(' · '), LEFT + 6, y + hgt - 2);
       }
-      if (k === 'real') { c.setLineDash([3, 3]); c.strokeStyle = '#4a5568'; c.strokeRect(LEFT + 0.5, y + 0.5, w - LEFT - 15, hgt - 1); c.setLineDash([]); c.fillStyle = '#6b7280'; c.font = '10px Chivo, sans-serif'; c.fillText('absent: no real-boat source adapter yet', LEFT + 6, y + hgt - 2); }
       y += hgt + 4;
     }
     if (al?.mode === 'event') for (const [, ta] of al.anchors) { c.fillStyle = '#7DD3DC'; c.fillRect(X(ta) - 0.5, 0, 1, 6); }

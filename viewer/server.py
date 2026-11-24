@@ -105,8 +105,8 @@ def make_handler(store: Store, remote: str | None = None, feed_only: bool = Fals
                     run = store.runs.get('/'.join(parts[3:-1]))
                     if not run:
                         return self.proxy()
-                    lod = q.get('lod') == '1' and run.lod is not None
-                    return self.send(200, (run.lod if lod else run.path).read_bytes(), 'application/octet-stream',
+                    lod = q.get('lod') == '1' and run.has_lod
+                    return self.send(200, run.lod_data() if lod else run.data(), 'application/octet-stream',
                                      {'x-crane-lod': '1' if lod else '0', 'etag': f'"{run.lod_sha if lod else run.sha}"'})
                 if len(parts) == 4 and parts[2] == 'courses':
                     c = store.course(parts[3])
