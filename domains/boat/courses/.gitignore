@@ -1,0 +1,3 @@
+# coursegen.py writes more seeds here on demand; the committed ones are 0-4.
+/roboboat_2026-s*.json
+!/roboboat_2026-s[0-4].json

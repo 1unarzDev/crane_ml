@@ -1,0 +1,100 @@
+{
+  "schema": "crane.bench.fast/1",
+  "domain": "toy",
+  "tier": "T0",
+  "config": "fastsim/tests/toy.yaml",
+  "overrides": {
+    "scenarios": {
+      "dir": "~/.cache/crane/toy-scenarios",
+      "generate": [
+        "{python}",
+        "-c",
+        "import sys; sys.path[:0] = sys.argv[1:3]; import toy; [toy.write_scenario(sys.argv[3], s) for s in range(int(sys.argv[4]), int(sys.argv[5]))]",
+        "{base}/../..",
+        "{base}",
+        "{dir}",
+        "{seeds_from}",
+        "{seeds_to}"
+      ]
+    }
+  },
+  "seeds": "0:50",
+  "host": {
+    "date": "2026-11-24T12:12:24-06:00",
+    "host": "innovation",
+    "cores": 20,
+    "gpu": "NVIDIA GeForce RTX 4070 Ti SUPER",
+    "cpu": "12th Gen Intel(R) Core(TM) i7-12700K",
+    "python": "3.14.10",
+    "executable": "/usr/bin/python3",
+    "numpy": "2.5.5",
+    "commit": "de61393023c6047b484b136e41b75c22c93cde00",
+    "dirty": false,
+    "load_1m": 1.83
+  },
+  "plant": {
+    "steps": 12000,
+    "dt": 0.05,
+    "wall_s": 0.0128,
+    "env_steps_per_s": 935526.8,
+    "sim_s_per_wall_s": 46776.3,
+    "us_per_step": 1.07
+  },
+  "episodes": [
+    {
+      "workers": 1,
+      "episodes": 50,
+      "wall_s": 0.875,
+      "episodes_per_s": 57.112,
+      "episodes_per_s_per_core": 57.112,
+      "sim_s_mean": 38.87,
+      "succeeded": 50
+    },
+    {
+      "workers": 8,
+      "episodes": 50,
+      "wall_s": 0.238,
+      "episodes_per_s": 210.04,
+      "episodes_per_s_per_core": 26.255,
+      "sim_s_mean": 38.87,
+      "succeeded": 50
+    }
+  ],
+  "batch_invariant": true,
+  "split": {
+    "episodes": 10,
+    "ms_per_episode": {
+      "plant": 1.225,
+      "tracker": 1.237,
+      "decision": 0.628,
+      "perception": 7.372,
+      "contacts": 5.077,
+      "recording": 1.697,
+      "other": 1.811,
+      "total": 19.047,
+      "setup": 0.041
+    },
+    "share": {
+      "plant": 0.0643,
+      "tracker": 0.0649,
+      "decision": 0.033,
+      "perception": 0.3871,
+      "contacts": 0.2665,
+      "recording": 0.0891,
+      "other": 0.0951
+    }
+  },
+  "cluster": {
+    "prepare_s": 0.0023,
+    "loop_s_per_episode": 0.0177,
+    "loop_episodes": 10,
+    "fresh_process_per_job": {
+      "import_s": 0.0591,
+      "prepare_s": 0.0027,
+      "run_s": 0.0258,
+      "metrics_s": 0.0002,
+      "wall_s": 0.1133
+    },
+    "fresh_jobs": 5
+  }
+}

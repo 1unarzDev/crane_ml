@@ -1,0 +1,37 @@
+# The boat at T0 (abstract, kinematic): the reference mission (adapter.py) on a first-order plant.
+#   python3 -m fastsim.batch --config domains/boat/fastsim_t0.yaml --seeds 0:5 --out runs/boat-t0
+# Everything below `vehicle` is the same in fastsim_t1.yaml.
+adapter: {ref: domains.boat.adapter:BoatAdapter, options: {tier: T0}}
+dt: 0.05
+# First-order lag per body axis: tau = M_eff / J from Tools/Characterization/profiles/characterized.json
+# at a cruise point (surge u = 1.0: 31.5 / 48.8; sway v = 0.3: 45.0 / 40.0; yaw r = 0.5: 5.33 / 29.3),
+# the T1 plant's linearised damping time constant. No dead time (the profile's thrusters have none).
+vehicle: {model: first_order, gain: 1.0, tau_s: [0.65, 1.12, 0.18], dead_time_s: [0.0, 0.0, 0.0]}
+fidelity: >-
+  T0 abstract (kinematic): first-order lag and rate limits per body axis, no forces; perception is
+  truth labels in a cone; routes are straight legs with detours (no planner); contacts are geometry
+  and never stop the vehicle
+scenarios:
+  dir: courses
+  pattern: 'roboboat_2026-s{seed}.json'
+  generate: ['{python}', '{base}/coursegen.py', '{seeds_from}:{seeds_to}', '{dir}']
+  format: {name: crane_truth, identity_check: ../../Tools/RoboBoat/course_truth.py:check_identity}
+# A generic small vessel (the course truth's default vessel: 1.06 m x 0.9 m) and conservative
+# navigation limits, below the profile's envelope (surge 2.5, sway 1.7, yaw 1.9).
+limits:
+  vmax: [1.5, 0.4, 0.8]
+  vmin: [-0.5, -0.4, -0.8]
+  accel: [0.6, 0.4, 1.0]
+  decel: [-1.0, -0.4, -1.0]
+  goal_tol: [0.6, 0.5]
+  precise_tol: [0.25, 0.15]
+  rotate_above: 0.8
+  rotate_wz: 0.5
+  progress_radius: 0.3
+  progress_s: 10.0
+  pass_radius: 1.2
+  footprint: [[0.53, 0.45], [0.53, -0.45], [-0.53, -0.45], [-0.53, 0.45]]
+perception: {name: cone, hfov_deg: 90.0, range_m: 20.0, occlusion: true, mount: [0.4, 0.0, 0.0]}
+time_limit_s: 300
+workers: 8
+max_workers: 20
