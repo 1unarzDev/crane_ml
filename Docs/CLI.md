@@ -166,6 +166,7 @@ Episodes at a tier, one run dir per seed.
 crane run --domain toy --seeds 0:3
 crane run --domain boat --tier T1 --seeds 0:2 --out /tmp/runs
 crane run --domain boat --tier T1 --astro-test speed-surge --card /tmp/fit/profile.json
+crane run --domain modular --replay timelines.npz --seeds 0:24 --card example#plated
 ```
 
 Run episodes at a tier, one run dir per seed (OUT/VARIANT/s<seed>). T0 abstract and T1 dynamic; T2 is not yet available (use crane sim up). Missing scenarios are generated on demand.
@@ -174,7 +175,7 @@ What you'll see: one line per seed (run dir, outcome, sim and wall time), then r
 
 | Param | Type | Description |
 |---|---|---|
-| `--domain` | str | A domain: config/domains/DOMAIN.yaml (boat, toy). |
+| `--domain` | str | A domain: config/domains/DOMAIN.yaml (boat, toy, modular). |
 | `--config` | path | A fastsim domain YAML, used as is. |
 | `--tier` | tier | The tier (default: the domain's first tier, T0 with --config). One of `T0`, `T1`, `T2`, `abstract`, `dynamic`, `unity`. |
 | `--seeds` | str | N, A:B (B exclusive), a,b,c, @FILE or block:NAME (required, except with --astro-test: 0). |
@@ -189,8 +190,11 @@ What you'll see: one line per seed (run dir, outcome, sim and wall time), then r
 | `--backend` | str | With --engine batched: numpy (float64 reference), numba (every core) or jax (GPU). One of `numpy`, `numba`, `jax`. (default `numba`) |
 | `--dtype` | str | With --engine batched: default float64; jax on a consumer GPU wants float32 (bench/RESULTS.md). One of `float64`, `float32`. |
 | `--record` | int | With --engine batched: also write traj.ctraj with every K-th track row (default: run.json, events.jsonl, metrics.json only). |
+| `--replay` | path | A domain whose tier replays logged command timelines (modular): an npz of cmd [M, T, 3]; every seed replays every timeline. |
+| `--robot` | str | The domain's robot (modular: an assembly, default the domain's). |
+| `--env` | env | The world (modular: route:NAME or route:random). |
 | `--astro-test` | str | An astro test or group (still, couple-*, speed-*, steps-*, nav2, all) at T0/T1, with metrics named as astro's result fields. |
-| `--card` | str | With --astro-test: a profile JSON, a plant card or a factorial manifest (repeatable). |
+| `--card` | str | With --astro-test: a profile JSON, a plant card or a factorial manifest (repeatable). modular: a profile, REF#VARIANT for one plate state. |
 | `--tests` | path | With --astro-test: astro's tests file or a bundle holding one. |
 | `--space` | str | With --astro-test: the tests file's space (default large). |
 | `--amp` | float | With --astro-test: the effort amplitude (default the space's). |

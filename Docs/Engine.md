@@ -77,3 +77,62 @@ fixed per card (dt / the profile's tick). The run identity hashes backend, dtype
 | 4 fidelity | `fastsim/fidelity.py` scores with bootstrap CIs, batched T1 vs scalar T1 | `engine/fidelity.py` |
 
 Results and the chosen backend and dtype: `bench/RESULTS.md`.
+
+## The modular plant
+
+```bash
+crane run --domain modular --replay timelines.npz --seeds 0:24 --card example#plated --set faults.p_healthy=0.25
+crane run --domain modular --robot mecanum-pair --env route:random --seeds 0:256
+python3 -m domains.modular.bench --E 1024,4096 --backend numba,jax:float32 --seconds 40
+```
+
+```python
+from domains.modular import assembly, profile
+from engine.kernels import mecanum as K, mecanum_run as R
+b = assembly.build('mecanum-pair', profile.load('example#plated'))     # wheels, body, footprint, static loads
+p = K.stack([K.pack(b['wheels'], b['body'], {'mode': [0, 1, 0, 0, 0, 0, 0, 3], 'gain': [1, .5] + [1] * 6})])
+out = R.replay(p, timelines, which=None, delay=[2], backend='numba')   # timelines [M, T, 3] at 50 Hz
+out['duty'], out['counts'], out['gz'], out['ax'], out['ay']            # [E, T, W] / [E, T]
+plant = R.Ticks(p, ticks=T); x = plant.tick(u)                         # closed loop, one 50 Hz tick
+```
+
+**What it is.** One rigid assembly of modules per env (mecanum, omni and conventional wheels, ball casters; each
+env its own, wheels padded to W) at a 5 ms plant step under a body-twist command held per 50 Hz tick. The physics
+is the modular truth model's planar dynamics: the firmware's ideal rolling IK (clipped to phi_max), massless wheels
+whose speed balances motor and ground torque (bisection, then Illinois per wheel), the tanh slip contact (friction
+ellipse; mecanum rollers with bearing drag and a friction circle), rolling resistance, a finite-difference
+Jacobian and one linearly-implicit Euler step, the exact SE(2) pose update. Not modelled: planar compliance between
+modules, load transfer (normal loads are the rigid assembly's static ones), swivel casters, payload slip,
+intermittent actuators, wheel and drivetrain inertia, a PI loop's integral term.
+
+**Inputs.** Geometry from an assembly file (`domains/modular/assemblies`: module types, wheels, modules, IMU; the
+footprint is each module's rectangle and their hull). Every physical number from a plant profile
+(`domains/modular/profiles`, `crane.modular.profile/1`): one card per plate state as `variants` (REF#NAME), theta
+overrides as `scale.*` multipliers or any key (`--set card.KEY=V`), DR ranges in `dr` (`--set dr=true` draws per
+seed). `example.json` is a generic card, not a measured robot.
+
+**Faults** per wheel from an onset time: weak(g) (stall torque and no-load speed times g: a duty scale), coast
+(back-drive only), brake (plus the shorted winding's damping), locked. From the timelines file (`mode`, `gain`,
+`onset` [M, W]) or a prior (`--set faults.p_healthy=0.25 faults.p_double=0.2 faults.modes.weak=2 ...`); the same
+seed draws the same faults and DR on every timeline.
+
+**Channels** at the tick rate, written per env through `crane.data.recorder.Store` (obs T x C, names, hz, labels):
+`cmd` (the logged command), `duty` (the firmware's pre-fault duty), `counts` (encoder counts, the profile's cpr),
+`speed`, `imu` (gz, ax, ay at the IMU point), `pose`, `vel`; the domain records `cmd duty counts imu` at 50 Hz
+float32 (`--set record.obs.channels=[...]`). float16 loses encoder counts above 2048.
+
+**Gate 1** (`engine/tests/test_mecanum.py`): numpy and numba equal the reference port `domains/modular/truth.py`
+bit for bit, and JAX float64 within 1e-8, on a scripted program over three assemblies with every fault mode, an
+onset mid-run and command latency; env i at E = 1 equals env i in a mixed batch (numpy, numba) and the closed loop
+equals the replay; the plant step converges at first order. The port follows the truth model's expressions in
+order; set `CRANE_MODULAR_TRUTH` to the directory holding its `capplan` package and the same test checks the port
+against `simulate_assembly` itself: static loads within 5e-14 N, pose within 8e-12 m, twist within 3e-10, wheel
+speed within 1.4e-9 rad/s (the root's tolerance), on ok, weak, dead-free and dead-locked wheels. JAX float32 is
+not exact (the stiff slip curve and the 1e-5 Jacobian step): on the gate programs pose within 8e-5 m, twist within
+1e-3, wheel speed within 6e-3 rad/s; use float64 where the channels are compared to logs.
+
+**Throughput** (replay, 40 s timelines at 50 Hz, i7-12700K 20 threads, numba float64, host shared with other
+jobs at load ~12, so a lower bound): mecanum-1 (4 wheels) 16 trials/s at E = 1, 179 at E = 256, 177 at 1,024,
+196 at 4,096 (1.6 M plant steps/s); mecanum-pair (8 wheels) 93 at E = 1,024. A 900 timelines x 24 envs rung
+(21,600 trials) is about 2 min on this host. `python3 -m domains.modular.bench` reproduces it; JAX on the GPU is
+not yet measured.

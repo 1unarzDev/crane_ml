@@ -1,0 +1,18 @@
+{
+ "schema": "crane.modular.profile/1",
+ "name": "example",
+ "about": "A generic example card, not a measured robot: each number is mid-range of the modular truth model's stated assumed ranges. Fit a card per plate state from logged sessions and keep it beside this one.",
+ "floor": {"mu": 0.8, "kappa_lat": 0.9},
+ "wheel": {"roller_mu_f": 0.92, "mu_rb": 0.035, "roller_dev_deg": 0.0, "s_x0": 0.05, "alpha0": 0.065,
+           "c_rr": 0.0125, "k_v": 37500.0, "K": 1.0, "tau_stall_Nm": 1.2, "w_nl_rad_s": 18.0, "b_visc": 0.0055,
+           "tau_c": 0.0175, "tau_bd": 0.1, "phi_max_rad_s": 12.0, "cpr": 1440},
+ "caster": {"c_rr": 0.04, "k_v": 60000.0},
+ "module": {"mass_kg": {"mecanum": 3.0, "diff": 2.6}, "inertia_f": 1.05, "com": [0.0, 0.0]},
+ "scale": {"stall": 1.0, "noload": 1.0, "kp": 1.0, "radius": 1.0, "izz": 1.0, "mass": 1.0},
+ "latency_s": 0.01,
+ "variants": {
+  "plated": {"module.mass_kg.mecanum": 3.4, "scale.izz": 1.05},
+  "plateless": {"module.mass_kg.mecanum": 3.0}
+ },
+ "dr": {"floor.mu": [0.6, 1.0], "wheel.s_x0": [0.03, 0.07], "wheel.tau_bd": [0.03, 0.3], "scale.stall": [0.9, 1.1]}
+}

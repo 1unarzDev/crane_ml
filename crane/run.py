@@ -20,6 +20,27 @@ def tier_config(domain, tier):
     return domain_tier(domain, tier)
 
 
+def tier_runner(domain, tier):
+    """(tier, config, handler) when DOMAIN's tier names its own runner (``tiers.T.runner: module:function``, e.g. a
+    domain whose batch is not a fastsim one); else None."""
+    if not domain:
+        return None
+    try:
+        cfg = select.domain_config(domain)
+    except select.SelectError:
+        return None
+    tiers = cfg.get('tiers') or {}
+    tier = tier or next(iter(tiers), None)
+    ref = (tiers.get(tier) or {}).get('runner')
+    if not ref:
+        return None
+    if str(paths.ROOT) not in sys.path:
+        sys.path.insert(0, str(paths.ROOT))
+    import importlib
+    module, _, attr = ref.partition(':')
+    return tier, cfg, getattr(importlib.import_module(module), attr)
+
+
 def overrides(pairs):
     """['a.b=1', 'c=x'] -> {'a': {'b': 1}, 'c': 'x'}; each value is parsed as YAML (crane.select.parse_sets)."""
     return select.parse_sets(pairs)
@@ -35,6 +56,13 @@ def main(args):
         from crane import astrotest
         args.out = args.out or str(select.default_out(args.domain or 'boat', tier or 'T1'))
         return astrotest.main(args)
+    own = tier_runner(args.domain, tier)
+    if own:
+        tier, cfg, handler = own
+        return handler(args, out, cfg, tier)
+    if getattr(args, 'replay', None):
+        return out.usage('run', f'--replay: domain {args.domain or args.config} has no tier that replays timelines',
+                         'crane run --domain modular --replay TIMELINES.npz')
     if not args.seeds:
         source = f'--domain {args.domain}' if args.domain else f'--config {args.config}'
         return out.usage('run', '--seeds is required (except with --astro-test)', f'crane run {source} --seeds 0:3')
