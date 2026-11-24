@@ -10,7 +10,10 @@ case ${1:-} in
   -h|--help) shift; set -- help "$@" ;;
   -*) set -- up "$@" ;;
 esac
+CRANE_SIM_AS=sim_up; export CRANE_SIM_AS     # messages and fixes keep this name
 if [ -x "$crane/bin/crane" ]; then exec "$crane/bin/crane" sim "$@"; fi
+# the checkout's venv python when there is one (it has PyYAML), else the system python3
+py=python3; [ -x "$crane/.venv/bin/python3" ] && py=$crane/.venv/bin/python3
 # this checkout's crane first on sys.path, ahead of the working directory (python3 -m would put it first)
-exec python3 -c 'import sys; sys.path.insert(0, sys.argv.pop(1)); from crane.cli import main; sys.exit(main())' \
+exec "$py" -c 'import sys; sys.path.insert(0, sys.argv.pop(1)); from crane.cli import main; sys.exit(main())' \
   "$crane" sim "$@"

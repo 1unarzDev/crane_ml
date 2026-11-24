@@ -111,7 +111,7 @@ def test_bare_sim_prints_help_and_doctor_names_unselected_extras_off(capsys, mon
     with pytest.raises(SystemExit) as done:
         cli.main(['sim'])
     out = capsys.readouterr().out
-    assert done.value.code == 0 and 'crane sim {up,down,status,check} [ARGS...]' in out
+    assert done.value.code == 0 and 'crane sim {up,down,status,check,logs} [ARGS...]' in out
     monkeypatch.setattr(doctor, '_found', lambda module: False)
     rows = {name: (state, detail) for name, state, detail in doctor.checks()}
     assert rows['[view]'][0] == 'off' and 'optional, add with' in rows['[view]'][1]

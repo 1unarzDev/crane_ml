@@ -19,8 +19,8 @@ from crane.sim import config
 from crane.sim.config import PROG, SimError
 
 
-def _say(msg):
-    print(f'{PROG}: {msg}', flush=True)
+def _say(msg, stream=None):
+    print(f'{config.invoked_as()}: {msg}', file=stream or sys.stdout, flush=True)
 
 
 def _read(path):
@@ -134,18 +134,36 @@ def status(cfg, t2, run, as_json=False):
     return 0
 
 
-def down(cfg, t2, run):
-    """Stop the player's process group (TERM, up to 10 s, then KILL) and the domain's container."""
-    pg = _read(run / 'player.pid')
+GRACE_S = 10     # down: how long the player's process group gets after TERM before KILL
+
+
+def stop_group(pg, grace_s=GRACE_S):
+    """TERM the process group, poll every 0.5 s for up to grace_s, then KILL it: 'gone', 'term' or 'kill'."""
+    try:
+        os.killpg(pg, signal.SIGTERM)
+    except OSError:
+        return 'gone'
+    deadline = time.monotonic() + grace_s
+    while time.monotonic() < deadline:
+        time.sleep(0.5)
+        try:
+            os.killpg(pg, 0)
+        except OSError:
+            return 'term'
+    try:
+        os.killpg(pg, signal.SIGKILL)
+    except OSError:
+        return 'term'
+    return 'kill'
+
+
+def down(cfg, t2, run, as_json=False, stream=None):
+    """Stop the player's process group (TERM, up to GRACE_S, then KILL) and the domain's container."""
+    pg, stopped = _read(run / 'player.pid'), None
     if pg:
         try:
-            pg = int(pg)
-            os.killpg(pg, signal.SIGTERM)
-            for _ in range(20):
-                os.killpg(pg, 0)
-                time.sleep(0.5)
-            os.killpg(pg, signal.SIGKILL)
-        except (OSError, ValueError):
+            stopped = stop_group(int(pg))
+        except ValueError:
             pass
         (run / 'player.pid').unlink(missing_ok=True)
     container = (t2.get('ros') or {}).get('container')
@@ -155,7 +173,10 @@ def down(cfg, t2, run):
         pass
     for n in ('domain', 'port', 'current'):
         (run / n).unlink(missing_ok=True)
-    _say('down')
+    if as_json:
+        print(json.dumps({'down': True, 'player': stopped, 'container': container, 'run': str(run)}))
+    else:
+        _say('down', stream)
     return 0
 
 
@@ -163,7 +184,7 @@ def docker_args(t2, run, d, port, img):
     """The `docker run` argv of the ROS side: host network and IPC like the dev container, on domain d."""
     ros = t2.get('ros') or {}
     ws = ros.get('workspace') or '/workspace'
-    values = {'ws': ws, 'run': run, 'dock': config.dock(), 'home': config.home(), 'port': port}
+    values = {'ws': ws, 'run': run, 'dock': config.dock(t2) or '', 'home': config.home(), 'port': port}
     overrides = config.subst(ros.get('overrides') or '', port=port)
     launch = f"exec ros2 launch {ros.get('launch')}" + (f" overrides:='{overrides}'" if overrides else '')
     a = ['docker', 'run', '-d', '--name', ros['container']]
@@ -200,19 +221,27 @@ def _tail(path, n=20):
         print('\n'.join(lines), file=sys.stderr, flush=True)
 
 
+def display_mode(given=None):
+    """--display, else a window only for a person at a terminal with a display; agents and scripts: headless."""
+    if given:
+        return given
+    on_tty = sys.stdin is not None and sys.stdin.isatty()
+    return 'window' if on_tty and (os.environ.get('DISPLAY') or os.environ.get('WAYLAND_DISPLAY')) else 'headless'
+
+
 def up(cfg, t2, run, o):
     """Start the ROS side, wait for its endpoint (stated timeout), start the player, wait for the course."""
-    mode = o.display
-    if not mode:
-        mode = 'window' if sys.stdin.isatty() and (os.environ.get('DISPLAY') or os.environ.get('WAYLAND_DISPLAY')) \
-            else 'headless'
+    mode = display_mode(o.display)
+    as_json = bool(getattr(o, 'json', False))
+    say = (lambda m: _say(m, sys.stderr)) if as_json else _say
+    me = config.invoked_as()
     ros = t2.get('ros') or {}
     container = ros['container']
     current = resolver.parse_current(o.current) if o.current is not None else None
     if alive(run) or ros_up(container):
-        status(cfg, t2, run)
-        raise SimError(f'already up; {PROG} down first')
-    guard = config.heavy()
+        status(cfg, t2, run, as_json)
+        raise SimError(f'already up; {me} down first')
+    guard = config.heavy(t2)
     if mode == 'headless' and not shutil.which('xvfb-run'):
         raise SimError('headless needs xvfb-run: install xvfb or use --window')
     if not shutil.which('docker'):
@@ -220,7 +249,7 @@ def up(cfg, t2, run, o):
     player = config.find_player(t2, o.player)
     d = config.domain_id(t2)
     port = int(ros.get('port_base', 10000)) + d
-    img = config.image(ros)
+    img = config.image(t2)
     args = resolver.resolve(cfg, env=o.env, robot=o.robot, card=o.card, seed=o.seed, profile=o.profile,
                             current=current, sets=o.sets, ros={'ip': ros.get('ip'), 'port': port},
                             extra=o.extra, out=run)
@@ -234,31 +263,31 @@ def up(cfg, t2, run, o):
 
     # 1. the ROS side, logged to the state dir
     subprocess.run(['docker', 'rm', '-f', container], capture_output=True, timeout=60)
-    values = {'ws': ros.get('workspace') or '', 'run': run, 'dock': config.dock(), 'home': config.home()}
+    values = {'ws': ros.get('workspace') or '', 'run': run, 'dock': config.dock(t2) or '', 'home': config.home()}
     for p in ros.get('dirs') or []:
         Path(config.subst(p, **values)).mkdir(parents=True, exist_ok=True)
     out = subprocess.run(docker_args(t2, run, d, port, img), capture_output=True, text=True, timeout=120)
     if out.returncode != 0:
         last = (out.stderr.strip().splitlines() or [''])[-1]
         raise SimError(f'docker run failed (exit {out.returncode}): {last}; check the image: docker image ls {img}', 1)
-    _say(f'ROS side starting (domain {d}, endpoint port {port}, log {run}/ros.log)')
+    say(f'ROS side starting (domain {d}, endpoint port {port}, log {run}/ros.log)')
     limit, t0 = int(ros.get('endpoint_s', 60)), time.monotonic()
     while not listening(port):
         if not ros_up(container):
             _tail(run / 'ros.log')
             raise SimError(f'the ROS side exited, see {run}/ros.log', 1)
         if time.monotonic() - t0 >= limit:
-            raise SimError(f'no endpoint on port {port} in {limit} s, see {run}/ros.log; then {PROG} down', 1)
+            raise SimError(f'no endpoint on port {port} in {limit} s, see {run}/ros.log; then {me} down', 1)
         time.sleep(1)
 
     # 2. the player, through heavy unity, in its own process group (pid == pgid)
-    env = dict(os.environ, HEAVY_WHO=f'{PROG} {mode}')
+    env = dict(os.environ, HEAVY_WHO=f'{me} {mode}')
     with open(run / 'player-stdout.log', 'wb') as log:
         proc = subprocess.Popen(launch_cmd(t2, guard, mode, player, args), stdin=subprocess.DEVNULL, stdout=log,
                                 stderr=subprocess.STDOUT, env=env, start_new_session=True)
     (run / 'player.pid').write_text(f'{proc.pid}\n')
     limit = config.ready_s(t2)
-    _say(f'player queued on heavy unity ({mode}), waiting up to {limit} s for the course')
+    say(f'player queued on heavy unity ({mode}), waiting up to {limit} s for the course')
     marker, t0 = t2.get('ready_marker') or '', time.monotonic()
     while True:
         try:
@@ -268,13 +297,13 @@ def up(cfg, t2, run, o):
             pass
         if proc.poll() is not None:
             _tail(run / 'player-stdout.log')
-            down(cfg, t2, run)
+            down(cfg, t2, run, stream=sys.stderr if as_json else None)
             raise SimError(f'the player exited, see {run}/player.log', 1)
         if time.monotonic() - t0 >= limit:
-            down(cfg, t2, run)
+            down(cfg, t2, run, stream=sys.stderr if as_json else None)
             raise SimError(f'course not ready in {limit} s, see {run}/player.log and {run}/player-stdout.log', 1)
         time.sleep(1)
-    return status(cfg, t2, run)
+    return status(cfg, t2, run, as_json)
 
 
 LOGS = {'player': 'player.log', 'stdout': 'player-stdout.log', 'ros': 'ros.log'}
@@ -293,5 +322,5 @@ def logs(run, which=(), lines=40):
         except OSError:
             print('(none yet)')
     if not shown:
-        print(f'next: crane sim up   (no logs in {run})')
+        print(f'next: {config.invoked_as()} up   (no logs in {run})')
     return 0

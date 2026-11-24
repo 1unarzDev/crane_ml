@@ -18,7 +18,7 @@ Start the world and return once it is ready.
 ```bash
 crane sim up                                   # window on a terminal with a display, else headless
 crane sim up --headless --seed 3 --current 0   # still water, for characterization
-crane sim up --card characterized --env course:roboboat_2026 --profile full
+crane sim up --card characterized --env course:roboboat_2026 --profile interactive-high
 ```
 
 1. The ROS side starts in its container (`ros.container`, today `sim_up_ros`) on the domain's dev image, host
@@ -27,16 +27,17 @@ crane sim up --card characterized --env course:roboboat_2026 --profile full
 2. The player starts through `heavy unity` in its own process group: in a window (`--window`), or under
    `xvfb-run` (`--headless`). up waits up to `ready_s` (300 s, `SIM_UP_READY_S`) for the domain's ready marker.
 
-What you'll see: `sim_up: ROS side starting (domain 101, endpoint port 10101, …)`, `sim_up: player queued on
-heavy unity (headless), waiting up to 300 s for the course`, then the status block. A failure is one line
-naming the cause and the fix, for example `sim_up: headless needs xvfb-run: install xvfb or use --window`.
+What you'll see: `crane sim: ROS side starting (domain 101, endpoint port 10101, …)`, `crane sim: player queued
+on heavy unity (headless), waiting up to 300 s for the course`, then the status block (`--json`: the progress
+lines on stderr, the status as JSON). A failure is one line naming the cause and the fix, for example
+`crane sim: headless needs xvfb-run: install xvfb or use --window`. Run as `sim_up`, the lines say `sim_up:`.
 
 | Option | Meaning |
 |---|---|
 | `--seed N` | the world seed (default 1) |
 | `--env KIND:NAME`, `--course FAMILY` | the world, default `course:roboboat_2026` |
 | `--card F`, `--profile-json F` | a plant profile JSON, or a name in `card.dir` |
-| `--profile P` | the player's runtime profile (default `interactive-low`) |
+| `--profile P` | the player's runtime profile, one of `tiers.T2.profiles` (default `interactive-low`) |
 | `--current SPEED,TOWARD_DEG`, `--current 0` | the water current in m/s toward deg; 0 is still water |
 | `--display window\|headless`, `--window`, `--headless` | default: a window when stdin is a terminal and DISPLAY or WAYLAND_DISPLAY is set |
 | `--player PATH` | else `CRANE_PLAYER`, `Builds/CRANE-Worker`, `~/.cache/crane-phase1/player` (the first with `required_flag`) |
@@ -90,7 +91,7 @@ crane sim logs ros -n 100
 ## down
 
 Stop the world: the player's process group (TERM, then KILL after 10 s) and the domain's container, nothing
-else. What you'll see: `sim_up: down`.
+else. What you'll see: `crane sim: down` (`--json`: one JSON document).
 
 ```bash
 crane sim down
@@ -102,9 +103,13 @@ crane sim down
   flag bundle, `required_flag`, the course truth flag, the default current, the ready and plant markers, the ROS
   launch, container, image, mounts and ready nodes, and the `next:` lines. `env`, `robot` and `card` map the
   selectors to player flags. `crane/player.py` `resolve()` builds the player argv from them.
-- **Environment, as astro exports it:**
-  - `ROS_DOMAIN_ID` counts only beside `ASTRO_STATE` or `MHSEALS_HARDWARE_CONFIG`.
-  - Otherwise the id comes from the sim vessel profile's `network.env`, found through `ASTRO_PROFILES`, else
-    `~/.config/astro/profiles.env`, else `$ASTRO_DOCK/profiles`.
-  - Also read: `SIM_UP_VESSEL`, `SIM_UP_RUN` (the state dir, `~/.cache/sim_up`), `SIM_UP_READY_S`,
-    `CRANE_PLAYER`, `HEAVY` (default crane's `bin/heavy`; `none` runs bare) and `ASTRO_IMAGE`.
+- **Host tooling** (`tiers.T2.host`, for boat astro's):
+  - `ROS_DOMAIN_ID` counts only beside an env in `trust_domain_id` (boat: `ASTRO_STATE` or
+    `MHSEALS_HARDWARE_CONFIG`, as astro exports it).
+  - Otherwise the id comes from the vessel profile's `network.env` under `profiles` (boat: `ASTRO_PROFILES`, else
+    the `ASTRO_PROFILES=` line of `~/.config/astro/profiles.env`, else `$ASTRO_DOCK/profiles`).
+  - `dock` is the checkout the ROS container mounts; `heavy` the guard when crane's `bin/heavy` is missing; `up`
+    the host's own command, named in fixes.
+- **Environment:** `SIM_UP_VESSEL`, `SIM_UP_RUN` (the state dir, `~/.cache/sim_up`), `SIM_UP_READY_S`,
+  `CRANE_PLAYER`, `HEAVY` (default crane's `bin/heavy`; `none` runs bare) and the image env named in
+  `ros.image.env` (boat: `ASTRO_IMAGE`).

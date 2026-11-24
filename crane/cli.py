@@ -12,7 +12,7 @@ TOP_EXAMPLES = """examples:
   crane doctor                                            what is installed, what works, what to run next
   crane run --domain toy --seeds 0:3 --out /tmp/runs                 T0 abstract, scenarios made on demand
   crane run --domain boat --tier T1 --seeds 0:2 --out /tmp/runs      T1 dynamic, the RoboBoat reference mission
-  crane sim up --headless                                 the T2 world, used like the boat (astro sim up)
+  crane sim up --headless                                 the T2 world, used like the robot
   crane view --live --domain boat --tier T1 --seed 3      the native sandbox: a live sim with sliders
   crane VERB --help                                       each verb's options, an example and what you'll see"""
 
@@ -31,13 +31,13 @@ def _passthrough(verb, rest):
 
 
 PASSTHROUGH = ('sim', 'heavy', 'judge', 'card', 'board', 'course', 'cluster')
-USAGE = {'sim': 'crane sim {up,down,status,check} [ARGS...]', 'heavy': 'crane heavy {unity,sim,preview,contain,status} [CMD...]',
+USAGE = {'sim': 'crane sim {up,down,status,check,logs} [ARGS...]', 'heavy': 'crane heavy {unity,sim,preview,contain,status} [CMD...]',
          'judge': 'crane judge {demo,fastsim,oneline,markdown} [ARGS...]', 'card': 'crane card {show,export} [ARGS...]',
          'board': 'crane board [ROOTS...] [--host H] [--port P]', 'course': 'crane course {gen,validate,render} [ARGS...]',
          'cluster': 'crane cluster [ARGS...]'}
 LOCAL_SUBHELP = {'course': ('gen',)}   # sub-verbs whose tool has no --help of its own
 # The sub-verbs crane itself names (the others' are their tool's); help.yaml's `run:` lines resolve against these.
-SUBVERBS = {'sim': ('up', 'down', 'status', 'check'), 'card': ('show', 'export'), 'field': ('import',),
+SUBVERBS = {'sim': ('up', 'down', 'status', 'check', 'logs'), 'card': ('show', 'export'), 'field': ('import',),
             'course': ('gen', 'validate', 'render'), 'bench': ('fast', 'player'), 'build': ('player',)}
 
 
@@ -55,12 +55,15 @@ def build_parser():
     ap.add_argument('--version', action='version', version=_version())
     sub = ap.add_subparsers(dest='verb', metavar='VERB')
 
-    _add(sub, 'sim', 'T2: the Unity world plus ROS, used like the real boat (Tools/RoboBoat/sim_up)',
-         'sim_up\'s own output: the player queued on `heavy unity`, then its status block (mode, domain, endpoint, '
-         'pids, logs, next commands). Verbs: up [--seed N] [--course FAMILY] [--profile-json F] [--window|--headless] '
-         '[--player PATH], down, status, check [--wait SECONDS] (live readiness incl. the nav stack, polling with --wait; or CHECK INPUTS for the offline Tools/SimCheck checks). Everything after the '
-         'verb goes to sim_up unchanged, with the same env (ROS_DOMAIN_ID, ASTRO_STATE, HEAVY, ASTRO_IMAGE, SIM_UP_*, '
-         'CRANE_PLAYER). `crane sim up --help` prints sim_up\'s usage.',
+    _add(sub, 'sim', 'T2: a domain\'s Unity world plus its ROS side, used like the real robot (crane/sim)',
+         'up: one line as the ROS side starts and one as the player is queued on `heavy unity`, then the status '
+         'block (mode, ROS_DOMAIN_ID, endpoint, player pgid, ROS container, course, current, logs, next commands). '
+         'Verbs: up [--seed N] [--env KIND:NAME] [--card F] [--profile P] [--current SPEED,TOWARD_DEG|0] '
+         '[--display window|headless] [--player PATH] [--robot R] [--set K=V] [--domain D] [--json], down [--json], '
+         'status [--json], check [--wait SECONDS] [--json] (live readiness incl. the nav stack; or CHECK INPUTS for '
+         'the offline Tools/SimCheck checks), logs [player|stdout|ros] [-n LINES]. Bare, or with only options: up. '
+         'Everything specific comes from config/domains/DOMAIN.yaml tiers.T2. Exit 0 ok, 1 the world failed or is '
+         'not ready, 2 usage or config. `crane sim up --help` lists every option.',
          'crane sim up --headless --seed 3 && crane sim check --wait 120')
     _add(sub, 'heavy', 'the machine-wide concurrency guard for Unity, sims and test suites (bin/heavy)',
          'heavy\'s own output: it waits for a slot, runs CMD, releases it. `crane heavy status` lists the slots, the '

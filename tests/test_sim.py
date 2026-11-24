@@ -188,14 +188,14 @@ def test_resolve_gives_the_boat_player_argv_from_the_domain_config(tmp_path):
     assert player.resolve(cfg, tier='unity', seed=1, current='0', card=str(card), ros={'port': 10101}, out='/r') == \
         base + ['--crane-boat-profile-json', str(card.resolve()), '--crane-water-current', '0,0']
     # a card by name from card.dir, a set, a runtime profile, extra args last
-    named = player.resolve(cfg, card='ideal', sets=['gates.count=2'], profile='full', extra=['--x'], seed=2)
+    named = player.resolve(cfg, card='ideal', sets=['gates.count=2'], profile='interactive-high', extra=['--x'], seed=2)
     assert named[named.index('--crane-boat-profile-json') + 1] == \
         str(ROOT / 'Tools' / 'Characterization' / 'profiles' / 'ideal.json')
-    assert named[-3:] == ['--crane-course-set', 'gates.count=2', '--x'] and 'full' in named
+    assert named[-3:] == ['--crane-course-set', 'gates.count=2', '--x'] and 'interactive-high' in named
     assert '-logFile' not in named and '--crane-ros-port' not in named
     for bad, needle in (({'current': '1,x'}, 'SPEED,TOWARD_DEG'), ({'env': 'world:x'}, 'KIND one of course'),
                         ({'robot': 'other'}, 'robots: blastoise'), ({'card': 'nope'}, 'no card nope'),
-                        ({'tier': 'T1'}, 'player tier is T2')):
+                        ({'tier': 'T1'}, 'player tier is T2'), ({'profile': 'full'}, 'profiles: custom')):
         with pytest.raises(player.ConfigError, match=needle):
             player.resolve(cfg, **bad)
     with pytest.raises(player.ConfigError, match='no tiers.T2'):
@@ -232,6 +232,14 @@ def test_the_ros_domain_id_comes_from_astro_or_the_sim_profile_never_a_bare_shel
         config.domain_id(t2)
 
 
+def _group(script):
+    """A process group running SCRIPT, not our child (so it is reaped when it goes, as a real player is)."""
+    spawn = ('import subprocess as s, sys; d = s.DEVNULL; '
+             'print(s.Popen(["sh", "-c", sys.argv[1]], start_new_session=True, stdin=d, stdout=d, stderr=d).pid)')
+    return int(subprocess.run([sys.executable, '-c', spawn, script], capture_output=True, text=True,
+                              check=True).stdout)
+
+
 def test_check_status_and_refusals_on_a_fake_state_dir(world_env, monkeypatch, capsys):
     run = world_env['run']
     run.mkdir()
@@ -264,11 +272,11 @@ def test_check_status_and_refusals_on_a_fake_state_dir(world_env, monkeypatch, c
         # up refuses while either part runs (status first), and names the fix
         assert sim.main(['up']) == 2
         out, err = capsys.readouterr()
-        assert out.startswith('sim_up status') and err == 'sim_up: already up; sim_up down first\n'
+        assert out.startswith('sim_up status') and err == 'crane sim: already up; crane sim down first\n'
         assert sim.main(['logs', 'player', '-n', '1']) == 0
         assert capsys.readouterr().out == f'==> {run}/player.log <==\nCRANE_PLANT_APPLIED\n'
         t0 = time.monotonic()
-        assert sim.main(['down']) == 0 and capsys.readouterr().out == 'sim_up: down\n'
+        assert sim.main(['down']) == 0 and capsys.readouterr().out == 'crane sim: down\n'
         assert time.monotonic() - t0 < 5 and not world.alive(run) and not (world_env['stub'] / 'running').exists()
     finally:
         try:
@@ -278,9 +286,63 @@ def test_check_status_and_refusals_on_a_fake_state_dir(world_env, monkeypatch, c
     # headless without xvfb-run, and unknown verbs or options: one line, exit 2
     monkeypatch.setattr(world.shutil, 'which', lambda name: None if name == 'xvfb-run' else shutil.which(name))
     assert sim.main(['--headless']) == 2
-    assert capsys.readouterr().err == 'sim_up: headless needs xvfb-run: install xvfb or use --window\n'
+    assert capsys.readouterr().err == 'crane sim: headless needs xvfb-run: install xvfb or use --window\n'
     assert sim.main(['up', '--current', 'fast']) == 2 and 'SPEED,TOWARD_DEG' in capsys.readouterr().err
     assert sim.main(['launch']) == 2 and sim.main(['up', '--bogus']) == 2
+    # a domain without a T2 world names one that has it
+    assert sim.main(['status', '--domain', 'toy']) == 2
+    assert capsys.readouterr().err.rstrip().endswith('next: crane sim up --domain boat')
+
+
+def test_an_agents_up_is_headless_even_with_a_display_and_json_keeps_stdout_clean(world_env):
+    """No terminal on stdin (an agent, a script): headless under xvfb-run with Wayland hidden, whatever DISPLAY
+    says. --json: progress on stderr, one JSON document on stdout, for up and down."""
+    env = dict(world_env['env'], DISPLAY=':0', WAYLAND_DISPLAY='wayland-0')
+    crane = [sys.executable, '-c', 'import sys; sys.path.insert(0, sys.argv.pop(1)); from crane.cli import main; '
+             'sys.exit(main())', str(ROOT), 'sim']
+    rc, out, err = _sh([*crane, 'up', '--json'], env)
+    assert rc == 0, err
+    heavy = (world_env['stub'] / 'heavy.argv').read_text().splitlines()
+    assert heavy[:5] == ['unity', 'env', '-u', 'WAYLAND_DISPLAY', 'SDL_VIDEODRIVER=x11'] and 'xvfb-run' in heavy
+    s = json.loads(out)
+    assert s['mode'] == 'headless' and s['player']['running'] and s['course']['ready']
+    assert 'crane sim: player queued on heavy unity (headless)' in err
+    rc, out, err = _sh([*crane, 'down', '--json'], env)
+    assert rc == 0 and json.loads(out)['down'] and json.loads(out)['player'] in ('term', 'kill')
+    assert not (world_env['stub'] / 'running').exists()
+
+
+def test_down_gives_the_player_its_grace_then_kills_and_the_endpoint_check_falls_back_to_ss(monkeypatch):
+    stubborn, polite = _group('trap "" TERM; while :; do sleep 0.1; done'), _group('exec sleep 30')
+    try:
+        assert world.GRACE_S >= 10                    # the player gets time to flush its log and truth
+        t0 = time.monotonic()
+        assert world.stop_group(stubborn, grace_s=1.5) == 'kill' and time.monotonic() - t0 >= 1.5
+        assert world.stop_group(polite) == 'term' and world.stop_group(polite) == 'gone'
+    finally:
+        for pg in (stubborn, polite):
+            try:
+                os.killpg(pg, signal.SIGKILL)
+            except OSError:
+                pass
+    s = socket.socket()
+    s.bind(('127.0.0.1', 0))
+    s.listen()
+    port = s.getsockname()[1]
+    try:
+        assert world.listening(port)
+        if not shutil.which('ss'):
+            pytest.skip('no ss for the fallback')
+        real = world.Path.read_text
+        def no_proc(self, *a, **k):
+            if str(self).startswith('/proc/net/'):
+                raise OSError('no /proc')
+            return real(self, *a, **k)
+        monkeypatch.setattr(world.Path, 'read_text', no_proc)
+        assert world.listening(port)
+    finally:
+        s.close()
+    assert not world.listening(port)
 
 
 def test_the_sim_up_shim_means_up_when_bare_and_passes_verbs_through(tmp_path):

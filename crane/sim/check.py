@@ -1,4 +1,4 @@
-"""`crane sim check`: is the running sim (crane sim up / astro sim up) ready to be used like the robot?
+"""`crane sim check`: is the running sim (crane sim up) ready to be used like the robot?
 
     crane sim check [--wait SECONDS] [--json] [--domain D]   poll every 2 s until ready or the timeout
     crane sim check CHECK INPUTS...                          an offline Tools/SimCheck check (axis, sitl, ...)
@@ -17,7 +17,7 @@ import time
 
 from crane.sim import config
 
-RUN = config.run_dir()
+RUN = None   # the state dir; None: config.run_dir() when asked (SIM_UP_RUN read then, not at import)
 ERROR = re.compile(r'\b(NullReferenceException|MissingReferenceException|IndexOutOfRangeException)\b')
 WARN = re.compile(r'\bCRANE_[A-Z_]*(FAILED|INVALID)\b')
 _T2 = None   # the domain's T2 section; main() sets it, else the default domain's
@@ -32,6 +32,10 @@ def _t2():
 
 def _ros():
     return _t2().get('ros') or {}
+
+
+def _run():
+    return RUN or config.run_dir()
 
 
 def _container():
@@ -68,7 +72,7 @@ def _nodes():
 
 def live(run=None):
     """[(name, ok, detail)] for the running sim. The player's log is read only while the player runs."""
-    run = run or RUN
+    run = run or _run()
     t2, container = _t2(), _container()
     ready, plant = t2.get('ready_marker') or 'CRANE_READY', t2.get('plant_marker') or 'CRANE_PLANT_APPLIED'
     want = tuple(_ros().get('ready_nodes') or ())
@@ -97,7 +101,7 @@ def live(run=None):
 
 def notices(run=None):
     """The player's CRANE_*FAILED / CRANE_*INVALID lines, while it runs."""
-    run = run or RUN
+    run = run or _run()
     log = run / 'player.log'
     if not (_alive(run / 'player.pid') and log.is_file()):
         return []
@@ -116,7 +120,8 @@ def _report(wait):
 
 
 def _usage(message):
-    print(f'crane sim check: {message} (crane sim check --help)', file=sys.stderr)
+    name = config.invoked_as()
+    print(f'{name} check: {message} ({name} check --help)', file=sys.stderr)
     return 2
 
 
@@ -153,17 +158,17 @@ def main(rest):
         try:
             _T2 = config.domain(name)[1]
         except config.SimError as error:
-            print(f'crane sim check: {error}', file=sys.stderr)
+            print(f'{config.invoked_as()} check: {error}', file=sys.stderr)
             return error.code
     rows, bad = _report(wait)
     warns = notices()
     if as_json:
-        print(json.dumps({'ready': not bad, 'failed': bad, 'notices': warns, 'run': str(RUN),
+        print(json.dumps({'ready': not bad, 'failed': bad, 'notices': warns, 'run': str(_run()),
                           'checks': [{'name': n, 'ok': bool(ok), 'detail': d} for n, ok, d in rows]}, indent=2))
         return 0 if not bad else 1
     for n, ok, detail in rows:
         print(f"  {'ok  ' if ok else 'FAIL'}  {n:18s} {detail}")
     if warns:
-        print(f"  warn  player notices     {', '.join(warns)} (see {RUN / 'player.log'})")
+        print(f"  warn  player notices     {', '.join(warns)} (see {_run() / 'player.log'})")
     print('sim check: ready' if not bad else f"sim check: not ready, failed: {', '.join(bad)}; see `crane sim status`")
     return 0 if not bad else 1

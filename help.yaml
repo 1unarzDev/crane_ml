@@ -82,11 +82,60 @@ commands:
     examples:
       - python3 -m crane compare --field bundle-173031.tgz runs/sim
 
+  - name: crane sim up
+    run: PYTHONPATH="${CRANE_DIR:-$HOME/crane_ml}${PYTHONPATH:+:$PYTHONPATH}" python3 -m crane sim up
+    summary: "Start a domain's T2 world (the Unity player through heavy unity, plus its ROS side) and return once the course is ready; prints the status block."
+    notes: 'Waits up to 60 s for the ROS endpoint and 300 s (SIM_UP_READY_S) for the course. Without --display, a window only on a terminal with a display, else headless under xvfb-run. Refuses (exit 2) while a sim runs. Exit 0 ready, 1 the world failed, 2 usage or config. Same as Tools/RoboBoat/sim_up.'
+    params:
+      - {name: --seed, type: int, description: 'The world seed (default 1).'}
+      - {name: --env, description: 'KIND:NAME, the world (default course:roboboat_2026); --course FAMILY is the same as --env course:FAMILY.'}
+      - {name: --card, type: path, description: 'A plant profile JSON or a card name (--profile-json is the same).'}
+      - {name: --profile, description: "The player's runtime profile (default interactive-low)."}
+      - {name: --current, description: 'SPEED,TOWARD_DEG (m/s, deg), or 0 for still water (default the scene current).'}
+      - {name: --display, choices: [window, headless], description: 'Window or xvfb (--window, --headless are the same).'}
+      - {name: --player, type: path, description: 'The player (else CRANE_PLAYER, then the build).'}
+      - {name: --set, description: 'K=V pins one world parameter (repeatable).'}
+      - {name: --domain, description: 'config/domains/DOMAIN.yaml (default boat).'}
+      - {name: --json, type: bool, description: 'Progress on stderr, the status as one JSON document.'}
+    examples:
+      - python3 -m crane sim up --headless --seed 3 --current 0
+      - python3 -m crane sim up --card characterized --headless
+
+  - name: crane sim down
+    run: PYTHONPATH="${CRANE_DIR:-$HOME/crane_ml}${PYTHONPATH:+:$PYTHONPATH}" python3 -m crane sim down
+    summary: "Stop what crane sim up started: its player's process group (TERM, KILL after 10 s) and its ROS container, nothing else."
+    params:
+      - {name: --json, type: bool, description: 'One JSON document instead of the down line.'}
+    examples:
+      - python3 -m crane sim down
+
+  - name: crane sim status
+    run: PYTHONPATH="${CRANE_DIR:-$HOME/crane_ml}${PYTHONPATH:+:$PYTHONPATH}" python3 -m crane sim status
+    summary: 'The status block (mode, ROS_DOMAIN_ID, endpoint, player, ROS container, course, current, logs, next commands). Read-only.'
+    params:
+      - {name: --json, type: bool, description: One JSON document.}
+    examples:
+      - python3 -m crane sim status
+
   - name: crane sim check
     run: PYTHONPATH="${CRANE_DIR:-$HOME/crane_ml}${PYTHONPATH:+:$PYTHONPATH}" python3 -m crane sim check
     summary: Is the running sim ready (player, course, plant, ROS side, nav stack)? --wait SECONDS polls until ready; CHECK INPUTS runs an offline Tools/SimCheck check.
+    notes: Exit 0 ready, 1 not ready, 2 usage.
     params:
-      - {name: --wait, type: int, description: 'Poll until ready or this many seconds pass.'}
+      - {name: --wait, type: int, description: 'Poll every 2 s until ready or this many seconds pass.'}
+      - {name: --json, type: bool, description: One JSON document.}
+      - {name: --domain, description: 'config/domains/DOMAIN.yaml (default boat).'}
+    examples:
+      - python3 -m crane sim check --wait 120
+
+  - name: crane sim logs
+    run: PYTHONPATH="${CRANE_DIR:-$HOME/crane_ml}${PYTHONPATH:+:$PYTHONPATH}" python3 -m crane sim logs
+    summary: 'The last lines of the player, player stdout and ROS logs, each under its path.'
+    params:
+      - {name: which, type: list, required: false, choices: [player, stdout, ros], description: 'Which logs (default all three).'}
+      - {name: -n, type: int, default: 40, description: Lines per log.}
+    examples:
+      - python3 -m crane sim logs ros -n 100
 
   - name: crane bench
     run: PYTHONPATH="${CRANE_DIR:-$HOME/crane_ml}${PYTHONPATH:+:$PYTHONPATH}" python3 -m crane bench

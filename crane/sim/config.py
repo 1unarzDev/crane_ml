@@ -1,9 +1,9 @@
-"""Where crane sim's settings come from: the environment astro exports, the astro profiles, the domain config.
+"""Where crane sim's settings come from: the environment, the host tooling's profiles, the domain config.
 
-Environment (unchanged from sim_up): ROS_DOMAIN_ID (trusted only beside ASTRO_STATE or MHSEALS_HARDWARE_CONFIG,
-as astro exports it), ASTRO_DOCK (default ~/astro_dock), ASTRO_PROFILES (else ~/.config/astro/profiles.env, else
-$ASTRO_DOCK/profiles), ASTRO_PROFILES_CONFIG, SIM_UP_VESSEL, SIM_UP_RUN (~/.cache/sim_up), SIM_UP_READY_S,
-CRANE_PLAYER, HEAVY (default crane's bin/heavy; ``none`` runs bare), ASTRO_IMAGE.
+The domain's ``tiers.T2.host`` block names the host tooling the world stands in for (its checkout, its vessel
+profiles, the env that marks a ROS_DOMAIN_ID as its own, its heavy guard and its up command); ``tiers.T2.ros.image``
+names the image env. crane's own env: SIM_UP_VESSEL, SIM_UP_RUN (~/.cache/sim_up), SIM_UP_READY_S, CRANE_PLAYER,
+HEAVY (default crane's bin/heavy; ``none`` runs bare), CRANE_SIM_AS (the name messages carry; the sim_up shim sets it).
 """
 
 import os
@@ -13,7 +13,17 @@ from pathlib import Path
 from crane import paths
 from crane.player import ConfigError, load_domain, tier_cfg
 
-PROG = 'sim_up'          # the status header, the messages and the state dir keep sim_up's names for astro
+PROG = 'sim_up'          # the status header and the state dir keep sim_up's names (the host tooling reads them)
+_AS = {'name': 'crane sim'}
+
+
+def invoked_as():
+    """The name messages and fixes carry: 'crane sim', or 'sim_up' when the sim_up shim ran it."""
+    return _AS['name']
+
+
+def set_invoked_as(name):
+    _AS['name'] = name or 'crane sim'
 
 
 class SimError(Exception):
@@ -33,8 +43,26 @@ def run_dir():
     return Path(os.environ.get('SIM_UP_RUN') or home() / '.cache' / PROG)
 
 
-def dock():
-    return Path(os.environ.get('ASTRO_DOCK') or home() / 'astro_dock')
+def _host(t2):
+    return (t2 or {}).get('host') or {}
+
+
+def _expand(text, **values):
+    text = subst(text or '', **values)
+    return str(home()) + text[1:] if text.startswith('~') else text
+
+
+def _setting(spec, **values):
+    """A host setting {env, default}: $env when set, else default ({name} and a leading ~ expanded)."""
+    spec = spec if isinstance(spec, dict) else {'default': spec}
+    value = os.environ.get(spec['env']) if spec.get('env') else None
+    return _expand(value or spec.get('default') or '', **values)
+
+
+def dock(t2):
+    """The host tooling's checkout (tiers.T2.host.dock), or None when the domain names none."""
+    d = _setting(_host(t2).get('dock'))
+    return Path(d) if d else None
 
 
 def default_domain():
@@ -54,79 +82,103 @@ def domain(name=None):
         cfg = load_domain(name or default_domain())
         return cfg, tier_cfg(cfg, 'T2')
     except ConfigError as error:
-        raise SimError(str(error)) from None
+        worlds = _t2_domains()
+        fix = f'; next: {invoked_as()} up --domain {worlds[0]}' if worlds and worlds[0] != name else ''
+        raise SimError(f'{error}{fix}') from None
+
+
+def _t2_domains():
+    """The domains whose config has a T2 world (a tiers.T2 with a scene)."""
+    found = []
+    for path in sorted(paths.DOMAINS.glob('*.yaml')):
+        try:
+            tier_cfg(load_domain(path.stem), 'T2')
+            found.append(path.stem)
+        except Exception:          # an unreadable domain file is someone else's error
+            continue
+    return found
 
 
 def vessel(t2):
     return os.environ.get('SIM_UP_VESSEL') or t2.get('vessel') or 'sim'
 
 
-def profiles_root():
-    """ASTRO_PROFILES, else the last ASTRO_PROFILES= of the profiles.env, else $ASTRO_DOCK/profiles."""
-    p = os.environ.get('ASTRO_PROFILES') or ''
-    if not p:
-        env = Path(os.environ.get('ASTRO_PROFILES_CONFIG') or home() / '.config' / 'astro' / 'profiles.env')
+def profiles_root(t2):
+    """host.profiles: its env, else the last KEY= line of its file, else its default; None when unnamed."""
+    spec = _host(t2).get('profiles') or {}
+    p = os.environ.get(spec['env']) or '' if spec.get('env') else ''
+    f = spec.get('file') or {}
+    if not p and f.get('key'):
         try:
-            found = [line[len('ASTRO_PROFILES='):] for line in env.read_text().splitlines()
-                     if line.startswith('ASTRO_PROFILES=')]
+            key = f'{f["key"]}='
+            found = [line[len(key):] for line in Path(_setting(f)).read_text().splitlines() if line.startswith(key)]
             p = found[-1] if found else ''
         except OSError:
             p = ''
-    if p.startswith('~'):
-        p = str(home()) + p[1:]
-    return Path(p) if p else dock() / 'profiles'
+    p = _expand(p or spec.get('default') or '', dock=dock(t2) or '')
+    return Path(p) if p else None
+
+
+def _hint(t2, how):
+    up = _host(t2).get('up')
+    return f' ({how} {up})' if up else ''
 
 
 def domain_id(t2):
-    """The ROS_DOMAIN_ID: astro's (ROS_DOMAIN_ID with ASTRO_STATE or MHSEALS_HARDWARE_CONFIG), else the sim
-    vessel profile's network.env. Never guessed: a bare shell's ROS_DOMAIN_ID may be a boat's."""
+    """The ROS_DOMAIN_ID: ROS_DOMAIN_ID when one of host.trust_domain_id is set (the host tooling exported it),
+    else the vessel profile's network.env. Never guessed: a bare shell's ROS_DOMAIN_ID may be a robot's."""
     d = os.environ.get('ROS_DOMAIN_ID') or ''
-    if d and (os.environ.get('ASTRO_STATE') or os.environ.get('MHSEALS_HARDWARE_CONFIG')):
-        return int(d) if d.isdigit() else _bad_id(d)
-    name = vessel(t2)
-    f = profiles_root() / name / 'network.env'
+    if d and any(os.environ.get(k) for k in _host(t2).get('trust_domain_id') or ()):
+        if not d.isdigit():
+            raise SimError(f'ROS_DOMAIN_ID={d} is not a number{_hint(t2, "it is exported by")}')
+        return int(d)
+    name, root = vessel(t2), profiles_root(t2)
+    if root is None:
+        raise SimError('no vessel profiles to read ROS_DOMAIN_ID from: name them in tiers.T2.host.profiles of '
+                       'config/domains/DOMAIN.yaml')
+    f = root / name / 'network.env'
     try:
         text = f.read_text()
     except OSError:
-        raise SimError(f'no {f}: the {name} vessel profile names the sim\'s ROS_DOMAIN_ID (or run it as astro sim up)')
+        raise SimError(f"no {f}: the {name} vessel profile names the sim's ROS_DOMAIN_ID{_hint(t2, 'or run it as')}")
     ids = [m.group(1) for m in (re.match(r'ROS_DOMAIN_ID=([0-9]*)', line) for line in text.splitlines()) if m]
     if not ids or not ids[-1]:
-        raise SimError(f'{f} has no ROS_DOMAIN_ID')
+        raise SimError(f'{f} has no ROS_DOMAIN_ID: add ROS_DOMAIN_ID=N to it')
     return int(ids[-1])
 
 
-def _bad_id(d):
-    raise SimError(f'ROS_DOMAIN_ID={d} is not a number; astro exports the vessel\'s (astro sim up)')
-
-
-def heavy():
-    """The guard argv prefix: HEAVY, else crane's bin/heavy, else the dock's handoff copy; HEAVY=none: []."""
+def heavy(t2):
+    """The guard argv prefix: HEAVY, else crane's bin/heavy, else host.heavy; HEAVY=none: []."""
     h = os.environ.get('HEAVY') or ''
     if not h:
         h = str(paths.HEAVY)
-        if not os.access(h, os.X_OK):
-            h = str(dock() / '.handoff' / 'tools' / 'heavy')
+        fallback = _host(t2).get('heavy')
+        if not os.access(h, os.X_OK) and fallback:
+            h = _expand(fallback, dock=dock(t2) or '')
     if h == 'none':
         return []
     if not os.access(h, os.X_OK):
-        raise SimError(f'no heavy guard at {h} (HEAVY=none runs bare)')
+        raise SimError(f'no heavy guard at {h}: set HEAVY=/path/to/heavy (HEAVY=none runs bare)')
     return [h, 'unity']
 
 
-def image(ros):
-    """The ROS image: $ASTRO_IMAGE (or the config's env name), else the dock compose file's ${ASTRO_IMAGE:-X}."""
-    spec = ros.get('image') or {}
-    var = spec.get('env') or 'ASTRO_IMAGE'
-    if os.environ.get(var):
+def image(t2):
+    """The ROS image: $ros.image.env, else the host checkout's compose file's ${ENV:-IMAGE} default."""
+    spec = (t2.get('ros') or {}).get('image') or {}
+    var = spec.get('env')
+    if var and os.environ.get(var):
         return os.environ[var]
-    compose = dock() / (spec.get('compose') or '.devcontainer/docker-compose.yml')
+    root = dock(t2)
+    compose = root / (spec.get('compose') or '.devcontainer/docker-compose.yml') if root else None
     try:
-        for line in compose.read_text().splitlines():
+        for line in compose.read_text().splitlines() if compose and var else ():
             m = re.search(r'\$\{' + re.escape(var) + r':-([^}]*)\}', line)
             if m:
                 return m.group(1)
     except OSError:
         pass
+    if not var:
+        raise SimError('no ROS image: name its env in tiers.T2.ros.image.env of config/domains/DOMAIN.yaml')
     raise SimError(f'no dev image ({var}): set {var}=IMAGE or check {compose}')
 
 

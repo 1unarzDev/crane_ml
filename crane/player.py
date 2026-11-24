@@ -115,7 +115,11 @@ def resolve(domain_cfg, tier='T2', env=None, robot=None, card=None, seed=None, p
     a = ['-screen-fullscreen', '0', '-screen-width', str(width), '-screen-height', str(height)]
     if out is not None:
         a += ['-logFile', str(Path(out) / 'player.log')]
-    a += ['--crane-profile', str(profile or t2.get('profile') or 'interactive-low'), '--crane-scene', str(t2['scene'])]
+    profile = str(profile or t2.get('profile') or 'interactive-low')
+    known = [str(k) for k in t2.get('profiles') or ()]
+    if known and profile not in known:
+        raise ConfigError(f"no runtime profile {profile!r}; profiles: {', '.join(known)}")
+    a += ['--crane-profile', profile, '--crane-scene', str(t2['scene'])]
     if ros is not None:
         ip = ros.get('ip') or (t2.get('ros') or {}).get('ip') or '127.0.0.1'
         a += ['--crane-ros-ip', str(ip), '--crane-ros-port', str(ros['port'])]

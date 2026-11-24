@@ -10,6 +10,7 @@ tiers:
   T2:
     scene: Roboboat Course
     profile: interactive-low                    # --crane-profile, the runtime quality (crane sim up --profile P)
+    profiles: [custom, train-gpu, train-cpu, interactive-low, interactive-high, evaluation-high, replay-high]   # the player's (CraneRuntimeOptions)
     screen: [1280, 720]                         # the player window, and xvfb's screen when headless
     flags: [--crane-disable-sitl, --crane-ros-thruster-pwm, --crane-roboboat-contract, --crane-ros-nav-state,
             --crane-lidar-returns-only, --crane-lidar-water-level, '0.02']
@@ -25,6 +26,16 @@ tiers:
     plant_marker: CRANE_PLANT_APPLIED           # the player log line: the plant card was applied
     ready_s: 300                                # how long up waits for ready_marker (SIM_UP_READY_S overrides)
     vessel: sim                                 # the astro vessel profile whose network.env names ROS_DOMAIN_ID
+    # The host's robot tooling (astro) that this world stands in for: its checkout ({dock}), its vessel profiles,
+    # the env that marks a ROS_DOMAIN_ID as exported by it, its copy of the heavy guard, and its own up command.
+    # Each {env, default}: $env when set, else default (~ is $HOME).
+    host:
+      dock: {env: ASTRO_DOCK, default: '~/astro_dock'}
+      profiles: {env: ASTRO_PROFILES, file: {env: ASTRO_PROFILES_CONFIG, default: '~/.config/astro/profiles.env',
+                                             key: ASTRO_PROFILES}, default: '{dock}/profiles'}
+      trust_domain_id: [ASTRO_STATE, MHSEALS_HARDWARE_CONFIG]   # ROS_DOMAIN_ID counts only beside one of these
+      heavy: '{dock}/.handoff/tools/heavy'      # the guard when crane's bin/heavy is missing
+      up: astro sim up
     ros:
       launch: mhseals_nav device.launch.py device:=sim      # ros2 launch ARGS, in the container
       overrides: '{"parts": {"sensors": {"args": {"ros_port": "{port}"}}}}'
