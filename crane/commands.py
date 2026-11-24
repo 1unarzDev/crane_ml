@@ -200,7 +200,7 @@ COMMANDS = [
             'crane.run:main', flags=(JSON, QUIET, DRY), groups=('source',), json='crane.run.summary/1', export=True,
             about='one line per seed (run dir, outcome, sim and wall time), then runs/s and next:. --dry-run prints '
                   'the resolved plan and runs nothing; --json prints one summary document.',
-            params=(sel('domain', group='source', description='A domain: config/domains/DOMAIN.yaml (boat, toy).'),
+            params=(sel('domain', group='source', description='A domain: config/domains/DOMAIN.yaml (boat, sub, toy).'),
                     P('--config', 'path', group='source', description='A fastsim domain YAML, used as is.'),
                     sel('tier', choices=('T0', 'T1', 'T2', 'abstract', 'dynamic', 'unity'),
                         description="The tier (default: the domain's first tier, T0 with --config)."),
@@ -235,6 +235,7 @@ COMMANDS = [
                     P('--dry-run', 'bool', description='Print the resolved plan; run nothing.')),
             examples=('crane run --domain toy --seeds 0:3',
                       'crane run --domain boat --tier T1 --seeds 0:2 --out /tmp/runs',
+                      'crane run --domain sub --tier T1 --engine batched --seeds 0:64',
                       'crane run --domain boat --tier T1 --astro-test speed-surge --card /tmp/fit/profile.json'),
             raw='python3 -m fastsim.batch --config CONFIG --seeds 0:3 --out OUT'),
 

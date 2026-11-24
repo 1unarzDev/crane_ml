@@ -84,7 +84,7 @@ commands:
     summary: Run episodes at a tier, one run dir per seed (OUT/VARIANT/s<seed>). T0 abstract and T1 dynamic; T2 is not yet available (use crane sim up). Missing scenarios are generated on demand.
     ros: python3 -m fastsim.batch --config CONFIG --seeds 0:3 --out OUT
     params:
-      - {name: "--domain", description: "A domain: config/domains/DOMAIN.yaml (boat, toy)."}
+      - {name: "--domain", description: "A domain: config/domains/DOMAIN.yaml (boat, sub, toy)."}
       - {name: "--config", type: path, description: "A fastsim domain YAML, used as is."}
       - {name: "--tier", choices: [T0, T1, T2, abstract, dynamic, unity], description: "The tier (default: the domain's first tier, T0 with --config)."}
       - {name: "--seeds", description: "N, A:B (B exclusive), a,b,c, @FILE or block:NAME (required, except with --astro-test: 0)."}
@@ -110,6 +110,7 @@ commands:
     examples:
       - crane run --domain toy --seeds 0:3
       - crane run --domain boat --tier T1 --seeds 0:2 --out /tmp/runs
+      - crane run --domain sub --tier T1 --engine batched --seeds 0:64
       - crane run --domain boat --tier T1 --astro-test speed-surge --card /tmp/fit/profile.json
 
   - name: crane card

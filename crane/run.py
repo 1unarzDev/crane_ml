@@ -94,11 +94,24 @@ def main(args):
         return out.usage('run', f"{adapter_git['source']} has uncommitted changes", 'commit, or pass --allow-dirty')
     provenance = {'git': {'core': identity.git_state(Path(batch.__file__).parent), 'adapter': adapter_git},
                   'config_file': str(config), 'tier': tier, 'overrides': list(args.set)}
-    if getattr(args, 'engine', 'fastsim') == 'batched':
+    engine = getattr(args, 'engine', 'fastsim')
+    adapter = batch.adapter_of(cfg, base)
+    engines, backends = getattr(adapter, 'engines', None), getattr(adapter, 'backends', None)
+    rest = [w for w in _argv(args) if not w.startswith(('--engine ', '--backend '))]
+    if engines and engine not in engines:
+        return out.usage('run', f'--engine {engine}: {args.domain or config} runs on the {"/".join(engines)} '
+                         'engine only', f'crane run {" ".join(rest)} --engine {engines[0]}')
+    if engine == 'batched' and backends and args.backend not in backends:
+        return out.usage('run', f'--backend {args.backend}: {args.domain or config} runs on {"/".join(backends)} '
+                         'only', f'crane run {" ".join(rest)} --engine batched --backend {backends[0]}')
+    if engine == 'batched':
         from engine.runs import run_seeds
         started = time.perf_counter()
-        rows, engine_s = run_seeds(cfg, base, seeds, args.out, args.variant, args.backend, args.dtype, args.record,
-                                   {**provenance, 'engine': 'batched', 'backend': args.backend})
+        try:
+            rows, engine_s = run_seeds(cfg, base, seeds, args.out, args.variant, args.backend, args.dtype,
+                                       args.record, {**provenance, 'engine': 'batched', 'backend': args.backend})
+        except (NotImplementedError, FileExistsError) as error:
+            return out.usage('run', str(error))
         wall = time.perf_counter() - started
         if out.doc({'schema': 'crane.run.summary/1', 'tier': tier, 'domain': args.domain, 'config': str(config),
                     'out': str(args.out), 'variant': args.variant, 'n': len(rows), 'wall_s': round(wall, 3),
@@ -157,4 +170,8 @@ def _argv(args):
     words += ['--generate'] if args.generate else []
     words += ['--allow-dirty'] if args.allow_dirty else []
     words += ['--force'] if getattr(args, 'force', False) else []
+    if getattr(args, 'engine', 'fastsim') != 'fastsim':
+        words += [f'--engine {args.engine}', f'--backend {args.backend}']
+        words += [f'--dtype {args.dtype}'] if args.dtype else []
+        words += [f'--record {args.record}'] if args.record else []
     return words

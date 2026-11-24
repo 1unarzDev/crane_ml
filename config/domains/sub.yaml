@@ -1,0 +1,16 @@
+# The sub domain: a public reference mission (gates at depth in a generic pool) for a 6-DOF underwater
+# vehicle on the batched engine.
+#   crane run --domain sub --tier T1 --engine batched --seeds 0:64
+# T2 (the Unity pool) is not on main yet.
+tiers:
+  T1: {config: domains/sub/fastsim_t1.yaml}
+env:
+  default: course:pool_gates
+robot:
+  default: rov8
+  robots: {rov8: {card: generic_rov8}}
+# --card REF: a vehicle profile JSON (crane.underwater.vehicle_profile/v1), or a name in dir (REF.json).
+card:
+  dir: domains/sub/profiles
+view:
+  frame: {world: ned, origin: scenario, body: frd}

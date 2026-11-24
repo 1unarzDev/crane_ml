@@ -67,6 +67,38 @@ fixed per card (dt / the profile's tick). The run identity hashes backend, dtype
 4. A domain without a batched controller runs in decoupled mode; a batched one adds a module like
    `engine/boat.py` (plans as arrays, an FSM `tick`, numba twin) and an entry in `episode.CONTROLLERS`.
 
+## The 6-DOF marine kernel (sub)
+
+```bash
+crane run --domain sub --tier T1 --engine batched --seeds 0:4096 --record 5 --out runs/sub-t1
+python3 -m domains.sub.bench --E 1,64,1024,4096,16384 --out DIR
+```
+
+```python
+from engine.kernels import marine6 as K
+p = K.pack('domains/sub/profiles/generic_rov8.json', dt=0.02, current_n=(0.1, 0.0, 0.0))   # [P]
+x = K.init(P, pos, rpy)                    # [E, S]: pos (NED) | quat b->n | nu (FRD) | thrust per slot
+x = K.advance(x, u, P, 0.02)               # u [E, 6 + NT]: external body wrench, thruster force commands
+f = K.allocate(tau, P)                     # least-norm, one uniform scale into the limits
+```
+
+`engine/kernels/marine6.py` is Fossen 2011 eq. 10.1 as the reference `marine6_ref.Simulator.step` has it:
+rigid-body and added-mass Coriolis (Thm 3.2), linear and quadratic damping, restoring forces, a NED current
+constant per env, thrusters with first-order lag and saturation, classical RK4 with stage quaternions
+normalised and the result put in the w >= 0 hemisphere. Parameters come only from a vehicle profile
+(`crane.underwater.vehicle_profile/v1`, every coefficient cited; `marine6_profile.load` checks it); the
+thruster deadband is the profile's `deadbandFraction` through its thrust curve. Up to `NT = 8` thrusters;
+the rest are zero columns. Substeps are fixed per card: `ceil(dt / (2 min tau))` RK4 steps per control
+period (the lag's stability bound). `step`/`advance` run on numpy or jax.numpy (`xp`); `nb_step`/
+`nb_advance`/`nb_allocate` are the numba scalars over one env's row. Per-env draws are counter-based
+(`normal(key, n)`, splitmix64 and Box-Muller), so an env's draws never depend on the batch.
+`marine6_vec.VecDynamics` is the sub platform's batched-plant interface over the same kernel.
+
+A domain with its own batched episode gives its adapter `run_batched(...)` (engine/runs.py calls it) and
+`engines`/`backends` (crane run refuses others in one line). The sub's mission (`domains/sub/mission.py`)
+runs one compiled episode per env on numba; its records are crane.run/1 with frame `{world: ned, body: frd}`
+and a 6-DOF `traj.ctraj`.
+
 ## Gates
 
 | gate | check | where |
@@ -75,5 +107,6 @@ fixed per card (dt / the profile's tick). The run identity hashes backend, dtype
 | 2 the scalar path | float64 batch = fastsim run for run on seeds 0–49: outcome, events, contacts, idle, boat.json, every track row; env i at E=1 = at E=4096; decoupled at E=1 = scalar | `engine/tests/test_episode.py` |
 | 3 fast backends | ≥ 500 seeds: outcome agreement ≥ 0.98, TOST (90 %) time-to-finish ±2 %, dock error ±0.05 m | `engine/equivalence.py`, `crane bench fast --equivalence` |
 | 4 fidelity | `fastsim/fidelity.py` scores with bootstrap CIs, batched T1 vs scalar T1 | `engine/fidelity.py` |
+| 1 (marine6) | numpy, numba and JAX float64 = `marine6_ref.Simulator.step` to 1e-10 over a scripted wrench program (current, lag, saturation, turns past 180 deg, 1 and 2 substeps); env i at E=1 = at E=1024 | `engine/tests/test_marine6.py`, `domains/sub/tests` |
 
 Results and the chosen backend and dtype: `bench/RESULTS.md`.

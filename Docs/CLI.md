@@ -165,6 +165,7 @@ Episodes at a tier, one run dir per seed.
 ```sh
 crane run --domain toy --seeds 0:3
 crane run --domain boat --tier T1 --seeds 0:2 --out /tmp/runs
+crane run --domain sub --tier T1 --engine batched --seeds 0:64
 crane run --domain boat --tier T1 --astro-test speed-surge --card /tmp/fit/profile.json
 ```
 
@@ -174,7 +175,7 @@ What you'll see: one line per seed (run dir, outcome, sim and wall time), then r
 
 | Param | Type | Description |
 |---|---|---|
-| `--domain` | str | A domain: config/domains/DOMAIN.yaml (boat, toy). |
+| `--domain` | str | A domain: config/domains/DOMAIN.yaml (boat, sub, toy). |
 | `--config` | path | A fastsim domain YAML, used as is. |
 | `--tier` | tier | The tier (default: the domain's first tier, T0 with --config). One of `T0`, `T1`, `T2`, `abstract`, `dynamic`, `unity`. |
 | `--seeds` | str | N, A:B (B exclusive), a,b,c, @FILE or block:NAME (required, except with --astro-test: 0). |
