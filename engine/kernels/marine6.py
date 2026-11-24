@@ -20,9 +20,9 @@ so env i's draws never depend on the batch or on how many draws other envs made.
 import math
 from pathlib import Path
 
-import numba
 import numpy as np
 
+from engine.jit import numba
 from engine.kernels import marine6_profile as VP, marine6_ref as REF
 
 NT = 8                                           # thruster slots (a profile has at most NT)

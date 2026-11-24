@@ -14,9 +14,9 @@ import os
 from pathlib import Path
 import time
 
-import numba
 import numpy as np
 
+from engine.jit import numba
 from engine.kernels import marine6 as K
 
 ROOT = Path(__file__).resolve().parents[2]

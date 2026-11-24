@@ -19,9 +19,9 @@ replay only). An env reads only its own rows: env e at E = 1 is env e at any E (
 
 import math
 
-import numba
 import numpy as np
 
+from engine.jit import numba
 from engine.kernels import mecanum as K
 
 I_CPR, I_IMX, I_IMY = K.IB['cpr'], K.IB['imu_x'], K.IB['imu_y']

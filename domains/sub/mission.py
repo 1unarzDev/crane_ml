@@ -18,9 +18,9 @@ import json
 import math
 from pathlib import Path
 
-import numba
 import numpy as np
 
+from engine.jit import need_numba, numba
 from engine.kernels import marine6 as K
 
 NONE, SUCCEEDED, FAILED, TIMEOUT = 0, 1, 2, 3
@@ -460,6 +460,7 @@ def run_seeds(adapter, cfg, base, seeds, out, variant='base', backend='numba', d
     if backend not in adapter.backends or (dtype or 'float64') != 'float64':
         raise NotImplementedError(f'sub: the mission runs on numba float64 only, not {backend} {dtype or "float64"}; '
                                   'fix: --backend numba --dtype float64')
+    need_numba()
     from crane import record as crec
     setup = Setup(adapter, cfg, base, list(seeds))
     dirs = [Path(out) / variant / f's{s}' for s in setup.seeds]

@@ -22,8 +22,9 @@ w / w_nl of the nominal motor, clipped to [-1, 1]; the wheel angle integrates it
 
 import math
 
-import numba
 import numpy as np
+
+from engine.jit import HAVE_NUMBA, numba
 
 V_MIN, V_EPS, W_EPS = 0.02, 0.01, 0.05        # the truth model's regularisations (m/s, m/s, rad/s)
 VEPS2 = V_EPS ** 2
@@ -120,9 +121,12 @@ def _is_jax(xp):
     return xp.__name__.startswith('jax')
 
 
-@numba.vectorize(['float64(float64)'], cache=True)
-def _libm_tanh(v):
-    return math.tanh(v)
+if HAVE_NUMBA:
+    @numba.vectorize(['float64(float64)'], cache=True)
+    def _libm_tanh(v):
+        return math.tanh(v)
+else:
+    _libm_tanh = np.vectorize(math.tanh, otypes=[np.float64])     # the same libm tanh, without numba
 
 
 def tanh(v, xp=np):
