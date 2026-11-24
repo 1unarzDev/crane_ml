@@ -71,7 +71,6 @@ class Noun:
     name: str
     summary: str
     aliases: tuple = ()
-    export: str = ''               # export the noun itself to help.yaml: the description of its verb param
     owner: str = ''                # a tool that owns the noun's words: other verbs and options-only go to it
     verbs: list = field(default_factory=list, compare=False)
 
@@ -94,7 +93,7 @@ NOUNS = [
     Noun('data', 'datasets from runs: export, schema, splits'),
     Noun('monitor', 'progress of local and cluster work in one view'),
     Noun('env', 'worlds: courses, scenes, worlds (kind from --env)', aliases=('course',)),
-    Noun('card', 'plant cards: show, export, fit, validate', export='show or export.'),
+    Noun('card', 'plant cards: show, export, fit, validate'),
     Noun('fit', 'field data to a profile and a plant card'),
     Noun('field', 'field data as crane.run/1 records'),
     Noun('compare', 'compare two run sets'),
@@ -103,7 +102,7 @@ NOUNS = [
     Noun('view', 'the native sandbox window'),
     Noun('board', 'the web replay board'),
     Noun('media', 'renders, shots and assembled videos'),
-    Noun('bench', 'throughput benchmarks', export='Which benchmark.'),
+    Noun('bench', 'throughput benchmarks'),
     Noun('cluster', 'research-cluster jobs: submit, wait, status, fetch (other verbs go to the research CLI)',
          owner='crane.wrap:cluster'),
     Noun('build', 'build the player, images and the wheel'),
@@ -564,13 +563,13 @@ COMMANDS = [
 
     # ---- card, fit, field, compare, judge, check --------------------------------------------------------------
     Command(('card', 'show'), 'A plant card: one row per block (parameters with their sd and status) and the '
-            'validation rows.', 'crane.wrap:card', passthrough=True, flags=(JSON,), json='crane.card/1',
+            'validation rows.', 'crane.wrap:card', passthrough=True, flags=(JSON,), json='crane.card/1', export=True,
             about='a text table; --json: the card document (robot, sha, status, blocks, validation).',
             params=(P('ref', nargs='?', description="FAMILY/ROBOT@HEAD, a sha prefix or a card dir (default: "
                       "plantcard's default card)."), P('--json', 'bool', description='The card as one JSON document.')),
             examples=('crane card show', 'crane card show FAMILY/ROBOT@HEAD --json'), raw='python3 -m plantcard show'),
     Command(('card', 'export'), "One of a card's tier views (unity | nlc | control | fastsim) as JSON.",
-            'crane.wrap:card', passthrough=True, about='JSON on stdout, or --out FILE.',
+            'crane.wrap:card', passthrough=True, export=True, about='JSON on stdout, or --out FILE.',
             params=(P('view', choices=('unity', 'nlc', 'control', 'fastsim'), description='The tier view.'),
                     P('ref', nargs='?', description="The card (default: plantcard's default card)."),
                     P('--out', 'path', description='Write the JSON here.')),
@@ -712,7 +711,7 @@ COMMANDS = [
 
     # ---- bench, cluster, build, deploy, update, heavy, doctor, setup ------------------------------------------
     Command(('bench', 'player'), 'The Unity player real-time factor: one worker, or a sweep over worker counts, '
-            'through heavy unity.', 'crane.wrap:bench',
+            'through heavy unity.', 'crane.wrap:bench', export=True,
             about='per-worker results under PerformanceResults/ and, for a sweep, a summary.json per worker count. '
                   'Player settings come from env (CRANE_PLAYER, CRANE_DURATION, CRANE_SCENE, ...).',
             params=(P('--worker', 'int', default=0, description='Run one worker with this id.'),
@@ -720,9 +719,12 @@ COMMANDS = [
                       'config/bench.yaml).')),
             examples=('crane bench player --sweep 1 2 4',), raw='bin/heavy unity Tools/Bench/sweep_workers.sh 1 2 4'),
     Command(('bench', 'fast'), 'Fast-tier throughput: the scalar table B, the batched engine (--engine batched) or '
-            'the gate-3 equivalence report (--equivalence).', 'bench.fast:crane_main', passthrough=True,
+            'the gate-3 equivalence report (--equivalence).', 'bench.fast:crane_main', passthrough=True, export=True,
             about="bench.fast's tables: bench.json/bench.md (scalar) or batched.json/batched.md (episodes/s per "
                   'backend and E, x table B, the time split); arguments go to bench.fast unchanged.',
+            params=(P('args', 'list', nargs='*', metavar='OPTION', description="bench.fast's options (python3 -m "
+                      'bench.fast --help): --domain, --tier, --seeds, --engine batched, --backend, --E, --out, '
+                      '--equivalence.'),),
             examples=('crane bench fast --engine batched --domain boat --tier T1 --backend numba,jax --E 1024,4096 '
                       '--out /tmp/bench', 'crane bench fast --equivalence --tier T1 --seeds 0:500',
                       'crane bench fast --domain boat --tier T1 --seeds 0:50 --out /tmp/b'),
@@ -1022,12 +1024,14 @@ def _scalar(value, flow=False):
     return json.dumps(text) if unsafe else text
 
 
-def _yaml_param(param, choices_from=None):
+def _yaml_param(param, choices_from=None, auto=False):
     kind = {'tier': 'str', 'env': 'str'}.get(param.type, param.type)
     d = {'name': param.name if not param.positional else (param.dest or param.name)}
     if kind != 'str':
         d['type'] = kind
-    if param.default not in (None, False, [], ()):
+    if auto:
+        d['default'] = 'auto'
+    elif param.default not in (None, False, [], ()):
         d['default'] = param.default
     if param.choices:
         d['choices'] = list(param.choices)
@@ -1047,18 +1051,9 @@ def _yaml_param(param, choices_from=None):
 
 
 def _entries():
-    """help.yaml's entries: the exported commands, and the exported nouns as NOUN VERB [ARGS]."""
+    """help.yaml's entries: the exported commands, one per NOUN VERB (astro's rule: never a verb/command param)."""
     out = []
     for n in NOUNS:
-        if n.export:
-            ready = [c for c in n.verbs if not c.today]
-            out.append(dict(name=f'crane {n.name}', words=(n.name,),
-                            summary=f'{n.summary[0].upper()}{n.summary[1:]}: ' + '; '.join(
-                                f'{c.verb} ({c.summary.split(". ")[0].rstrip(".").lower()})' for c in ready) + '.',
-                            params=[Param('verb', choices=tuple(c.verb for c in ready), description=n.export),
-                                    Param('args', 'list', nargs='*', description=f'The verb\'s options: crane '
-                                          f'{n.name} VERB --help.')],
-                            examples=[c.examples[0] for c in ready]))
         out += [dict(name=c.name, words=c.words, summary=c.summary, ros=c.raw, notes=c.notes, params=params_of(c),
                      examples=list(c.examples)) for c in COMMANDS if c.export and c.noun == n.name]
     return out
@@ -1074,6 +1069,17 @@ PICKERS = {
                                '${ASTRO_DATA:-$HOME/astro_dock/bags}/*/*/bundle-*.tgz 2>/dev/null | head -n 30'),
     ('crane view', 'runs'): _RUNS,
     ('crane compare', 'runs'): _RUNS,
+}
+# Params crane detects when unset: `default: auto` in help.yaml (astro shows "(auto: FOUND)"), with the detection
+# command as choices_from when there is one (its first line is what auto finds).
+_PLAYERS = ('for p in "$CRANE_PLAYER" "${CRANE_DIR:-$HOME/crane_ml}/Builds/CRANE-Worker/CRANE.x86_64" '
+            '"$HOME/.cache/crane-phase1/player/CRANE.x86_64" "$HOME/.local/share/crane/player/current/CRANE.x86_64"; '
+            'do [ -x "$p" ] && echo "$p"; done; true')
+AUTO = {
+    ('crane sim up', '--display'): '{ [ -n "$DISPLAY$WAYLAND_DISPLAY" ] && echo window; echo headless; }',
+    ('crane sim up', '--player'): _PLAYERS,
+    ('crane build player', '--editor'): None,
+    ('crane setup', '--components'): None,
 }
 
 
@@ -1095,7 +1101,9 @@ def help_yaml():
                 lines.append(f'    {key}: {_scalar(e[key])}')
         if e['params']:
             lines.append('    params:')
-            lines += [f'      - {_yaml_param(p, PICKERS.get((e["name"], p.dest or p.name)))}' for p in e['params']]
+            for p in e['params']:
+                key = (e['name'], p.dest or p.name)
+                lines.append(f'      - {_yaml_param(p, PICKERS.get(key) or AUTO.get(key), key in AUTO)}')
         if e['examples']:
             lines.append('    examples:')
             lines += [f'      - {_scalar(x)}' for x in e['examples']]

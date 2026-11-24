@@ -16,8 +16,8 @@ commands:
       - {name: "--card", type: path, description: A plant profile JSON or a card name (--profile-json is the same).}
       - {name: "--profile", description: The player's runtime profile (default interactive-low).}
       - {name: "--current", description: "SPEED,TOWARD_DEG (m/s, deg), or 0 for still water (default the scene current)."}
-      - {name: "--display", choices: [window, headless], description: "Window or xvfb (--window, --headless are the same)."}
-      - {name: "--player", type: path, description: "The player (else CRANE_PLAYER, then the build)."}
+      - {name: "--display", default: auto, choices: [window, headless], description: "Window or xvfb (--window, --headless are the same).", choices_from: "{ [ -n \"$DISPLAY$WAYLAND_DISPLAY\" ] && echo window; echo headless; }"}
+      - {name: "--player", type: path, default: auto, description: "The player (else CRANE_PLAYER, then the build).", choices_from: "for p in \"$CRANE_PLAYER\" \"${CRANE_DIR:-$HOME/crane_ml}/Builds/CRANE-Worker/CRANE.x86_64\" \"$HOME/.cache/crane-phase1/player/CRANE.x86_64\" \"$HOME/.local/share/crane/player/current/CRANE.x86_64\"; do [ -x \"$p\" ] && echo \"$p\"; done; true"}
       - {name: "--robot", description: The domain's robot.}
       - {name: "--set", description: Pin one world parameter (repeatable).}
       - {name: "--domain", description: config/domains/DOMAIN.yaml (default boat).}
@@ -124,15 +124,28 @@ commands:
       - crane run --domain boat --tier T1 --astro-test speed-surge --card /tmp/fit/profile.json
       - "crane run --domain modular --replay timelines.npz --seeds 0:24 --card example#plated"
 
-  - name: crane card
-    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane card
-    summary: "Plant cards: show, export, fit, validate: show (a plant card: one row per block (parameters with their sd and status) and the validation rows); export (one of a card's tier views (unity | nlc | control | fastsim) as json)."
+  - name: crane card show
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane card show
+    summary: "A plant card: one row per block (parameters with their sd and status) and the validation rows."
     level: setup
+    ros: python3 -m plantcard show
     params:
-      - {name: verb, choices: [show, export], description: show or export., required: true}
-      - {name: args, type: list, description: "The verb's options: crane card VERB --help.", required: false}
+      - {name: ref, description: "FAMILY/ROBOT@HEAD, a sha prefix or a card dir (default: plantcard's default card).", required: false}
+      - {name: "--json", type: bool, description: The card as one JSON document.}
     examples:
       - crane card show
+      - crane card show FAMILY/ROBOT@HEAD --json
+
+  - name: crane card export
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane card export
+    summary: One of a card's tier views (unity | nlc | control | fastsim) as JSON.
+    level: setup
+    ros: python3 -m plantcard export
+    params:
+      - {name: view, choices: [unity, nlc, control, fastsim], description: The tier view., required: true}
+      - {name: ref, description: "The card (default: plantcard's default card).", required: false}
+      - {name: "--out", type: path, description: Write the JSON here.}
+    examples:
       - crane card export fastsim --out /tmp/card.json
 
   - name: crane fit
@@ -221,16 +234,28 @@ commands:
     examples:
       - crane board /tmp/runs
 
-  - name: crane bench
-    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane bench
-    summary: "Throughput benchmarks: player (the unity player real-time factor: one worker, or a sweep over worker counts, through heavy unity); fast (fast-tier throughput: the scalar table b, the batched engine (--engine batched) or the gate-3 equivalence report (--equivalence))."
+  - name: crane bench player
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane bench player
+    summary: "The Unity player real-time factor: one worker, or a sweep over worker counts, through heavy unity."
     level: setup
+    ros: bin/heavy unity Tools/Bench/sweep_workers.sh 1 2 4
     params:
-      - {name: verb, choices: [player, fast], description: Which benchmark., required: true}
-      - {name: args, type: list, description: "The verb's options: crane bench VERB --help.", required: false}
+      - {name: "--worker", type: int, description: Run one worker with this id.}
+      - {name: "--sweep", type: list, description: Worker counts to sweep (default config/bench.yaml).}
     examples:
       - crane bench player --sweep 1 2 4
+
+  - name: crane bench fast
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane bench fast
+    summary: "Fast-tier throughput: the scalar table B, the batched engine (--engine batched) or the gate-3 equivalence report (--equivalence)."
+    level: setup
+    ros: python3 -m bench.fast
+    params:
+      - {name: args, type: list, description: "bench.fast's options (python3 -m bench.fast --help): --domain, --tier, --seeds, --engine batched, --backend, --E, --out, --equivalence.", required: false}
+    examples:
       - crane bench fast --engine batched --domain boat --tier T1 --backend numba,jax --E 1024,4096 --out /tmp/bench
+      - crane bench fast --equivalence --tier T1 --seeds 0:500
+      - crane bench fast --domain boat --tier T1 --seeds 0:50 --out /tmp/b
 
   - name: crane build player
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane build player
@@ -240,7 +265,7 @@ commands:
     params:
       - {name: "--tarball", type: bool, description: Also write the player tarball and its .sha256.}
       - {name: "--skip-unity", type: bool, description: Stamp and pack an existing build only.}
-      - {name: "--editor", type: path, description: "The Unity editor (default UNITY_EDITOR, else the ProjectVersion.txt editor)."}
+      - {name: "--editor", type: path, default: auto, description: "The Unity editor (default UNITY_EDITOR, else the ProjectVersion.txt editor)."}
       - {name: "--builds", type: path, description: The Builds dir (default <repo>/Builds).}
       - {name: "--dry-run", type: bool, description: Print the Unity command and stop.}
     examples:
@@ -306,7 +331,7 @@ commands:
     notes: "Interactive with rich and questionary (the [setup] extra), else plain prompts; --yes takes the defaults or --components/--domains and asks nothing. Components: core, fast, gpu, view, field, data (pip extras, through install.sh), player (the release player, crane update --player-only), astro (a read-only check of the astro integration). The choices are saved to ~/.config/crane/setup.json. Never builds astro images or workspaces (astro owns those)."
     params:
       - {name: "--yes", type: bool, description: "Ask nothing: the defaults, or the lists given."}
-      - {name: "--components", description: "Comma list (default core, plus fast on a multicore box, gpu with an NVIDIA driver, player with a display or astro_dock)."}
+      - {name: "--components", default: auto, description: "Comma list (default core, plus fast on a multicore box, gpu with an NVIDIA driver, player with a display or astro_dock)."}
       - {name: "--domains", description: Comma list of config/domains names (default all).}
       - {name: "--dry-run", type: bool, description: Detect and plan; install nothing.}
       - {name: "--json", type: bool, description: One JSON document (implies --yes).}

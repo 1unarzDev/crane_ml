@@ -1133,6 +1133,10 @@ Fast-tier throughput: the scalar table B, the batched engine (--engine batched) 
 
 What you'll see: bench.fast's tables: bench.json/bench.md (scalar) or batched.json/batched.md (episodes/s per backend and E, x table B, the time split); arguments go to bench.fast unchanged.
 
+| Param | Type | Description |
+|---|---|---|
+| `args` | list | bench.fast's options (python3 -m bench.fast --help): --domain, --tier, --seeds, --engine batched, --backend, --E, --out, --equivalence. |
+
 raw: `python3 -m bench.fast`
 
 ### crane bench cluster
