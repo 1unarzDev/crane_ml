@@ -262,6 +262,11 @@ footprint is each module's rectangle and their hull). Every physical number from
 overrides as `scale.*` multipliers or any key (`--set card.KEY=V`), DR ranges in `dr` (`--set dr=true` draws per
 seed). `example.json` is a generic card, not a measured robot.
 
+**Provenance and validation.** The kernel is a port of the capplan truth stepper, which was built for the FP0 module
+(0.42 x 0.30 m, a different drive). It is not corpus-identified, and it has not been cross-checked against the
+corpus robot's identified model. Corpus validation pending (cross-check against capxfer replay on the corpus
+calibration sessions).
+
 **Faults** per wheel from an onset time: weak(g) (stall torque and no-load speed times g: a duty scale), coast
 (back-drive only), brake (plus the shorted winding's damping), locked. From the timelines file (`mode`, `gain`,
 `onset` [M, W]) or a prior (`--set faults.p_healthy=0.25 faults.p_double=0.2 faults.modes.weak=2 ...`); the same
