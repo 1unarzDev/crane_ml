@@ -26,6 +26,7 @@ crane = "crane.cli:main"
 fastsim = "crane_backends.fastsim:ClusterBackend"
 unity = "crane_backends.unity:ClusterBackend"
 theater-render = "crane_backends.theater:ClusterBackend"
+crane-command = "crane_backends.command:ClusterBackend"
 
 [tool.setuptools.packages.find]
 include = ["crane*", "crane_backends*", "fastsim*", "theater*", "plantcard*", "judge*", "viewer*"]
