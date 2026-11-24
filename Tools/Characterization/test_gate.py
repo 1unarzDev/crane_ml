@@ -557,3 +557,14 @@ def test_closure_gyro_bias_is_reported_and_cancels():
     g = sigs(rep, "GYRO_BIAS")
     assert g and abs(g[0]["bias_r"] - 0.02) < 0.002 and not sigs(clean, "GYRO_BIAS")
     assert not _d_not_moved(clean, rep) and rep["characterized"]
+
+
+def test_conditions_ceiling_accepts_astro_layer_labels():
+    assert G.ceiling_good("L7") and G.ceiling_good("l7") and G.ceiling_good(None) and G.ceiling_good(0.95)
+    assert not G.ceiling_good("L4") and not G.ceiling_good(0.5) and not G.ceiling_good("calm")
+
+
+def test_bundle_baseline_window_sets_the_neutral_seconds():
+    import bundle as B
+    assert B.baseline_s({"start": 10.0, "baseline": [7.5, 10.0]}, {}) == 2.5
+    assert B.baseline_s({"start": 10.0, "settle": 10.0}, {"baseline_s": 3.0}) == 3.0

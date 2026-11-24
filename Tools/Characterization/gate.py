@@ -66,6 +66,18 @@ REJECT, WARN = "reject", "warn"
 # Thresholds. Sources: design section 4; mhseals_testing config/conditions.yaml (verdict.good),
 # config/characterize.yaml (transient/coast/settle, min_response, tolerance), calibration.py.
 CEILING_GOOD, DRIFT_TRUST_GOOD = 0.90, 0.80
+
+
+def ceiling_good(ceiling):
+    """A run's conditions ceiling is good: a fraction >= CEILING_GOOD, or a control-layer label (astro's
+    ``L<n>``: the highest layer the conditions support) at the top layer L7, i.e. calm and steady. None is not
+    evidence against."""
+    if ceiling is None:
+        return True
+    if isinstance(ceiling, str):
+        m = ceiling.strip().upper()
+        return m.startswith("L") and m[1:].isdigit() and int(m[1:]) >= 7
+    return float(ceiling) >= CEILING_GOOD
 BATTERY_TOLERANCE_V = 0.8
 MAX_GAP_S, MIN_SAMPLES, MAX_SKEW_S, MIN_COVERAGE = 0.25, 30, 0.006, 0.5
 MIN_RESPONSE = 0.03
@@ -532,7 +544,7 @@ def run_gate(yaml_doc, provenance=None, run=None, snapshot=None, *, yaml_path=No
     if not cond or cond.get("verdict") in (None, "unknown"):
         rep.add("conditions", "conditions", abstain("CONDITIONS_UNKNOWN", WARN, summary=cond))
     else:
-        poor = (cond.get("verdict") != "good" or (cond.get("ceiling") is not None and cond["ceiling"] < CEILING_GOOD)
+        poor = (cond.get("verdict") != "good" or not ceiling_good(cond.get("ceiling"))
                 or (cond.get("drift_trust") is not None and cond["drift_trust"] < DRIFT_TRUST_GOOD))
         if poor:
             rep.add("conditions", "conditions", abstain("CONDITIONS_POOR", verdict=cond.get("verdict"),
