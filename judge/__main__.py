@@ -4,15 +4,29 @@
   fastsim ROOT [--out DIR]   judge every fastsim run under ROOT with the generic motion pack
   oneline REPORT.json        print a report's one-line verdict
   markdown REPORT.json       print a report as Markdown
+
+--json prints the report as one JSON document instead. Exit 1 when the report FAILs (a fail-level insight, a
+tier gap verdict FAIL, or a variant comparison that is inferior or worse); demo always exits 0.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 from judge import render
+
+
+def failures(report):
+    """Why a report FAILs ([] when it passes): fail-level insights, tier-gap FAIL rows, inferior/worse variants."""
+    out = [f"insight {i['kind']}" for i in report.get('insights', []) if i.get('severity') == 'fail']
+    g4 = report.get('g4') or {}
+    out += [f'tier gap {m} FAIL' for m, row in (g4.get('metrics') or {}).items() if row.get('verdict') == 'FAIL']
+    out += [f"variant {c.get('metric')} {c.get('verdict')}" for c in report.get('comparisons', [])
+            if c.get('verdict') in ('inferior', 'worse')]
+    return out
 
 
 def _demo(out):
@@ -30,7 +44,7 @@ def _demo(out):
             render.write(rep, Path(out) / name, f'Toy quadrotor: {name} fault')
 
 
-def _fastsim(root, out):
+def _fastsim(root, out, as_json=False):
     from judge.packs import generic_motion
     from judge.run import judge_runs
     from judge.sources.fastsim import FastsimSource
@@ -38,9 +52,10 @@ def _fastsim(root, out):
     recs = FastsimSource().load_all(root, refused)
     rep = judge_runs(recs, None, [generic_motion.PACK])
     rep['refused'] = refused
-    print(render.oneline(rep))
+    print(json.dumps(rep, indent=1, default=str) if as_json else render.oneline(rep))
     if out:
         render.write(rep, out, 'fastsim runs')
+    return rep
 
 
 def main(argv=None):
@@ -49,15 +64,24 @@ def main(argv=None):
     ap.add_argument('cmd', choices=('demo', 'fastsim', 'oneline', 'markdown'))
     ap.add_argument('path', nargs='?')
     ap.add_argument('--out')
+    ap.add_argument('--json', action='store_true', help='the report as one JSON document')
     a = ap.parse_args(argv)
     if a.cmd == 'demo':
         _demo(a.out)
-    elif a.cmd == 'fastsim':
-        _fastsim(a.path, a.out)
+        return 0
+    if not a.path:
+        ap.error(f'{a.cmd} needs a path')
+    if a.cmd == 'fastsim':
+        rep = _fastsim(a.path, a.out, a.json)
     else:
         rep = json.loads(Path(a.path).read_text())
-        print(render.oneline(rep) if a.cmd == 'oneline' else render.markdown(rep))
+        print(json.dumps(rep, indent=1) if a.json else render.oneline(rep) if a.cmd == 'oneline'
+              else render.markdown(rep))
+    why = failures(rep)
+    if why and not a.json:
+        print(f'judge: FAIL ({", ".join(why[:3])}{", ..." if len(why) > 3 else ""})', file=sys.stderr)
+    return 1 if why else 0
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

@@ -1,6 +1,6 @@
 """plantcard CLI.
 
-    python3 -m plantcard show   [REF]                 summary of a card (default roboboat/blastoise@HEAD)
+    python3 -m plantcard show   [REF] [--json]        summary of a card (default roboboat/blastoise@HEAD)
     python3 -m plantcard export VIEW [REF] [--particle K] [--n N] [--out FILE]
                                                       VIEW: unity | nlc | control | fastsim
     python3 -m plantcard.marine.build [--repo]        refit the RoboBoat card from the field trials
@@ -34,6 +34,7 @@ def main(argv=None):
     s = sub.add_parser('show')
     s.add_argument('ref', nargs='?', default='roboboat/blastoise@HEAD',
                    help='a card: FAMILY/ROBOT@HEAD, a sha prefix, or a card directory (default roboboat/blastoise@HEAD)')
+    s.add_argument('--json', action='store_true', help='the card as one JSON document (robot, sha, status, doc)')
     e = sub.add_parser('export')
     e.add_argument('view', help='the tier view: unity | nlc | control | fastsim')
     e.add_argument('ref', nargs='?', default='roboboat/blastoise@HEAD',
@@ -43,6 +44,10 @@ def main(argv=None):
     e.add_argument('--out', default=None, help='write the JSON here instead of stdout')
     a = ap.parse_args(argv)
     card = load(a.ref)
+    if a.cmd == 'show' and a.json:
+        sys.stdout.write(json.dumps(_clean({'schema': 'crane.card/1', 'robot': card.robot, 'sha': card.sha,
+                                            'status': card.status, 'doc': card.doc}), indent=1, default=str) + '\n')
+        return
     if a.cmd == 'show':
         d = card.doc
         print(f'{card.robot} {card.sha[:12]} status={card.status} gauge={d["gauge"]} parent={str(d.get("parent"))[:12]}')

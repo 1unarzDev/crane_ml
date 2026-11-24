@@ -7,7 +7,6 @@ import os
 import sys
 
 from crane import paths
-from crane.cli import SUBVERBS
 
 
 def execute(cmd, python_path=False):
@@ -30,10 +29,52 @@ def _python(module, rest):
 
 
 def sim(rest):
+    """crane sim VERB ...: check runs here, the other verbs go to Tools/RoboBoat/sim_up. With --json, check and
+    status print one document (status wraps sim_up's text block)."""
+    if '--json' in rest and rest[:1] in (['check'], ['status']):
+        return _sim_json(rest[0], [a for a in rest[1:] if a != '--json'])
     if rest[:1] == ['check']:
         from crane import simcheck
         return simcheck.main(rest[1:])
     return execute([paths.SIM_UP, *rest])
+
+
+def _sim_json(verb, rest):
+    import contextlib
+    import io
+    import json
+    import subprocess
+    if verb == 'check':
+        from crane import simcheck
+        text = io.StringIO()
+        with contextlib.redirect_stdout(text):
+            code = simcheck.main(rest)
+        if rest[:1] and not rest[0].startswith('--'):       # an offline Tools/SimCheck check: its text, as is
+            doc = {'schema': 'crane.sim.check/1', 'check': rest[0], 'exit': code, 'text': text.getvalue()}
+        else:
+            # simcheck's rows: '  ok    NAME (18 wide) DETAIL', FAIL or warn in place of ok
+            rows = [(line[2:6].strip(), line[8:26].strip(), line[27:]) for line in text.getvalue().splitlines()
+                    if line[2:6].strip() in ('ok', 'FAIL', 'warn') and line[6:8] == '  ']
+            doc = {'schema': 'crane.sim.check/1', 'ready': code == 0, 'exit': code,
+                   'failed': [n for state, n, _ in rows if state == 'FAIL'],
+                   'checks': [{'name': n, 'ok': state != 'FAIL', 'state': state, 'detail': d} for state, n, d in rows]}
+    else:
+        try:
+            done = subprocess.run([str(paths.SIM_UP), 'status', *rest], capture_output=True, text=True, timeout=60)
+        except subprocess.TimeoutExpired:
+            print('crane sim status: sim_up status took over 60 s; fix: crane sim status (text) to see where it '
+                  'stops', file=sys.stderr)
+            return 75
+        code = done.returncode
+        fields = {}
+        for line in done.stdout.splitlines():
+            key, colon, value = line.strip().partition(':')
+            if colon and key and ' ' not in key.strip() and value.strip():
+                fields.setdefault(key.strip(), value.strip())
+        doc = {'schema': 'crane.sim.status/1', 'exit': code, 'fields': fields, 'text': done.stdout}
+        sys.stderr.write(done.stderr)
+    print(json.dumps(doc, indent=1))
+    return code
 
 
 def heavy(rest):
@@ -45,9 +86,6 @@ def judge(rest):
 
 
 def card(rest):
-    if rest[0] not in SUBVERBS['card']:
-        print(f'crane card: unknown {rest[0]!r}; choose {"|".join(SUBVERBS["card"])}', file=sys.stderr)
-        return 2
     return _python('plantcard', rest)
 
 
@@ -61,7 +99,7 @@ def course(rest):
         return execute([paths.HEAVY, 'unity', paths.COURSE / 'generate.sh', *args])
     if what in ('validate', 'render'):
         return execute([sys.executable, paths.COURSE / f'{what}.py', *args])
-    print(f'crane course: unknown {what!r}; choose {"|".join(SUBVERBS["course"])}', file=sys.stderr)
+    print(f'crane env: unknown {what!r}; choose gen|validate|render', file=sys.stderr)
     return 2
 
 
@@ -72,6 +110,17 @@ def cluster(rest):
               'RESEARCH_CLUSTER to its checkout', file=sys.stderr)
         return 2
     return execute([cli, *rest])
+
+
+def bench(args):
+    """crane bench player."""
+    try:
+        sweep = None if args.sweep is None else [int(n) for n in args.sweep]
+    except ValueError:
+        print(f'crane bench player: --sweep wants worker counts, got {" ".join(args.sweep)}; fix: crane bench player '
+              '--sweep 1 2 4', file=sys.stderr)
+        return 2
+    return bench_player(args.worker, sweep)
 
 
 def bench_player(worker, sweep):

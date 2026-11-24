@@ -1,0 +1,993 @@
+# crane CLI
+
+```sh
+crane doctor                                            what is installed, what works, what to run next
+crane run --domain toy --seeds 0:3                      T0 abstract, scenarios made on demand
+crane run --domain boat --tier T1 --seeds 0:2           T1 dynamic, the RoboBoat reference mission
+crane sim up --headless                                 the T2 world, used like the boat (astro sim up)
+crane view --live --domain boat --tier T1 --seed 3      the native sandbox: a live sim with sliders
+crane help                                              every noun and verb; crane NOUN VERB --help for one
+```
+
+Generated from `crane/commands.py` by `crane help --write`; `crane help --check` fails when it drifts. `crane NOUN VERB --help` prints the same entry.
+
+## Conventions
+
+`crane NOUN [VERB] [selectors] [flags]`. Output is plain aligned text; a failure is one line, `crane NOUN VERB: cause; fix: CMD`; output ends with `next: CMD` where there is a next step.
+
+| Selector | Meaning |
+|---|---|
+| `--domain` | A domain: config/domains/DOMAIN.yaml. |
+| `--tier` | The tier: T0 abstract, T1 dynamic, T2 unity. |
+| `--env KIND:NAME` | The world: course:NAME, scene:NAME or world:NAME. |
+| `--robot` | The domain's robot. |
+| `--card REF` | A plant card ref or a profile JSON. |
+| `--seed` | One seed. |
+| `--seeds SPEC` | Seeds: N, A:B (B exclusive), a,b,c, @FILE or block:NAME. |
+| `--set KEY=VALUE` | Override a config key; dotted keys nest, the value is YAML (repeatable). |
+| `--out` | Output dir (default ~/.cache/crane/runs/DOMAIN/TIER/STAMP). |
+
+| Global flag | Meaning |
+|---|---|
+| `--json` | One JSON document on stdout (JSONL for streams). |
+| `--quiet` | Only results and failures. |
+| `--dry-run` | Print the resolved plan; run nothing. |
+
+Exit codes: 0 ok; 1 a check or run failed (judge FAIL included); 2 usage or config error; 75 a bounded wait (heavy, cluster) timed out.
+
+## sim
+
+T2: the Unity world plus ROS, used like the real boat.
+
+### crane sim up
+
+```sh
+crane sim up --headless --seed 3
+```
+
+Start the T2 world (the Unity player plus the ROS side) and return once the course is ready.
+
+What you'll see: the player queued on `heavy unity`, then the status block (mode, domain, endpoint, pids, logs, next commands). Options: [--seed N] [--course FAMILY] [--profile-json F] [--window|--headless] [--player PATH] [--current SPEED,TOWARD_DEG]. Env: ROS_DOMAIN_ID, ASTRO_DATA, ASTRO_STATE, HEAVY, ASTRO_IMAGE, SIM_UP_*, CRANE_PLAYER.
+
+| Param | Type | Description |
+|---|---|---|
+| `--seed` | int | the course seed |
+| `--course` | str | the course family |
+| `--profile-json` | path | the plant profile the player applies |
+| `--headless` | bool | run under xvfb-run (the default without a terminal) |
+| `--window` | bool | show the player on your display |
+| `--current` | str | the water current (m/s, deg) |
+
+raw: `Tools/RoboBoat/sim_up up`
+
+### crane sim down
+
+```sh
+crane sim down
+```
+
+Stop what sim up started (its player and its ROS container only).
+
+What you'll see: one line per stopped process.
+
+raw: `Tools/RoboBoat/sim_up down`
+
+### crane sim status
+
+```sh
+crane sim status
+```
+
+The status block: mode, domain, port, pids, disturbance, logs, the next commands.
+
+What you'll see: the status block, ending with next:. --json: {schema, exit, fields, text}.
+
+| Param | Type | Description |
+|---|---|---|
+| `--json` | bool | one JSON document |
+
+raw: `Tools/RoboBoat/sim_up status`; --json: `crane.sim.status/1`
+
+### crane sim check
+
+```sh
+crane sim check --wait 120
+```
+
+Is the running sim ready (player, course, plant, ROS side, nav stack)? --wait SECONDS polls until ready; CHECK INPUTS runs an offline Tools/SimCheck check.
+
+What you'll see: one row per check (ok/FAIL, name, detail), then `sim check: ready` or the failed names. Exit 1 when not ready. --json: {schema, ready, failed, checks[{name, ok, detail}]}.
+
+| Param | Type | Description |
+|---|---|---|
+| `--wait` | int | Poll until ready or this many seconds pass. |
+| `--json` | bool | One JSON document. |
+
+raw: `Tools/RoboBoat/sim_up check`; --json: `crane.sim.check/1`
+
+### crane sim logs
+
+```sh
+crane sim logs
+```
+
+The player's and the ROS side's logs.
+
+Not yet available; today use `tail -f ~/.cache/sim_up/player.log`.
+
+## run
+
+Episodes at a tier, one run dir per seed.
+
+### crane run
+
+```sh
+crane run --domain toy --seeds 0:3
+crane run --domain boat --tier T1 --seeds 0:2 --out /tmp/runs
+crane run --domain boat --tier T1 --astro-test speed-surge --card /tmp/fit/profile.json
+```
+
+Run episodes at a tier, one run dir per seed (OUT/VARIANT/s<seed>). T0 abstract and T1 dynamic; T2 is not yet available (use crane sim up). Missing scenarios are generated on demand.
+
+What you'll see: one line per seed (run dir, outcome, sim and wall time), then runs/s and next:. --dry-run prints the resolved plan and runs nothing; --json prints one summary document.
+
+| Param | Type | Description |
+|---|---|---|
+| `--domain` | str | A domain: config/domains/DOMAIN.yaml (boat, toy). |
+| `--config` | path | A fastsim domain YAML, used as is. |
+| `--tier` | tier | The tier (default: the domain's first tier, T0 with --config). One of `T0`, `T1`, `T2`, `abstract`, `dynamic`, `unity`. |
+| `--seeds` | str | N, A:B (B exclusive), a,b,c, @FILE or block:NAME (required, except with --astro-test: 0). |
+| `--out` | path | Output root; runs go to OUT/VARIANT/s<seed> (default ~/.cache/crane/runs/DOMAIN/TIER/STAMP). |
+| `--workers` | int | Worker processes (default the config's workers). |
+| `--set` | str | Override a config key; dotted keys nest, the value is YAML (repeatable). |
+| `--variant` | str | The name of this design or parameter set. (default `base`) |
+| `--generate` | bool | Regenerate the seeds' scenarios (missing ones are always made). |
+| `--allow-dirty` | bool | Run an adapter tree with uncommitted changes. |
+| `--astro-test` | str | An astro test or group (still, couple-*, speed-*, steps-*, nav2, all) at T0/T1, with metrics named as astro's result fields. |
+| `--card` | str | With --astro-test: a profile JSON, a plant card or a factorial manifest (repeatable). |
+| `--tests` | path | With --astro-test: astro's tests file or a bundle holding one. |
+| `--space` | str | With --astro-test: the tests file's space (default large). |
+| `--amp` | float | With --astro-test: the effort amplitude (default the space's). |
+| `--json` | bool | One summary document. |
+| `--dry-run` | bool | Print the resolved plan; run nothing. |
+| `--quiet` | bool | Only results and failures. |
+
+raw: `python3 -m fastsim.batch --config CONFIG --seeds 0:3 --out OUT`; --json: `crane.run.summary/1`
+
+## study
+
+A study spec: arms x axes x seed blocks, run locally or on the cluster.
+
+### crane study init
+
+```sh
+crane study init --domain boat > study.yaml
+```
+
+Write a study spec (crane.study/1) to start from.
+
+Not yet available; today use `a hypothesis.yaml beside your runs`.
+
+### crane study plan
+
+```sh
+crane study plan study.yaml
+```
+
+Print the jobs a study spec compiles to (local batch or rc-job/1).
+
+Not yet available; today use `crane run --domain D --seeds A:B --dry-run`.
+
+### crane study run
+
+```sh
+crane study run study.yaml
+```
+
+Run a study: resume, progress, held-out guard.
+
+Not yet available; today use `crane run --domain D --tier T --seeds A:B per arm`.
+
+### crane study status
+
+```sh
+crane study status study.yaml
+```
+
+A study's progress per cell.
+
+Not yet available; today use `crane heavy status, or crane cluster status`.
+
+### crane study report
+
+```sh
+crane study report study.yaml
+```
+
+Paired analysis per cell (bootstrap, sign-flip, Holm) through judge.stats.
+
+Not yet available; today use `crane compare A B`.
+
+### crane study promote
+
+```sh
+crane study promote study.yaml --top 5
+```
+
+Rerun a stage's top-k at a higher tier.
+
+Not yet available; today use `crane run --tier T1 on the chosen seeds`.
+
+## runs
+
+The local run index: list, show, query, diff.
+
+### crane runs ls
+
+```sh
+crane runs ls --domain boat
+```
+
+List local runs, newest first.
+
+Not yet available; today use `crane board ~/.cache/crane/runs`.
+
+### crane runs show
+
+```sh
+crane runs show RUN_ID
+```
+
+One run's header, metrics and files.
+
+Not yet available; today use `cat RUN/run.json`.
+
+### crane runs query
+
+```sh
+crane runs query --where tier=T1
+```
+
+Runs matching --where.
+
+Not yet available; today use `crane board ~/.cache/crane/runs`.
+
+### crane runs diff
+
+```sh
+crane runs diff RUN_A RUN_B
+```
+
+Two runs' configs and metrics side by side.
+
+Not yet available; today use `crane compare A B`.
+
+### crane runs index
+
+```sh
+crane runs index
+```
+
+Rebuild the local run index.
+
+Not yet available; today use `crane board ~/.cache/crane/runs`.
+
+## repro
+
+Rerun one run and check it reproduces.
+
+### crane repro
+
+```sh
+crane repro RUN_ID --check
+```
+
+Rerun one run from its record and check it reproduces.
+
+Not yet available; today use `crane run with the run.json seed, config and overrides, then crane compare`.
+
+## data
+
+Datasets from runs: export, schema, splits.
+
+### crane data export
+
+```sh
+crane data export RUNS --format npz --out /tmp/ds
+```
+
+Runs to columnar files (npz or parquet) plus a manifest with sha256.
+
+Not yet available; today use `each run's metrics.json and track.jsonl`.
+
+### crane data schema
+
+```sh
+crane data schema /tmp/ds
+```
+
+A dataset's columns and units.
+
+Not yet available; today use `Docs/RunRecord.md`.
+
+### crane data splits
+
+```sh
+crane data splits /tmp/ds
+```
+
+A dataset's train/calib/held-out splits.
+
+Not yet available; today use `seed lists per split with --seeds @FILE`.
+
+## monitor
+
+Progress of local and cluster work in one view.
+
+### crane monitor
+
+```sh
+crane monitor --follow
+```
+
+Progress of local and cluster work in one view (progress.json and the cluster feed).
+
+Not yet available; today use `crane heavy status, and crane cluster status`.
+
+## env (alias: course)
+
+Worlds: courses, scenes, worlds (kind from --env).
+
+### crane env gen
+
+```sh
+crane env gen --family roboboat_2026 --seed 3 --out /tmp/c3.json
+```
+
+Generate course truth with the Unity course generator (headless, through heavy unity).
+
+What you'll see: CRANE_COURSE_* lines. Options: --family F --seed N --out T.json | --seeds A:B --out DIR | --validate DIR --out V.json; --mode, --set.
+
+raw: `bin/heavy unity Tools/RoboBoat/generate.sh`
+
+### crane env validate
+
+```sh
+crane env validate /tmp/c3.json
+```
+
+The independent constraint check of a course truth; exit 0 when every row passes.
+
+What you'll see: one row per constraint. Options: TRUTH.json [--spec S] [--json].
+
+raw: `python3 Tools/RoboBoat/validate.py`
+
+### crane env render
+
+```sh
+crane env render /tmp/c3.json > c3.svg
+```
+
+A course truth as an SVG on stdout.
+
+What you'll see: SVG. Options: TRUTH.json [--track T.jsonl].
+
+raw: `python3 Tools/RoboBoat/render.py`
+
+### crane env explain
+
+```sh
+crane env explain /tmp/c3.json
+```
+
+A course truth's tasks, objects and verdicts.
+
+Not yet available; today use `python3 Tools/RoboBoat/course_truth.py summary TRUTH.json`.
+
+### crane env diff
+
+```sh
+crane env diff a.json b.json
+```
+
+Two course truths side by side.
+
+Not yet available; today use `python3 Tools/RoboBoat/course_truth.py diff A B`.
+
+### crane env coverage
+
+```sh
+crane env coverage /tmp/courses
+```
+
+Task parameters and corner flags binned across course truths.
+
+Not yet available; today use `python3 Tools/RoboBoat/coverage.py TRUTH.json...`.
+
+## card
+
+Plant cards: show, export, fit, validate.
+
+### crane card show
+
+```sh
+crane card show roboboat/blastoise@HEAD
+```
+
+A plant card: one row per block (parameters with their sd and status) and the validation rows.
+
+What you'll see: a text table; --json: the card document (robot, sha, status, blocks, validation).
+
+| Param | Type | Description |
+|---|---|---|
+| `ref` | str | FAMILY/ROBOT@HEAD, a sha prefix or a card dir. (default `roboboat/blastoise@HEAD`) |
+| `--json` | bool | The card as one JSON document. |
+
+raw: `python3 -m plantcard show`; --json: `crane.card/1`
+
+### crane card export
+
+```sh
+crane card export fastsim roboboat/blastoise@HEAD --out /tmp/card.json
+```
+
+One of a card's tier views (unity | nlc | control | fastsim) as JSON.
+
+What you'll see: JSON on stdout, or --out FILE.
+
+| Param | Type | Description |
+|---|---|---|
+| `view` | str | The tier view. One of `unity`, `nlc`, `control`, `fastsim`. |
+| `ref` | str | The card. (default `roboboat/blastoise@HEAD`) |
+| `--out` | path | Write the JSON here. |
+
+raw: `python3 -m plantcard export`
+
+### crane card fit
+
+```sh
+crane card fit bundle.tgz --out /tmp/fit
+```
+
+Fit a card from field data.
+
+Not yet available; today use `crane fit BUNDLE.tgz --bags DIR`.
+
+### crane card factorial
+
+```sh
+crane card factorial spec.yaml
+```
+
+Card variants from a factorial spec, plus a manifest.
+
+Not yet available; today use `crane fit BUNDLE.tgz --factorial SPEC.yaml`.
+
+### crane card validate
+
+```sh
+crane card validate roboboat/blastoise@HEAD
+```
+
+A card's held-out prediction coverage.
+
+Not yet available; today use `crane fit with two or more bundles`.
+
+### crane card parity
+
+```sh
+crane card parity roboboat/blastoise@HEAD
+```
+
+A card's tier views agree (T1 vs T2).
+
+Not yet available; today use `crane compare --tiers LOW HIGH`.
+
+## fit
+
+Field data to a profile and a plant card.
+
+### crane fit
+
+```sh
+crane fit bundle-173031.tgz --bags ~/astro_dock/bags/sim/2026-11-24/bags --out /tmp/fit
+```
+
+An astro bundle to a profile (through the gate) and a plant card (through its bags as evidence); prints each parameter's status and why.
+
+What you'll see: the gate verdict per parameter (identified / provisional / prior, and why), the evidence, the card and the held-out validation when there are two or more sessions.
+
+Writes OUT/profile.json (sim_up --profile-json), OUT/profile.gate.json, OUT/cards and OUT/fit.json. A bundle made without --bags gives the gate only; --bags DIR reads bags beside it. --factorial SPEC.yaml writes card variants and a manifest.
+
+| Param | Type | Description |
+|---|---|---|
+| `bundles` | list | Astro bundles (.tgz); each is one session. |
+| `--out` | path | Output dir (default fit-<bundle name>). |
+| `--bags` | path | A bag dir to read besides the bundle (read only; repeatable). |
+| `--base` | str | The base profile the gate imports into (default Ideal). |
+| `--robot` | str | The card's robot name (default astro/<state file stem>). |
+| `--n` | int | Rollouts per held-out segment. (default `64`) |
+| `--no-card` | bool | Stop after the gate (no evidence, no card). |
+| `--factorial` | path | Card variants from a spec (measured vs prior levels per property). |
+
+raw: `python3 -m Tools.Characterization.from_bundle`
+
+## field
+
+Field data as crane.run/1 records.
+
+### crane field import
+
+```sh
+crane field import ~/astro_dock/bags/sim/2026-11-24/bags/171208-smoke --out /tmp/field
+```
+
+A bundle (made with --bags), a bag dir or an .mcap file to crane.run/1 records: odometry trajectory, /events and log.txt lines, frame and clock.
+
+What you'll see: one line per bag: run dir, duration, odometry samples and rate, path length, events, frame, clock.
+
+| Param | Type | Description |
+|---|---|---|
+| `source` | path | A bundle, a rosbag2 dir or an .mcap file. |
+| `--out` | path | The run dir (one bag) or the root (several). |
+| `--odom` | str | The odometry topic. (default `/odom/local`) |
+| `--events` | str | The astro events topic. (default `/events`) |
+| `--frame` | str | ID=enu\|ned for an odometry frame id that is not a REP 103/105 name. |
+| `--hz` | float | The trajectory rate (Hz). (default `20.0`) |
+| `--domain` | str | The run's domain. (default `boat`) |
+
+## compare
+
+Compare two run sets.
+
+### crane compare
+
+```sh
+crane compare --field bundle-173031.tgz runs/sim
+```
+
+Two run sets as a Markdown table and JSON: variant A/B on one frame and clock, tier gap (--tiers) or field vs sim per astro test (--field BUNDLE RUNS).
+
+What you'll see: a Markdown table on stdout (--json: {kind, result} instead) and, with --out, compare.json and compare.md.
+
+| Param | Type | Description |
+|---|---|---|
+| `runs` | list | Two run sets, A then B; with --field, the sim runs. |
+| `--tiers` | bool | A is the lower tier, B the higher. |
+| `--field` | path | An astro bundle to compare the runs against. |
+| `--metric` | str | Only these metrics (repeatable). |
+| `--direction` | str | --tiers: better is higher or lower. One of `higher`, `lower`. (default `higher`) |
+| `--band` | float | --tiers: the allowed \|low - high\| gap (metric units). |
+| `--fidelity` | path | --tiers: also replay B's goal windows on CONFIG's vehicle. |
+| `--out` | path | Write compare.json and compare.md here. |
+| `--json` | bool | One JSON document. |
+
+--json: `crane.compare/1`
+
+## judge
+
+Score runs against a judge pack.
+
+### crane judge fastsim
+
+```sh
+crane judge fastsim /tmp/runs --out /tmp/runs-judge
+```
+
+Judge every fastsim run under ROOT with the generic motion pack.
+
+What you'll see: the one-line verdict; with --out, report.json and Markdown. Exit 1 on FAIL.
+
+| Param | Type | Description |
+|---|---|---|
+| `root` | path | The runs root. |
+| `--out` | path | The report dir. |
+| `--json` | bool | The report as one JSON document. |
+
+raw: `python3 -m judge fastsim`; --json: `crane.judge.report/1`
+
+### crane judge oneline
+
+```sh
+crane judge oneline /tmp/runs-judge/report.json
+```
+
+A report's one-line verdict; exit 1 on FAIL.
+
+| Param | Type | Description |
+|---|---|---|
+| `report` | path | report.json |
+| `--json` | bool | One JSON document on stdout (JSONL for streams). |
+
+raw: `python3 -m judge oneline`
+
+### crane judge markdown
+
+```sh
+crane judge markdown /tmp/runs-judge/report.json
+```
+
+A report as Markdown; exit 1 on FAIL.
+
+| Param | Type | Description |
+|---|---|---|
+| `report` | path | report.json |
+
+raw: `python3 -m judge markdown`
+
+### crane judge demo
+
+```sh
+crane judge demo
+```
+
+The toy quadrotor on two tiers: a plant fault, a decision fault and a clean control.
+
+| Param | Type | Description |
+|---|---|---|
+| `--out` | path | Write the reports here. |
+
+raw: `python3 -m judge demo`
+
+### crane judge run
+
+```sh
+crane judge run --pack generic_motion /tmp/runs
+```
+
+Judge runs against a named pack.
+
+Not yet available; today use `crane judge fastsim ROOT`.
+
+### crane judge report
+
+```sh
+crane judge report /tmp/runs-judge/report.json
+```
+
+A report as text, Markdown or JSON.
+
+Not yet available; today use `crane judge markdown REPORT.json`.
+
+## check
+
+Acceptance checks on recorded results.
+
+### crane check axis
+
+```sh
+crane check axis results.json
+```
+
+Axis and sign conventions of recorded results.
+
+Not yet available; today use `crane sim check axis INPUTS`.
+
+### crane check sitl
+
+```sh
+crane check sitl results.json
+```
+
+The SITL acceptance check.
+
+Not yet available; today use `crane sim check sitl INPUTS`.
+
+### crane check docking
+
+```sh
+crane check docking results.json
+```
+
+The docking acceptance check.
+
+Not yet available; today use `crane sim check docking INPUTS`.
+
+### crane check smoke
+
+```sh
+crane check smoke results.json
+```
+
+The smoke check.
+
+Not yet available; today use `crane sim check smoke INPUTS`.
+
+### crane check truth-subscribers
+
+```sh
+crane check truth-subscribers
+```
+
+No node outside the allowlist subscribes to /crane/truth/*.
+
+Not yet available; today use `python3 Tools/RoboBoat/check_truth_subscribers.py`.
+
+## view
+
+The native sandbox window.
+
+### crane view
+
+```sh
+crane view --live --domain boat --tier T1 --seed 3
+crane view /tmp/runs/base/s3 --screenshot /tmp/view.png --at 60
+```
+
+The native sandbox window. Replay runs overlaid in one frame and clock, or run a T0/T1 sim live with sliders, rerun from t, and Promote to a crane run spec. --screenshot renders offscreen (no window).
+
+What you'll see: a window: the top-down map, the event lanes, play/step/speed/scrub; live mode adds the parameter sliders, Rerun from t or 0 and Promote. With --screenshot, a PNG and no window.
+
+| Param | Type | Description |
+|---|---|---|
+| `runs` | list | crane.run/1 dirs, fastsim run dirs or .ctraj files. |
+| `--live` | bool | Run the sim in-process (with --domain, --tier T0\|T1, --seed). |
+| `--domain` | str | live: the domain. (default `boat`) |
+| `--tier` | tier | live: the tier. One of `T0`, `T1`, `abstract`, `dynamic`. (default `T1`) |
+| `--seed` | int | live: the scenario seed. |
+| `--offset` | str | Run 2, 3, ...: the first run's time of its t = 0. |
+| `--transform` | str | Run 2, 3, ...: {from, to, xyz, yaw} mapping its origin onto the first run's. |
+| `--3d` | bool | Open in the 3-D view (6-DOF records). |
+| `--screenshot` | path | Render offscreen to this PNG and exit. |
+| `--at` | float | Screenshot: the playhead time (s; default the end). |
+| `--promote-dir` | path | Where Promote writes specs. (default `runs/promoted`) |
+
+## board
+
+The web replay board.
+
+### crane board
+
+```sh
+crane board /tmp/runs
+```
+
+The web replay board over local runs (crane.run/1 records and .ctraj), courses and judge reports; prints its URL.
+
+What you'll see: a local URL (default http://127.0.0.1:8765) listing every record under ROOTS, with their event lanes and constraint layers.
+
+| Param | Type | Description |
+|---|---|---|
+| `roots` | list | Dirs to index (default .). |
+| `--port` | int | Local port. (default `8765`) |
+| `--host` | str | The address to bind. (default `127.0.0.1`) |
+
+raw: `python3 -m viewer serve`
+
+## media
+
+Renders, shots and assembled videos.
+
+### crane media render
+
+```sh
+crane media render RUNS --out /tmp/media
+```
+
+Render runs to video.
+
+Not yet available; today use `python3 -m theater select ... then theater/pack`.
+
+### crane media shot
+
+```sh
+crane media shot RUN --out /tmp/shot.png
+```
+
+A screenshot of the board or a run.
+
+Not yet available; today use `crane view RUN --screenshot OUT.png, or python3 -m viewer shot`.
+
+### crane media assemble
+
+```sh
+crane media assemble /tmp/media
+```
+
+Assemble rendered clips.
+
+Not yet available; today use `ffmpeg on the rendered clips`.
+
+## bench
+
+Throughput benchmarks.
+
+### crane bench player
+
+```sh
+crane bench player --sweep 1 2 4
+```
+
+The Unity player real-time factor: one worker, or a sweep over worker counts, through heavy unity.
+
+What you'll see: per-worker results under PerformanceResults/ and, for a sweep, a summary.json per worker count. Player settings come from env (CRANE_PLAYER, CRANE_DURATION, CRANE_SCENE, ...).
+
+| Param | Type | Description |
+|---|---|---|
+| `--worker` | int | Run one worker with this id. |
+| `--sweep` | list | Worker counts to sweep (default config/bench.yaml). |
+
+raw: `bin/heavy unity Tools/Bench/sweep_workers.sh 1 2 4`
+
+### crane bench fast
+
+```sh
+crane bench fast --domain boat --tier T1 --seeds 0:50
+```
+
+The T0/T1 throughput table.
+
+Not yet available; today use `python3 -m bench.fast --domain boat --tier T1 --seeds 0:50 --out DIR`.
+
+### crane bench cluster
+
+```sh
+crane bench cluster --domain boat
+```
+
+Throughput and cost on the cluster.
+
+Not yet available; today use `python3 -m bench.fast with its --fresh-jobs, on a cluster host`.
+
+## cluster
+
+Research-cluster jobs.
+
+### crane cluster
+
+```sh
+crane cluster status
+```
+
+Research-cluster jobs: submit, wait, status, fetch (the research CLI).
+
+What you'll see: the research CLI's output; arguments go to it unchanged. Found at $RESEARCH_CLUSTER/bin/research or ~/research-cluster/bin/research.
+
+raw: `research`
+
+## build
+
+Build the player, images and the wheel.
+
+### crane build player
+
+```sh
+crane build player --tarball
+```
+
+Build the headless Linux player through heavy unity and stamp its manifest with the source commit.
+
+What you'll see: the Unity command, then the stamped Builds/CRANE-Worker/crane-build-manifest.json and, with --tarball, Builds/crane-player-<commit12>-linux-x86_64.tar.zst and its .sha256.
+
+Needs the project's Unity editor. --skip-unity only stamps and packs an existing Builds/CRANE-Worker.
+
+| Param | Type | Description |
+|---|---|---|
+| `--tarball` | bool | Also write the player tarball and its .sha256. |
+| `--skip-unity` | bool | Stamp and pack an existing build only. |
+| `--editor` | path | The Unity editor (default UNITY_EDITOR, else the ProjectVersion.txt editor). |
+| `--builds` | path | The Builds dir (default <repo>/Builds). |
+| `--dry-run` | bool | Print the Unity command and stop. |
+
+### crane build images
+
+```sh
+crane build images core
+```
+
+The crane docker images (core, gpu, sim), pinned by commit.
+
+Not yet available; today use `docker build on the Dockerfiles`.
+
+### crane build wheel
+
+```sh
+crane build wheel
+```
+
+The crane wheel and sdist.
+
+Not yet available; today use `python3 -m build`.
+
+## deploy
+
+Install crane and the player on a host.
+
+### crane deploy
+
+```sh
+crane deploy HOST
+```
+
+Install crane (a venv) and the player on a host, then run crane doctor there.
+
+Not yet available; today use `rsync the checkout, then ./install.sh --yes on the host`.
+
+## update
+
+Update this checkout from a release.
+
+### crane update
+
+```sh
+crane update
+```
+
+Update this checkout from a release.
+
+Not yet available; today use `git pull, then ./install.sh --yes`.
+
+## heavy
+
+The machine-wide concurrency guard.
+
+### crane heavy
+
+```sh
+crane heavy contain test python3 -m pytest fastsim/tests -q
+```
+
+The machine-wide concurrency guard for Unity, sims and test suites.
+
+What you'll see: heavy's own output: it waits for a slot (bounded, exit 75 on timeout), runs CMD and releases it. `crane heavy status` lists the slots, the queue and ETAs.
+
+raw: `bin/heavy`
+
+## doctor
+
+Check this machine.
+
+### crane doctor
+
+```sh
+crane doctor
+```
+
+Check this machine (python, extras, the T2 player and its flags, heavy, astro_dock, GPU) and print the next commands.
+
+What you'll see: a table of checks (ok / off / missing / warn / FAIL with details), then next:. --json: {schema, ok, checks[{name, state, detail}], next[]}.
+
+Read-only; safe any time. Exit 1 only when the core (python >= 3.10, numpy, pyyaml) is broken.
+
+| Param | Type | Description |
+|---|---|---|
+| `--json` | bool | One JSON document. |
+| `--quiet` | bool | Only results and failures. |
+
+--json: `crane.doctor/1`
+
+## setup
+
+The setup wizard.
+
+### crane setup
+
+```sh
+crane setup
+```
+
+The setup wizard.
+
+Not yet available; today use `./install.sh [--yes] [--components core,fast,gpu,view,field,setup]`.
+
+## help
+
+The commands, and the help.yaml / Docs/CLI.md check.
+
+### crane help
+
+```sh
+crane help sim
+crane help --check
+```
+
+The nouns and verbs; help NOUN for one noun; --check fails when help.yaml or Docs/CLI.md drift from the registry, --write regenerates them.
+
+What you'll see: one line per command; with NOUN, its verbs with examples.
+
+| Param | Type | Description |
+|---|---|---|
+| `topic` | list | A noun (and verb). |
+| `--check` | bool | Regenerate into a temp dir; exit 1 when the committed files differ. |
+| `--write` | bool | Regenerate help.yaml and Docs/CLI.md in place. |
+| `--json` | bool | The registry as one JSON document. |

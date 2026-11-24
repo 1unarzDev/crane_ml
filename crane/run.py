@@ -1,12 +1,14 @@
 """crane run: episodes at a tier. T0 runs the fastsim batch runner (fastsim.batch.run_batch)."""
 
+import shlex
 import subprocess
 import sys
 import time
+from collections import Counter
 from pathlib import Path
 
-from crane import paths, tiers
-
+from crane import output, paths, select
+from crane.output import Output
 
 
 def tier_config(domain, tier):
@@ -19,37 +21,25 @@ def tier_config(domain, tier):
 
 
 def overrides(pairs):
-    """['a.b=1', 'c=x'] -> {'a': {'b': 1}, 'c': 'x'}; each value is parsed as YAML."""
-    import yaml
-    out = {}
-    for pair in pairs:
-        key, eq, value = pair.partition('=')
-        if not eq or not key:
-            raise SystemExit(f'crane run: --set wants KEY=VALUE, got {pair!r}')
-        *parents, leaf = key.split('.')
-        node = out
-        for part in parents:
-            node = node.setdefault(part, {})
-        node[leaf] = yaml.safe_load(value)
-    return out
+    """['a.b=1', 'c=x'] -> {'a': {'b': 1}, 'c': 'x'}; each value is parsed as YAML (crane.select.parse_sets)."""
+    return select.parse_sets(pairs)
 
 
 def main(args):
+    out = getattr(args, 'output', None) or Output.of(args)
+    try:
+        tier = select.parse_tier(args.tier) if args.tier else None
+    except select.SelectError as error:
+        return out.usage('run', str(error), 'crane run --tier T0|T1')
     if getattr(args, 'astro_test', None):
         from crane import astrotest
+        args.out = args.out or str(select.default_out(args.domain or 'boat', tier or 'T1'))
         return astrotest.main(args)
-    if not args.seeds or not args.out:
-        print('crane run: --seeds and --out are required (except with --astro-test)', file=sys.stderr)
-        return 2
-    try:
-        tier = tiers.normalise(args.tier) if args.tier else None
-    except ValueError as error:
-        print(f'crane run: {error}', file=sys.stderr)
-        return 2
+    if not args.seeds:
+        source = f'--domain {args.domain}' if args.domain else f'--config {args.config}'
+        return out.usage('run', '--seeds is required (except with --astro-test)', f'crane run {source} --seeds 0:3')
     if tier == 'T2':
-        print('crane run: --tier T2 (unity) is not yet available; use `crane sim up --headless` for the T2 world.',
-              file=sys.stderr)
-        return 2
+        return out.usage('run', '--tier T2 (unity) is not yet available', 'crane sim up --headless (the T2 world)')
     from fastsim import batch, config as fsconfig, identity
     from fastsim.scenario import ScenarioSource
     try:
@@ -58,43 +48,74 @@ def main(args):
         else:
             tier, config, merged = tier_config(args.domain, tier)
     except LookupError as error:
-        print(f'crane run: {error}', file=sys.stderr)
-        return 2
-    seeds = batch.parse_seeds(args.seeds)
-    cfg, base = fsconfig.load(config, fsconfig.merge(merged, overrides(args.set)) if args.set else (merged or None))
+        return out.usage('run', str(error).strip('"\''), 'crane run --domain DOMAIN (see config/domains)')
+    if not args.out:
+        args.out = str(select.default_out(args.domain or Path(args.config).stem, tier))
+    try:
+        seeds = select.parse_seeds(args.seeds, args.domain)
+        sets = overrides(args.set)
+    except select.SelectError as error:
+        return out.usage('run', str(error), 'crane run --help')
+    cfg, base = fsconfig.load(config, fsconfig.merge(merged, sets) if sets else (merged or None))
     source = ScenarioSource(**cfg['scenarios'], base=base)
+    if out.dry_run:
+        plan = {'schema': 'crane.run.plan/1', 'domain': args.domain, 'tier': tier, 'config': str(config),
+                'seeds': seeds, 'out': str(Path(args.out).expanduser()), 'variant': args.variant,
+                'workers': args.workers or cfg.get('workers'), 'overrides': list(args.set),
+                'scenarios': str(source.dir), 'generate': bool(source.generate_cmd)}
+        if not out.doc(plan):
+            out.say('crane run (dry run): nothing runs')
+            out.say('\n'.join(output.table([(k, v if not isinstance(v, list) or len(v) <= 12 else
+                                             f'{v[:6]} ... {len(v)} seeds') for k, v in plan.items()
+                                            if k != 'schema'])))
+            out.next(f'crane run {" ".join(_argv(args))}')
+        return output.OK
     missing = [s for s in seeds if not source.path(s).exists()]
     if (missing or args.generate) and not source.generate_cmd:
-        what = f'{len(missing)} scenario file(s) missing in {source.dir}' if missing else f'--generate: no generator'
-        print(f'crane run: {what}, and the config has no `scenarios.generate` command; write the scenarios into '
-              f'{source.dir} (pattern {source.pattern})', file=sys.stderr)
-        return 2
+        what = f'{len(missing)} scenario file(s) missing in {source.dir}' if missing else '--generate: no generator'
+        return out.usage('run', f'{what}, and the config has no `scenarios.generate` command',
+                         f'write the scenarios into {source.dir} (pattern {source.pattern})')
     if args.generate:       # force: drop the requested seeds' files so the generator rewrites them
         for s in seeds:
             source.path(s).unlink(missing_ok=True)
     try:
         source.generate(seeds)
     except subprocess.CalledProcessError as error:
-        print(f'crane run: the scenario generator failed ({error.returncode}): '
-              f'{(error.stderr or b"").decode(errors="replace").strip()[-400:]}', file=sys.stderr)
-        return 2
+        detail = (error.stderr or b'').decode(errors='replace').strip()[-400:]
+        return out.usage('run', f'the scenario generator failed ({error.returncode}): {detail}',
+                         'run the scenarios.generate command by hand to see it fail')
     where = batch.adapter_source(cfg, base)
     adapter_git = identity.git_state(where) if where else None
     if adapter_git and adapter_git['dirty'] and not args.allow_dirty:
-        print(f"crane run: {adapter_git['source']} has uncommitted changes; commit, or pass --allow-dirty",
-              file=sys.stderr)
-        return 2
+        return out.usage('run', f"{adapter_git['source']} has uncommitted changes", 'commit, or pass --allow-dirty')
     provenance = {'git': {'core': identity.git_state(Path(batch.__file__).parent), 'adapter': adapter_git},
                   'config_file': str(config), 'tier': tier, 'overrides': list(args.set)}
     started = time.perf_counter()
     try:
         results = batch.run_batch(cfg, base, seeds, args.out, args.variant, args.workers, provenance)
     except FileNotFoundError as error:
-        print(f'crane run: {error.filename or error} is missing', file=sys.stderr)
-        return 2
+        return out.usage('run', f'{error.filename or error} is missing', 'crane doctor')
     wall = time.perf_counter() - started
+    rate = len(results) / wall if wall > 0 else 0.0
+    if out.doc({'schema': 'crane.run.summary/1', 'tier': tier, 'domain': args.domain, 'config': str(config),
+                'out': str(args.out), 'variant': args.variant, 'n': len(results), 'wall_s': round(wall, 3),
+                'runs_per_s': round(rate, 3), 'fidelity': cfg['fidelity'],
+                'outcomes': dict(Counter(r.outcome for r in results)),
+                'runs': [{'out': str(r.out), 'outcome': r.outcome, 'sim_s': r.sim_s, 'wall_s': r.wall_s}
+                         for r in results]}):
+        return output.OK
     for r in results:
-        print(f'{r.out}: {r.outcome} in {r.sim_s:.0f} s sim ({r.wall_s:.2f} s wall)')
-    print(f'{len(results)} runs at {tier}, {wall:.1f} s wall: {len(results) / wall:.1f} runs/s')
-    print(f'fidelity: {cfg["fidelity"]}')
-    return 0
+        out.line(f'{r.out}: {r.outcome} in {r.sim_s:.0f} s sim ({r.wall_s:.2f} s wall)')
+    out.say(f'{len(results)} runs at {tier}, {wall:.1f} s wall: {rate:.1f} runs/s')
+    out.say(f'fidelity: {cfg["fidelity"]}')
+    out.next(f'crane board {args.out}')
+    return output.OK
+
+
+def _argv(args):
+    """The command line of a dry run without --dry-run (the one to run next)."""
+    words = [f'--domain {args.domain}' if args.domain else f'--config {args.config}']
+    words += [f'--tier {args.tier}'] if args.tier else []
+    words += [f'--seeds {args.seeds}', f'--out {args.out}']
+    words += [f'--set {shlex.quote(s)}' for s in args.set]
+    return words

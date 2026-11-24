@@ -2,54 +2,44 @@
 
 ```bash
 crane doctor
-crane run --domain toy --seeds 0:3 --out /tmp/runs --set workers=2
-crane run --domain boat --tier T1 --seeds 0:2 --out /tmp/runs
-crane sim up --headless && crane sim status
+crane run --domain toy --seeds 0:3 --set workers=2          # runs land in ~/.cache/crane/runs/toy/T0/<stamp>
+crane run --domain boat --tier T1 --seeds 0:2 --dry-run      # the resolved plan; nothing runs
+crane sim up --headless && crane sim check --wait 120
+crane help                                                    # every noun and verb
 ```
 
-`crane VERB --help` gives each verb's options, an example and what you'll see. From a checkout with no install,
-`python3 -m crane VERB` does the same (the repo root on `sys.path`). The core is stdlib plus numpy and pyyaml;
-each verb imports what it needs only when it runs, and the `sim` path is stdlib only.
+`crane NOUN [VERB] [selectors] [flags]`. `crane NOUN VERB --help` gives the options, an example, what you'll see and
+the low-level equivalent. Without an install, `bin/crane` runs this checkout (it prefers `.venv/bin/python`, else
+`python3`); astro calls `${CRANE_DIR:-~/crane_ml}/bin/crane` without a shell. The core is stdlib plus numpy and
+pyyaml; each command imports what it needs only when it runs, and `crane sim` and `crane help` are stdlib only.
 
-## Verbs
-
-| Verb | Runs | Module or tool |
-|---|---|---|
-| `sim up\|down\|status` | the T2 world plus ROS, like the boat | execs `Tools/RoboBoat/sim_up` with the arguments unchanged |
-| `sim check` | is the running sim ready | live readiness of the running sim; `crane sim check CHECK …` runs Tools/SimCheck (`sim_up check` calls it) |
-| `heavy …` | the host concurrency guard | execs `bin/heavy` |
-| `run --domain D [--tier T]` | episodes at T0 or T1, one run dir per seed | `fastsim.batch.run_batch` (`crane/run.py`) |
-| `judge …` | scoring | `python -m judge` |
-| `card show\|export` | plant cards and their tier views | `python -m plantcard` |
-| `board [ROOTS]` | web replay board | `python -m viewer serve` |
-| `view [RUN…] [--live]` | the native sandbox window, or `--screenshot` offscreen | `crane/view/` (the `[view]` extra; Docs/Viewing.md) |
-| `course gen\|validate\|render` | course truth | `heavy unity Tools/RoboBoat/generate.sh`, `validate.py`, `render.py` |
-| `bench player` | Unity player real-time factor | `heavy unity` + `run_worker.sh` / `sweep_workers.sh` (dir: `paths.BENCH`) |
-| `build player` | the headless Linux player | `heavy unity <editor> … -executeMethod CranePerformanceBuild.BuildLinuxWorker` (`crane/build.py`) |
-| `cluster …` | research-cluster jobs | execs `~/research-cluster/bin/research` (or `$RESEARCH_CLUSTER/bin/research`) |
-| `doctor` | machine checks and next commands | `crane/doctor.py` |
-| `fit BUNDLE…` | astro bundle to profile (gate) and plant card (evidence); `--factorial SPEC` card variants | `crane/fit.py` over `Tools/Characterization/bundle.py`, `plantcard` |
-| `field import SRC` | bundle, bag dir or .mcap to crane.run/1 (kind field) | `crane/field.py` |
-| `run --astro-test TEST` | astro's tests at T0/T1, metrics named as astro's results | `crane/astrotest.py` over `Tools/Characterization/astro_tests.py` |
-| `compare A B [--tiers]`, `compare --field BUNDLE RUNS` | variant A/B, tier gap, field vs sim | `crane/compare.py` |
-| `setup`, `bench fast`, `run --tier T2` | not yet available | say what to use today and exit 2 |
+Every command, its params and examples: [Docs/CLI.md](../Docs/CLI.md), generated from the registry.
 
 ## Pieces
 
-- `crane/cli.py`: the parser and dispatch. Pass-through verbs (`sim`, `heavy`, `judge`, `card`, `board`,
-  `course`, `cluster`) hand every argument after the verb to their tool; only `crane VERB --help` is crane's own.
-- `crane/paths.py`: every path a verb execs, named once.
+- `crane/commands.py`: the one registry of nouns and verbs (summary, params, examples, `raw`, JSON schema, handler
+  `module:function`). argparse, `--help`, `crane help`, `help.yaml` and `Docs/CLI.md` come from it;
+  `crane help --check` fails when the generated files drift, `crane help --write` regenerates them. A command not
+  built yet names what to use today and exits 2.
+- `crane/cli.py`: the parser built from the registry, and the dispatch. Pass-through commands (`sim`, `heavy`,
+  `judge`, `card`, `board`, `env`/`course`, `cluster`) hand every argument after their words to their tool.
+- `crane/select.py`: the shared selectors (`--domain --tier --env --robot --card --seed --seeds --set --out`).
+  `parse_seeds` takes `N`, `A:B`, `a,b,c`, `@FILE` and `block:NAME` (`seeds:` in `config/domains/D.yaml`, each a
+  spec or `{seeds, role}`). `--out` defaults to `~/.cache/crane/runs/DOMAIN/TIER/STAMP` (`CRANE_RUNS` moves the root).
+- `crane/output.py`: `--json` (one document; JSONL for streams), `--quiet`, `--dry-run`; aligned tables, one-line
+  failures `crane NOUN VERB: cause; fix: CMD`, `next:` lines. Exit codes: 0 ok, 1 failed (judge FAIL included),
+  2 usage or config, 75 a bounded wait timed out.
+- `crane/paths.py`: every path a command execs, named once.
 - `crane/tiers.py`: `normalise('dynamic') == 'T1'`; T0 abstract, T1 dynamic, T2 unity.
 - `crane/run.py`: `--domain D [--tier T]` reads `config/domains/D.yaml` through `bench.fast.domain_tier`: the tier
-  (default the first) names a fastsim config (from the repo root) and optional `overrides` merged over it. Missing
-  scenarios are made by the config's generator, or the dir is named when there is none; `--generate` regenerates.
-  `--config` takes a fastsim config directly. `--set a.b=v` overrides a key (the value is YAML).
+  (default the first) names a fastsim config and optional `overrides` merged over it. Missing scenarios are made by
+  the config's generator, or the dir is named when there is none; `--generate` regenerates.
 - `crane/build.py`: after the build, `sourceCommit` and `sourceDirty` go into
   `Builds/CRANE-Worker/crane-build-manifest.json`; `--tarball` writes
   `Builds/crane-player-<commit12>-linux-x86_64.tar.zst` (`.tar.gz` without zstd), without debug symbols, and a
-  `.sha256` in `sha256sum` format. `--skip-unity` stamps and packs an existing build.
+  `.sha256` in `sha256sum` format.
 - `config/sim.yaml` (the scene's default current, the player's required flag) and `config/bench.yaml` (sweep counts).
-- `help.yaml` (repo root): the user-facing verbs in astro's help schema, so `astro crane VERB` runs them.
+- `help.yaml` (repo root, generated): the user-facing commands in astro's help schema, so `astro crane VERB` runs them.
 
 ## Install
 

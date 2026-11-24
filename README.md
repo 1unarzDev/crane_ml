@@ -10,12 +10,12 @@ sensors; ROS 2 supplies the planning, navigation, estimation, and control stack.
 ```bash
 ./install.sh --yes --components core,fast      # uv, a Python 3.12 venv at .venv, ~/.local/bin/crane
 crane doctor                                   # what works on this machine, and what to run next
-crane run --tier T0 --config DOMAIN.yaml --seeds 1:21 --out /tmp/runs   # one run dir per seed
+crane run --domain toy --seeds 0:3             # one run dir per seed, under ~/.cache/crane/runs
 ```
 
-One CLI for sim and research across domains and tiers (T0 abstract, T1 dynamic, T2 unity). `crane --help` lists
-the verbs; [crane/README.md](crane/README.md) maps each to the module it runs. Without an install,
-`python3 -m crane` works from the repo root.
+One CLI for sim and research across domains and tiers (T0 abstract, T1 dynamic, T2 unity). `crane help` lists
+every command ([Docs/CLI.md](Docs/CLI.md)); [crane/README.md](crane/README.md) maps the pieces. Without an install,
+`bin/crane` runs this checkout.
 
 ## Screenshots
 

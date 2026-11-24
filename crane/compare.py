@@ -373,11 +373,18 @@ def main(args):
         print(f'crane compare: {error}', file=sys.stderr)
         return 2
     md = markdown(kind, res)
-    sys.stdout.write(md)
+    doc = {'schema': 'crane.compare/1', 'kind': kind, 'result': res}
+    as_json = getattr(args, 'json', False)
+    if as_json:
+        from crane.output import dumps
+        print(dumps(json.loads(json.dumps(doc, default=str))))
+    else:
+        sys.stdout.write(md)
     if args.out:
         out = Path(args.out)
         out.mkdir(parents=True, exist_ok=True)
-        (out / 'compare.json').write_text(json.dumps({'kind': kind, 'result': res}, indent=1, default=str) + '\n')
+        (out / 'compare.json').write_text(json.dumps(doc, indent=1, default=str) + '\n')
         (out / 'compare.md').write_text(md)
-        print(f'wrote {out / "compare.json"} and {out / "compare.md"}')
+        if not as_json:
+            print(f'wrote {out / "compare.json"} and {out / "compare.md"}')
     return 0
