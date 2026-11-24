@@ -1,0 +1,50 @@
+# Acceptance numbers of the T2 (unity) player contract, one place for every check in Tools/SimCheck.
+# A check's command-line flag overrides its number here; --thresholds PATH swaps the whole file.
+
+axis:                         # FLU command axes and yaw feedback (axis)
+  dominance_ratio: 3.0        # a positive surge/sway request must move that axis this many times the cross axis
+
+sitl:                         # ArduPilot JSON/SITL UDP loopback (sitl-peer, sitl)
+  maximum_lag_ticks: 5        # receive-to-application latency of an accepted servo packet
+  aerial_min_climb_m: 0.1     # aerial scope: the reference quadrotor must climb this far
+
+docking:                      # terminal docking (docking)
+  rotate_to_path:             # before the first forward command
+    linear_command_threshold: 0.01   # |commanded surge| above this is a forward command
+    maximum_yaw_travel_rad: 6.283185 # yaw travelled while rotating in place
+    maximum_drift_m: 1.0             # xy drift while rotating in place
+  settle:                     # the player's docking evaluator defaults
+    xy_tolerance_m: 0.4
+    yaw_tolerance_rad: 0.35
+    speed_tolerance_m_s: 0.05
+    yaw_rate_tolerance_rad_s: 0.05
+    settle_s: 5.0
+  goal_checker:               # the Nav2 StoppedGoalChecker the terminal approach ran with
+    xy_goal_tolerance_m: 0.20
+    yaw_goal_tolerance_rad: 0.35
+    stopped_velocity: 0.05    # translation and rotation; the settling variant used 0.02
+
+smoke:                        # a recorded sim session flowed (smoke)
+  min_hz:
+    /clock: 20
+    /crane/odom: 20
+    /odom/mavros: 10
+    /imu/raw: 10
+    /gps/fix: 2
+    /odom/local: 5
+    /thrusters/pwm: 5
+  span_topics: [/clock, /odom/mavros]   # with --duration, these must cover min_span_frac of it
+  min_span_frac: 0.9
+  min_travel_m: 1.0           # /crane/odom displacement
+  min_active_pwm: 10          # /thrusters/pwm messages away from neutral
+  neutral_us: 1500
+  pwm_band_us: 25
+
+watchdog:                     # the in-run stop rule (watchdog.Watchdog); null disables a limit
+  hard_s: null
+  startup_s: 240
+  stall_s: 30
+  post_s: 300
+  motion_grace_s: 10
+  min_travel_m: 0.5
+  expect_motion: false

@@ -6,7 +6,7 @@ Courses are generated at runtime from a family of task assets; no scene edits.
 - Player: `--crane-course-family roboboat_2026 --crane-course-seed N [--crane-course-mode iid|corner=lo|hi|mixed]
   [--crane-course-set task.param=value]... --crane-course-truth DIR/course_truth.json [--crane-detection-labels oracle|camera]
   [--crane-ros-course-truth]`. A `--crane-roboboat-course FILE.json` whose JSON names `family` (and `seed`, `mode`, `set`) does
-  the same, so the rig needs no change; a 2025 element list still goes to the legacy builder. `--crane-course-replay truth.json`
+  the same, so sim_up needs no change; a 2025 element list still goes to the legacy builder. `--crane-course-replay truth.json`
   rebuilds a recorded course. Ready line: `CRANE_COURSE_READY name= seed= sha256= pair_key= source_sha256=` (plus the legacy
   `CRANE_ROBOBOAT_COURSE_READY`).
 - Without Unity: `coursegen` (`Tools/RoboBoat/cli`, README there), the same generator files and the same truth byte for byte.
@@ -24,7 +24,7 @@ Courses are generated at runtime from a family of task assets; no scene edits.
 - `states.jsonl`: one `{t_sim, id, value}` per state change (lights, signs, horn blasts).
 - ROS (opt-in): `/crane/truth/course` every 2 s, `/crane/truth/states` on change + 1 Hz, both std_msgs/String JSON;
   `/crane/sim/horn` `{on, freq_hz}` boat-side. Only nodes on `Tools/RoboBoat/truth_allowlist.yaml` may subscribe to
-  `/crane/truth/*`; the rig runs `check_truth_subscribers.py`.
+  `/crane/truth/*`; `check_truth_subscribers.py` checks that, and `python3 -m judge.packs.roboboat_course SESSION_DIR` referees a run.
 
 ## Rules
 `Tools/RoboBoat/constraints/roboboat_2026.json` (a link to `Assets/Config/Course/Resources/roboboat_2026.constraints.json`) is the

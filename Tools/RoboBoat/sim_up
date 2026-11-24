@@ -5,8 +5,14 @@
 # ASTRO_DATA and the state path (ASTRO_STATE / MHSEALS_HARDWARE_CONFIG); run bare, it reads the sim profile.
 #
 #   sim_up [up] [--seed N] [--course FAMILY] [--profile-json F] [--window | --headless] [--player PATH]
+#               [--current SPEED,TOWARD_DEG]
 #   sim_up down      stop what sim_up started (its player and its ROS container only)
-#   sim_up status    the status block: mode, domain, port, pids, logs, the next commands
+#   sim_up status    the status block: mode, domain, port, pids, disturbance, logs, the next commands
+#   sim_up check     the player contract acceptance (python3 -m crane sim check)
+#
+# --current sets the water current: speed in m/s toward a direction counter-clockwise from world +x of
+# /crane/odom (the player's --crane-water-current). --current 0 is still water, for characterization. Without it
+# the scene's current applies: default_current in config/sim.yaml (0.15 m/s toward 270 deg).
 #
 # up starts two things and returns once the course is ready:
 #   1. the ROS side: `ros2 launch mhseals_nav device.launch.py device:=sim` (odometry, EKFs, nav, objects
@@ -37,6 +43,8 @@ DOCK=${ASTRO_DOCK:-$HOME/astro_dock}
 VESSEL=${SIM_UP_VESSEL:-sim}
 CONTAINER=sim_up_ros
 READY_S=${SIM_UP_READY_S:-300}
+DEFAULT_CURRENT=$(sed -n 's/^default_current: *\([0-9.,-]*\).*/\1/p' "$crane/config/sim.yaml" 2>/dev/null | head -n1)
+DEFAULT_CURRENT=${DEFAULT_CURRENT:-0.15,270}
 WS=/home/roboboat/roboboat_ws            # the dev container's workspace mount (.devcontainer/docker-compose.yml)
 
 die() { echo "sim_up: $*" >&2; exit 2; }
@@ -92,6 +100,11 @@ status() {
   if ros_up; then echo "  ros:       container $CONTAINER running (device.launch.py device:=sim)"
   else echo "  ros:       stopped"; fi
   grep -q CRANE_ROBOBOAT_COURSE_READY "$RUN/player.log" 2>/dev/null && echo "  course:    ready (seed $(cat "$RUN/seed" 2>/dev/null), truth $RUN/course_truth.json)"
+  if [ -s "$RUN/current" ]; then
+    local c; c=$(cat "$RUN/current")
+    if [ "$c" = default ]; then echo "  current:   ${DEFAULT_CURRENT%,*} m/s toward ${DEFAULT_CURRENT#*,} deg (the scene default)"
+    else echo "  current:   ${c%,*} m/s toward ${c#*,} deg (--current; the scene default is ${DEFAULT_CURRENT%,*} m/s toward ${DEFAULT_CURRENT#*,} deg)"; fi
+  fi
   echo "  logs:      $RUN/player.log  $RUN/player-stdout.log  $RUN/ros.log"
   if alive player || ros_up; then
     echo "  next:      astro on sim"
@@ -111,12 +124,12 @@ down() {
     rm -f "$RUN/player.pid"
   fi
   docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
-  rm -f "$RUN/domain" "$RUN/port"
+  rm -f "$RUN/domain" "$RUN/port" "$RUN/current"
   echo "sim_up: down"
 }
 
 up() {
-  local seed=1 course=roboboat_2026 profile_json='' mode='' player=''
+  local seed=1 course=roboboat_2026 profile_json='' mode='' player='' current=''
   while [ $# -gt 0 ]; do
     case $1 in
       --seed) seed=$2; shift 2 ;;
@@ -125,6 +138,9 @@ up() {
       --window) mode=window; shift ;;
       --headless) mode=headless; shift ;;
       --player) CRANE_PLAYER=$2; shift 2 ;;
+      --current) current=$2; shift 2
+        [ "$current" = 0 ] && current=0,0
+        [[ $current =~ ^[0-9]+(\.[0-9]*)?,-?[0-9]+(\.[0-9]*)?$ ]] || die "--current wants SPEED,TOWARD_DEG (m/s, deg) or 0; got $current" ;;
       -h|--help) usage; exit 0 ;;
       *) die "unknown option $1 (sim_up --help)" ;;
     esac
@@ -139,6 +155,7 @@ up() {
   local d img port; d=$(domain); port=$((10000 + d)); img=$(image)
   [ -n "$img" ] || die "no dev image (ASTRO_IMAGE)"
   mkdir -p "$RUN"; rm -f "$RUN"/player*.log "$RUN/ros.log" "$RUN/course_truth.json"
+  echo "${current:-default}" >"$RUN/current"
   echo "$d" >"$RUN/domain"; echo "$port" >"$RUN/port"; echo "$mode" >"$RUN/mode"; echo "$seed" >"$RUN/seed"
   echo "$player" >"$RUN/player.path"
 
@@ -175,6 +192,7 @@ up() {
     --crane-course-family "$course" --crane-course-seed "$seed"
     --crane-roboboat-course-truth "$RUN/course_truth.json")
   [ -n "$profile_json" ] && args+=(--crane-boat-profile-json "$profile_json")
+  [ -n "$current" ] && args+=(--crane-water-current "$current")
   HEAVY_WHO="sim_up $mode" setsid "${guard[@]}" "${view[@]}" nice -n 10 "$player" "${args[@]}" \
     >"$RUN/player-stdout.log" 2>&1 </dev/null &
   echo $! >"$RUN/player.pid"
@@ -194,6 +212,7 @@ case $verb in
   --*) up "$@" ;;
   down) down ;;
   status) status ;;
+  check) shift; PYTHONPATH="$crane${PYTHONPATH:+:$PYTHONPATH}" exec python3 -m crane sim check "$@" ;;
   -h|--help|help) usage ;;
   *) usage; exit 2 ;;
 esac

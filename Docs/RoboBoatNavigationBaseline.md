@@ -18,14 +18,12 @@ the environment scene and manual controller were not edited.
 - ROS image: `lunarzdev/astro:cuda`; installed Nav2 Debian packages are Jazzy `1.3.12`.
 - Player SHA-256: `a7ad5b156bd9a1232544ff6fc12e5f863d8f1f2348c5b141f5c3d4230e5be292`.
 - Locked scene SHA-256: `db1399a23ff791dcf49d389381cf6f745169b671b8fb87fdc8ddeebe2342ed84`.
-- Active parameters are [nav2_controller_fixture.yaml](../Tools/Performance/nav2_controller_fixture.yaml),
-  loaded explicitly by [run_nav2_controller_fixture.sh](../Tools/Performance/run_nav2_controller_fixture.sh).
-  Its pre-fix blob SHA-256 was `047e0981...b401385c`; the corrected blob is
+- Active parameters were the study's `nav2_controller_fixture.yaml`, loaded explicitly by its
+  `run_nav2_controller_fixture.sh` (both removed; Nav2 now runs from the boat's stack through
+  `astro test nav2` on `astro sim`). Its pre-fix blob SHA-256 was `047e0981...b401385c`; the corrected blob is
   `9737552e...179a92`; the visible-bow/BT revision is
   `0373293d0b18e900e34c9606af63718d0f66b8dba7660c72eadd144e20219039`.
-- The active BT is
-  [nav2_roboboat_distance_replanning.xml](../Tools/Performance/nav2_roboboat_distance_replanning.xml),
-  SHA-256 `e47dadf5bb1228f031e1a7a15d60f0a784c5101ffff9fd11fc36ea7458ce3dce`.
+- The active BT was the study's `nav2_roboboat_distance_replanning.xml`, SHA-256 `e47dadf5bb1228f031e1a7a15d60f0a784c5101ffff9fd11fc36ea7458ce3dce`.
 - `nav2_land_fixture.yaml` and the land/TurtleBot launchers are alternatives for land fixtures and
   do not control RoboBoat runs. No velocity smoother executable is launched. No command-line BT
   override was used for the final runs; the active BT is selected by the parameter file above.
@@ -38,7 +36,7 @@ NavigateToPose (/navigate_to_pose)
   -> NavfnPlanner /compute_path_to_pose (A*, rolling odom costmap)
   -> RegulatedPurePursuitController /follow_path at 10 Hz
   -> Twist on /nav2/cmd_vel
-  -> nav2_follow_path_fixture.py stamps/forwards it as TwistStamped
+  -> the study fixture stamps/forwards it as TwistStamped
      on /crane/cmd_vel_stamped
   -> ROS TCP endpoint -> Unity ROSSubscriber
   -> ROSOmniXCommand (desired body velocity -> normalized PI/feed-forward effort)
@@ -66,9 +64,8 @@ The boat mixer and `OmniXController` agree on every thruster's sign once
 `ROSOmniXCommand.ToControllerMotion` is applied, so positive boat effort on a thruster is positive
 simulator command; `RoboBoatThrusterPwmTests` pins this.
 
-`run_nav2_controller_fixture.sh` launches four Nav2 servers directly, remaps controller and
-behavior output to `/nav2/cmd_vel`, and launches the lifecycle manager. The fixture is the only
-Twist-to-TwistStamped bridge in this path. ROS callbacks enqueue commands; Unity applies the latest
+The study fixture that launched these Nav2 servers directly is replaced by `astro test nav2` on
+`astro sim`. ROS callbacks enqueue commands; Unity applies the latest
 accepted command only on the 50 Hz physics boundary. Commands become stale after 25 ticks (0.5 s),
 at which point effort is zeroed and integrators reset.
 
@@ -212,11 +209,9 @@ bow top speed.
 
 ## Existing evidence and capabilities
 
-The repository already contains FollowPath/NavigateToPose fixtures, generated straight/gentle/S
-paths, a supplied known dock path, command/yaw/thruster response fixtures, independent docking and
-collision predicates, path metrics/plots, costmap-clearance audit, and retained per-run trajectories.
-They measure action status, RMS/max cross-track and heading error, body velocity, final pose,
-stopping/coast, contact, dock-region containment, recovery events, and transport validity.
+The study's FollowPath/NavigateToPose, command-response and thruster-response fixtures, plots and
+costmap audit are replaced by `astro test steps|speed|nav2` on `astro sim`; `Tools/SimCheck` keeps
+the axis contract, the docking rotate-to-path and settling thresholds, and the SITL acceptance.
 
 Corrected results (all scene/physics unchanged, `linear.y` command always zero):
 

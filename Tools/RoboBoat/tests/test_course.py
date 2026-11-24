@@ -362,6 +362,28 @@ class Referee(unittest.TestCase):
                     {'tasks': {'marina': {'tier': 'green'}, 'x': {'sweep': 380.4}}, 'contacts': ['a']}):
             self.assertTrue(mismatches(got, want), got)
 
+    def test_course_pack_referee_reads_generated_truth(self):
+        """judge/packs/roboboat_course on generated truth: N/A for a task the course lacks, and on every
+        fixture the verdict and hull-rectangle contacts the case is built to produce."""
+        sys.path.insert(0, str(HERE.parents[2]))
+        from judge.packs.roboboat_course import referee
+        case = HERE / 'referee' / 'entry_out_and_back'
+        track = [(r['t'], r['x'], r['y'], r['yaw']) for r in course_truth.read_jsonl(case / 'track.jsonl')]
+        got = {task: referee.judge(task, BASE, track)['verdict']
+               for task in ('nav_channel', 'docking', 'speed_challenge', 'entry_gates')}
+        self.assertEqual(got, {'nav_channel': 'N/A', 'docking': 'N/A', 'speed_challenge': 'FAIL', 'entry_gates': 'PASS'})
+        for case in sorted(p for p in (HERE / 'referee').iterdir() if p.is_dir()):
+            want = json.loads((case / 'expected.json').read_text())
+            verdicts = referee.judge_session(case)
+            with self.subTest(case.name):
+                if 'contacts' in want:
+                    self.assertEqual(sorted({c for v in verdicts.values() for c in v.get('contacts', [])}),
+                                     sorted(want['contacts']))
+                for task, facts in want.get('tasks', {}).items():
+                    passed = facts.get('correct', facts.get('all_out', facts.get('tier', 'occupied') != 'occupied'))
+                    if task != 'debris_clearance':     # its cases each exercise one of several beacons
+                        self.assertEqual(verdicts[task]['verdict'], 'PASS' if passed else 'FAIL')
+
 
 class Allowlist(unittest.TestCase):
     INFO = """Type: std_msgs/msg/String

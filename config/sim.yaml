@@ -1,0 +1,9 @@
+# crane sim (Tools/RoboBoat/sim_up) and crane doctor. Flat keys: sim_up reads them with sed, no YAML parser.
+
+# The Roboboat Course scene's water current, SPEED,TOWARD_DEG (m/s; toward, counter-clockwise from world +x of
+# /crane/odom): its water surface has largeCurrentSpeedValue 0.15 and HDRP orientation 0, which is toward 270 deg.
+# `sim_up up --current X,Y` overrides it, `--current 0` is still water; `sim_up status` prints the active one.
+default_current: 0.15,270
+
+# A player sim_up can run knows this flag (sim_up has_flags; crane doctor checks it the same way).
+required_flag: --crane-roboboat-contract
