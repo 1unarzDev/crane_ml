@@ -8,7 +8,7 @@
     crane sim check [--wait S] [--json]   live readiness: player, course, plant, ROS side, nodes, player errors
     crane sim logs [player|stdout|ros] [-n LINES]   the last lines of each log
 
-Bare (or with only options) it means up. The domain (default config/sim.yaml's, boat) names everything
+crane sim names its verb (bare sim_up still means up). The domain (default config/sim.yaml's, boat) names everything
 specific in config/domains/<domain>.yaml tiers.T2. Without --display: a window when stdin is a terminal and
 DISPLAY or WAYLAND_DISPLAY is set, else headless under xvfb-run, so agents and scripts stay headless. The player
 always runs through the host guard (`heavy unity`). up waits up to the ROS endpoint's endpoint_s (60 s) and the
@@ -73,8 +73,9 @@ def main(argv=None):
     if argv[:1] in (['-h'], ['--help'], ['help']):
         _usage()
         return 0
-    if not argv or argv[0].startswith('-'):
-        argv = ['up', *argv]
+    if not argv or argv[0].startswith('-'):   # the sim_up shim inserts `up` itself; crane sim names its verb
+        _usage()
+        return 2
     verb, rest = argv[0], argv[1:]
     if verb == 'check':
         from crane.sim import check

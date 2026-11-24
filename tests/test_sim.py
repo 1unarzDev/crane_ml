@@ -313,7 +313,9 @@ def test_check_status_and_refusals_on_a_fake_state_dir(world_env, monkeypatch, c
             pass
     # headless without xvfb-run, and unknown verbs or options: one line, exit 2
     monkeypatch.setattr(world.shutil, 'which', lambda name: None if name == 'xvfb-run' else shutil.which(name))
-    assert sim.main(['--headless']) == 2
+    assert sim.main(['--headless']) == 2                 # options without a verb: usage, never a world
+    capsys.readouterr()
+    assert sim.main(['up', '--headless']) == 2
     assert capsys.readouterr().err == 'crane sim: headless needs xvfb-run: install xvfb or use --window\n'
     assert sim.main(['up', '--current', 'fast']) == 2 and 'SPEED,TOWARD_DEG' in capsys.readouterr().err
     assert sim.main(['launch']) == 2 and sim.main(['up', '--bogus']) == 2

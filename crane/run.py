@@ -49,13 +49,15 @@ def main(args):
             tier, config, merged = tier_config(args.domain, tier)
     except LookupError as error:
         return out.usage('run', str(error).strip('"\''), 'crane run --domain DOMAIN (see config/domains)')
-    if not args.out:
-        args.out = str(select.default_out(args.domain or Path(args.config).stem, tier))
     try:
         seeds = select.parse_seeds(args.seeds, args.domain)
         sets = overrides(args.set)
     except select.SelectError as error:
         return out.usage('run', str(error), 'crane run --help')
+    if not args.out:   # one place per (config, overrides): the same command resumes, a change goes elsewhere
+        from crane.ids import digest
+        key = f"{getattr(args, 'variant', None) or 'base'}-{digest([str(config), merged, sets])[:8]}"
+        args.out = str(select.default_out(args.domain or Path(args.config).stem, tier, key=key))
     cfg, base = fsconfig.load(config, fsconfig.merge(merged, sets) if sets else (merged or None))
     source = ScenarioSource(**cfg['scenarios'], base=base)
     if out.dry_run:

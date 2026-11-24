@@ -3,7 +3,7 @@
     parse_seeds('0:4')               -> [0, 1, 2, 3]
     parse_seeds('block:dev', 'boat') -> the seeds config/domains/boat.yaml names under seeds.dev
     parse_sets(['a.b=1'])            -> {'a': {'b': 1}}
-    default_out('boat', 'T1')        -> ~/.cache/crane/runs/boat/T1/<stamp>
+    default_out('boat', 'T1', key)   -> ~/.cache/crane/runs/boat/T1/<key>
 
 Stdlib only at import (YAML is read lazily), so `crane sim` and `crane help` need nothing installed.
 """
@@ -163,8 +163,10 @@ def stamp():
     return time.strftime('%Y%m%d-%H%M%S')
 
 
-def default_out(domain=None, tier=None, root=None):
-    """~/.cache/crane/runs/DOMAIN/TIER/STAMP (CRANE_RUNS overrides the root). Never inside the repo."""
+def default_out(domain=None, tier=None, root=None, key=None):
+    """~/.cache/crane/runs/DOMAIN/TIER/KEY (CRANE_RUNS overrides the root). Never inside the repo. KEY names what
+    was run (e.g. a digest of the config and overrides), so the same command reruns into the same place and
+    resumes; without a key it is a time stamp."""
     base = Path(root or os.environ.get('CRANE_RUNS') or RUNS_ROOT).expanduser()
-    return base / (domain or 'custom') / (tier or 'any') / stamp()
+    return base / (domain or 'custom') / (tier or 'any') / (key or stamp())
 
