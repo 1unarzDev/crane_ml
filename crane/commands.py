@@ -226,7 +226,8 @@ COMMANDS = [
                       'traj.ctraj with every K-th track row (default: run.json, events.jsonl, metrics.json only).'),
                     P('--astro-test', metavar='TEST', description="An astro test or group (still, couple-*, speed-*, "
                       "steps-*, nav2, all) at T0/T1, with metrics named as astro's result fields."),
-                    sel('card', repeat=True, description='With --astro-test: a profile JSON, a plant card or a '
+                    sel('card', repeat=True, description="A profile JSON or a name in the domain's card dir, bound "
+                        "to its card.keys (config/domains/D.yaml); with --astro-test also a plant card or a "
                         'factorial manifest (repeatable).'),
                     P('--tests', 'path', description="With --astro-test: astro's tests file or a bundle holding one."),
                     P('--space', description="With --astro-test: the tests file's space (default large)."),

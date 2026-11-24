@@ -3,7 +3,8 @@
     summary = run_study(study, out, stage='R', max_workers=4)      # what `crane study run` does
     rows = cell.run(out)                                            # one cell (what a cluster job does)
 
-Sim cells run through fastsim.batch.run_batch on the domain's tier config, with the cell's overrides merged in
+Sim cells run through fastsim.batch.run_batch on the domain's tier config (an adapter that runs on the batched
+engine only, as the sub: its run_batched), with the cell's overrides merged in
 (the same reading `crane run --domain D --tier T --set k=v` makes); each run dir is read for its numbers and removed
 (``keep_runs: true`` keeps them under OUT/runs/<cell>/). Task cells call ``module:function(args, seed, cell)`` or run
 ``argv`` with ``{args}`` (JSON), ``{seed}``, ``{out}``, ``{cell}``, ``{python}`` filled in; a task's numbers are its
@@ -156,12 +157,25 @@ class _Sim:
         run_seed = cell.run_seeds[seed]
         self.source.generate([run_seed])
         root = Path(out) / 'runs'
-        result, = batch.run_batch(self.cfg, self.base, [run_seed], root, cell.id, 1,
-                                  {'study': cell.study, 'cell': cell.id}, force=True, progress=False)
-        run_dir = Path(result.out)
-        run = json.loads((run_dir / 'run.json').read_text())
-        numbers = flat_numbers({'run': {'sim_s': run['sim_s'], 'contacts': len(run['contacts']),
-                                        'min_clearance_m': run['min_clearance_m']}})
+        engines = getattr(self.adapter, 'engines', None) or ()
+        if 'batched' in engines and 'fastsim' not in engines:     # a domain with its own batched episode only
+            run_dir = root / cell.id / f's{run_seed}'
+            shutil.rmtree(run_dir, ignore_errors=True)            # the scalar path's force=True: always rerun
+            ((_, _, _, run_dir),), _ = self.adapter.run_batched(
+                self.cfg, self.base, [run_seed], root, cell.id, self.adapter.backends[0], None, 0,
+                {'study': cell.study, 'cell': cell.id, 'engine': 'batched'})
+            run_dir = Path(run_dir)
+            run = {**json.loads((run_dir / 'run.json').read_text()),
+                   **json.loads((run_dir / 'metrics.json').read_text())['summary']}
+            head = {'sim_s': run['sim_s'], 'contacts': run['contacts'],
+                    'min_clearance_m': self.adapter.metrics(run_dir).get('min_clearance_m')}
+        else:
+            result, = batch.run_batch(self.cfg, self.base, [run_seed], root, cell.id, 1,
+                                      {'study': cell.study, 'cell': cell.id}, force=True, progress=False)
+            run_dir = Path(result.out)
+            run = json.loads((run_dir / 'run.json').read_text())
+            head = {'sim_s': run['sim_s'], 'contacts': len(run['contacts']), 'min_clearance_m': run['min_clearance_m']}
+        numbers = flat_numbers({'run': head})
         numbers.update(flat_numbers(self.adapter.metrics(run_dir)))
         numbers = {**_numbers(numbers), 'succeeded': float(run['outcome'] == 'SUCCEEDED')}
         res = {'metrics': numbers, 'outcome': run['outcome'], 'seed': seed, 'run_seed': run_seed,

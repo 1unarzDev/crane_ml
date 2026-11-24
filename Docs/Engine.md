@@ -99,6 +99,67 @@ A domain with its own batched episode gives its adapter `run_batched(...)` (engi
 runs one compiled episode per env on numba; its records are crane.run/1 with frame `{world: ned, body: frd}`
 and a 6-DOF `traj.ctraj`.
 
+### The sub platform's old paths (shims)
+
+The sub platform branch keeps its old import paths as shims onto these modules once it has merged main
+(`engine/`). Each module shim makes the old module *be* the new one (`sys.modules`), so every name re-exports:
+`G`, `RHO_FRESH`, `RHO_SEA`, `ALLOC_RCOND`, `Thruster`, `VehicleParams`, `State`, `Simulator`, `allocate`,
+`allocation_rank`, `allocation_matrix`, `euler_to_quat`, `quat_to_rot`, `quat_to_euler`, ... from
+`marine6_ref`, and `load`, `to_params`, `to_thrusters`, ... from `marine6_profile`. The crane root goes at the
+front of `sys.path` (the shim's `parents[2]`), after `crane_sub/plant/_underwater.py` has put `Tools/Underwater`
+there for `import fossen6dof` and `import vehicle_profile`.
+
+`Tools/Underwater/fossen6dof.py`, the whole file:
+
+```python
+"""Shim: the 6-DOF Fossen reference lives on main as engine/kernels/marine6_ref.py (the same code). This module
+is that module, so `import fossen6dof` (Tools/Underwater on sys.path) and every caller keep working."""
+import sys
+from pathlib import Path
+
+_root = str(Path(__file__).resolve().parents[2])
+if _root not in sys.path:
+    sys.path.insert(0, _root)
+from engine.kernels import marine6_ref as _ref  # noqa: E402
+
+sys.modules[__name__] = _ref
+```
+
+`Tools/Underwater/vehicle_profile.py`, the whole file:
+
+```python
+"""Shim: the vehicle profile loader lives on main as engine/kernels/marine6_profile.py (the same code). This
+module is that module, so `import vehicle_profile` (Tools/Underwater on sys.path) and every caller keep working."""
+import sys
+from pathlib import Path
+
+_root = str(Path(__file__).resolve().parents[2])
+if _root not in sys.path:
+    sys.path.insert(0, _root)
+from engine.kernels import marine6_profile as _profile  # noqa: E402
+
+sys.modules[__name__] = _profile
+```
+
+`crane_sub/plant/dynamics.py`, the whole file (optional; `VecDynamics(params, thrusters, thruster_gain=1.0)`
+has the platform's signature and methods, and agrees with the platform's numpy `VecDynamics` to 1e-13 over 300
+steps, not bit for bit, so golden files that pin its rounding are regenerated):
+
+```python
+"""Shim: VecDynamics lives on main as engine/kernels/marine6_vec.py, over the batched marine6 kernel (the same
+equations; parity with fossen6dof.Simulator within 1e-12, not bit for bit with the old numpy twin)."""
+import sys
+
+from ._underwater import REPO_ROOT  # noqa: F401  (puts Tools/Underwater on sys.path)
+
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+from engine.kernels.marine6_vec import VecDynamics  # noqa: E402,F401
+```
+
+The other `crane_sub/plant/*` modules (contact, actuators, projectiles, hull, ...) stay on the platform branch
+and reach the plant through these shims; no profile JSON changes.
+
 ## Gates
 
 | gate | check | where |

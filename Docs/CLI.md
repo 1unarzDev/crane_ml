@@ -191,7 +191,7 @@ What you'll see: one line per seed (run dir, outcome, sim and wall time), then r
 | `--dtype` | str | With --engine batched: default float64; jax on a consumer GPU wants float32 (bench/RESULTS.md). One of `float64`, `float32`. |
 | `--record` | int | With --engine batched: also write traj.ctraj with every K-th track row (default: run.json, events.jsonl, metrics.json only). |
 | `--astro-test` | str | An astro test or group (still, couple-*, speed-*, steps-*, nav2, all) at T0/T1, with metrics named as astro's result fields. |
-| `--card` | str | With --astro-test: a profile JSON, a plant card or a factorial manifest (repeatable). |
+| `--card` | str | A profile JSON or a name in the domain's card dir, bound to its card.keys (config/domains/D.yaml); with --astro-test also a plant card or a factorial manifest (repeatable). |
 | `--tests` | path | With --astro-test: astro's tests file or a bundle holding one. |
 | `--space` | str | With --astro-test: the tests file's space (default large). |
 | `--amp` | float | With --astro-test: the effort amplitude (default the space's). |

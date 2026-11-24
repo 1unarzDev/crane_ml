@@ -2,8 +2,8 @@
 
     crane run --domain sub --tier T1 --engine batched --seeds 0:64
 
-The vehicle dives to the start depth, then for each gate goes to a point in front of it, through it at the
-gate's depth and heading to a point behind it, and finally holds station at the course's finish point. A
+The vehicle starts at the course's start depth, then for each gate goes to a point in front of it, through it
+at the gate's depth and heading to a point behind it, and finally holds station at the course's finish point. A
 gate crossed inside its opening (less the vehicle's half width and half height) is passed, else missed;
 the run succeeds when every gate is passed and the hold is done. The plant is the batched Fossen 6-DOF
 kernel (engine/kernels/marine6.py) with the profile's thrusters; the mission is domains/sub/mission.py.
@@ -31,7 +31,7 @@ class SubAdapter(DomainAdapter):
         if not profile:
             raise ValueError('sub: adapter.options.profile (a vehicle profile JSON) is required')
         self.tier = tier
-        self.profile = Path(base or '.') / profile
+        self.profile = Path(base or '.') / Path(profile).expanduser()
         self.mission = dict(mission or {})
         missing = [k for k in GAINS if k not in self.mission]
         if missing:

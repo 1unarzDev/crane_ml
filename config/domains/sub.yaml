@@ -9,8 +9,10 @@ env:
 robot:
   default: rov8
   robots: {rov8: {card: generic_rov8}}
-# --card REF: a vehicle profile JSON (crane.underwater.vehicle_profile/v1), or a name in dir (REF.json).
+# --card REF (and a study arm's card:): a vehicle profile JSON (crane.underwater.vehicle_profile/v1), or a
+# name in dir (REF.json); it sets keys.
 card:
   dir: domains/sub/profiles
+  keys: [adapter.options.profile]
 view:
   frame: {world: ned, origin: scenario, body: frd}

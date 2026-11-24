@@ -87,13 +87,15 @@ only, on the batched engine:
 crane run --domain sub --tier T1 --engine batched --seeds 0:64
 ```
 
-The mission dives to the start depth, then for each gate goes to a point in front of it, through it at its
-depth and heading, and holds station at the finish. A gate crossed inside its opening less the vehicle's half
+The vehicle starts at the course's start depth, then for each gate goes to a point in front of it, through it
+at its depth and heading, and holds station at the finish. A gate crossed inside its opening less the vehicle's half
 width and height (`publishedPerformance.dimensionsLxHxWM` of the profile) is passed, else missed. Courses come
 from `domains/sub/coursegen.py` (seed only, written under `~/.cache/crane/sub-courses`). The plant is
 `engine/kernels/marine6.py` with `domains/sub/profiles/generic_rov8.json`, an eight-thruster vectored vehicle
-from published numbers. The autopilot gains are in `fastsim_t1.yaml` (`adapter.options.mission`); the current
-and thrust noise in its `vehicle` block. `metrics.json` holds `sub`: `success`, `gates_passed`,
+from published numbers; `--card REF` (a profile JSON, or a name in `domains/sub/profiles`) runs another
+vehicle, and a study arm's `card:` binds the same key (`adapter.options.profile`). The autopilot gains are in
+`fastsim_t1.yaml` (`adapter.options.mission`); the current and thrust noise in its `vehicle` block
+(`randomize.current_sd` draws the north and east components only). `metrics.json` holds `sub`: `success`, `gates_passed`,
 `gates_missed`, `time_s`, `path_m`, `effort_Ns`, `hold_rms_m`, `gate_depth_rms_m`, `max_roll_deg`,
 `max_pitch_deg`, `min_clearance_m`.
 

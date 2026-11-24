@@ -6,7 +6,7 @@ adapter:
   ref: domains.sub.adapter:SubAdapter
   options:
     tier: T1
-    profile: &profile profiles/generic_rov8.json
+    profile: profiles/generic_rov8.json   # the vehicle profile: every plant number (crane run --card REF sets it)
     # The autopilot and the mission's tolerances (the plant's numbers all come from the profile).
     mission: {kp_pos: 0.6, vmax_u: 0.5, vmax_v: 0.3, vmax_w: 0.3, kv: 2.0, kp_att: 25.0, kd_att: 8.0,
               kp_yaw: 1.2, kd_yaw: 3.0, rmax: 0.5, turn_rad: 0.6, face_m: 0.8, wp_tol_m: 0.35,
@@ -14,9 +14,9 @@ adapter:
 dt: 0.02            # the control period; the plant's RK4 substeps are fixed per profile (the thruster lag's bound)
 tick_hz: 50.0
 track_hz: 10.0
-# The disturbance: a NED current (m/s), constant in the pool; per-env draws from each env's own stream.
-vehicle: {model: marine6, gain: 1.0, profile: *profile, current_ned: [0.0, 0.0, 0.0],
-          randomize: {current_sd: 0.0}, thrust_noise_sd: 0.0}
+# The disturbance: a NED current (m/s), constant in the pool; randomize.current_sd adds a per-env draw to its
+# north and east components only (each env's own stream); thrust_noise_sd is a per-command relative sd.
+vehicle: {current_ned: [0.0, 0.0, 0.0], randomize: {current_sd: 0.0}, thrust_noise_sd: 0.0}
 fidelity: >-
   T1 dynamic: Fossen 6-DOF rigid body with added mass, Coriolis, linear and quadratic damping, restoring
   forces and a constant NED current, from the vehicle profile; thrusters with first-order lag, saturation

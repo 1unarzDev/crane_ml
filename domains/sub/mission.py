@@ -59,7 +59,8 @@ def plan(course, gains):
     wps.append((f['x'], f['y'], f['z'], f['yaw']))
     kinds.append(HOLD)
     which.append(-1)
-    return np.array(wps, float), np.array(kinds, np.int64), np.array(which, np.int64), np.array(gates, float)
+    return (np.array(wps, float), np.array(kinds, np.int64), np.array(which, np.int64),
+            np.array(gates, float).reshape(-1, 6))
 
 
 @dataclass
@@ -84,7 +85,7 @@ class Setup:
         gains = self.adapter.mission
         from domains.sub.adapter import GAINS
         self.C = np.array([float(gains[k]) for k in GAINS])
-        profile = Path(self.base) / veh['profile']
+        profile = self.adapter.profile             # adapter.options.profile: the one place the profile is named
         data = json.loads(profile.read_text())
         self.half = np.array(half_extents(data))
         root, where = Path(__file__).resolve().parents[2], profile.resolve()

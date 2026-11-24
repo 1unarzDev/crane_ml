@@ -1,5 +1,6 @@
 """crane run: episodes at a tier. T0 runs the fastsim batch runner (fastsim.batch.run_batch)."""
 
+import json
 import shlex
 import subprocess
 import sys
@@ -54,6 +55,12 @@ def main(args):
         sets = overrides(args.set)
     except select.SelectError as error:
         return out.usage('run', str(error), 'crane run --help')
+    try:
+        card = card_sets(args.domain, getattr(args, 'card', None))
+    except CardError as error:
+        return out.usage('run', *error.args)
+    if card:
+        sets = fsconfig.merge(sets, card[1]) if sets else card[1]
     if not args.out:   # one place per (config, overrides): the same command resumes, a change goes elsewhere
         from crane.ids import digest
         key = f"{getattr(args, 'variant', None) or 'base'}-{digest([str(config), merged, sets])[:8]}"
@@ -66,7 +73,7 @@ def main(args):
                 'workers': args.workers or cfg.get('workers'), 'overrides': list(args.set),
                 'scenarios': str(source.dir), 'generator': 'yes' if source.generate_cmd else 'no',
                 'regenerate': bool(args.generate), 'allow_dirty': bool(args.allow_dirty),
-                'force': bool(getattr(args, 'force', False))}
+                'force': bool(getattr(args, 'force', False)), 'card': str(card[0]) if card else None}
         if not out.doc(plan):
             out.say('crane run (dry run): nothing runs')
             out.say('\n'.join(output.table([(k, v if not isinstance(v, list) or len(v) <= 12 else
@@ -93,7 +100,8 @@ def main(args):
     if adapter_git and adapter_git['dirty'] and not args.allow_dirty:
         return out.usage('run', f"{adapter_git['source']} has uncommitted changes", 'commit, or pass --allow-dirty')
     provenance = {'git': {'core': identity.git_state(Path(batch.__file__).parent), 'adapter': adapter_git},
-                  'config_file': str(config), 'tier': tier, 'overrides': list(args.set)}
+                  'config_file': str(config), 'tier': tier, 'overrides': list(args.set),
+                  **({'card': str(card[0])} if card else {})}
     engine = getattr(args, 'engine', 'fastsim')
     adapter = batch.adapter_of(cfg, base)
     engines, backends = getattr(adapter, 'engines', None), getattr(adapter, 'backends', None)
@@ -159,6 +167,37 @@ def main(args):
     return output.OK
 
 
+class CardError(ValueError):
+    """(message, fix) of a --card crane run cannot bind."""
+
+
+def card_sets(domain, refs):
+    """(card file, {key: path} overrides) for --card REF outside --astro-test: the domain's card.keys
+    (config/domains/D.yaml) all bound to the card's file; None without --card. CardError (message, fix) when
+    the domain binds no card or REF names no file."""
+    refs = [r for r in (refs or ()) if r]
+    if not refs:
+        return None
+    if len(refs) > 1:
+        raise CardError('--card: one card per run (several only with --astro-test)',
+                        'a study with one arm per card (crane study)')
+    if not domain:
+        raise CardError('--card needs --domain (the domain names the keys a card binds)', '--set KEY=PATH')
+    cfg = select.domain_config(domain)
+    keys, folder = (cfg.get('card') or {}).get('keys'), (cfg.get('card') or {}).get('dir')
+    if not keys:
+        raise CardError(f'--card: domain {domain} binds no card in crane run',
+                        f'add card: {{keys: [config.key]}} to config/domains/{domain}.yaml, or --set KEY=PATH')
+    ref = str(refs[0])
+    candidates = [Path(ref).expanduser(), paths.ROOT / ref]
+    if folder:
+        candidates += [paths.ROOT / folder / ref, paths.ROOT / folder / f'{ref}.json']
+    found = next((c.resolve() for c in candidates if c.is_file()), None)
+    if found is None:
+        raise CardError(f'--card {ref}: no such file', f'a profile JSON path, or a name in {folder or "the card dir"}')
+    return found, overrides([f'{k}={json.dumps(str(found))}' for k in keys])
+
+
 def _argv(args):
     """The command line of a dry run without --dry-run (the one to run next): every argument given."""
     words = [f'--domain {args.domain}' if args.domain else f'--config {shlex.quote(str(args.config))}']
@@ -167,6 +206,7 @@ def _argv(args):
     words += [f'--variant {shlex.quote(args.variant)}'] if args.variant != 'base' else []
     words += [f'--workers {args.workers}'] if args.workers else []
     words += [f'--set {shlex.quote(s)}' for s in args.set]
+    words += [f'--card {shlex.quote(str(c))}' for c in getattr(args, 'card', None) or ()]
     words += ['--generate'] if args.generate else []
     words += ['--allow-dirty'] if args.allow_dirty else []
     words += ['--force'] if getattr(args, 'force', False) else []
