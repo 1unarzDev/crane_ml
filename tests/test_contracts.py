@@ -21,7 +21,8 @@ BACKENDS = {'fastsim': 'crane_backends.fastsim:ClusterBackend', 'unity': 'crane_
             'crane-command': 'crane_backends.command:ClusterBackend',
             'crane-batch': 'crane_backends.batch:ClusterBackend'}
 HELP_NAMES = ['crane doctor', 'crane run', 'crane view', 'crane board', 'crane fit', 'crane compare',
-              'crane sim check', 'crane bench', 'crane build player', 'crane card']
+              'crane sim check', 'crane bench player', 'crane bench fast', 'crane build player', 'crane card show',
+              'crane card export']   # card and bench: one entry per verb (astro's rule, 2026-11-24)
 
 
 def test_fastsim_import_paths_and_their_shapes():
