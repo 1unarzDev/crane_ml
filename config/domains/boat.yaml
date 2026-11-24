@@ -38,7 +38,7 @@ tiers:
       up: astro sim up
     ros:
       launch: mhseals_nav device.launch.py device:=sim      # ros2 launch ARGS, in the container
-      overrides: '{"parts": {"sensors": {"args": {"ros_port": "{port}"}}}}'
+      overrides: '{"parts": {"sim_bridge": {"args": {"ros_port": "{port}"}}}}'
       container: sim_up_ros
       label: sim_up=1
       ip: 127.0.0.1
@@ -54,7 +54,7 @@ tiers:
       # (exact names, so never the launch itself, the EKFs, SLAM, the object tracker or the ROS-TCP endpoint).
       restart:
         nav:
-          match: '__node:=(controller_server|planner_server|behavior_server|bt_navigator|waypoint_follower|velocity_smoother|lifecycle_manager_navigation|costmap_watchdog|approach_guard)( |$)'
+          match: '__node:=(controller_server|planner_server|behavior_server|bt_navigator|waypoint_follower|velocity_smoother|lifecycle_manager_navigation)( |$)'
           stop: ['pkill -TERM -f -- {match}']
           alive: 'pgrep -f -- {match}'              # exit 0 while any is left
           kill: ['pkill -KILL -f -- {match}']

@@ -975,11 +975,10 @@ def _entries():
 CORE = frozenset({'crane sim', 'crane sim up', 'crane sim down', 'crane sim restart', 'crane sim status',
                   'crane sim check', 'crane view', 'crane fit', 'crane compare', 'crane doctor'})
 # astro's picker (`choices_from`): a command printing one choice per line, run when the param is missing on a TTY.
-_RUNS = ("find \"${CRANE_RUNS:-$HOME/.cache/crane/runs}\" -name crane.run.json -printf '%T@ %h\\n' 2>/dev/null "
-         "| sort -rn | head -n 30 | cut -d' ' -f2-")
+_RUNS = 'ls -1td ${CRANE_RUNS:-$HOME/.cache/crane/runs}/*/*/*/*/s* 2>/dev/null | head -n 30'   # DOMAIN/TIER/KEY/VARIANT/sN
 PICKERS = {
-    ('crane fit', 'bundles'): ("find \"${ASTRO_DATA:-$HOME/astro_dock/bags}\" -maxdepth 3 -name 'bundle-*.tgz' "
-                               "-printf '%T@ %p\\n' 2>/dev/null | sort -rn | head -n 30 | cut -d' ' -f2-"),
+    ('crane fit', 'bundles'): ('ls -1t ${ASTRO_DATA:-$HOME/astro_dock/bags}/*/bundle-*.tgz '
+                               '${ASTRO_DATA:-$HOME/astro_dock/bags}/*/*/bundle-*.tgz 2>/dev/null | head -n 30'),
     ('crane view', 'runs'): _RUNS,
     ('crane compare', 'runs'): _RUNS,
 }

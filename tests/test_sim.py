@@ -109,6 +109,9 @@ def _bash_sim_up(tmp, ref=REFERENCE):
     try:
         script = subprocess.run(['git', 'show', f'{ref}:Tools/RoboBoat/sim_up'], cwd=ROOT, capture_output=True,
                                 check=True).stdout
+        # mhseals_nav 6419229 renamed the sim device profile's endpoint part sensors -> sim_bridge (the same ros_port)
+        script = script.replace(b'"parts": {"sensors"', b'"parts": {"sim_bridge"').replace(
+            b'\\"sensors\\"', b'\\"sim_bridge\\"')
         sim_yaml = subprocess.run(['git', 'show', f'{ref}:config/sim.yaml'], cwd=ROOT, capture_output=True,
                                   check=True).stdout
     except (OSError, subprocess.CalledProcessError):
