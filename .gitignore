@@ -113,8 +113,6 @@ ProjectSettings/DynamicsManager.asset
 /Assets/LocalCampusVisuals/
 /Assets/LocalCampusVisuals.meta
 
-# Tools/Rig host overlay
-Tools/Rig/rig.local.yaml
 __pycache__/
 
 # Course generator version for player builds (CranePerformanceBuild writes and removes it)
