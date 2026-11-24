@@ -511,9 +511,10 @@ def main(args):
         print(f'crane compare: {error}', file=sys.stderr)
         return 2
     md = bounds_text(res) if kind == 'bounds' else markdown(kind, res)
-    doc = {'kind': kind, 'result': res}
+    doc = {'schema': 'crane.compare/1', 'kind': kind, 'result': res}
     if as_json:
-        sys.stdout.write(json.dumps(res if kind == 'bounds' else doc, indent=1, default=str) + '\n')
+        from crane.output import dumps
+        print(dumps(json.loads(json.dumps(doc, default=str))))
     else:
         sys.stdout.write(md)
     if args.out:

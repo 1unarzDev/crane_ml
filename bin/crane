@@ -1,0 +1,27 @@
+#!/bin/sh
+# crane's launcher: runs this checkout's crane with no install (astro calls it by absolute path, without a shell).
+#
+#   ${CRANE_DIR:-$HOME/crane_ml}/bin/crane doctor
+#
+# The repo root is found from this file's own path (symlinks followed). Python is <root>/.venv/bin/python when
+# present, else python3 on PATH. PYTHONPATH gets the root first, and the root, not the current dir, leads sys.path,
+# so a crane/ or yaml.py in the caller's cwd is never imported.
+self=$0
+case $self in
+  */*) ;;
+  *) self=$(command -v -- "$self") || { echo "crane: cannot find myself ($0)" >&2; exit 2; } ;;
+esac
+while [ -L "$self" ]; do
+  link=$(readlink -- "$self")
+  case $link in
+    /*) self=$link ;;
+    *) self=$(dirname -- "$self")/$link ;;
+  esac
+done
+root=$(cd -P -- "$(dirname -- "$self")/.." && pwd -P) || exit 2
+py=python3
+[ -x "$root/.venv/bin/python" ] && py=$root/.venv/bin/python
+PYTHONPATH=$root${PYTHONPATH:+:$PYTHONPATH}
+export PYTHONPATH
+# python -m crane, with sys.path[0] the root instead of the cwd
+exec "$py" -c 'import runpy, sys; sys.path[0] = sys.argv.pop(1); runpy.run_module("crane", run_name="__main__", alter_sys=True)' "$root" "$@"

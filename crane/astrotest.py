@@ -171,6 +171,6 @@ def main(args):
 
 
 def _seeds(text):
-    from fastsim import batch
-    return batch.parse_seeds(text)
+    from crane import select
+    return select.parse_seeds(text)
 

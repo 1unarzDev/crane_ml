@@ -162,7 +162,7 @@ rules:
   direction and added-mass row must be `identified`. Without a fit it prints `gate: not checked` and does not
   fail.
 - The verdict is `pass (N rows, M bounds)` or `FAIL (k of N outside bounds; gate: X not identified)`.
-  `--json` prints the rows (each with `result`, `bound`, `rule`) and the verdict.
+  `--json` prints `{schema: crane.compare/1, kind: bounds, result}`; `result` holds the rows (each with `result`, `bound`, `rule`), the gate and the verdict.
 - `--bounds card` (tolerances from the plant card's particle spread) is not yet available.
 
 ## crane field import

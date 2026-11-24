@@ -299,9 +299,11 @@ def test_compare_bounds_pass_fail_gate_and_ci_rule(bundle, tmp_path, capsys):
     assert 'gate: not checked' in out and 'verdict: pass (' in out and 'bounds)' in out and 'next:' in out
     assert 'measured.speed.surge+@0.5' in out and ' n/a' in out          # t95.surge has no rule
 
-    # JSON: rows plus the verdict
+    # JSON: crane.compare/1, its result holds the rows plus the verdict
     assert cli.main([*run, str(tmp_path / 'T1'), '--bounds', 'file', '--json', '--fit', str(tmp_path / 'nofit')]) == 0
     doc = json.loads(capsys.readouterr().out)
+    assert doc['schema'] == 'crane.compare/1' and doc['kind'] == 'bounds'
+    doc = doc['result']
     assert doc['verdict']['pass'] and doc['verdict']['bounds'] == 7 and doc['verdict']['gate'] == 'not checked'
     assert {'metric', 'unit', 'field', 'sim', 'delta', 'result', 'bound', 'rule'} <= set(doc['rows'][0])
     assert {r['result'] for r in doc['rows']} == {'pass', 'n/a'}

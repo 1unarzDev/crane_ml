@@ -100,22 +100,33 @@ def _gpu():
     return ('ok', first[0]) if out.returncode == 0 and first else ('warn', 'nvidia-smi found no GPU')
 
 
-def main():
-    rows = checks()
-    width = max(len(r[0]) for r in rows)
-    print('crane doctor')
-    for name, state, detail in rows:
-        print(f'  {name:<{width}}  {state:<7}  {detail}')
+def next_commands(rows):
+    """The next commands for this machine's state."""
     state = dict((r[0], r[1]) for r in rows)
-    print('next:')
     domains = sorted(p.stem for p in paths.DOMAINS.glob('*.yaml'))
     source = f'--domain {"toy" if "toy" in domains else domains[0]}' if domains else '--config DOMAIN.yaml'
-    print(f'  crane run {source} --seeds 0:3 --out /tmp/runs')
+    out = [f'crane run {source} --seeds 0:3']
     if state.get('player') == 'ok' and state.get('astro_dock') == 'ok':
-        print('  crane sim up --headless ; crane sim status')
+        out.append('crane sim up --headless ; crane sim status')
     elif state.get('player') != 'ok':
-        print('  crane build player   (a Unity editor), or set CRANE_PLAYER to a player with the RoboBoat flags')
+        out.append(f'crane build player   (a Unity editor), or set CRANE_PLAYER to a player that has {required_flag()}')
     if 'boat' in domains:
-        print('  crane run --domain boat --tier T1 --seeds 0:2 --out /tmp/runs')
-    print('  crane board RUNS     the web replay board')
-    return 1 if any(r[1] == 'FAIL' for r in rows) else 0
+        out.append('crane run --domain boat --tier T1 --seeds 0:2')
+    out.append('crane board ~/.cache/crane/runs     the web replay board')
+    return out
+
+
+def main(args=None):
+    from crane.output import Output, table
+    out = Output.of(args) if args is not None else Output()
+    rows = checks()
+    ok = not any(r[1] == 'FAIL' for r in rows)
+    nxt = next_commands(rows)
+    if out.doc({'schema': 'crane.doctor/1', 'ok': ok,
+                'checks': [{'name': n, 'state': s, 'detail': d} for n, s, d in rows], 'next': nxt}):
+        return 0 if ok else 1
+    out.line('crane doctor')
+    for line in table([r for r in rows if not out.quiet or r[1] == 'FAIL']):
+        out.say(line)
+    out.next(*nxt)
+    return 0 if ok else 1
