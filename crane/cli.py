@@ -156,7 +156,7 @@ def build_parser():
                             epilog='examples:\n' + '\n'.join(f'  {c.examples[0]}' for c in noun.verbs),
                             formatter_class=argparse.RawDescriptionHelpFormatter,
                             usage=f'crane {noun.name} {{{",".join(c.verb for c in noun.verbs)}}} [ARGS...]')
-        vs = np.add_subparsers(dest='verb', metavar='VERB')
+        vs = np.add_subparsers(dest='verb', metavar='VERB', prog=f'crane {noun.name}')
         for command in noun.verbs:
             leaf(vs, command.verb, command)
     return ap

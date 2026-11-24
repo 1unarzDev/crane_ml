@@ -36,6 +36,15 @@ def _run_ok(argv, cwd=None):
         return False
 
 
+def _unity_managed():
+    import os, re
+    managed = os.environ.get('UnityManaged')
+    if not managed:
+        version = re.search(r'm_EditorVersion: (\S+)', (ROOT / 'ProjectSettings/ProjectVersion.txt').read_text())
+        managed = os.path.expanduser(f'~/Unity/Hub/Editor/{version.group(1) if version else "?"}/Editor/Data/Managed')
+    return os.path.isfile(os.path.join(managed, 'UnityEngine', 'UnityEngine.CoreModule.dll'))
+
+
 @functools.lru_cache(maxsize=None)
 def missing(marker, arg=None):
     """None when the marker's tool is here, else the one-line reason with the fix."""
@@ -44,6 +53,8 @@ def missing(marker, arg=None):
             return 'dotnet: not installed (https://dot.net, the SDK its global.json pins)'
         if not _run_ok(['dotnet', '--version'], cwd=ROOT / (arg or '.')):
             return f'dotnet: no SDK matches {arg}/global.json (dotnet --list-sdks; install that SDK)'
+        if arg == 'Tools/RoboBoat/cli' and not _unity_managed():
+            return 'dotnet: coursegen references the Unity editor\'s UnityEngine.CoreModule.dll (set UnityManaged or install the editor)'
     elif marker == 'node':
         if not shutil.which('node'):
             return 'node: not installed (install Node.js 18+)'

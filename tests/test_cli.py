@@ -31,7 +31,8 @@ def _strict(text):
 
 
 def _launch(*args, cwd, timeout=60):
-    env = {'PATH': '/usr/bin:/bin', 'HOME': os.environ['HOME']}       # what astro's remote.sim gives: no shell
+    # what astro's remote.sim gives (no shell), with this interpreter's directory first so its packages are found
+    env = {'PATH': f'{os.path.dirname(sys.executable)}:/usr/bin:/bin', 'HOME': os.environ['HOME']}
     return subprocess.run([str(LAUNCHER), *args], cwd=cwd, env=env, capture_output=True, text=True, timeout=timeout)
 
 
