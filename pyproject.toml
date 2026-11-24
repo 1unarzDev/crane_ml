@@ -1,15 +1,26 @@
-# crane_ml is a Unity project; this file only makes its research-cluster plugin installable
-# (`pip install -e .`), so the platform finds crane's backends by entry point (crane_backends/__init__.py).
+# crane: the research and testing CLI over this Unity project (`crane <verb>`, crane/README.md), and the
+# research-cluster plugin: `pip install -e .` registers crane's backends by entry point (crane_backends/__init__.py).
 [build-system]
 requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "crane-backends"
-version = "0.1.0"
-description = "crane's backends for the research cluster: fastsim, unity, theater-render"
-requires-python = ">=3.9"
-dependencies = []   # fastsim/ and theater/ come from this checkout; crane_cluster from the worker
+name = "crane"
+version = "0.2.0"
+description = "crane: one CLI for sim and research across domains and tiers; the research-cluster backends"
+requires-python = ">=3.10"
+dependencies = ["numpy", "pyyaml"]
+
+[project.optional-dependencies]
+fast = ["numba"]
+gpu = ["jax[cuda12]"]
+view = ["PySide6", "pyqtgraph"]
+field = ["mcap", "mcap-ros2-support"]
+setup = ["rich", "questionary"]
+all = ["crane[fast,gpu,view,field,setup]"]
+
+[project.scripts]
+crane = "crane.cli:main"
 
 [project.entry-points."research_cluster.backends"]
 fastsim = "crane_backends.fastsim:ClusterBackend"
@@ -17,4 +28,7 @@ unity = "crane_backends.unity:ClusterBackend"
 theater-render = "crane_backends.theater:ClusterBackend"
 
 [tool.setuptools.packages.find]
-include = ["crane_backends*", "fastsim*", "theater*"]
+include = ["crane*", "crane_backends*", "fastsim*", "theater*", "plantcard*", "judge*", "viewer*"]
+
+[tool.setuptools.package-data]
+"*" = ["*.yaml", "*.json", "*.js", "*.html", "*.css"]

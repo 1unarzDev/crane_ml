@@ -5,6 +5,18 @@ simulation platform for developing navigation systems that can be reused across 
 underwater, ground, and surface vehicles. Unity supplies environment physics and simulated
 sensors; ROS 2 supplies the planning, navigation, estimation, and control stack.
 
+## crane CLI
+
+```bash
+./install.sh --yes --components core,fast      # uv, a Python 3.12 venv at .venv, ~/.local/bin/crane
+crane doctor                                   # what works on this machine, and what to run next
+crane run --tier T0 --config DOMAIN.yaml --seeds 1:21 --out /tmp/runs   # one run dir per seed
+```
+
+One CLI for sim and research across domains and tiers (T0 abstract, T1 dynamic, T2 unity). `crane --help` lists
+the verbs; [crane/README.md](crane/README.md) maps each to the module it runs. Without an install,
+`python3 -m crane` works from the repo root.
+
 ## Screenshots
 
 <p align="center"><img src="Docs/media/readme/render_master.jpg" alt="Boat, AUV and drone in one scene" width="80%"></p>

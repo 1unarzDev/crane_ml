@@ -1,0 +1,86 @@
+# crane's commands for astro's help browser and verbs (`astro crane fit B.tgz`, `astro help crane`).
+# Schema: astro_dock/.devcontainer/astro-help.py. Each run line works without an install: the crane checkout
+# (CRANE_DIR, default ~/crane_ml) goes first on PYTHONPATH for `python3 -m crane`.
+package: crane
+summary: Sim and research across domains and tiers (T0 abstract, T1 dynamic, T2 unity); crane --help for all verbs.
+commands:
+  - name: crane doctor
+    run: PYTHONPATH="${CRANE_DIR:-$HOME/crane_ml}${PYTHONPATH:+:$PYTHONPATH}" python3 -m crane doctor
+    summary: Check this machine (python, extras, the T2 player and its flags, heavy, astro_dock, GPU) and print the next commands.
+    notes: Read-only; safe any time. Exit 1 only when the core (python >= 3.10, numpy, pyyaml) is broken.
+    examples:
+      - python3 -m crane doctor
+
+  - name: crane run
+    run: PYTHONPATH="${CRANE_DIR:-$HOME/crane_ml}${PYTHONPATH:+:$PYTHONPATH}" python3 -m crane run
+    summary: Run episodes at a tier, one run dir per seed (OUT/VARIANT/s<seed>). T0 today; T1 arrives in P2, T2 in P3.
+    params:
+      - {name: --domain, description: 'A domain: config/domains/DOMAIN.yaml (or give --config).'}
+      - {name: --config, type: path, description: 'A fastsim domain YAML, used as is.'}
+      - {name: --tier, default: T0, choices: [T0, T1, T2, abstract, dynamic, unity], description: The fidelity tier.}
+      - {name: --seeds, required: true, description: 'N, FROM:TO (TO exclusive) or a,b,c.'}
+      - {name: --out, type: path, required: true, description: Output root.}
+      - {name: --workers, type: int, description: Worker processes (default the config's workers).}
+      - {name: --set, description: 'KEY=VALUE config override; dotted keys nest, the value is YAML.'}
+    examples:
+      - python3 -m crane run --tier T0 --config DOMAIN.yaml --seeds 1:21 --out /tmp/runs
+
+  - name: crane view
+    run: PYTHONPATH="${CRANE_DIR:-$HOME/crane_ml}${PYTHONPATH:+:$PYTHONPATH}" python3 -m crane view
+    summary: The native sandbox window over runs, live or replayed (arrives in P5; crane board today).
+    params:
+      - {name: runs, type: list, required: false, description: Run dirs to open.}
+
+  - name: crane board
+    run: PYTHONPATH="${CRANE_DIR:-$HOME/crane_ml}${PYTHONPATH:+:$PYTHONPATH}" python3 -m crane board
+    summary: The web replay board over local runs (.ctraj), courses and judge reports; prints its URL.
+    params:
+      - {name: roots, type: list, required: false, description: 'Dirs to index (default .).'}
+      - {name: --port, type: int, default: 8765, description: Local port.}
+    examples:
+      - python3 -m crane board /tmp/runs
+
+  - name: crane fit
+    run: PYTHONPATH="${CRANE_DIR:-$HOME/crane_ml}${PYTHONPATH:+:$PYTHONPATH}" python3 -m crane fit
+    summary: Field data (an astro bundle or bags) to a plant card and its per-tier views (arrives in P6).
+    params:
+      - {name: bundle, type: path, description: An astro bundle (.tgz) or a bag dir.}
+
+  - name: crane compare
+    run: PYTHONPATH="${CRANE_DIR:-$HOME/crane_ml}${PYTHONPATH:+:$PYTHONPATH}" python3 -m crane compare
+    summary: Tier gap, variant A/B or field-vs-sim on the same test (arrives in P3/P6; crane judge today).
+    params:
+      - {name: runs, type: list, description: 'Two run sets, A then B.'}
+
+  - name: crane sim check
+    run: PYTHONPATH="${CRANE_DIR:-$HOME/crane_ml}${PYTHONPATH:+:$PYTHONPATH}" python3 -m crane sim check
+    summary: Player contract acceptance for the sim (arrives in P1-C); astro sim check passes through to it.
+
+  - name: crane bench
+    run: PYTHONPATH="${CRANE_DIR:-$HOME/crane_ml}${PYTHONPATH:+:$PYTHONPATH}" python3 -m crane bench
+    summary: 'Throughput benchmarks: player (Unity player real-time factor, through heavy unity) or fast (arrives in P2).'
+    params:
+      - {name: what, choices: [player, fast], description: Which benchmark.}
+      - {name: --sweep, type: list, description: 'player: worker counts to sweep (default config/bench.yaml).'}
+    examples:
+      - python3 -m crane bench player --sweep 1 2 4
+
+  - name: crane build player
+    run: PYTHONPATH="${CRANE_DIR:-$HOME/crane_ml}${PYTHONPATH:+:$PYTHONPATH}" python3 -m crane build player
+    summary: Build the headless Linux player through heavy unity and stamp its manifest with the source commit.
+    notes: Needs the project's Unity editor. --skip-unity only stamps and packs an existing Builds/CRANE-Worker.
+    params:
+      - {name: --tarball, type: bool, description: 'Also write Builds/crane-player-<commit12>-linux-x86_64.tar.zst and its .sha256.'}
+      - {name: --skip-unity, type: bool, description: Stamp and pack an existing build only.}
+      - {name: --dry-run, type: bool, description: Print the Unity command and stop.}
+    examples:
+      - python3 -m crane build player --tarball
+
+  - name: crane card
+    run: PYTHONPATH="${CRANE_DIR:-$HOME/crane_ml}${PYTHONPATH:+:$PYTHONPATH}" python3 -m crane card
+    summary: 'Show a plant card, or export one of its tier views (unity | nlc | control | fastsim) as JSON.'
+    params:
+      - {name: action, choices: [show, export], description: show or export.}
+      - {name: args, type: list, required: false, description: 'show [REF] | export VIEW [REF] [--out FILE].'}
+    examples:
+      - python3 -m crane card show roboboat/blastoise@HEAD
