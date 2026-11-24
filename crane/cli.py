@@ -49,7 +49,7 @@ def build_parser():
     _add(sub, 'sim', 'T2: the Unity world plus ROS, used like the real boat (Tools/RoboBoat/sim_up)',
          'sim_up\'s own output: the player queued on `heavy unity`, then its status block (mode, domain, endpoint, '
          'pids, logs, next commands). Verbs: up [--seed N] [--course FAMILY] [--profile-json F] [--window|--headless] '
-         '[--player PATH], down, status, check (player contract acceptance, arrives in P1-C). Everything after the '
+         '[--player PATH], down, status, check (live readiness; or CHECK INPUTS for the offline Tools/SimCheck checks). Everything after the '
          'verb goes to sim_up unchanged, with the same env (ROS_DOMAIN_ID, ASTRO_STATE, HEAVY, ASTRO_IMAGE, SIM_UP_*, '
          'CRANE_PLAYER). `crane sim up --help` prints sim_up\'s usage.',
          'crane sim up --headless --seed 3 && crane sim status')

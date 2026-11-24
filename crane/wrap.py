@@ -31,9 +31,8 @@ def _python(module, rest):
 
 def sim(rest):
     if rest[:1] == ['check']:
-        print('crane: `crane sim check` (the player contract acceptance, Tools/SimCheck) arrives in P1-C.',
-              file=sys.stderr)
-        return 2
+        from crane import simcheck
+        return simcheck.main(rest[1:])
     return execute([paths.SIM_UP, *rest])
 
 
