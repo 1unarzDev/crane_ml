@@ -49,8 +49,9 @@ def _nodes():
     return out.stdout.splitlines() if out.returncode == 0 else None
 
 
-def live(run=RUN):
+def live(run=None):
     """[(name, ok, detail)] for the running sim. The player's log is read only while the player runs."""
+    run = run or RUN
     log = run / 'player.log'
     running = _alive(run / 'player.pid')
     last = (run / 'player.path').read_text().strip() if (run / 'player.path').is_file() else 'no player started yet'

@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from crane import build, cli, doctor, paths, run as crane_run, tiers
+from crane import build, cli, doctor, paths, run as crane_run, simcheck, tiers
 import toy
 
 ROOT = paths.ROOT
@@ -69,9 +69,54 @@ def test_run_t0_writes_a_run_dir_per_seed_from_a_config_or_a_domain(tmp_path, mo
     capsys.readouterr()
     assert cli.main(['run', '--domain', 'boat', '--out', str(tmp_path / 'c'), *common]) == 2
     assert "no domain 'boat'" in (err := capsys.readouterr().err) and 'domain configs: toy' in err
-    assert cli.main(['run', '--tier', 'T1', '--config', str(TOY), '--out', str(tmp_path / 'd'), *common]) == 2
-    assert 'arrives in P2' in capsys.readouterr().err
+    assert cli.main(['run', '--tier', 'T2', '--config', str(TOY), '--out', str(tmp_path / 'd'), *common]) == 2
+    assert 'not yet available' in (err := capsys.readouterr().err) and 'crane sim up' in err
     assert crane_run.overrides(['a.b=1', 'a.c=[1, 2]', 'd=x']) == {'a': {'b': 1, 'c': [1, 2]}, 'd': 'x'}
+
+
+def test_run_domain_from_a_clean_checkout_applies_overrides_and_makes_missing_scenarios(tmp_path, capsys):
+    # the real toy domain: its tier overrides name a generator, the scenarios do not exist yet
+    sc = tmp_path / 'sc'
+    args = ['run', '--domain', 'toy', '--seeds', '0:2', '--allow-dirty', '--set', f'scenarios.dir={sc}',
+            '--out', str(tmp_path / 'out')]
+    assert cli.main(args) == 0                                    # no --tier: the domain's first
+    out = capsys.readouterr().out
+    assert sorted(p.name for p in sc.iterdir()) == ['toy-s0.json', 'toy-s1.json']
+    assert '2 runs at T0' in out and any(l.startswith('fidelity: ') for l in out.splitlines())
+    # a source with no generator names its scenario dir instead of failing inside a worker
+    bare = tmp_path / 'bare'
+    assert cli.main(['run', '--config', str(TOY), '--seeds', '0:2', '--set', f'scenarios.dir={bare}',
+                     '--out', str(tmp_path / 'o2')]) == 2
+    assert str(bare) in capsys.readouterr().err
+
+
+def test_sim_check_ignores_a_stale_log_and_names_what_failed(tmp_path, monkeypatch, capsys):
+    (tmp_path / 'player.log').write_text('CRANE_ROBOBOAT_COURSE_READY\nCRANE_PLANT_APPLIED x\n')
+    (tmp_path / 'player.path').write_text('/old/CRANE.x86_64')                # no player.pid: not running
+    monkeypatch.setattr(simcheck, 'RUN', tmp_path)
+    monkeypatch.setattr(simcheck, '_container_running', lambda: True)
+    monkeypatch.setattr(simcheck, '_nodes', lambda: ['/ekf_local', '/bt_navigator'])
+    rows = {name: (ok, detail) for name, ok, detail in simcheck.live(tmp_path)}
+    assert not rows['player running'][0] and rows['player running'][1] == \
+        'not running (last: /old/CRANE.x86_64); crane sim up --headless'
+    assert not rows['course ready'][0] and not rows['plant applied'][0]       # the stale log is not read
+    assert not rows['nav stack up'][0] and 'rtabmap' in rows['nav stack up'][1]
+    assert simcheck.main(['--wait', '0']) == 1
+    assert 'sim check: not ready, failed: player running, course ready' in capsys.readouterr().out
+    monkeypatch.setattr(simcheck, '_nodes', lambda: ['/ekf_local', '/rtabmap', '/bt_navigator'])
+    assert dict((n, ok) for n, ok, _ in simcheck.live(tmp_path))['nav stack up']
+
+
+def test_bare_sim_prints_help_and_doctor_names_unselected_extras_off(capsys, monkeypatch):
+    with pytest.raises(SystemExit) as done:
+        cli.main(['sim'])
+    out = capsys.readouterr().out
+    assert done.value.code == 0 and 'crane sim {up,down,status,check} [ARGS...]' in out
+    monkeypatch.setattr(doctor, '_found', lambda module: False)
+    rows = {name: (state, detail) for name, state, detail in doctor.checks()}
+    assert rows['[view]'][0] == 'off' and 'optional, add with' in rows['[view]'][1]
+    assert doctor.build_label(paths.PLAYER_BUILD / 'CRANE.x86_64') in ('unknown build',) or \
+        doctor.build_label(paths.PLAYER_BUILD / 'CRANE.x86_64').startswith('build ')
 
 
 def _fake_build(builds):
