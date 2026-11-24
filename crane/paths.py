@@ -15,7 +15,7 @@ PLAYER_BUILD = BUILDS / 'CRANE-Worker'                  # what `crane build play
 PROJECT_VERSION = ROOT / 'ProjectSettings' / 'ProjectVersion.txt'
 HOME = Path.home()
 USER_CONFIG = HOME / '.config' / 'crane'
-PLAYER_STORE = HOME / '.local' / 'share' / 'crane' / 'player'   # installed player tarballs, one dir per version
+PLAYER_STORE = HOME / '.local' / 'share' / 'crane' / 'player'   # <commit12>/ per player, current and prev links
 ASTRO_DOCK = Path(os.environ.get('ASTRO_DOCK', HOME / 'astro_dock'))
 
 
@@ -28,10 +28,10 @@ def research_cli():
 
 
 def player_candidates():
-    """Players in the order sim_up tries them, then the installed ones (newest version last)."""
+    """Players in the order sim_up tries them, then the installed ones (crane update, crane deploy): current, prev."""
     out = [Path(p) for p in [os.environ.get('CRANE_PLAYER')] if p]
     out += [PLAYER_BUILD / 'CRANE.x86_64', HOME / '.cache' / 'crane-phase1' / 'player' / 'CRANE.x86_64']
-    out += sorted(PLAYER_STORE.glob('*/CRANE.x86_64'))
+    out += [PLAYER_STORE / link / 'CRANE.x86_64' for link in ('current', 'prev')]
     return out
 
 

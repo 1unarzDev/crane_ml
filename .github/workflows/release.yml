@@ -1,0 +1,116 @@
+name: Release
+
+# A v* tag becomes a GitHub Release: the wheel, the sdist, the player tarball and release.json, which install.sh and
+# `crane update` read ({version, tag, commit, unity_version, player: {name, sha256, bytes, unpacked_bytes}, wheel,
+# sdist}). The player comes from the Player workflow's artifact for the tag (the self-hosted Unity runner builds
+# it), so this runs when that run finishes; dispatch it with a tag to (re)make a release. The tag must equal
+# pyproject's version, and the player must have been built from the tag's commit with the project's Unity.
+# Then images.yml builds lunarzdev/crane:sim-<sha> from the released player.
+on:
+  workflow_run:
+    workflows: [Player]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The tag to release (vX.Y.Z)
+        required: true
+        type: string
+
+concurrency:
+  group: release-${{ inputs.tag || github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    # Only a successful Player run started by a v* tag push (a nightly run is not a release).
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success' &&
+       startsWith(github.event.workflow_run.head_branch, 'v'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      actions: read
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - id: tag
+        env:
+          TAG: ${{ inputs.tag || github.event.workflow_run.head_branch }}
+        run: |
+          case $TAG in v[0-9]*) ;; *) echo "::error::$TAG is not a vX.Y.Z tag"; exit 2 ;; esac
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.tag.outputs.tag }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: The tag equals pyproject's version (and crane.__version__)
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          v=$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+          c=$(python -c 'import crane; print(crane.__version__)')
+          test "v$v" = "$TAG" || { echo "::error::tag $TAG but pyproject.toml says $v: bump the version or retag"; exit 1; }
+          test "$c" = "$v" || { echo "::error::crane/__init__.py says $c, pyproject.toml $v"; exit 1; }
+          {
+            echo "VERSION=$v"
+            echo "COMMIT=$(git rev-parse HEAD)"
+            echo "UNITY=$(sed -n 's/^m_EditorVersion: *//p' ProjectSettings/ProjectVersion.txt)"
+          } >> "$GITHUB_ENV"
+      - name: Wheel and sdist
+        run: |
+          python -m pip install --quiet build==1.2.2
+          python -m build --outdir dist .
+          ls -l dist
+      - name: The player tarball (the Player run's artifact for this commit)
+        env:
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          run=$RUN_ID
+          if [ -z "$run" ]; then
+            run=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow player.yml --commit "$COMMIT" --status success \
+                  --limit 1 --json databaseId --jq '.[0].databaseId')
+          fi
+          test -n "$run" || { echo "::error::no successful Player run for $COMMIT: run player.yml on the tag first"; exit 1; }
+          gh run download "$run" --repo "$GITHUB_REPOSITORY" --name "crane-player-$COMMIT" --dir artifact
+          tarball=$(find artifact -name 'crane-player-*-linux-x86_64.tar.*' ! -name '*.sha256' | head -1)
+          test -n "$tarball" || { echo "::error::the Player artifact has no tarball"; exit 1; }
+          (cd "$(dirname "$tarball")" && sha256sum -c "$(basename "$tarball").sha256")
+          mv "$tarball" dist/
+          echo "PLAYER=dist/$(basename "$tarball")" >> "$GITHUB_ENV"
+      - name: release.json (checks the player's source commit and Unity version)
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          sudo apt-get install -y -qq zstd >/dev/null
+          python -m crane.update release-json --version "$VERSION" --tag "$TAG" --commit "$COMMIT" --unity "$UNITY" \
+            --player "$PLAYER" --wheel dist/crane-"$VERSION"-py3-none-any.whl --sdist dist/crane-"$VERSION".tar.gz \
+            --out dist/release.json
+          (cd dist && sha256sum crane-* > SHA256SUMS)
+      - name: Publish the release
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber dist/*
+          else
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "crane $VERSION" --verify-tag \
+              --notes "crane $VERSION ($COMMIT). Install: install.sh --components core,player, or crane update." dist/*
+          fi
+
+  sim-image:
+    needs: release
+    uses: ./.github/workflows/images.yml
+    with:
+      kinds: sim
+      tag: ${{ needs.release.outputs.tag }}
+    secrets: inherit

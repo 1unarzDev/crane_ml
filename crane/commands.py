@@ -107,8 +107,8 @@ NOUNS = [
     Noun('cluster', 'research-cluster jobs: submit, wait, status, fetch (other verbs go to the research CLI)',
          owner='crane.wrap:cluster'),
     Noun('build', 'build the player, images and the wheel'),
-    Noun('deploy', 'install crane and the player on a host'),
-    Noun('update', 'update this checkout from a release'),
+    Noun('deploy', 'sync crane and the T2 player to a host'),
+    Noun('update', 'update crane and the T2 player from a release'),
     Noun('heavy', 'the machine-wide concurrency guard'),
     Noun('doctor', 'check this machine'),
     Noun('setup', 'the setup wizard'),
@@ -825,14 +825,81 @@ COMMANDS = [
                     P('--builds', 'path', description='The Builds dir (default <repo>/Builds).'),
                     P('--dry-run', 'bool', description='Print the Unity command and stop.')),
             examples=('crane build player --tarball',)),
-    Command(('build', 'images'), 'The crane docker images (core, gpu, sim), pinned by commit.',
-            today='docker build on the Dockerfiles', examples=('crane build images core',)),
-    Command(('build', 'wheel'), 'The crane wheel and sdist.', today='python3 -m build', examples=('crane build wheel',)),
-    Command(('deploy',), 'Install crane (a venv) and the player on a host, then run crane doctor there.',
-            today='rsync the checkout, then ./install.sh --yes on the host', examples=('crane deploy HOST',),
-            params=(P('host', description='The host.'),)),
-    Command(('update',), 'Update this checkout from a release.', today='git pull, then ./install.sh --yes',
-            examples=('crane update',)),
+    Command(('build', 'images'), 'Build the crane docker images (core, gpu, sim) tagged with the commit '
+            '(crane:KIND-<commit12>); sim packs a player tarball into crane:core.', 'crane.build:images_main',
+            flags=(DRY,),
+            about='the docker build command per image, then one row per image (tag, size unpacked) and next:. '
+                  '--dry-run prints the commands only.',
+            notes='core < 300 MB compressed; gpu = python:3.12-slim + jax[cuda12] + numba, < 4 GB; sim = core + the '
+                  'player + xvfb/Mesa Vulkan, about 1.2 GB. sim takes the tarball from --player (default the newest '
+                  'Builds/crane-player-*.tar.* with its .sha256) and is built on the core image of the same run. '
+                  'Never pushes: .github/workflows/images.yml pushes lunarzdev/crane:KIND-<sha> (never :latest).',
+            params=(P('kinds', 'list', nargs='*', choices=('core', 'gpu', 'sim'), metavar='KIND',
+                      description='core, gpu, sim (default core).'),
+                    P('--player', 'path', description='The player tarball for sim (its .sha256 beside it).'),
+                    P('--repo', default='crane', description='The image name (lunarzdev/crane in CI).'),
+                    P('--dry-run', 'bool', description='Print the docker build commands; build nothing.')),
+            examples=('crane build images core gpu', 'crane build images sim --player Builds/crane-player-X.tar.zst'),
+            raw='docker build -f Dockerfile.KIND -t crane:KIND-COMMIT .'),
+    Command(('build', 'wheel'), 'Build the crane wheel and sdist (uv build, else python3 -m build) and their '
+            'sha256.', 'crane.build:wheel_main', flags=(JSON, DRY),
+            about='the build command, then one row per file (name, size, sha256[:12]) and next:.',
+            params=(sel('out', description='Where the files go (default ~/.cache/crane/dist).'),
+                    P('--dry-run', 'bool', description='Print the build command only.'),
+                    P('--json', 'bool', description='One JSON document.')),
+            examples=('crane build wheel', 'crane build wheel --out dist'), raw='uv build --out-dir DIR'),
+    Command(('deploy',), 'Bring a host up to this checkout over ssh: check its disk, sync the code (git fetch from '
+            'this machine + ff-only, or rsync when it has no checkout), make its .venv (install.sh), send the T2 '
+            'player with --player (sha256 checked there, current + prev kept), then run crane doctor there.',
+            'crane.deploy:main',
+            flags=(JSON, DRY), json='crane.deploy/1', export=True,
+            about='the probe line (free disk, checkout, player), one row per step as it runs, then the host\'s crane '
+                  'doctor table and next:. --dry-run: the probe and the plan; nothing changes on the host.',
+            notes='Touches only ~/crane_ml, ~/.local/bin/crane and the player store (~/.local/share/crane/player) '
+                  'on HOST. Refuses (exit 2) when HOST has less free space than the player (tarball and unpacked) '
+                  'plus 1 GB, when its checkout cannot fast-forward, or when ~/crane_ml there is neither a crane '
+                  'checkout nor an earlier deploy. The .venv step runs install.sh --yes --no-clone --components '
+                  'LIST there (uv, Python 3.12) when HOST has no .venv or --components is given. The player tarball '
+                  'is --tarball, else the newest Builds/crane-player-*.tar.* with its .sha256 (a warn row when its '
+                  'commit is not the code\'s), else the release player; rsync --partial resumes a cut transfer. '
+                  'HOST fetches the full commit from --from (default ssh://THISHOST/REPO, CRANE_DEPLOY_FROM). local:DIR '
+                  'deploys into DIR as the home (no ssh; for tests). Exit 0 ok, 1 a step or the remote doctor '
+                  'failed, 2 usage or a refusal.',
+            params=(P('host', description='HOST or USER@HOST for ssh, or local:DIR.'),
+                    P('--player', 'bool', description='Also send and install the T2 player.'),
+                    P('--tarball', 'path', description='The player tarball (implies --player).'),
+                    P('--ref', default='HEAD', description='The branch or commit HOST gets (default HEAD, this '
+                      "checkout's commit)."),
+                    P('--components', metavar='A,B', description="The host .venv's components, through install.sh "
+                      '--yes --no-clone (default core; run when HOST has no .venv, or when given).'),
+                    P('--no-venv', 'bool', description='Skip the .venv step.'),
+                    P('--from', dest='source', metavar='URL', description='The git URL HOST fetches from (default '
+                      'ssh://THISHOST/REPO).'),
+                    P('--dry-run', 'bool', description='Probe HOST and print the plan; change nothing.'),
+                    P('--json', 'bool', description='One JSON document.')),
+            examples=('crane deploy HOST --dry-run', 'crane deploy HOST --player', 'crane deploy HOST --components core,fast --player'),
+            raw="ssh HOST 'cd ~/crane_ml && git fetch ssh://THISHOST/REPO main && git merge --ff-only FETCH_HEAD'"),
+    Command(('update',), 'Update this checkout (git fetch + ff-only) or this install (the release wheel), then the '
+            'T2 player from the release into the player store (sha256 checked, current + prev kept).',
+            'crane.update:main', flags=(JSON, DRY), json='crane.update/1', export=True,
+            about='the release line, one row per step (code, player), then next:. --dry-run prints the steps only.',
+            notes='The release is release.json of the latest GitHub Release, or of v<VERSION> (CRANE_RELEASES '
+                  'overrides the base URL or names a local dir laid out the same way). A checkout with no release '
+                  'yet still fast-forwards. Refuses (exit 2) when the store\'s disk has less free space than the '
+                  'player (tarball and unpacked) plus 1 GB. Exit 1 when a file fails its sha256 check. --tarball '
+                  'installs a local player tarball (crane deploy runs it on the host).',
+            params=(P('--version', metavar='X.Y.Z', description='That release (default the latest); a checkout '
+                      'fast-forwards to its tag vX.Y.Z.'),
+                    P('--player-only', 'bool', description='Only the player.'),
+                    P('--no-player', 'bool', description='Only the code.'),
+                    P('--tarball', 'path', description='Install this local player tarball instead of the '
+                      "release's."),
+                    P('--sha256', metavar='HEX', description="--tarball's digest (default its .sha256 file)."),
+                    P('--store', 'path', description='The player store (default ~/.local/share/crane/player).'),
+                    P('--dry-run', 'bool', description='Print the steps; change nothing.'),
+                    P('--json', 'bool', description='One JSON document.')),
+            examples=('crane update', 'crane update --dry-run', 'crane update --version 0.3.0 --player-only'),
+            raw='git fetch && git merge --ff-only @{u}; curl -LO RELEASE/ASSET; sha256sum -c'),
     Command(('heavy',), 'The machine-wide concurrency guard for Unity, sims and test suites.', 'crane.wrap:heavy',
             passthrough=True, about="heavy's own output: it waits for a slot (bounded, exit 75 on timeout), runs CMD "
             'and releases it. `crane heavy status` lists the slots, the queue and ETAs.',
@@ -844,8 +911,26 @@ COMMANDS = [
             notes='Read-only; safe any time. Exit 1 only when the core (python >= 3.10, numpy, pyyaml) is broken.',
             params=(P('--json', 'bool', description='One JSON document.'),),
             examples=('crane doctor',)),
-    Command(('setup',), 'The setup wizard.', today='./install.sh [--yes] [--components core,fast,gpu,view,field,setup]',
-            examples=('crane setup',)),
+    Command(('setup',), 'The setup wizard: detect this machine, choose components and domains, show sizes and '
+            'times, install them (install.sh, the release player), then run crane doctor.', 'crane.setup:main',
+            flags=(JSON, DRY), json='crane.setup/1', export=True,
+            about='the detected machine (OS, cores, GPU and driver, docker, astro_dock, Unity editor, display), '
+                  'the component and domain choices with sizes and time estimates, one line per install step, '
+                  'then crane doctor. --dry-run stops after the plan.',
+            notes='Interactive with rich and questionary (the [setup] extra), else plain prompts; --yes takes the '
+                  'defaults or --components/--domains and asks nothing. Components: core, fast, gpu, view, field, '
+                  'data (pip extras, through install.sh), player (the release player, crane update '
+                  '--player-only), astro (a read-only check of the astro integration). The choices are saved to '
+                  '~/.config/crane/setup.json. Never builds astro images or workspaces (astro owns those).',
+            params=(P('--yes', 'bool', description='Ask nothing: the defaults, or the lists given.'),
+                    P('--components', metavar='A,B', description='Comma list (default core, plus fast on a '
+                      'multicore box, gpu with an NVIDIA driver, player with a display or astro_dock).'),
+                    P('--domains', metavar='A,B', description='Comma list of config/domains names (default all).'),
+                    P('--dry-run', 'bool', description='Detect and plan; install nothing.'),
+                    P('--json', 'bool', description='One JSON document (implies --yes).')),
+            examples=('crane setup', 'crane setup --yes --components core,fast,player --domains boat',
+                      'crane setup --yes --dry-run'),
+            raw='./install.sh --yes --components core,fast; crane update --player-only'),
 
     # ---- help -------------------------------------------------------------------------------------------------
     Command(('help',), 'The nouns and verbs; help NOUN for one noun; --check fails when help.yaml or Docs/CLI.md '
