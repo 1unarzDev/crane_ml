@@ -89,6 +89,35 @@ class UnitCache:
         finally:
             os.close(fd)  # releases the lock
 
+    def put_many(self, items):
+        """``put`` for [(unit, record), ...] under one lock and one fsync; returns the stored records in order."""
+        items = list(items)
+        if not items:
+            return []
+        self.root.mkdir(parents=True, exist_ok=True)
+        fd = os.open(self.path, os.O_RDWR | os.O_CREAT | os.O_APPEND, 0o644)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX)
+            self._refresh()
+            new = []
+            for unit, record in items:
+                key = self.key(unit)
+                if key in self._index:
+                    continue
+                entry = {'key': key, 'unit': unit if isinstance(unit, dict) else None, 'record': record}
+                line = json.dumps(entry, sort_keys=True, separators=(',', ':'), default=str) + '\n'
+                self._index[key] = json.loads(line)
+                new.append(line)
+            if new:
+                size = os.fstat(fd).st_size
+                if size and os.pread(fd, 1, size - 1) != b'\n':
+                    os.write(fd, b'\n')  # end a torn line so ours start clean
+                os.write(fd, ''.join(new).encode())
+                os.fsync(fd)
+            return [self._index[self.key(unit)]['record'] for unit, _ in items]
+        finally:
+            os.close(fd)  # releases the lock
+
     def __iter__(self):
         """Every entry ``{key, unit, record}``, in the order written."""
         self._refresh()

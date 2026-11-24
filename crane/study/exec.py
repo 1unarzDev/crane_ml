@@ -9,9 +9,10 @@ Sim cells run through fastsim.batch.run_batch on the domain's tier config, with 
 ``argv`` with ``{args}`` (JSON), ``{seed}``, ``{out}``, ``{cell}``, ``{python}`` filled in; a task's numbers are its
 return value, or its argv's OUT/metrics.json, or the last JSON line it prints.
 
-Every finished unit goes to OUT/cache/records.jsonl at once (crane.cache.UnitCache; several processes may write),
-so a killed run loses only the units in flight and the same command resumes. A unit that raised is written to
-OUT/failures.jsonl (with its traceback) and not cached, so a rerun retries it. After each stage the rows are
+Finished units go to OUT/cache/records.jsonl within FLUSH_S (crane.cache.UnitCache.put_many, one append and one
+fsync for many; several processes may write), so a killed run loses only the units of its last second and the
+same command resumes. A unit that raised is written to OUT/failures.jsonl (with its traceback) and not cached, so a
+rerun retries it. After each stage the rows are
 compiled from the cache: OUT/rows/<stage>.{parquet|csv}, OUT/manifest.json (sha256 per file), OUT/metrics.json.
 """
 
@@ -22,6 +23,7 @@ import io
 import json
 import math
 from multiprocessing import get_context
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -223,11 +225,35 @@ def _task(cell, seed, out):
     return {'outcome': outcome, 'error': None, **_keep(cell, numbers)}, {}
 
 
+_CACHES = {}
+
+
+def _unit_cache(out):
+    """One UnitCache per OUT per process: it reads only what was appended since (a fresh one rereads it all)."""
+    root = str(Path(out) / 'cache')
+    try:
+        st = os.stat(Path(root) / 'records.jsonl')
+        stamp = (st.st_dev, st.st_ino)
+    except FileNotFoundError:
+        stamp = None
+    held = _CACHES.get(root)
+    if held is None or held[0] != stamp or (stamp and held[1]._offset > st.st_size):
+        held = _CACHES[root] = (stamp, UnitCache(root))
+    return held[1]
+
+
+FLUSH_S = 1.0   # finished units wait at most this long (or the chunk's end) before one locked append + fsync
+
+
 def work(cell, seeds, out, commit):
-    """Run ``seeds`` of ``cell`` and cache each unit as it finishes. Returns [(seed, ok, failure|None)]."""
-    cache = UnitCache(Path(out) / 'cache')
-    done, sim = [], None
+    """Run ``seeds`` of ``cell`` and cache the finished units at least every FLUSH_S (one append and one fsync
+    for all of them, so many sub-millisecond units stay cheap). Returns [(seed, ok, failure|None)]."""
+    cache = _unit_cache(out)
+    done, sim, pending, flushed = [], None, [], time.perf_counter()
     for seed in seeds:
+        if pending and time.perf_counter() - flushed >= FLUSH_S:
+            cache.put_many(pending)
+            pending, flushed = [], time.perf_counter()
         unit = cell.unit(seed, commit)
         if cache.has(unit):
             done.append((seed, True, None))
@@ -246,8 +272,9 @@ def work(cell, seeds, out, commit):
                                        'traceback': traceback.format_exc()[-4000:]}))
             continue
         row = {**base_row(cell, seed, commit), **numbers, 'wall_s': round(time.perf_counter() - started, 4)}
-        cache.put(unit, {'row': row, 'blobs': blobs})
+        pending.append((unit, {'row': row, 'blobs': blobs}))
         done.append((seed, numbers.get('outcome') != 'ERROR', None))
+    cache.put_many(pending)
     return done
 
 

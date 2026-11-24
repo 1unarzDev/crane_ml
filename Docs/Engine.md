@@ -67,6 +67,51 @@ fixed per card (dt / the profile's tick). The run identity hashes backend, dtype
 4. A domain without a batched controller runs in decoupled mode; a batched one adds a module like
    `engine/boat.py` (plans as arrays, an FSM `tick`, numba twin) and an entry in `episode.CONTROLLERS`.
 
+## The aerial kernel (drones)
+
+```bash
+python3 -m domains.drones.braking --card x500 --v0 4,8,12,16 --seeds 0:10000      # stops, a table, stops/s
+crane study run examples/studies/braking.yaml                                       # 10,240 stops as study rows
+crane run --domain drones --tier T1 --seeds 0:4                                     # fly to a waypoint and stop
+```
+
+```python
+from domains.drones import braking, card
+from engine.kernels import aerial as A, aerial_control as C
+p = A.pack(card.vehicle('x500'))                    # [P] from a plant card; pack(v, rotors=6) pads a quad
+x = A.init(p[None], pos=(0, 0, 10), rotor_speed=A.hover_speed(p))
+x = A.step(x, u, p[None], 0.004, wind)              # u [E, R] rotor targets (rad/s); numpy or jax.numpy (xp=)
+A.nb_step(x[e], u[e], p, 0.004, wind[e])            # numba, one row in place
+m = braking.stops('x500', 8.0, range(10000), variant={'mass': 2.7})   # {metric: [E]}
+```
+
+| piece | module | what it is |
+|---|---|---|
+| reference | `domains/drones/model.py` | the scalar rigid-body multirotor (RK4, exact motor lag per stage, rotor/body drag, battery, ground effect) |
+| card | `domains/drones/card.py`, `profiles/*.json` | cited profiles (schema crane-aerial-vehicle-profile-v1): mass, inertia, kf, km, tau up/down, rotor positions; `override` makes a card variant |
+| kernel | `engine/kernels/aerial.py` | `step(x [E, S], u [E, R], p [E, P], dt, wind)`; `nb_step` |
+| controller | `engine/kernels/aerial_control.py` | position, velocity, SO(3) attitude, rate, pseudo-inverse allocation with a collective cut; gains from `config/domains/drones.yaml` `control` |
+| braking | `domains/drones/braking.py` | v0 along a seeded heading, a stop command, metrics; numpy lockstep or numba per env in `prange`; a study task |
+| T1 task | `domains/drones/{adapter,plant,waypoints}.py` | fastsim's tracker targets through the controller: fly to a waypoint, stop, hold |
+
+**Gates.** Gate 1: numpy, numba and JAX float64 equal `model.step` to 1e-10 over 1,200 scripted steps in four
+cases, so every kernel term is non-zero in at least one: x500 with ground effect and contact; crazyflie with its
+battery; the zoh_first order; an x500 variant with rotor inertia and quadratic body drag, started at 10 m/s and
+4 rad/s (gyroscopic torque, rotor angular momentum). Largest error 6.9e-13. A padded quad is the same map bit for
+bit; with a held command the error falls about 16x per dt halving (RK4). Batch invariance: a stop alone equals the
+same stop in a batch bit for bit, and numba equals numpy bit for bit (`engine/tests/test_aerial.py`). Gates 2–4
+do not apply yet: the drones have no entry in `episode.CONTROLLERS`, so `crane run --domain drones` runs on
+fastsim only, and braking is batch-only with no scalar twin to compare against.
+
+**Bench** (2026-11-24, i7-12700K, 20 threads, numba 0.68.1; a stop is 8 s simulated at dt 4 ms, 2,000 steps):
+numba on all cores 6,200 stops/s (10^4 stops in 1.6 s), one thread 820 stops/s; numpy (the reference) 26 stops/s
+at E = 64. `examples/studies/braking.yaml` (10,240 stops, one unit per stop) runs in 3.9 s with one worker and 2.6 s
+with four, cache and rows included.
+
+**Limits.** The velocity loop is P only: a steady wind leaves a speed error, so about 0.2 % of stops at
+wind_sd_mps 0.5 never fall below `stopped_mps` (NOT_STOPPED). The T1 task holds altitude and flies the planar
+tracker's body velocity.
+
 ## Gates
 
 | gate | check | where |
