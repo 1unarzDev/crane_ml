@@ -11,7 +11,7 @@ CPU. It uses a kinematic vehicle, truth-in-cone perception and no planner. `fide
 | `plant.py` | limits, goals, the stand-in goal tracker; plants `kinematic`, `first_order` (plant card) |
 | `perception.py` | `cone` truth-label camera with occlusion; hold-over tracker |
 | `controller.py` | the domain interface: `Navigator`, `Observation`, `RunContext`, `Controller`, `DomainAdapter` |
-| `run.py` | one run on a fixed sim clock, then its run directory (`run.json` with identity hashes) |
+| `run.py` | one run on a fixed sim clock, then its run directory (`run.json` with identity hashes, `crane.run.json` as crane.run/1, `Docs/RunRecord.md`) |
 | `batch.py` | seeds across spawned workers: `python3 -m fastsim.batch --config DOMAIN.yaml --seeds 1:21 --out OUT` |
 | `pairs.py` | twin-pair archive (a fast run and another simulator's run of one scenario) |
 | `fidelity.py` | goal-segment replay against a twin, prequential scoring, refit into new epochs |

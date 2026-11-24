@@ -6,6 +6,7 @@
     sim_events.jsonl     the controller's events {t, event, ...} (goals included)
     states.jsonl         the world's state log {t_sim, id, value}
     run.json             outcome, flags, contacts, error, idle, identity, limits, config, provenance
+    crane.run.json       the same run as a crane.run/1 meta (crane/record.py; ``crane_run_meta``)
     (the adapter's own files, from DomainAdapter.finalize)
 
 No wall clock is read: equal run identities give byte-equal directories.
@@ -23,6 +24,7 @@ from fastsim.world import World, contact_cause, footprint_clearance
 from theater import traj as ctraj
 
 SCHEMA = 'crane.fastsim.run/1'
+CRANE_RUN = 'crane.run.json'
 UNHASHED = ('workers', 'max_workers', 'scenarios')  # change no result
 
 
@@ -118,8 +120,27 @@ def simulate(scenario, adapter, cfg, seed, out, base=None, provenance=None):
     (out / 'states.jsonl').write_text(''.join(line(r) for r in scenario.state_log()))
     (out / 'run.json').write_text(json.dumps(summary, indent=2) + '\n')
     write_traj(out / 'run.ctraj', summary, track, ctx.events, float(cfg['track_hz']), adapter)
+    (out / CRANE_RUN).write_text(json.dumps(crane_run_meta(summary), indent=2) + '\n')
     adapter.finalize(out, {**summary, 'track': track, 'events': ctx.events, 'context': ctx})
     return summary
+
+
+def crane_run_meta(summary):
+    """The crane.run/1 meta of a run, from its ``run.json`` summary alone (so an older run directory gets the
+    same one): T0 kinematic, planar poses in the scenario's ENU frame with a FLU body, the sim clock from 0."""
+    ident, plant = summary['identity'], summary.get('plant') or {}
+    vehicle = (summary.get('config') or {}).get('vehicle') or {}
+    card = {'ref': vehicle['card'], 'view': vehicle.get('model') or vehicle.get('ref')} if vehicle.get('card') else None
+    delay = plant.get('delay_s', plant.get('dead_time_s'))
+    return {'schema': 'crane.run/1', 'run_id': ident['run_sha256'],
+            'domain': str((summary.get('adapter') or {}).get('domain') or ''), 'tier': 'T0', 'kind': 'kinematic',
+            'card': card, 'params': plant, 'seed': summary['seed'], 'backend': 'fastsim', 'dtype': 'float64',
+            'identity': ident, 'provenance': summary.get('provenance') or {},
+            'frame': {'world': 'enu', 'origin': 'scenario', 'body': 'flu'},
+            'clock': {'source': 'sim', 't0': 0.0, 'time_multiplier': None},
+            'timing': {'t_src': 'sim', **({'injected_delay_s': delay} if delay is not None else {})},
+            'outcome': summary.get('outcome'), 'scenario': summary.get('scenario'),
+            'files': {'traj': 'run.ctraj', 'events': 'sim_events.jsonl', 'metrics': None, 'native': 'run.json'}}
 
 
 def write_traj(path, summary, track, events, hz, adapter):
