@@ -7,6 +7,11 @@ The report pairs each arm with the baseline on the seed within every cell (rows 
 mean difference (arm - baseline), a bootstrap CI over seeds, a sign-flip permutation p, and Holm across the cells
 of one (stage, arm, metric). The pooled line per (stage, block, arm, metric) averages each seed's differences over
 the cells first, so the seed stays the unit. A held-out block enters only once all its units are done.
+
+Population scorers (the spec's ``scorers:``) get the rows of one group (e.g. one card x block: condition columns
+and sim columns) and return named parts. ``report.population`` then ranks the cards by a calibration part and
+gives the Spearman correlation of that ranking with the same part on the held-out rows, with a cluster bootstrap CI
+(clusters from a condition column, e.g. cond.session_id; judge.stats.cluster_bootstrap_ci).
 """
 
 import json
@@ -191,9 +196,120 @@ def verdicts(targets, pooled):
     return result
 
 
-def report(out, baseline=None, metrics=None, B=2000, alpha=0.05, write=True):
+def load_ref(study, ref):
+    """A 'module:attr' or 'file.py:attr' ref of the spec, its plugin dirs on sys.path (this process only)."""
+    import sys
+    from fastsim import plugin
+    for d in [str(study.base), *(str(p) for p in reversed(study.plugins))]:
+        if d not in sys.path:
+            sys.path.insert(0, d)
+    return plugin.load(ref, str(study.base))
+
+
+def _gvalue(r, key):
+    if key == 'card':
+        return r.get('card_sha') or f"arm:{r['arm']}"
+    if key == 'block':
+        return plan.label(r['block'], r.get('split'))
+    return r.get(key)
+
+
+def card_label(r, cards):
+    sha = r.get('card_sha')
+    if sha and sha in (cards or {}):
+        return ','.join(f'{k}={v}' for k, v in cards[sha]['levels'].items())
+    return r['arm'] + (f'@{sha[:8]}' if sha else '')
+
+
+def _parts(fn, sc, rows, group):
+    got = fn(rows, group, **sc['args'])
+    if not isinstance(got, dict):
+        raise TypeError(f'population scorer {sc["fn"]} returned {type(got).__name__}, not a dict of named parts')
+    return {k: float(v) for k, v in got.items() if _number(v)}
+
+
+def population(rows, study, cards=None, B=200, alpha=0.05, seed=0):
+    """{groups: [...], ranking: {...} | None} of the spec's population scorers over ``rows`` (see the module doc)."""
+    from judge import stats
+    if not study.scorers:
+        return None
+    fns = {sc['name']: load_ref(study, sc['fn']) for sc in study.scorers}
+    groups = []
+    for sc in study.scorers:
+        table = {}
+        for r in rows:
+            table.setdefault(tuple(_gvalue(r, k) for k in sc['over']), []).append(r)
+        for key, members in sorted(table.items(), key=lambda kv: tuple(map(str, kv[0]))):
+            roles = {m.get('role') for m in members}
+            group = {'scorer': sc['name'], 'key': dict(zip(sc['over'], key)), 'label': card_label(members[0], cards),
+                     'card_sha': members[0].get('card_sha') if 'card' in sc['over'] else None,
+                     'role': roles.pop() if len(roles) == 1 else None, 'n': len(members)}
+            group['parts'] = _parts(fns[sc['name']], sc, members, dict(group))
+            groups.append(group)
+    cfg = dict(study.report.get('population') or {})
+    first = study.scorers[0]
+    name, _, part = str(cfg.get('part') or '').partition('.')
+    if not name:
+        name = first['name']
+        part = next((next(iter(g['parts']), None) for g in groups if g['scorer'] == name and g['parts']), None)
+    sc = next((x for x in study.scorers if x['name'] == name), None)
+    if sc is None or part is None:
+        return {'groups': groups, 'ranking': None}
+    calib, test = cfg.get('calib', 'calib'), cfg.get('test', 'held-out')
+    cluster = cfg.get('cluster', 'condition')
+    order = cfg.get('order', 'min')
+    fn = fns[name]
+    sides = [r for r in rows if r.get('role') in (calib, test)]
+    keys = [k for k in sc['over'] if k not in ('block', 'split', 'role')] or ['card']   # what is ranked
+
+    def ident(r):
+        return tuple(_gvalue(r, k) for k in keys)
+
+    def label(r):
+        return ' '.join(card_label(r, cards) if k == 'card' else str(_gvalue(r, k)) for k in keys)
+
+    def scores(sample):
+        by = {}
+        for r in sample:
+            by.setdefault((ident(r), 'test' if r.get('role') == test else 'calib'), []).append(r)
+        got = {}
+        for (card, side), members in by.items():
+            v = _parts(fn, sc, members, {'scorer': name, 'key': dict(zip(keys, card)), 'role': side,
+                                         'card_sha': members[0].get('card_sha'), 'label': label(members[0]),
+                                         'n': len(members)}).get(part)
+            if v is not None:
+                got.setdefault(card, {})[side] = v
+        return got
+
+    def rho(sample):
+        got = scores(sample)
+        both = [c for c, v in got.items() if 'calib' in v and 'test' in v]
+        if len(both) < 3:
+            return float('nan')
+        return stats.spearman([got[c]['calib'] for c in both], [got[c]['test'] for c in both])
+    got = scores(sides)
+    labels = {ident(r): label(r) for r in sides}
+    sign = 1.0 if order == 'min' else -1.0
+    ranked = sorted((c for c in got if 'calib' in got[c]), key=lambda c: (sign * got[c]['calib'], str(c)))
+    table = [{'rank': i + 1, 'card': list(c), 'label': labels.get(c), 'calib': got[c]['calib'],
+              'test': got[c].get('test')} for i, c in enumerate(ranked)]
+    ranking = {'part': f'{name}.{part}', 'by': keys, 'order': order, 'calib': calib, 'test': test, 'cluster': cluster,
+               'cards': table, 'spearman': None, 'ci': None, 'B': B}
+    if any(t['test'] is not None for t in table):
+        clusters = [(r.get('role'), r.get(cluster)) for r in sides]
+        est, (lo, hi) = stats.cluster_bootstrap_ci(sides, clusters, rho, B=B, alpha=alpha, seed=seed,
+                                                   strata=[r.get('role') for r in sides])
+        ranking.update(spearman=est if _number(est) else None, ci=[lo, hi] if _number(lo) else None,
+                       clusters=len(set(clusters)))
+    else:
+        ranking['why'] = f'no done {test} rows yet: the ranking only'
+    return {'groups': groups, 'ranking': ranking}
+
+
+def report(out, baseline=None, metrics=None, B=2000, alpha=0.05, write=True, study=None):
     """The paired report of OUT's rows (one study output, or a dir of job outputs). Held-out blocks enter only when
-    done. Writes OUT/report.json and OUT/report.md; returns the JSON document."""
+    done. ``study`` (its spec) adds the population scorers. Writes OUT/report.json and OUT/report.md; returns the
+    JSON document."""
     from crane.data.rows import read_rows
     out = Path(out)
     manifests = _manifests(out)
@@ -215,6 +331,12 @@ def report(out, baseline=None, metrics=None, B=2000, alpha=0.05, write=True):
            **analyse(rows, baseline, metrics, manifests[0].get('axes') or (), B=B, alpha=alpha)}
     held = next((m['held_out'] for m in manifests if (m.get('held_out') or {}).get('targets')), None)
     doc['targets'] = verdicts(held['targets'].get('entries') or [], doc['pooled']) if held else []
+    if study is not None and study.scorers:
+        cards = {}
+        for m in manifests:
+            cards.update(m.get('cards') or {})
+        cfg = study.report.get('population') or {}
+        doc['population'] = population(rows, study, cards, B=int(cfg.get('B', 200)), alpha=alpha)
     if write:
         from crane import progress
         progress.write_atomic(out / 'report.json', json.dumps(doc, indent=1, default=str) + '\n')
@@ -246,6 +368,14 @@ def markdown(doc):
     if doc.get('targets'):
         lines += ['## Held-out targets', '', '| contrast | metric | direction | verdict |', '|---|---|---|---|']
         lines += [f"| {t['contrast']} | {t['metric']} | {t['direction']} | {t['verdict']} |" for t in doc['targets']]
+        lines += ['']
+    rk = (doc.get('population') or {}).get('ranking')
+    if rk:
+        rho = (f"Spearman {fmt(rk['spearman'])} [{fmt(rk['ci'][0])}, {fmt(rk['ci'][1])}] over {rk.get('clusters')} "
+               f"{rk['cluster']} clusters (B={rk['B']})" if rk.get('ci') else rk.get('why') or 'Spearman -')
+        lines += [f"## Cards by {rk['part']} ({rk['order']} first on {rk['calib']})", '', rho, '',
+                  f"| rank | card | {rk['calib']} | {rk['test']} |", '|---|---|---|---|']
+        lines += [f"| {t['rank']} | {t['label']} | {fmt(t['calib'])} | {fmt(t['test'])} |" for t in rk['cards']]
         lines += ['']
     table = pooled_rows(doc)
     lines += ['## Pooled', '', '| ' + ' | '.join(table[0]) + ' |', '|' + '---|' * len(table[0])]

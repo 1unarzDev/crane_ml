@@ -88,3 +88,5 @@ builds it for its own framework. The format's `identity_check` refuses an edited
 4. Run `python3 -m bench.fast --domain <name> --tier T0 --seeds 0:50 --workers 1,8 --out DIR`.
 5. For many seeds at once, run the domain on the batched engine (`crane run --engine batched`): its plant
    needs a kernel and its controller a batched twin, or it runs in decoupled mode (Docs/Engine.md).
+6. For RL or obs/action datasets, add a `gym:` section to `config/domains/<name>.yaml` (actions, obs, reward;
+   Docs/Env.md); `crane.env.make` needs the batched controller's `goals(plans)`.

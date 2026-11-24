@@ -44,6 +44,9 @@ Every command, its params and examples: [Docs/CLI.md](../Docs/CLI.md), generated
 - `crane/study/`: `crane.study/1` specs ([Docs/Study.md](../Docs/Study.md)): `spec.py` reads and checks one,
   `plan.py` expands it to cells, units and cluster jobs, `exec.py` runs them locally with the unit cache and
   progress, `guard.py` keeps held-out blocks closed, `report.py` gives status and the paired report.
+- `crane/env.py`: `crane.env.make(domain, tier, n, backend)`, a Gym-style batched env over the batched engine; the
+  domain's `gym:` section declares actions, obs channels and reward ([Docs/Env.md](../Docs/Env.md)). Python API
+  only (`crane env` is the course/world generator).
 - `crane/build.py`: after the build, `sourceCommit` and `sourceDirty` go into
   `Builds/CRANE-Worker/crane-build-manifest.json`; `--tarball` writes
   `Builds/crane-player-<commit12>-linux-x86_64.tar.zst` (`.tar.gz` without zstd), without debug symbols, and a
