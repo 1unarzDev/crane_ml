@@ -1,0 +1,61 @@
+name: Player
+
+# The Unity side on the self-hosted Unity runner: EditMode tests, then the headless Linux player and its tarball.
+# Nightly, on v* tags and by hand only: never on pull requests (a PR must not run code on that machine).
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: player-crane-unity
+  cancel-in-progress: false
+
+jobs:
+  player:
+    runs-on: [self-hosted, linux, crane-unity]
+    timeout-minutes: 240
+    env:
+      DISPLAY: ""            # headless only: Unity never opens a window on the owner's display
+      WAYLAND_DISPLAY: ""
+      HEAVY_WAIT_S: "3600"   # bounded wait for a unity slot (bin/heavy exits 75 after it)
+      HEAVY_WHO: gha-player
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          clean: false        # keep Library/ between runs (a cold import is ~30 min)
+          lfs: true
+      - name: Python env (a checkout-local .venv; never touches ~/.local/bin)
+        run: |
+          if command -v uv >/dev/null; then
+            uv venv --quiet --allow-existing --python 3.12 .venv
+            uv pip install --quiet --python .venv/bin/python -e .
+          else
+            python3 -m venv .venv && .venv/bin/pip install --quiet -e .
+          fi
+      - name: EditMode tests (bin/heavy unity, headless)
+        run: |
+          editor=$(.venv/bin/python -c 'from crane.build import editor_path; print(editor_path())')
+          test -x "$editor" || { echo "no Unity editor at $editor: set UNITY_EDITOR on the runner"; exit 2; }
+          mkdir -p Builds/logs
+          bin/heavy unity "$editor" -batchmode -nographics -projectPath "$PWD" \
+            -runTests -testPlatform EditMode \
+            -testResults "$PWD/Builds/logs/editmode-results.xml" -logFile "$PWD/Builds/logs/editmode.log"
+      - name: Build the player and its tarball
+        # crane build player runs Unity through bin/heavy unity itself; wrapping it again would take a second slot.
+        run: .venv/bin/python -m crane build player --tarball
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: crane-player-${{ github.sha }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            Builds/crane-player-*.tar.*
+            Builds/logs/editmode-results.xml
+            Builds/logs/*.log

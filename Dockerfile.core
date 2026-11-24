@@ -1,0 +1,24 @@
+# crane:core, the CPU image for CI smoke tests and rented compute (Docker Hub lunarzdev/crane:core-<sha>).
+#
+#   docker build -f Dockerfile.core -t crane:core-test .
+#   docker run --rm crane:core-test crane --help
+#
+# compute's boot.sh contract: crane importable from /opt/crane_ml with its deps installed; openssh-server,
+# openssh-client, rsync, git, curl and procps present; no blocking ENTRYPOINT; under 300 MB compressed (116 MB;
+# 336 MB unpacked, git and its perl are about 100 MB of that).
+# /opt/crane_ml is a copy without .git, installed editable: code synced over it (rsync) is what runs.
+FROM python:3.12-slim
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends openssh-server openssh-client rsync git curl procps zstd \
+ && rm -rf /var/lib/apt/lists/* /usr/share/doc/* /usr/share/man/* \
+ && useradd --create-home --shell /bin/bash crane
+
+COPY --chown=crane:crane . /opt/crane_ml
+RUN pip install --no-cache-dir --root-user-action=ignore -e /opt/crane_ml \
+ && python3 -c "import crane_backends.fastsim, fastsim, judge.stats"
+
+ENV PYTHONPATH=/opt/crane_ml PYTHONDONTWRITEBYTECODE=1
+WORKDIR /opt/crane_ml
+LABEL org.opencontainers.image.source="https://github.com/1unarzDev/crane_ml"
+CMD ["crane", "--help"]
