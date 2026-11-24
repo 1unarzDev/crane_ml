@@ -362,7 +362,7 @@ def compile(study, stage=None, block=None, *, spec_path=None, est_unit_s=None, d
     study_root = studies_root(out_root) / name
     packed = _study_chunks(study, stage, block)
 
-    jobs, warnings, missing = Jobs(), [], []
+    jobs, warnings, missing, small = Jobs(), [], [], []
     plans = []
     for c in cells:
         cid = cell_id(c)
@@ -395,9 +395,12 @@ def compile(study, stage=None, block=None, *, spec_path=None, est_unit_s=None, d
             continue
         n_units = sum(len(p) for _, p in parts)
         if est * n_units < JOB_MIN_S:
-            warnings.append(f'{cid}: the whole cell is {est * n_units / 60:.1f} min, under the 5 min job '
-                            'minimum; consider running it locally')
+            small.append((cid, est * n_units))
         plans.append((c, est, parts))
+    if small:
+        warnings.append(f'{small[0][0]}' + (f' and {len(small) - 1} more cell(s)' if len(small) > 1 else '')
+                        + f': the whole cell is {max(t for _, t in small) / 60:.1f} min or less, under the 5 min job '
+                        'minimum; consider running it locally, or more seeds per cell')
     if missing:
         raise CompileError(f'no time estimate for {len(missing)} cell(s) ({missing[0]}); pass --est-unit-s S, '
                            '--est-from bench.json, --measure (one seed run locally), or set pack.unit_s in the spec')

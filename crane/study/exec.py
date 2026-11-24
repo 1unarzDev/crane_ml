@@ -280,10 +280,22 @@ def _chunks(cell, seeds, study):
     return [seeds[i:i + size] for i in range(0, len(seeds), size)]
 
 
+def _spec_ref(path):
+    """The spec path an output records: relative to the crane checkout, else with ~ for home (no /home ships)."""
+    from crane import paths
+    path = Path(path).resolve()
+    for base, prefix in ((paths.ROOT.resolve(), ''), (Path.home().resolve(), '~/')):
+        try:
+            return prefix + path.relative_to(base).as_posix()
+        except ValueError:
+            pass
+    return str(path)
+
+
 def write_state(study, out):
     from crane import progress
     from crane.ids import sha256
-    doc = {'schema': 'crane.study.out/1', 'study': study.name, 'spec': str(study.path),
+    doc = {'schema': 'crane.study.out/1', 'study': study.name, 'spec': _spec_ref(study.path),
            'spec_sha256': sha256(study.path.read_bytes()), 'commit': plan.code_commit(), 'updated': now()}
     progress.write_atomic(Path(out) / 'study.json', json.dumps(doc, indent=1) + '\n')
 

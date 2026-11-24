@@ -189,7 +189,11 @@ def _spec_of(target, out_arg=None):
         state = path / 'study.json'
         if not state.is_file():
             raise StudyError(f'{path} holds no study.json (not a study output); fix: crane study status SPEC')
-        return json.loads(state.read_text())['spec'], path
+        spec = Path(json.loads(state.read_text())['spec']).expanduser()
+        if not spec.is_absolute():                 # recorded relative to the crane checkout
+            from crane import paths
+            spec = paths.ROOT / spec
+        return str(spec), path
     return str(path), Path(out_arg).expanduser() if out_arg else None
 
 
