@@ -388,52 +388,109 @@ The local run index: list, show, query, diff.
 ### crane runs ls
 
 ```sh
-crane runs ls --domain boat
+crane runs ls --domain boat --tier T1
+crane runs ls --study nlc08 --metric time --limit 20
 ```
 
-List local runs, newest first.
+List indexed runs, newest first: crane.run/1 dirs, fastsim run dirs and study outputs (manifest.json).
 
-Not yet available; today use `crane board ~/.cache/crane/runs`.
+What you'll see: an aligned table (run, domain, tier, seed, outcome, arm, created, any --metric columns, path), then shown/matched/indexed counts and next:. A new, empty index first indexes ~/.cache/crane/runs.
 
-### crane runs show
+The index is ~/.cache/crane/index.sqlite (CRANE_INDEX moves it); crane runs index ROOT adds roots. --cluster adds the coordinator's runs of --study (GET /v1/runs/query, read-only; CRANE_COORDINATOR, and CRANE_VIEWER_TOKEN or CRANE_TOKEN); offline it says so on stderr and lists the local runs. A held-out run that is not done is sealed: outcome and metrics read `sealed`, none are stored, and stderr says how many.
 
-```sh
-crane runs show RUN_ID
-```
+| Param | Type | Description |
+|---|---|---|
+| `--domain` | str | Only this domain. |
+| `--tier` | tier | Only this tier. One of `T0`, `T1`, `T2`, `abstract`, `dynamic`, `unity`. |
+| `--study` | str | Only this study. |
+| `--where` | str | A condition, as crane runs query --where. |
+| `--metric` | str | Show this metric as a column (repeatable). |
+| `--limit` | int | At most this many rows (0: all). (default `50`) |
+| `--cluster` | bool | Also the coordinator's runs of --study. |
+| `--json` | bool | One JSON document: {schema, index, n, matched, indexed, runs}. |
 
-One run's header, metrics and files.
-
-Not yet available; today use `cat RUN/run.json`.
+raw: `sqlite3 ~/.cache/crane/index.sqlite "SELECT * FROM runs"`; --json: `crane.runs.list/1`
 
 ### crane runs query
 
 ```sh
-crane runs query --where tier=T1
+crane runs query --where "outcome=TIMEOUT and tier=T1 and metric.time>120"
+crane runs query --where "arm in (a, b) and not dirty=true" --metric min_clearance_m
 ```
 
-Runs matching --where.
+Runs matching --where: FIELD OP VALUE joined by and / or / not and parentheses; FIELD is a column or metric.NAME.
 
-Not yet available; today use `crane board ~/.cache/crane/runs`.
+What you'll see: the crane runs ls table for the matching runs. A bad expression is one line naming the column and an example (exit 2).
+
+OP is = != < <= > >= or ~ (glob; a value without * or ? matches anywhere) or in (A, B). Columns: run_id, path, source, domain, tier, kind, seed, card, backend, dtype, commit, dirty, outcome, created, study, stage, arm, block, run_sha256, sealed. A sealed (held-out, not done) run has no outcome or metrics, so metric terms never match it. `null` tests for a missing value; commit= and run_id= take a hex prefix. Parsed to SQL with bound parameters, never evaluated.
+
+| Param | Type | Description |
+|---|---|---|
+| `--where` | str | The condition. |
+| `--metric` | str | Show this metric as a column (repeatable). |
+| `--limit` | int | At most this many rows (0: all). (default `50`) |
+| `--study` | str | With --cluster: the study the coordinator selects. |
+| `--cluster` | bool | Also the coordinator's runs of --study. |
+| `--json` | bool | One JSON document, as crane runs ls. |
+
+--json: `crane.runs.list/1`
+
+### crane runs show
+
+```sh
+crane runs show 3fa2c1d0
+crane runs show ~/.cache/crane/runs/toy/T0/base-1a2b3c4d/base/s3
+```
+
+One run: its meta, metrics and files.
+
+What you'll see: meta (run, path, source, domain, tier, seed, card, commit, outcome, study fields, identity hashes), the metrics, the files with sizes, then next: crane view RUN.
+
+| Param | Type | Description |
+|---|---|---|
+| `run` | str | A run dir, or a run_id (a prefix will do) from the index. |
+| `--json` | bool | One JSON document: {schema, run, meta, files, next}. |
+
+--json: `crane.runs.show/1`
 
 ### crane runs diff
 
 ```sh
-crane runs diff RUN_A RUN_B
+crane runs diff 3fa2c1d0 77b0e9aa
 ```
 
-Two runs' configs and metrics side by side.
+Two runs' meta and metric deltas, and why their identities differ (config, scenario, adapter, seed, core).
 
-Not yet available; today use `crane compare A B`.
+What you'll see: `identity: the same run` or which identity parts differ with the changed keys (config and adapter keys old -> new, the scenario names, the seeds, the core commits), the meta fields that differ, then each differing metric with A, B and B-A.
+
+| Param | Type | Description |
+|---|---|---|
+| `a` | str | A run dir or run_id. |
+| `b` | str | A run dir or run_id. |
+| `--json` | bool | One JSON document: {schema, same_run, identity, meta, metrics}. |
+
+--json: `crane.runs.diff/1`
 
 ### crane runs index
 
 ```sh
-crane runs index
+crane runs index ~/.cache/crane/runs /tmp/study-out
+crane runs index --rebuild
 ```
 
-Rebuild the local run index.
+Index the runs under ROOTs (default: the roots indexed before, else ~/.cache/crane/runs); incremental by mtime, then sha256.
 
-Not yet available; today use `crane board ~/.cache/crane/runs`.
+What you'll see: each root, then `N records under R root(s): added, changed, unchanged, removed; total indexed`.
+
+Reads crane.run/1 dirs, fastsim run dirs (their crane.run/1 meta, nothing written) and study outputs (manifest.json crane.data.manifest/1 with metrics.json). Records gone from a root are dropped, and so is a remembered root that is gone. Hidden and *.stale-N dirs are skipped. Held-out records stay sealed until done (the record says complete, or every progress.json up to the root is phase done) and are reread each time.
+
+| Param | Type | Description |
+|---|---|---|
+| `roots` | list | Directories to index. |
+| `--rebuild` | bool | Drop every row first and read everything again. |
+| `--json` | bool | One JSON document with the counts. |
+
+--json: `crane.runs.index/1`
 
 ## repro
 
@@ -442,12 +499,24 @@ Rerun one run and check it reproduces.
 ### crane repro
 
 ```sh
-crane repro RUN_ID --check
+crane repro 3fa2c1d0 --check
+crane repro ~/.cache/crane/runs/toy/T0/base-1a2b3c4d/base/s3
 ```
 
-Rerun one run from its record and check it reproduces.
+Rerun one run at its recorded commit (a temporary git worktree) and compare run_sha256, the files and the metrics.
 
-Not yet available; today use `crane run with the run.json seed, config and overrides, then crane compare`.
+What you'll see: run_sha256, tree_sha (or the first differing file) and metrics, each same or differs, then `repro: reproduced` or the rerun kept for crane runs diff. With --check, exit 1 when it does not reproduce.
+
+Reruns fastsim runs (T0/T1): that commit's fastsim on the scenario file in the run dir, with the recorded config and provenance. Refuses with one line (exit 2) a run made from a dirty tree (its diff sha when recorded), a commit no repository here has, or a non-fastsim record. The worktree is always removed; your checkout is never touched.
+
+| Param | Type | Description |
+|---|---|---|
+| `run` | str | A run dir, or a run_id from the index. |
+| `--check` | bool | Exit 1 when the rerun differs. |
+| `--timeout` | int | Seconds the rerun may take. (default `1800`) |
+| `--json` | bool | One JSON document (crane.repro/1). |
+
+raw: `git worktree add --detach TMP COMMIT, then fastsim.run.simulate on the recorded inputs`; --json: `crane.repro/1`
 
 ## data
 
