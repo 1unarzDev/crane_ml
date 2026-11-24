@@ -229,7 +229,7 @@ COMMANDS = [
                       'crane run --domain boat --tier T1 --astro-test speed-surge --card /tmp/fit/profile.json'),
             raw='python3 -m fastsim.batch --config CONFIG --seeds 0:3 --out OUT'),
 
-    # ---- study, runs, repro, data, monitor (not built yet) ----------------------------------------------------
+    # ---- study, data, monitor (not built yet); runs and repro --------------------------------------------------------
     *[Command(('study', v), s, today=t, examples=(e,)) for v, s, t, e in (
         ('init', 'Write a study spec (crane.study/1) to start from.', 'a hypothesis.yaml beside your runs',
          'crane study init --domain boat > study.yaml'),
@@ -243,15 +243,85 @@ COMMANDS = [
          'crane compare A B', 'crane study report study.yaml'),
         ('promote', "Rerun a stage's top-k at a higher tier.", 'crane run --tier T1 on the chosen seeds',
          'crane study promote study.yaml --top 5'))],
-    *[Command(('runs', v), s, today=t, examples=(e,)) for v, s, t, e in (
-        ('ls', 'List local runs, newest first.', 'crane board ~/.cache/crane/runs', 'crane runs ls --domain boat'),
-        ('show', "One run's header, metrics and files.", 'cat RUN/run.json', 'crane runs show RUN_ID'),
-        ('query', 'Runs matching --where.', 'crane board ~/.cache/crane/runs', 'crane runs query --where tier=T1'),
-        ('diff', "Two runs' configs and metrics side by side.", 'crane compare A B', 'crane runs diff RUN_A RUN_B'),
-        ('index', 'Rebuild the local run index.', 'crane board ~/.cache/crane/runs', 'crane runs index'))],
-    Command(('repro',), 'Rerun one run from its record and check it reproduces.', today='crane run with the run.json '
-            'seed, config and overrides, then crane compare', examples=('crane repro RUN_ID --check',),
-            params=(P('run_id', description='The run to reproduce.'),)),
+    Command(('runs', 'ls'), 'List indexed runs, newest first: crane.run/1 dirs, fastsim run dirs and study '
+            'outputs (manifest.json).', 'crane.runs.query:ls_main', flags=(JSON,), json='crane.runs.list/1',
+            about='an aligned table (run, domain, tier, seed, outcome, arm, created, any --metric columns, path), '
+                  'then shown/matched/indexed counts and next:. A new, empty index first indexes '
+                  '~/.cache/crane/runs.',
+            notes='The index is ~/.cache/crane/index.sqlite (CRANE_INDEX moves it); crane runs index ROOT adds '
+                  "roots. --cluster adds the coordinator's runs of --study (GET /v1/runs/query, read-only; "
+                  'CRANE_COORDINATOR, and CRANE_VIEWER_TOKEN or CRANE_TOKEN); offline it says so on stderr and '
+                  'lists the local runs.',
+            params=(sel('domain', description='Only this domain.'), sel('tier', description='Only this tier.'),
+                    P('--study', description='Only this study.'),
+                    P('--where', metavar='EXPR', description='A condition, as crane runs query --where.'),
+                    P('--metric', repeat=True, metavar='NAME', description='Show this metric as a column '
+                      '(repeatable).'),
+                    P('--limit', 'int', default=50, description='At most this many rows (0: all).'),
+                    P('--cluster', 'bool', description="Also the coordinator's runs of --study."),
+                    P('--json', 'bool', description='One JSON document: {schema, index, n, matched, indexed, runs}.')),
+            examples=('crane runs ls --domain boat --tier T1', 'crane runs ls --study nlc08 --metric time --limit 20'),
+            raw='sqlite3 ~/.cache/crane/index.sqlite "SELECT * FROM runs"'),
+    Command(('runs', 'query'), 'Runs matching --where: FIELD OP VALUE joined by and / or / not and parentheses; '
+            'FIELD is a column or metric.NAME.', 'crane.runs.query:query_main', flags=(JSON,),
+            json='crane.runs.list/1',
+            about='the crane runs ls table for the matching runs. A bad expression is one line naming the column '
+                  'and an example (exit 2).',
+            notes='OP is = != < <= > >= or ~ (glob; a value without * or ? matches anywhere) or in (A, B). Columns: '
+                  'run_id, path, source, domain, tier, kind, seed, card, backend, dtype, commit, dirty, outcome, '
+                  'created, study, stage, arm, block, run_sha256. `null` tests for a missing value; commit= and '
+                  'run_id= take a hex prefix. Parsed to SQL with bound parameters, never evaluated.',
+            params=(P('--where', metavar='EXPR', required=True, description='The condition.'),
+                    P('--metric', repeat=True, metavar='NAME', description='Show this metric as a column '
+                      '(repeatable).'),
+                    P('--limit', 'int', default=50, description='At most this many rows (0: all).'),
+                    P('--study', description='With --cluster: the study the coordinator selects.'),
+                    P('--cluster', 'bool', description="Also the coordinator's runs of --study."),
+                    P('--json', 'bool', description='One JSON document, as crane runs ls.')),
+            examples=('crane runs query --where "outcome=TIMEOUT and tier=T1 and metric.time>120"',
+                      'crane runs query --where "arm in (a, b) and not dirty=true" --metric min_clearance_m')),
+    Command(('runs', 'show'), 'One run: its meta, metrics and files.', 'crane.runs.query:show_main', flags=(JSON,),
+            json='crane.runs.show/1',
+            about='meta (run, path, source, domain, tier, seed, card, commit, outcome, study fields, identity '
+                  'hashes), the metrics, the files with sizes, then next: crane view RUN.',
+            params=(P('run', metavar='RUN', description='A run dir, or a run_id (a prefix will do) from the index.'),
+                    P('--json', 'bool', description='One JSON document: {schema, run, meta, files, next}.')),
+            examples=('crane runs show 3fa2c1d0', 'crane runs show ~/.cache/crane/runs/toy/T0/base-1a2b3c4d/base/s3')),
+    Command(('runs', 'diff'), "Two runs' meta and metric deltas, and why their identities differ (config, "
+            'scenario, adapter, seed, core).', 'crane.runs.query:diff_main', flags=(JSON,), json='crane.runs.diff/1',
+            about='`identity: the same run` or which identity parts differ with the changed keys (config and '
+                  'adapter keys old -> new, the scenario names, the seeds, the core commits), the meta fields that '
+                  'differ, then each differing metric with A, B and B-A.',
+            params=(P('a', metavar='A', description='A run dir or run_id.'),
+                    P('b', metavar='B', description='A run dir or run_id.'),
+                    P('--json', 'bool', description='One JSON document: {schema, same_run, identity, meta, metrics}.')),
+            examples=('crane runs diff 3fa2c1d0 77b0e9aa',)),
+    Command(('runs', 'index'), 'Index the runs under ROOTs (default: the roots indexed before, else '
+            '~/.cache/crane/runs); incremental by mtime, then sha256.', 'crane.runs.query:index_main', flags=(JSON,),
+            json='crane.runs.index/1',
+            about='each root, then `N records under R root(s): added, changed, unchanged, removed; total indexed`.',
+            notes='Reads crane.run/1 dirs, fastsim run dirs (their crane.run/1 meta, nothing written) and study '
+                  'outputs (manifest.json crane.data.manifest/1 with metrics.json). Records gone from a root are '
+                  'dropped. Hidden and *.stale-N dirs are skipped.',
+            params=(P('roots', 'list', nargs='*', metavar='ROOT', description='Directories to index.'),
+                    P('--rebuild', 'bool', description='Drop every row first and read everything again.'),
+                    P('--json', 'bool', description='One JSON document with the counts.')),
+            examples=('crane runs index ~/.cache/crane/runs /tmp/study-out', 'crane runs index --rebuild')),
+    Command(('repro',), 'Rerun one run at its recorded commit (a temporary git worktree) and compare run_sha256, '
+            'the files and the metrics.', 'crane.runs.repro:main', flags=(JSON,), json='crane.repro/1',
+            about='run_sha256, tree_sha (or the first differing file) and metrics, each same or differs, then '
+                  '`repro: reproduced` or the rerun kept for crane runs diff. With --check, exit 1 when it does not '
+                  'reproduce.',
+            notes="Reruns fastsim runs (T0/T1): that commit's fastsim on the scenario file in the run dir, with the "
+                  'recorded config and provenance. Refuses with one line (exit 2) a run made from a dirty tree (its '
+                  'diff sha when recorded), a commit no repository here has, or a non-fastsim record. The worktree '
+                  'is always removed; your checkout is never touched.',
+            params=(P('run', metavar='RUN', description='A run dir, or a run_id from the index.'),
+                    P('--check', 'bool', description='Exit 1 when the rerun differs.'),
+                    P('--timeout', 'int', default=1800, description='Seconds the rerun may take.'),
+                    P('--json', 'bool', description='One JSON document (crane.repro/1).')),
+            examples=('crane repro 3fa2c1d0 --check', 'crane repro ~/.cache/crane/runs/toy/T0/base-1a2b3c4d/base/s3'),
+            raw='git worktree add --detach TMP COMMIT, then fastsim.run.simulate on the recorded inputs'),
     *[Command(('data', v), s, today=t, examples=(e,)) for v, s, t, e in (
         ('export', 'Runs to columnar files (npz or parquet) plus a manifest with sha256.',
          "each run's metrics.json and track.jsonl", 'crane data export RUNS --format npz --out /tmp/ds'),
