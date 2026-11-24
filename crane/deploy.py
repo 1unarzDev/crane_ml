@@ -1,12 +1,15 @@
 """crane deploy HOST: bring a host up to this checkout over ssh, optionally with the T2 player, then crane doctor there.
 
     crane deploy HOST --dry-run          # probe the host and print the plan
-    crane deploy HOST --player           # code, then the player tarball (sha256 checked on the host)
+    crane deploy HOST --player           # code, the .venv, then the player tarball (sha256 checked on the host)
     crane deploy local:/tmp/h --player   # the same into a dir standing in for the home (no ssh; tests)
 
-On HOST it touches only ~/crane_ml and the player store (~/.local/share/crane/player):
-- code: a git checkout there fetches REF from this machine and fast-forwards (`git fetch ssh://THISHOST/REPO REF &&
-  git merge --ff-only FETCH_HEAD`); without a checkout, REF's tracked files (no Unity project) go over by rsync.
+On HOST it touches only ~/crane_ml, ~/.local/bin/crane (install.sh's link) and the player store
+(~/.local/share/crane/player):
+- code: REF (default HEAD, this checkout's commit). A git checkout there fetches that commit from this machine and
+  fast-forwards (`git fetch ssh://THISHOST/REPO COMMIT && git merge --ff-only FETCH_HEAD`); without a checkout, its
+  tracked files (no Unity project) go over by rsync into an empty ~/crane_ml or an earlier deploy's.
+- venv: `install.sh --yes --no-clone --components LIST` there when it has no .venv or --components is given.
 - player: rsync --partial into the store's .incoming/, then `bin/crane update --tarball` there checks the sha256,
   unpacks it and keeps current + prev (crane/update.py's installer, the one crane update uses).
 - doctor: `bin/crane doctor --json` there, printed here.
@@ -33,13 +36,15 @@ PROBE = r'''
 cd ~ || exit 3
 echo "home=$HOME"
 echo "free_kb=$(df -Pk . | awk 'NR==2 {print $4}')"
-if [ -d crane_ml/.git ]; then
+if [ -e crane_ml/.git ] && git -C crane_ml rev-parse --git-dir >/dev/null 2>&1; then
   echo checkout=git
   echo "head=$(git -C crane_ml rev-parse HEAD 2>/dev/null)"
   echo "dirty=$(git -C crane_ml status --porcelain --untracked-files=no 2>/dev/null | wc -l | tr -d ' ')"
-elif [ -f crane_ml/pyproject.toml ]; then
+elif [ -f crane_ml/.crane-deploy.json ] || grep -qs '^name = "crane"$' crane_ml/pyproject.toml; then
   echo checkout=files
   echo "head=$(sed -n 's/.*"commit": *"\([0-9a-f]*\)".*/\1/p' crane_ml/.crane-deploy.json 2>/dev/null)"
+elif [ -n "$(ls -A crane_ml 2>/dev/null)" ]; then
+  echo checkout=foreign
 else
   echo checkout=none
 fi
@@ -137,6 +142,11 @@ def resolve_ref(ref):
     return proc.stdout.strip()
 
 
+def tarball_commit(tarball):
+    m = update.TARBALL.search(Path(tarball).name)
+    return m.group(1) if m else None
+
+
 def find_tarball(path=None):
     """(tarball, sha256, release player dict or None): --tarball, else the newest Builds tarball with its .sha256,
     else the release player (downloaded into ~/.cache/crane/downloads)."""
@@ -166,9 +176,9 @@ def find_tarball(path=None):
 def code_plan(t, info, ref, commit, source):
     if info.get('checkout') == 'git':
         url = t.fetch_url(source)
-        script = (f'cd ~/{REPO_REL} && git fetch --quiet {shlex.quote(url)} {shlex.quote(ref)} && '
+        script = (f'cd ~/{REPO_REL} && git fetch --quiet {shlex.quote(url)} {commit} && '
                   'git merge --ff-only --quiet FETCH_HEAD && git rev-parse HEAD')
-        return 'git', f'git fetch {url} {ref}; git merge --ff-only FETCH_HEAD', script
+        return 'git', f'git fetch {url} {commit[:12]} ({ref}); git merge --ff-only FETCH_HEAD', script
     return 'rsync', f'git archive {commit[:12]} (no {", ".join(UNITY)}) | rsync -a to ~/{REPO_REL}/', None
 
 
@@ -182,7 +192,7 @@ def sync_code(t, info, ref, commit, source):
         head = proc.stdout.strip().splitlines()[-1:]
         if head and head[0] != commit:
             raise DeployError(f'code: {t.name} is at {head[0][:12]} after the merge, not {commit[:12]}',
-                              f'crane deploy {t.name} --ref {commit[:12]}')
+                              f'crane deploy {t.name} --ref {commit}')
         return f'{(info.get("head") or "?")[:12]} -> {commit[:12]}'
     with tempfile.TemporaryDirectory(prefix='crane-deploy-', dir=_scratch()) as tmp:
         tree = Path(tmp) / REPO_REL
@@ -199,6 +209,21 @@ def sync_code(t, info, ref, commit, source):
         _checked(t.run(f'mkdir -p ~/{REPO_REL}'), 'code: mkdir')
         _checked(t.send(f'{tree}/', f'{REPO_REL}/'), 'code: rsync')
     return f'{(info.get("head") or "none")[:12]} -> {commit[:12]} (files)'
+
+
+def venv_plan(info, components, explicit, skip):
+    """The install.sh argv run in ~/crane_ml on the host, or None: only when there is no .venv there, or
+    --components was given (install.sh is idempotent: it keeps a 3.12 venv and reinstalls the extras)."""
+    if skip or (info.get('venv') == 'yes' and not explicit):
+        return None
+    return ['./install.sh', '--yes', '--no-clone', '--components', components]
+
+
+def make_venv(t, argv):
+    script = f'cd ~/{REPO_REL} && ' + ' '.join(shlex.quote(a) for a in argv) + ' </dev/null'
+    _checked(t.run(script, timeout=1800), 'venv', f'ssh {t.name} "cd ~/{REPO_REL} && {" ".join(argv)}"   (its '
+             'output names the step)' if isinstance(t, Ssh) else f'cd {t.home}/{REPO_REL} && {" ".join(argv)}')
+    return f'.venv with {argv[-1]}'
 
 
 def _scratch():
@@ -252,6 +277,10 @@ def main(args):
              f'{info.get("python") or "none"}')
         if not info.get('python'):
             raise DeployError(f'{t.name} has no python3', f'install python3 >= 3.10 on {t.name}', output.USAGE)
+        if info.get('checkout') == 'foreign':
+            raise DeployError(f'~/{REPO_REL} on {t.name} is not a crane checkout or an earlier deploy',
+                              f'move it aside on {t.name} (mv ~/{REPO_REL} ~/{REPO_REL}.old), then deploy again',
+                              output.USAGE)
         if info.get('checkout') != 'git' and info.get('rsync') != 'yes' and isinstance(t, Ssh):
             raise DeployError(f'{t.name} has no rsync', f'install rsync on {t.name}', output.USAGE)
 
@@ -260,6 +289,12 @@ def main(args):
         if want_player:
             tarball, sha, rel_player = find_tarball(args.tarball)
             name = update.player_name(tarball or rel_player['name'], sha)
+            built = tarball_commit(tarball or rel_player['name'])
+            if tarball and not args.tarball and built and not commit.startswith(built):
+                note = (f'{tarball.name} was built from {built[:12]}, the code is {commit[:12]} (--tarball PATH '
+                        'picks one; crane build player --tarball makes a matching one)')
+                doc.setdefault('warnings', []).append(note)
+                _row(out, 'warn', note)
             size = tarball.stat().st_size if tarball else int(rel_player.get('bytes') or 0)
             if info.get('player') == name:
                 want_player = False
@@ -276,7 +311,10 @@ def main(args):
                               f'free space on {t.name}, or deploy without --player', output.USAGE)
 
         how, shown, _ = code_plan(t, info, args.ref, commit, args.source)
+        venv = venv_plan(info, args.components or 'core', bool(args.components), args.no_venv)
         plan = [('code', shown)]
+        if venv:
+            plan.append(('venv', f'~/{REPO_REL}/' + ' '.join(venv)[2:]))
         if want_player:
             label = tarball.name if tarball else f'{rel_player["name"]} (release {rel_player["version"]})'
             plan.append(('player', f'{label}: rsync --partial to ~/{STORE_REL}/.incoming/, sha256 {sha[:12]} '
@@ -289,12 +327,16 @@ def main(args):
             for step, detail in plan:
                 _row(out, step, detail)
             out.next(f'crane deploy {args.host}' + (' --player' if args.player else '') +
-                     (f' --ref {args.ref}' if args.ref != 'main' else ''))
+                     (f' --ref {args.ref}' if args.ref != 'HEAD' else ''))
             return output.OK
 
         detail = sync_code(t, info, args.ref, commit, args.source)
         doc['steps'].append({'step': 'code', 'how': how, 'detail': detail})
         _row(out, 'code', f'{how}: {detail}')
+        if venv:
+            detail = make_venv(t, venv)
+            doc['steps'].append({'step': 'venv', 'argv': venv, 'detail': detail})
+            _row(out, 'venv', detail)
         if want_player:
             if tarball is None:
                 tarball = paths.HOME / '.cache' / 'crane' / 'downloads' / rel_player['version'] / \
@@ -316,10 +358,8 @@ def main(args):
         return output.OK if ok else output.FAILED
     _row(out, 'doctor', f'on {t.name}')
     out.table([(c['name'], c['state'], c['detail']) for c in report.get('checks', [])], indent=4)
-    nxt = []
-    if info.get('venv') != 'yes':
-        nxt.append(f'ssh {args.host} ~/{REPO_REL}/install.sh --yes --no-clone   (a .venv with the extras)'
-                   if isinstance(t, Ssh) else f'{t.home}/{REPO_REL}/install.sh --yes --no-clone')
+    nxt = [f'crane deploy {args.host} --components core   (a .venv there: install.sh)'] \
+        if info.get('venv') != 'yes' and args.no_venv else []
     nxt += [f'ssh {args.host} {c}' if isinstance(t, Ssh) else c for c in report.get('next', [])[:2]]
     out.next(*nxt)
     return output.OK if ok else output.FAILED

@@ -187,7 +187,10 @@ def main(args):
     out = args.output
     interactive = not (args.yes or out.json or args.components or args.domains)
     if interactive and not sys.stdin.isatty():
-        return out.usage('setup', 'no terminal to ask on', 'crane setup --yes [--components A,B] [--domains A,B]')
+        if out.dry_run:              # a plan from the defaults: nothing to ask
+            interactive = False
+        else:
+            return out.usage('setup', 'no terminal to ask on', 'crane setup --yes [--components A,B] [--domains A,B]')
     m = detect.machine()
     dom_all = domains()
     _show_machine(out, m)

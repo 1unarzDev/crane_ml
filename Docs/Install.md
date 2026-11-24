@@ -68,17 +68,22 @@ player is pruned on each install.
 ## crane deploy HOST
 ```sh
 crane deploy HOST --dry-run              # probe: free disk, checkout, player, python; then the plan
-crane deploy HOST --player --ref main
+crane deploy HOST --player                         # this checkout's commit, a core .venv, the player
+crane deploy HOST --components core,fast --ref main
 ```
-On HOST it touches only `~/crane_ml` and the player store. It runs these steps:
+On HOST it touches only `~/crane_ml`, `~/.local/bin/crane` and the player store. It runs these steps:
 
-1. **Code.** A host with a git checkout fetches from this machine and fast-forwards (`git fetch
-   ssh://THISHOST/REPO REF && git merge --ff-only FETCH_HEAD`; `--from URL` or `CRANE_DEPLOY_FROM` changes the
-   source). A host without one gets REF's tracked files by rsync, without the Unity project.
-2. **Player.** The tarball goes over with `rsync --partial`, so a cut transfer resumes. HOST checks its sha256 and
-   installs it with current + prev. The tarball is `--tarball`, else the newest `Builds/crane-player-*.tar.*`,
-   else the release's.
-3. **Doctor.** `bin/crane doctor --json` runs on HOST and its table is printed here.
+1. **Code.** REF is `--ref` (default `HEAD`, this checkout's commit). A host with a git checkout fetches that commit
+   from this machine and fast-forwards (`git fetch ssh://THISHOST/REPO COMMIT && git merge --ff-only FETCH_HEAD`;
+   `--from URL` or `CRANE_DEPLOY_FROM` changes the source). A host without one gets REF's tracked files by rsync,
+   without the Unity project, into an empty `~/crane_ml` or an earlier deploy's.
+2. **Venv.** `install.sh --yes --no-clone --components LIST` runs there (uv, Python 3.12, `~/crane_ml/.venv`) when
+   HOST has no `.venv` or `--components` is given. `--no-venv` skips it.
+3. **Player.** The tarball goes over with `rsync --partial`, so a cut transfer resumes. HOST checks its sha256 and
+   installs it with current + prev. The tarball is `--tarball`, else the newest `Builds/crane-player-*.tar.*` (a
+   `warn` row when it was built from another commit than the code), else the release's.
+4. **Doctor.** `bin/crane doctor --json` runs on HOST and its table is printed here.
 
-It refuses (exit 2) when HOST has less free space than the player, unpacked, plus 1 GB. `local:DIR` deploys into
+It refuses (exit 2) when HOST has less free space than the player, unpacked, plus 1 GB, and when `~/crane_ml` there
+is neither a crane checkout nor an earlier deploy. `local:DIR` deploys into
 DIR as the home, with no ssh; the tests use it.

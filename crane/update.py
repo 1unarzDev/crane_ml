@@ -163,6 +163,7 @@ def player_name(tarball, sha256):
 def _members(tar, prefix='CRANE-Worker/'):
     """The tarball's members with the CRANE-Worker/ prefix stripped; anything absolute, outside or special is
     refused (a crafted tarball cannot write outside the player dir)."""
+    seen = set()
     for m in tar:
         name = m.name[2:] if m.name.startswith('./') else m.name
         if name.rstrip('/') == prefix.rstrip('/'):
@@ -170,8 +171,11 @@ def _members(tar, prefix='CRANE-Worker/'):
         if not name.startswith(prefix):
             raise IntegrityError(f'tarball member {m.name!r} is outside {prefix}')
         m.name = name[len(prefix):]
-        if m.islnk():
-            m.linkname = m.linkname[len(prefix):] if m.linkname.startswith(prefix) else m.linkname
+        if m.islnk():                    # a hard link names an earlier member, inside the player
+            target = m.linkname[2:] if m.linkname.startswith('./') else m.linkname
+            if not target.startswith(prefix) or target[len(prefix):] not in seen:
+                raise IntegrityError(f'tarball hard link {m.name!r} names {m.linkname!r}, not an earlier member')
+            m.linkname = target[len(prefix):]
         if (m.name.startswith('/') or '..' in Path(m.name).parts or not (m.isfile() or m.isdir() or m.issym()
                                                                             or m.islnk())):
             raise IntegrityError(f'tarball member {m.name!r} is not a plain file, dir or link inside the player')
@@ -179,6 +183,7 @@ def _members(tar, prefix='CRANE-Worker/'):
                                          '..' in Path(m.name).parent.joinpath(m.linkname).parts):
             raise IntegrityError(f'tarball link {m.name!r} points outside the player')
         m.mode &= 0o755
+        seen.add(m.name.rstrip('/'))
         yield m
 
 
@@ -199,6 +204,8 @@ def _unpack(tarball, dest):
         with tar:
             for m in _members(tar):
                 tar.extract(m, dest, **kw)
+    except (KeyError, tarfile.TarError, OSError) as error:
+        raise IntegrityError(f'{Path(tarball).name} does not unpack ({error})') from None
     finally:
         if proc:
             proc.stdout.close()
@@ -334,7 +341,13 @@ def main(args):
     if not steps and not args.player_only:
         rows.append(('code', 'ok', 'already at the release' if not is_checkout() else 'nothing to do'))
     if is_checkout() and steps and not out.dry_run:
-        rows.append(('code', 'at', _git('rev-parse', '--short=12', 'HEAD', check=False).stdout.strip()))
+        head = _git('rev-parse', 'HEAD', check=False).stdout.strip()
+        rows.append(('code', 'at', head[:12]))
+        if release and release.get('commit') and head != release['commit']:
+            note = (f'HEAD {head[:12]} is not release {release["version"]}\'s commit {release["commit"][:12]}; the '
+                    'player below is the release\'s')
+            rows.append(('code', 'warn', note))
+            doc['warnings'] = [note]
 
     # 2. the player
     player = (release or {}).get('player')

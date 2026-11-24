@@ -841,28 +841,35 @@ COMMANDS = [
                     P('--json', 'bool', description='One JSON document.')),
             examples=('crane build wheel', 'crane build wheel --out dist'), raw='uv build --out-dir DIR'),
     Command(('deploy',), 'Bring a host up to this checkout over ssh: check its disk, sync the code (git fetch from '
-            'this machine + ff-only, or rsync when it has no checkout), send the T2 player with --player (sha256 '
-            'checked there, current + prev kept), then run crane doctor there.', 'crane.deploy:main',
+            'this machine + ff-only, or rsync when it has no checkout), make its .venv (install.sh), send the T2 '
+            'player with --player (sha256 checked there, current + prev kept), then run crane doctor there.',
+            'crane.deploy:main',
             flags=(JSON, DRY), json='crane.deploy/1',
             about='the probe line (free disk, checkout, player), one row per step as it runs, then the host\'s crane '
                   'doctor table and next:. --dry-run: the probe and the plan; nothing changes on the host.',
-            notes='Touches only ~/crane_ml and the player store (~/.local/share/crane/player) on HOST. Refuses (exit '
-                  '2) when HOST has less free space than the player (tarball and unpacked) plus 1 GB, or when its '
-                  'checkout cannot fast-forward. The player tarball is --tarball, else the newest '
-                  'Builds/crane-player-*.tar.* with its .sha256, else the release player; rsync --partial resumes '
-                  'a cut transfer. HOST fetches from --from (default ssh://THISHOST/REPO, CRANE_DEPLOY_FROM). '
-                  'Without a .venv on HOST, bin/crane runs on its python3; next: names install.sh. local:DIR '
+            notes='Touches only ~/crane_ml, ~/.local/bin/crane and the player store (~/.local/share/crane/player) '
+                  'on HOST. Refuses (exit 2) when HOST has less free space than the player (tarball and unpacked) '
+                  'plus 1 GB, when its checkout cannot fast-forward, or when ~/crane_ml there is neither a crane '
+                  'checkout nor an earlier deploy. The .venv step runs install.sh --yes --no-clone --components '
+                  'LIST there (uv, Python 3.12) when HOST has no .venv or --components is given. The player tarball '
+                  'is --tarball, else the newest Builds/crane-player-*.tar.* with its .sha256 (a warn row when its '
+                  'commit is not the code\'s), else the release player; rsync --partial resumes a cut transfer. '
+                  'HOST fetches the full commit from --from (default ssh://THISHOST/REPO, CRANE_DEPLOY_FROM). local:DIR '
                   'deploys into DIR as the home (no ssh; for tests). Exit 0 ok, 1 a step or the remote doctor '
                   'failed, 2 usage or a refusal.',
             params=(P('host', description='HOST or USER@HOST for ssh, or local:DIR.'),
                     P('--player', 'bool', description='Also send and install the T2 player.'),
                     P('--tarball', 'path', description='The player tarball (implies --player).'),
-                    P('--ref', default='main', description='The branch or commit HOST fast-forwards to.'),
+                    P('--ref', default='HEAD', description='The branch or commit HOST gets (default HEAD, this '
+                      "checkout's commit)."),
+                    P('--components', metavar='A,B', description="The host .venv's components, through install.sh "
+                      '--yes --no-clone (default core; run when HOST has no .venv, or when given).'),
+                    P('--no-venv', 'bool', description='Skip the .venv step.'),
                     P('--from', dest='source', metavar='URL', description='The git URL HOST fetches from (default '
                       'ssh://THISHOST/REPO).'),
                     P('--dry-run', 'bool', description='Probe HOST and print the plan; change nothing.'),
                     P('--json', 'bool', description='One JSON document.')),
-            examples=('crane deploy HOST --dry-run', 'crane deploy HOST --player', 'crane deploy HOST --ref w5-builds'),
+            examples=('crane deploy HOST --dry-run', 'crane deploy HOST --player', 'crane deploy HOST --components core,fast --player'),
             raw="ssh HOST 'cd ~/crane_ml && git fetch ssh://THISHOST/REPO main && git merge --ff-only FETCH_HEAD'"),
     Command(('update',), 'Update this checkout (git fetch + ff-only) or this install (the release wheel), then the '
             'T2 player from the release into the player store (sha256 checked, current + prev kept).',
