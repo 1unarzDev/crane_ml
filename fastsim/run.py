@@ -127,13 +127,16 @@ def simulate(scenario, adapter, cfg, seed, out, base=None, provenance=None):
 
 def crane_run_meta(summary):
     """The crane.run/1 meta of a run, from its ``run.json`` summary alone (so an older run directory gets the
-    same one): T0 kinematic, planar poses in the scenario's ENU frame with a FLU body, the sim clock from 0."""
+    same one): the tier its domain config names (T0 kinematic by default), planar poses in the scenario's ENU frame with a FLU body, the sim clock from 0."""
     ident, plant = summary['identity'], summary.get('plant') or {}
     vehicle = (summary.get('config') or {}).get('vehicle') or {}
     card = {'ref': vehicle['card'], 'view': vehicle.get('model') or vehicle.get('ref')} if vehicle.get('card') else None
     delay = plant.get('delay_s', plant.get('dead_time_s'))
+    config = summary.get('config') or {}
+    options = ((config.get('adapter') or {}).get('options') or {}) if isinstance(config.get('adapter'), dict) else {}
+    tier = str(options.get('tier') or (summary.get('adapter') or {}).get('tier') or 'T0')   # the domain says T1
     return {'schema': 'crane.run/1', 'run_id': ident['run_sha256'],
-            'domain': str((summary.get('adapter') or {}).get('domain') or ''), 'tier': 'T0', 'kind': 'kinematic',
+            'domain': str((summary.get('adapter') or {}).get('domain') or ''), 'tier': tier, 'kind': 'dynamic' if tier == 'T1' else 'kinematic',
             'card': card, 'params': plant, 'seed': summary['seed'], 'backend': 'fastsim', 'dtype': 'float64',
             'identity': ident, 'provenance': summary.get('provenance') or {},
             'frame': {'world': 'enu', 'origin': 'scenario', 'body': 'flu'},

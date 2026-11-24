@@ -176,7 +176,9 @@ def test_install_dry_run_plans_every_step_and_touches_nothing(tmp_path):
                           '--domains', 'boat'], env=env, capture_output=True, text=True, timeout=60)
     assert out.returncode == 0, out.stderr
     assert f'repo: this checkout, {ROOT}' in out.stdout
-    assert '--python 3.12' in out.stdout and f'-e {ROOT}[fast,view]' in out.stdout
+    if not (ROOT / '.venv').exists():                              # an existing venv is reused, not recreated
+        assert '--python 3.12' in out.stdout
+    assert f'-e {ROOT}[fast,view]' in out.stdout
     assert f'ln -sfn {ROOT}/.venv/bin/crane {home}/.local/bin/crane' in out.stdout
     assert not any(home.iterdir())                                 # a dry run writes nothing
     bad = subprocess.run(['bash', ROOT / 'install.sh', '--dry-run', '--components', 'core,warp'], env=env,
