@@ -258,7 +258,7 @@ def _bench(args):
         if str(paths.ROOT) not in sys.path:
             sys.path.insert(0, str(paths.ROOT))
         from bench import fast
-        return fast.main(args.rest)
+        return fast.main(args.rest, prog='crane bench fast')
     from crane import wrap
     return wrap.bench_player(args.worker, args.sweep)
 

@@ -30,7 +30,7 @@ def backends(spec):
 
 def measure(cfg, base, adapter, backend, dtype, E, min_seeds, repeats=2, fastmath=False):
     from engine.episode import Setup, run
-    n = E if backend != 'jax' else max(E, min_seeds)
+    n = E if backend != 'jax' else max(E, min(4 * E, min_seeds))   # through E slots, refilled
     seeds = list(range(n))
     t0 = time.perf_counter()
     setup = Setup(cfg, base, adapter, seeds)
@@ -61,15 +61,24 @@ def split_numba(cfg, base, adapter, n=200):
     out = run(setup, 'numba', threads=1)
     wall = time.perf_counter() - t0
     steps = float(np.sum(out.S['end']))
+    # perception: the same episodes with no target left to perceive (the episode then skips it)
+    tm = setup.plans.A['tmatch']
+    saved = tm.copy()
+    tm[:] = False
+    run(setup, 'numba', threads=1)
+    t0 = time.perf_counter()
+    run(setup, 'numba', threads=1)
+    blind = time.perf_counter() - t0
+    tm[:] = saved
     parts = _numba_parts(setup)
     per_ep = steps / n
     ms = {'plant (velocity loop, allocation, kernel)': parts['drive'] * per_ep,
           'tracker and progress check': parts['tracker'] * per_ep,
           'track row (rounding, scoring)': parts['row'] * per_ep / setup.track_every,
-          'contacts (footprint clearance)': parts['clearance'] * per_ep / setup.track_every,
-          'perception (cone, occlusion)': parts['perception'] * per_ep / setup.steps_per_tick}
+          'contacts (footprint clearance)': parts['clearance'] * per_ep / setup.track_every}
     total = 1e3 * wall / n
     ms = {k: round(v * 1e-6, 3) for k, v in ms.items()}
+    ms['perception (cone, occlusion; full run less one with nothing to perceive)'] = round(1e3 * (wall - blind) / n, 3)
     ms['decision and other (by difference)'] = round(total - sum(ms.values()), 3)
     numba.set_num_threads(numba.config.NUMBA_NUM_THREADS)
     return {'ms_per_episode_single_thread': round(total, 3), 'parts_ms': ms, 'steps_per_episode': round(per_ep, 1)}
@@ -137,8 +146,7 @@ def _numba_parts(setup, calls=200000):
     nt = int(A['tmatch'][0].any(axis=1).sum())
     jobs = {'drive': (drive, (setup.vehicle.kind, x, c, p, q, setup.dt, setup.vehicle.tick_s, setup.vehicle.substeps)),
             'tracker': (tracker, (route, rlen, setup.tlim)), 'row': (row, ()),
-            'clearance': (clearance, (W.xy[0], W.radius[0], W.box[0], W.box_dims[0], n, setup.foot, setup.reach)),
-            'perception': (perception, (W.xy[0], W.radius[0], W.visible[0], W.box[0], n, cam, A['targets'][0], nt))}
+            'clearance': (clearance, (W.xy[0], W.radius[0], W.box[0], W.box_dims[0], n, setup.foot, setup.reach))}
     out = {}
     for name, (fn, args) in jobs.items():
         fn(10, *args)

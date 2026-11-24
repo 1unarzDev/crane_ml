@@ -1,0 +1,71 @@
+{
+  "schema": "crane.bench.batched/1",
+  "domain": "boat",
+  "tier": "T0",
+  "baseline_B": {
+    "W1": 9.63,
+    "W8": 55.9
+  },
+  "rows": [
+    {
+      "backend": "jax",
+      "dtype": "float32",
+      "fastmath": false,
+      "E": 4096,
+      "seeds": 16384,
+      "setup_s": 9.449,
+      "first_call_s": 8.135,
+      "wall_s": 3.5124,
+      "episodes_per_s": 4664.6,
+      "sim_s_mean": 144.82,
+      "succeeded": 16384,
+      "env_steps_per_s": 13510498,
+      "x_B_W1": 484.4,
+      "x_B_W8": 83.4
+    },
+    {
+      "backend": "jax",
+      "dtype": "float32",
+      "fastmath": false,
+      "E": 16384,
+      "seeds": 65536,
+      "setup_s": 35.799,
+      "first_call_s": 16.366,
+      "wall_s": 11.8948,
+      "episodes_per_s": 5509.6,
+      "sim_s_mean": 144.85,
+      "succeeded": 65536,
+      "env_steps_per_s": 15961494,
+      "x_B_W1": 572.1,
+      "x_B_W8": 98.6
+    }
+  ],
+  "split_jax": {
+    "E": 16384,
+    "dtype": "float32",
+    "steps": {
+      "physics step (tracker, loop, plant, progress)": {
+        "ms_per_call": 0.172,
+        "kernels": 9
+      },
+      "track + tick step (adds scoring, contacts, perception, decision)": {
+        "ms_per_call": 1.2985,
+        "kernels": 113
+      }
+    }
+  },
+  "host": {
+    "date": "2026-11-24T14:40:54-06:00",
+    "host": "innovation",
+    "cores": 20,
+    "gpu": "NVIDIA GeForce RTX 4070 Ti SUPER",
+    "cpu": "12th Gen Intel(R) Core(TM) i7-12700K",
+    "python": "3.12.15",
+    "executable": "/home/lunarz/worktrees/crane-p3-engine/.venv/bin/python",
+    "numpy": "2.5.5",
+    "commit": "86f5670c07290d2bb4ef9f1e23a432db7d01dac9",
+    "dirty": true,
+    "load_1m": 12.95
+  },
+  "config": "domains/boat/fastsim_t0.yaml"
+}

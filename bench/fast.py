@@ -276,8 +276,8 @@ def markdown(r):
     return '\n'.join(lines) + '\n'
 
 
-def main(argv=None):
-    ap = argparse.ArgumentParser(prog='bench.fast', description=__doc__.split('\n')[0])
+def main(argv=None, prog='bench.fast'):
+    ap = argparse.ArgumentParser(prog=prog, description=__doc__.split('\n')[0])
     ap.add_argument('--domain', default='boat')
     ap.add_argument('--tier', required=True, choices=('T0', 'T1'))
     ap.add_argument('--seeds', type=parse_seeds, help='N, FROM:TO or a,b,c (the scalar table; --equivalence)')

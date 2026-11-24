@@ -1,0 +1,41 @@
+{
+  "schema": "crane.bench.batched/1",
+  "domain": "boat",
+  "tier": "T0",
+  "baseline_B": {
+    "W1": 9.63,
+    "W8": 55.9
+  },
+  "rows": [
+    {
+      "backend": "numba",
+      "dtype": "float64",
+      "fastmath": true,
+      "E": 4096,
+      "seeds": 4096,
+      "setup_s": 2.496,
+      "first_call_s": 0.752,
+      "wall_s": 0.5366,
+      "episodes_per_s": 7632.6,
+      "sim_s_mean": 144.83,
+      "succeeded": 4096,
+      "env_steps_per_s": 22108341,
+      "x_B_W1": 792.6,
+      "x_B_W8": 136.5
+    }
+  ],
+  "host": {
+    "date": "2026-11-24T14:43:41-06:00",
+    "host": "innovation",
+    "cores": 20,
+    "gpu": "NVIDIA GeForce RTX 4070 Ti SUPER",
+    "cpu": "12th Gen Intel(R) Core(TM) i7-12700K",
+    "python": "3.12.15",
+    "executable": "/home/lunarz/worktrees/crane-p3-engine/.venv/bin/python",
+    "numpy": "2.5.5",
+    "commit": "86f5670c07290d2bb4ef9f1e23a432db7d01dac9",
+    "dirty": true,
+    "load_1m": 12.22
+  },
+  "config": "domains/boat/fastsim_t0.yaml"
+}
