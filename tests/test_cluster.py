@@ -228,10 +228,10 @@ def test_batch_backend_runs_a_cell_and_keeps_the_compute_contract(tmp_path, monk
     assert [p.name for p in (rd / 'artifacts' / 'rows').iterdir()] == ['manifest.json']
     monkeypatch.delenv('CRANE_OUT_ROOT')
 
-    # the feed publishes metric means, so only a dev job has them: held-out (flagged touched), check and a role-less
+    # the feed publishes metric means, so only dev and check jobs have them: held-out (flagged touched) and a role-less
     # job report counts only
     counts = {'rows', 'failed', 'units', 'wall_s', 'units_per_s', 'touched_held_out'}
-    for role in ('held-out', 'check', None):
+    for role in ('held-out', None):           # check blocks publish means, like dev
         rd = _backend(tmp_path, f'A.base.{role}', role=role).run(0)
         m = json.loads((rd / 'metrics.json').read_text())
         assert set(m) == counts and m['touched_held_out'] == (role == 'held-out')

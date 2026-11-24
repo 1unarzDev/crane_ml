@@ -31,7 +31,7 @@ import time
 
 DIRECTIONS = ('lower', 'higher', 'not lower', 'not higher')
 HELD_OUT = 'held-out'
-MEANS = frozenset({'dev'})              # interim per-arm means are published for these roles only
+MEANS = frozenset({'dev', 'check'})     # interim per-arm means: dev and check blocks (the studies' rule); never held-out
 OUTCOMES = frozenset({'dev', 'check'})  # per-unit outcome detail (failure messages) shows while running; train,
                                         # calib, held-out and a role-less block hide it by default
 
