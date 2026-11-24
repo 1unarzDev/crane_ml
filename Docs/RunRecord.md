@@ -43,7 +43,7 @@ a, b = frames.align(r, record.read_run('runs/f3'))  # one time grid over the ove
 | `frame` | **required.** `world` `enu`\|`ned`, `origin` a name, `body` `flu`\|`frd` |
 | `clock` | **required.** `source` `sim`\|`wall`; `t0` the clock's time at run t = 0 (unix seconds on wall); `time_multiplier` sim s per wall s, null when unpaced |
 | `timing` | optional: `injected_delay_s`, per-thruster `derate`, `t_src` (the clock the stamps come from) |
-| `files` | optional: `{traj, events, metrics}` names when they differ from the defaults |
+| `files` | optional: `{traj, events, metrics}` names when they differ from the defaults; `obs` the recorded observations (`record/obs.npz`, [Data.md](Data.md)) when the run recorded them |
 
 Angles are Z-Y-X (yaw, pitch, roll). ENU/FLU yaw is counter-clockwise from east, NED/FRD yaw clockwise from
 north: converting maps yaw to `pi/2 - yaw` and pitch to `-pitch`, and keeps roll.
