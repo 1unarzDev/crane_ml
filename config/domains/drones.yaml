@@ -1,0 +1,45 @@
+# The drones domain: a rigid-body multirotor from a plant card (domains/drones/model.py; batched:
+# engine/kernels/aerial.py). T1 flies to a waypoint and stops (fastsim, the tracker's velocity targets through
+# the cascaded controller); `braking` is the batched stop scenario of a G4 sweep (domains/drones/braking.py).
+#   crane run --domain drones --tier T1 --seeds 0:4
+#   python3 -m domains.drones.braking --card x500 --v0 4,8,12 --seeds 0:1000
+#   crane study run examples/studies/braking.yaml
+# The cascaded controller's tuning (engine/kernels/aerial_control.py), shared by T1 and braking: position P
+# (1/s), velocity P (1/s), the tilt and vertical limits, SO(3) attitude P (1/s per axis), body-rate P (1/s).
+# T1's AerialPlant reads it from here unless its vehicle config sets control.
+control:
+  kp_xy: 1.0
+  kp_z: 1.5
+  kv_xy: 2.5
+  kv_z: 4.0
+  tilt_max_deg: 35.0
+  a_z_max: 6.0        # m/s^2
+  vmax_xy: 20.0       # m/s
+  vmax_z: 3.0         # m/s
+  k_att: [8.0, 8.0, 3.0]
+  k_rate: [24.0, 24.0, 10.0]
+  rate_max: [6.0, 6.0, 2.0]   # rad/s
+tiers:
+  T1:
+    config: domains/drones/fastsim_t1.yaml
+    overrides:
+      scenarios: {dir: ~/.cache/crane/drones-waypoints}
+robot:
+  default: x500
+  robots: {x500: {card: x500}, crazyflie21: {card: crazyflie21}}
+# --card REF: an aerial vehicle profile (schema crane-aerial-vehicle-profile-v1), or a name in dir (REF.json).
+card:
+  dir: domains/drones/profiles
+  default: x500
+# The stop scenario: level flight at v0 along a heading drawn from the seed, held for approach_s; then the stop
+# command (brake: velocity setpoint 0; hold: position hold at the command point); measured for after_s.
+# Per seed: the heading (uniform) and a steady horizontal wind (normal, wind_sd_mps per axis).
+braking:
+  dt_s: 0.004
+  altitude_m: 10.0
+  approach_s: 3.0
+  after_s: 5.0
+  stop: brake
+  stopped_mps: 0.1    # ground speed below which the vehicle counts as stopped
+  wind_sd_mps: 0.5
+  batch: 64           # seeds per batched call (a study task computes its seed's aligned block once)

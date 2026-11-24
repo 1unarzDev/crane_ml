@@ -1,0 +1,36 @@
+# The drones at T1 (dynamic): fly to a waypoint and stop (adapter.py) on the rigid-body multirotor from a plant
+# card (plant.py; engine/kernels/aerial.py), under the cascaded controller. config/domains/drones.yaml holds the
+# controller gains (control; vehicle.control overrides them) and puts the scenarios under ~/.cache.
+#   crane run --domain drones --tier T1 --seeds 0:4
+adapter: {ref: domains.drones.adapter:WaypointAdapter, options: {profile: &profile x500, hold_s: 3.0, time_limit_s: 60}}
+dt: 0.02            # one core step = 5 plant steps of dt_s
+tick_hz: 10.0
+track_hz: 10.0
+vehicle: {ref: domains.drones.plant:AerialPlant, gain: 1.5, profile: *profile, dt_s: 0.004, altitude_m: 10.0}
+fidelity: >-
+  T1 dynamic: the rigid-body multirotor of the plant card (RK4, motors as first-order lags, rotor and body drag;
+  no battery sag unless the card has a battery; no wind, no ground effect) under a cascaded position/velocity/
+  attitude/rate controller at a held altitude; the planar tracker's body-velocity targets (straight legs, no
+  planner); open air, no obstacles, no perception
+scenarios:
+  dir: waypoints
+  pattern: 'drones-s{seed}.json'
+  generate: ['{python}', '{base}/waypoints.py', '{seeds_from}:{seeds_to}', '{dir}', '--min', '20', '--max', '60']
+  format: {name: json}
+limits:
+  vmax: [8.0, 1.0, 1.5]
+  vmin: [-1.0, -1.0, -1.5]
+  accel: [3.0, 2.0, 2.0]
+  decel: [-3.0, -2.0, -2.0]
+  goal_tol: [0.5, 3.2]
+  precise_tol: [0.2, 3.2]
+  rotate_above: 0.6
+  rotate_wz: 1.0
+  progress_radius: 0.3
+  progress_s: 10.0
+  pass_radius: 1.0
+  footprint: [[0.25, 0.25], [0.25, -0.25], [-0.25, -0.25], [-0.25, 0.25]]
+perception: {name: cone, hfov_deg: 90.0, range_m: 30.0, occlusion: false, mount: null}
+time_limit_s: 60
+workers: 4
+max_workers: 20

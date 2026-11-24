@@ -271,7 +271,7 @@ COMMANDS = [
                   'held-out blocks skipped, where the rows and manifest are, and next:.',
             notes='OUT/progress.json is rewritten at least every 60 s (CRANE_RUN_DIR overrides where). Units are '
                   'cached in OUT/cache/records.jsonl on (study, stage, arm, cell hash, seed, card hash, code commit) '
-                  'as each finishes; rerunning the same command runs only the missing ones. A held-out block refuses '
+                  'within 1 s of finishing; rerunning the same command runs only the missing ones. A held-out block refuses '
                   '(exit 2) without --confirm, or when the spec\'s targets file is not committed, has local changes '
                   'or is not older than now. Exit 0 ok, 1 units failed, 2 spec, usage or refusal.',
             params=(P('spec', 'path', description='The study spec (YAML).'),

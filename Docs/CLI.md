@@ -260,7 +260,7 @@ Run a study locally: every stage in order (or --stage), resuming from the unit c
 
 What you'll see: a progress line per minute, then one row per stage (cells, units, ran, reused, failed), the held-out blocks skipped, where the rows and manifest are, and next:.
 
-OUT/progress.json is rewritten at least every 60 s (CRANE_RUN_DIR overrides where). Units are cached in OUT/cache/records.jsonl on (study, stage, arm, cell hash, seed, card hash, code commit) as each finishes; rerunning the same command runs only the missing ones. A held-out block refuses (exit 2) without --confirm, or when the spec's targets file is not committed, has local changes or is not older than now. Exit 0 ok, 1 units failed, 2 spec, usage or refusal.
+OUT/progress.json is rewritten at least every 60 s (CRANE_RUN_DIR overrides where). Units are cached in OUT/cache/records.jsonl on (study, stage, arm, cell hash, seed, card hash, code commit) within 1 s of finishing; rerunning the same command runs only the missing ones. A held-out block refuses (exit 2) without --confirm, or when the spec's targets file is not committed, has local changes or is not older than now. Exit 0 ok, 1 units failed, 2 spec, usage or refusal.
 
 | Param | Type | Description |
 |---|---|---|
