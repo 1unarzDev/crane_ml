@@ -1,0 +1,270 @@
+"""crane.study/1: spec errors, common random numbers, the held-out guard, resume after a kill, adaptive stages and
+the paired report."""
+
+import json
+import os
+from pathlib import Path
+import random
+import signal
+import subprocess
+import sys
+import textwrap
+import time
+
+import pytest
+
+from crane import cli, study
+from crane.cache import UnitCache
+from crane.data.rows import RowWriter, read_rows, write_manifest
+from crane.study import exec as ex, plan, report as rp
+
+ROOT = Path(__file__).resolve().parents[1]
+TASKS = '''\
+import json, os, random, time
+
+
+def noisy(args, seed, cell):
+    """A seeded task: y = x + noise(seed); logs each call when CALLS is set."""
+    if os.environ.get('CALLS'):
+        with open(os.environ['CALLS'], 'a') as f:
+            f.write(json.dumps({'arm': cell['arm'], 'seed': seed}) + '\\n')
+    time.sleep(float(args.get('sleep', 0)))
+    r = random.Random(seed)
+    x = float(args.get('x', 0.0))
+    return {'y': x + r.gauss(0, 1), 'x': x, 'neg_loss': -(x - 1.0) ** 2 + 0.01 * r.gauss(0, 1)}
+'''
+
+
+def write(tmp, name, text):
+    path = Path(tmp) / name
+    path.write_text(textwrap.dedent(text))
+    return path
+
+
+def task_spec(tmp, extra='', seeds="{dev: {role: dev, seeds: '0:6'}}"):
+    """Two task arms (a: x=0, b: x=0.5) over seed blocks ``seeds`` (a YAML flow mapping), plus ``extra`` lines."""
+    write(tmp, 'tasks.py', TASKS)
+    return write(tmp, 'study.yaml', textwrap.dedent('''\
+        name: tasks
+        arms:
+          a: {task: tasks.py:noisy, args: {x: 0.0}}
+          b: {task: tasks.py:noisy, args: {x: 0.5}}
+        ''') + f'seeds: {seeds}\n{extra}\n')
+
+
+def git(where, *argv, env=None):
+    subprocess.run(['git', '-C', str(where), *argv], check=True, capture_output=True,
+                   env={**os.environ, 'GIT_AUTHOR_NAME': 't', 'GIT_AUTHOR_EMAIL': 't@t', 'GIT_COMMITTER_NAME': 't',
+                        'GIT_COMMITTER_EMAIL': 't@t', **(env or {})})
+
+
+def test_spec_errors_are_one_line_naming_the_key_and_the_fix(tmp_path, capsys):
+    good = task_spec(tmp_path).read_text()
+    cases = [
+        (good.replace('arms:', 'armz:'), 'armz: unknown key'),
+        (good.replace("role: dev", "role: devv"), "seeds.dev.role: 'devv'"),
+        (good.replace("'0:6'", "'6:2'"), 'seeds.dev.seeds: seed range'),
+        (good.replace('tasks.py:noisy, args', 'tasks.py, args'), 'arms.a.task'),
+        (good.replace("'0:6'}}", "'0:6'}, test: {role: held-out, seeds: '50:59'}}"), 'targets: a held-out block'),
+        (good.replace("'0:6'}}", "'0:6'}, test: {role: held-out, seeds: '5:9'}}") + 'targets: t.yaml\n',
+         'seed 5 is also in held-out block test'),
+        (good + 'stages: {V: {after: R}}\n', "stages.V.after: no stage 'R'"),
+        (good + 'stages: {R: {after: V}, V: {after: R}}\n', 'a cycle'),
+        (good + 'axes: {seed: {param: x, levels: [1, 2]}}\n', 'axes.seed: an axis name'),
+        (good + 'tier: L1\n', 'L0-L7 are the boat control layers'),
+    ]
+    for text, want in cases:
+        path = write(tmp_path, 'bad.yaml', text)
+        with pytest.raises(study.StudyError) as caught:
+            study.load(path)
+        message = str(caught.value)
+        assert want in message and '\n' not in message and message.startswith('bad.yaml: '), (want, message)
+    assert cli.main(['study', 'plan', str(path)]) == 2               # the CLI: exit 2, one line on stderr
+    err = capsys.readouterr().err.strip()
+    assert err.startswith('crane study plan: bad.yaml: ') and '\n' not in err
+
+
+def test_arms_pair_on_the_same_seed_in_every_cell(tmp_path):
+    # toy at T0: `twin` is base under another name, so common random numbers make its rows equal to base's
+    spec = write(tmp_path, 'toy.yaml', '''\
+        name: crn
+        domain: toy
+        arms: {base: {}, twin: {}, far: {set: {adapter.options.reach_m: 2.5}}}
+        axes: {fov: {param: perception.hfov_deg, levels: [60, 90]}}
+        seeds: {dev: {role: dev, seeds: '0:3'}}
+        ''')
+    s = study.load(spec)
+    out = tmp_path / 'out'
+    summary = ex.run_study(s, out, max_workers=2)
+    assert summary['ran'] == 18 and summary['failed'] == 0
+    rows = list(read_rows(out))
+    assert len(rows) == 18 and {r['arm'] for r in rows} == {'base', 'twin', 'far'}
+    by_pair = {}
+    for r in rows:
+        by_pair.setdefault(r['pair'], {}).setdefault(r['arm'], {})[r['seed']] = r
+    assert len(by_pair) == 2                                  # one pair group per fov level, across the 3 arms
+    for arms in by_pair.values():
+        assert {tuple(sorted(v)) for v in arms.values()} == {(0, 1, 2)}
+        for seed, r in arms['base'].items():
+            assert r['run_seed'] == arms['far'][seed]['run_seed'] == seed
+            assert {k: v for k, v in r.items() if k not in ('arm', 'cell', 'wall_s')} == \
+                   {k: v for k, v in arms['twin'][seed].items() if k not in ('arm', 'cell', 'wall_s')}
+    # crn: derive gives each (seed, condition) its own stream seed, still the same across arms
+    write(tmp_path, 'conds.csv', 'id,x\nc1,0.1\nc2,0.2\n')
+    derived = study.load(task_spec(tmp_path, 'crn: derive\nconditions: {csv: conds.csv, id: id}'))
+    run_seeds = {}
+    for cell in derived.cells():
+        run_seeds.setdefault(cell.condition['id'], set()).add(tuple(cell.run_seeds.items()))
+    assert all(len(v) == 1 for v in run_seeds.values())       # arms a and b: one mapping per condition
+    c1, c2 = (dict(next(iter(run_seeds[c]))) for c in ('c1', 'c2'))
+    assert c1 != c2 and c1[0] != 0
+
+
+def test_held_out_runs_only_with_confirm_and_an_older_committed_targets_file(tmp_path, capsys):
+    repo = tmp_path / 'repo'
+    repo.mkdir()
+    git(repo, 'init', '-q')
+    spec = task_spec(repo, 'targets: targets.yaml',
+                     seeds="{dev: {role: dev, seeds: '0:4'}, test: {role: held-out, seeds: '100:104'}}")
+    s, out = study.load(spec), tmp_path / 'out'
+
+    def run(*extra):
+        code = cli.main(['study', 'run', str(spec), '--out', str(out), *extra])
+        return code, capsys.readouterr()
+
+    code, cap = run()                                         # dev runs; the held-out block waits
+    assert code == 0 and 'held-out main:test skipped' in cap.out
+    code, cap = run('--block', 'test')
+    assert code == 2 and 'needs --confirm' in cap.err and len(cap.err.strip().splitlines()) == 1
+    code, cap = run('--block', 'test', '--confirm')
+    assert code == 2 and 'targets.yaml is missing' in cap.err
+    (repo / 'targets.yaml').write_text('- {contrast: b - a, metric: y, direction: higher}\n')
+    code, cap = run('--block', 'test', '--confirm')
+    assert code == 2 and 'is not committed' in cap.err
+    git(repo, 'add', '.')
+    git(repo, 'commit', '-qm', 'targets', env={'GIT_COMMITTER_DATE': f'{int(time.time()) + 3600} +0000'})
+    code, cap = run('--block', 'test', '--confirm')
+    assert code == 2 and 'committed at or after now' in cap.err
+    git(repo, 'commit', '-q', '--amend', '--no-edit', env={'GIT_COMMITTER_DATE': f'{int(time.time()) - 60} +0000'})
+    status = rp.status(s, out)                                # before: held-out progress only, dev means only
+    assert status['stages']['main']['blocks']['test'] == {'role': 'held-out', 'units': 8, 'done': 0}
+    assert set(status['interim']['main']) == {'a', 'b'}
+    assert rp.report(out)['held_out_waiting'] == {'main:test': {'done': 0, 'total': 8}}
+    (repo / 'targets.yaml').write_text('changed\n')
+    code, cap = run('--block', 'test', '--confirm')
+    assert code == 2 and 'uncommitted changes' in cap.err
+    git(repo, 'checkout', '--', 'targets.yaml')
+    code, cap = run('--block', 'test', '--confirm', '--json')
+    doc = json.loads(cap.out)
+    assert code == 0 and doc['touched_held_out'] and doc['ran'] == 8
+    rows = list(read_rows(out))
+    assert {r['touched_held_out'] for r in rows if r['role'] == 'held-out'} == {True}
+    assert {r['touched_held_out'] for r in rows if r['role'] == 'dev'} == {False}
+    manifest = json.loads((out / 'manifest.json').read_text())
+    assert manifest['touched_held_out'] and manifest['held_out']['targets']['path'].endswith('targets.yaml')
+    assert not any(k.startswith('mean.main.') and '.test.' in k for k in json.loads((out / 'metrics.json').read_text()))
+    doc = rp.report(out)                                      # done: the held-out block enters the report
+    assert not doc['held_out_waiting'] and {x['block'] for x in doc['pooled']} == {'dev', 'test'}
+
+
+def test_a_killed_run_resumes_with_only_the_missing_units(tmp_path):
+    spec = task_spec(tmp_path, seeds="{dev: {role: dev, seeds: '0:40'}}")
+    text = spec.read_text().replace('args: {x: 0.0}', 'args: {x: 0.0, sleep: 0.05}').replace(
+        'args: {x: 0.5}', 'args: {x: 0.5, sleep: 0.05}')
+    spec.write_text(text)
+    out, calls = tmp_path / 'out', tmp_path / 'calls.jsonl'
+    env = {**os.environ, 'CALLS': str(calls), 'PYTHONPATH': str(ROOT)}
+    argv = [str(ROOT / 'bin' / 'crane'), 'study', 'run', str(spec), '--out', str(out), '--max-workers', '2']
+    proc = subprocess.Popen(argv, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                            start_new_session=True)
+    records = out / 'cache' / 'records.jsonl'
+    deadline = time.time() + 60
+    while time.time() < deadline and (not records.is_file() or len(records.read_bytes().splitlines()) < 20):
+        time.sleep(0.05)
+    os.killpg(proc.pid, signal.SIGKILL)                       # the run and its workers, mid-run
+    proc.wait(10)
+    cached = {(e['unit']['arm'], e['unit']['seed']) for e in UnitCache(out / 'cache')}
+    assert 20 <= len(cached) < 80
+    calls.write_text('')
+    done = subprocess.run([*argv, '--json'], env=env, capture_output=True, text=True, timeout=120)
+    assert done.returncode == 0, done.stderr
+    summary = json.loads(done.stdout)
+    second = [json.loads(x) for x in calls.read_text().splitlines()]
+    assert summary['reused'] == len(cached) and summary['ran'] == 80 - len(cached)
+    assert len(second) == 80 - len(cached) and not {(c['arm'], c['seed']) for c in second} & cached
+    assert len(list(read_rows(out))) == 80 and len(UnitCache(out / 'cache')) == 80
+    assert json.loads((out / 'progress.json').read_text())['done'] == 80
+
+
+def test_an_adaptive_stage_selects_the_top_k_of_the_stage_it_reads(tmp_path, capsys):
+    spec = task_spec(tmp_path)
+    text = spec.read_text().split('arms:')[0] + textwrap.dedent('''\
+        arms:
+          r: {task: tasks.py:noisy, sample: {n: 6, seed: 3, set: {x: {uniform: [-1.0, 3.0]}}}}
+        seeds:
+          dev: {role: dev, seeds: '0:4'}
+          check: {role: check, seeds: '4:7'}
+        stages:
+          R: {blocks: [dev]}
+          V: {after: R, select: {top_k: 2, metric: neg_loss}, blocks: [check], tier: T1}
+        ''')
+    spec.write_text(text)
+    s, out = study.load(spec), tmp_path / 'out'
+    assert list(s.arms) == [f'r-{i}' for i in range(6)]
+    assert {c.stage for c in s.cells()} == {'R'} and set(plan.pending(s)) == {'V'}
+    with pytest.raises(plan.StageNotReady, match='stage R'):
+        s.cells(stage='V', out=out)
+    assert ex.run_study(s, out, stage='V')['refused'].endswith('--stage R')
+    summary = ex.run_study(s, out)                            # R, then V from R's rows
+    assert summary['stages']['R']['ran'] == 24 and summary['stages']['V']['ran'] == 6
+    best = sorted(s.arms, key=lambda a: (s.arms[a].set['x'] - 1.0) ** 2)[:2]
+    v = s.cells(stage='V', out=out)
+    assert {c.arm for c in v} == set(best) and {c.tier for c in v} == {'T1'} and {c.block for c in v} == {'check'}
+    assert cli.main(['study', 'promote', str(spec), '--stage', 'V', '--out', str(out), '--json']) == 0
+    promoted = study.load(json.loads(capsys.readouterr().out)['written'])
+    assert promoted.stages['V'].arms == [a for a, _ in sorted(((a, (s.arms[a].set['x'] - 1) ** 2) for a in best),
+                                                              key=lambda t: t[1])]
+    assert {c.id for c in promoted.cells(stage='V')} == {c.id for c in v}  # the same cells, so the cache is shared
+    assert plan.cached_rows(promoted.cells(stage='V'), out).keys() == {c.id for c in v}
+
+
+def test_report_finds_a_synthetic_paired_effect_and_holm_adjusts_across_cells(tmp_path):
+    rng = random.Random(5)
+    rows = []
+    for cell in range(4):
+        for seed in range(16):
+            world = rng.gauss(0, 2)                           # the seed's own difficulty, shared by every arm
+            for arm, effect in (('a', 0.0), ('b', 0.5), ('c', 0.0)):
+                rows.append({'study': 's', 'stage': 'main', 'arm': arm, 'cell': f'{arm}{cell}', 'pair': f'p{cell}',
+                             'block': 'dev', 'split': None, 'role': 'dev', 'tier': 'T0', 'seed': seed,
+                             'run_seed': seed, 'condition': None, 'level': f'l{cell}', 'outcome': 'ok',
+                             'error': None, 'y': world + effect + rng.gauss(0, 0.2), 'wall_s': 0.1, 'commit': 'x',
+                             'card_sha': None, 'touched_held_out': False})
+    doc = rp.analyse(rows, 'a', ['y'], axes=['level'], B=1000)
+    pooled = {x['arm']: x for x in doc['pooled']}
+    b, c = pooled['b'], pooled['c']
+    assert b['seeds'] == 16 and b['cells'] == 4 and abs(b['diff'] - 0.5) < 0.1
+    assert b['ci'][0] > 0.3 and b['p'] < 0.001 and b['cells_holm_below_alpha'] == 4
+    assert c['ci'][0] < 0 < c['ci'][1] and c['p'] > 0.05
+    cells = [x for x in doc['cells'] if x['arm'] == 'b']
+    assert len(cells) == 4 and all(x['p_holm'] >= x['p'] for x in cells) and cells[0]['axes'] == {'level': 'l0'}
+    # the same through rows on disk and `crane study report` (a held-out block still running stays out)
+    out = tmp_path / 'out'
+    schema = {k: ('int' if k in ('seed', 'run_seed') else 'bool' if k == 'touched_held_out' else 'float'
+                  if k in ('y', 'wall_s') else 'str') for k in rows[0]}
+    w = RowWriter(out / 'rows', schema, part='main')
+    for r in rows + [{**rows[0], 'role': 'held-out', 'block': 'test', 'y': 99.0}]:
+        w.write(r)
+    write_manifest(out, schema, w.close(), {'study': 's', 'baseline': 'a', 'axes': ['level'],
+                                            'units': {'main': {'dev': {'role': 'dev', 'done': 192, 'total': 192},
+                                                               'test': {'role': 'held-out', 'done': 1, 'total': 9}}}})
+    assert cli.main(['study', 'report', str(out), '--metric', 'y', '--json']) == 0
+    report = json.loads((out / 'report.json').read_text())
+    assert report['held_out_waiting'] == {'main:test': {'done': 1, 'total': 9}}
+    assert {x['arm']: round(x['diff'], 6) for x in report['pooled']} == {k: round(v['diff'], 6)
+                                                                         for k, v in pooled.items()}
+    assert '| main | dev | b | y |' in (out / 'report.md').read_text()
+
+
+if __name__ == '__main__':
+    sys.exit(pytest.main([__file__, '-q']))

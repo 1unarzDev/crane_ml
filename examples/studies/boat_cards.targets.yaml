@@ -1,0 +1,2 @@
+# Targets for boat_cards.yaml's held-out test split, committed before it runs.
+- {contrast: measured - pre, metric: score.total, direction: not lower}

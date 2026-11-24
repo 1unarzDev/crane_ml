@@ -1,0 +1,3 @@
+# The held-out targets of toy_paired.yaml, committed before its held-out block runs.
+- {contrast: far - base, metric: run.duration_s, direction: lower}
+- {contrast: near - base, metric: succeeded, direction: not higher}

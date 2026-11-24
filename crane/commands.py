@@ -229,20 +229,104 @@ COMMANDS = [
                       'crane run --domain boat --tier T1 --astro-test speed-surge --card /tmp/fit/profile.json'),
             raw='python3 -m fastsim.batch --config CONFIG --seeds 0:3 --out OUT'),
 
-    # ---- study, runs, repro, data, monitor (not built yet) ----------------------------------------------------
-    *[Command(('study', v), s, today=t, examples=(e,)) for v, s, t, e in (
-        ('init', 'Write a study spec (crane.study/1) to start from.', 'a hypothesis.yaml beside your runs',
-         'crane study init --domain boat > study.yaml'),
-        ('plan', 'Print the jobs a study spec compiles to (local batch or rc-job/1).',
-         'crane run --domain D --seeds A:B --dry-run', 'crane study plan study.yaml'),
-        ('run', 'Run a study: resume, progress, held-out guard.', 'crane run --domain D --tier T --seeds A:B per arm',
-         'crane study run study.yaml'),
-        ('status', "A study's progress per cell.", 'crane heavy status, or crane cluster status',
-         'crane study status study.yaml'),
-        ('report', 'Paired analysis per cell (bootstrap, sign-flip, Holm) through judge.stats.',
-         'crane compare A B', 'crane study report study.yaml'),
-        ('promote', "Rerun a stage's top-k at a higher tier.", 'crane run --tier T1 on the chosen seeds',
-         'crane study promote study.yaml --top 5'))],
+    # ---- study ----------------------------------------------------------------------------------------------
+    Command(('study', 'init'), 'Write a commented crane.study/1 spec to start from (stdout, or --out FILE).',
+            'crane.study.cli:init_main', flags=(JSON,), json='crane.study.init/1',
+            about='the spec on stdout, or `wrote FILE` and next:.',
+            params=(sel('domain', description='The domain its sim arms run (default toy).'),
+                    P('--out', 'path', metavar='FILE', description='Write the spec here instead of stdout.'),
+                    P('--force', 'bool', description='Overwrite FILE.')),
+            examples=('crane study init --out study.yaml', 'crane study init --domain boat > boat_study.yaml')),
+    Command(('study', 'plan'), 'Count what a study spec compiles to: cells, units, jobs and estimated time per stage, '
+            'with what is already cached. Nothing runs.', 'crane.study.cli:plan_main', flags=(JSON,),
+            json='crane.study.plan/1',
+            about='one row per stage (tiers, cells, units, done, held-out units, jobs, est, per job), the seed blocks '
+                  'and splits, pending adaptive stages, then next:. --json adds jobs[] (job_id, cell, seeds, '
+                  'est_seconds, kind, campaign, purpose, expect, pin, argv): the cluster compiler\'s input.',
+            notes='A spec error is one line naming the key and the fix (exit 2). Estimates use pack.unit_s; jobs pack '
+                  'a cell\'s seeds to about pack.target_s (default 900 s) each.',
+            params=(P('spec', 'path', description='The study spec (YAML).'),
+                    P('--stage', description='Only this stage.'),
+                    P('--block', description='Only this seed block or split.'),
+                    P('--out', 'path', description='The study output to count done units in (default '
+                      '~/.cache/crane/studies/NAME).'),
+                    P('--json', 'bool', description='One JSON document with jobs[].')),
+            examples=('crane study plan examples/studies/toy_paired.yaml',
+                      'crane study plan examples/studies/boat_cards.yaml --json')),
+    Command(('study', 'run'), 'Run a study locally: every stage in order (or --stage), resuming from the unit '
+            'cache; held-out blocks wait for --block B --confirm and a committed targets file.',
+            'crane.study.cli:run_main', flags=(JSON, QUIET, DRY), json='crane.study.run/1',
+            about='a progress line per minute, then one row per stage (cells, units, ran, reused, failed), the '
+                  'held-out blocks skipped, where the rows and manifest are, and next:.',
+            notes='OUT/progress.json is rewritten at least every 60 s (CRANE_RUN_DIR overrides where). Units are '
+                  'cached in OUT/cache/records.jsonl on (study, stage, arm, cell hash, seed, card hash, code commit) '
+                  'as each finishes; rerunning the same command runs only the missing ones. A held-out block refuses '
+                  '(exit 2) without --confirm, or when the spec\'s targets file is not committed, has local changes '
+                  'or is not older than now. Exit 0 ok, 1 units failed, 2 spec, usage or refusal.',
+            params=(P('spec', 'path', description='The study spec (YAML).'),
+                    P('--stage', description='Only this stage (its select stage must be done).'),
+                    P('--block', description='Only this seed block or split (a held-out one needs --confirm).'),
+                    P('--where', default='local', choices=('local', 'cluster'),
+                      description='local runs here; cluster: use crane study plan --json with the compiler.'),
+                    P('--confirm', 'bool', description='Run held-out blocks (needs the committed targets file).'),
+                    P('--max-workers', 'int', default=1, description='Worker processes.'),
+                    P('--out', 'path', description='The study output (default ~/.cache/crane/studies/NAME).'),
+                    P('--json', 'bool', description='One summary document; progress lines go to stderr.'),
+                    P('--dry-run', 'bool', description='Print the plan (as study plan); run nothing.')),
+            examples=('crane study run examples/studies/toy_paired.yaml --max-workers 4',
+                      'crane study run examples/studies/toy_paired.yaml --block test --confirm',
+                      'crane study run examples/studies/adaptive.yaml --stage V')),
+    Command(('study', 'status'), "A study's progress per stage and block, failures with a sample traceback, and "
+            'interim per-arm means on dev blocks only (held-out blocks: progress only).',
+            'crane.study.cli:status_main', flags=(JSON,), json='crane.study.status/1',
+            about='one row per stage and block (role, units, done, %), the progress.json line, the latest failure '
+                  'and its traceback tail, interim dev means per arm, then next:. Exit 1 when units failed.',
+            params=(P('target', 'path', metavar='SPEC|OUT', description='A spec, or a study output dir.'),
+                    P('--out', 'path', description='With a spec: its output (default ~/.cache/crane/studies/NAME).'),
+                    P('--json', 'bool', description='One JSON document.')),
+            examples=('crane study status examples/studies/toy_paired.yaml',
+                      'crane study status ~/.cache/crane/studies/toy_paired')),
+    Command(('study', 'report'), 'Paired analysis of a study output: each arm minus the baseline per cell, paired '
+            'on the seed (bootstrap CI, sign-flip permutation, Holm across cells), via judge.stats.',
+            'crane.study.cli:report_main', flags=(JSON,), json='crane.study.report/1',
+            about='the pooled table (stage, block, arm-baseline, metric, seeds, cells, diff, 95% CI, p, cells with '
+                  'Holm p < 0.05), held-out blocks still running, and where report.md / report.json went.',
+            notes='Reads OUT/manifest.json and its rows (or every */manifest.json under OUT, as a fetched cluster '
+                  'output). A held-out block enters only when all its units are done.',
+            params=(P('out', 'path', metavar='OUT', description='A study output dir.'),
+                    P('--baseline', description="The arm the others are compared with (default the spec's)."),
+                    P('--metric', repeat=True, description='Only these metrics (repeatable).'),
+                    P('--bootstrap', 'int', default=2000, description='Bootstrap resamples.'),
+                    P('--json', 'bool', description='One JSON document (also written to OUT/report.json).')),
+            examples=('crane study report ~/.cache/crane/studies/toy_paired',
+                      'crane study report /tmp/study --metric succeeded --json')),
+    Command(('study', 'promote'), "Freeze an adaptive stage's selection (top-k of the stage it reads) into a spec "
+            'whose stage names the chosen arms, to run here or send to the cluster.',
+            'crane.study.cli:promote_main', flags=(JSON,), json='crane.study.promote/1',
+            about='the ranking (rank, group, mean, n, chosen) and the written spec, then next:.',
+            params=(P('spec', 'path', description='The study spec (YAML).'),
+                    P('--stage', required=True, description='The stage with select:.'),
+                    P('--out', 'path', description='The study output holding the source stage (default '
+                      '~/.cache/crane/studies/NAME).'),
+                    P('--write', 'path', metavar='FILE', description='Where the promoted spec goes (default '
+                      'SPEC.STAGE.yaml beside the spec).'),
+                    P('--json', 'bool', description='One JSON document.')),
+            examples=('crane study promote examples/studies/adaptive.yaml --stage V',)),
+    Command(('study', 'run-cell'), 'Run one cell or one packed job of a study into DIR: what a cluster job runs '
+            '(rows, manifest.json with sha256, metrics.json, progress.json).', 'crane.study.cli:run_cell_main',
+            flags=(JSON,), json='crane.study.run_cell/1',
+            about='one line: ran, reused, failed, rows and DIR. Exit 1 when units failed, 2 a refusal.',
+            notes='JOB_ID is a jobs[].job_id of crane study plan --json (CELL_ID, or CELL_ID.jK for one seed chunk). '
+                  'Held-out cells need --confirm and the committed targets file, as study run. metrics.json holds at '
+                  'most 1000 finite numbers; for held-out cells only unit counts.',
+            params=(P('spec', 'path', description='The study spec (YAML).'),
+                    P('--cell', required=True, metavar='JOB_ID', description='The cell or job id.'),
+                    P('--out', 'path', required=True, metavar='DIR', description='The job output dir.'),
+                    P('--confirm', 'bool', description='Run a held-out cell.'),
+                    P('--json', 'bool', description='One JSON document.')),
+            examples=('crane study run-cell study.yaml --cell JOB_ID --out /workspace/out/STUDY/JOB_ID',)),
+
+    # ---- runs, repro, data, monitor (not built yet) -----------------------------------------------------------
     *[Command(('runs', v), s, today=t, examples=(e,)) for v, s, t, e in (
         ('ls', 'List local runs, newest first.', 'crane board ~/.cache/crane/runs', 'crane runs ls --domain boat'),
         ('show', "One run's header, metrics and files.", 'cat RUN/run.json', 'crane runs show RUN_ID'),

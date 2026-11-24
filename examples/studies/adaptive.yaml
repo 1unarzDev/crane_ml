@@ -1,0 +1,32 @@
+# Adaptive stages: stage R draws 6 random boat configs and runs them at T0; stage V takes R's top 2 by score.total
+# and runs them at T1 on more seeds. V waits until R is done; `crane study promote` freezes V's choice into a spec.
+#   crane study run examples/studies/adaptive.yaml --stage R --max-workers 4
+#   crane study promote examples/studies/adaptive.yaml --stage V
+#   crane study run examples/studies/adaptive.yaml --stage V --max-workers 4
+schema: crane.study/1
+name: adaptive
+domain: boat
+arms:
+  random:
+    sample:
+      n: 6
+      seed: 1
+      set:
+        vehicle.gain: {uniform: [0.6, 1.4]}
+        perception.range_m: {uniform: [12, 25]}
+seeds:
+  dev: {role: dev, seeds: '0:3'}
+  check: {role: check, seeds: '3:5'}
+stages:
+  R: {tier: T0, blocks: [dev]}
+  V:
+    after: R
+    select: {top_k: 2, metric: score.total, order: max, by: arm}
+    tier: T1
+    blocks: [dev, check]
+scorer: scorers.py:boat
+metrics: [succeeded, run.sim_s, run.contacts, run.min_clearance_m]
+baseline: random-0
+pack: {unit_s: 0.5}
+campaign: adaptive-demo
+purpose: Random search over boat gain and sensing range at T0, with the top two confirmed at T1.

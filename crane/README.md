@@ -34,6 +34,9 @@ Every command, its params and examples: [Docs/CLI.md](../Docs/CLI.md), generated
 - `crane/run.py`: `--domain D [--tier T]` reads `config/domains/D.yaml` through `bench.fast.domain_tier`: the tier
   (default the first) names a fastsim config and optional `overrides` merged over it. Missing scenarios are made by
   the config's generator, or the dir is named when there is none; `--generate` regenerates.
+- `crane/study/`: `crane.study/1` specs ([Docs/Study.md](../Docs/Study.md)): `spec.py` reads and checks one,
+  `plan.py` expands it to cells, units and cluster jobs, `exec.py` runs them locally with the unit cache and
+  progress, `guard.py` keeps held-out blocks closed, `report.py` gives status and the paired report.
 - `crane/build.py`: after the build, `sourceCommit` and `sourceDirty` go into
   `Builds/CRANE-Worker/crane-build-manifest.json`; `--tarball` writes
   `Builds/crane-player-<commit12>-linux-x86_64.tar.zst` (`.tar.gz` without zstd), without debug symbols, and a
