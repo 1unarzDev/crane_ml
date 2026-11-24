@@ -88,7 +88,7 @@ def step(x, u, p, dt, xp=np):
     return xp.concatenate([body, ring.reshape(x.shape[:-1] + (3 * L,))], axis=-1)
 
 
-@numba.njit(cache=True)
+@numba.njit(cache=True, inline='always')
 def nb_step(x, u, p, dt):
     L = (x.shape[0] - RING) // 3
     k = p[6]

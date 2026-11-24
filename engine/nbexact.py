@@ -1,13 +1,15 @@
 """engine/exact.py's helpers as numba scalars (njit), for the per-env numba kernels.
 
-``fma`` is the LLVM intrinsic (the CPU's fused multiply-add, correctly rounded); ``pow_half`` calls
-libm's ``pow`` through ctypes, because LLVM rewrites ``x ** 0.5`` into ``sqrt``.
+``fma`` is the LLVM intrinsic (the CPU's fused multiply-add, correctly rounded); ``pow_half`` and
+``pow2`` call libm's ``pow`` under a private symbol name, because LLVM rewrites ``pow(x, 0.5)`` into
+``sqrt`` and ``pow(x, 2)`` into ``x * x``, which are not Python's ``x ** 0.5`` and ``x ** 2``.
 """
 
 import ctypes
 import ctypes.util
 import math
 
+import llvmlite.binding as llvm
 from llvmlite import ir
 import numba
 from numba import types
@@ -15,9 +17,7 @@ from numba.core import cgutils
 from numba.extending import intrinsic
 
 _libm = ctypes.CDLL(ctypes.util.find_library('m'))
-_pow = _libm.pow
-_pow.restype = ctypes.c_double
-_pow.argtypes = (ctypes.c_double, ctypes.c_double)
+llvm.add_symbol('crane_engine_libm_pow', ctypes.cast(_libm.pow, ctypes.c_void_p).value)
 
 jit = numba.njit(cache=True, inline='always')
 
@@ -29,6 +29,17 @@ def fma(typingctx, a, b, c):
     def codegen(context, builder, signature, args):
         d = ir.DoubleType()
         fn = cgutils.get_or_insert_function(builder.module, ir.FunctionType(d, [d, d, d]), 'llvm.fma.f64')
+        return builder.call(fn, args)
+    return sig, codegen
+
+
+@intrinsic
+def _pow(typingctx, a, b):
+    sig = types.float64(types.float64, types.float64)
+
+    def codegen(context, builder, signature, args):
+        d = ir.DoubleType()
+        fn = cgutils.get_or_insert_function(builder.module, ir.FunctionType(d, [d, d]), 'crane_engine_libm_pow')
         return builder.call(fn, args)
     return sig, codegen
 
@@ -102,6 +113,11 @@ def wrap(a):
 @jit
 def pow_half(v):
     return _pow(v, 0.5)
+
+
+@jit
+def pow2(v):
+    return _pow(v, 2.0)
 
 
 @jit

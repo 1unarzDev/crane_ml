@@ -120,12 +120,27 @@ def pyround(x, ndigits, xp=np):
     d = ((p - n0) - 0.5) + e
     odd = xp.remainder(n0, 2.0) != 0
     n = xp.where(d > 0, n0 + 1.0, xp.where(d < 0, n0, xp.where(odd, n0 + 1.0, n0)))
-    return xp.copysign(n / m, x)
+    return xp.copysign(n / _opaque(xp, m, x), x)
+
+
+def _opaque(xp, m, like):
+    """``m`` as XLA may not fold it (x / c would become x * (1/c), which is not correctly rounded)."""
+    if xp is np:
+        return m
+    import jax
+    return jax.lax.optimization_barrier(xp.asarray(m, like.dtype))
 
 
 def wrap(a, xp=np):
     """fastsim.world.wrap: atan2(sin a, cos a)."""
     return xp.arctan2(xp.sin(a), xp.cos(a))
+
+
+def pow2(v, xp=np):
+    """Python's ``v ** 2`` (libm pow, which is not always ``v * v``)."""
+    if xp is np:
+        return np.power(v, np.full_like(v, 2.0))
+    return v * v
 
 
 def pow_half(v, xp=np):

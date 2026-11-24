@@ -264,7 +264,7 @@ _C = THRUST.index('cos')
 _SN, _X, _Y, _OFF, _DB, _KF, _KR, _V, _LAG, _ND = (THRUST.index(k) for k in (
     'sin', 'x', 'y', 'offsetUs', 'deadbandUs', 'kForward', 'kReverse', 'volt', 'lag', 'n_d'))
 _D = len(HULL)  # damping block: axis j at _D + 4 j: d1Pos, d1Neg, d2Pos, d2Neg
-_jit = numba.njit(cache=True)
+_jit = numba.njit(cache=True, inline='always')
 
 
 @_jit
@@ -293,6 +293,12 @@ def nb_step_term(meff, J, dt):
 @_jit
 def nb_step(x, u, p, dt):
     """One tick on one env's state row ``x`` (in place)."""
+    nb_step_cs(x, u, p, dt, math.cos(x[2]), math.sin(x[2]))
+
+
+@_jit
+def nb_step_cs(x, u, p, dt, c, s):
+    """nb_step with cos and sin of the heading x[2] given (the velocity loop has them)."""
     nm = (x.shape[0] - RINGS) // THRUSTERS
     X = 0.0
     Y = 0.0
@@ -329,7 +335,6 @@ def nb_step(x, u, p, dt):
         N += p[b + _X] * fy - p[b + _Y] * fx
     m, iz, a11, a22, a26, a66, cx, cy = p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7]
     px, py, psi, vx, vy, r = x[0], x[1], x[2], x[3], x[4], x[5]
-    c, s = math.cos(psi), math.sin(psi)
     uu, v = c * vx + s * vy, -s * vx + c * vy
     uc, vc = c * cx + s * cy, -s * cx + c * cy
     ur, vr = uu - uc, v - vc
@@ -370,7 +375,8 @@ def nb_step(x, u, p, dt):
 
 @_jit
 def nb_loop_pwm(x, cmd, target, p, q, dt, pwm, blas):
-    """ProfileBoat.pwm_for on one env: writes ``pwm`` [4] and updates ``cmd`` [3] in place."""
+    """ProfileBoat.pwm_for on one env: writes ``pwm`` [4] and updates ``cmd`` [3] in place; returns
+    cos and sin of the heading."""
     for j in range(3):
         v, w = cmd[j], target[j]
         if q[LX_SMOOTH] > 0:
@@ -409,6 +415,7 @@ def nb_loop_pwm(x, cmd, target, p, q, dt, pwm, blas):
         fi = f[i]
         cap = p[b + _KF] if fi >= 0 else p[b + _KR]
         pwm[i] = PWM_NEUTRAL + p[b + _OFF] + PWM_SPAN * math.copysign(math.sqrt(abs(fi) / scale / cap), fi)
+    return c, s
 
 
 LX_SMOOTH = LX['smooth']
