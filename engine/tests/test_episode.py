@@ -10,8 +10,6 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-pytest.importorskip('numba', reason='the engine compiles with numba (the [fast] extra); its numpy backend too')
-
 from domains.boat import mission as BM
 from domains.boat.adapter import Mission
 from domains.boat.plant import ROOT
@@ -34,13 +32,12 @@ def load(tier, overrides=None):
 
 
 def backends():
-    out = ['numpy', 'numba']
-    try:
-        import jax  # noqa: F401
-        out.append('jax')
-    except ImportError:
-        pass
-    return out
+    """numpy, plus numba and jax where they import (the numpy backend needs numpy alone)."""
+    import importlib.util
+    return ['numpy', *(b for b in ('numba', 'jax') if importlib.util.find_spec(b) is not None)]
+
+
+HAVE_NUMBA = 'numba' in backends()
 
 
 def test_this_hosts_blas_is_the_order_the_reference_reproduces():
@@ -157,12 +154,16 @@ def test_the_fairway_planner_is_mission_route():
         for j, (x, y) in enumerate(here):
             want, _ = m.route((float(x), float(y)), 'fairway')
             assert [tuple(r) for r in route[j, :n[j]].tolist()] == [tuple(p) for p in want], (seed, j)
+            if not HAVE_NUMBA:
+                continue
             k = BB.nb_fairway(A['obst'][0], len(w.ids), A['mouths'][0], A['mouth_keep'][0], A['approach'][0],
                               float(x), float(y), buf)
             assert [tuple(r) for r in buf[:k].tolist()] == [tuple(p) for p in want], (seed, j, 'numba')
 
 
 def test_the_run_identity_names_backend_dtype_and_substeps():
+    if not HAVE_NUMBA:
+        pytest.skip("numba is not installed; pip install 'crane[fast]'")
     cfg, base, adapter = load('T1', {'time_limit_s': 1.0})
     setup = Setup(cfg, base, adapter, [1])
     ids = {(b, d, f): run(setup, b, d, fastmath=f).identity(0)['run_sha256']

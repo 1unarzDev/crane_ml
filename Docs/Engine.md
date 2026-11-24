@@ -13,9 +13,18 @@ crane bench fast --equivalence --tier T1 --seeds 0:500
 from engine.episode import Setup, run
 setup = Setup(cfg, base, adapter, seeds)          # host: scenarios, world arrays, plans (worker processes)
 out = run(setup, 'numba')                         # or 'numpy', or 'jax' with dtype='float32'|'float64'
-out.summary(e), out.events(e), out.numbers(e), out.metrics(e)
+out.summary(e), out.events(e), out.numbers(e), out.metrics(e)   # metrics: run.* plus the domain's own names
 out.write(e, run_dir)                             # a crane.run/1 record, only when asked (record=k: traj too)
 ```
+
+**Without numba.** The numpy backend imports and runs with numpy alone (`engine/jit.py` stands in for numba's
+decorators); `run(setup, 'numba')` then fails with one line naming the fix, and the engine tests skip only their
+numba and jax cases.
+
+**Metrics.** `out.metrics(e)` is `run.*` plus what the domain adapter's `metrics(run_dir)` would give, under the
+domain's own names: the adapter's `metrics_from(numbers)` when it has one, else its controller module's
+`metrics(numbers)` (`engine/boat.py`). `crane study` cells on `engine: batched` ([Study.md](Study.md)) and
+`crane.env` ([Env.md](Env.md)) build on the same pieces.
 
 **Which backend.** numba float64 on the CPU (the default: bit for bit the scalar path, about 3,400 boat T1
 episodes/s on this 20-thread host); JAX float32 on the GPU at E = 16,384 slots (about 4,800/s; float64 is
@@ -65,7 +74,8 @@ fixed per card (dt / the profile's tick). The run identity hashes backend, dtype
 3. Add a kernel test in `engine/tests/test_kernels.py`: every backend against the plant's reference
    (parity cases or its simulator) to 1e-12 in float64, and the dt convergence order.
 4. A domain without a batched controller runs in decoupled mode; a batched one adds a module like
-   `engine/boat.py` (plans as arrays, an FSM `tick`, numba twin) and an entry in `episode.CONTROLLERS`.
+   `engine/boat.py` (plans as arrays, an FSM `tick`, numba twin, `metrics(numbers)` naming its metrics, and
+   `goals(plans)` for crane.env) and an entry in `episode.CONTROLLERS`.
 
 ## Gates
 

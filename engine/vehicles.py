@@ -17,10 +17,10 @@ env's own RNG stream, so env i's parameters never depend on the batch.
 
 import json
 
-import numba
 import numpy as np
 
-from engine import exact, nbexact
+from engine import exact
+from engine.jit import nbexact, numba
 from engine.kernels import first_order as FO, profile as PK
 from fastsim.identity import derive_seed
 
@@ -29,6 +29,12 @@ PROFILE, FIRST_ORDER = 0, 1
 
 class Vehicle:
     kind = None
+    actions = ('velocity',)        # what crane.env can drive it with: body-velocity setpoints (drive), raw inputs
+
+    def velocity(self, xp, V):
+        """(u, v, r) [E]: the body-frame velocity."""
+        x = V['x']
+        return x[:, 3], x[:, 4], x[:, 5]
 
     def pose(self, xp, V):
         x = V['x']
@@ -44,6 +50,7 @@ class Vehicle:
 class ProfileVehicle(Vehicle):
     kind = PROFILE
     name = 'profile_boat'
+    actions = ('velocity', 'pwm')
 
     def __init__(self, spec, limits, base, dt, randomize=None):
         from domains.boat.plant import profile_path
@@ -82,6 +89,16 @@ class ProfileVehicle(Vehicle):
         for _ in range(self.substeps):
             x = PK.step(x, pwm, p, self.tick_s, xp)
         return {'x': x, 'c': c}
+
+    def velocity(self, xp, V):
+        return PK.body_velocity(xp, V['x'])
+
+    def actuate(self, ops, V, pwm, p):
+        """One core step holding raw thruster PWM [E, 4] (no velocity loop): ``substeps`` plant ticks."""
+        x = V['x']
+        for _ in range(self.substeps):
+            x = PK.step(x, pwm, p, self.tick_s, ops.xp)
+        return {'x': x, 'c': V['c']}
 
 
 class FirstOrderVehicle(Vehicle):

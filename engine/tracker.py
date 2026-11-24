@@ -12,10 +12,10 @@ by moving ``head``), with ``live`` (a goal that is not done), ``precise`` and th
 
 import math
 
-import numba
 import numpy as np
 
-from engine import exact, nbexact
+from engine import exact
+from engine.jit import nbexact, numba
 
 SUCCEEDED, ABORTED, CANCELED = 1, 2, 3
 STATUS = {0: None, SUCCEEDED: 'SUCCEEDED', ABORTED: 'ABORTED', CANCELED: 'CANCELED'}

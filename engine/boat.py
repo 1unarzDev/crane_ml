@@ -16,12 +16,11 @@ from dataclasses import dataclass
 import math
 from types import SimpleNamespace
 
-import numba
 import numpy as np
 
 from domains.boat import mission as BM
 from domains.boat.adapter import DOCK_TOL_M, Mission
-from engine import nbexact
+from engine.jit import nbexact, numba
 from engine.tracker import SUCCEEDED, STATUS
 
 PHASES = Mission.PHASES
@@ -174,6 +173,25 @@ class BoatPlans:
 
 
 # ---- the batched FSM (numpy or jax) --------------------------------------------------------------
+
+def goals(plans):
+    """(goals [E, R, 3], count [E]): each env's goal poses in the map frame, in order: the course route, then the
+    approach and the berth (what crane.env rewards progress toward)."""
+    A = plans.A
+    E = A['course'].shape[0]
+    n = A['course_len'] + 2
+    G = np.zeros((E, int(n.max()), 3))
+    for e in range(E):
+        k = int(A['course_len'][e])
+        G[e, :k] = A['course'][e, :k]
+        G[e, k], G[e, k + 1] = A['approach'][e], A['berth'][e]
+    return G, n.astype(np.int64)
+
+
+def metrics(numbers):
+    """BoatAdapter.metrics(run_dir) of one env, from its boat.json numbers (``BoatPlans.finish``)."""
+    return {'boat': {k: v for k, v in numbers.items() if isinstance(v, (int, float)) and not isinstance(v, bool)}}
+
 
 def append(xp, buf, count, mask, values):
     """Append ``values`` [E, ...] to ``buf`` [E, K, ...] where ``mask``; a full buffer drops (count goes on)."""
