@@ -267,7 +267,7 @@ COMMANDS = [
                     P('--stage', description='Only this stage (its select stage must be done).'),
                     P('--block', description='Only this seed block or split (a held-out one needs --confirm).'),
                     P('--where', default='local', choices=('local', 'cluster'),
-                      description='local runs here; cluster: use crane study plan --json with the compiler.'),
+                      description='local runs here; cluster: use crane study compile, then research submit.'),
                     P('--confirm', 'bool', description='Run held-out blocks (needs the committed targets file).'),
                     P('--max-workers', 'int', default=1, description='Worker processes.'),
                     P('--out', 'path', description='The study output (default ~/.cache/crane/studies/NAME).'),
@@ -317,14 +317,32 @@ COMMANDS = [
             flags=(JSON,), json='crane.study.run_cell/1',
             about='one line: ran, reused, failed, rows and DIR. Exit 1 when units failed, 2 a refusal.',
             notes='JOB_ID is a jobs[].job_id of crane study plan --json (CELL_ID, or CELL_ID.jK for one seed chunk). '
-                  'Held-out cells need --confirm and the committed targets file, as study run. metrics.json holds at '
+                  'Held-out cells need --confirm and the committed targets file, as study run, or on a box with no '
+                  'git checkout --targets-sha256 from the compiled job. metrics.json holds at '
                   'most 1000 finite numbers; for held-out cells only unit counts.',
             params=(P('spec', 'path', description='The study spec (YAML).'),
                     P('--cell', required=True, metavar='JOB_ID', description='The cell or job id.'),
                     P('--out', 'path', required=True, metavar='DIR', description='The job output dir.'),
                     P('--confirm', 'bool', description='Run a held-out cell.'),
+                    P('--targets-sha256', metavar='SHA', description='The targets file hash the submit side checked '
+                      'in git (crane study compile pins it); stands in for git on a box.'),
                     P('--json', 'bool', description='One JSON document.')),
             examples=('crane study run-cell study.yaml --cell JOB_ID --out /workspace/out/STUDY/JOB_ID',)),
+    Command(('study', 'compile'), 'Compile a study\'s jobs to rc-job/1 bodies for the research cluster: one '
+            'crane_batch or gpu_command job per cell seed chunk, each running crane study run-cell.',
+            'crane.study.cli:compile_main', flags=(JSON,), json='crane.study.compile/1',
+            about='{jobs: [rc-job/1 ...]} on stdout, or `N jobs in FILE` and next: research submit.',
+            notes='Needs purpose (20-600 chars, no local path) and pack.unit_s. Held-out jobs are left out without '
+                  '--confirm; with it the targets file must be committed, clean and older than now (checked here in '
+                  'git), and each held-out argv pins its sha256 with --targets-sha256 for the box to check.',
+            params=(P('spec', 'path', description='The study spec (YAML).'),
+                    P('--stage', description='Only this stage.'),
+                    P('--block', description='Only this seed block or split.'),
+                    P('--confirm', 'bool', description='Include held-out jobs (needs the committed targets file).'),
+                    P('--write', 'path', metavar='FILE', description='Write {jobs: [...]} here instead of stdout.'),
+                    P('--json', 'bool', description='One JSON document with jobs[].')),
+            examples=('crane study compile examples/studies/toy_paired.yaml --write /tmp/jobs.json',
+                      'crane study compile examples/studies/toy_paired.yaml --block test --confirm --json')),
 
     # ---- runs, repro, data, monitor (not built yet) -----------------------------------------------------------
     *[Command(('runs', v), s, today=t, examples=(e,)) for v, s, t, e in (

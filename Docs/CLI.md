@@ -262,7 +262,7 @@ OUT/progress.json is rewritten at least every 60 s (CRANE_RUN_DIR overrides wher
 | `spec` | path | The study spec (YAML). |
 | `--stage` | str | Only this stage (its select stage must be done). |
 | `--block` | str | Only this seed block or split (a held-out one needs --confirm). |
-| `--where` | str | local runs here; cluster: use crane study plan --json with the compiler. One of `local`, `cluster`. (default `local`) |
+| `--where` | str | local runs here; cluster: use crane study compile, then research submit. One of `local`, `cluster`. (default `local`) |
 | `--confirm` | bool | Run held-out blocks (needs the committed targets file). |
 | `--max-workers` | int | Worker processes. (default `1`) |
 | `--out` | path | The study output (default ~/.cache/crane/studies/NAME). |
@@ -344,7 +344,7 @@ Run one cell or one packed job of a study into DIR: what a cluster job runs (row
 
 What you'll see: one line: ran, reused, failed, rows and DIR. Exit 1 when units failed, 2 a refusal.
 
-JOB_ID is a jobs[].job_id of crane study plan --json (CELL_ID, or CELL_ID.jK for one seed chunk). Held-out cells need --confirm and the committed targets file, as study run. metrics.json holds at most 1000 finite numbers; for held-out cells only unit counts.
+JOB_ID is a jobs[].job_id of crane study plan --json (CELL_ID, or CELL_ID.jK for one seed chunk). Held-out cells need --confirm and the committed targets file, as study run, or on a box with no git checkout --targets-sha256 from the compiled job. metrics.json holds at most 1000 finite numbers; for held-out cells only unit counts.
 
 | Param | Type | Description |
 |---|---|---|
@@ -352,9 +352,34 @@ JOB_ID is a jobs[].job_id of crane study plan --json (CELL_ID, or CELL_ID.jK for
 | `--cell` | str | The cell or job id. |
 | `--out` | path | The job output dir. |
 | `--confirm` | bool | Run a held-out cell. |
+| `--targets-sha256` | str | The targets file hash the submit side checked in git (crane study compile pins it); stands in for git on a box. |
 | `--json` | bool | One JSON document. |
 
 --json: `crane.study.run_cell/1`
+
+### crane study compile
+
+```sh
+crane study compile examples/studies/toy_paired.yaml --write /tmp/jobs.json
+crane study compile examples/studies/toy_paired.yaml --block test --confirm --json
+```
+
+Compile a study's jobs to rc-job/1 bodies for the research cluster: one crane_batch or gpu_command job per cell seed chunk, each running crane study run-cell.
+
+What you'll see: {jobs: [rc-job/1 ...]} on stdout, or `N jobs in FILE` and next: research submit.
+
+Needs purpose (20-600 chars, no local path) and pack.unit_s. Held-out jobs are left out without --confirm; with it the targets file must be committed, clean and older than now (checked here in git), and each held-out argv pins its sha256 with --targets-sha256 for the box to check.
+
+| Param | Type | Description |
+|---|---|---|
+| `spec` | path | The study spec (YAML). |
+| `--stage` | str | Only this stage. |
+| `--block` | str | Only this seed block or split. |
+| `--confirm` | bool | Include held-out jobs (needs the committed targets file). |
+| `--write` | path | Write {jobs: [...]} here instead of stdout. |
+| `--json` | bool | One JSON document with jobs[]. |
+
+--json: `crane.study.compile/1`
 
 ## runs
 

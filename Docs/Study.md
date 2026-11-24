@@ -7,10 +7,11 @@ crane study run examples/studies/toy_paired.yaml --max-workers 4
 crane study status ~/.cache/crane/studies/toy_paired    # progress, failures, interim dev means
 crane study report ~/.cache/crane/studies/toy_paired    # paired analysis: report.md + report.json
 crane study run examples/studies/toy_paired.yaml --block test --confirm    # the held-out block
+crane study compile examples/studies/toy_paired.yaml --write jobs.json     # rc-job/1 bodies for the cluster
 ```
 
 One YAML spec describes arms x axes x conditions x tiers x seed blocks. `crane study run` runs it here, and
-`crane study plan --json` lists the same work as cluster jobs, each of which runs `crane study run-cell`.
+`crane study compile` turns the same work into rc-job/1 cluster jobs, each of which runs `crane study run-cell`.
 
 ```python
 from crane import study
@@ -82,10 +83,17 @@ in a spec (CSV, targets, `file.py:function`, `@FILE`) are relative to the spec.
 ## Held-out blocks
 
 - `crane study run` skips held-out cells and says so. `--block B --confirm` runs them (and `--confirm` alone runs
-  everything), but only when the spec's `targets` file is committed, has no local changes and was last committed
-  before now. Otherwise it refuses with one line and exits 2.
-- Held-out rows carry `touched_held_out = true`. The manifest records the targets commit, and OUT/held_out.jsonl
-  logs every confirmed run.
+  everything), but only when the spec's `targets` file parses, is committed, has no local changes and was last
+  committed before the output's first held-out unit (before now, on a first run). Otherwise it refuses with one line
+  and exits 2.
+- A targets file is a list of `{contrast: A - B, metric: M, direction: lower|higher|not lower|not higher}` naming
+  the spec's arms. `crane study report` gives each a verdict on the done held-out blocks (met, not met,
+  inconclusive, by the 95% CI of the pooled paired difference).
+- A rented box has no git checkout of the study repo. `crane study compile --confirm` checks git where it runs and
+  pins the targets file's sha256 into each held-out job's argv (`--targets-sha256`); `run-cell` on the box checks the
+  file it got against that hash.
+- Held-out rows carry `touched_held_out = true`. The manifest records the targets commit and sha256, and
+  OUT/held_out.jsonl logs every confirmed run.
 - `crane study status` shows progress only for held-out blocks. Interim means are shown for dev blocks only.
   metrics.json gives held-out blocks unit counts only. `crane study report` leaves a held-out block out until all its
   units are done.
@@ -130,8 +138,17 @@ OUT may also be a dir of fetched job outputs, one `manifest.json` each.
 
 ## Cluster jobs
 
-`crane study plan SPEC --json` gives `jobs[]`, one per cell and seed chunk. Each job has `job_id` (`CELL_ID` or
-`CELL_ID.jK`), `seeds`, `est_seconds`, `held_out`, `kind`, `campaign`, `purpose`, `expect`, `pin`, `out` and
-`argv` (`crane study run-cell SPEC --cell JOB_ID --out OUT [--confirm]`, run from the checkout root). An adaptive
-stage appears once its source stage is done; promote it to ship it. Today `crane study run --where cluster` refuses
-and names this plan.
+```sh
+crane study compile SPEC --write jobs.json            # dev/check/calib jobs; held-out ones need --confirm
+research submit -p crane jobs.json
+```
+
+`crane study compile` writes `{jobs: [rc-job/1 ...]}`, one job per cell and seed chunk (`kind` crane_batch or
+gpu_command, `est_seconds` for the whole job, `needs.tags` from `pin.tags`). The backend runs `spec.argv`
+(`crane study run-cell SPEC --cell JOB_ID --out /workspace/out/STUDY/JOB_ID [--confirm --targets-sha256 SHA]`)
+from the crane checkout and ships `spec.out`. `crane study plan SPEC --json` lists the same jobs with their
+`targets` pin, or `blocked` when the targets file is not ready. An adaptive stage appears once its source stage is
+done; promote it to ship it. `crane study run --where cluster` names compile.
+
+While units run, progress.json is rewritten at least every 20 s and a progress line goes to stdout every minute.
+The manifest's `oversize` lists files over the cluster's 95 MB artifact cap.

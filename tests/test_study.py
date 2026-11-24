@@ -124,7 +124,8 @@ def test_held_out_runs_only_with_confirm_and_an_older_committed_targets_file(tmp
     repo = tmp_path / 'repo'
     repo.mkdir()
     git(repo, 'init', '-q')
-    spec = task_spec(repo, 'targets: targets.yaml',
+    spec = task_spec(repo, 'targets: targets.yaml\npack: {unit_s: 0.01}\n'
+                     'purpose: Held-out guard test study with two seeded task arms.',
                      seeds="{dev: {role: dev, seeds: '0:4'}, test: {role: held-out, seeds: '100:104'}}")
     s, out = study.load(spec), tmp_path / 'out'
 
@@ -152,6 +153,9 @@ def test_held_out_runs_only_with_confirm_and_an_older_committed_targets_file(tmp
     assert rp.report(out)['held_out_waiting'] == {'main:test': {'done': 0, 'total': 8}}
     (repo / 'targets.yaml').write_text('changed\n')
     code, cap = run('--block', 'test', '--confirm')
+    assert code == 2 and 'holds no targets' in cap.err
+    (repo / 'targets.yaml').write_text('- {contrast: b - a, metric: y, direction: lower}\n')
+    code, cap = run('--block', 'test', '--confirm')
     assert code == 2 and 'uncommitted changes' in cap.err
     git(repo, 'checkout', '--', 'targets.yaml')
     code, cap = run('--block', 'test', '--confirm', '--json')
@@ -162,9 +166,46 @@ def test_held_out_runs_only_with_confirm_and_an_older_committed_targets_file(tmp
     assert {r['touched_held_out'] for r in rows if r['role'] == 'dev'} == {False}
     manifest = json.loads((out / 'manifest.json').read_text())
     assert manifest['touched_held_out'] and manifest['held_out']['targets']['path'].endswith('targets.yaml')
-    assert not any(k.startswith('mean.main.') and '.test.' in k for k in json.loads((out / 'metrics.json').read_text()))
-    doc = rp.report(out)                                      # done: the held-out block enters the report
+    assert manifest['spec'] == 'study.yaml' and manifest['held_out']['targets']['path'] == 'targets.yaml'
+    metrics, status = json.loads((out / 'metrics.json').read_text()), rp.status(s, out)
+    for arm in 'ab':                                          # monitoring means: dev rows only, held-out never
+        dev = [r['y'] for r in rows if r['arm'] == arm and r['role'] == 'dev']
+        assert metrics[f'mean.main.{arm}.y'] == pytest.approx(sum(dev) / len(dev), abs=1e-5)
+        assert status['interim']['main'][arm]['y']['n'] == len(dev)
+    doc = rp.report(out)                                      # done: the held-out block enters, and so do targets
     assert not doc['held_out_waiting'] and {x['block'] for x in doc['pooled']} == {'dev', 'test'}
+    assert [(t['contrast'], t['verdict']) for t in doc['targets']] == [('b - a', 'met')]
+    (repo / 'targets.yaml').write_text('- {contrast: b - a, metric: y, direction: lower}\n')
+    git(repo, 'commit', '-qam', 'move', env={'GIT_COMMITTER_DATE': f'{int(time.time()) - 30} +0000'})
+    code, cap = run('--block', 'test', '--confirm')           # targets moved after held-out outcomes existed
+    assert code == 2 and 'changed since' in cap.err
+    git(repo, 'revert', '--no-edit', 'HEAD', env={'GIT_COMMITTER_DATE': f'{int(time.time()) - 20} +0000'})
+
+    # a rented box: the spec and its files, no git. compile checked git here and pinned the targets sha256
+    jobs, skipped = plan.rc_jobs(s, block='test', confirm=False)
+    assert not jobs and skipped
+    jobs, _ = plan.rc_jobs(s, block='test', confirm=True)
+    job = jobs[0]
+    assert job['schema'] == 'rc-job/1' and job['kind'] == 'crane_batch' and job['est_seconds'] >= 1
+    box = tmp_path / 'box'
+    box.mkdir()
+    for name in ('study.yaml', 'tasks.py', 'targets.yaml'):
+        (box / name).write_bytes((repo / name).read_bytes())
+    argv = job['spec']['argv'][1:]
+    argv[argv.index('--out') + 1] = str(tmp_path / 'job')
+    argv[argv.index('--cell') - 1] = str(box / 'study.yaml')
+    assert cli.main(argv) == 0, capsys.readouterr().err
+    got = json.loads((tmp_path / 'job' / 'manifest.json').read_text())
+    assert got['held_out']['targets']['pinned'] and got['rows'] == len(job['spec']['seeds'])
+    capsys.readouterr()
+    bare = argv[:argv.index('--targets-sha256')]
+    assert cli.main([*bare, '--out', str(tmp_path / 'job2')]) == 2   # no pin: git, which the box lacks
+    assert 'not in a git repository' in capsys.readouterr().err
+    assert cli.main([*bare[:-1], '--out', str(tmp_path / 'job2')]) == 2   # no --confirm: the run-cell fix
+    assert 'fix: crane study run-cell' in capsys.readouterr().err
+    (box / 'targets.yaml').write_text('- {contrast: b - a, metric: y, direction: lower}\n')
+    assert cli.main([*argv, '--out', str(tmp_path / 'job3')]) == 2
+    assert 'but the job pinned' in capsys.readouterr().err
 
 
 def test_a_killed_run_resumes_with_only_the_missing_units(tmp_path):

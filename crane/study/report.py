@@ -68,10 +68,15 @@ def status(study, out, show=4):
                        for arm, ms in arms.items()} for stage, arms in means.items()}
     sample = None
     if failures:
-        f = failures[-1]
-        sample = {'cell': f.get('cell'), 'seed': f.get('seed'), 'error': f.get('error'),
-                  'traceback': '\n'.join([ln for ln in (f.get('traceback') or '').rstrip().splitlines()
-                                           if ln.strip(' ~^')][-5:])}
+        shown = [f for f in failures if f.get('role') != 'held-out']
+        f = (shown or failures)[-1]
+        if f.get('role') == 'held-out':          # its message may carry outcome numbers: progress only
+            sample = {'cell': f.get('cell'), 'seed': f.get('seed'), 'held_out': True,
+                      'error': f'held-out unit failed (its error is in {out / "failures.jsonl"})', 'traceback': ''}
+        else:
+            sample = {'cell': f.get('cell'), 'seed': f.get('seed'), 'error': f.get('error'),
+                      'traceback': '\n'.join([ln for ln in (f.get('traceback') or '').rstrip().splitlines()
+                                               if ln.strip(' ~^')][-5:])}
     return {'schema': 'crane.study.status/1', 'study': study.name, 'spec': str(study.path), 'out': str(out),
             'commit': commit, 'stages': stages, 'pending': plan.pending(study, out),
             'progress': progress.read(out), 'failed': len(failures), 'failure': sample,
@@ -147,10 +152,42 @@ def analyse(rows, baseline, metrics=None, axes=(), B=2000, perm_B=10000, alpha=0
         mean, (lo, hi) = stats.bootstrap_ci(units, lambda d: sum(d) / len(d), B=B, alpha=alpha, seed=seed)
         _, p = stats.permutation_paired(units, B=perm_B, seed=seed)
         fam = [c for c in per_cell if (c['stage'], c['block'], c['arm'], c['metric']) == (stage, block, arm, m)]
-        lines.append({'stage': stage, 'block': block, 'arm': arm, 'baseline': baseline, 'metric': m,
+        lines.append({'stage': stage, 'block': block, 'role': fam[0]['role'] if fam else None, 'arm': arm,
+                      'baseline': baseline, 'metric': m,
                       'seeds': len(units), 'cells': len(fam), 'diff': mean, 'ci': [lo, hi], 'p': p,
                       'cells_holm_below_alpha': sum(1 for c in fam if c.get('p_holm', 1.0) < alpha)})
     return {'baseline': baseline, 'metrics': names, 'alpha': alpha, 'B': B, 'pooled': lines, 'cells': per_cell}
+
+
+def verdicts(targets, pooled):
+    """Each target ({contrast: A - B, metric, direction}) against the pooled held-out lines that pair A with B:
+    met / not met / inconclusive (the 95% CI decides), or no data. ``lower`` and ``higher`` need the CI on that
+    side of 0; ``not lower`` and ``not higher`` fail only when the CI is wholly on the wrong side."""
+    result = []
+    for t in targets:
+        lines = []
+        for x in pooled:
+            if x.get('role') != 'held-out' or x['metric'] != t['metric']:
+                continue
+            if (x['arm'], x['baseline']) == (t['a'], t['b']):
+                diff, lo, hi = x['diff'], x['ci'][0], x['ci'][1]
+            elif (x['arm'], x['baseline']) == (t['b'], t['a']):
+                diff, lo, hi = -x['diff'], -x['ci'][1], -x['ci'][0]
+            else:
+                continue
+            below, above = hi < 0, lo > 0
+            verdict = {'lower': 'met' if below else 'not met' if above else 'inconclusive',
+                       'higher': 'met' if above else 'not met' if below else 'inconclusive',
+                       'not lower': 'not met' if below else 'met',
+                       'not higher': 'not met' if above else 'met'}[t['direction']]
+            lines.append({'stage': x['stage'], 'block': x['block'], 'diff': diff, 'ci': [lo, hi],
+                          'seeds': x['seeds'], 'verdict': verdict})
+        why = None if lines else (f"no done held-out line pairs {t['a']} with {t['b']} on {t['metric']} (the report "
+                                  f"pairs arms with the baseline; --baseline {t['b']})")
+        result.append({'contrast': t['contrast'], 'metric': t['metric'], 'direction': t['direction'],
+                       'lines': lines, 'verdict': 'no data' if not lines else lines[0]['verdict']
+                       if len({x['verdict'] for x in lines}) == 1 else 'mixed', 'why': why})
+    return result
 
 
 def report(out, baseline=None, metrics=None, B=2000, alpha=0.05, write=True):
@@ -175,6 +212,8 @@ def report(out, baseline=None, metrics=None, B=2000, alpha=0.05, write=True):
            'held_out_waiting': waiting,
            'touched_held_out': any(m.get('touched_held_out') for m in manifests),
            **analyse(rows, baseline, metrics, manifests[0].get('axes') or (), B=B, alpha=alpha)}
+    held = next((m['held_out'] for m in manifests if (m.get('held_out') or {}).get('targets')), None)
+    doc['targets'] = verdicts(held['targets'].get('entries') or [], doc['pooled']) if held else []
     if write:
         from crane import progress
         progress.write_atomic(out / 'report.json', json.dumps(doc, indent=1, default=str) + '\n')
@@ -203,6 +242,10 @@ def markdown(doc):
     if doc['held_out_waiting']:
         lines += ['Held-out blocks not done (progress only): ' + ', '.join(
             f"{k} {v['done']}/{v['total']}" for k, v in doc['held_out_waiting'].items()), '']
+    if doc.get('targets'):
+        lines += ['## Held-out targets', '', '| contrast | metric | direction | verdict |', '|---|---|---|---|']
+        lines += [f"| {t['contrast']} | {t['metric']} | {t['direction']} | {t['verdict']} |" for t in doc['targets']]
+        lines += ['']
     table = pooled_rows(doc)
     lines += ['## Pooled', '', '| ' + ' | '.join(table[0]) + ' |', '|' + '---|' * len(table[0])]
     lines += ['| ' + ' | '.join(str(c) for c in row) + ' |' for row in table[1:]]

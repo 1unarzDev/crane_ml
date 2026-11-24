@@ -134,8 +134,8 @@ def run_main(args):
     if not study:
         return code
     if args.where != 'local':
-        return out.usage('study run', f'--where {args.where} is not built here',
-                         f'crane study plan {args.spec} --json (its jobs[] are what the cluster compiler submits)')
+        return out.usage('study run', f'--where {args.where} submits through the research cluster',
+                         f'crane study compile {args.spec} --write jobs.json && research submit -p crane jobs.json')
     where = _out(args, study)
     if out.dry_run:
         args.out = str(where)
@@ -259,6 +259,11 @@ def report_main(args):
         out.table(rp.pooled_rows(doc))
     else:
         out.line('  no paired rows yet (each cell needs the baseline and another arm on the same seeds)')
+    if doc['targets']:
+        out.line('held-out targets:')
+        out.table([('contrast', 'metric', 'direction', 'verdict'),
+                   *((t['contrast'], t['metric'], t['direction'], t['verdict'] + (f'  ({t["why"]})' if t['why']
+                                                                                   else '')) for t in doc['targets'])])
     out.say(f'wrote {Path(args.out) / "report.md"} and report.json ({len(doc["cells"])} cell contrasts)')
     out.next(f'cat {Path(args.out) / "report.md"}')
     return output.OK
@@ -347,7 +352,8 @@ def run_cell_main(args):
         return code
     try:
         summary, refused = ex.run_job(study, args.cell, args.out, args.confirm,
-                                      stream=sys.stderr if out.json else None)
+                                      stream=sys.stderr if out.json else None,
+                                      targets_sha256=args.targets_sha256)
     except StudyError as error:
         return out.usage('study run-cell', str(error))
     if refused:
@@ -356,4 +362,35 @@ def run_cell_main(args):
         return output.FAILED if summary['failed'] else output.OK
     out.say(f'{summary["job_id"]}: {summary["ran"]} ran, {summary["reused"]} reused, {summary["failed"]} failed; '
             f'{summary["rows"]} rows in {summary["out"]}')
+    if summary['oversize']:
+        out.line(f'  over 95 MB: {", ".join(summary["oversize"])}; fix: a smaller pack.target_s, or record: summary')
     return output.FAILED if summary['failed'] else output.OK
+
+
+def compile_main(args):
+    out = args.output
+    study, code = _load(out, 'compile', args.spec)
+    if not study:
+        return code
+    try:
+        jobs, skipped = plan.rc_jobs(study, args.stage, args.block, None, args.confirm)
+    except StudyError as error:
+        return out.usage('study compile', str(error))
+    body = {'jobs': jobs}
+    if args.write:
+        from crane import progress
+        progress.write_atomic(Path(args.write).expanduser(), json.dumps(body, indent=1) + '\n')
+    doc = {'schema': 'crane.study.compile/1', 'study': study.name, 'written': args.write, 'skipped_held_out': skipped,
+           'est_seconds': sum(j['est_seconds'] for j in jobs), **body}
+    if out.doc(doc):
+        return output.OK
+    if not args.write:
+        sys.stdout.write(json.dumps(body, indent=1) + '\n')
+        return output.OK
+    kinds = sorted({j['kind'] for j in jobs})
+    out.say(f'{len(jobs)} rc-job/1 jobs ({", ".join(kinds) or "-"}, {_dur(doc["est_seconds"])} in all) in '
+            f'{args.write}')
+    if skipped:
+        out.line(f'  held-out jobs left out: {len(skipped)}; they compile with --confirm and a committed targets file')
+    out.next(f'research submit -p crane {args.write}')
+    return output.OK

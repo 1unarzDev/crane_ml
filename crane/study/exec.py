@@ -38,6 +38,34 @@ KEYS = {'study': 'str', 'stage': 'str', 'arm': 'str', 'cell': 'str', 'pair': 'st
 TAIL = {'outcome': 'str', 'error': 'str'}
 END = {'wall_s': 'float', 'commit': 'str', 'card_sha': 'str', 'touched_held_out': 'bool'}
 METRICS_MAX = 1000
+ARTIFACT_MAX = 95 * 2 ** 20      # bytes: the cluster's per-artifact cap
+
+
+class _Heartbeat:
+    """Ticks a Progress every ``every_s`` from a thread while long units run, so progress.json stays <= 60 s old
+    and the stdout line keeps its minute even when one chunk takes longer."""
+
+    def __init__(self, progress, every_s=20.0):
+        import threading
+        self.progress, self.every_s = progress, every_s
+        self.stop = threading.Event()
+        self.thread = threading.Thread(target=self._beat, daemon=True)
+
+    def _beat(self):
+        while not self.stop.wait(self.every_s):
+            try:
+                self.progress.tick()
+            except OSError:
+                pass
+
+    def __enter__(self):
+        self.thread.start()
+        return self
+
+    def __exit__(self, *exc):
+        self.stop.set()
+        self.thread.join(5)
+        return False
 
 
 def now():
@@ -290,7 +318,7 @@ def run_study(study, out, stage=None, block=None, confirm=False, max_workers=1, 
             summary['skipped_held_out'] += [f'{name}:{s}' for s in skipped]
             cells = [c for c in cells if not c.held_out]
         elif held:
-            reason, targets = guard.refuse(study, held, confirm)
+            reason, targets = guard.refuse(study, held, confirm, out=out)
             if reason:
                 summary['refused'] = reason
                 return summary
@@ -309,6 +337,7 @@ def run_study(study, out, stage=None, block=None, confirm=False, max_workers=1, 
         p = Progress(out, total, phase=f'stage {name}', label=study.name, stream=stream)
         p.skip(reused)
         failures = []
+        beat = _Heartbeat(p).__enter__()
         try:
             if max_workers <= 1 or len(todo) <= 1:
                 for cell, chunk in todo:
@@ -332,6 +361,8 @@ def run_study(study, out, stage=None, block=None, confirm=False, max_workers=1, 
             p.close('interrupted')
             compile_rows(study, out)
             raise
+        finally:
+            beat.__exit__()
         p.close('done' if not stats['failed'] else 'done-with-failures')
         summary['stages'][name] = stats
         summary['ran'] += stats['ran']
@@ -465,11 +496,13 @@ def compile_rows(study, out, cells=None, part=None):
     held = [json.loads(x) for x in (out / 'held_out.jsonl').read_text().splitlines()] \
         if (out / 'held_out.jsonl').is_file() else []
     failures = _failures(out, cache, commit)
-    extra = {'study': study.name, 'spec': str(study.path), 'commit': commit, 'updated': now(),
+    big = [Path(f['path']).name for f in files if Path(f['path']).stat().st_size > ARTIFACT_MAX]
+    extra = {'study': study.name, 'spec': study.path.name, 'commit': commit, 'updated': now(),
              'baseline': study.baseline, 'axes': [a.name for a in study.axes], 'record': study.record['level'],
              'units': units, 'failed_units': len(failures),
              'touched_held_out': any(r.get('touched_held_out') for r in all_rows) or bool(held),
-             'held_out': held[-1] if held else None}
+             'held_out': held[-1] if held else None,
+             'oversize': big}
     manifest = write_manifest(out, cols, files, extra)
     _metrics_json(out, units, all_rows, len(failures))
     return manifest
@@ -569,14 +602,17 @@ def _metrics_json(out, units, rows, failed):
 
 # ---- run-cell: one cluster job -------------------------------------------------------------------------------
 
-def run_job(study, job_id, out, confirm=False, stream=None):
+def run_job(study, job_id, out, confirm=False, stream=None, targets_sha256=None):
     """One job (a cell, or one of its seed chunks) into OUT: what `crane study run-cell` does on a box.
+    ``targets_sha256`` (the job argv's --targets-sha256) stands in for git on a box with no study checkout.
     Returns (summary, refusal)."""
     from crane.progress import Progress
     out = Path(out).expanduser()
     cell, seeds = plan.find_job(study, job_id)
+    targets = None
     if cell.held_out:
-        reason, targets = guard.refuse(study, [cell], confirm)
+        fix = f'crane study run-cell {study.ref} --cell {job_id} --out {out} --confirm'
+        reason, targets = guard.refuse(study, [cell], confirm, pinned=targets_sha256, out=out, fix=fix)
         if reason:
             return None, reason
     cell = replace(cell, seeds=list(seeds))
@@ -590,6 +626,7 @@ def run_job(study, job_id, out, confirm=False, stream=None):
     p = Progress(out, len(cell.seeds), phase='run', label=job_id, stream=stream)
     p.skip(len(cell.seeds) - len(missing))
     stats, failures = {'ran': 0, 'failed': 0}, []
+    beat = _Heartbeat(p).__enter__()
     try:
         for chunk in _chunks(cell, missing, study):
             _account(work(cell, chunk, out, commit), p, stats, failures)
@@ -599,11 +636,13 @@ def run_job(study, job_id, out, confirm=False, stream=None):
         p.close('interrupted')
         compile_rows(study, out, [cell], part=_safe(job_id))
         raise
+    finally:
+        beat.__exit__()
     p.close('done' if not stats['failed'] else 'done-with-failures')
     _prune(out)
     manifest = compile_rows(study, out, [cell], part=_safe(job_id))
     return {'job_id': job_id, 'cell': cell.id, 'units': len(cell.seeds), 'reused': len(cell.seeds) - len(missing),
-            **stats, 'out': str(out), 'rows': manifest['rows']}, None
+            **stats, 'out': str(out), 'rows': manifest['rows'], 'oversize': manifest.get('oversize') or []}, None
 
 
 def _safe(name):

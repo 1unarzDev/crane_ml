@@ -312,8 +312,11 @@ def jobs(study, stage=None, block=None, out=None, box_out=BOX_OUT):
         spec_ref = study.path.relative_to(paths.ROOT).as_posix()   # argv runs from the checkout's root
     except ValueError:
         spec_ref = str(study.path)
-    result = []
+    from crane.study import guard
+    result, pinned = [], None
     for cell in cells(study, stage, block, out):
+        if cell.held_out and pinned is None:
+            pinned = guard.targets_state(study)       # checked here, where git is; the box checks the sha256
         spec = study.stages[cell.stage]
         per_unit = unit_s(study, cell.stage)
         target = (spec.pack or {}).get('target_s') or study.pack.get('target_s') or TARGET_S
@@ -323,6 +326,7 @@ def jobs(study, stage=None, block=None, out=None, box_out=BOX_OUT):
             job_id = cell.id if len(chunks) == 1 else f'{cell.id}.j{k}'
             where = f'{box_out}/{study.name}/{job_id}'
             argv = ['crane', 'study', 'run-cell', spec_ref, '--cell', job_id, '--out', where]
+            targets, blocked = (pinned or (None, None)) if cell.held_out else (None, None)
             result.append({'job_id': job_id, 'cell': cell.id, 'stage': cell.stage, 'arm': cell.arm,
                            'block': cell.block, 'split': cell.split, 'role': cell.role, 'tier': cell.tier,
                            'held_out': cell.held_out, 'seeds': seeds, 'units': len(seeds),
@@ -330,7 +334,8 @@ def jobs(study, stage=None, block=None, out=None, box_out=BOX_OUT):
                            'kind': study.cluster['kind'], 'campaign': study.cluster['campaign'],
                            'purpose': study.cluster['purpose'], 'expect': study.cluster['expect'],
                            'pin': study.cluster['pin'], 'out': where, 'spec': spec_ref,
-                           'argv': argv + (['--confirm'] if cell.held_out else [])})
+                           'targets': {k: v for k, v in targets.items() if k != 'entries'} if targets else None,
+                           'blocked': blocked, 'argv': argv})
     return result
 
 
@@ -341,8 +346,9 @@ def find_job(study, job_id, out=None):
     base, chunk = (m.group(1), m.group(2)) if m else (job_id, '')
     stage = job_id.split('.', 1)[0]
     if stage not in study.stages:
-        raise StudyError(f'{study.path.name}: no stage {stage!r} in cell id {job_id}; fix: crane study plan '
-                         f'{study.ref} --json (its jobs[].job_id)')
+        form = 'is not of the form STAGE.ARM.HASH' if job_id.count('.') < 2 else f'names no stage of the spec ({stage})'
+        raise StudyError(f'{study.path.name}: cell id {job_id!r} {form}; fix: crane study plan {study.ref} --json '
+                         f'(its jobs[].job_id)')
     if study.stages[stage].select and out is None:
         raise StudyError(f'{study.path.name}: stage {stage} selects from stage results that a job does not have; '
                          f'fix: crane study promote {study.ref} --stage {stage}, and run the promoted spec')
@@ -360,3 +366,59 @@ def find_job(study, job_id, out=None):
 
 def nest(flat):
     return _nest(flat)
+
+
+RC_KINDS = ('crane_batch', 'gpu_command')
+
+
+def rc_jobs(study, stage=None, block=None, out=None, confirm=False):
+    """rc-job/1 bodies (research-cluster SPEC 2.1) of the study's jobs: ``research submit -p crane FILE`` takes
+    ``{jobs: [...]}``. Each is one batch job (est_seconds is the whole job) whose backend runs ``spec.argv`` in the
+    crane checkout and ships OUT (spec.out). Held-out jobs come only with ``confirm`` and a committed targets file
+    (their argv pins its sha256). Returns (jobs, skipped held-out job ids); StudyError names the fix."""
+    import re
+    from crane.study import guard
+    c = study.cluster
+    name = study.path.name
+    if c['kind'] not in RC_KINDS:
+        raise StudyError(f'{name}: kind: {c["kind"]!r}; fix: one of {", ".join(RC_KINDS)}')
+    purpose = (c.get('purpose') or '').strip()
+    if not 20 <= len(purpose) <= 600 or re.search(r'(^|\s)(/|~/)\S', purpose):
+        raise StudyError(f'{name}: purpose: 20-600 chars with no local path (it is published); fix: purpose: '
+                         f'one sentence on what the study tests')
+    found = jobs(study, stage, block, out)
+    held = [j for j in found if j['held_out']]
+    if held and confirm:
+        reason, _ = guard.refuse(study, [cl for cl in cells(study, stage, block, out) if cl.held_out], True)
+        if reason:
+            raise StudyError(f'{name}: {reason}')
+    skipped = [j['job_id'] for j in held] if not confirm else []
+    missing = [j['stage'] for j in found if j['est_seconds'] is None and j['job_id'] not in skipped]
+    if missing:
+        raise StudyError(f'{name}: stage {missing[0]} has no pack.unit_s, and rc-job/1 needs est_seconds; fix: '
+                         f'pack: {{unit_s: SECONDS_PER_UNIT}}')
+    pin = c.get('pin') or {}
+    needs = {'os': ['linux'], 'tags': list(pin.get('tags') or [])}
+    if pin.get('gpu') or c['kind'] == 'gpu_command':
+        needs['gpu'] = True
+    if pin.get('vram_gb'):
+        needs['vram_gb'] = float(pin['vram_gb'])
+    result = []
+    for j in found:
+        if j['job_id'] in skipped:
+            continue
+        job_id = f'{study.name}.{j["job_id"]}'
+        if not re.match(r'^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$', job_id):
+            raise StudyError(f'{name}: job id {job_id!r} is not an rc-job/1 id; fix: a shorter study or stage name')
+        result.append({
+            'schema': 'rc-job/1', 'job_id': job_id, 'kind': c['kind'], 'purpose': purpose,
+            'est_seconds': max(1, int(round(j['est_seconds']))), 'submitter': 'crane-study',
+            'campaign': c.get('campaign') or study.name, 'priority_class': 'sim', 'needs': needs,
+            'preemptible': True, 'seeds': None, 'items': None,
+            'spec': {'argv': j['argv'] + (['--confirm', '--targets-sha256', j['targets']['sha256']]
+                                          if j['held_out'] else []), 'out': j['out'], 'study': study.name, 'spec': j['spec'], 'cell': j['cell'],
+                     'stage': j['stage'], 'arm': j['arm'], 'block': j['block'], 'role': j['role'],
+                     'tier': j['tier'], 'seeds': j['seeds'], 'expect': c.get('expect'),
+                     'hosts': list(pin.get('hosts') or []), 'targets': j['targets']},
+            'outputs': {'class': 'summary'}})
+    return result, skipped
