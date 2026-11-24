@@ -36,7 +36,7 @@ USAGE = {'sim': 'crane sim {up,down,status,check} [ARGS...]', 'heavy': 'crane he
          'cluster': 'crane cluster [ARGS...]'}
 LOCAL_SUBHELP = {'course': ('gen',)}   # sub-verbs whose tool has no --help of its own
 # The sub-verbs crane itself names (the others' are their tool's); help.yaml's `run:` lines resolve against these.
-SUBVERBS = {'sim': ('up', 'down', 'status', 'check'), 'card': ('show', 'export'),
+SUBVERBS = {'sim': ('up', 'down', 'status', 'check'), 'card': ('show', 'export'), 'field': ('import',),
             'course': ('gen', 'validate', 'render'), 'bench': ('fast', 'player'), 'build': ('player',)}
 
 
@@ -74,14 +74,23 @@ def build_parser():
     src.add_argument('--domain', help='a domain: config/domains/DOMAIN.yaml (boat, toy); its tiers name the fastsim configs')
     src.add_argument('--config', help='a fastsim domain YAML, used as is')
     r.add_argument('--tier', default=None, help='T0|T1 or abstract|dynamic (default: the domain\'s first tier, T0 with --config)')
-    r.add_argument('--seeds', required=True, help='N, FROM:TO (TO exclusive) or a,b,c')
-    r.add_argument('--out', required=True, help='output root; runs go to OUT/VARIANT/s<seed>')
+    r.add_argument('--seeds', help='N, FROM:TO (TO exclusive) or a,b,c (required, except with --astro-test: 0)')
+    r.add_argument('--out', help='output root; runs go to OUT/VARIANT/s<seed> (required, except with --astro-test)')
     r.add_argument('--workers', type=int, help='worker processes (default: the config\'s workers)')
     r.add_argument('--set', action='append', default=[], metavar='KEY=VALUE',
                    help='override a config key; dotted keys nest, the value is YAML (repeatable)')
     r.add_argument('--variant', default='base', help='name of this design or parameter set (default base)')
     r.add_argument('--generate', action='store_true', help="regenerate the seeds' scenarios with the config's generator (missing ones are always generated)")
     r.add_argument('--allow-dirty', action='store_true', help='run an adapter tree with uncommitted changes')
+    r.add_argument('--astro-test', metavar='TEST', help="astro's test or group (still, couple-*, speed-*, steps-*, "
+                   'nav2, all) as a T0/T1 scenario: runs land in OUT/<card>/<test>/s<seed> with metrics named as '
+                   "astro's result fields")
+    r.add_argument('--card', action='append', metavar='CARD', help='with --astro-test: a profile JSON, a plant '
+                   'card or a `crane fit --factorial` manifest (repeatable; default the domain\'s profile)')
+    r.add_argument('--tests', help="with --astro-test: astro's tests file or a bundle holding one (default "
+                   '$ASTRO_DOCK/src/mhseals_hardware/config/tests.yaml)')
+    r.add_argument('--space', help="with --astro-test: the tests file's space (default large)")
+    r.add_argument('--amp', type=float, help="with --astro-test: the effort amplitude (default the space's)")
 
     _add(sub, 'judge', 'score runs against a judge pack (python -m judge)',
          'the judge\'s verdict lines; with --out, report.json and Markdown. Sub-verbs: demo, fastsim ROOT, '
@@ -137,15 +146,65 @@ def build_parser():
     _add(sub, 'setup', 'the setup wizard (not yet available; use install.sh)',
          'a pointer to install.sh.', './install.sh --yes --components core,fast')
     _add(sub, 'view', 'the native sandbox window (not yet available; use crane board)', 'a pointer to crane board.', 'crane view /tmp/runs')
-    _add(sub, 'compare', 'tier gap, variant A/B and field-vs-sim comparison (not yet available; use crane judge)',
-         'a pointer to crane judge.', 'crane compare /tmp/a /tmp/b --tiers')
-    _add(sub, 'fit', 'field data to plant card (not yet available; use crane card)', 'a pointer to crane card.', 'crane fit BUNDLE')
+    c = _add(sub, 'compare', 'compare two run sets: variant A/B, tier gap (--tiers) or field vs sim (--field)',
+             'a Markdown table on stdout and the same as JSON in OUT/compare.json. A B: per matched run the pose '
+             'error on a common frame and clock (refused when they cannot be put on one) and the metric deltas. '
+             '--tiers: per metric the ranking agreement (regret, MMRV, top-k) and the paired gap with a bootstrap CI. '
+             "--field BUNDLE RUNS: per astro test the result's metrics, field vs sim, delta and a CI when samples "
+             'allow.', 'crane compare --field bundle-173031.tgz runs/sim')
+    c.add_argument('runs', nargs='+', metavar='RUNS', help='A B (run dirs or roots), or with --field: the sim runs')
+    c.add_argument('--tiers', action='store_true', help='A is the lower tier, B the higher; variants are the '
+                   'first directory level under each root')
+    c.add_argument('--field', metavar='BUNDLE', help='an astro bundle (.tgz or its unpacked dir) to compare RUNS '
+                   'against')
+    c.add_argument('--metric', action='append', help='only these metrics (repeatable)')
+    c.add_argument('--direction', default='higher', choices=('higher', 'lower'), help='--tiers: better is higher '
+                   'or lower (default higher)')
+    c.add_argument('--band', type=float, help='--tiers: the allowed |low - high| gap (metric units)')
+    c.add_argument('--fidelity', metavar='CONFIG', help="--tiers: also replay B's goal windows on CONFIG's "
+                   'vehicle (fastsim.fidelity.score)')
+    c.add_argument('--out', help='write compare.json and compare.md here')
+    f = _add(sub, 'fit', 'field data to a profile and a plant card: astro bundle -> gate -> evidence -> card',
+             'the gate verdict per parameter (identified / provisional / prior, and why; on abstain the exact '
+             'missing fields), the evidence (holds, bags, sessions), the card fitted from it with its blocks, and '
+             'the held-out validation when there are two or more sessions. Writes OUT/profile.json, '
+             'OUT/profile.gate.json, OUT/cards/, OUT/fit.json. --factorial SPEC writes card variants and a manifest.',
+             'crane fit bundle-173031.tgz --bags ~/astro_dock/bags/sim/2026-11-24/bags --out /tmp/fit')
+    f.add_argument('bundles', nargs='*', metavar='BUNDLE', help='astro bundles (.tgz); each is one session')
+    f.add_argument('--out', help='output dir (default fit-<bundle name>)')
+    f.add_argument('--bags', action='append', metavar='DIR', help='bag dirs to read besides the bundle\'s own '
+                   '(read only; a bundle made without --bags has none)')
+    f.add_argument('--base', help='the base profile the gate imports into (default Ideal)')
+    f.add_argument('--robot', help='the card\'s robot name (default astro/<state file stem>)')
+    f.add_argument('--n', type=int, default=64, help='rollouts per held-out segment (default 64)')
+    f.add_argument('--no-card', action='store_true', help='stop after the gate (no evidence, no card)')
+    f.add_argument('--factorial', metavar='SPEC', help='card variants from SPEC.yaml (measured vs prior levels per '
+                   'property, plus hypotheses) and a manifest that `crane run --card` takes')
+    fd = _add(sub, 'field', 'field data as crane.run/1 records (import)',
+              'one line per bag: run dir, duration, odometry samples and rate, path length, events, frame and clock. '
+              'Each run has traj.ctraj (odometry, resampled on header stamps), events.jsonl (/events and log.txt '
+              'lines) and metrics.json.', 'crane field import bundle-173031.tgz --out /tmp/field')
+    fds = fd.add_subparsers(dest='what', metavar='WHAT', required=True)
+    fi = fds.add_parser('import', help='a bundle, a bag dir or an .mcap file to run records')
+    fi.add_argument('source', help='an astro bundle (.tgz, made with --bags), a rosbag2 dir or an .mcap file')
+    fi.add_argument('--out', required=True, help='the run dir (one bag) or the root (several: OUT/<bag>)')
+    fi.add_argument('--odom', default='/odom/local', help='odometry topic (default /odom/local)')
+    fi.add_argument('--events', default='/events', help='astro events topic (default /events)')
+    fi.add_argument('--frame', action='append', metavar='ID=enu|ned', help='what an odometry frame id is, when '
+                    'not a REP 103/105 name')
+    fi.add_argument('--hz', type=float, default=20.0, help='trajectory rate (default 20)')
+    fi.add_argument('--domain', default='boat', help='the run\'s domain (default boat)')
     return ap
 
 
 def _version():
     from crane import __version__
     return f'crane {__version__}'
+
+
+def _module(name, args):
+    import importlib
+    return importlib.import_module(f'crane.{name}').main(args)
 
 
 def _run(args):
@@ -174,8 +233,8 @@ HANDLERS = {
     'run': _run, 'bench': _bench, 'build': _build, 'doctor': _doctor,
     'setup': _stub('the `crane setup` wizard', '`./install.sh [--yes] [--components core,fast,gpu,view,field,setup]`'),
     'view': _stub('`crane view` (the native window)', '`crane board RUNS`'),
-    'compare': _stub('`crane compare`', '`crane judge`'),
-    'fit': _stub('`crane fit`', '`crane card show|export`'),
+    'compare': lambda a: _module('compare', a), 'fit': lambda a: _module('fit', a),
+    'field': lambda a: _module('field', a),
 }
 
 

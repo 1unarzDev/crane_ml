@@ -1,4 +1,4 @@
-"""Import an mhseals_testing characterization into a crane boat profile JSON through the gate.
+"""Import a vessel characterization into a crane boat profile JSON through the gate.
 
     python3 -I Tools/Characterization/import_yaml.py --yaml Y --provenance P --run R \
         --config-snapshot C --out-profile OUT.json --out-report REPORT.json [--base profiles/ideal.json]
@@ -13,12 +13,13 @@ per-parameter status and reason, input sha256 values, the summary, kind "charact
 gate report path. --provenance, --run and --config-snapshot may be omitted; the gate then abstains
 on what they would have provided (PROVENANCE_MISSING, no holds), so nothing is overwritten.
 
-An mhseals.physics/1 survey record (characterization-v2) is the whole input:
+A survey record (``crane.survey/1``, or the older ``mhseals.physics/1``) is the whole input:
 
     python3 -I Tools/Characterization/import_yaml.py --yaml <root>/characterization/<fit>-survey.yaml \
         [--history <root>/config-history] --out-profile OUT.json --out-report REPORT.json
 
-mhseals_physics.adapt turns it, its samples file and the config-history snapshot into the gate inputs.
+survey.adapt turns it, its samples file and the config-history snapshot into the gate inputs. An astro
+bundle goes through bundle.py (from_bundle, crane fit).
 """
 from __future__ import annotations
 
@@ -30,7 +31,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))  # python3 -I drops the script dir
 import gate as G  # noqa: E402
-import mhseals_physics as MP  # noqa: E402
+import survey as SV  # noqa: E402
 import plant as P  # noqa: E402
 
 TAKEN = (G.IDENTIFIED, G.PROVISIONAL)
@@ -76,7 +77,7 @@ def build_profile(base, report, inputs, report_path):
     prof["name"] = "Characterized"
     prof["provenance"] = {
         "kind": "characterized",
-        "source": "mhseals_testing characterization through Tools/Characterization/gate.py, base "
+        "source": "characterization through Tools/Characterization/gate.py, base "
                   + base.get("name", "?"),
         "summary": report["summary"] + (f": {reasons}" if reasons else ""),
         "inputs": inputs,
@@ -87,13 +88,13 @@ def build_profile(base, report, inputs, report_path):
     return prof
 
 
-def main(argv=None):
+def main(argv=None, log=print):
     ap = argparse.ArgumentParser(description="Import a characterization YAML through the gate.")
     ap.add_argument("--yaml", required=True)
     ap.add_argument("--provenance")
     ap.add_argument("--run")
     ap.add_argument("--config-snapshot")
-    ap.add_argument("--history", help="config-history dir for an mhseals.physics/1 record "
+    ap.add_argument("--history", help="config-history dir for a survey record "
                                       "[<record>/../../config-history]")
     ap.add_argument("--out-profile", required=True)
     ap.add_argument("--out-report", required=True)
@@ -105,8 +106,8 @@ def main(argv=None):
              ("base", a.base)]
     inputs = [{"path": p, "sha256": G.sha256_file(p)} for _, p in paths if p]
     gate_in = (a.yaml, a.provenance, a.run, a.config_snapshot)
-    if MP.is_record(G.load_doc(a.yaml)):  # characterization-v2 survey: samples file, config-history
-        gate_in = MP.adapt(a.yaml, a.history)
+    if SV.is_record(G.load_doc(a.yaml)):  # characterization-v2 survey: samples file, config-history
+        gate_in = SV.adapt(a.yaml, a.history)
         sf = G.load_doc(a.yaml).get("samples_file")
         if sf:
             sp = os.path.join(os.path.dirname(a.yaml), sf["path"])
@@ -120,7 +121,7 @@ def main(argv=None):
         with open(path, "w") as f:
             json.dump(doc, f, indent=4, allow_nan=False)
             f.write("\n")
-    print(f"{report['summary']}: profile {a.out_profile}, report {a.out_report}")
+    log(f"{report['summary']}: profile {a.out_profile}, report {a.out_report}")
     return 0
 
 

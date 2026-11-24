@@ -35,6 +35,12 @@ def overrides(pairs):
 
 
 def main(args):
+    if getattr(args, 'astro_test', None):
+        from crane import astrotest
+        return astrotest.main(args)
+    if not args.seeds or not args.out:
+        print('crane run: --seeds and --out are required (except with --astro-test)', file=sys.stderr)
+        return 2
     try:
         tier = tiers.normalise(args.tier) if args.tier else None
     except ValueError as error:

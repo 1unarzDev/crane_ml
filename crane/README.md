@@ -27,7 +27,11 @@ each verb imports what it needs only when it runs, and the `sim` path is stdlib 
 | `build player` | the headless Linux player | `heavy unity <editor> … -executeMethod CranePerformanceBuild.BuildLinuxWorker` (`crane/build.py`) |
 | `cluster …` | research-cluster jobs | execs `~/research-cluster/bin/research` (or `$RESEARCH_CLUSTER/bin/research`) |
 | `doctor` | machine checks and next commands | `crane/doctor.py` |
-| `setup`, `view`, `compare`, `fit`, `bench fast`, `run --tier T2` | not yet available | say what to use today and exit 2 |
+| `fit BUNDLE…` | astro bundle to profile (gate) and plant card (evidence); `--factorial SPEC` card variants | `crane/fit.py` over `Tools/Characterization/bundle.py`, `plantcard` |
+| `field import SRC` | bundle, bag dir or .mcap to crane.run/1 (kind field) | `crane/field.py` |
+| `run --astro-test TEST` | astro's tests at T0/T1, metrics named as astro's results | `crane/astrotest.py` over `Tools/Characterization/astro_tests.py` |
+| `compare A B [--tiers]`, `compare --field BUNDLE RUNS` | variant A/B, tier gap, field vs sim | `crane/compare.py` |
+| `setup`, `view`, `bench fast`, `run --tier T2` | not yet available | say what to use today and exit 2 |
 
 ## Pieces
 
