@@ -33,3 +33,37 @@ include = ["crane*", "crane_backends*", "fastsim*", "theater*", "plantcard*", "j
 
 [tool.setuptools.package-data]
 "*" = ["*.yaml", "*.json", "*.js", "*.html", "*.css"]
+
+# `python3 -m pytest` at the root collects every suite. importlib mode lets same-named test modules (test_core.py,
+# test_cli.py, test_record.py) live in several suites; each suite's conftest still puts its own folder on sys.path.
+# The root conftest.py marks tests that need a host tool and skips them with one line when it is absent.
+[tool.pytest.ini_options]
+addopts = "--import-mode=importlib -p no:cacheprovider"
+pythonpath = ["."]
+testpaths = [
+    "tests", "fastsim/tests", "judge/tests", "plantcard/tests", "theater/tests", "viewer/tests",
+    "crane_backends/tests", "domains/boat/tests", "Tools/Characterization", "Tools/SimCheck/tests",
+    "Tools/RoboBoat/tests",
+]
+markers = [
+    "dotnet: needs the .NET SDK its global.json pins",
+    "node: needs node",
+    "docker: needs a reachable docker daemon",
+    "cluster: needs research-cluster's crane_cluster (RESEARCH_CLUSTER or ~/research-cluster)",
+    "display: needs the [view] extra (PySide6, pyqtgraph); renders offscreen",
+]
+
+# A lenient baseline that passes today: syntax errors, undefined names and broken comparisons everywhere, unused
+# imports in crane/ only. Tighten by adding a rule family to `select` (e.g. "F" then "E4", "E7", "B"), running
+# `uvx ruff@0.12.5 check --fix .` and reviewing the diff, and by shrinking the per-file ignores.
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+extend-exclude = ["Assets", "Packages", "ProjectSettings", "Library", "Builds", "Logs", "Temp", "PerformanceResults"]
+
+[tool.ruff.lint]
+select = ["E9", "F63", "F7", "F82", "F401"]
+
+[tool.ruff.lint.per-file-ignores]
+"!crane/**" = ["F401"]
+"crane/view/live.py" = ["F401"]   # an unused `World` import; drop this line once it is removed

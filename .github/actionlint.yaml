@@ -1,0 +1,4 @@
+# actionlint: the self-hosted Unity runner's label (player.yml).
+self-hosted-runner:
+  labels:
+    - crane-unity
