@@ -340,7 +340,7 @@ def test_help_yaml_and_cli_md_are_generated_and_keep_astros_names(tmp_path, caps
         assert reg.find(words[1:]), command['name']
         for param in command.get('params') or []:
             assert param['name'] and set(param) <= {'name', 'type', 'default', 'choices', 'choices_from', 'description',
-                                                    'required', 'form'}
+                                                    'required', 'form', 'free'}
     # astro's rule: a noun's actions are entries of their own, never a verb/command/action/subcommand param
     bad = [(c['name'], p['name']) for c in data['commands'] for p in c.get('params') or []
            if p['name'].lstrip('-') in ('verb', 'command', 'action', 'subcommand')]
@@ -352,7 +352,7 @@ def test_help_yaml_and_cli_md_are_generated_and_keep_astros_names(tmp_path, caps
     # a drifted file is named with the fix
     (tmp_path / 'Docs').mkdir()
     shutil.copy(ROOT / 'Docs' / 'CLI.md', tmp_path / 'Docs' / 'CLI.md')
-    (tmp_path / 'help.yaml').write_text((ROOT / 'help.yaml').read_text().replace('summary: Sim and', 'summary: Sim'))
+    (tmp_path / 'help.yaml').write_text((ROOT / 'help.yaml').read_text().replace('Robot simulators and', 'Robots and'))
     assert reg.check(root=tmp_path) == 1
     assert 'help.yaml differ from crane/commands.py; fix: crane help --write' in capsys.readouterr().err
 

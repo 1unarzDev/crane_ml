@@ -13,9 +13,13 @@ On HOST it touches only ~/crane_ml, ~/.local/bin/crane (install.sh's link) and t
 - player: rsync --partial into the store's .incoming/, then `bin/crane update --tarball` there checks the sha256,
   unpacks it and keeps current + prev (crane/update.py's installer, the one crane update uses).
 - doctor: `bin/crane doctor --json` there, printed here.
+
+A robot computer is refused before anything runs (robot_guard; config/deploy.yaml): robot code goes through astro.
 """
 
+import fnmatch
 import getpass
+import ipaddress
 import json
 import os
 import shlex
@@ -53,6 +57,70 @@ echo "player=$(readlink .local/share/crane/player/current 2>/dev/null)"
 echo "python=$(python3 -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null)"
 for t in git rsync zstd; do echo "$t=$(command -v $t >/dev/null && echo yes || echo no)"; done
 '''
+
+
+ROBOT_REFUSAL = '{host} is a robot computer; robot code goes through `astro hot`'
+
+
+def guard_config(path=None):
+    from crane import miniyaml
+    path = Path(path or paths.CONFIG / 'deploy.yaml')
+    return (miniyaml.safe_load(path.read_text()) or {}).get('robot_guard') or {}
+
+
+def _registry(root):
+    """{host: (roles, addresses)} from every ROOT/*/devices.yaml; addresses resolve $KEY through the profile's
+    network.env. Raises OSError or ValueError when the registry cannot be read."""
+    from crane import miniyaml
+    files = sorted(Path(root).expanduser().glob('*/devices.yaml'))
+    if not files:
+        raise OSError(f'no */devices.yaml under {root}')
+    hosts = {}
+    for f in files:
+        env = {}
+        if (f.parent / 'network.env').is_file():
+            for line in (f.parent / 'network.env').read_text().splitlines():
+                key, eq, value = line.partition('=')
+                if eq and not key.lstrip().startswith('#'):
+                    env[key.strip()] = value.strip().strip('"\'')
+        for name, facts in ((miniyaml.safe_load(f.read_text()) or {}).get('hosts') or {}).items():
+            facts = facts if isinstance(facts, dict) else {}
+            roles, addrs = hosts.setdefault(str(name), (set(), set()))
+            roles.update(str(r) for r in facts.get('roles') or ())
+            address = str(facts.get('address') or '')
+            addrs.add(env.get(address[1:], '') if address.startswith('$') else address)
+    return hosts
+
+
+def robot_guard(host, cfg=None, environ=None):
+    """(refusal or None, warnings) for deploying to HOST. A host astro's registry lists is refused when it has a
+    robot role and no allowed (operator) role; an unlisted host, or any host when the registry cannot be read, is
+    refused when its name matches a robot pattern."""
+    if host.startswith('local:'):
+        return None, []
+    cfg = guard_config() if cfg is None else cfg
+    environ = os.environ if environ is None else environ
+    name = host.rsplit('@', 1)[-1]
+    try:
+        ipaddress.ip_address(name)
+        names = {name}
+    except ValueError:
+        names = {name, name.split('.', 1)[0]}
+    root = environ.get('ASTRO_PROFILES') or cfg.get('registry') or '~/astro_dock/profiles'
+    warnings, roles, listed = [], set(), False
+    try:
+        for entry, (entry_roles, addrs) in _registry(root).items():
+            if names & ({entry} | addrs):
+                listed, roles = True, roles | entry_roles
+    except (OSError, ValueError) as error:
+        warnings.append(f"cannot read astro's host registry ({root}: {error}); checking {name} against the robot "
+                        'name patterns only')
+    allowed, robot = set(cfg.get('allowed_roles') or ()), set(cfg.get('robot_roles') or ())
+    if listed:
+        refused = bool(roles & robot) and not roles & allowed
+    else:
+        refused = any(fnmatch.fnmatch(n, pat) for n in names for pat in cfg.get('robot_patterns') or ())
+    return (ROBOT_REFUSAL.format(host=name) if refused else None), warnings
 
 
 class DeployError(RuntimeError):
@@ -267,6 +335,13 @@ def main(args):
     t = transport(args.host)
     want_player = bool(args.player or args.tarball)
     doc = {'schema': 'crane.deploy/1', 'host': t.name, 'dry_run': out.dry_run, 'steps': []}
+    refusal, warnings = robot_guard(args.host)
+    for warning in warnings:
+        print(f'crane deploy: warning: {warning}', file=out.stderr)
+    if refusal:
+        out.doc({**doc, 'ok': False, 'error': refusal})
+        print(f'crane deploy: {refusal}', file=out.stderr)
+        return output.USAGE
     try:
         commit = resolve_ref(args.ref)
         info = probe(t)

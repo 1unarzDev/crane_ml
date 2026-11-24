@@ -171,6 +171,37 @@ def test_deploy_over_the_local_transport_to_a_bare_host_and_to_a_git_checkout(tm
     assert [p.name for p in (other / 'crane_ml').iterdir()] == ['notes.txt']
 
 
+def test_deploy_refuses_robot_computers_from_astros_registry_and_by_name_without_it(tmp_path, home):
+    from crane import deploy
+    reg = tmp_path / 'profiles'
+    (reg / 'vessel').mkdir(parents=True)
+    (reg / 'vessel' / 'devices.yaml').write_text(
+        'hosts:\n'
+        '  hull-brain: {roles: [boat_computer], user: r}\n'
+        '  shore: {roles: [operator, gateway], address: $SHORE_IP}   # the station: allowed\n'
+        '  eyes: {roles: [camera_host], address: 10.0.0.7}\n')
+    (reg / 'vessel' / 'network.env').write_text('SHORE_IP=10.0.0.2\n')
+    (reg / 'sim').mkdir()
+    (reg / 'sim' / 'devices.yaml').write_text('hosts:\n  localhost: {roles: [boat_computer, operator]}\n')
+    env = {**_env(home, tmp_path / 'no-releases'), 'ASTRO_PROFILES': str(reg)}
+
+    # refused before anything runs (no ssh): one line naming the fix
+    for host in ('hull-brain', 'r@hull-brain', '10.0.0.7', 'spare-jetson'):
+        out = _crane(env, 'deploy', host, '--dry-run')
+        name = host.rsplit('@', 1)[-1]
+        assert (out.returncode, out.stderr) == (
+            2, f'crane deploy: {name} is a robot computer; robot code goes through `astro hot`\n'), host
+    # the station (by name or its $KEY address) and a host the registry does not list are allowed
+    cfg = deploy.guard_config()
+    for host in ('shore', 'me@10.0.0.2', 'localhost', 'innovation', 'local:/tmp/h'):
+        assert deploy.robot_guard(host, cfg, {'ASTRO_PROFILES': str(reg)}) == (None, []), host
+    # no registry: a warning, and only the robot name patterns refuse
+    gone = {'ASTRO_PROFILES': str(tmp_path / 'missing')}
+    refusal, warnings = deploy.robot_guard('hull-odroid', cfg, gone)
+    assert refusal and len(warnings) == 1 and 'robot name patterns only' in warnings[0]
+    assert deploy.robot_guard('hull-brain', cfg, gone)[0] is None
+
+
 @pytest.mark.skipif(not shutil.which('zstd'), reason='zstd packs the player tarball')
 def test_crafted_tarballs_and_mismatched_release_players_are_refused(tmp_path):
     def crafted(name, *members):
