@@ -20,7 +20,8 @@ matches .NET's DeflateStream, so the Unity writer and this reader share one form
 
 Header keys this module fills: ``schema``, ``hz``, ``t0_s``, ``ticks``, ``duration_s``,
 ``columns``, ``box`` (the pose extent). Writers add ``robot {model, agents}``, ``pose_dims``
-(``6dof`` or ``planar``), ``frame``, ``course``, ``build``, ``water``, ``seed`` and, once the
+(``6dof`` or ``planar``), ``frame`` (``{type: enu|ned, origin, body: flu|frd}``; crane.run/1 stamps
+it, crane/frames.py converts), ``course``, ``build``, ``water``, ``seed`` and, once the
 run is scored, ``outcome``, ``score``, ``progress``, ``valid``, ``study``, ``iteration``,
 ``params`` (see ``theater.meta``).
 """
