@@ -1,7 +1,9 @@
 """crane.study/1: spec errors, common random numbers, the held-out guard, resume after a kill, adaptive stages and
 the paired report."""
 
+import io
 import json
+import math
 import os
 from pathlib import Path
 import random
@@ -11,12 +13,14 @@ import sys
 import textwrap
 import time
 
+import numpy as np
 import pytest
 
 from crane import cli, study
 from crane.cache import UnitCache
 from crane.data.rows import RowWriter, read_rows, write_manifest
 from crane.study import exec as ex, plan, report as rp
+from engine import exact as engine_exact
 
 ROOT = Path(__file__).resolve().parents[1]
 TASKS = '''\
@@ -322,8 +326,14 @@ if __name__ == '__main__':
 # ---- the batched engine, plugins, card axes, population scorers, censoring, session splits ---------------------
 
 def test_a_batched_engine_cell_gives_the_scalar_rows(tmp_path, capsys):
-    """One boat T1 cell on the batched engine (numpy, float64: numpy alone) and on the scalar path: the same rows,
-    events and decimated track; censored at the time cap. A record level the engine cannot serve is refused."""
+    """Boat T1 cells on the batched engine (numpy, float64: numpy alone) and on the scalar path, over two derived
+    cards and two condition rows (one cap the course fits in, one it does not): the same rows, events and decimated
+    track; successes observed, timeouts censored at the cap. A record level the engine cannot serve is refused."""
+    write(tmp_path, 'conds.csv', '''\
+        id,time_limit_s
+        short,20
+        long,300
+        ''')
     spec = write(tmp_path, 'boat.yaml', '''\
         name: engine_rows
         domain: boat
@@ -331,30 +341,52 @@ def test_a_batched_engine_cell_gives_the_scalar_rows(tmp_path, capsys):
         arms:
           scalar: {}
           batched: {engine: batched, backend: numpy}
-        axes: {cap: {param: time_limit_s, levels: [25]}}
+        card: ideal
+        card_axes:
+          lag: {fields: [thrusters.*.tauT], levels: {pre: base, slow: {values: {thrusters.*.tauT: 0.3}}}}
+        conditions: {csv: conds.csv, id: id, set: {time_limit_s: time_limit_s}}
         seeds: {dev: {role: dev, seeds: '0:2'}}
         record: {level: traj_decimated, hz: 2}
         ''')
     s, out = study.load(spec), tmp_path / 'out'
     assert {c.arm: ex.engine_label(c) for c in s.cells()} == {'scalar': 'scalar', 'batched': 'batched/numpy/float64'}
-    assert len({c.pair for c in s.cells()}) == 1 and len({c.id for c in s.cells()}) == 2   # pair, own unit keys
-    assert ex.run_study(s, out)['ran'] == 4
-    rows = {(r['arm'], r['seed']): r for r in read_rows(out)}
-    for seed in (0, 1):
-        a, b = rows['scalar', seed], rows['batched', seed]
-        assert {k for k in a if a[k] != b[k]} == {'arm', 'cell', 'wall_s', 'engine'}
-        assert a['censored'] is True and a['time_cap_s'] == 25.0 and a['outcome'] == 'TIMEOUT'
+    assert len({c.pair for c in s.cells()}) == 4 and len({c.id for c in s.cells()}) == 8   # pair, own unit keys
+    assert ex.run_study(s, out)['ran'] == 16
+    rows = {(r['arm'], r['card_sha'], r['cond.id'], r['seed']): r for r in read_rows(out)}
+    cards = {k[1] for k in rows}
+    assert len(cards) == 2
+    exact = engine_exact.openblas()    # bit for bit on OpenBLAS; on another BLAS the scalar path rounds differently
+    for (arm, card, cond, seed), a in rows.items():
+        if arm != 'scalar':
+            continue
+        b = rows['batched', card, cond, seed]
+        differ = {k for k in a if a[k] != b[k] and not (not exact and isinstance(a[k], float)
+                                                         and math.isclose(a[k], b[k], rel_tol=1e-9, abs_tol=1e-9))}
+        assert differ == {'arm', 'cell', 'wall_s', 'engine'}, (card, cond, seed)
         assert all(v == v for v in a.values() if isinstance(v, float))                       # never NaN
-    blobs = {}
-    for e in UnitCache(out / 'cache'):
-        blobs.setdefault(e['unit']['seed'], []).append(e['record']['blobs'])
-    assert all(len(v) == 2 and v[0] == v[1] and set(v[0]) == {'traj', 'events'} for v in blobs.values())
+        if cond == 'short':                                   # cut off at the cap, time_limit_s + grace_s
+            assert a['censored'] is True and a['time_cap_s'] == 25.0 and a['outcome'] == 'TIMEOUT'
+        else:
+            assert a['censored'] is False and a['outcome'] == 'SUCCEEDED' and a['run.sim_s'] < 300
+    by_card = {c: sorted(r['run.sim_s'] for k, r in rows.items() if k[1] == c and k[2] == 'long') for c in cards}
+    assert len({tuple(v) for v in by_card.values()}) == 2           # each derived card drives its own boat
+    cache, pair_of, blobs = UnitCache(out / 'cache'), {c.key['cell']: c.pair for c in s.cells()}, {}
+    for e in cache:
+        blobs.setdefault((pair_of[e['unit']['cell']], e['unit']['seed']), []).append(e['record']['blobs'])
+    assert len(blobs) == 8
+    for one, other in blobs.values():
+        assert set(one) == set(other) == {'traj', 'events'} and one['events'] == other['events']
+        if exact:
+            assert one['traj'] == other['traj']
+        else:
+            t1, t2 = (np.load(io.BytesIO(cache.get_blob(x['traj'], '.npz'))) for x in (one, other))
+            assert all(np.allclose(t1[k], t2[k], atol=1e-4) for k in ('t', 'x', 'y', 'yaw'))
     write(tmp_path, 'obs.yaml', spec.read_text().replace('level: traj_decimated', 'level: obs'))
     with pytest.raises(study.StudyError) as caught:
         study.load(tmp_path / 'obs.yaml')
     assert "record: level 'obs' is not served by the batched engine" in str(caught.value)
     assert cli.main(['study', 'plan', str(spec)]) == 0
-    assert 'engine: stage main: scalar 1 cells; batched/numpy/float64 1 cells' in capsys.readouterr().out
+    assert 'engine: stage main: scalar 4 cells; batched/numpy/float64 4 cells' in capsys.readouterr().out
 
 
 PLUGIN_TASK = '''\

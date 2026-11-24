@@ -13,7 +13,7 @@ import pytest
 from domains.boat import mission as BM
 from domains.boat.adapter import Mission
 from domains.boat.plant import ROOT
-from engine import boat as BB, decoupled, equivalence as EQ
+from engine import boat as BB, decoupled, equivalence as EQ, exact
 from engine.episode import Setup, run
 from engine.kernels import profile as PK
 from engine.ops import numpy_ops
@@ -40,13 +40,19 @@ def backends():
 HAVE_NUMBA = 'numba' in backends()
 
 
+# The float64 reference reproduces OpenBLAS's dgemv order; on another BLAS the scalar path itself rounds differently.
+openblas = pytest.mark.skipif(not exact.openblas(),
+                              reason=f"numpy's BLAS is {exact.blas()}, not OpenBLAS: the scalar path's matvec order "
+                                     "differs; fix: pip install numpy (its wheel bundles OpenBLAS)")
+
+
+@openblas
 def test_this_hosts_blas_is_the_order_the_reference_reproduces():
     """The scalar plant's ``pinv @ tau`` is OpenBLAS dgemv: fma(b2, t2, fma(b0, t0, b1 t1)) per row."""
     cfg = config.load(BOAT / 'fastsim_t1.yaml')[0]
     q = PK.pack_loop(json.loads((ROOT / cfg['vehicle']['profile']).read_text()))
     B = q[PK.LX['B00']:PK.LX['B00'] + 12].reshape(4, 3)
     tau = np.random.default_rng(0).normal(0, 50, (20000, 3))
-    from engine import exact
     assert (np.array([B @ t for t in tau]) == exact.matvec_blas(B, tau)).all()
 
 
@@ -122,6 +128,7 @@ def _flat(tree, prefix=''):
     return out
 
 
+@openblas
 def test_decoupled_mode_at_E1_is_the_scalar_path(tmp_path):
     """The boat's own scalar Mission on the batched plant and tracker: the same run directory files."""
     for tier in ('T1', 'T0'):

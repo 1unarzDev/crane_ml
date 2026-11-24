@@ -71,5 +71,10 @@ def test_the_fast_backends_step_as_the_numpy_reference(backend):
     if importlib.util.find_spec(backend) is None:
         pytest.skip(f"{backend} is not installed; pip install 'crane[fast]' (numba) or jax")
     ref, _ = rollout(ce.make('boat', n=2, seed=5), 5, 40)
-    got, _ = rollout(ce.make('boat', n=2, seed=5, backend=backend, dtype='float64'), 5, 40)
+    try:
+        got, _ = rollout(ce.make('boat', n=2, seed=5, backend=backend, dtype='float64'), 5, 40)
+    except Exception as error:  # noqa: BLE001  a GPU another process has filled is the host's state, not a result
+        if 'RESOURCE_EXHAUSTED' in str(error) or 'OUT_OF_MEMORY' in str(error):
+            pytest.skip(f'{backend}: the GPU is out of memory ({type(error).__name__}); fix: JAX_PLATFORMS=cpu')
+        raise
     assert np.abs(got - ref).max() <= (0.0 if backend == 'numba' else 1e-9)

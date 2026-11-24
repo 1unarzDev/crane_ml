@@ -96,8 +96,9 @@ line. An arm the engine has no batched controller for, such as a plugin `mission
 
 ## Plugins
 
-`plugins: [DIR]` (relative to the spec) puts those dirs on `sys.path` in this study's processes only, so `mission:
-module:Class` (a fastsim DomainAdapter replacing the domain's), `task:`, `scorer:` and `scorers[].fn` resolve there.
+`plugins: [DIR]` (relative to the spec) puts those dirs on `sys.path` for this study's run, job or report only (its
+modules are dropped afterwards, so two studies in one process never share one), so `mission: module:Class` (a
+fastsim DomainAdapter replacing the domain's), `task:`, `scorer:` and `scorers[].fn` resolve there.
 Nothing is copied: the manifest records each dir's git commit, dirty flag and diff sha, and the sha256 of its files
 goes into every cell hash (an edited plugin reruns). On the cluster the dir ships with the spec's repo.
 
@@ -180,7 +181,9 @@ and its cells hash the same, so the cache is shared.
 
 **Censoring.** A unit that ends at its time cap (outcome TIMEOUT, or a task returning `censored: true`) has
 `censored = true` and `time_cap_s`, the cap; its time metrics are the cap or absent, never NaN. A task that returns
-`censored` without `time_cap_s` fails with one line.
+`censored` without `time_cap_s` fails with one line. On a sim cell the cap is where the sim stops the episode: the
+run's `time_limit_s` plus the tier config's `grace_s`. Every sim column (`run.sim_s`, `boat.gates_passed`, ...)
+covers the episode up to that cap, and an episode that succeeds before it is observed, not censored.
 
 Sim run dirs are read and removed. With `keep_runs: true` they stay in `runs/CELL/`. A rerun of the same command
 runs only the units not in the cache, and so does a run killed mid-way. A changed arm, level, condition, scorer or

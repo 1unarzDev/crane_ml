@@ -12,9 +12,10 @@ def parts(result, cell):
 
 
 def gate_fit(rows, group):
-    """How well the sim's gate count in the time cap matches each condition's observed one (cond.observed_gates):
-    the mean absolute error (loss), its mean signed part (bias), and the censored share (episodes that reached the
-    time cap; a censored row carries censored = true and time_cap_s, never NaN)."""
+    """How well the sim's gate count matches each condition's observed one (cond.observed_gates): the mean absolute
+    error (loss), its mean signed part (bias), and the censored share. The gate count covers the whole episode, up to
+    the row's time_cap_s (the condition's time_limit_s plus the tier's grace_s); a censored row reached that cap and
+    carries censored = true and time_cap_s, never NaN."""
     errs = [r['boat.gates_passed'] - r['cond.observed_gates'] for r in rows
             if r.get('boat.gates_passed') is not None and r.get('cond.observed_gates') is not None]
     if not errs:

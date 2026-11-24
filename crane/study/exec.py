@@ -91,10 +91,32 @@ def _numbers(tree, prefix=''):
 
 
 def plugin_path(cell):
-    """Put the spec's plugin dirs on sys.path (this process only: the study's own runs and workers)."""
+    """Put the spec's plugin dirs on sys.path, for the enclosing plugin_scope (a run, a job, a report) or, in a
+    worker process, for that worker's life (the study's own pool)."""
     for d in reversed(cell.ctx.get('plugins') or []):
         if d not in sys.path:
             sys.path.insert(0, d)
+
+
+def plugin_scope(fn):
+    """``fn`` with sys.path restored afterwards and the modules imported from the dirs it added dropped, so two
+    studies run in one process never share a plugin module (e.g. both have a 'calib')."""
+    import functools
+    import os
+
+    @functools.wraps(fn)
+    def scoped(*args, **kw):
+        path, mods = list(sys.path), set(sys.modules)
+        try:
+            return fn(*args, **kw)
+        finally:
+            added = [os.path.join(os.path.abspath(d), '') for d in set(sys.path) - set(path) if d]
+            sys.path[:] = path
+            for name in set(sys.modules) - mods:
+                where = getattr(sys.modules[name], '__file__', None) or ''
+                if any(os.path.abspath(where).startswith(d) for d in added):
+                    del sys.modules[name]
+    return scoped
 
 
 def _load(ref, base, cell=None):
@@ -203,6 +225,12 @@ class _Sim:
         self.source = ScenarioSource(**self.cfg['scenarios'], base=self.base)
         self.adapter = batch.adapter_of(self.cfg, self.base)
 
+    def cut_off(self, run):
+        """Where the sim stops an episode that has not ended: its time limit plus the config's grace_s (a TIMEOUT's
+        run.sim_s is this cap plus at most one tick; an episode that ends before it is observed, not censored)."""
+        limit = run.get('time_limit_s')
+        return None if limit is None else float(limit) + float(self.cfg.get('grace_s') or 0.0)
+
     def run(self, cell, seed, out, cache):
         from fastsim import batch
         from fastsim.pairs import flat_numbers
@@ -232,7 +260,7 @@ class _Sim:
         if not cell.ctx.get('keep_runs'):
             shutil.rmtree(run_dir, ignore_errors=True)
         error = (run.get('error') or {}).get('error') if isinstance(run.get('error'), dict) else None
-        return {'outcome': run['outcome'], 'error': error, **censoring(run['outcome'], run.get('time_limit_s')),
+        return {'outcome': run['outcome'], 'error': error, **censoring(run['outcome'], self.cut_off(run)),
                 **_keep(cell, numbers)}, blobs
 
 
@@ -268,7 +296,7 @@ class _Batch(_Sim):
                 if data.strip():
                     blobs['events'] = cache.put_blob(data, '.jsonl')
             result.append((seed, {'outcome': s['outcome'], 'error': None,
-                                  **censoring(s['outcome'], s.get('time_limit_s')), **_keep(cell, numbers)}, blobs))
+                                  **censoring(s['outcome'], self.cut_off(s)), **_keep(cell, numbers)}, blobs))
         return result
 
 
@@ -425,6 +453,7 @@ def write_state(study, out):
     progress.write_atomic(Path(out) / 'study.json', json.dumps(doc, indent=1) + '\n')
 
 
+@plugin_scope
 def run_study(study, out, stage=None, block=None, confirm=False, max_workers=1, say=print, stream=None):
     """Run the study's cells (one stage, or every stage in order) into OUT. Returns a summary dict:
     {ran, reused, failed, skipped_held_out: [names], touched_held_out, stages: {name: {...}}, refused: str|None}."""
@@ -748,6 +777,7 @@ def _metrics_json(out, units, rows, failed):
 
 # ---- run-cell: one cluster job -------------------------------------------------------------------------------
 
+@plugin_scope
 def run_job(study, job_id, out, confirm=False, stream=None, targets_sha256=None, only=None):
     """One job (a cell, or one of its seed chunks) into OUT: what `crane study run-cell` does on a box.
     ``targets_sha256`` (the job argv's --targets-sha256) stands in for git on a box with no study checkout.

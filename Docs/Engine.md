@@ -57,8 +57,10 @@ branches), numba runs each env's whole episode in one compiled call in parallel.
 same order, with the scalar path's own roundings. CPython's `math.hypot`/`math.dist` are not libm's;
 `x ** 2` and `x ** 0.5` are libm `pow`, not `x * x` or `sqrt`; `np.linalg.pinv(...) @ tau` is OpenBLAS
 dgemv with FMA in its own order; `round(x, 4)` is a decimal rounding. `engine/exact.py` has each of them
-for arrays. The BLAS order is this host's (`engine/tests` checks it); a host whose BLAS differs makes the
-scalar path itself differ, and the test says so.
+for arrays. The BLAS order is OpenBLAS's (`engine/tests` checks it on this host). On a numpy built against
+another BLAS (a distro's reference CBLAS) the scalar path itself rounds differently: the BLAS-order and decoupled
+E=1 tests skip with the fix (`pip install numpy`, whose wheel bundles OpenBLAS), and batched rows match scalar
+ones only up to that rounding.
 
 **Batch invariance.** An env reads only its own rows. Per-env draws (`Setup(..., randomize={'current_sd':
 0.05})`) come from the env's own stream, `fastsim.identity.derive_seed(seed, 'engine', name)`. Substeps are

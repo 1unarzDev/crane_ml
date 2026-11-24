@@ -197,7 +197,8 @@ def verdicts(targets, pooled):
 
 
 def load_ref(study, ref):
-    """A 'module:attr' or 'file.py:attr' ref of the spec, its plugin dirs on sys.path (this process only)."""
+    """A 'module:attr' or 'file.py:attr' ref of the spec, its plugin dirs on sys.path (for the enclosing
+    exec.plugin_scope)."""
     import sys
     from fastsim import plugin
     for d in [str(study.base), *(str(p) for p in reversed(study.plugins))]:
@@ -228,6 +229,7 @@ def _parts(fn, sc, rows, group):
     return {k: float(v) for k, v in got.items() if _number(v)}
 
 
+@ex.plugin_scope
 def population(rows, study, cards=None, B=200, alpha=0.05, seed=0):
     """{groups: [...], ranking: {...} | None} of the spec's population scorers over ``rows`` (see the module doc)."""
     from judge import stats
