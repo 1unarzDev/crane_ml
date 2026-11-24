@@ -129,12 +129,21 @@ def latest_by_test(results):
     return out
 
 
+def baseline_s(hold, test):
+    """The neutral seconds before ``start``: astro's ``baseline: [b0, b1]`` window when present, else the tests
+    file's ``baseline_s``. astro's older ``settle`` key (a timestamp) is never read."""
+    window = hold.get("baseline")
+    if isinstance(window, (list, tuple)) and len(window) == 2:
+        return max(0.0, float(hold["start"]) - float(window[0]))
+    return float(test.get("baseline_s", 2.0))
+
+
 def gate_hold(hold, test):
     """A result hold in the gate's terms (see the module docstring); None without samples."""
     if not isinstance(hold, dict) or not hold.get("samples") or "command" not in hold:
         return None
     out = {"command": G.command_efforts(hold["command"]), "start": float(hold["start"]), "end": float(hold["end"]),
-           "samples": hold["samples"], "settle": float(test.get("baseline_s", 2.0)),
+           "samples": hold["samples"], "settle": baseline_s(hold, test),
            "transient": float(test.get("settle_s", G.DEFAULT_SETTINGS["transient_s"]))}
     if hold.get("override"):
         out["override"] = True
