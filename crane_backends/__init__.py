@@ -3,6 +3,7 @@
     fastsim          crane_backends.fastsim:ClusterBackend    the fast-sim core per seed (CPU)
     unity            crane_backends.unity:ClusterBackend      a crane player's benchmark per seed (GPU)
     theater-render   crane_backends.theater:ClusterBackend    ghost-theater video chunks (GPU, ffmpeg)
+    crane-command    crane_backends.command:ClusterBackend    a configured argv per seed, metrics.json (CPU)
 
 The platform finds them through the ``research_cluster.backends`` entry points in crane_ml's pyproject.toml
 when crane_ml is pip-installed (``type: fastsim``), or by ``module:Class`` with this checkout on the backend's

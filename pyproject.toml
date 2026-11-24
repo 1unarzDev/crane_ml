@@ -15,6 +15,7 @@ dependencies = []   # fastsim/ and theater/ come from this checkout; crane_clust
 fastsim = "crane_backends.fastsim:ClusterBackend"
 unity = "crane_backends.unity:ClusterBackend"
 theater-render = "crane_backends.theater:ClusterBackend"
+crane-command = "crane_backends.command:ClusterBackend"
 
 [tool.setuptools.packages.find]
 include = ["crane_backends*", "fastsim*", "theater*"]
