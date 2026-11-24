@@ -10,6 +10,8 @@ import math
 import numpy as np
 import pytest
 
+pytest.importorskip('numba', reason='the engine compiles with numba (the [fast] extra); its numpy backend too')
+
 from domains.boat.plant import ROOT, characterization
 from engine.kernels import first_order as F, profile as K
 from fastsim import config

@@ -10,6 +10,8 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+pytest.importorskip('numba', reason='the engine compiles with numba (the [fast] extra); its numpy backend too')
+
 from domains.boat import mission as BM
 from domains.boat.adapter import Mission
 from domains.boat.plant import ROOT
