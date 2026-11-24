@@ -1,4 +1,4 @@
-# crane bench player: the Unity player throughput sweep (Tools/Performance/run_worker.sh, sweep_workers.sh).
+# crane bench player: the Unity player throughput sweep (Tools/Bench/run_worker.sh, sweep_workers.sh).
 # Each worker's settings come from env: CRANE_PLAYER, CRANE_SCENE, CRANE_DURATION, CRANE_WARMUP, CRANE_TIME_SCALE.
 
 # Worker counts `crane bench player --sweep` runs when given none.

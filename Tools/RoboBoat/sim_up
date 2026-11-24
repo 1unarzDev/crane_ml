@@ -32,7 +32,7 @@
 #
 # Settings (environment): ROS_DOMAIN_ID (from astro), ASTRO_DOCK (default ~/astro_dock), ASTRO_PROFILES (else ~/.config/astro/profiles.env,
 # else $ASTRO_DOCK/profiles), SIM_UP_VESSEL (sim), CRANE_PLAYER (a player with the flags above), HEAVY (the
-# heavy guard; none runs bare on purpose), ASTRO_IMAGE (else the dev compose default), SIM_UP_READY_S (300).
+# heavy guard, default crane's bin/heavy; none runs bare on purpose), ASTRO_IMAGE (else the dev compose default), SIM_UP_READY_S (300).
 # Runtime files: ~/.cache/sim_up (pids, logs, course truth). Never kills a tmux server or another container.
 set -euo pipefail
 
@@ -149,7 +149,8 @@ up() {
     if [ -t 0 ] && [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then mode=window; else mode=headless; fi
   fi
   if alive player || ros_up; then status; die "already up; sim_up down first"; fi
-  local heavy=${HEAVY:-$DOCK/.handoff/tools/heavy} guard=()
+  local heavy=${HEAVY:-} guard=()
+  [ -n "$heavy" ] || { heavy=$crane/bin/heavy; [ -x "$heavy" ] || heavy=$DOCK/.handoff/tools/heavy; }   # crane owns the guard
   if [ "$heavy" != none ]; then [ -x "$heavy" ] || die "no heavy guard at $heavy (HEAVY=none runs bare)"; guard=("$heavy" unity); fi
   player=$(find_player)
   local d img port; d=$(domain); port=$((10000 + d)); img=$(image)

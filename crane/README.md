@@ -2,7 +2,8 @@
 
 ```bash
 crane doctor
-crane run --tier T0 --config DOMAIN.yaml --seeds 1:21 --out /tmp/runs --set workers=8
+crane run --domain toy --seeds 0:3 --out /tmp/runs --set workers=2
+crane run --domain boat --tier T1 --seeds 0:2 --out /tmp/runs
 crane sim up --headless && crane sim status
 ```
 
@@ -15,9 +16,9 @@ each verb imports what it needs only when it runs, and the `sim` path is stdlib 
 | Verb | Runs | Module or tool |
 |---|---|---|
 | `sim up\|down\|status` | the T2 world plus ROS, like the boat | execs `Tools/RoboBoat/sim_up` with the arguments unchanged |
-| `sim check` | player contract acceptance | stub until P1-C (`sim_up check` calls it) |
+| `sim check` | is the running sim ready | live readiness of the running sim; `crane sim check CHECK …` runs Tools/SimCheck (`sim_up check` calls it) |
 | `heavy …` | the host concurrency guard | execs `bin/heavy` |
-| `run --tier T0` | episodes, one run dir per seed | `fastsim.batch.run_batch` (`crane/run.py`) |
+| `run --domain D [--tier T]` | episodes at T0 or T1, one run dir per seed | `fastsim.batch.run_batch` (`crane/run.py`) |
 | `judge …` | scoring | `python -m judge` |
 | `card show\|export` | plant cards and their tier views | `python -m plantcard` |
 | `board [ROOTS]` | web replay board | `python -m viewer serve` |
@@ -26,7 +27,7 @@ each verb imports what it needs only when it runs, and the `sim` path is stdlib 
 | `build player` | the headless Linux player | `heavy unity <editor> … -executeMethod CranePerformanceBuild.BuildLinuxWorker` (`crane/build.py`) |
 | `cluster …` | research-cluster jobs | execs `~/research-cluster/bin/research` (or `$RESEARCH_CLUSTER/bin/research`) |
 | `doctor` | machine checks and next commands | `crane/doctor.py` |
-| `setup`, `view`, `compare`, `fit`, `bench fast`, `run --tier T1\|T2` | not yet | print their phase (P7, P5, P3/P6, P6, P2, P2/P3) and exit 2 |
+| `setup`, `view`, `compare`, `fit`, `bench fast`, `run --tier T2` | not yet available | say what to use today and exit 2 |
 
 ## Pieces
 
@@ -34,8 +35,10 @@ each verb imports what it needs only when it runs, and the `sim` path is stdlib 
   `course`, `cluster`) hand every argument after the verb to their tool; only `crane VERB --help` is crane's own.
 - `crane/paths.py`: every path a verb execs, named once.
 - `crane/tiers.py`: `normalise('dynamic') == 'T1'`; T0 abstract, T1 dynamic, T2 unity.
-- `crane/run.py`: `--domain D` reads `config/domains/D.yaml`, whose `tiers.T0.config` names the fastsim config
-  (relative to it); `--config` takes that config directly. `--set a.b=v` overrides a key (the value is YAML).
+- `crane/run.py`: `--domain D [--tier T]` reads `config/domains/D.yaml` through `bench.fast.domain_tier`: the tier
+  (default the first) names a fastsim config (from the repo root) and optional `overrides` merged over it. Missing
+  scenarios are made by the config's generator, or the dir is named when there is none; `--generate` regenerates.
+  `--config` takes a fastsim config directly. `--set a.b=v` overrides a key (the value is YAML).
 - `crane/build.py`: after the build, `sourceCommit` and `sourceDirty` go into
   `Builds/CRANE-Worker/crane-build-manifest.json`; `--tarball` writes
   `Builds/crane-player-<commit12>-linux-x86_64.tar.zst` (`.tar.gz` without zstd), without debug symbols, and a

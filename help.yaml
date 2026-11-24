@@ -13,21 +13,22 @@ commands:
 
   - name: crane run
     run: PYTHONPATH="${CRANE_DIR:-$HOME/crane_ml}${PYTHONPATH:+:$PYTHONPATH}" python3 -m crane run
-    summary: Run episodes at a tier, one run dir per seed (OUT/VARIANT/s<seed>). T0 today; T1 arrives in P2, T2 in P3.
+    summary: Run episodes at a tier, one run dir per seed (OUT/VARIANT/s<seed>). T0 abstract and T1 dynamic; T2 is not yet available (use crane sim up). Missing scenarios are generated on demand.
     params:
-      - {name: --domain, description: 'A domain: config/domains/DOMAIN.yaml (or give --config).'}
+      - {name: --domain, description: 'A domain: boat or toy (config/domains/DOMAIN.yaml), or give --config.'}
       - {name: --config, type: path, description: 'A fastsim domain YAML, used as is.'}
-      - {name: --tier, default: T0, choices: [T0, T1, T2, abstract, dynamic, unity], description: The fidelity tier.}
+      - {name: --tier, choices: [T0, T1, abstract, dynamic], description: "The fidelity tier (default: the domain's first tier)."}
       - {name: --seeds, required: true, description: 'N, FROM:TO (TO exclusive) or a,b,c.'}
       - {name: --out, type: path, required: true, description: Output root.}
       - {name: --workers, type: int, description: Worker processes (default the config's workers).}
       - {name: --set, description: 'KEY=VALUE config override; dotted keys nest, the value is YAML.'}
     examples:
-      - python3 -m crane run --tier T0 --config DOMAIN.yaml --seeds 1:21 --out /tmp/runs
+      - python3 -m crane run --domain toy --seeds 0:3 --out /tmp/runs
+      - python3 -m crane run --domain boat --tier T1 --seeds 0:2 --out /tmp/runs
 
   - name: crane view
     run: PYTHONPATH="${CRANE_DIR:-$HOME/crane_ml}${PYTHONPATH:+:$PYTHONPATH}" python3 -m crane view
-    summary: The native sandbox window over runs, live or replayed (arrives in P5; crane board today).
+    summary: The native sandbox window over runs, live or replayed (not yet available; use crane board).
     params:
       - {name: runs, type: list, required: false, description: Run dirs to open.}
 
@@ -42,23 +43,25 @@ commands:
 
   - name: crane fit
     run: PYTHONPATH="${CRANE_DIR:-$HOME/crane_ml}${PYTHONPATH:+:$PYTHONPATH}" python3 -m crane fit
-    summary: Field data (an astro bundle or bags) to a plant card and its per-tier views (arrives in P6).
+    summary: Field data (an astro bundle or bags) to a plant card and its per-tier views (not yet available; use crane card).
     params:
       - {name: bundle, type: path, description: An astro bundle (.tgz) or a bag dir.}
 
   - name: crane compare
     run: PYTHONPATH="${CRANE_DIR:-$HOME/crane_ml}${PYTHONPATH:+:$PYTHONPATH}" python3 -m crane compare
-    summary: Tier gap, variant A/B or field-vs-sim on the same test (arrives in P3/P6; crane judge today).
+    summary: Tier gap, variant A/B or field-vs-sim on the same test (not yet available; use crane judge).
     params:
       - {name: runs, type: list, description: 'Two run sets, A then B.'}
 
   - name: crane sim check
     run: PYTHONPATH="${CRANE_DIR:-$HOME/crane_ml}${PYTHONPATH:+:$PYTHONPATH}" python3 -m crane sim check
-    summary: Player contract acceptance for the sim (arrives in P1-C); astro sim check passes through to it.
+    summary: Is the running sim ready (player, course, plant, ROS side, nav stack)? --wait SECONDS polls until ready; CHECK INPUTS runs an offline Tools/SimCheck check.
+    params:
+      - {name: --wait, type: int, description: 'Poll until ready or this many seconds pass.'}
 
   - name: crane bench
     run: PYTHONPATH="${CRANE_DIR:-$HOME/crane_ml}${PYTHONPATH:+:$PYTHONPATH}" python3 -m crane bench
-    summary: 'Throughput benchmarks: player (Unity player real-time factor, through heavy unity) or fast (arrives in P2).'
+    summary: 'Throughput benchmarks: player (Unity player real-time factor, through heavy unity) or fast (not yet available here; use python3 -m bench.fast).'
     params:
       - {name: what, choices: [player, fast], description: Which benchmark.}
       - {name: --sweep, type: list, description: 'player: worker counts to sweep (default config/bench.yaml).'}
