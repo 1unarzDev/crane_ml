@@ -177,8 +177,8 @@ Buoyancy applies displaced-water force at the computed center of buoyancy. Enabl
 quadratic 30, reference speed 1 m/s). Correction (2026-10-20): the Fossen component is disabled
 on the prefab, but a `Roboboat Course.unity` override (lines 3685-3688) enables it. The profiler
 also records it running. Verified defects in Fossen and `GeneralDynamics` (added-mass sign,
-Coriolis DOF routing, bow axis, double normal transform, constant "quadratic" drag) are listed in
-`Docs/ResearchOrchestration/AGENT_HANDOFFS/I1-defect-verification.md`. `Current` is enabled, and
+Coriolis DOF routing, bow axis, double normal transform, constant "quadratic" drag) are covered by
+the physics-invariant tests (`Assets/Tests/Editor/PhysicsInvariants/`). `Current` is enabled, and
 the scene water surface supplies waves/current. These values are scene/model inputs with no
 calibration provenance in code; they are therefore treated as estimates, not measured
 real-platform constants. With the RoboBoat contract (`--crane-roboboat-contract`) they are

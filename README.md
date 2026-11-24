@@ -52,18 +52,7 @@ output. Nothing here is measured on hardware.
   </tr>
 </table>
 
-More frames, with run identifiers and render notes, live on the research branches:
-[`research/decisioncal`](../../tree/research/decisioncal/Tools/DecisionCal/sprint/images) (surface),
-[`research/drone-sim`](../../tree/research/drone-sim/Docs/DroneVisuals) (aerial) and
-[`research/crane-sub`](../../tree/research/crane-sub) (underwater).
-
-## Modular fleet (CRANE)
-
-The modular mecanum ground fleet (docking, coupled carry, reconfiguration) is simulated in CRANE and in
-a fast Python model. Its pictures are withdrawn while the rover CAD is revised. Code:
-[`research/fleet`](../../tree/research/fleet) (CRANE integration),
-[`research/fleet-cad`](../../tree/research/fleet-cad) (CAD, URDFs, C# capability and docking libraries) and
-[`research/fleet-scenes`](../../tree/research/fleet-scenes) (test scene families).
+## About
 
 The project is currently strongest in aquatic simulation. Its production scenes use Unity
 HDRP water for both the rendered environment and physical water queries used by buoyancy and
