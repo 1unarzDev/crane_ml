@@ -49,13 +49,16 @@ def tier_cfg(domain_cfg, tier='T2'):
 
 
 def parse_current(text):
-    """'SPEED,TOWARD_DEG' (m/s, deg) or '0' (still water, '0,0'); ConfigError otherwise."""
+    """'SPEED,TOWARD_DEG' (m/s, deg), '0' (still water, '0,0') or 'default' (the scene's: None); ConfigError
+    otherwise."""
     import re
     text = str(text).strip()
+    if text == 'default':
+        return None
     if text == '0':
         return '0,0'
     if not re.fullmatch(r'[0-9]+(\.[0-9]*)?,-?[0-9]+(\.[0-9]*)?', text):
-        raise ConfigError(f'--current wants SPEED,TOWARD_DEG (m/s, deg) or 0; got {text}')
+        raise ConfigError(f'--current wants default, 0 or SPEED,TOWARD_DEG (m/s, deg); got {text}')
     return text
 
 

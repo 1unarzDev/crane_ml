@@ -510,3 +510,29 @@ def test_restart_keeps_the_other_parts_and_updates_the_state(world_env, monkeypa
     assert rc == 1 and 'failed: plant applied;' in out and 'FAIL  course' not in out and 'ok    nav stack up' in out
     assert _crane_sim(env, 'down')[0] == 0
     assert not (run / 'player.argv').exists() and _crane_sim(env, 'restart', 'player')[0] == 2
+
+
+def test_sim_up_runs_on_enter_enter_every_param_has_a_default_and_each_picker_lists_valid_values(capsys):
+    """astro's form for sim up: every param shows a default and a meaning; the pickers (sim up --list) print
+    VALUE<TAB>meaning lines whose values sim up accepts; --current default is the scene's; --tier T1/T0 refuse in
+    one line naming crane run."""
+    import yaml
+    entry = next(c for c in yaml.safe_load((ROOT / 'help.yaml').read_text())['commands'] if c['name'] == 'crane sim up')
+    assert all('default' in p and p['description'] for p in entry['params']), entry['params']
+    assert {'crane sim up', 'crane sim up --current 0', 'crane sim up --headless --seed 3'} <= set(entry['examples'])
+    listed = {}
+    for what in ('seed', 'env', 'current', 'tier'):
+        assert sim.main(['up', '--list', what]) == 0
+        rows = [line.split('\t') for line in capsys.readouterr().out.splitlines()]
+        assert rows and all(len(r) == 2 and r[0] and r[1] for r in rows), (what, rows)
+        listed[what] = [r[0] for r in rows]
+    params = {p['name']: p for p in entry['params']}
+    for what in ('seed', 'env', 'current', 'tier'):
+        assert str(params[f'--{what}']['default']) in listed[what], what       # the default is a listed choice
+        assert params[f'--{what}']['choices_from'].endswith(f'crane sim up --list {what}')
+    assert [player.parse_current(v) for v in listed['current']][:2] == [None, '0,0']
+    assert listed['tier'] == ['T2', 'T1', 'T0'] and world.display_mode('auto') == 'headless'   # no TTY here
+    for tier in ('T1', 'T0'):
+        assert sim.main(['up', '--tier', tier]) == 2
+        err = capsys.readouterr().err
+        assert err.count('\n') == 1 and f'crane run --domain boat --tier {tier}' in err

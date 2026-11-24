@@ -237,7 +237,7 @@ def _tail(path, n=20):
 
 def display_mode(given=None):
     """--display, else a window only for a person at a terminal with a display; agents and scripts: headless."""
-    if given:
+    if given and given != 'auto':
         return given
     on_tty = sys.stdin is not None and sys.stdin.isatty()
     return 'window' if on_tty and (os.environ.get('DISPLAY') or os.environ.get('WAYLAND_DISPLAY')) else 'headless'

@@ -1,8 +1,10 @@
 """crane sim: the T2 world of a domain (the Unity player plus its ROS side), used exactly like the robot.
 
     crane sim up [--seed N] [--env KIND:NAME | --course FAMILY] [--card F | --profile-json F] [--profile P]
-                 [--current SPEED,TOWARD_DEG | --current 0] [--display window|headless | --window | --headless]
-                 [--player PATH] [--robot R] [--set K=V]... [--domain D] [--json] [--dry-run] [-- PLAYER_ARGS...]
+                 [--current default|0|SPEED,TOWARD_DEG] [--display auto|window|headless | --window | --headless]
+                 [--player PATH] [--robot R] [--set K=V]... [--domain D] [--tier T2] [--json] [--dry-run]
+                 [-- PLAYER_ARGS...]
+    crane sim up --list seed|env|current|tier   the choices, one per line as VALUE<TAB>meaning (astro's pickers)
     crane sim down [--json]      stop what up started (its player's process group and its ROS container only)
     crane sim restart nav|ros|player [--json]   restart one part, keep the rest (nav: only the Nav2 nodes, to read new
                                  nav2_limits; ros: the ROS container, the player stays; player: the player, ROS stays)
@@ -11,8 +13,10 @@
     crane sim logs [player|stdout|ros] [-n LINES]   the last lines of each log
 
 crane sim names its verb (bare sim_up still means up). The domain (default config/sim.yaml's, boat) names everything
-specific in config/domains/<domain>.yaml tiers.T2. Without --display: a window when stdin is a terminal and
-DISPLAY or WAYLAND_DISPLAY is set, else headless under xvfb-run, so agents and scripts stay headless. The player
+specific in config/domains/<domain>.yaml tiers.T2. --display auto (the default): a window when stdin is a terminal
+and DISPLAY or WAYLAND_DISPLAY is set, else headless under xvfb-run, so agents and scripts stay headless.
+--current default is the scene's current, 0 still water (for characterization). up runs T2 only; --tier T1/T0
+refuse and name crane run, the batch form of those tiers. The player
 always runs through the host guard (`heavy unity`). up waits up to the ROS endpoint's endpoint_s (60 s) and the
 course's ready_s (300 s, SIM_UP_READY_S). --json: progress on stderr, the status as one JSON document on stdout.
 up --dry-run prints the resolved player argv and the ROS side's docker run, and starts nothing.
@@ -31,6 +35,37 @@ from crane.sim import config
 from crane.sim.config import SimError
 
 VERBS = ('up', 'down', 'restart', 'status', 'check', 'logs')
+TIERS = ('T2', 'T1', 'T0', 'unity', 'dynamic', 'abstract')
+TIER_ABOUT = {'T2': 'the Unity world: real time, full sensors and ROS (the default)',
+              'T1': 'the dynamic plant-card twin: fast, no rendered sensors (crane run --tier T1)',
+              'T0': 'abstract or kinematic, no forces (crane run --tier T0)'}
+
+
+def choices(what, cfg, t2):
+    """[(value, meaning)] for --list WHAT, from the domain config (astro's choices_from pickers)."""
+    import glob
+    from crane import paths
+    env = cfg.get('env') or {}
+    default = str(env.get('default') or '')
+    if what == 'tier':
+        return list(TIER_ABOUT.items())
+    if what == 'current':
+        ds, _, dt = str((t2.get('current') or {}).get('default') or '0,0').partition(',')
+        return [('default', f"the scene's current, {ds} m/s toward {dt} deg (realistic)"),
+                ('0', 'still water (clean characterization)'),
+                (f'{ds},{dt}', 'custom SPEED,TOWARD_DEG (m/s, deg): edit the value')]
+    if what == 'env':
+        out = [(default, 'the default')] if default else []
+        for kind, spec in (env.get('kinds') or {}).items():
+            for path in sorted(glob.glob(str(paths.ROOT / str((spec or {}).get('list') or '')))) if \
+                    (spec or {}).get('list') else []:
+                value = f'{kind}:{os.path.basename(path).split(".")[0]}'
+                if value != default:
+                    out.append((value, f'the {value.split(":", 1)[1]} {kind}'))
+        return out
+    seed = int(t2.get('seed') or 1)
+    name = default.partition(':')[2] or cfg.get('name') or 'world'
+    return [(str(s), f'{name} seed {s}' + (' (the default)' if s == seed else '')) for s in range(seed, seed + 8)]
 
 
 class _Parser(argparse.ArgumentParser):
@@ -47,8 +82,11 @@ def _parser(verb):
         p.add_argument('--course', metavar='FAMILY', help='the course family: same as --env course:FAMILY')
         p.add_argument('--card', '--profile-json', dest='card', metavar='F', help='a plant profile JSON or card name')
         p.add_argument('--profile', help='the runtime profile (--crane-profile; default the tier profile)')
-        p.add_argument('--current', metavar='SPEED,TOWARD_DEG', help='the water current (m/s, deg); 0 still water')
-        p.add_argument('--display', choices=('window', 'headless'))
+        p.add_argument('--current', metavar='default|0|SPEED,TOWARD_DEG',
+                       help='the water current: default (the scene), 0 (still water) or m/s,deg')
+        p.add_argument('--display', choices=('auto', 'window', 'headless'), default='auto')
+        p.add_argument('--tier', choices=TIERS, default='T2', help='T2 only (T1/T0: crane run)')
+        p.add_argument('--list', choices=('seed', 'env', 'current', 'tier'), help='print the choices and exit')
         p.add_argument('--window', dest='display', action='store_const', const='window')
         p.add_argument('--headless', dest='display', action='store_const', const='headless')
         p.add_argument('--player', metavar='PATH', help='the player executable (else CRANE_PLAYER, the build)')
@@ -105,6 +143,15 @@ def main(argv=None):
                 o.env = f'course:{o.course}'
         cfg, t2 = config.domain(o.domain)
         run = config.run_dir()
+        if verb == 'up' and o.list:
+            for value, about in choices(o.list, cfg, t2):
+                print(f'{value}\t{about}')
+            return 0
+        if verb == 'up' and o.tier not in ('T2', 'unity'):
+            tier = {'dynamic': 'T1', 'abstract': 'T0'}.get(o.tier, o.tier)
+            raise SimError(f'up starts the T2 world only; {tier} runs as a batch: crane run --domain '
+                           f'{cfg.get("name") or o.domain or "boat"} --tier {tier} --seeds 0:4 (a ROS-facing T1 world '
+                           'is being built separately)')
         if verb == 'up':
             return world.up(cfg, t2, run, o)
         if verb == 'down':

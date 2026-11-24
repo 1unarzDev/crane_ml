@@ -9,22 +9,25 @@ commands:
     summary: Start a domain's T2 world (the Unity player through heavy unity, plus its ROS side) and return once the course is ready; prints the status block.
     level: core
     ros: Tools/RoboBoat/sim_up up
-    notes: "Waits up to 60 s for the ROS endpoint and 300 s (SIM_UP_READY_S) for the course. Without --display, a window only on a terminal with a display, else headless under xvfb-run. Refuses (exit 2) while a sim runs. Exit 0 ready, 1 the world failed, 2 usage or config. Everything specific comes from config/domains/DOMAIN.yaml tiers.T2. Env: ROS_DOMAIN_ID, ASTRO_STATE / MHSEALS_HARDWARE_CONFIG (passed into the ROS side), the image env, SIM_UP_*, CRANE_PLAYER, HEAVY. Same as Tools/RoboBoat/sim_up."
+    notes: "Every param has a default, so the bare command runs: the default course with its realistic current, seed 1, a window only on a terminal with a display. Waits up to 60 s for the ROS endpoint and 300 s (SIM_UP_READY_S) for the course. --tier T1/T0 refuse in one line naming crane run (the batch form of those tiers). Refuses (exit 2) while a sim runs. Exit 0 ready, 1 the world failed, 2 usage or config. Everything specific comes from config/domains/DOMAIN.yaml tiers.T2. Env: ROS_DOMAIN_ID, ASTRO_STATE / MHSEALS_HARDWARE_CONFIG (passed into the ROS side), the image env, SIM_UP_*, CRANE_PLAYER, HEAVY. Same as Tools/RoboBoat/sim_up."
     params:
-      - {name: "--seed", type: int, description: The world seed (default 1).}
-      - {name: "--env", description: "KIND:NAME, the world (default course:roboboat_2026); --course FAMILY is the same as --env course:FAMILY."}
-      - {name: "--card", type: path, description: A plant profile JSON or a card name (--profile-json is the same).}
-      - {name: "--profile", description: The player's runtime profile (default interactive-low).}
-      - {name: "--current", description: "SPEED,TOWARD_DEG (m/s, deg), or 0 for still water (default the scene current)."}
-      - {name: "--display", default: auto, choices: [window, headless], description: "Window or xvfb (--window, --headless are the same).", choices_from: "{ [ -n \"$DISPLAY$WAYLAND_DISPLAY\" ] && echo window; echo headless; }"}
-      - {name: "--player", type: path, default: auto, description: "The player (else CRANE_PLAYER, then the build).", choices_from: "for p in \"$CRANE_PLAYER\" \"${CRANE_DIR:-$HOME/crane_ml}/Builds/CRANE-Worker/CRANE.x86_64\" \"$HOME/.cache/crane-phase1/player/CRANE.x86_64\" \"$HOME/.local/share/crane/player/current/CRANE.x86_64\"; do [ -x \"$p\" ] && echo \"$p\"; done; true"}
-      - {name: "--robot", description: The domain's robot.}
-      - {name: "--set", description: Pin one world parameter (repeatable).}
-      - {name: "--domain", description: config/domains/DOMAIN.yaml (default boat).}
-      - {name: "--dry-run", type: bool, description: Print the resolved player argv and docker run; start nothing.}
-      - {name: "--json", type: bool, description: "Progress on stderr, the status as one JSON document."}
+      - {name: "--seed", type: int, default: 1, description: "The world seed: the same seed, the same course layout and buoys (default 1).", choices_from: "${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim up --list seed"}
+      - {name: "--env", default: course:roboboat_2026, description: "The world, KIND:NAME (default course:roboboat_2026); --course FAMILY is the same as --env course:FAMILY.", choices_from: "${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim up --list env"}
+      - {name: "--card", type: path, default: none, description: "The boat's plant: a profile JSON or a card name (default none: the player's built-in plant; --profile-json is the same)."}
+      - {name: "--profile", default: interactive-low, description: The player's render and physics quality (default interactive-low).}
+      - {name: "--current", default: default, description: "The water current: default (the scene's, 0.15 m/s toward 270 deg), 0 (still water, for characterization) or SPEED,TOWARD_DEG (m/s, deg).", choices_from: "${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim up --list current"}
+      - {name: "--display", default: auto, choices: [auto, window, headless], description: "auto: a window on a terminal with a display, else headless (xvfb); --window and --headless are the same."}
+      - {name: "--player", type: path, default: auto, description: "The Unity player to run (default auto: CRANE_PLAYER, the build, then the installed player).", choices_from: "for p in \"$CRANE_PLAYER\" \"${CRANE_DIR:-$HOME/crane_ml}/Builds/CRANE-Worker/CRANE.x86_64\" \"$HOME/.cache/crane-phase1/player/CRANE.x86_64\" \"$HOME/.local/share/crane/player/current/CRANE.x86_64\"; do [ -x \"$p\" ] && echo \"$p\"; done; true"}
+      - {name: "--tier", default: T2, choices: [T2, T1, T0], description: "T2: the Unity world, real time, full sensors and ROS (default). T1 (dynamic plant-card twin) and T0 (abstract) run as batches: crane run --tier T1.", choices_from: "${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim up --list tier"}
+      - {name: "--robot", default: blastoise, description: The domain's robot (default blastoise).}
+      - {name: "--set", default: none, description: "Pin one course parameter, KEY=VALUE (default none; repeatable)."}
+      - {name: "--domain", default: boat, description: "Which world: config/domains/DOMAIN.yaml (default boat)."}
+      - {name: "--dry-run", type: bool, default: false, description: Print the resolved player argv and docker run; start nothing (default off).}
+      - {name: "--json", type: bool, default: false, description: "Progress on stderr, the status as one JSON document (default off)."}
     examples:
-      - crane sim up --headless --seed 3 --current 0
+      - crane sim up
+      - crane sim up --current 0
+      - crane sim up --headless --seed 3
       - crane sim up --card characterized --headless
       - crane sim up --dry-run
 

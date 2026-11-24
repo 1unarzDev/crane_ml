@@ -346,7 +346,8 @@ def test_help_yaml_and_cli_md_are_generated_and_keep_astros_names(tmp_path, caps
            if p['name'].lstrip('-') in ('verb', 'command', 'action', 'subcommand')]
     assert not bad, bad
     # every auto param names a param that exists, and shows as default: auto
-    auto = {(c['name'], p['name']) for c in data['commands'] for p in c.get('params') or [] if p.get('default') == 'auto'}
+    auto = {(c['name'], p['name']) for c in data['commands'] for p in c.get('params') or []
+            if p.get('default') == 'auto' and 'auto' not in (p.get('choices') or [])}
     assert auto == set(reg.AUTO), set(reg.AUTO) ^ auto
     # a drifted file is named with the fix
     (tmp_path / 'Docs').mkdir()
@@ -363,7 +364,7 @@ def test_sim_up_check_reaches_crane_and_a_bad_current_is_refused_before_anything
     assert check.returncode == 1 and 'sim check: not ready' in check.stdout  # nothing started under this SIM_UP_RUN
     bad = subprocess.run([paths.SIM_UP, 'up', '--current', 'fast'], env=env, capture_output=True, text=True,
                          timeout=30)
-    assert bad.returncode == 2 and '--current wants SPEED,TOWARD_DEG' in bad.stderr
+    assert bad.returncode == 2 and '--current wants default, 0 or SPEED,TOWARD_DEG' in bad.stderr
     assert not (tmp_path / 'run').exists()
 
 

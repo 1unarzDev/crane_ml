@@ -84,7 +84,9 @@ tiers:
 env:
   default: course:roboboat_2026
   kinds:
-    course: {T2: [--crane-course-family, '{name}', --crane-course-seed, '{seed}']}
+    # list: the families crane sim up --list env offers (a glob from the repo root; NAME is the file name to its dot)
+    course: {T2: [--crane-course-family, '{name}', --crane-course-seed, '{seed}'],
+             list: Assets/Config/Course/Resources/*.constraints.json}
 # --robot R: the domain's robots; a robot may name its own card and extra player flags.
 robot:
   default: blastoise

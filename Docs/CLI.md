@@ -42,7 +42,9 @@ T2: a domain's Unity world plus its ROS side, used like the robot.
 ### crane sim up
 
 ```sh
-crane sim up --headless --seed 3 --current 0
+crane sim up
+crane sim up --current 0
+crane sim up --headless --seed 3
 crane sim up --card characterized --headless
 crane sim up --dry-run
 ```
@@ -51,22 +53,23 @@ Start a domain's T2 world (the Unity player through heavy unity, plus its ROS si
 
 What you'll see: one line as the ROS side starts and one as the player is queued on `heavy unity`, then the status block (mode, ROS_DOMAIN_ID, endpoint, player pgid, ROS container, course, current, logs, next:). --dry-run: the resolved player argv and docker run, nothing starts (crane.sim.plan/1 with --json).
 
-Waits up to 60 s for the ROS endpoint and 300 s (SIM_UP_READY_S) for the course. Without --display, a window only on a terminal with a display, else headless under xvfb-run. Refuses (exit 2) while a sim runs. Exit 0 ready, 1 the world failed, 2 usage or config. Everything specific comes from config/domains/DOMAIN.yaml tiers.T2. Env: ROS_DOMAIN_ID, ASTRO_STATE / MHSEALS_HARDWARE_CONFIG (passed into the ROS side), the image env, SIM_UP_*, CRANE_PLAYER, HEAVY. Same as Tools/RoboBoat/sim_up.
+Every param has a default, so the bare command runs: the default course with its realistic current, seed 1, a window only on a terminal with a display. Waits up to 60 s for the ROS endpoint and 300 s (SIM_UP_READY_S) for the course. --tier T1/T0 refuse in one line naming crane run (the batch form of those tiers). Refuses (exit 2) while a sim runs. Exit 0 ready, 1 the world failed, 2 usage or config. Everything specific comes from config/domains/DOMAIN.yaml tiers.T2. Env: ROS_DOMAIN_ID, ASTRO_STATE / MHSEALS_HARDWARE_CONFIG (passed into the ROS side), the image env, SIM_UP_*, CRANE_PLAYER, HEAVY. Same as Tools/RoboBoat/sim_up.
 
 | Param | Type | Description |
 |---|---|---|
-| `--seed` | int | The world seed (default 1). |
-| `--env` | env | KIND:NAME, the world (default course:roboboat_2026); --course FAMILY is the same as --env course:FAMILY. |
-| `--card` | path | A plant profile JSON or a card name (--profile-json is the same). |
-| `--profile` | str | The player's runtime profile (default interactive-low). |
-| `--current` | str | SPEED,TOWARD_DEG (m/s, deg), or 0 for still water (default the scene current). |
-| `--display` | str | Window or xvfb (--window, --headless are the same). One of `window`, `headless`. |
-| `--player` | path | The player (else CRANE_PLAYER, then the build). |
-| `--robot` | str | The domain's robot. |
-| `--set` | str | Pin one world parameter (repeatable). |
-| `--domain` | str | config/domains/DOMAIN.yaml (default boat). |
-| `--dry-run` | bool | Print the resolved player argv and docker run; start nothing. |
-| `--json` | bool | Progress on stderr, the status as one JSON document. |
+| `--seed` | int | The world seed: the same seed, the same course layout and buoys (default 1). (default `1`) |
+| `--env` | env | The world, KIND:NAME (default course:roboboat_2026); --course FAMILY is the same as --env course:FAMILY. (default `course:roboboat_2026`) |
+| `--card` | path | The boat's plant: a profile JSON or a card name (default none: the player's built-in plant; --profile-json is the same). (default `none`) |
+| `--profile` | str | The player's render and physics quality (default interactive-low). (default `interactive-low`) |
+| `--current` | str | The water current: default (the scene's, 0.15 m/s toward 270 deg), 0 (still water, for characterization) or SPEED,TOWARD_DEG (m/s, deg). (default `default`) |
+| `--display` | str | auto: a window on a terminal with a display, else headless (xvfb); --window and --headless are the same. One of `auto`, `window`, `headless`. (default `auto`) |
+| `--player` | path | The Unity player to run (default auto: CRANE_PLAYER, the build, then the installed player). |
+| `--tier` | str | T2: the Unity world, real time, full sensors and ROS (default). T1 (dynamic plant-card twin) and T0 (abstract) run as batches: crane run --tier T1. One of `T2`, `T1`, `T0`. (default `T2`) |
+| `--robot` | str | The domain's robot (default blastoise). (default `blastoise`) |
+| `--set` | str | Pin one course parameter, KEY=VALUE (default none; repeatable). (default `none`) |
+| `--domain` | str | Which world: config/domains/DOMAIN.yaml (default boat). (default `boat`) |
+| `--dry-run` | bool | Print the resolved player argv and docker run; start nothing (default off). |
+| `--json` | bool | Progress on stderr, the status as one JSON document (default off). |
 
 raw: `Tools/RoboBoat/sim_up up`; --json: `crane.sim.status/1`
 

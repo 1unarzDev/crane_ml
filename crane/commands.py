@@ -122,30 +122,42 @@ COMMANDS = [
             about='one line as the ROS side starts and one as the player is queued on `heavy unity`, then the status '
                   'block (mode, ROS_DOMAIN_ID, endpoint, player pgid, ROS container, course, current, logs, next:). '
                   '--dry-run: the resolved player argv and docker run, nothing starts (crane.sim.plan/1 with --json).',
-            notes='Waits up to 60 s for the ROS endpoint and 300 s (SIM_UP_READY_S) for the course. Without '
-                  '--display, a window only on a terminal with a display, else headless under xvfb-run. Refuses '
+            notes='Every param has a default, so the bare command runs: the default course with its realistic current, '
+                  'seed 1, a window only on a terminal with a display. Waits up to 60 s for the ROS endpoint and 300 s '
+                  '(SIM_UP_READY_S) for the course. --tier T1/T0 refuse in one line naming crane run (the batch '
+                  'form of those tiers). Refuses '
                   '(exit 2) while a sim runs. Exit 0 ready, 1 the world failed, 2 usage or config. Everything '
                   'specific comes from config/domains/DOMAIN.yaml tiers.T2. Env: ROS_DOMAIN_ID, ASTRO_STATE / '
                   'MHSEALS_HARDWARE_CONFIG (passed into the ROS side), the image env, SIM_UP_*, CRANE_PLAYER, HEAVY. '
                   'Same as Tools/RoboBoat/sim_up.',
-            params=(P('--seed', 'int', description='The world seed (default 1).'),
-                    sel('env', description='KIND:NAME, the world (default course:roboboat_2026); --course FAMILY is '
-                        'the same as --env course:FAMILY.'),
-                    sel('card', type='path', description='A plant profile JSON or a card name (--profile-json is the '
-                        'same).'),
-                    P('--profile', description="The player's runtime profile (default interactive-low)."),
-                    P('--current', metavar='SPEED,TOWARD_DEG', description='SPEED,TOWARD_DEG (m/s, deg), or 0 for '
-                      'still water (default the scene current).'),
-                    P('--display', choices=('window', 'headless'), description='Window or xvfb (--window, --headless '
-                      'are the same).'),
-                    P('--player', 'path', description='The player (else CRANE_PLAYER, then the build).'),
-                    sel('robot'),
-                    P('--set', metavar='K=V', repeat=True, description='Pin one world parameter (repeatable).'),
-                    sel('domain', description='config/domains/DOMAIN.yaml (default boat).'),
-                    P('--dry-run', 'bool', description='Print the resolved player argv and docker run; start nothing.'),
-                    P('--json', 'bool', description='Progress on stderr, the status as one JSON document.')),
-            examples=('crane sim up --headless --seed 3 --current 0', 'crane sim up --card characterized --headless',
-                      'crane sim up --dry-run'),
+            params=(P('--seed', 'int', default=1, description='The world seed: the same seed, the same course layout '
+                      'and buoys (default 1).'),
+                    sel('env', default='course:roboboat_2026', description='The world, KIND:NAME (default '
+                        'course:roboboat_2026); --course FAMILY is the same as --env course:FAMILY.'),
+                    sel('card', type='path', default='none', description="The boat's plant: a profile JSON or a card "
+                        "name (default none: the player's built-in plant; --profile-json is the same)."),
+                    P('--profile', default='interactive-low', description="The player's render and physics quality "
+                      '(default interactive-low).'),
+                    P('--current', metavar='default|0|SPEED,TOWARD_DEG', default='default',
+                      description="The water current: default (the scene's, 0.15 m/s toward 270 deg), 0 (still water, "
+                      'for characterization) or SPEED,TOWARD_DEG (m/s, deg).'),
+                    P('--display', choices=('auto', 'window', 'headless'), default='auto',
+                      description='auto: a window on a terminal with a display, else headless (xvfb); --window and '
+                      '--headless are the same.'),
+                    P('--player', 'path', description='The Unity player to run (default auto: CRANE_PLAYER, the build, '
+                      'then the installed player).'),
+                    P('--tier', choices=('T2', 'T1', 'T0'), default='T2', description='T2: the Unity world, real time, '
+                      'full sensors and ROS (default). T1 (dynamic plant-card twin) and T0 (abstract) run as batches: '
+                      'crane run --tier T1.'),
+                    sel('robot', default='blastoise', description="The domain's robot (default blastoise)."),
+                    P('--set', metavar='K=V', repeat=True, default='none', description='Pin one course parameter, '
+                      'KEY=VALUE (default none; repeatable).'),
+                    sel('domain', default='boat', description='Which world: config/domains/DOMAIN.yaml (default boat).'),
+                    P('--dry-run', 'bool', description='Print the resolved player argv and docker run; start nothing '
+                      '(default off).'),
+                    P('--json', 'bool', description='Progress on stderr, the status as one JSON document (default off).')),
+            examples=('crane sim up', 'crane sim up --current 0', 'crane sim up --headless --seed 3',
+                      'crane sim up --card characterized --headless', 'crane sim up --dry-run'),
             raw='Tools/RoboBoat/sim_up up'),
     Command(('sim', 'down'), "Stop what crane sim up started: its player's process group (TERM, KILL after 10 s) and "
             'its ROS container, nothing else.', 'crane.wrap:sim', passthrough=True, flags=(JSON,),
@@ -1024,15 +1036,15 @@ def _scalar(value, flow=False):
     return json.dumps(text) if unsafe else text
 
 
-def _yaml_param(param, choices_from=None, auto=False):
+def _yaml_param(param, choices_from=None, auto=False, form=False):
     kind = {'tier': 'str', 'env': 'str'}.get(param.type, param.type)
     d = {'name': param.name if not param.positional else (param.dest or param.name)}
     if kind != 'str':
         d['type'] = kind
     if auto:
         d['default'] = 'auto'
-    elif param.default not in (None, False, [], ()):
-        d['default'] = param.default
+    elif param.default not in (None, False, [], ()) or (form and kind == 'bool'):
+        d['default'] = param.default or False
     if param.choices:
         d['choices'] = list(param.choices)
     d['description'] = param.description + (' (repeatable)' if param.repeat and 'repeatable' not in
@@ -1069,14 +1081,16 @@ PICKERS = {
                                '${ASTRO_DATA:-$HOME/astro_dock/bags}/*/*/bundle-*.tgz 2>/dev/null | head -n 30'),
     ('crane view', 'runs'): _RUNS,
     ('crane compare', 'runs'): _RUNS,
+    **{('crane sim up', f'--{w}'): f'{CRANE_RUN} sim up --list {w}' for w in ('seed', 'env', 'current', 'tier')},
 }
+# Commands whose form runs on Enter-Enter: every param shows a default, switches as off.
+FORMS = frozenset({'crane sim up'})
 # Params crane detects when unset: `default: auto` in help.yaml (astro shows "(auto: FOUND)"), with the detection
 # command as choices_from when there is one (its first line is what auto finds).
 _PLAYERS = ('for p in "$CRANE_PLAYER" "${CRANE_DIR:-$HOME/crane_ml}/Builds/CRANE-Worker/CRANE.x86_64" '
             '"$HOME/.cache/crane-phase1/player/CRANE.x86_64" "$HOME/.local/share/crane/player/current/CRANE.x86_64"; '
             'do [ -x "$p" ] && echo "$p"; done; true')
 AUTO = {
-    ('crane sim up', '--display'): '{ [ -n "$DISPLAY$WAYLAND_DISPLAY" ] && echo window; echo headless; }',
     ('crane sim up', '--player'): _PLAYERS,
     ('crane build player', '--editor'): None,
     ('crane setup', '--components'): None,
@@ -1103,7 +1117,8 @@ def help_yaml():
             lines.append('    params:')
             for p in e['params']:
                 key = (e['name'], p.dest or p.name)
-                lines.append(f'      - {_yaml_param(p, PICKERS.get(key) or AUTO.get(key), key in AUTO)}')
+                shown = _yaml_param(p, PICKERS.get(key) or AUTO.get(key), key in AUTO, e['name'] in FORMS)
+                lines.append(f'      - {shown}')
         if e['examples']:
             lines.append('    examples:')
             lines += [f'      - {_scalar(x)}' for x in e['examples']]
