@@ -184,6 +184,13 @@ def build_parser():
     c.add_argument('--band', type=float, help='--tiers: the allowed |low - high| gap (metric units)')
     c.add_argument('--fidelity', metavar='CONFIG', help="--tiers: also replay B's goal windows on CONFIG's "
                    'vehicle (fastsim.fidelity.score)')
+    c.add_argument('--bounds', metavar='file|card|FILE', help='--field: pass/fail per row against '
+                   "config/fidelity/DOMAIN.yaml ('file') or FILE, and the fit's gate; verdict line, exit 1 on FAIL "
+                   "('card': not yet available)")
+    c.add_argument('--fit', metavar='DIR', help='--bounds: the `crane fit --out` dir whose gate is required '
+                   '(default fit-<bundle>)')
+    c.add_argument('--domain', default='boat', help='--bounds: config/fidelity/DOMAIN.yaml (default boat)')
+    c.add_argument('--json', action='store_true', help='--field --bounds: the rows and the verdict as JSON on stdout')
     c.add_argument('--out', help='write compare.json and compare.md here')
     f = _add(sub, 'fit', 'field data to a profile and a plant card: astro bundle -> gate -> evidence -> card',
              'the gate verdict per parameter (identified / provisional / prior, and why; on abstain the exact '

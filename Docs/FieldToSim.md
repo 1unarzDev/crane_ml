@@ -7,6 +7,7 @@ crane run --domain boat --tier T0 --astro-test all --space small --tests $B --ca
 crane run --domain boat --tier T1 --astro-test all --space small --tests $B --card /tmp/fit/profile.json --out /tmp/sim/t1
 crane sim up --headless --profile-json /tmp/fit/profile.json && astro test all     # T2: astro's own tests on Unity
 crane compare --field $B /tmp/sim/t1 --out /tmp/cmp                                 # per test: field, sim, delta, CI
+crane compare --field $B /tmp/sim/t1 --bounds file --fit /tmp/fit                   # pass/FAIL per row, verdict, exit 0/1
 crane compare /tmp/sim/t0 /tmp/sim/t1 --tiers                                       # T0 vs T1
 crane field import $B --out /tmp/field                                              # the bags as crane.run/1
 ```
@@ -107,6 +108,21 @@ field (`crane compare --field`).
 
 ## crane compare
 
+```
+$ crane compare --field $B /tmp/sim/t1 --bounds file --fit /tmp/fit
+speed-surge vs sim `profile`
+  metric                     unit          field        sim      delta  bound                          result
+  measured.speed.surge+@0.5  m/s           0.931      0.934     0.003  +-0.0931 (10%)                 pass
+  measured.t95               s             2.885      3.027    0.1418  +-0.7213 (25%, or CI contains 0) pass
+  t95.surge                  s             2.885      3.027    0.1418  -                              n/a
+FAIL speed-surge measured.speed.surge-@0.5: delta -0.1 m/s outside +-0.08 m/s (10%); fix: refit the axis curve: crane fit B.tgz
+gate: yaw+ not identified
+verdict: FAIL (1 of 3 outside bounds; gate: yaw+ not identified)
+next: refit with crane fit B.tgz --out DIR, then rerun the sim with --card DIR/profile.json
+```
+
+Exit 0 on pass, 1 on FAIL, 2 on usage.
+
 - `crane compare A B` matches runs by path. It puts B in A's frame (`crane.frames.to_common`) and on A's
   clock (`align`), then gives position and heading errors plus metric deltas. Different origins, or a sim
   clock against a wall clock, are refused.
@@ -120,6 +136,34 @@ field (`crane compare --field`).
   `speed_curves.surge+.d1`, `t95.surge`, `measured.speed.surge+@0.35` (m/s at effort 0.35),
   `measured.cross.surge+.sway`, `measured.surge+.rise_time`.
 - The output is a Markdown table; `--out DIR` also writes `compare.json`.
+
+### Fidelity bounds
+
+`--field BUNDLE RUNS --bounds file|FILE [--domain D] [--fit DIR] [--json]`
+
+`file` reads `config/fidelity/<domain>.yaml` (`--domain`, default `boat`); a FILE path reads that file. A
+missing file is refused in one line that names it. The file is a first-match list of rules, and the same
+format serves every domain:
+
+```yaml
+gate: {require: identified}
+rules:
+  - {metric: 'measured.speed.*', rel: 0.10, ci_zero_ok: false, unit: m/s, hint: 'refit the axis curve: crane fit {bundle}'}
+  - {metric: 'measured.t95', rel: 0.25, ci_zero_ok: true, unit: s}
+  - {metric: 'measured.cross.*', abs: 0.02, unit: '1'}
+```
+
+- `metric` is a glob over the row's metric names. `rel` is a fraction of the field value, `abs` is in the
+  row's unit. A row passes when `|sim − field|` is within the bound, or when `ci_zero_ok` is set and the
+  row's 95 % CI contains 0. A row no rule matches is `n/a`.
+- Boat: speed at each level within 10 %; `measured.t95` within 25 % or a CI that contains 0; the couple
+  cross response (a ratio, unit 1) within 0.02. Steps rows have no rule.
+- Gate: `--fit DIR` (default `fit-<bundle>`, `crane fit`'s default output) is read for `fit.json`. Every
+  direction and added-mass row must be `identified`. Without a fit it prints `gate: not checked` and does not
+  fail.
+- The verdict is `pass (N rows, M bounds)` or `FAIL (k of N outside bounds; gate: X not identified)`.
+  `--json` prints the rows (each with `result`, `bound`, `rule`) and the verdict.
+- `--bounds card` (tolerances from the plant card's particle spread) is not yet available.
 
 ## crane field import
 

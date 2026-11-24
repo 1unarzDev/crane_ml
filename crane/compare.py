@@ -20,6 +20,10 @@ replays HIGH's goal windows (events with ``kind`` ``goal*`` and x, y) on CONFIG'
 the names astro writes (``changes`` keys without ``characterization.``, then ``measured``); units follow
 the name. Delta is sim - field. The CI (95 %, ``judge.stats.bootstrap_ci``) resamples the field's per-hold
 samples when the metric has them (t95), else the sim runs when there are two or more.
+
+**--bounds.** With ``--field``: pass/fail per row against ``config/fidelity/<domain>.yaml`` (``--bounds FILE``
+names another file), the gate of the fit (``--fit DIR``, else ``fit-<bundle>``) and a verdict line. Exit 0
+pass, 1 fail, 2 usage. ``--bounds card`` (tolerances from the plant card's spread) is not yet available.
 """
 
 from __future__ import annotations
@@ -180,6 +184,128 @@ def compare_field(bundle, runs_root, only=None):
             continue
         out[test] = {v: {'field_result': path.name, 'rows': field_rows(fm, by[(test, v)], only)} for v in variants}
     return out
+
+
+# ---- fidelity bounds ----------------------------------------------------------------------------------------
+
+def bounds_path(domain):
+    from crane import paths
+    return paths.CONFIG / 'fidelity' / f'{domain}.yaml'
+
+
+def load_bounds(where):
+    """{'gate': {...}, 'rules': [...]} from a bounds YAML; CompareError when missing or malformed."""
+    import yaml
+    p = Path(where)
+    if not p.is_file():
+        raise CompareError(f'no bounds for this domain: create {p} (rules: [{{metric: GLOB, rel|abs: X, '
+                           'ci_zero_ok: bool, unit: U}], gate: {require: identified})')
+    doc = yaml.safe_load(p.read_text()) or {}
+    for r in doc.get('rules') or []:
+        if 'metric' not in r or ('rel' in r) == ('abs' in r):
+            raise CompareError(f'{p}: each rule needs `metric` and exactly one of `rel`, `abs`: {r}')
+    doc['rules'] = doc.get('rules') or []
+    return doc
+
+
+def _rule_for(rules, metric):
+    from fnmatch import fnmatchcase
+    return next((r for r in rules if fnmatchcase(metric, r['metric'])), None)
+
+
+def judge_row(row, rule):
+    """The row with ``result`` (pass, FAIL, n/a), ``bound`` (+- in the row's unit) and ``rule`` set."""
+    if rule is None:
+        return {**row, 'result': 'n/a', 'bound': None, 'rule': None}
+    bound = float(rule['abs']) if 'abs' in rule else float(rule['rel']) * abs(row['field'])
+    ci = row.get('ci')
+    in_ci = bool(rule.get('ci_zero_ok')) and bool(ci) and ci[0] <= 0.0 <= ci[1]
+    ok = abs(row['delta']) <= bound or in_ci
+    why = f"{rule['rel'] * 100:g}%" if 'rel' in rule else f"{rule['abs']:g} abs"
+    if rule.get('ci_zero_ok'):
+        why += ', or CI contains 0'
+    return {**row, 'result': 'pass' if ok else 'FAIL', 'bound': bound, 'rule': why, 'hint': rule.get('hint'),
+            'ci_zero': in_ci and abs(row['delta']) > bound}
+
+
+def read_gate(bundle, fit_dir=None):
+    """{'checked', 'ok', 'not_identified', 'note'} from ``crane fit``'s fit.json (``fit-<bundle>`` by default)."""
+    d = Path(fit_dir) if fit_dir else Path(f'fit-{Path(bundle).name.split(".")[0]}')
+    f = d / 'fit.json'
+    if not f.is_file():
+        return {'checked': False, 'ok': None, 'not_identified': [],
+                'note': f'no {f}; crane fit {bundle} --out {d}, or --fit DIR'}
+    doc = json.loads(f.read_text())
+    from crane import fit
+    _, G = fit.characterization()
+    rows = [q for q in (doc.get('gate') or {}).get('parameters') or []
+            if q['name'] in G.DIRECTIONS or q['name'].startswith('addedMass.')]
+    bad = [q['name'] for q in rows if q['status'] != 'identified']
+    return {'checked': True, 'ok': not bad, 'not_identified': bad, 'note': str(f)}
+
+
+def field_bounds(bundle, runs_root, bounds, only=None, fit_dir=None):
+    """Judged rows, the gate and the verdict of a bundle against astro-test runs."""
+    res = compare_field(bundle, runs_root, only)
+    rows, notes = [], []
+    for test, variants in res.items():
+        for variant, body in variants.items():
+            if 'rows' not in body:
+                notes.append({'test': test, 'note': body.get('note')})
+                continue
+            for r in body['rows']:
+                rows.append({'test': test, 'variant': variant, **judge_row(r, _rule_for(bounds['rules'], r['metric']))})
+    if (bounds.get('gate') or {}).get('require') == 'identified':
+        gate = read_gate(bundle, fit_dir)
+    else:
+        gate = {'checked': False, 'ok': None, 'not_identified': [], 'note': 'the bounds file has no gate rule'}
+    failed = sum(r['result'] == 'FAIL' for r in rows)
+    n_bound = sum(r['result'] != 'n/a' for r in rows)
+    gate_fail = gate['checked'] and not gate['ok']
+    verdict = {'pass': not failed and not gate_fail and n_bound > 0, 'rows': len(rows), 'bounds': n_bound,
+               'failed': failed, 'gate': 'not checked' if not gate['checked'] else
+               ('identified' if gate['ok'] else 'not identified'), 'gate_not_identified': gate['not_identified']}
+    return {'rows': rows, 'notes': notes, 'gate': gate, 'verdict': verdict, 'bundle': str(bundle)}
+
+
+def bounds_text(res):
+    rows, v, g = res['rows'], res['verdict'], res['gate']
+    lines = []
+    for test, variant in sorted({(r['test'], r['variant']) for r in rows}):
+        sel = [r for r in rows if (r['test'], r['variant']) == (test, variant)]
+        w = max(len(r['metric']) for r in sel)
+        lines.append(f'{test} vs sim `{variant}`')
+        lines.append(f"  {'metric':<{w}}  {'unit':<8} {'field':>10} {'sim':>10} {'delta':>10}  {'bound':<30} result")
+        for r in sel:
+            bound = '-' if r['bound'] is None else f"+-{_f(r['bound'])} ({r['rule']})"
+            lines.append(f"  {r['metric']:<{w}}  {r['unit']:<8} {_f(r['field']):>10} {_f(r['sim']):>10} "
+                         f"{_f(r['delta']):>10}  {bound:<30} {r['result']}")
+        lines.append('')
+    lines += [f"{n['test']}: {n['note']}" for n in res['notes']]
+    for r in rows:
+        if r['result'] == 'FAIL':
+            ci = f", CI [{_f(r['ci'][0])}, {_f(r['ci'][1])}]" if r['ci'] else ''
+            hint = (r.get('hint') or 'refit: crane fit {bundle}').format(bundle=res['bundle'])
+            lines.append(f"FAIL {r['test']} {r['metric']}: delta {r['delta']:+.4g} {r['unit']} outside "
+                         f"+-{_f(r['bound'])} {r['unit']} ({r['rule']}){ci}; fix: {hint}")
+    if not g['checked']:
+        lines.append(f"gate: not checked ({g['note']})")
+    else:
+        lines.append('gate: all identified' if g['ok'] else 'gate: not identified: ' + ', '.join(g['not_identified']))
+    if v['pass']:
+        lines.append(f"verdict: pass ({v['rows']} rows, {v['bounds']} bounds)")
+        lines.append('next: the sim stands in for the field on these tests')
+    else:
+        extra = ''
+        if v['gate_not_identified']:
+            extra = f"; gate: {', '.join(v['gate_not_identified'])} not identified"
+        if not v['bounds']:
+            extra += '; no row matched a bound'
+        lines.append(f"verdict: FAIL ({v['failed']} of {v['rows']} outside bounds{extra})")
+        lines.append(f"next: refit with crane fit {res['bundle']} --out DIR, then rerun the sim with --card DIR/profile.json"
+                     if v['failed'] or v['gate_not_identified'] else
+                     f"next: run the same tests in sim first: crane run --astro-test all --tests {res['bundle']}")
+    return '\n'.join(lines) + '\n'
 
 
 # ---- A/B and tiers ----------------------------------------------------------------------------------------
@@ -358,11 +484,23 @@ def markdown(kind, res):
 
 def main(args):
     from crane.frames import FrameError
+    bounds_arg = getattr(args, 'bounds', None)
+    domain = getattr(args, 'domain', None) or 'boat'
+    as_json = getattr(args, 'json', False)
     try:
+        if bounds_arg and not args.field:
+            raise CompareError('--bounds needs --field BUNDLE')
+        if bounds_arg == 'card':
+            raise CompareError('--bounds card (tolerances from the plant card\'s spread) is not yet available; '
+                               f'use the file bounds: --bounds (config/fidelity/{domain}.yaml)')
         if args.field:
             if len(args.runs) != 1:
                 raise CompareError('--field BUNDLE takes one RUNS root')
-            kind, res = 'field', compare_field(args.field, args.runs[0], args.metric)
+            if bounds_arg:
+                bounds = load_bounds(bounds_path(domain) if bounds_arg == 'file' else bounds_arg)
+                kind, res = 'bounds', field_bounds(args.field, args.runs[0], bounds, args.metric, getattr(args, 'fit', None))
+            else:
+                kind, res = 'field', compare_field(args.field, args.runs[0], args.metric)
         elif len(args.runs) != 2:
             raise CompareError('give two run sets: A B')
         elif args.tiers:
@@ -372,12 +510,16 @@ def main(args):
     except (CompareError, FrameError, LookupError) as error:
         print(f'crane compare: {error}', file=sys.stderr)
         return 2
-    md = markdown(kind, res)
-    sys.stdout.write(md)
+    md = bounds_text(res) if kind == 'bounds' else markdown(kind, res)
+    doc = {'kind': kind, 'result': res}
+    if as_json:
+        sys.stdout.write(json.dumps(res if kind == 'bounds' else doc, indent=1, default=str) + '\n')
+    else:
+        sys.stdout.write(md)
     if args.out:
         out = Path(args.out)
         out.mkdir(parents=True, exist_ok=True)
-        (out / 'compare.json').write_text(json.dumps({'kind': kind, 'result': res}, indent=1, default=str) + '\n')
+        (out / 'compare.json').write_text(json.dumps(doc, indent=1, default=str) + '\n')
         (out / 'compare.md').write_text(md)
-        print(f'wrote {out / "compare.json"} and {out / "compare.md"}')
-    return 0
+        print(f'wrote {out / "compare.json"} and {out / "compare.md"}', file=sys.stderr if as_json else sys.stdout)
+    return 0 if kind != 'bounds' or res['verdict']['pass'] else 1

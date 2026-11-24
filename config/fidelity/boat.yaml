@@ -1,0 +1,12 @@
+# Field -> sim pass rule for the boat (crane compare --field BUNDLE RUNS --bounds).
+# A row passes when |sim - field| is within the bound. `rel` is a fraction of |field|, `abs` is in the row's
+# unit. `ci_zero_ok` passes a row whose 95 % CI of the delta contains 0. A row no rule matches is n/a.
+# metric: a glob over the compare row's metric names (first matching rule wins). `{bundle}` in a hint is the bundle.
+gate:
+  require: identified          # every gate parameter of the fit must be identified (crane fit --out DIR, compare --fit DIR)
+rules:
+  - {metric: 'measured.speed.*', rel: 0.10, ci_zero_ok: false, unit: m/s, hint: 'refit the axis curve: crane fit {bundle}'}
+  - {metric: 'measured.t95', rel: 0.25, ci_zero_ok: true, unit: s, hint: 'refit the lag (M_eff): crane fit {bundle}'}
+  - {metric: 'measured.cross.*', abs: 0.02, ci_zero_ok: false, unit: '1', hint: 'check the thruster matrix and couple: crane fit {bundle}'}
+# steps: the owner's rule names none; add rows such as
+#   - {metric: 'measured.*.rise_time', rel: 0.25, ci_zero_ok: false, unit: s}

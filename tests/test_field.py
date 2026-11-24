@@ -283,3 +283,69 @@ def test_compare_refuses_runs_it_cannot_put_on_one_frame_and_clock(bundle, tmp_p
     res = compare.compare_ab(tmp_path / 'a' / 'x', sim)
     assert 'origins differ' in res['pairs'][0]['pose_refused']
     capsys.readouterr()
+
+
+def test_compare_bounds_pass_fail_gate_and_ci_rule(bundle, tmp_path, capsys):
+    tgz = bundle[0]
+    common = ['--domain', 'boat', '--astro-test', 'all', '--space', 'small', '--tests', str(tgz), '--card', str(PROFILE)]
+    for tier in ('T0', 'T1'):
+        assert cli.main(['run', '--tier', tier, *common, '--out', str(tmp_path / tier)]) == 0
+    capsys.readouterr()
+    run = ['compare', '--field', str(tgz)]
+
+    # the same plant: every bounded row passes with the shipped boat bounds; the gate is not checked and does not fail
+    assert cli.main([*run, str(tmp_path / 'T1'), '--bounds', 'file', '--fit', str(tmp_path / 'nofit')]) == 0
+    out = capsys.readouterr().out
+    assert 'gate: not checked' in out and 'verdict: pass (' in out and 'bounds)' in out and 'next:' in out
+    assert 'measured.speed.surge+@0.5' in out and ' n/a' in out          # t95.surge has no rule
+
+    # JSON: rows plus the verdict
+    assert cli.main([*run, str(tmp_path / 'T1'), '--bounds', 'file', '--json', '--fit', str(tmp_path / 'nofit')]) == 0
+    doc = json.loads(capsys.readouterr().out)
+    assert doc['verdict']['pass'] and doc['verdict']['bounds'] == 7 and doc['verdict']['gate'] == 'not checked'
+    assert {'metric', 'unit', 'field', 'sim', 'delta', 'result', 'bound', 'rule'} <= set(doc['rows'][0])
+    assert {r['result'] for r in doc['rows']} == {'pass', 'n/a'}
+
+    # T0 against tight bounds: FAIL lines name the metric, the delta, the bound and a fix; exit 1
+    tight = tmp_path / 'tight.yaml'
+    tight.write_text(yaml.safe_dump({'gate': {'require': 'identified'}, 'rules': [
+        {'metric': 'measured.speed.*', 'rel': 0.001, 'unit': 'm/s'},
+        {'metric': 'measured.t95', 'rel': 0.001, 'ci_zero_ok': False, 'unit': 's'}]}))
+    assert cli.main([*run, str(tmp_path / 'T0'), '--bounds', str(tight), '--fit', str(tmp_path / 'nofit')]) == 1
+    out = capsys.readouterr().out
+    assert 'FAIL speed-surge measured.t95: delta -' in out and 'outside +-' in out and 'fix: refit: crane fit' in out
+    assert 'verdict: FAIL (' in out and 'outside bounds' in out
+
+    # a gate that is not identified fails an otherwise passing compare
+    fit_dir = tmp_path / 'fit'
+    fit_dir.mkdir()
+    (fit_dir / 'fit.json').write_text(json.dumps({'gate': {'parameters': [
+        {'name': 'surge+', 'status': 'identified', 'reason': ''}, {'name': 'yaw+', 'status': 'prior', 'reason': 'x'},
+        {'name': 'mass', 'status': 'prior', 'reason': 'no weigh-in'}]}}))
+    assert cli.main([*run, str(tmp_path / 'T1'), '--bounds', 'file', '--fit', str(fit_dir)]) == 1
+    assert 'gate: yaw+ not identified)' in capsys.readouterr().out
+    (fit_dir / 'fit.json').write_text(json.dumps({'gate': {'parameters': [
+        {'name': 'surge+', 'status': 'identified', 'reason': ''}]}}))
+    assert cli.main([*run, str(tmp_path / 'T1'), '--bounds', 'file', '--fit', str(fit_dir)]) == 0
+    assert 'gate: all identified' in capsys.readouterr().out
+
+
+def test_compare_bounds_usage_errors_and_ci_zero_rule(bundle, tmp_path, capsys):
+    tgz = bundle[0]
+    assert cli.main(['compare', '--field', str(tgz), str(tmp_path), '--bounds', 'card']) == 2
+    assert 'not yet available' in capsys.readouterr().err
+    assert cli.main(['compare', '--field', str(tgz), str(tmp_path), '--bounds', 'file', '--domain', 'nowhere']) == 2
+    err = capsys.readouterr().err
+    assert err.count('\n') == 1 and 'config/fidelity/nowhere.yaml' in err
+    assert cli.main(['compare', str(tmp_path), str(tmp_path), '--bounds', 'file']) == 2
+    capsys.readouterr()
+    row = {'metric': 'measured.t95', 'field': 2.0, 'sim': 3.0, 'delta': 1.0, 'unit': 's', 'ci': [-0.2, 2.0]}
+    rule = {'metric': 'measured.t95', 'rel': 0.25, 'ci_zero_ok': True}
+    assert compare.judge_row(row, rule)['result'] == 'pass'                       # |delta| 1.0 > 0.5, but the CI has 0
+    assert compare.judge_row(row, {**rule, 'ci_zero_ok': False})['result'] == 'FAIL'
+    assert compare.judge_row({**row, 'ci': [0.1, 2.0]}, rule)['result'] == 'FAIL'
+    assert compare.judge_row({**row, 'ci': None}, rule)['result'] == 'FAIL'
+    assert compare.judge_row(row, None)['result'] == 'n/a'
+    cross = {'metric': 'measured.cross.*', 'abs': 0.02}
+    assert compare.judge_row({**row, 'delta': 0.019}, cross)['result'] == 'pass'
+    assert compare.judge_row({**row, 'delta': -0.021, 'ci': None}, cross)['result'] == 'FAIL'
