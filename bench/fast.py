@@ -59,7 +59,7 @@ def load(domain, tier):
 
 # ---- plant alone -----------------------------------------------------------------------------
 
-def plant_only(cfg, base, seconds=60.0, repeats=3):
+def plant_only(cfg, base, seconds=600.0, repeats=3):
     """Open-loop env-steps/s: the plant stepped on a fixed target program (built beforehand)."""
     lim = Limits.from_dict(cfg['limits'])
     dt = float(cfg['dt'])
