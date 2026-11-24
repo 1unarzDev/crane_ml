@@ -1,6 +1,6 @@
 """Verbs that hand over to an existing tool: crane execs it with the arguments unchanged.
 
-Stdlib only, so `crane sim` (astro's sim backend) needs nothing installed.
+Stdlib only, so `crane sim` (astro's sim backend) needs nothing installed beyond PyYAML.
 """
 
 import os
@@ -30,10 +30,9 @@ def _python(module, rest):
 
 
 def sim(rest):
-    if rest[:1] == ['check']:
-        from crane import simcheck
-        return simcheck.main(rest[1:])
-    return execute([paths.SIM_UP, *rest])
+    """crane sim, in Python (Tools/RoboBoat/sim_up is its shim)."""
+    from crane import sim as world
+    return world.main(rest)
 
 
 def heavy(rest):
