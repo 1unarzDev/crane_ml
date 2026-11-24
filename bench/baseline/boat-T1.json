@@ -1,0 +1,86 @@
+{
+  "schema": "crane.bench.fast/1",
+  "domain": "boat",
+  "tier": "T1",
+  "config": "domains/boat/fastsim_t1.yaml",
+  "overrides": {},
+  "seeds": "0:50",
+  "host": {
+    "date": "2026-11-24T12:12:02-06:00",
+    "host": "innovation",
+    "cores": 20,
+    "gpu": "NVIDIA GeForce RTX 4070 Ti SUPER",
+    "cpu": "12th Gen Intel(R) Core(TM) i7-12700K",
+    "python": "3.14.10",
+    "executable": "/usr/bin/python3",
+    "numpy": "2.5.5",
+    "commit": "de61393023c6047b484b136e41b75c22c93cde00",
+    "dirty": false,
+    "load_1m": 1.06
+  },
+  "plant": {
+    "steps": 30000,
+    "dt": 0.02,
+    "wall_s": 0.3178,
+    "env_steps_per_s": 94388.8,
+    "sim_s_per_wall_s": 1887.8,
+    "us_per_step": 10.59
+  },
+  "episodes": [
+    {
+      "workers": 1,
+      "episodes": 50,
+      "wall_s": 11.549,
+      "episodes_per_s": 4.329,
+      "episodes_per_s_per_core": 4.329,
+      "sim_s_mean": 151.88,
+      "succeeded": 50
+    },
+    {
+      "workers": 8,
+      "episodes": 50,
+      "wall_s": 1.795,
+      "episodes_per_s": 27.856,
+      "episodes_per_s_per_core": 3.482,
+      "sim_s_mean": 151.88,
+      "succeeded": 50
+    }
+  ],
+  "batch_invariant": true,
+  "split": {
+    "episodes": 10,
+    "ms_per_episode": {
+      "plant": 113.555,
+      "tracker": 18.197,
+      "decision": 3.906,
+      "perception": 61.503,
+      "contacts": 15.282,
+      "recording": 10.122,
+      "other": 14.616,
+      "total": 237.18,
+      "setup": 3.704
+    },
+    "share": {
+      "plant": 0.4788,
+      "tracker": 0.0767,
+      "decision": 0.0165,
+      "perception": 0.2593,
+      "contacts": 0.0644,
+      "recording": 0.0427,
+      "other": 0.0616
+    }
+  },
+  "cluster": {
+    "prepare_s": 0.003,
+    "loop_s_per_episode": 0.2296,
+    "loop_episodes": 10,
+    "fresh_process_per_job": {
+      "import_s": 0.0589,
+      "prepare_s": 0.0055,
+      "run_s": 0.2524,
+      "metrics_s": 0.0001,
+      "wall_s": 0.3415
+    },
+    "fresh_jobs": 5
+  }
+}
