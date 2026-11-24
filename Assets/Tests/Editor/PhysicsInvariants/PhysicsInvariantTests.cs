@@ -317,7 +317,10 @@ namespace Sim.Tests.PhysicsInvariants {
             }
         }
 
-        [Test, Category("KnownDefectV2")]
+        // WEAK, NOT A GATE: with damping on, dissipation (~0.6 J/step) swamps the legacy
+        // Coriolis/added-mass energy error (~0.003-0.04 W), and explicit Euler with a lagged
+        // added-mass force is not energy-consistent. Use the damping-off variant below as the gate.
+        [Test, Category("WeakInvariantNonGate")]
         public void ZeroCommand_EnergyDoesNotIncrease_FullFossenStack() {
             using var rig = new FossenRig(true, true, true);
             Vector3 v = new Vector3(-0.3f, 0.05f, 1.0f), w = new Vector3(0.05f, -0.4f, 0.03f);
@@ -337,6 +340,30 @@ namespace Sim.Tests.PhysicsInvariants {
             }
             Assert.LessOrEqual(worst, 1e-4f * e0, $"energy rose by {worst:E2} J in one step (E0={e0:F3} J)");
             Assert.Less(prev, e0, "energy must decay with zero command");
+        }
+
+        [Test, Category("KnownDefectV2")]
+        public void ZeroCommand_Conservative_DampingOff_EnergyDoesNotGrow() {
+            using var rig = new FossenRig(false, true, true);
+            Vector3 v = new Vector3(-0.3f, 0.05f, 1.0f), w = new Vector3(0.05f, -0.4f, 0.03f);
+            rig.Body.linearVelocity = v; rig.Body.angularVelocity = w;
+            rig.Start();
+            float e0 = Energy(v, w), prev = e0, worst = 0f;
+            for (int k = 0; k < 200; k++) {
+                rig.Body.linearVelocity = v; rig.Body.angularVelocity = w;
+                float dt = StepDt();
+                rig.Step();
+                v += rig.Body.WorldForce / Mass * dt;
+                w += rig.Body.Torque / Inertia * dt;
+                float e = Energy(v, w);
+                if (float.IsNaN(e)) Assert.Fail("energy is NaN at step " + k);
+                worst = Mathf.Max(worst, e - prev);
+                prev = e;
+            }
+            // Without damping and command, hydro forces are conservative: total energy (rigid + added mass) must
+            // not grow. Tolerance covers explicit-Euler drift only.
+            Assert.LessOrEqual(worst, 2e-3f * e0, $"energy rose by {worst:E2} J in one step (E0={e0:F3} J)");
+            Assert.LessOrEqual(prev, 1.01f * e0, $"energy grew from {e0:F3} to {prev:F3} J with damping off");
         }
 
         // ---------------- V3 ----------------
