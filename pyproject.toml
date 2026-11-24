@@ -29,7 +29,7 @@ theater-render = "crane_backends.theater:ClusterBackend"
 crane-command = "crane_backends.command:ClusterBackend"
 
 [tool.setuptools.packages.find]
-include = ["crane*", "crane_backends*", "fastsim*", "theater*", "plantcard*", "judge*", "viewer*"]
+include = ["crane*", "crane_backends*", "fastsim*", "theater*", "plantcard*", "judge*", "viewer*", "domains*", "bench*", "engine*"]
 
 [tool.setuptools.package-data]
 "*" = ["*.yaml", "*.json", "*.js", "*.html", "*.css"]
