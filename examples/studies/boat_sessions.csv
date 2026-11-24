@@ -1,0 +1,7 @@
+id,session_id,range_m,time_limit_s,observed_gates,note
+c01,s1,20,30,3,open water
+c02,s1,15,30,2,short sight
+c03,s2,25,40,4,long sight
+c04,s2,20,40,4,open water
+c05,s3,20,30,3,open water
+c06,s3,15,40,4,short sight

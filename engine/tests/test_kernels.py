@@ -10,7 +10,6 @@ import math
 import numpy as np
 import pytest
 
-pytest.importorskip('numba', reason='the engine compiles with numba (the [fast] extra); its numpy backend too')
 
 from domains.boat.plant import ROOT, characterization
 from engine.kernels import first_order as F, profile as K
@@ -48,11 +47,26 @@ def run_jax(p, pwm, dt):
 
 
 RUNNERS = {'numpy': run_numpy, 'numba': run_numba, 'jax': run_jax}
+NEEDS = {'numba': 'numba', 'jax': 'jax'}
+
+
+def have(backend):
+    """Whether a backend's package imports here (the numpy backend needs numpy alone)."""
+    if backend not in NEEDS:
+        return True
+    import importlib.util
+    return importlib.util.find_spec(NEEDS[backend]) is not None
+
+
+def need(backend):
+    if not have(backend):
+        pytest.skip(f'{backend} is not installed; pip install \'crane[fast]\' (numba) or jax[cuda12]')
 
 
 @pytest.mark.parametrize('backend', RUNNERS)
 def test_every_backend_is_the_twin_on_the_parity_cases(backend):
     """parity/cases.json (the C# MarinePlanarModel gate): every sampled state within 1e-12 in float64."""
+    need(backend)
     for case in CASES['cases']:
         dt = case['dt']
         p = K.pack(PROFILE, dt, (case['currentX'], case['currentY']))
@@ -82,6 +96,8 @@ def test_dead_time_and_lag_are_the_twins_ring_buffer():
         states.append(list(twin.state))
     p = K.pack(prof, dt)
     for backend, run in RUNNERS.items():
+        if not have(backend):
+            continue
         got = np.array([x[:6].copy() for x in run(p, pwm, dt)])
         err = float(np.abs(got - np.array(states)).max())
         assert err == 0.0 if backend != 'jax' else err <= 1e-12, (backend, err)
@@ -114,5 +130,7 @@ def test_the_T0_kernel_is_FirstOrderPlant_with_dead_time():
         u = np.array((1.2 if t % 30 < 16 else -0.3, 0.3 * math.sin(t), 0.6 if 2 < t % 10 < 8 else -0.4))
         plant.step(tuple(u), 0.05)
         x = F.step(x, u[None], p[None], 0.05)
-        F.nb_step(xb, u, p, 0.05)
-        assert tuple(x[0, :3]) == plant.pose and tuple(x[0, 3:6]) == plant.vel and (x[0] == xb).all(), k
+        if have('numba'):
+            F.nb_step(xb, u, p, 0.05)
+        assert tuple(x[0, :3]) == plant.pose and tuple(x[0, 3:6]) == plant.vel, k
+        assert not have('numba') or (x[0] == xb).all(), k

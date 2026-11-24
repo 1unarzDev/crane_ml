@@ -95,6 +95,17 @@ card:
   T2: {flag: --crane-boat-profile-json}
 judge:
   pack: roboboat_course
+# crane.env.make('boat', ...): the Gym-style batched env (Docs/Env.md). Actions: body-velocity setpoints through the
+# plant's velocity loop (bounds: the tier config's limits.vmin/vmax), or the four thrusters' PWM straight to the T1
+# plant. Obs channels: pose, vel, goal (body-frame offset to the next goal of the course route, approach and berth),
+# perception (the camera's visible targets). Reward: progress toward the goal (m) plus the weights per event.
+gym:
+  action: velocity
+  actions:
+    velocity: {channels: [surge, sway, yaw], unit: [m/s, m/s, rad/s]}
+    pwm: {channels: [pwm0, pwm1, pwm2, pwm3], low: 1100, high: 1900, unit: us}
+  obs: [pose, vel, goal]
+  reward: {progress: 1.0, goal: 1.0, contact: -5.0, step: 0.0, success: 10.0}
 # How crane view draws the boat and what its live-mode sliders reach (crane/view/spec.py documents the keys).
 view:
   frame: {world: enu, origin: scenario, body: flu}
