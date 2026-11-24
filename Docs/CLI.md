@@ -185,6 +185,10 @@ What you'll see: one line per seed (run dir, outcome, sim and wall time), then r
 | `--generate` | bool | Regenerate the seeds' scenarios (missing ones are always made). |
 | `--allow-dirty` | bool | Run an adapter tree with uncommitted changes. |
 | `--force` | bool | Move a run dir holding another run (or an incomplete one) to <dir>.stale-N and rerun it; without it such a dir is refused and matching ones are reused. |
+| `--engine` | str | fastsim: one scalar episode per seed; batched: every seed at once on the batched engine (Docs/Engine.md). One of `fastsim`, `batched`. (default `fastsim`) |
+| `--backend` | str | With --engine batched: numpy (float64 reference), numba (every core) or jax (GPU). One of `numpy`, `numba`, `jax`. (default `numba`) |
+| `--dtype` | str | With --engine batched: default float64; jax on a consumer GPU wants float32 (bench/RESULTS.md). One of `float64`, `float32`. |
+| `--record` | int | With --engine batched: also write traj.ctraj with every K-th track row (default: run.json, events.jsonl, metrics.json only). |
 | `--astro-test` | str | An astro test or group (still, couple-*, speed-*, steps-*, nav2, all) at T0/T1, with metrics named as astro's result fields. |
 | `--card` | str | With --astro-test: a profile JSON, a plant card or a factorial manifest (repeatable). |
 | `--tests` | path | With --astro-test: astro's tests file or a bundle holding one. |
@@ -1115,12 +1119,16 @@ raw: `bin/heavy unity Tools/Bench/sweep_workers.sh 1 2 4`
 ### crane bench fast
 
 ```sh
-crane bench fast --domain boat --tier T1 --seeds 0:50
+crane bench fast --engine batched --domain boat --tier T1 --backend numba,jax --E 1024,4096 --out /tmp/bench
+crane bench fast --equivalence --tier T1 --seeds 0:500
+crane bench fast --domain boat --tier T1 --seeds 0:50 --out /tmp/b
 ```
 
-The T0/T1 throughput table.
+Fast-tier throughput: the scalar table B, the batched engine (--engine batched) or the gate-3 equivalence report (--equivalence).
 
-Not yet available; today use `python3 -m bench.fast --domain boat --tier T1 --seeds 0:50 --out DIR`.
+What you'll see: bench.fast's tables: bench.json/bench.md (scalar) or batched.json/batched.md (episodes/s per backend and E, x table B, the time split); arguments go to bench.fast unchanged.
+
+raw: `python3 -m bench.fast`
 
 ### crane bench cluster
 

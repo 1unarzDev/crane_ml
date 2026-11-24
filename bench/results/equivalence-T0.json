@@ -1,0 +1,202 @@
+{
+  "schema": "crane.engine.equivalence/1",
+  "tier": "T0",
+  "seeds": [
+    0,
+    500
+  ],
+  "reference": "numpy",
+  "margins": {
+    "agreement": 0.98,
+    "time_rel": 0.02,
+    "dock_m": 0.05
+  },
+  "candidates": {
+    "numba": {
+      "seeds": 500,
+      "outcome_agreement": 1.0,
+      "agreement_ok": true,
+      "exact_records": 500,
+      "both_docked": 500,
+      "time_to_finish_rel": {
+        "mean": 0.0,
+        "ci90": [
+          0.0,
+          0.0
+        ],
+        "n": 500,
+        "margin": 0.02,
+        "equivalent": true
+      },
+      "dock_error_m": {
+        "mean": 0.0,
+        "ci90": [
+          0.0,
+          0.0
+        ],
+        "n": 500,
+        "margin": 0.05,
+        "equivalent": true
+      },
+      "disagree": [],
+      "pass": true,
+      "exact_differences": {},
+      "wall_s": 0.28
+    },
+    "numba-fastmath": {
+      "seeds": 500,
+      "outcome_agreement": 1.0,
+      "agreement_ok": true,
+      "exact_records": 500,
+      "both_docked": 500,
+      "time_to_finish_rel": {
+        "mean": 0.0,
+        "ci90": [
+          0.0,
+          0.0
+        ],
+        "n": 500,
+        "margin": 0.02,
+        "equivalent": true
+      },
+      "dock_error_m": {
+        "mean": 0.0,
+        "ci90": [
+          0.0,
+          0.0
+        ],
+        "n": 500,
+        "margin": 0.05,
+        "equivalent": true
+      },
+      "disagree": [],
+      "pass": true,
+      "exact_differences": {},
+      "wall_s": 0.11
+    },
+    "jax-f64": {
+      "seeds": 500,
+      "outcome_agreement": 1.0,
+      "agreement_ok": true,
+      "exact_records": 500,
+      "both_docked": 500,
+      "time_to_finish_rel": {
+        "mean": 0.0,
+        "ci90": [
+          0.0,
+          0.0
+        ],
+        "n": 500,
+        "margin": 0.02,
+        "equivalent": true
+      },
+      "dock_error_m": {
+        "mean": 0.0,
+        "ci90": [
+          0.0,
+          0.0
+        ],
+        "n": 500,
+        "margin": 0.05,
+        "equivalent": true
+      },
+      "disagree": [],
+      "pass": true,
+      "exact_differences": {},
+      "wall_s": 6.69
+    },
+    "jax-f32": {
+      "seeds": 500,
+      "outcome_agreement": 1.0,
+      "agreement_ok": true,
+      "exact_records": 479,
+      "both_docked": 500,
+      "time_to_finish_rel": {
+        "mean": 1.3665869490945585e-06,
+        "ci90": [
+          -8.854294281634204e-07,
+          3.6186033263525376e-06
+        ],
+        "n": 500,
+        "margin": 0.02,
+        "equivalent": true
+      },
+      "dock_error_m": {
+        "mean": 0.0,
+        "ci90": [
+          -6.598253492156644e-06,
+          6.598253492156644e-06
+        ],
+        "n": 500,
+        "margin": 0.05,
+        "equivalent": true
+      },
+      "disagree": [],
+      "pass": true,
+      "exact_differences": {
+        "1": [
+          "min_clearance_m"
+        ],
+        "33": [
+          "boat"
+        ],
+        "71": [
+          "boat"
+        ],
+        "97": [
+          "min_clearance_m"
+        ],
+        "104": [
+          "boat"
+        ],
+        "117": [
+          "min_clearance_m"
+        ],
+        "122": [
+          "boat"
+        ],
+        "149": [
+          "boat"
+        ],
+        "157": [
+          "boat"
+        ],
+        "158": [
+          "boat"
+        ],
+        "165": [
+          "min_clearance_m"
+        ],
+        "167": [
+          "min_clearance_m"
+        ],
+        "177": [
+          "boat"
+        ],
+        "297": [
+          "contacts"
+        ],
+        "324": [
+          "min_clearance_m"
+        ],
+        "333": [
+          "boat"
+        ],
+        "370": [
+          "min_clearance_m"
+        ],
+        "382": [
+          "min_clearance_m"
+        ],
+        "470": [
+          "boat"
+        ],
+        "477": [
+          "boat"
+        ]
+      },
+      "wall_s": 3.59
+    }
+  },
+  "reference_wall_s": 66.58
+}

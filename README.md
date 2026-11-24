@@ -11,6 +11,7 @@ sensors; ROS 2 supplies the planning, navigation, estimation, and control stack.
 ./install.sh --yes --components core,fast      # uv, a Python 3.12 venv at .venv, ~/.local/bin/crane
 crane doctor                                   # what works on this machine, and what to run next
 crane run --domain toy --seeds 0:3             # one run dir per seed, under ~/.cache/crane/runs
+crane run --domain boat --tier T1 --engine batched --seeds 0:4096   # every seed at once (Docs/Engine.md)
 ```
 
 One CLI for sim and research across domains and tiers (T0 abstract, T1 dynamic, T2 unity). `crane help` lists

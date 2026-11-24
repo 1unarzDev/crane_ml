@@ -216,6 +216,14 @@ COMMANDS = [
                     P('--allow-dirty', 'bool', description='Run an adapter tree with uncommitted changes.'),
                     P('--force', 'bool', description='Move a run dir holding another run (or an incomplete one) to '
                       '<dir>.stale-N and rerun it; without it such a dir is refused and matching ones are reused.'),
+                    P('--engine', choices=('fastsim', 'batched'), default='fastsim', description='fastsim: one '
+                      'scalar episode per seed; batched: every seed at once on the batched engine (Docs/Engine.md).'),
+                    P('--backend', choices=('numpy', 'numba', 'jax'), default='numba', description='With --engine '
+                      'batched: numpy (float64 reference), numba (every core) or jax (GPU).'),
+                    P('--dtype', choices=('float64', 'float32'), description='With --engine batched: default '
+                      'float64; jax on a consumer GPU wants float32 (bench/RESULTS.md).'),
+                    P('--record', 'int', default=0, metavar='K', description='With --engine batched: also write '
+                      'traj.ctraj with every K-th track row (default: run.json, events.jsonl, metrics.json only).'),
                     P('--astro-test', metavar='TEST', description="An astro test or group (still, couple-*, speed-*, "
                       "steps-*, nav2, all) at T0/T1, with metrics named as astro's result fields."),
                     sel('card', repeat=True, description='With --astro-test: a profile JSON, a plant card or a '
@@ -703,8 +711,14 @@ COMMANDS = [
                     P('--sweep', 'list', nargs='*', metavar='N', description='Worker counts to sweep (default '
                       'config/bench.yaml).')),
             examples=('crane bench player --sweep 1 2 4',), raw='bin/heavy unity Tools/Bench/sweep_workers.sh 1 2 4'),
-    Command(('bench', 'fast'), 'The T0/T1 throughput table.', today='python3 -m bench.fast --domain boat --tier T1 '
-            '--seeds 0:50 --out DIR', examples=('crane bench fast --domain boat --tier T1 --seeds 0:50',)),
+    Command(('bench', 'fast'), 'Fast-tier throughput: the scalar table B, the batched engine (--engine batched) or '
+            'the gate-3 equivalence report (--equivalence).', 'bench.fast:crane_main', passthrough=True,
+            about="bench.fast's tables: bench.json/bench.md (scalar) or batched.json/batched.md (episodes/s per "
+                  'backend and E, x table B, the time split); arguments go to bench.fast unchanged.',
+            examples=('crane bench fast --engine batched --domain boat --tier T1 --backend numba,jax --E 1024,4096 '
+                      '--out /tmp/bench', 'crane bench fast --equivalence --tier T1 --seeds 0:500',
+                      'crane bench fast --domain boat --tier T1 --seeds 0:50 --out /tmp/b'),
+            raw='python3 -m bench.fast'),
     Command(('bench', 'cluster'), 'Throughput and cost on the cluster.', today='python3 -m bench.fast with its '
             '--fresh-jobs, on a cluster host', examples=('crane bench cluster --domain boat',)),
     Command(('cluster', 'submit'), 'Compile a study spec to rc-job/1 jobs (one per cell x seed chunk, 5-30 min '

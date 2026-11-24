@@ -95,6 +95,10 @@ commands:
       - {name: "--generate", type: bool, description: Regenerate the seeds' scenarios (missing ones are always made).}
       - {name: "--allow-dirty", type: bool, description: Run an adapter tree with uncommitted changes.}
       - {name: "--force", type: bool, description: Move a run dir holding another run (or an incomplete one) to <dir>.stale-N and rerun it; without it such a dir is refused and matching ones are reused.}
+      - {name: "--engine", default: fastsim, choices: [fastsim, batched], description: "fastsim: one scalar episode per seed; batched: every seed at once on the batched engine (Docs/Engine.md)."}
+      - {name: "--backend", default: numba, choices: [numpy, numba, jax], description: "With --engine batched: numpy (float64 reference), numba (every core) or jax (GPU)."}
+      - {name: "--dtype", choices: [float64, float32], description: "With --engine batched: default float64; jax on a consumer GPU wants float32 (bench/RESULTS.md)."}
+      - {name: "--record", type: int, description: "With --engine batched: also write traj.ctraj with every K-th track row (default: run.json, events.jsonl, metrics.json only)."}
       - {name: "--astro-test", description: "An astro test or group (still, couple-*, speed-*, steps-*, nav2, all) at T0/T1, with metrics named as astro's result fields."}
       - {name: "--card", description: "With --astro-test: a profile JSON, a plant card or a factorial manifest (repeatable)."}
       - {name: "--tests", type: path, description: "With --astro-test: astro's tests file or a bundle holding one."}
@@ -201,12 +205,13 @@ commands:
 
   - name: crane bench
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane bench
-    summary: "Throughput benchmarks: player (the unity player real-time factor: one worker, or a sweep over worker counts, through heavy unity)."
+    summary: "Throughput benchmarks: player (the unity player real-time factor: one worker, or a sweep over worker counts, through heavy unity); fast (fast-tier throughput: the scalar table b, the batched engine (--engine batched) or the gate-3 equivalence report (--equivalence))."
     params:
-      - {name: verb, choices: [player], description: Which benchmark., required: true}
+      - {name: verb, choices: [player, fast], description: Which benchmark., required: true}
       - {name: args, type: list, description: "The verb's options: crane bench VERB --help.", required: false}
     examples:
       - crane bench player --sweep 1 2 4
+      - crane bench fast --engine batched --domain boat --tier T1 --backend numba,jax --E 1024,4096 --out /tmp/bench
 
   - name: crane build player
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane build player

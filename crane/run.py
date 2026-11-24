@@ -94,6 +94,27 @@ def main(args):
         return out.usage('run', f"{adapter_git['source']} has uncommitted changes", 'commit, or pass --allow-dirty')
     provenance = {'git': {'core': identity.git_state(Path(batch.__file__).parent), 'adapter': adapter_git},
                   'config_file': str(config), 'tier': tier, 'overrides': list(args.set)}
+    if getattr(args, 'engine', 'fastsim') == 'batched':
+        from engine.runs import run_seeds
+        started = time.perf_counter()
+        rows, engine_s = run_seeds(cfg, base, seeds, args.out, args.variant, args.backend, args.dtype, args.record,
+                                   {**provenance, 'engine': 'batched', 'backend': args.backend})
+        wall = time.perf_counter() - started
+        if out.doc({'schema': 'crane.run.summary/1', 'tier': tier, 'domain': args.domain, 'config': str(config),
+                    'out': str(args.out), 'variant': args.variant, 'n': len(rows), 'wall_s': round(wall, 3),
+                    'runs_per_s': round(len(rows) / wall, 3) if wall > 0 else 0.0, 'reused': 0,
+                    'engine': {'name': 'batched', 'backend': args.backend, 'dtype': args.dtype or 'float64',
+                               'episodes_s': round(engine_s, 3)}, 'fidelity': cfg['fidelity'],
+                    'outcomes': dict(Counter(r[1] for r in rows)),
+                    'runs': [{'out': str(d), 'outcome': o, 'sim_s': t} for _, o, t, d in rows]}):
+            return output.OK
+        for seed, outcome, sim_s, d in rows:
+            out.line(f'{d}: {outcome} in {sim_s:.0f} s sim')
+        out.say(f'{len(rows)} runs at {tier} on the batched engine ({args.backend}), {wall:.1f} s wall '
+                f'({engine_s:.1f} s episodes): {len(rows) / wall:.1f} runs/s')
+        out.say(f'fidelity: {cfg["fidelity"]}')
+        out.next(f'crane board {args.out}')
+        return output.OK
     started = time.perf_counter()
     tracker = batch._progress(True, args.out, args.variant, len(seeds))
     if tracker and out.json:

@@ -276,16 +276,35 @@ def markdown(r):
     return '\n'.join(lines) + '\n'
 
 
-def main(argv=None):
-    ap = argparse.ArgumentParser(prog='bench.fast', description=__doc__.split('\n')[0])
-    ap.add_argument('--domain', required=True)
+def main(argv=None, prog='bench.fast'):
+    ap = argparse.ArgumentParser(prog=prog, description=__doc__.split('\n')[0])
+    ap.add_argument('--domain', default='boat')
     ap.add_argument('--tier', required=True, choices=('T0', 'T1'))
-    ap.add_argument('--seeds', required=True, type=parse_seeds, help='N, FROM:TO or a,b,c')
+    ap.add_argument('--seeds', type=parse_seeds, help='N, FROM:TO or a,b,c (the scalar table; --equivalence)')
     ap.add_argument('--workers', default='1', help='comma list of worker counts (default 1)')
-    ap.add_argument('--out', required=True, type=Path)
+    ap.add_argument('--out', type=Path)
     ap.add_argument('--split-seeds', type=int, default=10, help='episodes timed part by part (default 10)')
     ap.add_argument('--fresh-jobs', type=int, default=5, help='cluster jobs run as fresh processes (default 5)')
+    ap.add_argument('--engine', choices=('scalar', 'batched'), default='scalar',
+                    help='scalar: table B of the fastsim path (default); batched: the engine (bench/batched.py)')
+    ap.add_argument('--backend', default='numba,jax', help='with --engine batched: comma list of numpy, numba, '
+                    'jax[:float32|float64] (default numba,jax)')
+    ap.add_argument('--E', default='1,64,1024,4096', help='with --engine batched: batch sizes (default 1,64,1024,4096)')
+    ap.add_argument('--min-seeds', type=int, default=16384, help='jax: seeds through the E slots, at least (default 16384)')
+    ap.add_argument('--numpy-max', type=int, default=1024, help='numpy: the largest E timed (default 1024)')
+    ap.add_argument('--fastmath', action='store_true', help='numba: the fastmath build')
+    ap.add_argument('--split', action='store_true', help='with --engine batched: time each part of a step')
+    ap.add_argument('--equivalence', action='store_true', help='gate 3 (engine/equivalence.py) on --seeds '
+                    '(default 0:500): outcome agreement and TOST of each fast backend against the float64 batch')
     a = ap.parse_args(argv)
+    if a.equivalence:
+        from engine import equivalence
+        return equivalence.main(['--tier', a.tier, '--seeds', f'{a.seeds[0]}:{a.seeds[-1] + 1}' if a.seeds else '0:500']
+                                + (['--out', str(a.out)] if a.out else []))
+    if a.engine == 'batched':
+        return batched_main(a)
+    if a.seeds is None or a.out is None:
+        raise SystemExit('bench: the scalar table needs --seeds and --out')
     path, overrides, cfg, base = load(a.domain, a.tier)
     if a.out.exists() and any(a.out.iterdir()):
         raise SystemExit(f'bench: {a.out} is not empty')
@@ -310,6 +329,27 @@ def main(argv=None):
     (a.out / 'bench.json').write_text(json.dumps(report, indent=2) + '\n')
     (a.out / 'bench.md').write_text(markdown(report))
     print(markdown(report))
+    return 0
+
+
+def crane_main(argv):
+    """`crane bench fast ...` (the CLI passes ['fast', *args])."""
+    return main(list(argv)[1:], prog='crane bench fast')
+
+
+def batched_main(a):
+    from bench import batched
+    from fastsim.batch import adapter_of
+    if a.out is None:
+        raise SystemExit('bench: --engine batched needs --out')
+    path, overrides, cfg, base = load(a.domain, a.tier)
+    a.out.mkdir(parents=True, exist_ok=True)
+    report = batched.main(a, cfg, base, adapter_of(cfg, base), a.domain, a.tier)
+    report['host'] = host()
+    report['config'] = str(path.relative_to(ROOT))
+    (a.out / 'batched.json').write_text(json.dumps(report, indent=2) + '\n')
+    (a.out / 'batched.md').write_text(batched.markdown(report))
+    print(batched.markdown(report))
     return 0
 
 

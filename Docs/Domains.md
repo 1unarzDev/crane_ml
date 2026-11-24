@@ -86,3 +86,5 @@ builds it for its own framework. The format's `identity_check` refuses an edited
 3. Add a few deep tests in `domains/<name>/tests`: determinism, plant exactness against its reference, and
    one mission outcome.
 4. Run `python3 -m bench.fast --domain <name> --tier T0 --seeds 0:50 --workers 1,8 --out DIR`.
+5. For many seeds at once, run the domain on the batched engine (`crane run --engine batched`): its plant
+   needs a kernel and its controller a batched twin, or it runs in decoupled mode (Docs/Engine.md).
