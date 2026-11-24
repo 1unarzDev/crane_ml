@@ -1,0 +1,11 @@
+# The toy domain (fastsim/tests/toy.py): visit every marker it perceives. T0 kinematic only.
+# A tier's optional `overrides` are merged over its fastsim YAML: here, scenarios drawn from the
+# seed and written on demand under ~/.cache/crane (the test YAML leaves them to the tests).
+tiers:
+  T0:
+    config: fastsim/tests/toy.yaml
+    overrides:
+      scenarios:
+        dir: ~/.cache/crane/toy-scenarios
+        generate: ['{python}', '-c', 'import sys; sys.path[:0] = sys.argv[1:3]; import toy; [toy.write_scenario(sys.argv[3], s) for s in range(int(sys.argv[4]), int(sys.argv[5]))]',
+                   '{base}/../..', '{base}', '{dir}', '{seeds_from}', '{seeds_to}']

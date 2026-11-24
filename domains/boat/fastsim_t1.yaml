@@ -1,0 +1,35 @@
+# The boat at T1 (dynamic): the reference mission (adapter.py) on the MarinePlanarModel twin (plant.py).
+#   python3 -m fastsim.batch --config domains/boat/fastsim_t1.yaml --seeds 0:5 --out runs/boat-t1
+# Everything below `vehicle` is the same in fastsim_t0.yaml.
+adapter: {ref: domains.boat.adapter:BoatAdapter, options: {tier: T1, profile: &profile Tools/Characterization/profiles/characterized.json}}
+dt: 0.02  # one plant tick per core step, as Unity's FixedUpdate
+vehicle: {ref: domains.boat.plant:ProfileBoat, gain: 1.0, profile: *profile, kp: [2.0, 2.0, 2.0]}
+fidelity: >-
+  T1 dynamic: the MarinePlanarModel twin (ProfilePlant) with PWM thrusters from
+  profiles/characterized.json, a feedforward + P velocity loop and pseudo-inverse allocation; no
+  current, waves or wind; perception is truth labels in a cone; routes are straight legs with
+  detours (no planner); contacts are geometry and never stop the vehicle
+scenarios:
+  dir: courses
+  pattern: 'roboboat_2026-s{seed}.json'
+  generate: ['{python}', '{base}/coursegen.py', '{seeds_from}:{seeds_to}', '{dir}']
+  format: {name: crane_truth, identity_check: ../../Tools/RoboBoat/course_truth.py:check_identity}
+# A generic small vessel (the course truth's default vessel: 1.06 m x 0.9 m) and conservative
+# navigation limits, below the profile's envelope (surge 2.5, sway 1.7, yaw 1.9).
+limits:
+  vmax: [1.5, 0.4, 0.8]
+  vmin: [-0.5, -0.4, -0.8]
+  accel: [0.6, 0.4, 1.0]
+  decel: [-1.0, -0.4, -1.0]
+  goal_tol: [0.6, 0.5]
+  precise_tol: [0.25, 0.15]
+  rotate_above: 0.8
+  rotate_wz: 0.5
+  progress_radius: 0.3
+  progress_s: 10.0
+  pass_radius: 1.2
+  footprint: [[0.53, 0.45], [0.53, -0.45], [-0.53, -0.45], [-0.53, 0.45]]
+perception: {name: cone, hfov_deg: 90.0, range_m: 20.0, occlusion: true, mount: [0.4, 0.0, 0.0]}
+time_limit_s: 300
+workers: 8
+max_workers: 20

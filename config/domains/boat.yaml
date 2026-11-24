@@ -1,0 +1,6 @@
+# The boat domain: a public reference mission (entry gates, nav channel, U-turn, dock) over crane
+# course truth. Each tier names its fastsim domain YAML (paths from the repo root).
+#   python3 -m fastsim.batch --config domains/boat/fastsim_t1.yaml --seeds 0:5 --out runs/boat
+tiers:
+  T0: {config: domains/boat/fastsim_t0.yaml}
+  T1: {config: domains/boat/fastsim_t1.yaml}
