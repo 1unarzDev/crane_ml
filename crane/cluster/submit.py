@@ -105,6 +105,12 @@ def compile_from(args):
         est = cc.measure(src, first, first.seeds[0])
     done = None
     cache_dir = getattr(study, 'cache_dir', None)
+    if not cache_dir:
+        try:                                        # crane.study keeps its unit cache in OUT/<study>/cache
+            from crane.study.plan import default_out
+            cache_dir = default_out(study) / 'cache'
+        except (ImportError, AttributeError):
+            cache_dir = None
     if cache_dir and not args.no_skip_done:
         from crane.cache import UnitCache
         done = UnitCache(cache_dir)
@@ -154,7 +160,13 @@ def submit_main(args):
     if out.doc(doc) and not r.returncode:
         return output.OK
     if r.returncode:
-        tail = ((r.stderr or r.stdout or '').strip().splitlines() or [f'exit {r.returncode}'])[-1]
+        text = (r.stderr or '') + (r.stdout or '')
+        tail = (text.strip().splitlines() or [f'exit {r.returncode}'])[-1]
+        if '409' in text or 'conflict' in text.lower():
+            return out.fail('cluster submit', 'a job id is already on the cluster with another body (same units and '
+                            'commit, other tags, purpose, estimate or kind)',
+                            f'research cancel the old jobs (crane cluster status {name}), or submit with --campaign '
+                            'NEW', output.FAILED)
         return out.fail('cluster submit', f'research submit: {tail}',
                         f'crane cluster submit {path} (the plan is saved)',
                         RESEARCH_EXIT.get(r.returncode, output.FAILED))
@@ -245,6 +257,9 @@ def _status(args, plan):
 
 def status_main(args):
     out = args.output
+    if not args.study:                      # bare `crane cluster status`: the research CLI's own view, as before
+        from crane.wrap import cluster
+        return cluster(['status'])
     plan, path = load_plan(args.study, args.out)
     if plan is None:
         return out.usage('cluster status', f'no plan at {path}', f'crane cluster submit SPEC (writes {PLAN})')
@@ -265,6 +280,9 @@ def status_main(args):
 
 def wait_main(args):
     out = args.output
+    if not args.study:
+        return out.usage('cluster wait', 'which study? (no STUDY|DIR|JOBS.json given)',
+                         'crane cluster wait STUDY --timeout 3600, or research wait -p crane JOB... for raw job ids')
     plan, path = load_plan(args.study, args.out)
     if plan is None:
         return out.usage('cluster wait', f'no plan at {path}', f'crane cluster submit SPEC (writes {PLAN})')

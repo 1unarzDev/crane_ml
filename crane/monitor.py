@@ -8,7 +8,11 @@ Local: every progress.json under OUT, with the cell.json (study, stage, arm, blo
 (reason, traceback) and metrics.json beside it. Cluster: when OUT/<study>/cluster/jobs.json exists, the project's job
 list (research token) and the public feed (/v1/feed: progress, worker, eta, error). A job seen both ways counts once
 (the local copy wins once it is terminal). Groups are (study, stage, arm, block). Interim metric means are shown for
-dev blocks only; every other block (held-out above all) shows progress only.
+dev blocks only; every other block (held-out above all) shows progress only, and a held-out block that has started
+is flagged touched_held_out.
+
+A running job's progress.json is at most 60 s old (crane-batch heartbeats it), so one older than STALE_S (or the
+job's stall_s when cell.json gives one) means the runner is gone: the job shows as stalled.
 """
 
 import json
@@ -61,8 +65,10 @@ def local_entries(where):
         guess = dict(zip(('stage', 'arm', 'cell'), rel[-3:])) if len(rel) >= 3 else {}
         fail = _json(d / 'failure.json')
         phase = state.get('phase')
+        stale = max(STALE_S, float(meta.get('stall_s') or 0))
         status = 'done' if phase == 'done' else 'failed' if fail or phase == 'failed' else (
-            'cancelled' if phase == 'cancelled' else 'stalled' if (state.get('age_s') or 0) > STALE_S else 'running')
+            'cancelled' if phase == 'cancelled' else 'yielded' if phase == 'yielded' else
+            'stalled' if (state.get('age_s') or 0) > stale else 'running')
         out.append({
             'source': 'local', 'key': meta.get('job_id') or str(d), 'dir': str(d),
             'study': meta.get('study') or (where.name if len(rel) <= 3 else rel[0]),
@@ -73,8 +79,13 @@ def local_entries(where):
             'total': int(state.get('total') or 0), 'failed': int(state.get('failed') or 0),
             'rate_per_s': float(state.get('rate_per_s') or 0.0) if status == 'running' else 0.0,
             'eta_s': state.get('eta_s') if status == 'running' else None, 'age_s': state.get('age_s'),
-            'failure': _failure(fail, status, state), 'metrics': _metrics(d, state)})
+            'failure': _failure(fail, status, state), 'metrics': _metrics(d, state),
+            'touched_held_out': bool(meta.get('touched_held_out')) or _held(meta.get('role'))})
     return out
+
+
+def _held(role):
+    return str(role or '').lower().replace('_', '-') in ('held-out', 'heldout', 'holdout')
 
 
 def _failure(fail, status, state):
@@ -137,7 +148,9 @@ def cluster_entries(plan, feed=None, views=None):
             'host': f.get('worker') or v.get('worker'), 'status': status, 'done': done, 'total': n,
             'failed': n if status == 'failed' else 0, 'rate_per_s': 0.0, 'eta_s': eta if status in ('running', 'queued')
             else None, 'age_s': None,
-            'failure': _cluster_failure(status, err), 'metrics': {}})
+            'failure': _cluster_failure(status, err), 'metrics': {},
+            'touched_held_out': (bool(spec.get('touched_held_out')) or _held(spec.get('role')))
+            and status not in ('queued', 'unknown')})
     return out
 
 
@@ -193,8 +206,10 @@ def merge(entries):
         g = groups.setdefault((e['study'], e['stage'], e['arm'], e['block']), {
             'study': e['study'], 'stage': e['stage'], 'arm': e['arm'], 'block': e['block'], 'role': e['role'],
             'done': 0, 'total': 0, 'failed': 0, 'rate_per_s': 0.0, 'eta_s': None, 'hosts': set(),
-            'jobs': {'done': 0, 'running': 0, 'queued': 0, 'failed': 0, 'other': 0}, 'failures': [], '_m': {}})
+            'jobs': {'done': 0, 'running': 0, 'queued': 0, 'failed': 0, 'other': 0}, 'failures': [], '_m': {},
+            'touched_held_out': False})
         g['role'] = g['role'] or e['role']
+        g['touched_held_out'] = g['touched_held_out'] or bool(e.get('touched_held_out'))
         g['done'] += e['done']
         g['total'] += e['total']
         g['failed'] += e['failed']
@@ -263,7 +278,8 @@ def snapshot(target=None, root=None, cluster=True, feed_url=None):
 
 def _fmt_metrics(g):
     if g['metrics'] is None:
-        return f'({g["role"] or "no role"}: progress only)' if g['role'] != 'dev' else ''
+        touched = '; touched' if g.get('touched_held_out') else ''
+        return f'({g["role"] or "no role"}: progress only{touched})' if g['role'] != 'dev' else ''
     shown = list(g['metrics'].items())[:METRICS_SHOWN]
     return '  '.join(f'{k} {v:.4g}' for k, v in shown)
 

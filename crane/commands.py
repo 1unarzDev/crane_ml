@@ -475,11 +475,14 @@ COMMANDS = [
                   '--json: the plan and every job body).',
             notes='Jobs: kind crane_batch (the crane-batch backend: one slot, every core) or gpu_command for a GPU '
                   'cell; seeds [0] with the chunk in spec.seeds; spec.run and spec.argv run python3 -m '
-                  'crane_backends.batch, which runs crane study run-cell SPEC --cell ID --seeds .. --out ..; job ids '
-                  'come from the unit cache keys and the commit, so resubmitting the same plan is idempotent. '
-                  'Refused (exit 2): uncommitted changes (--allow-dirty runs the commit), a cell naming field data '
-                  '(~/field_corpus_*, a bags dir, .mcap/.db3/.bag), a held-out block without --confirm, a cell with '
-                  'no time estimate. The plan is saved to OUT/STUDY/cluster/jobs.json before research submit.',
+                  'crane_backends.batch, which runs crane study run-cell SPEC --cell JOB --out .. (the study\'s own '
+                  'job ids and seed chunks; --confirm on held-out jobs); job ids come from the unit cache keys and '
+                  'the commit, so resubmitting the same plan is idempotent. Refused (exit 2): uncommitted changes '
+                  '(--allow-dirty runs the commit), a spec outside crane/runtime.sparse, a cell naming field data '
+                  '(~/field_corpus_*, a bag dir, .mcap/.db3/.bag), a held-out block without --confirm or whose '
+                  'targets file is not committed before now, a cell with no time estimate. The plan is saved to '
+                  'OUT/STUDY/cluster/jobs.json before research submit. An adaptive stage goes after its source: '
+                  'submit --stage A, wait, fetch, crane study promote --stage B, submit the promoted spec.',
             params=(P('source', metavar='SPEC|JOBS.json', description='A crane.study/1 spec, or an rc-job/1 list.'),
                     P('--stage', description='Only this stage.'),
                     P('--block', description='Only this seed block.'),
@@ -496,7 +499,8 @@ COMMANDS = [
                       'GPU cells); only with an approved REQUESTS.md row.'),
                     P('--kind', description='Override the backend kind (crane_batch, gpu_command, py_command, '
                       'crane-command).'),
-                    P('--confirm', 'bool', description='Allow held-out blocks (the study checks its targets file).'),
+                    P('--confirm', 'bool', description='Allow held-out blocks (the study\'s guard checks its targets '
+                      'file; without a guard they are refused).'),
                     P('--allow-dirty', 'bool', dest='allow_dirty', description='Submit with uncommitted changes '
                       '(jobs run the commit).'),
                     P('--no-skip-done', 'bool', dest='no_skip_done', description="Keep seeds already in the study's "
@@ -513,7 +517,8 @@ COMMANDS = [
             about='one line on stderr naming the jobs and the timeout, then the status table (as cluster status). '
                   'Exit 0 every job done, 1 some failed or were cancelled, 75 the timeout passed first (the jobs '
                   'are untouched), 2 no plan or no research CLI.',
-            params=(P('study', metavar='STUDY|DIR|JOBS.json', description='A study name, its OUT dir, or a plan.'),
+            params=(P('study', nargs='?', metavar='STUDY|DIR|JOBS.json', description='A study name, its OUT dir, or '
+                      'a plan.'),
                     P('--timeout', 'float', default=3600.0, description='Seconds to wait at most.'),
                     sel('out', description='The studies root (default CRANE_STUDIES, else ~/.cache/crane/studies).'),
                     P('--json', 'bool', description='The final status as one JSON document.')),
@@ -524,8 +529,9 @@ COMMANDS = [
             json='crane.cluster.status/1',
             about='a header with the state counts, one row per (stage, arm, block) with jobs, units and a column per '
                   'state, then failures (state, job, last error line) and next:. --json: {schema, study, project, '
-                  'campaign, states, groups, failures, finished}.',
-            params=(P('study', metavar='STUDY|DIR|JOBS.json', description='A study name, its OUT dir, or a plan.'),
+                  'campaign, states, groups, failures, finished}. Without STUDY: research status (every job).',
+            params=(P('study', nargs='?', metavar='STUDY|DIR|JOBS.json', description='A study name, its OUT dir, or '
+                      'a plan (default: research status, every job).'),
                     sel('out', description='The studies root (default CRANE_STUDIES, else ~/.cache/crane/studies).'),
                     P('--json', 'bool', description='One JSON document.')),
             examples=('crane cluster status boat01',), raw='research status -p crane --campaign STUDY'),

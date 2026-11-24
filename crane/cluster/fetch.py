@@ -113,6 +113,10 @@ def fetch_job(job, cell_root, client=None, vast_root=None):
     """One job into cell_root/parts/<job_id>/: (status, source, rows). status: fetched, present, missing, failed."""
     spec, jid = job.get('spec') or {}, job['job_id']
     dest = cell_root / 'parts' / jid
+    have = _json(dest / MANIFEST)
+    if have and have.get('files') and all((dest / f['path']).is_file() and f.get('sha256') and
+                                          _sha(dest / f['path']) == f['sha256'] for f in have['files']):
+        return 'present', 'here', int(have.get('rows') or sum(int(f.get('rows') or 0) for f in have['files']))
     for d in box_dirs(spec.get('study'), jid, vast_root):
         man = _json(d / MANIFEST)
         rows = _place(dest, man, lambda name, d=d: d / name)

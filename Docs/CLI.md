@@ -914,7 +914,7 @@ Compile a study spec to rc-job/1 jobs (one per cell x seed chunk, 5-30 min each,
 
 What you'll see: the plan table (stage, arm, block, role, kind, jobs, units, est per job, compute hours) and any warnings, then the created/exists/duplicate counts and next:. --dry-run sends nothing (with --json: the plan and every job body).
 
-Jobs: kind crane_batch (the crane-batch backend: one slot, every core) or gpu_command for a GPU cell; seeds [0] with the chunk in spec.seeds; spec.run and spec.argv run python3 -m crane_backends.batch, which runs crane study run-cell SPEC --cell ID --seeds .. --out ..; job ids come from the unit cache keys and the commit, so resubmitting the same plan is idempotent. Refused (exit 2): uncommitted changes (--allow-dirty runs the commit), a cell naming field data (~/field_corpus_*, a bags dir, .mcap/.db3/.bag), a held-out block without --confirm, a cell with no time estimate. The plan is saved to OUT/STUDY/cluster/jobs.json before research submit.
+Jobs: kind crane_batch (the crane-batch backend: one slot, every core) or gpu_command for a GPU cell; seeds [0] with the chunk in spec.seeds; spec.run and spec.argv run python3 -m crane_backends.batch, which runs crane study run-cell SPEC --cell JOB --out .. (the study's own job ids and seed chunks; --confirm on held-out jobs); job ids come from the unit cache keys and the commit, so resubmitting the same plan is idempotent. Refused (exit 2): uncommitted changes (--allow-dirty runs the commit), a spec outside crane/runtime.sparse, a cell naming field data (~/field_corpus_*, a bag dir, .mcap/.db3/.bag), a held-out block without --confirm or whose targets file is not committed before now, a cell with no time estimate. The plan is saved to OUT/STUDY/cluster/jobs.json before research submit. An adaptive stage goes after its source: submit --stage A, wait, fetch, crane study promote --stage B, submit the promoted spec.
 
 | Param | Type | Description |
 |---|---|---|
@@ -930,7 +930,7 @@ Jobs: kind crane_batch (the crane-batch backend: one slot, every core) or gpu_co
 | `--tag` | str | needs.tags (repeatable; all required). |
 | `--cloud` | bool | Allow rented boxes: needs.tags += cloud-ok and cpu (torch for GPU cells); only with an approved REQUESTS.md row. |
 | `--kind` | str | Override the backend kind (crane_batch, gpu_command, py_command, crane-command). |
-| `--confirm` | bool | Allow held-out blocks (the study checks its targets file). |
+| `--confirm` | bool | Allow held-out blocks (the study's guard checks its targets file; without a guard they are refused). |
 | `--allow-dirty` | bool | Submit with uncommitted changes (jobs run the commit). |
 | `--no-skip-done` | bool | Keep seeds already in the study's unit cache. |
 | `--out` | path | The studies root (default CRANE_STUDIES, else ~/.cache/crane/studies). |
@@ -966,11 +966,11 @@ crane cluster status boat01
 
 A study's cluster jobs per stage, arm and block, counted by state, with the failures (digest style; read-only).
 
-What you'll see: a header with the state counts, one row per (stage, arm, block) with jobs, units and a column per state, then failures (state, job, last error line) and next:. --json: {schema, study, project, campaign, states, groups, failures, finished}.
+What you'll see: a header with the state counts, one row per (stage, arm, block) with jobs, units and a column per state, then failures (state, job, last error line) and next:. --json: {schema, study, project, campaign, states, groups, failures, finished}. Without STUDY: research status (every job).
 
 | Param | Type | Description |
 |---|---|---|
-| `study` | str | A study name, its OUT dir, or a plan. |
+| `study` | str | A study name, its OUT dir, or a plan (default: research status, every job). |
 | `--out` | path | The studies root (default CRANE_STUDIES, else ~/.cache/crane/studies). |
 | `--json` | bool | One JSON document. |
 
