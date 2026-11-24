@@ -232,6 +232,39 @@ def bootstrap_ci(units: Sequence, stat: Callable[[Sequence], float], B=2000, alp
     return stat(list(units)), (lo, hi)
 
 
+def permutation_paired(diffs: Sequence[float], B: int = 20000, seed: int = 0, alternative: str = 'two-sided'):
+    """Paired sign-flip permutation test on per-unit differences (one difference per scenario/world).
+
+    Exact enumeration when 2**n <= B, otherwise B seeded random sign flips (+1 smoothing, so p > 0).
+    Returns (mean_diff, p). ``alternative``: 'two-sided' | 'greater' (mean > 0) | 'less'."""
+    d = [float(x) for x in diffs]
+    n = len(d)
+    if n == 0:
+        return float('nan'), float('nan')
+    obs = sum(d) / n
+
+    def extreme(m):
+        if alternative == 'greater':
+            return m >= obs - 1e-12
+        if alternative == 'less':
+            return m <= obs + 1e-12
+        return abs(m) >= abs(obs) - 1e-12
+
+    if 2 ** n <= B:
+        hits = total = 0
+        for mask in range(2 ** n):
+            m = sum(x if (mask >> i) & 1 else -x for i, x in enumerate(d)) / n
+            hits += extreme(m)
+            total += 1
+        return obs, hits / total
+    rng = random.Random(seed)
+    hits = 0
+    for _ in range(B):
+        m = sum(x if rng.random() < 0.5 else -x for x in d) / n
+        hits += extreme(m)
+    return obs, (hits + 1) / (B + 1)
+
+
 # ------------------------------------------------------------------ multiplicity, ranking
 
 def holm(pvalues: Mapping[str, float]) -> dict:

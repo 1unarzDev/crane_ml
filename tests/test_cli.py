@@ -160,7 +160,7 @@ def test_help_yaml_parses_and_every_run_line_is_a_crane_verb():
 def test_sim_up_check_reaches_crane_and_a_bad_current_is_refused_before_anything_starts(tmp_path):
     env = {**os.environ, 'SIM_UP_RUN': str(tmp_path / 'run'), 'HEAVY': 'none'}
     check = subprocess.run([paths.SIM_UP, 'check'], env=env, capture_output=True, text=True, timeout=30)
-    assert check.returncode == 2 and 'arrives in P1-C' in check.stderr
+    assert check.returncode == 1 and 'sim check: not ready' in check.stdout  # nothing started under this SIM_UP_RUN
     bad = subprocess.run([paths.SIM_UP, 'up', '--current', 'fast'], env=env, capture_output=True, text=True,
                          timeout=30)
     assert bad.returncode == 2 and '--current wants SPEED,TOWARD_DEG' in bad.stderr

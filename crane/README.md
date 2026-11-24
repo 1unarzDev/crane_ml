@@ -15,7 +15,7 @@ each verb imports what it needs only when it runs, and the `sim` path is stdlib 
 | Verb | Runs | Module or tool |
 |---|---|---|
 | `sim up\|down\|status` | the T2 world plus ROS, like the boat | execs `Tools/RoboBoat/sim_up` with the arguments unchanged |
-| `sim check` | player contract acceptance | stub until P1-C (`sim_up check` calls it) |
+| `sim check` | is the running sim ready | live readiness of the running sim; `crane sim check CHECK …` runs Tools/SimCheck (`sim_up check` calls it) |
 | `heavy …` | the host concurrency guard | execs `bin/heavy` |
 | `run --tier T0` | episodes, one run dir per seed | `fastsim.batch.run_batch` (`crane/run.py`) |
 | `judge …` | scoring | `python -m judge` |
