@@ -42,17 +42,28 @@ from fastsim.scenario import ScenarioSource  # noqa: E402
 PARTS = ('plant', 'tracker', 'decision', 'perception', 'contacts', 'recording', 'other')
 
 
-def domain_tier(domain, tier):
-    """(fastsim config path, overrides) of a tier in config/domains/<domain>.yaml."""
-    spec = yaml.safe_load((ROOT / 'config' / 'domains' / f'{domain}.yaml').read_text())
-    tiers = spec.get('tiers') or {}
-    if tier not in tiers:
-        raise SystemExit(f'bench: {domain} has no tier {tier}; known: {sorted(tiers)}')
-    return ROOT / tiers[tier]['config'], tiers[tier].get('overrides') or {}
+def domain_tier(domain, tier=None):
+    """(tier, fastsim config path, overrides) of a tier in config/domains/<domain>.yaml; no tier = the first.
+
+    Raises LookupError, naming what exists, when the domain or the tier is not there."""
+    from crane import paths
+    path = paths.DOMAINS / f'{domain}.yaml'
+    if not path.is_file():
+        known = sorted(p.stem for p in paths.DOMAINS.glob('*.yaml'))
+        raise LookupError(f'no domain {domain!r} ({path} is missing); domain configs: '
+                          f'{", ".join(known) if known else "none in " + str(paths.DOMAINS)}')
+    tiers = (yaml.safe_load(path.read_text()) or {}).get('tiers') or {}
+    tier = tier or next(iter(tiers), None)
+    if tier not in tiers or not (tiers[tier] or {}).get('config'):
+        raise LookupError(f'{path} has no tier {tier}; its tiers: {", ".join(tiers) or "none"}')
+    return tier, ROOT / tiers[tier]['config'], tiers[tier].get('overrides') or {}
 
 
 def load(domain, tier):
-    path, overrides = domain_tier(domain, tier)
+    try:
+        _, path, overrides = domain_tier(domain, tier)
+    except LookupError as error:
+        raise SystemExit(f'bench: {error}')
     cfg, base = fsconfig.load(path, overrides)
     return path, overrides, cfg, base
 

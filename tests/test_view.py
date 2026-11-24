@@ -136,7 +136,7 @@ def test_live_rerun_from_t_equals_the_original(tmp_path):
     spec = yaml.safe_load(path.read_text())
     assert spec['set']['vehicle.current'][1] == pytest.approx(0.3) and spec['view_only'] == {'delay_s': 0.1}
     assert json.loads(Path(spec['set']['vehicle.profile']).read_text())['mass'] == 40.0
-    assert command.startswith('crane run --config ') and '--set' in command and spec['command'] == command
+    assert command.startswith('crane run --domain boat --tier T1 ') and '--set' in command and spec['command'] == command
 
 
 @pytest.mark.skipif(importlib.util.find_spec('PySide6') is None or importlib.util.find_spec('pyqtgraph') is None,

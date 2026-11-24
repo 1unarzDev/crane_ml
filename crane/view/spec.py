@@ -81,17 +81,6 @@ def params_for(spec: dict, tier: str) -> list:
             for p in spec['params'] if tier in p.get('tiers', (tier,))]
 
 
-def tier_config(domain: str, tier: str) -> tuple:
-    """(fastsim config path, overrides) of DOMAIN at TIER: ``tiers.<TIER>.config`` (from the repo root) and its
-    optional ``overrides``."""
-    d = load_domain(domain)
-    t = (d.get('tiers') or {}).get(tier) or {}
-    if not t.get('config'):
-        raise SpecError(f'{domain_file(domain)} names no {tier} config (tiers.{tier}.config)')
-    p = Path(t['config'])
-    return (p if p.is_absolute() else paths.ROOT / p), t.get('overrides') or {}
-
-
 def lane_of(event: dict, lanes: dict) -> str:
     """The timeline lane of an event: its own ``lane``, else the spec's mapping of its kind, else ``events``."""
     return event.get('lane') or lanes.get(event.get('kind')) or 'events'

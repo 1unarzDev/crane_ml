@@ -143,7 +143,9 @@ class FastsimLive(LiveSim):
 
     @classmethod
     def for_domain(cls, domain, tier, seed, **kw):
-        config, overrides = vspec.tier_config(domain, tier)
+        """DOMAIN at TIER as ``crane run --domain`` reads it (config/domains/DOMAIN.yaml)."""
+        from crane.run import tier_config
+        tier, config, overrides = tier_config(domain, tier)
         return cls(config, seed, overrides=overrides, spec=vspec.view_spec(domain), tier=tier, domain=domain, **kw)
 
     # ---- set-up ---------------------------------------------------------------------------------------------
@@ -477,7 +479,13 @@ def promote(sim: FastsimLive, out_root='runs/promoted', name=None) -> tuple:
         if kind == 'disturbance' and v and not (key.startswith('current') and sim._current_key()):
             view_only[key] = v
     runs = Path(out_root) / 'runs'
-    cmd = ['crane', 'run', '--config', str(sim.config_path), '--seeds', str(sim.seed), '--out', str(runs),
+    try:
+        from crane.run import tier_config
+        same = sim.domain and tier_config(sim.domain, sim.tier)[1:] == (sim.config_path, sim.overrides)
+    except LookupError:
+        same = False
+    where = ['--domain', sim.domain] if same else ['--config', str(sim.config_path)]
+    cmd = ['crane', 'run', *where, '--tier', sim.tier, '--seeds', str(sim.seed), '--out', str(runs),
            '--variant', name] + [a for k, v in sets.items() for a in ('--set', f'{k}={json.dumps(v)}')]
     command = shlex.join(cmd)
     spec = {'schema': 'crane.run.spec/1', 'domain': sim.domain, 'tier': sim.tier, 'config': str(sim.config_path),

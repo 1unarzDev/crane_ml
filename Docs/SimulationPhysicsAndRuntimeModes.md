@@ -303,6 +303,32 @@ callback, applies in `FixedUpdate`, and goes neutral after `--crane-command-time
 publisher repeats at 20 Hz so silence means a lost link. The input refuses to start beside
 `--crane-ros-cmd-vel` or without `--crane-disable-sitl`, so two thruster sources never fight.
 
+Driving the sim boat by hand (`crane sim up` starts the player with this input):
+
+```bash
+docker exec -it sim_up_ros bash -c 'source $BASH_ENV 2>/dev/null
+  ros2 topic pub -r 20 /thrusters/pwm std_msgs/msg/UInt16MultiArray "{data: [1300,1300,1700,1700]}"'   # forward
+```
+
+The four values are physical outputs 1-4, microseconds, in the order FL, FR, RR, RL (with the default
+`--crane-pwm-outputs 1,2,3,4`); 1500 is neutral, 1100 and 1900 are full reverse and full forward. Publish at
+about 20 Hz: the boat goes neutral 25 physics ticks (0.5 s) after the last message.
+
+| Motion | `data` (FL, FR, RR, RL) |
+| --- | --- |
+| forward | `[1300,1300,1700,1700]` |
+| reverse | `[1700,1700,1300,1300]` |
+| turn left in place (counter-clockwise) | `[1700,1300,1700,1300]` |
+| turn right in place | `[1300,1700,1300,1700]` |
+| sway left | `[1700,1300,1300,1700]` |
+| forward while turning left | `[1500,1300,1700,1500]` |
+| no thrust | `[1500,1500,1500,1500]` |
+
+The rows are the boat's thruster matrix (`mhseals_hardware` `thruster_matrix`: surge, sway and yaw columns per
+thruster) at +/-200 us. Four equal values cancel out, because the thrusters sit on the four diagonals: all four
+at 1700 pushes diagonally against itself and the boat stays put. A mission or the boat's own
+`thruster_pwm_node` publishing on the same topic competes with a manual publisher; stop it first.
+
 `--crane-roboboat-contract` publishes what the boat's flight controller provides through MAVROS,
 letting mhseals_nav's localization run unchanged with `odom.launch.py fcu:=false` and no ArduPilot:
 

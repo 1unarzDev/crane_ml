@@ -1,6 +1,7 @@
 """crane doctor: what is installed and what works on this machine, then the next commands. Never changes anything."""
 
 import importlib.util
+import json
 import os
 import platform
 import shutil
@@ -44,8 +45,17 @@ def _found(module):
         return False
 
 
+def build_label(player):
+    """'build COMMIT12' from the crane-build-manifest.json beside the player, else 'unknown build'."""
+    try:
+        commit = json.loads((Path(player).parent / 'crane-build-manifest.json').read_text()).get('sourceCommit')
+    except (OSError, ValueError):
+        commit = None
+    return f'build {str(commit)[:12]}' if commit else 'unknown build'
+
+
 def checks():
-    """[(name, state, detail)], state in ok | warn | missing | FAIL. Only FAIL breaks the core."""
+    """[(name, state, detail)], state in ok | off | warn | missing | FAIL. Only FAIL breaks the core."""
     rows = []
     py = sys.version_info
     rows.append(('python', 'ok' if py >= (3, 10) else 'FAIL',
@@ -54,13 +64,13 @@ def checks():
         rows.append((mod, 'ok' if _found(mod) else 'FAIL', 'core' if _found(mod) else 'core: ./install.sh'))
     for extra, mods in EXTRAS.items():
         have = [m for m in mods if _found(m)]
-        state = 'ok' if len(have) == len(mods) else 'missing'
+        state = 'ok' if len(have) == len(mods) else 'off'
         rows.append((f'[{extra}]', state, ', '.join(mods) if state == 'ok' else
-                     f'not installed: ./install.sh --components core,{extra}'))
+                     f'optional, add with ./install.sh --components core,{extra}'))
     players = [p for p in paths.player_candidates() if p.is_file() and os.access(p, os.X_OK)]
     flagged = [p for p in players if has_flags(p)]
     if flagged:
-        rows.append(('player', 'ok', f'{flagged[0]} (has {required_flag()})'))
+        rows.append(('player', 'ok', f'{flagged[0]} (has {required_flag()}; {build_label(flagged[0])})'))
     elif players:
         rows.append(('player', 'warn', f'{players[0]} lacks {required_flag()}: crane build player'))
     else:
@@ -99,11 +109,13 @@ def main():
     state = dict((r[0], r[1]) for r in rows)
     print('next:')
     domains = sorted(p.stem for p in paths.DOMAINS.glob('*.yaml'))
-    source = f'--domain {domains[0]}' if domains else '--config DOMAIN.yaml'
-    print(f'  crane run --tier T0 {source} --seeds 1:21 --out /tmp/runs')
+    source = f'--domain {"toy" if "toy" in domains else domains[0]}' if domains else '--config DOMAIN.yaml'
+    print(f'  crane run {source} --seeds 0:3 --out /tmp/runs')
     if state.get('player') == 'ok' and state.get('astro_dock') == 'ok':
         print('  crane sim up --headless ; crane sim status')
     elif state.get('player') != 'ok':
         print('  crane build player   (a Unity editor), or set CRANE_PLAYER to a player with the RoboBoat flags')
+    if 'boat' in domains:
+        print('  crane run --domain boat --tier T1 --seeds 0:2 --out /tmp/runs')
     print('  crane board RUNS     the web replay board')
     return 1 if any(r[1] == 'FAIL' for r in rows) else 0

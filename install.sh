@@ -39,7 +39,7 @@ for c in "${wanted[@]}"; do
   case $c in
     core|'') ;;
     fast|gpu|view|field|setup|all) extras+=("$c") ;;
-    player) say "component player: the T2 player install arrives with crane setup (P7); skipped" ;;
+    player) say "component player: the T2 player install is not yet available here; use crane build player or set CRANE_PLAYER; skipped" ;;
     *) die "unknown component $c (core, fast, gpu, view, field, setup)" ;;
   esac
 done
