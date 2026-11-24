@@ -287,7 +287,7 @@ environments. Read the documentation before treating a run as training-valid.
 | `Assets/Scripts/Utils/ROS` | ROS clock, publishers, and subscribers |
 | `Assets/Scripts/Performance` | Standalone benchmark and worker configuration |
 | `Assets/Editor/CranePerformanceBuild.cs` | Reproducible worker build entry point |
-| `Tools/Performance` | Launch, compare, summarize, and worker-sweep tools |
+| `Tools/Bench` | Player benchmark: launch, sweep, summarize, compare, replay inspection |
 | `PerformanceResults` | Recorded benchmark artifacts |
 | `Docs` | Architecture and performance documentation |
 

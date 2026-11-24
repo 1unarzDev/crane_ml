@@ -100,7 +100,7 @@ Selection, highest precedence first:
    14 s per tier tried (14 s on a fast machine, 42 s worst case). Unattended launches
    (`-batchmode`, `--crane-worker`, `--crane-benchmark`) never measure: they use the cached tier or
    Full and log `CRANE_SIM_PROFILE_UNATTENDED`; add `--crane-sim-profile-measure` to measure anyway.
-   `Tools/Performance/run_worker.sh` (`CRANE_SIM_PROFILE`) and `Tools/Rig/run_sim.sh`
+   `Tools/Bench/run_worker.sh` (`CRANE_SIM_PROFILE`) and `Tools/Rig/run_sim.sh`
    (`--sim-profile`) pin `full` by default. Concurrent players write the cache atomically.
 
 Warnings: forcing a tier above the cached auto tier, `--crane-sim-profile-save` without a profile,
@@ -254,8 +254,8 @@ SDL_VIDEODRIVER=x11 ./Builds/CRANE-Worker/CRANE.x86_64 \
   --crane-output "$PWD/PerformanceResults/worker.json"
 ```
 
-`Tools/Performance/run_worker.sh` also samples system GPU utilization with `nvidia-smi`.
-`Tools/Performance/sweep_workers.sh 1 2 4 8` gives every process a distinct seed, ROS TCP port,
+`Tools/Bench/run_worker.sh` also samples system GPU utilization with `nvidia-smi`.
+`Tools/Bench/sweep_workers.sh 1 2 4 8` gives every process a distinct seed, ROS TCP port,
 MAVROS UDP port, output directory, and `ROS_DOMAIN_ID`, then writes aggregate RTF summaries.
 ROS-side bridge/controller processes must use the matching port and domain.
 
@@ -373,7 +373,7 @@ simulation clock advances once per Unity fixed step even when no benchmark harne
 Compare trajectories at equal simulated timestamps with:
 
 ```bash
-python3 Tools/Performance/compare_benchmarks.py reference.json candidate.json \
+python3 Tools/Bench/compare_benchmarks.py reference.json candidate.json \
   --output comparison.json
 ```
 

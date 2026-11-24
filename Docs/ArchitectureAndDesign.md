@@ -96,7 +96,7 @@ The code follows Unity's component model and uses assembly definitions to separa
 | `Assets/Scripts/Utils` | Body adapters, forces, PID, voxelization, ROS, and MAVROS helpers |
 | `Assets/Scripts/Performance` | Runtime benchmark collection and worker overrides |
 | `Assets/Editor` | Worker build automation and editor utilities |
-| `Tools/Performance` | Launch, comparison, summary, and scaling tools |
+| `Tools/Bench` | Player benchmark: launch, comparison, summary, and scaling tools |
 
 Vehicle behavior is assembled in scenes and prefabs by attaching these components. This is
 flexible and familiar to Unity developers, but behavior is distributed across lifecycle
@@ -691,7 +691,7 @@ scenes, SHA-256 entries for their 228 project-asset dependencies, and aggregate 
 project-version, and ProjectSettings hashes. Runtime metadata records platform, OS, CPU, GPU,
 graphics API/driver, and the declared PhysX body backend. Playback verifies the embedded manifest
 hash before applying state. It remains backward-compatible with version 1–3 recordings.
-`Tools/Performance/inspect_replay.py` provides a bounded, machine-readable stream/index/action/
+`Tools/Bench/inspect_replay.py` provides a bounded, machine-readable stream/index/action/
 outcome/provenance inspection path without loading Unity.
 
 Playback pins each HDRP surface to the recorded spectral simulation time with a zero live time

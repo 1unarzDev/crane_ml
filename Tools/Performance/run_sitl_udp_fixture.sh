@@ -19,7 +19,7 @@ CRANE_SCENE="Roboboat Course" CRANE_SCENARIO=sitl-udp-loopback \
 CRANE_DURATION="${CRANE_DURATION:-8}" CRANE_WARMUP="${CRANE_WARMUP:-3}" \
 CRANE_TIME_SCALE="${CRANE_TIME_SCALE:-2}" CRANE_MAVROS_PORT_BASE="${port}" \
 CRANE_EXTRA_ARGS="--crane-profile train-gpu --crane-disable-ros-tcp --crane-action-policy bounded --crane-max-action-lag-ticks ${maximum_lag_ticks}" \
-    "${root_dir}/Tools/Performance/run_worker.sh" 0 &
+    "${root_dir}/Tools/Bench/run_worker.sh" 0 &
 player_pid=$!
 
 validation_stream="${result_root}/worker-0/result.validation.jsonl"

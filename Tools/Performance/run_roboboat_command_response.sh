@@ -47,7 +47,7 @@ CRANE_TIME_SCALE=1 CRANE_DISABLE_ROS=0 \
 CRANE_ROS_PORT_BASE="$((ros_port - worker_id))" ROS_DOMAIN_ID="${ros_domain_id}" \
 CRANE_SCENE="Roboboat Course" CRANE_SCENARIO=roboboat-command-response \
 CRANE_EXTRA_ARGS="--crane-profile train-gpu --crane-ros-nav-state ${command_args} --crane-action-policy bounded --crane-max-action-lag-ticks 10 --crane-command-timeout-ticks 25 ${thruster_diagnostic_arg} ${unity_extra_args}" \
-    "${root_dir}/Tools/Performance/run_worker.sh" "${worker_id}" &
+    "${root_dir}/Tools/Bench/run_worker.sh" "${worker_id}" &
 player_pid=$!
 
 sleep "${CRANE_FIXTURE_DELAY:-7}"

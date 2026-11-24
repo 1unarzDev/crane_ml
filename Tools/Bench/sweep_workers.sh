@@ -10,12 +10,12 @@ for count in ${counts[*]}; do
     mkdir -p "${sweep_dir}"
     pids=()
     for ((worker=0; worker<count; worker++)); do
-        CRANE_RESULT_ROOT="${sweep_dir}" "${root_dir}/Tools/Performance/run_worker.sh" "${worker}" &
+        CRANE_RESULT_ROOT="${sweep_dir}" "${root_dir}/Tools/Bench/run_worker.sh" "${worker}" &
         pids+=("$!")
     done
     status=0
     for pid in "${pids[@]}"; do wait "${pid}" || status=1; done
-    python3 "${root_dir}/Tools/Performance/summarize_workers.py" "${sweep_dir}" \
+    python3 "${root_dir}/Tools/Bench/summarize_workers.py" "${sweep_dir}" \
         --output "${sweep_dir}/summary.json"
     if ((status != 0)); then exit "${status}"; fi
 done

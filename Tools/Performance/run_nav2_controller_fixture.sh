@@ -178,7 +178,7 @@ CRANE_ROS_PORT_BASE="$((ros_port - worker_id))" ROS_DOMAIN_ID="${ros_domain_id}"
 CRANE_SCENE="${scene}" \
 CRANE_SCENARIO=nav2-controller-follow-path \
 CRANE_EXTRA_ARGS="--crane-profile ${runtime_profile} --crane-ros-nav-state ${command_flag} /crane/cmd_vel_stamped --crane-action-policy bounded --crane-max-action-lag-ticks ${maximum_action_lag_ticks} --crane-command-timeout-ticks ${command_timeout_ticks} ${docking_unity_args} ${CRANE_NAV2_UNITY_EXTRA_ARGS:-}" \
-    "${root_dir}/Tools/Performance/run_worker.sh" "${worker_id}" &
+    "${root_dir}/Tools/Bench/run_worker.sh" "${worker_id}" &
 player_pid=$!
 fi
 
