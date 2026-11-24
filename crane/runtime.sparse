@@ -1,0 +1,13 @@
+# The directories a rented box checks out (compute's boot.sh: git sparse-checkout set $(grep -v '^#' crane/runtime.sparse)).
+# Enough for crane_backends.fastsim ClusterBackend run(seed) on the toy and boat domains, and fastsim.batch.run_batch,
+# with no image. One top-level directory per line ([A-Za-z0-9_.-] only, as boot.sh reads it); tests/test_contracts.py runs seeds from a copy of exactly these.
+crane_backends
+fastsim
+theater
+plantcard
+judge
+crane
+domains
+bench
+config
+Tools

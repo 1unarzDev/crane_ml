@@ -1,118 +1,237 @@
-# crane's commands for astro's help browser and verbs (`astro crane fit B.tgz`, `astro help crane`).
-# Schema: astro_dock/.devcontainer/astro-help.py. Each run line works without an install: the crane checkout
-# (CRANE_DIR, default ~/crane_ml) goes first on PYTHONPATH for `python3 -m crane`.
+# crane's commands for astro's help browser and verbs (`astro help crane`). Generated from
+# crane/commands.py by `crane help --write`; `crane help --check` fails when it drifts. Schema:
+# astro_dock/.devcontainer/astro-help.py. Each run line is crane's launcher, which needs no install.
 package: crane
-summary: Sim and research across domains and tiers (T0 abstract, T1 dynamic, T2 unity); crane --help for all verbs.
+summary: Sim and research across domains and tiers (T0 abstract, T1 dynamic, T2 unity); crane help for every command.
 commands:
-  - name: crane doctor
-    run: PYTHONPATH="${CRANE_DIR:-$HOME/crane_ml}${PYTHONPATH:+:$PYTHONPATH}" python3 -m crane doctor
-    summary: Check this machine (python, extras, the T2 player and its flags, heavy, astro_dock, GPU) and print the next commands.
-    notes: Read-only; safe any time. Exit 1 only when the core (python >= 3.10, numpy, pyyaml) is broken.
-    examples:
-      - python3 -m crane doctor
-
-  - name: crane run
-    run: PYTHONPATH="${CRANE_DIR:-$HOME/crane_ml}${PYTHONPATH:+:$PYTHONPATH}" python3 -m crane run
-    summary: Run episodes at a tier, one run dir per seed (OUT/VARIANT/s<seed>). T0 abstract and T1 dynamic; T2 is not yet available (use crane sim up). Missing scenarios are generated on demand.
+  - name: crane sim up
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim up
+    summary: Start a domain's T2 world (the Unity player through heavy unity, plus its ROS side) and return once the course is ready; prints the status block.
+    ros: Tools/RoboBoat/sim_up up
+    notes: "Waits up to 60 s for the ROS endpoint and 300 s (SIM_UP_READY_S) for the course. Without --display, a window only on a terminal with a display, else headless under xvfb-run. Refuses (exit 2) while a sim runs. Exit 0 ready, 1 the world failed, 2 usage or config. Everything specific comes from config/domains/DOMAIN.yaml tiers.T2. Env: ROS_DOMAIN_ID, ASTRO_STATE / MHSEALS_HARDWARE_CONFIG (passed into the ROS side), the image env, SIM_UP_*, CRANE_PLAYER, HEAVY. Same as Tools/RoboBoat/sim_up."
     params:
-      - {name: --domain, description: 'A domain: boat or toy (config/domains/DOMAIN.yaml), or give --config.'}
-      - {name: --config, type: path, description: 'A fastsim domain YAML, used as is.'}
-      - {name: --tier, choices: [T0, T1, abstract, dynamic], description: "The fidelity tier (default: the domain's first tier)."}
-      - {name: --seeds, description: 'N, FROM:TO (TO exclusive) or a,b,c (required, except with --astro-test).'}
-      - {name: --out, type: path, description: 'Output root (required, except with --astro-test).'}
-      - {name: --workers, type: int, description: Worker processes (default the config's workers).}
-      - {name: --set, description: 'KEY=VALUE config override; dotted keys nest, the value is YAML.'}
-      - {name: --astro-test, description: "An astro test or group (speed-surge, all, ...) at T0/T1, with metrics named as astro's result fields."}
-      - {name: --card, type: path, description: 'With --astro-test: a profile JSON, a plant card or a factorial manifest.'}
+      - {name: "--seed", type: int, description: The world seed (default 1).}
+      - {name: "--env", description: "KIND:NAME, the world (default course:roboboat_2026); --course FAMILY is the same as --env course:FAMILY."}
+      - {name: "--card", type: path, description: A plant profile JSON or a card name (--profile-json is the same).}
+      - {name: "--profile", description: The player's runtime profile (default interactive-low).}
+      - {name: "--current", description: "SPEED,TOWARD_DEG (m/s, deg), or 0 for still water (default the scene current)."}
+      - {name: "--display", choices: [window, headless], description: "Window or xvfb (--window, --headless are the same)."}
+      - {name: "--player", type: path, description: "The player (else CRANE_PLAYER, then the build)."}
+      - {name: "--robot", description: The domain's robot.}
+      - {name: "--set", description: Pin one world parameter (repeatable).}
+      - {name: "--domain", description: config/domains/DOMAIN.yaml (default boat).}
+      - {name: "--dry-run", type: bool, description: Print the resolved player argv and docker run; start nothing.}
+      - {name: "--json", type: bool, description: "Progress on stderr, the status as one JSON document."}
     examples:
-      - python3 -m crane run --domain toy --seeds 0:3 --out /tmp/runs
-      - python3 -m crane run --domain boat --tier T1 --seeds 0:2 --out /tmp/runs
-      - python3 -m crane run --domain boat --tier T1 --astro-test speed-surge --card /tmp/fit/profile.json --out /tmp/sim
+      - crane sim up --headless --seed 3 --current 0
+      - crane sim up --card characterized --headless
+      - crane sim up --dry-run
 
-  - name: crane view
-    run: PYTHONPATH="${CRANE_DIR:-$HOME/crane_ml}${PYTHONPATH:+:$PYTHONPATH}" python3 -m crane view
-    summary: The native sandbox window. Replay runs overlaid in one frame and clock, or run a T0/T1 sim live with sliders, rerun from t, and Promote to a crane run spec. --screenshot renders offscreen (no window).
+  - name: crane sim down
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim down
+    summary: "Stop what crane sim up started: its player's process group (TERM, KILL after 10 s) and its ROS container, nothing else."
+    ros: Tools/RoboBoat/sim_up down
     params:
-      - {name: runs, type: list, required: false, description: 'crane.run/1 dirs, fastsim run dirs or .ctraj files.'}
-      - {name: --live, type: bool, description: 'Run the sim in-process (with --domain, --tier T0|T1, --seed).'}
-      - {name: --screenshot, type: path, description: 'Render offscreen to this PNG and exit (--at T for the time).'}
+      - {name: "--json", type: bool, description: One JSON document instead of the down line.}
     examples:
-      - python3 -m crane view --live --domain boat --tier T1 --seed 3
-      - python3 -m crane view /tmp/runs/base/s3 --screenshot /tmp/view.png --at 60
+      - crane sim down
 
-  - name: crane board
-    run: PYTHONPATH="${CRANE_DIR:-$HOME/crane_ml}${PYTHONPATH:+:$PYTHONPATH}" python3 -m crane board
-    summary: The web replay board over local runs (crane.run/1 records and .ctraj), courses and judge reports; prints its URL.
+  - name: crane sim restart
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim restart
+    summary: "Restart one part of the running world and keep the rest: nav (only the Nav2 nodes, so new nav2_limits in the state take effect), ros (the ROS container; the player stays) or player."
+    ros: docker exec CONTAINER pkill ...; docker exec -d CONTAINER ros2 launch ...
+    notes: nav stops the nav nodes named by the domain recipe (tiers.T2.ros.restart.nav) inside the ROS container, starts them again from the same launch (only:=navigation), and waits up to the recipe's ready_s (90 s) for bt_navigator to be active; a domain without the recipe refuses and names `restart ros`. ros re-runs the saved docker run, waits up to 60 s for the endpoint and 120 s for the ready nodes. player re-runs the saved player argv, waits up to 300 s (SIM_UP_READY_S) for the course. Nav goals in flight are lost. Exit 0 ok, 1 failed, 2 usage, config or nothing running, 75 timed out waiting.
     params:
-      - {name: roots, type: list, required: false, description: 'Dirs to index (default .).'}
-      - {name: --port, type: int, default: 8765, description: Local port.}
+      - {name: what, choices: [nav, ros, player], description: The part to restart., required: true}
+      - {name: "--json", type: bool, description: One JSON document.}
+      - {name: "--domain", description: config/domains/DOMAIN.yaml (default boat).}
     examples:
-      - python3 -m crane board /tmp/runs
+      - crane sim restart nav
+      - crane sim restart player --json
 
-  - name: crane fit
-    run: PYTHONPATH="${CRANE_DIR:-$HOME/crane_ml}${PYTHONPATH:+:$PYTHONPATH}" python3 -m crane fit
-    summary: "An astro bundle to a profile (through the gate) and a plant card (through its bags as evidence); prints each parameter's status and why."
-    notes: 'Writes OUT/profile.json (sim_up --profile-json), OUT/profile.gate.json, OUT/cards and OUT/fit.json. A bundle made without --bags gives the gate only; --bags DIR reads bags beside it. --factorial SPEC.yaml writes card variants and a manifest.'
+  - name: crane sim status
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim status
+    summary: The status block (mode, ROS_DOMAIN_ID, endpoint, player, ROS container, course, current, logs, next commands). Read-only.
+    ros: Tools/RoboBoat/sim_up status
     params:
-      - {name: bundles, type: list, description: 'Astro bundles (.tgz); each is one session.'}
-      - {name: --out, type: path, description: 'Output dir (default fit-<bundle name>).'}
-      - {name: --bags, type: path, description: 'A bag dir to read besides the bundle (read only; repeatable).'}
-      - {name: --factorial, type: path, description: 'Card variants from a spec (measured vs prior levels per property).'}
+      - {name: "--json", type: bool, description: One JSON document.}
     examples:
-      - python3 -m crane fit bundle-173031.tgz --bags ~/astro_dock/bags/sim/2026-11-24/bags --out /tmp/fit
-
-  - name: crane field import
-    run: PYTHONPATH="${CRANE_DIR:-$HOME/crane_ml}${PYTHONPATH:+:$PYTHONPATH}" python3 -m crane field import
-    summary: 'A bundle (made with --bags), a bag dir or an .mcap file to crane.run/1 records: odometry trajectory, /events and log.txt lines, frame and clock.'
-    params:
-      - {name: source, type: path, required: true, description: 'A bundle, a rosbag2 dir or an .mcap file.'}
-      - {name: --out, type: path, required: true, description: 'The run dir (one bag) or the root (several).'}
-      - {name: --frame, description: 'ID=enu|ned for an odometry frame id that is not a REP 103/105 name.'}
-    examples:
-      - python3 -m crane field import ~/astro_dock/bags/sim/2026-11-24/bags/171208-smoke --out /tmp/field
-
-  - name: crane compare
-    run: PYTHONPATH="${CRANE_DIR:-$HOME/crane_ml}${PYTHONPATH:+:$PYTHONPATH}" python3 -m crane compare
-    summary: 'Two run sets as a Markdown table and JSON: variant A/B on one frame and clock, tier gap (--tiers) or field vs sim per astro test (--field BUNDLE RUNS).'
-    params:
-      - {name: runs, type: list, description: 'Two run sets, A then B; with --field, the sim runs.'}
-      - {name: --field, type: path, description: 'An astro bundle to compare the runs against.'}
-      - {name: --tiers, type: bool, description: 'A is the lower tier, B the higher.'}
-      - {name: --out, type: path, description: 'Write compare.json and compare.md here.'}
-    examples:
-      - python3 -m crane compare --field bundle-173031.tgz runs/sim
+      - crane sim status
 
   - name: crane sim check
-    run: PYTHONPATH="${CRANE_DIR:-$HOME/crane_ml}${PYTHONPATH:+:$PYTHONPATH}" python3 -m crane sim check
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim check
     summary: Is the running sim ready (player, course, plant, ROS side, nav stack)? --wait SECONDS polls until ready; CHECK INPUTS runs an offline Tools/SimCheck check.
+    ros: Tools/RoboBoat/sim_up check
     params:
-      - {name: --wait, type: int, description: 'Poll until ready or this many seconds pass.'}
+      - {name: "--wait", type: int, description: Poll every 2 s until ready or this many seconds pass.}
+      - {name: "--json", type: bool, description: One JSON document.}
+      - {name: "--domain", description: config/domains/DOMAIN.yaml (default boat).}
+    examples:
+      - crane sim check --wait 120
+
+  - name: crane sim logs
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim logs
+    summary: The last lines of the player, player stdout and ROS logs, each under its path.
+    ros: Tools/RoboBoat/sim_up logs
+    params:
+      - {name: which, type: list, choices: [player, stdout, ros], description: Which logs (default all three)., required: false}
+      - {name: "-n", type: int, default: 40, description: Lines per log.}
+    examples:
+      - crane sim logs ros -n 100
+
+  - name: crane run
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane run
+    summary: Run episodes at a tier, one run dir per seed (OUT/VARIANT/s<seed>). T0 abstract and T1 dynamic; T2 is not yet available (use crane sim up). Missing scenarios are generated on demand.
+    ros: python3 -m fastsim.batch --config CONFIG --seeds 0:3 --out OUT
+    params:
+      - {name: "--domain", description: "A domain: config/domains/DOMAIN.yaml (boat, toy)."}
+      - {name: "--config", type: path, description: "A fastsim domain YAML, used as is."}
+      - {name: "--tier", choices: [T0, T1, T2, abstract, dynamic, unity], description: "The tier (default: the domain's first tier, T0 with --config)."}
+      - {name: "--seeds", description: "N, A:B (B exclusive), a,b,c, @FILE or block:NAME (required, except with --astro-test: 0)."}
+      - {name: "--out", type: path, description: Output root; runs go to OUT/VARIANT/s<seed> (default ~/.cache/crane/runs/DOMAIN/TIER/STAMP).}
+      - {name: "--workers", type: int, description: Worker processes (default the config's workers).}
+      - {name: "--set", description: "Override a config key; dotted keys nest, the value is YAML (repeatable)."}
+      - {name: "--variant", default: base, description: The name of this design or parameter set.}
+      - {name: "--generate", type: bool, description: Regenerate the seeds' scenarios (missing ones are always made).}
+      - {name: "--allow-dirty", type: bool, description: Run an adapter tree with uncommitted changes.}
+      - {name: "--force", type: bool, description: Move a run dir holding another run (or an incomplete one) to <dir>.stale-N and rerun it; without it such a dir is refused and matching ones are reused.}
+      - {name: "--engine", default: fastsim, choices: [fastsim, batched], description: "fastsim: one scalar episode per seed; batched: every seed at once on the batched engine (Docs/Engine.md)."}
+      - {name: "--backend", default: numba, choices: [numpy, numba, jax], description: "With --engine batched: numpy (float64 reference), numba (every core) or jax (GPU)."}
+      - {name: "--dtype", choices: [float64, float32], description: "With --engine batched: default float64; jax on a consumer GPU wants float32 (bench/RESULTS.md)."}
+      - {name: "--record", type: int, description: "With --engine batched: also write traj.ctraj with every K-th track row (default: run.json, events.jsonl, metrics.json only)."}
+      - {name: "--astro-test", description: "An astro test or group (still, couple-*, speed-*, steps-*, nav2, all) at T0/T1, with metrics named as astro's result fields."}
+      - {name: "--card", description: "With --astro-test: a profile JSON, a plant card or a factorial manifest (repeatable)."}
+      - {name: "--tests", type: path, description: "With --astro-test: astro's tests file or a bundle holding one."}
+      - {name: "--space", description: "With --astro-test: the tests file's space (default large)."}
+      - {name: "--amp", type: float, description: "With --astro-test: the effort amplitude (default the space's)."}
+      - {name: "--json", type: bool, description: One summary document.}
+      - {name: "--dry-run", type: bool, description: Print the resolved plan; run nothing.}
+      - {name: "--quiet", type: bool, description: Only results and failures.}
+    examples:
+      - crane run --domain toy --seeds 0:3
+      - crane run --domain boat --tier T1 --seeds 0:2 --out /tmp/runs
+      - crane run --domain boat --tier T1 --astro-test speed-surge --card /tmp/fit/profile.json
+
+  - name: crane card
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane card
+    summary: "Plant cards: show, export, fit, validate: show (a plant card: one row per block (parameters with their sd and status) and the validation rows); export (one of a card's tier views (unity | nlc | control | fastsim) as json)."
+    params:
+      - {name: verb, choices: [show, export], description: show or export., required: true}
+      - {name: args, type: list, description: "The verb's options: crane card VERB --help.", required: false}
+    examples:
+      - crane card show
+      - crane card export fastsim --out /tmp/card.json
+
+  - name: crane fit
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane fit
+    summary: An astro bundle to a profile (through the gate) and a plant card (through its bags as evidence); prints each parameter's status and why.
+    ros: python3 -m Tools.Characterization.from_bundle
+    notes: Writes OUT/profile.json (sim_up --profile-json), OUT/profile.gate.json, OUT/cards and OUT/fit.json. A bundle made without --bags gives the gate only; --bags DIR reads bags beside it. --factorial SPEC.yaml writes card variants and a manifest.
+    params:
+      - {name: bundles, type: list, description: Astro bundles (.tgz); each is one session., required: false}
+      - {name: "--out", type: path, description: "Output dir (default BUNDLE.fit/ beside the first bundle, else ~/.cache/crane/fit/BUNDLE/ when that is not writable)."}
+      - {name: "--bags", type: path, description: A bag dir to read besides the bundle (read only; repeatable).}
+      - {name: "--base", description: The base profile the gate imports into (default Ideal).}
+      - {name: "--robot", description: The card's robot name (default astro/<state file stem>).}
+      - {name: "--n", type: int, default: 64, description: Rollouts per held-out segment.}
+      - {name: "--no-card", type: bool, description: "Stop after the gate (no evidence, no card)."}
+      - {name: "--factorial", type: path, description: Card variants from a spec (measured vs prior levels per property).}
+    examples:
+      - crane fit bundle-173031.tgz --bags ~/astro_dock/bags/sim/2026-11-24/bags --out /tmp/fit
+
+  - name: crane field import
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane field import
+    summary: "A bundle (made with --bags), a bag dir or an .mcap file to crane.run/1 records: odometry trajectory, /events and log.txt lines, frame and clock."
+    params:
+      - {name: source, type: path, description: "A bundle, a rosbag2 dir or an .mcap file.", required: true}
+      - {name: "--out", type: path, description: The run dir (one bag) or the root (several)., required: true}
+      - {name: "--odom", default: /odom/local, description: The odometry topic.}
+      - {name: "--events", default: /events, description: The astro events topic.}
+      - {name: "--frame", description: ID=enu|ned for an odometry frame id that is not a REP 103/105 name. (repeatable)}
+      - {name: "--hz", type: float, default: 20.0, description: The trajectory rate (Hz).}
+      - {name: "--domain", default: boat, description: The run's domain.}
+    examples:
+      - crane field import ~/astro_dock/bags/sim/2026-11-24/bags/171208-smoke --out /tmp/field
+
+  - name: crane compare
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane compare
+    summary: "Two run sets as a Markdown table and JSON: variant A/B on one frame and clock, tier gap (--tiers) or field vs sim per astro test (--field BUNDLE RUNS)."
+    params:
+      - {name: runs, type: list, description: "Two run sets, A then B; with --field, the sim runs.", required: true}
+      - {name: "--tiers", type: bool, description: "A is the lower tier, B the higher."}
+      - {name: "--field", type: path, description: An astro bundle to compare the runs against.}
+      - {name: "--metric", description: Only these metrics (repeatable).}
+      - {name: "--direction", default: higher, choices: [higher, lower], description: "--tiers: better is higher or lower."}
+      - {name: "--band", type: float, description: "--tiers: the allowed |low - high| gap (metric units)."}
+      - {name: "--fidelity", type: path, description: "--tiers: also replay B's goal windows on CONFIG's vehicle."}
+      - {name: "--bounds", description: "--field: pass/FAIL per row against config/fidelity/DOMAIN.yaml ('file') or FILE, and the fit's gate; a verdict line, exit 1 on FAIL ('card': not yet available)."}
+      - {name: "--fit", type: path, description: "--bounds: the `crane fit --out` dir whose gate is required (default fit-<bundle>)."}
+      - {name: "--domain", default: boat, description: "--bounds: config/fidelity/DOMAIN.yaml."}
+      - {name: "--out", type: path, description: Write compare.json and compare.md here.}
+      - {name: "--json", type: bool, description: "One JSON document: {schema, kind, result}; with --bounds, result holds rows, gate and verdict."}
+    examples:
+      - crane compare --field bundle-173031.tgz runs/sim
+      - crane compare --field bundle-173031.tgz runs/sim --bounds file --fit /tmp/fit
+
+  - name: crane view
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane view
+    summary: The native sandbox window. Replay runs overlaid in one frame and clock, or run a T0/T1 sim live with sliders, rerun from t, and Promote to a crane run spec. --screenshot renders offscreen (no window).
+    params:
+      - {name: runs, type: list, description: "crane.run/1 dirs, fastsim run dirs or .ctraj files.", required: false}
+      - {name: "--live", type: bool, description: "Run the sim in-process (with --domain, --tier T0|T1, --seed)."}
+      - {name: "--domain", default: boat, description: "live: the domain."}
+      - {name: "--tier", default: T1, choices: [T0, T1, abstract, dynamic], description: "live: the tier."}
+      - {name: "--seed", type: int, description: "live: the scenario seed."}
+      - {name: "--offset", description: "Run 2, 3, ...: the first run's time of its t = 0. (repeatable)"}
+      - {name: "--transform", description: "Run 2, 3, ...: {from, to, xyz, yaw} mapping its origin onto the first run's. (repeatable)"}
+      - {name: "--3d", type: bool, description: Open in the 3-D view (6-DOF records).}
+      - {name: "--screenshot", type: path, description: Render offscreen to this PNG and exit.}
+      - {name: "--at", type: float, description: "Screenshot: the playhead time (s; default the end)."}
+      - {name: "--promote-dir", type: path, default: runs/promoted, description: Where Promote writes specs.}
+    examples:
+      - crane view --live --domain boat --tier T1 --seed 3
+      - crane view /tmp/runs/base/s3 --screenshot /tmp/view.png --at 60
+
+  - name: crane board
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane board
+    summary: The web replay board over local runs (crane.run/1 records and .ctraj), courses and judge reports; prints its URL.
+    ros: python3 -m viewer serve
+    params:
+      - {name: roots, type: list, description: Dirs to index (default .)., required: false}
+      - {name: "--port", type: int, default: 8765, description: Local port.}
+      - {name: "--host", default: 127.0.0.1, description: The address to bind.}
+    examples:
+      - crane board /tmp/runs
 
   - name: crane bench
-    run: PYTHONPATH="${CRANE_DIR:-$HOME/crane_ml}${PYTHONPATH:+:$PYTHONPATH}" python3 -m crane bench
-    summary: 'Throughput benchmarks: player (Unity player real-time factor, through heavy unity) or fast (not yet available here; use python3 -m bench.fast).'
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane bench
+    summary: "Throughput benchmarks: player (the unity player real-time factor: one worker, or a sweep over worker counts, through heavy unity); fast (fast-tier throughput: the scalar table b, the batched engine (--engine batched) or the gate-3 equivalence report (--equivalence))."
     params:
-      - {name: what, choices: [player, fast], description: Which benchmark.}
-      - {name: --sweep, type: list, description: 'player: worker counts to sweep (default config/bench.yaml).'}
+      - {name: verb, choices: [player, fast], description: Which benchmark., required: true}
+      - {name: args, type: list, description: "The verb's options: crane bench VERB --help.", required: false}
     examples:
-      - python3 -m crane bench player --sweep 1 2 4
+      - crane bench player --sweep 1 2 4
+      - crane bench fast --engine batched --domain boat --tier T1 --backend numba,jax --E 1024,4096 --out /tmp/bench
 
   - name: crane build player
-    run: PYTHONPATH="${CRANE_DIR:-$HOME/crane_ml}${PYTHONPATH:+:$PYTHONPATH}" python3 -m crane build player
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane build player
     summary: Build the headless Linux player through heavy unity and stamp its manifest with the source commit.
     notes: Needs the project's Unity editor. --skip-unity only stamps and packs an existing Builds/CRANE-Worker.
     params:
-      - {name: --tarball, type: bool, description: 'Also write Builds/crane-player-<commit12>-linux-x86_64.tar.zst and its .sha256.'}
-      - {name: --skip-unity, type: bool, description: Stamp and pack an existing build only.}
-      - {name: --dry-run, type: bool, description: Print the Unity command and stop.}
+      - {name: "--tarball", type: bool, description: Also write the player tarball and its .sha256.}
+      - {name: "--skip-unity", type: bool, description: Stamp and pack an existing build only.}
+      - {name: "--editor", type: path, description: "The Unity editor (default UNITY_EDITOR, else the ProjectVersion.txt editor)."}
+      - {name: "--builds", type: path, description: The Builds dir (default <repo>/Builds).}
+      - {name: "--dry-run", type: bool, description: Print the Unity command and stop.}
     examples:
-      - python3 -m crane build player --tarball
+      - crane build player --tarball
 
-  - name: crane card
-    run: PYTHONPATH="${CRANE_DIR:-$HOME/crane_ml}${PYTHONPATH:+:$PYTHONPATH}" python3 -m crane card
-    summary: 'Show a plant card, or export one of its tier views (unity | nlc | control | fastsim) as JSON.'
+  - name: crane doctor
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane doctor
+    summary: Check this machine (python, extras, the T2 player and its flags, heavy, astro_dock, GPU) and print the next commands.
+    notes: Read-only; safe any time. Exit 1 only when the core (python >= 3.10, numpy, pyyaml) is broken.
     params:
-      - {name: action, choices: [show, export], description: show or export.}
-      - {name: args, type: list, required: false, description: 'show [REF] | export VIEW [REF] [--out FILE].'}
+      - {name: "--json", type: bool, description: One JSON document.}
+      - {name: "--quiet", type: bool, description: Only results and failures.}
     examples:
-      - python3 -m crane card show roboboat/blastoise@HEAD
+      - crane doctor

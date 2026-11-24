@@ -1,9 +1,9 @@
-# crane sim (Tools/RoboBoat/sim_up) and crane doctor. Flat keys: sim_up reads them with sed, no YAML parser.
+# crane sim's defaults. Everything a domain's T2 world needs (scene, player flags, current, ROS side, ready
+# marker) lives in config/domains/<domain>.yaml under tiers.T2. Flat keys, so a reader needs no YAML parser.
 
-# The Roboboat Course scene's water current, SPEED,TOWARD_DEG (m/s; toward, counter-clockwise from world +x of
-# /crane/odom): its water surface has largeCurrentSpeedValue 0.15 and HDRP orientation 0, which is toward 270 deg.
-# `sim_up up --current X,Y` overrides it, `--current 0` is still water; `sim_up status` prints the active one.
-default_current: 0.15,270
+# The domain `crane sim` runs when --domain is not given.
+domain: boat
 
-# A player sim_up can run knows this flag (sim_up has_flags; crane doctor checks it the same way).
+# The flag a player must know to run the default domain's world (crane doctor checks it). It mirrors
+# config/domains/boat.yaml tiers.T2.required_flag; tests/test_sim.py keeps the two equal.
 required_flag: --crane-roboboat-contract

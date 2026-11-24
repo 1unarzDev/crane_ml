@@ -33,3 +33,14 @@ def player_candidates():
     out += [PLAYER_BUILD / 'CRANE.x86_64', HOME / '.cache' / 'crane-phase1' / 'player' / 'CRANE.x86_64']
     out += sorted(PLAYER_STORE.glob('*/CRANE.x86_64'))
     return out
+
+
+def fit_out(bundle):
+    """Where `crane fit` writes by default: BUNDLE's dir/<stem>.fit/, else ~/.cache/crane/fit/<stem>/ when that is not writable."""
+    bundle = Path(bundle).expanduser()
+    stem = bundle.name.split('.')[0]
+    beside = bundle.parent / f'{stem}.fit'
+    probe = beside if beside.exists() else bundle.parent
+    if os.access(probe, os.W_OK | os.X_OK) and (beside.is_dir() or not beside.exists()):
+        return beside
+    return Path.home() / '.cache' / 'crane' / 'fit' / stem

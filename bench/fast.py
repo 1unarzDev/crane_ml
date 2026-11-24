@@ -332,6 +332,11 @@ def main(argv=None, prog='bench.fast'):
     return 0
 
 
+def crane_main(argv):
+    """`crane bench fast ...` (the CLI passes ['fast', *args])."""
+    return main(list(argv)[1:], prog='crane bench fast')
+
+
 def batched_main(a):
     from bench import batched
     from fastsim.batch import adapter_of

@@ -22,7 +22,7 @@ the name. Delta is sim - field. The CI (95 %, ``judge.stats.bootstrap_ci``) resa
 samples when the metric has them (t95), else the sim runs when there are two or more.
 
 **--bounds.** With ``--field``: pass/fail per row against ``config/fidelity/<domain>.yaml`` (``--bounds FILE``
-names another file), the gate of the fit (``--fit DIR``, else ``fit-<bundle>``) and a verdict line. Exit 0
+names another file), the gate of the fit (``--fit DIR``, else where ``crane fit`` writes by default) and a verdict line. Exit 0
 pass, 1 fail, 2 usage. ``--bounds card`` (tolerances from the plant card's spread) is not yet available.
 """
 
@@ -35,6 +35,8 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import numpy as np
+
+from crane import paths
 
 SAMPLE_LISTS = ('measured.t95',)
 
@@ -229,8 +231,8 @@ def judge_row(row, rule):
 
 
 def read_gate(bundle, fit_dir=None):
-    """{'checked', 'ok', 'not_identified', 'note'} from ``crane fit``'s fit.json (``fit-<bundle>`` by default)."""
-    d = Path(fit_dir) if fit_dir else Path(f'fit-{Path(bundle).name.split(".")[0]}')
+    """{'checked', 'ok', 'not_identified', 'note'} from ``crane fit``'s fit.json (its default dir for the bundle, ``paths.fit_out``)."""
+    d = Path(fit_dir) if fit_dir else paths.fit_out(bundle)
     f = d / 'fit.json'
     if not f.is_file():
         return {'checked': False, 'ok': None, 'not_identified': [],
@@ -511,9 +513,10 @@ def main(args):
         print(f'crane compare: {error}', file=sys.stderr)
         return 2
     md = bounds_text(res) if kind == 'bounds' else markdown(kind, res)
-    doc = {'kind': kind, 'result': res}
+    doc = {'schema': 'crane.compare/1', 'kind': kind, 'result': res}
     if as_json:
-        sys.stdout.write(json.dumps(res if kind == 'bounds' else doc, indent=1, default=str) + '\n')
+        from crane.output import dumps
+        print(dumps(json.loads(json.dumps(doc, default=str))))
     else:
         sys.stdout.write(md)
     if args.out:
