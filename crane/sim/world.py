@@ -125,7 +125,8 @@ def status_lines(s):
         lines += [f"  tier:      T1 (odom {s['odom']}, rate {t1.rate_text(s['rate'] or 1)})",
                   f"  vessel:    {s['vessel']}   ROS_DOMAIN_ID {s['ros_domain_id'] or '-'}   endpoint none (T1)"]
         w = s['world']
-        lines.append(f"  world:     T1 node running, t {w['t_sim']:.1f} s sim, {w['rate']:g}x real time"
+        pace = f"{w['rate']:g}x real time" if w['rate'] else 'starting'     # the first heartbeat has no rate yet
+        lines.append(f"  world:     T1 node running, t {w['t_sim']:.1f} s sim, {pace}"
                      if w['running'] else '  world:     T1 node stopped')
     else:
         lines.append(f"  vessel:    {s['vessel']}   ROS_DOMAIN_ID {s['ros_domain_id'] or '-'}   endpoint 127.0.0.1:{s['port'] or '-'}")
