@@ -1,35 +1,52 @@
-# Boat card factorial at T1: two plant cards (named sources pre/measured) x a heading-gain source x every row of a
-# condition table x 2 seeds. Conditions split by their `split` column: calib runs now, test is held out until the
-# targets file is committed and the run says --confirm. The values here are illustrative, not study parameters.
+# Boat plant-card factorial at T1, the crane.study/1 example of card axes, plugins, population scorers, censoring and a
+# session-held-out split. The values are illustrative, not study parameters; the condition rows are made up.
 #   crane study plan examples/studies/boat_cards.yaml
-#   crane study run examples/studies/boat_cards.yaml --block calib --max-workers 8
-#   crane study run examples/studies/boat_cards.yaml --block test --confirm
+#   crane study run examples/studies/boat_cards.yaml --max-workers 8         # every block but the held-out sessions
+#   crane study run examples/studies/boat_cards.yaml --block test --confirm  # session s3, once the targets are committed
+#   crane study report ~/.cache/crane/studies/boat_cards
 schema: crane.study/1
 name: boat_cards
 domain: boat
 tier: T1
+engine: batched                       # one engine call per cell x seed chunk; arms with Python mission code run scalar
+backend: numba                        # numpy (numpy alone), numba (every core) or jax (GPU; float32)
+plugins: [plugins]                    # on sys.path for this study's runs only; their git state goes in the manifest
 arms:
-  pre: {card: ideal}                  # Tools/Characterization/profiles/ideal.json
-  measured: {card: characterized}     # Tools/Characterization/profiles/characterized.json
-axes:
-  gain:                               # named sources: each level is a value set
-    levels:
-      pre: {vehicle.gain: 1.0}
-      measured: {vehicle.gain: 0.85}
+  reference: {}                       # the domain's batched mission
+  capped: {mission: 'capped:CappedAdapter', set: {adapter.options.cap_mps: 1.0}}   # plugin mission: scalar path
+card: ideal                           # the base card the card axes edit (Tools/Characterization/profiles/ideal.json)
+card_axes:                            # crossed lazily; each cell's derived card is OUT/cards/SHA.json, its sha in rows
+  thrust:                             # a named source: the fields' values from another card file
+    fields: [thrusters.*.kForward, thrusters.*.kReverse]
+    levels: {pre: base, measured: cards/measured_thrust.json}
+  timing:                             # values: the fields set
+    fields: [thrusters.*.deadTime, thrusters.*.tauT]
+    levels: {pre: base, measured: {values: {thrusters.*.deadTime: 0.1, thrusters.*.tauT: 0.05}}}
+  surge:                              # a multiplicative transform over several fields
+    fields: [addedMass.a11, surge.d1Pos, surge.d1Neg, surge.d2Pos, surge.d2Neg]
+    transform: scale
+    levels: [0.5, 1.0, 2.0]           # levels x0.5, x1, x2
 conditions:
-  csv: boat_conditions.csv            # one condition per row
+  csv: boat_sessions.csv              # one condition per row
   id: id
   set: {range_m: perception.range_m, time_limit_s: time_limit_s}
-splits: {column: split, roles: {calib: calib, test: held-out}}
+splits:                               # by a condition column: session s3 is held out, every other session calibrates
+  column: session_id
+  groups: {test: [s3], calib: '*'}
+  roles: {calib: calib, test: held-out}
 seeds:
   check: {role: check, seeds: '0:2'}
 targets: boat_cards.targets.yaml
-baseline: pre
-scorer: scorers.py:boat
-metrics: [succeeded, run.sim_s, run.contacts, run.min_clearance_m]
-record: {level: traj_decimated, hz: 20, until_s: 12}   # the calibration window: 20 Hz for the first 12 s
-pack: {unit_s: 1.5, target_s: 900}
+baseline: reference
+scorer: calib:parts                   # a unit scorer from the plugin dir: rows get score.success, score.gates
+scorers:                              # population scorers: the rows of one card x block in, named parts out
+  - {fn: 'calib:gate_fit', over: arm x card x block}
+report:
+  population: {part: gate_fit.loss, order: min, cluster: cond.session_id, B: 200}   # rank cards on calib, Spearman vs held-out
+metrics: [succeeded, run.sim_s, run.contacts, boat.gates_passed]
+record: metrics
+pack: {unit_s: {scalar: 0.3, batched: 0.01}, target_s: 900}
 campaign: boat-cards
-purpose: Boat plant-card factorial at T1 over a condition table, the crane.study/1 example with a held-out split.
-expect: measured card tracks the calibration conditions at least as well as the pre card
+purpose: Boat plant-card factorial at T1 over a condition table, the crane.study/1 example with a held-out session.
+expect: the card ranking on calibration sessions carries over to the held-out session
 pin: {tags: [cloud-ok]}

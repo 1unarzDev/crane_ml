@@ -16,7 +16,6 @@ concurrency:
 env:
   PYTEST_PIN: pytest==8.3.5
   RUFF_PIN: ruff==0.12.5
-  IMAGE: lunarzdev/crane
 
 jobs:
   # The landing gate: lint, shell syntax, the contracts and every suite on 3.12. Only this job blocks.
@@ -83,17 +82,15 @@ jobs:
       - name: crane doctor
         run: '"$HOME/.local/bin/crane" doctor'
 
-  # crane:core (Dockerfile.core): built and smoke-tested on every run; pushed as core-<sha> on main only, never :latest.
+  # crane:core (Dockerfile.core): built and smoke-tested on every run, never pushed (images.yml is the only publisher).
   image:
     runs-on: ubuntu-24.04
     continue-on-error: true
     timeout-minutes: 30
-    env:
-      HAVE_HUB: ${{ secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
-      - name: Build crane:core without publishing
+      - name: Build crane:core without publishing (images.yml publishes)
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -114,14 +111,3 @@ jobs:
           mb=$(( $(docker save crane:core-ci | gzip -1 | wc -c) / 1000000 ))
           echo "crane:core ${mb} MB compressed (limit 300 MB)"
           test "$mb" -lt 300
-      - name: Log in to Docker Hub
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && env.HAVE_HUB == 'true'
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Push lunarzdev/crane:core-<sha>
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && env.HAVE_HUB == 'true'
-        run: |
-          docker tag crane:core-ci "$IMAGE:core-$GITHUB_SHA"
-          docker push "$IMAGE:core-$GITHUB_SHA"

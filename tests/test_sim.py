@@ -647,3 +647,28 @@ def test_t1_up_status_check_and_down_with_the_odom_modes(world_env, monkeypatch,
                        (['up', '--tier', 'T1', '--set', 'a.b=1'], '--set needs the generator')):
         assert sim.main(args) == 2, args
         assert says in capsys.readouterr().err, args
+
+
+def test_sim_up_runs_on_enter_enter_every_param_has_a_default_and_each_picker_lists_valid_values(capsys):
+    """astro's form for sim up: every param shows a default and a meaning; the pickers (sim up --list) print
+    VALUE<TAB>meaning lines whose values sim up accepts; --current default is the scene's; --tier T1/T0 refuse in
+    one line naming crane run."""
+    import yaml
+    entry = next(c for c in yaml.safe_load((ROOT / 'help.yaml').read_text())['commands'] if c['name'] == 'crane sim up')
+    assert all('default' in p and p['description'] for p in entry['params']), entry['params']
+    assert {'crane sim up', 'crane sim up --current 0', 'crane sim up --headless --seed 3'} <= set(entry['examples'])
+    listed = {}
+    for what in ('seed', 'env', 'current', 'tier'):
+        assert sim.main(['up', '--list', what]) == 0
+        rows = [line.split('\t') for line in capsys.readouterr().out.splitlines()]
+        assert rows and all(len(r) == 2 and r[0] and r[1] for r in rows), (what, rows)
+        listed[what] = [r[0] for r in rows]
+    params = {p['name']: p for p in entry['params']}
+    for what in ('seed', 'env', 'current', 'tier'):
+        assert str(params[f'--{what}']['default']) in listed[what], what       # the default is a listed choice
+        assert params[f'--{what}']['choices_from'].endswith(f'crane sim up --list {what}')
+    assert [player.parse_current(v) for v in listed['current']][:2] == [None, '0,0']
+    assert listed['tier'] == ['T2', 'T1', 'T0'] and world.display_mode('auto') == 'headless'   # no TTY here
+    assert sim.main(['up', '--tier', 'T0']) == 2                                  # T0 runs as batches only
+    err = capsys.readouterr().err
+    assert err.count('\n') == 1 and 'crane run --domain boat --tier T0' in err

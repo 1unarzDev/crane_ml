@@ -9,26 +9,29 @@ commands:
     summary: Start a domain's T2 world (the Unity player through heavy unity, plus its ROS side), or with --tier T1 its T1 world (the plant twin as a ROS node beside the same ROS side, no player), and return once the course is ready; prints the status block.
     level: core
     ros: Tools/RoboBoat/sim_up up
-    notes: "Waits up to 60 s for the ROS endpoint and 300 s (SIM_UP_READY_S) for the course. Without --display, a window only on a terminal with a display, else headless under xvfb-run. Refuses (exit 2) while a sim runs. Exit 0 ready, 1 the world failed, 2 usage or config. Everything specific comes from config/domains/DOMAIN.yaml tiers.T2. Env: ROS_DOMAIN_ID, ASTRO_STATE / MHSEALS_HARDWARE_CONFIG (passed into the ROS side), the image env, SIM_UP_*, CRANE_PLAYER, HEAVY. Same as Tools/RoboBoat/sim_up. T1 (tiers.T1.sim, Docs/SimT1.md): the node publishes what the player does (/crane/odom, /imu/raw, /gps/fix, /clock; /odom/mavros with --odom sensors, /odom/local, /odom/global and TF with --odom truth, which turns localization off) and steps on /thrusters/pwm; waits up to 60 s for the node; no window, no heavy unity."
+    notes: "Every param has a default, so the bare command runs: the default course with its realistic current, seed 1, a window only on a terminal with a display. Waits up to 60 s for the ROS endpoint and 300 s (SIM_UP_READY_S) for the course. --tier T1/T0 refuse in one line naming crane run (the batch form of those tiers). Refuses (exit 2) while a sim runs. Exit 0 ready, 1 the world failed, 2 usage or config. Everything specific comes from config/domains/DOMAIN.yaml tiers.T2. Env: ROS_DOMAIN_ID, ASTRO_STATE / MHSEALS_HARDWARE_CONFIG (passed into the ROS side), the image env, SIM_UP_*, CRANE_PLAYER, HEAVY. Same as Tools/RoboBoat/sim_up. T1 (tiers.T1.sim, Docs/SimT1.md): no Unity; a ROS node steps the plant-card twin and publishes what the player does (/crane/odom, /imu/raw, /gps/fix, /clock; /odom/mavros with --odom sensors; /odom/local, /odom/global and TF with --odom truth, which turns localization off) and drives on /thrusters/pwm."
     params:
-      - {name: "--seed", type: int, description: The world seed (default 1).}
-      - {name: "--env", description: "KIND:NAME, the world (default course:roboboat_2026); --course FAMILY is the same as --env course:FAMILY."}
-      - {name: "--card", type: path, description: A plant profile JSON or a card name (--profile-json is the same).}
-      - {name: "--profile", description: The player's runtime profile (default interactive-low).}
-      - {name: "--current", description: "SPEED,TOWARD_DEG (m/s, deg), or 0 for still water (default the scene current)."}
-      - {name: "--display", choices: [window, headless], description: "Window or xvfb (--window, --headless are the same)."}
-      - {name: "--player", type: path, description: "The player (else CRANE_PLAYER, then the build)."}
-      - {name: "--robot", description: The domain's robot.}
-      - {name: "--set", description: Pin one world parameter (repeatable).}
-      - {name: "--tier", choices: [T2, T1], description: "T2 the Unity world (default), T1 the twin (no player)."}
-      - {name: "--odom", choices: [sensors, truth], description: "T1: raw sensors for the real EKFs (default), or truth odometry and TF with localization off."}
-      - {name: "--rate", type: float, description: "T1: N x real time (default 1)."}
-      - {name: "--domain", description: config/domains/DOMAIN.yaml (default boat).}
-      - {name: "--dry-run", type: bool, description: Print the resolved player argv and docker run; start nothing.}
-      - {name: "--json", type: bool, description: "Progress on stderr, the status as one JSON document."}
+      - {name: "--seed", type: int, default: 1, description: "The world seed: the same seed, the same course layout and buoys (default 1).", choices_from: "${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim up --list seed"}
+      - {name: "--env", default: course:roboboat_2026, description: "The world, KIND:NAME (default course:roboboat_2026); --course FAMILY is the same as --env course:FAMILY.", choices_from: "${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim up --list env"}
+      - {name: "--card", type: path, default: none, description: "The boat's plant: a profile JSON or a card name (default none: the player's built-in plant; --profile-json is the same)."}
+      - {name: "--profile", default: interactive-low, description: The player's render and physics quality (default interactive-low).}
+      - {name: "--current", default: default, description: "The water current: default (the scene's, 0.15 m/s toward 270 deg), 0 (still water, for characterization) or SPEED,TOWARD_DEG (m/s, deg).", choices_from: "${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim up --list current"}
+      - {name: "--display", default: auto, choices: [auto, window, headless], description: "auto: a window on a terminal with a display, else headless (xvfb); --window and --headless are the same."}
+      - {name: "--player", type: path, default: auto, description: "The Unity player to run (default auto: CRANE_PLAYER, the build, then the installed player).", choices_from: "for p in \"$CRANE_PLAYER\" \"${CRANE_DIR:-$HOME/crane_ml}/Builds/CRANE-Worker/CRANE.x86_64\" \"$HOME/.cache/crane-phase1/player/CRANE.x86_64\" \"$HOME/.local/share/crane/player/current/CRANE.x86_64\"; do [ -x \"$p\" ] && echo \"$p\"; done; true"}
+      - {name: "--tier", default: T2, choices: [T2, T1, T0], description: "T2: the Unity world, real time, full sensors and ROS (default). T1: the dynamic plant-card twin, no Unity, same ROS topics, can run faster than real time. T0 (abstract) runs as batches only: crane run --tier T0.", choices_from: "${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim up --list tier"}
+      - {name: "--odom", default: sensors, choices: [sensors, truth], description: "T1 only: sensors feeds the real localization like the boat (default); truth publishes perfect odometry and turns localization off."}
+      - {name: "--rate", type: float, default: 1, description: "T1 only: run N times faster than real time (default 1)."}
+      - {name: "--robot", default: blastoise, description: The domain's robot (default blastoise).}
+      - {name: "--set", default: none, description: "Pin one course parameter, KEY=VALUE (default none; repeatable)."}
+      - {name: "--domain", default: boat, description: "Which world: config/domains/DOMAIN.yaml (default boat)."}
+      - {name: "--dry-run", type: bool, default: false, description: Print the resolved player argv and docker run; start nothing (default off).}
+      - {name: "--json", type: bool, default: false, description: "Progress on stderr, the status as one JSON document (default off)."}
     examples:
-      - crane sim up --headless --seed 3 --current 0
+      - crane sim up
+      - crane sim up --current 0
+      - crane sim up --headless --seed 3
       - crane sim up --card characterized --headless
+      - crane sim up --tier T1
       - crane sim up --tier T1 --odom truth --rate 2
       - crane sim up --dry-run
 
@@ -95,7 +98,7 @@ commands:
     level: setup
     ros: python3 -m fastsim.batch --config CONFIG --seeds 0:3 --out OUT
     params:
-      - {name: "--domain", description: "A domain: config/domains/DOMAIN.yaml (boat, toy)."}
+      - {name: "--domain", description: "A domain: config/domains/DOMAIN.yaml (boat, sub, drones, modular, toy)."}
       - {name: "--config", type: path, description: "A fastsim domain YAML, used as is."}
       - {name: "--tier", choices: [T0, T1, T2, abstract, dynamic, unity], description: "The tier (default: the domain's first tier, T0 with --config)."}
       - {name: "--seeds", description: "N, A:B (B exclusive), a,b,c, @FILE or block:NAME (required, except with --astro-test: 0)."}
@@ -110,8 +113,11 @@ commands:
       - {name: "--backend", default: numba, choices: [numpy, numba, jax], description: "With --engine batched: numpy (float64 reference), numba (every core) or jax (GPU)."}
       - {name: "--dtype", choices: [float64, float32], description: "With --engine batched: default float64; jax on a consumer GPU wants float32 (bench/RESULTS.md)."}
       - {name: "--record", type: int, description: "With --engine batched: also write traj.ctraj with every K-th track row (default: run.json, events.jsonl, metrics.json only)."}
+      - {name: "--replay", type: path, description: "A domain whose tier replays logged command timelines (modular): an npz of cmd [M, T, 3]; every seed replays every timeline."}
+      - {name: "--robot", description: "The domain's robot (modular: an assembly, default the domain's)."}
+      - {name: "--env", description: "The world (modular: route:NAME or route:random)."}
       - {name: "--astro-test", description: "An astro test or group (still, couple-*, speed-*, steps-*, nav2, all) at T0/T1, with metrics named as astro's result fields."}
-      - {name: "--card", description: "With --astro-test: a profile JSON, a plant card or a factorial manifest (repeatable)."}
+      - {name: "--card", description: "A profile JSON or a name in the domain's card dir, bound to its card.keys (config/domains/D.yaml); with --astro-test also a plant card or a factorial manifest; modular: a profile, REF#VARIANT for one plate state (repeatable)."}
       - {name: "--tests", type: path, description: "With --astro-test: astro's tests file or a bundle holding one."}
       - {name: "--space", description: "With --astro-test: the tests file's space (default large)."}
       - {name: "--amp", type: float, description: "With --astro-test: the effort amplitude (default the space's)."}
@@ -121,17 +127,32 @@ commands:
     examples:
       - crane run --domain toy --seeds 0:3
       - crane run --domain boat --tier T1 --seeds 0:2 --out /tmp/runs
+      - crane run --domain sub --tier T1 --engine batched --seeds 0:64
       - crane run --domain boat --tier T1 --astro-test speed-surge --card /tmp/fit/profile.json
+      - "crane run --domain modular --replay timelines.npz --seeds 0:24 --card example#plated"
 
-  - name: crane card
-    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane card
-    summary: "Plant cards: show, export, fit, validate: show (a plant card: one row per block (parameters with their sd and status) and the validation rows); export (one of a card's tier views (unity | nlc | control | fastsim) as json)."
+  - name: crane card show
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane card show
+    summary: "A plant card: one row per block (parameters with their sd and status) and the validation rows."
     level: setup
+    ros: python3 -m plantcard show
     params:
-      - {name: verb, choices: [show, export], description: show or export., required: true}
-      - {name: args, type: list, description: "The verb's options: crane card VERB --help.", required: false}
+      - {name: ref, description: "FAMILY/ROBOT@HEAD, a sha prefix or a card dir (default: plantcard's default card).", required: false}
+      - {name: "--json", type: bool, description: The card as one JSON document.}
     examples:
       - crane card show
+      - crane card show FAMILY/ROBOT@HEAD --json
+
+  - name: crane card export
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane card export
+    summary: One of a card's tier views (unity | nlc | control | fastsim) as JSON.
+    level: setup
+    ros: python3 -m plantcard export
+    params:
+      - {name: view, choices: [unity, nlc, control, fastsim], description: The tier view., required: true}
+      - {name: ref, description: "The card (default: plantcard's default card).", required: false}
+      - {name: "--out", type: path, description: Write the JSON here.}
+    examples:
       - crane card export fastsim --out /tmp/card.json
 
   - name: crane fit
@@ -220,16 +241,28 @@ commands:
     examples:
       - crane board /tmp/runs
 
-  - name: crane bench
-    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane bench
-    summary: "Throughput benchmarks: player (the unity player real-time factor: one worker, or a sweep over worker counts, through heavy unity); fast (fast-tier throughput: the scalar table b, the batched engine (--engine batched) or the gate-3 equivalence report (--equivalence))."
+  - name: crane bench player
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane bench player
+    summary: "The Unity player real-time factor: one worker, or a sweep over worker counts, through heavy unity."
     level: setup
+    ros: bin/heavy unity Tools/Bench/sweep_workers.sh 1 2 4
     params:
-      - {name: verb, choices: [player, fast], description: Which benchmark., required: true}
-      - {name: args, type: list, description: "The verb's options: crane bench VERB --help.", required: false}
+      - {name: "--worker", type: int, description: Run one worker with this id.}
+      - {name: "--sweep", type: list, description: Worker counts to sweep (default config/bench.yaml).}
     examples:
       - crane bench player --sweep 1 2 4
+
+  - name: crane bench fast
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane bench fast
+    summary: "Fast-tier throughput: the scalar table B, the batched engine (--engine batched) or the gate-3 equivalence report (--equivalence)."
+    level: setup
+    ros: python3 -m bench.fast
+    params:
+      - {name: args, type: list, description: "bench.fast's options (python3 -m bench.fast --help): --domain, --tier, --seeds, --engine batched, --backend, --E, --out, --equivalence.", required: false}
+    examples:
       - crane bench fast --engine batched --domain boat --tier T1 --backend numba,jax --E 1024,4096 --out /tmp/bench
+      - crane bench fast --equivalence --tier T1 --seeds 0:500
+      - crane bench fast --domain boat --tier T1 --seeds 0:50 --out /tmp/b
 
   - name: crane build player
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane build player
@@ -239,11 +272,52 @@ commands:
     params:
       - {name: "--tarball", type: bool, description: Also write the player tarball and its .sha256.}
       - {name: "--skip-unity", type: bool, description: Stamp and pack an existing build only.}
-      - {name: "--editor", type: path, description: "The Unity editor (default UNITY_EDITOR, else the ProjectVersion.txt editor)."}
+      - {name: "--editor", type: path, default: auto, description: "The Unity editor (default UNITY_EDITOR, else the ProjectVersion.txt editor)."}
       - {name: "--builds", type: path, description: The Builds dir (default <repo>/Builds).}
       - {name: "--dry-run", type: bool, description: Print the Unity command and stop.}
     examples:
       - crane build player --tarball
+
+  - name: crane deploy
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane deploy
+    summary: "Bring a host up to this checkout over ssh: check its disk, sync the code (git fetch from this machine + ff-only, or rsync when it has no checkout), make its .venv (install.sh), send the T2 player with --player (sha256 checked there, current + prev kept), then run crane doctor there."
+    level: setup
+    ros: ssh HOST 'cd ~/crane_ml && git fetch ssh://THISHOST/REPO main && git merge --ff-only FETCH_HEAD'
+    notes: Touches only ~/crane_ml, ~/.local/bin/crane and the player store (~/.local/share/crane/player) on HOST. Refuses (exit 2) when HOST has less free space than the player (tarball and unpacked) plus 1 GB, when its checkout cannot fast-forward, or when ~/crane_ml there is neither a crane checkout nor an earlier deploy. The .venv step runs install.sh --yes --no-clone --components LIST there (uv, Python 3.12) when HOST has no .venv or --components is given. The player tarball is --tarball, else the newest Builds/crane-player-*.tar.* with its .sha256 (a warn row when its commit is not the code's), else the release player; rsync --partial resumes a cut transfer. HOST fetches the full commit from --from (default ssh://THISHOST/REPO, CRANE_DEPLOY_FROM). local:DIR deploys into DIR as the home (no ssh; for tests). Exit 0 ok, 1 a step or the remote doctor failed, 2 usage or a refusal.
+    params:
+      - {name: host, description: "HOST or USER@HOST for ssh, or local:DIR.", required: true}
+      - {name: "--player", type: bool, description: Also send and install the T2 player.}
+      - {name: "--tarball", type: path, description: The player tarball (implies --player).}
+      - {name: "--ref", default: HEAD, description: "The branch or commit HOST gets (default HEAD, this checkout's commit)."}
+      - {name: "--components", description: "The host .venv's components, through install.sh --yes --no-clone (default core; run when HOST has no .venv, or when given)."}
+      - {name: "--no-venv", type: bool, description: Skip the .venv step.}
+      - {name: "--from", description: The git URL HOST fetches from (default ssh://THISHOST/REPO).}
+      - {name: "--dry-run", type: bool, description: Probe HOST and print the plan; change nothing.}
+      - {name: "--json", type: bool, description: One JSON document.}
+    examples:
+      - crane deploy HOST --dry-run
+      - crane deploy HOST --player
+      - crane deploy HOST --components core,fast --player
+
+  - name: crane update
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane update
+    summary: Update this checkout (git fetch + ff-only) or this install (the release wheel), then the T2 player from the release into the player store (sha256 checked, current + prev kept).
+    level: setup
+    ros: git fetch && git merge --ff-only @{u}; curl -LO RELEASE/ASSET; sha256sum -c
+    notes: The release is release.json of the latest GitHub Release, or of v<VERSION> (CRANE_RELEASES overrides the base URL or names a local dir laid out the same way). A checkout with no release yet still fast-forwards. Refuses (exit 2) when the store's disk has less free space than the player (tarball and unpacked) plus 1 GB. Exit 1 when a file fails its sha256 check. --tarball installs a local player tarball (crane deploy runs it on the host).
+    params:
+      - {name: "--version", description: That release (default the latest); a checkout fast-forwards to its tag vX.Y.Z.}
+      - {name: "--player-only", type: bool, description: Only the player.}
+      - {name: "--no-player", type: bool, description: Only the code.}
+      - {name: "--tarball", type: path, description: Install this local player tarball instead of the release's.}
+      - {name: "--sha256", description: "--tarball's digest (default its .sha256 file)."}
+      - {name: "--store", type: path, description: The player store (default ~/.local/share/crane/player).}
+      - {name: "--dry-run", type: bool, description: Print the steps; change nothing.}
+      - {name: "--json", type: bool, description: One JSON document.}
+    examples:
+      - crane update
+      - crane update --dry-run
+      - crane update --version 0.3.0 --player-only
 
   - name: crane doctor
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane doctor
@@ -255,3 +329,20 @@ commands:
       - {name: "--quiet", type: bool, description: Only results and failures.}
     examples:
       - crane doctor
+
+  - name: crane setup
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane setup
+    summary: "The setup wizard: detect this machine, choose components and domains, show sizes and times, install them (install.sh, the release player), then run crane doctor."
+    level: setup
+    ros: ./install.sh --yes --components core,fast; crane update --player-only
+    notes: "Interactive with rich and questionary (the [setup] extra), else plain prompts; --yes takes the defaults or --components/--domains and asks nothing. Components: core, fast, gpu, view, field, data (pip extras, through install.sh), player (the release player, crane update --player-only), astro (a read-only check of the astro integration). The choices are saved to ~/.config/crane/setup.json. Never builds astro images or workspaces (astro owns those)."
+    params:
+      - {name: "--yes", type: bool, description: "Ask nothing: the defaults, or the lists given."}
+      - {name: "--components", default: auto, description: "Comma list (default core, plus fast on a multicore box, gpu with an NVIDIA driver, player with a display or astro_dock)."}
+      - {name: "--domains", description: Comma list of config/domains names (default all).}
+      - {name: "--dry-run", type: bool, description: Detect and plan; install nothing.}
+      - {name: "--json", type: bool, description: One JSON document (implies --yes).}
+    examples:
+      - crane setup
+      - crane setup --yes --components core,fast,player --domains boat
+      - crane setup --yes --dry-run

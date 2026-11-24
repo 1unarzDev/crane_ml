@@ -71,7 +71,6 @@ class Noun:
     name: str
     summary: str
     aliases: tuple = ()
-    export: str = ''               # export the noun itself to help.yaml: the description of its verb param
     owner: str = ''                # a tool that owns the noun's words: other verbs and options-only go to it
     verbs: list = field(default_factory=list, compare=False)
 
@@ -94,7 +93,7 @@ NOUNS = [
     Noun('data', 'datasets from runs: export, schema, splits'),
     Noun('monitor', 'progress of local and cluster work in one view'),
     Noun('env', 'worlds: courses, scenes, worlds (kind from --env)', aliases=('course',)),
-    Noun('card', 'plant cards: show, export, fit, validate', export='show or export.'),
+    Noun('card', 'plant cards: show, export, fit, validate'),
     Noun('fit', 'field data to a profile and a plant card'),
     Noun('field', 'field data as crane.run/1 records'),
     Noun('compare', 'compare two run sets'),
@@ -103,12 +102,12 @@ NOUNS = [
     Noun('view', 'the native sandbox window'),
     Noun('board', 'the web replay board'),
     Noun('media', 'renders, shots and assembled videos'),
-    Noun('bench', 'throughput benchmarks', export='Which benchmark.'),
+    Noun('bench', 'throughput benchmarks'),
     Noun('cluster', 'research-cluster jobs: submit, wait, status, fetch (other verbs go to the research CLI)',
          owner='crane.wrap:cluster'),
     Noun('build', 'build the player, images and the wheel'),
-    Noun('deploy', 'install crane and the player on a host'),
-    Noun('update', 'update this checkout from a release'),
+    Noun('deploy', 'sync crane and the T2 player to a host'),
+    Noun('update', 'update crane and the T2 player from a release'),
     Noun('heavy', 'the machine-wide concurrency guard'),
     Noun('doctor', 'check this machine'),
     Noun('setup', 'the setup wizard'),
@@ -124,37 +123,50 @@ COMMANDS = [
             about='one line as the ROS side starts and one as the player is queued on `heavy unity`, then the status '
                   'block (mode, ROS_DOMAIN_ID, endpoint, player pgid, ROS container, course, current, logs, next:). '
                   '--dry-run: the resolved player argv and docker run, nothing starts (crane.sim.plan/1 with --json).',
-            notes='Waits up to 60 s for the ROS endpoint and 300 s (SIM_UP_READY_S) for the course. Without '
-                  '--display, a window only on a terminal with a display, else headless under xvfb-run. Refuses '
+            notes='Every param has a default, so the bare command runs: the default course with its realistic current, '
+                  'seed 1, a window only on a terminal with a display. Waits up to 60 s for the ROS endpoint and 300 s '
+                  '(SIM_UP_READY_S) for the course. --tier T1/T0 refuse in one line naming crane run (the batch '
+                  'form of those tiers). Refuses '
                   '(exit 2) while a sim runs. Exit 0 ready, 1 the world failed, 2 usage or config. Everything '
                   'specific comes from config/domains/DOMAIN.yaml tiers.T2. Env: ROS_DOMAIN_ID, ASTRO_STATE / '
                   'MHSEALS_HARDWARE_CONFIG (passed into the ROS side), the image env, SIM_UP_*, CRANE_PLAYER, HEAVY. '
-                  'Same as Tools/RoboBoat/sim_up. T1 (tiers.T1.sim, Docs/SimT1.md): the node publishes what the '
-                  'player does (/crane/odom, /imu/raw, /gps/fix, /clock; /odom/mavros with --odom sensors, '
-                  '/odom/local, /odom/global and TF with --odom truth, which turns localization off) and steps on '
-                  '/thrusters/pwm; waits up to 60 s for the node; no window, no heavy unity.',
-            params=(P('--seed', 'int', description='The world seed (default 1).'),
-                    sel('env', description='KIND:NAME, the world (default course:roboboat_2026); --course FAMILY is '
-                        'the same as --env course:FAMILY.'),
-                    sel('card', type='path', description='A plant profile JSON or a card name (--profile-json is the '
-                        'same).'),
-                    P('--profile', description="The player's runtime profile (default interactive-low)."),
-                    P('--current', metavar='SPEED,TOWARD_DEG', description='SPEED,TOWARD_DEG (m/s, deg), or 0 for '
-                      'still water (default the scene current).'),
-                    P('--display', choices=('window', 'headless'), description='Window or xvfb (--window, --headless '
-                      'are the same).'),
-                    P('--player', 'path', description='The player (else CRANE_PLAYER, then the build).'),
-                    sel('robot'),
-                    P('--set', metavar='K=V', repeat=True, description='Pin one world parameter (repeatable).'),
-                    P('--tier', choices=('T2', 'T1'), description='T2 the Unity world (default), T1 the twin (no '
-                      'player).'),
-                    P('--odom', choices=('sensors', 'truth'), description='T1: raw sensors for the real EKFs '
-                      '(default), or truth odometry and TF with localization off.'),
-                    P('--rate', 'float', metavar='N', description='T1: N x real time (default 1).'),
-                    sel('domain', description='config/domains/DOMAIN.yaml (default boat).'),
-                    P('--dry-run', 'bool', description='Print the resolved player argv and docker run; start nothing.'),
-                    P('--json', 'bool', description='Progress on stderr, the status as one JSON document.')),
-            examples=('crane sim up --headless --seed 3 --current 0', 'crane sim up --card characterized --headless',
+                  'Same as Tools/RoboBoat/sim_up. T1 (tiers.T1.sim, Docs/SimT1.md): no Unity; a ROS '
+                  'node steps the plant-card twin and publishes what the player does (/crane/odom, '
+                  '/imu/raw, /gps/fix, /clock; /odom/mavros with --odom sensors; /odom/local, /odom/global '
+                  'and TF with --odom truth, which turns localization off) and drives on /thrusters/pwm.',
+            params=(P('--seed', 'int', default=1, description='The world seed: the same seed, the same course layout '
+                      'and buoys (default 1).'),
+                    sel('env', default='course:roboboat_2026', description='The world, KIND:NAME (default '
+                        'course:roboboat_2026); --course FAMILY is the same as --env course:FAMILY.'),
+                    sel('card', type='path', default='none', description="The boat's plant: a profile JSON or a card "
+                        "name (default none: the player's built-in plant; --profile-json is the same)."),
+                    P('--profile', default='interactive-low', description="The player's render and physics quality "
+                      '(default interactive-low).'),
+                    P('--current', metavar='default|0|SPEED,TOWARD_DEG', default='default',
+                      description="The water current: default (the scene's, 0.15 m/s toward 270 deg), 0 (still water, "
+                      'for characterization) or SPEED,TOWARD_DEG (m/s, deg).'),
+                    P('--display', choices=('auto', 'window', 'headless'), default='auto',
+                      description='auto: a window on a terminal with a display, else headless (xvfb); --window and '
+                      '--headless are the same.'),
+                    P('--player', 'path', description='The Unity player to run (default auto: CRANE_PLAYER, the build, '
+                      'then the installed player).'),
+                    P('--tier', choices=('T2', 'T1', 'T0'), default='T2', description='T2: the Unity world, real time, '
+                      'full sensors and ROS (default). T1: the dynamic plant-card twin, no Unity, same ROS topics, can '
+                      'run faster than real time. T0 (abstract) runs as batches only: crane run --tier T0.'),
+                    P('--odom', choices=('sensors', 'truth'), default='sensors', description='T1 only: sensors feeds '
+                      'the real localization like the boat (default); truth publishes perfect odometry and turns '
+                      'localization off.'),
+                    P('--rate', 'float', metavar='N', default=1, description='T1 only: run N times faster than real '
+                      'time (default 1).'),
+                    sel('robot', default='blastoise', description="The domain's robot (default blastoise)."),
+                    P('--set', metavar='K=V', repeat=True, default='none', description='Pin one course parameter, '
+                      'KEY=VALUE (default none; repeatable).'),
+                    sel('domain', default='boat', description='Which world: config/domains/DOMAIN.yaml (default boat).'),
+                    P('--dry-run', 'bool', description='Print the resolved player argv and docker run; start nothing '
+                      '(default off).'),
+                    P('--json', 'bool', description='Progress on stderr, the status as one JSON document (default off).')),
+            examples=('crane sim up', 'crane sim up --current 0', 'crane sim up --headless --seed 3',
+                      'crane sim up --card characterized --headless', 'crane sim up --tier T1',
                       'crane sim up --tier T1 --odom truth --rate 2', 'crane sim up --dry-run'),
             raw='Tools/RoboBoat/sim_up up'),
     Command(('sim', 'down'), "Stop what crane sim up started: its player's process group (TERM, KILL after 10 s) and "
@@ -211,7 +223,8 @@ COMMANDS = [
             'crane.run:main', flags=(JSON, QUIET, DRY), groups=('source',), json='crane.run.summary/1', export=True,
             about='one line per seed (run dir, outcome, sim and wall time), then runs/s and next:. --dry-run prints '
                   'the resolved plan and runs nothing; --json prints one summary document.',
-            params=(sel('domain', group='source', description='A domain: config/domains/DOMAIN.yaml (boat, toy).'),
+            params=(sel('domain', group='source', description='A domain: config/domains/DOMAIN.yaml (boat, sub, drones, '
+                                'modular, toy).'),
                     P('--config', 'path', group='source', description='A fastsim domain YAML, used as is.'),
                     sel('tier', choices=('T0', 'T1', 'T2', 'abstract', 'dynamic', 'unity'),
                         description="The tier (default: the domain's first tier, T0 with --config)."),
@@ -235,10 +248,15 @@ COMMANDS = [
                       'float64; jax on a consumer GPU wants float32 (bench/RESULTS.md).'),
                     P('--record', 'int', default=0, metavar='K', description='With --engine batched: also write '
                       'traj.ctraj with every K-th track row (default: run.json, events.jsonl, metrics.json only).'),
+                    P('--replay', 'path', metavar='TIMELINES', description='A domain whose tier replays logged '
+                      'command timelines (modular): an npz of cmd [M, T, 3]; every seed replays every timeline.'),
+                    sel('robot', description="The domain's robot (modular: an assembly, default the domain's)."),
+                    sel('env', description='The world (modular: route:NAME or route:random).'),
                     P('--astro-test', metavar='TEST', description="An astro test or group (still, couple-*, speed-*, "
                       "steps-*, nav2, all) at T0/T1, with metrics named as astro's result fields."),
-                    sel('card', repeat=True, description='With --astro-test: a profile JSON, a plant card or a '
-                        'factorial manifest (repeatable).'),
+                    sel('card', repeat=True, description="A profile JSON or a name in the domain's card dir, bound "
+                        "to its card.keys (config/domains/D.yaml); with --astro-test also a plant card or a "
+                        'factorial manifest; modular: a profile, REF#VARIANT for one plate state (repeatable).'),
                     P('--tests', 'path', description="With --astro-test: astro's tests file or a bundle holding one."),
                     P('--space', description="With --astro-test: the tests file's space (default large)."),
                     P('--amp', 'float', description="With --astro-test: the effort amplitude (default the space's)."),
@@ -246,7 +264,9 @@ COMMANDS = [
                     P('--dry-run', 'bool', description='Print the resolved plan; run nothing.')),
             examples=('crane run --domain toy --seeds 0:3',
                       'crane run --domain boat --tier T1 --seeds 0:2 --out /tmp/runs',
-                      'crane run --domain boat --tier T1 --astro-test speed-surge --card /tmp/fit/profile.json'),
+                      'crane run --domain sub --tier T1 --engine batched --seeds 0:64',
+                      'crane run --domain boat --tier T1 --astro-test speed-surge --card /tmp/fit/profile.json',
+                      'crane run --domain modular --replay timelines.npz --seeds 0:24 --card example#plated'),
             raw='python3 -m fastsim.batch --config CONFIG --seeds 0:3 --out OUT'),
 
     # ---- study ----------------------------------------------------------------------------------------------
@@ -280,7 +300,7 @@ COMMANDS = [
                   'held-out blocks skipped, where the rows and manifest are, and next:.',
             notes='OUT/progress.json is rewritten at least every 60 s (CRANE_RUN_DIR overrides where). Units are '
                   'cached in OUT/cache/records.jsonl on (study, stage, arm, cell hash, seed, card hash, code commit) '
-                  'as each finishes; rerunning the same command runs only the missing ones. A held-out block refuses '
+                  'within 1 s of finishing; rerunning the same command runs only the missing ones. A held-out block refuses '
                   '(exit 2) without --confirm, or when the spec\'s targets file is not committed, has local changes '
                   'or is not older than now. Exit 0 ok, 1 units failed, 2 spec, usage or refusal.',
             params=(P('spec', 'path', description='The study spec (YAML).'),
@@ -567,13 +587,13 @@ COMMANDS = [
 
     # ---- card, fit, field, compare, judge, check --------------------------------------------------------------
     Command(('card', 'show'), 'A plant card: one row per block (parameters with their sd and status) and the '
-            'validation rows.', 'crane.wrap:card', passthrough=True, flags=(JSON,), json='crane.card/1',
+            'validation rows.', 'crane.wrap:card', passthrough=True, flags=(JSON,), json='crane.card/1', export=True,
             about='a text table; --json: the card document (robot, sha, status, blocks, validation).',
             params=(P('ref', nargs='?', description="FAMILY/ROBOT@HEAD, a sha prefix or a card dir (default: "
                       "plantcard's default card)."), P('--json', 'bool', description='The card as one JSON document.')),
             examples=('crane card show', 'crane card show FAMILY/ROBOT@HEAD --json'), raw='python3 -m plantcard show'),
     Command(('card', 'export'), "One of a card's tier views (unity | nlc | control | fastsim) as JSON.",
-            'crane.wrap:card', passthrough=True, about='JSON on stdout, or --out FILE.',
+            'crane.wrap:card', passthrough=True, export=True, about='JSON on stdout, or --out FILE.',
             params=(P('view', choices=('unity', 'nlc', 'control', 'fastsim'), description='The tier view.'),
                     P('ref', nargs='?', description="The card (default: plantcard's default card)."),
                     P('--out', 'path', description='Write the JSON here.')),
@@ -715,7 +735,7 @@ COMMANDS = [
 
     # ---- bench, cluster, build, deploy, update, heavy, doctor, setup ------------------------------------------
     Command(('bench', 'player'), 'The Unity player real-time factor: one worker, or a sweep over worker counts, '
-            'through heavy unity.', 'crane.wrap:bench',
+            'through heavy unity.', 'crane.wrap:bench', export=True,
             about='per-worker results under PerformanceResults/ and, for a sweep, a summary.json per worker count. '
                   'Player settings come from env (CRANE_PLAYER, CRANE_DURATION, CRANE_SCENE, ...).',
             params=(P('--worker', 'int', default=0, description='Run one worker with this id.'),
@@ -723,9 +743,12 @@ COMMANDS = [
                       'config/bench.yaml).')),
             examples=('crane bench player --sweep 1 2 4',), raw='bin/heavy unity Tools/Bench/sweep_workers.sh 1 2 4'),
     Command(('bench', 'fast'), 'Fast-tier throughput: the scalar table B, the batched engine (--engine batched) or '
-            'the gate-3 equivalence report (--equivalence).', 'bench.fast:crane_main', passthrough=True,
+            'the gate-3 equivalence report (--equivalence).', 'bench.fast:crane_main', passthrough=True, export=True,
             about="bench.fast's tables: bench.json/bench.md (scalar) or batched.json/batched.md (episodes/s per "
                   'backend and E, x table B, the time split); arguments go to bench.fast unchanged.',
+            params=(P('args', 'list', nargs='*', metavar='OPTION', description="bench.fast's options (python3 -m "
+                      'bench.fast --help): --domain, --tier, --seeds, --engine batched, --backend, --E, --out, '
+                      '--equivalence.'),),
             examples=('crane bench fast --engine batched --domain boat --tier T1 --backend numba,jax --E 1024,4096 '
                       '--out /tmp/bench', 'crane bench fast --equivalence --tier T1 --seeds 0:500',
                       'crane bench fast --domain boat --tier T1 --seeds 0:50 --out /tmp/b'),
@@ -828,14 +851,81 @@ COMMANDS = [
                     P('--builds', 'path', description='The Builds dir (default <repo>/Builds).'),
                     P('--dry-run', 'bool', description='Print the Unity command and stop.')),
             examples=('crane build player --tarball',)),
-    Command(('build', 'images'), 'The crane docker images (core, gpu, sim), pinned by commit.',
-            today='docker build on the Dockerfiles', examples=('crane build images core',)),
-    Command(('build', 'wheel'), 'The crane wheel and sdist.', today='python3 -m build', examples=('crane build wheel',)),
-    Command(('deploy',), 'Install crane (a venv) and the player on a host, then run crane doctor there.',
-            today='rsync the checkout, then ./install.sh --yes on the host', examples=('crane deploy HOST',),
-            params=(P('host', description='The host.'),)),
-    Command(('update',), 'Update this checkout from a release.', today='git pull, then ./install.sh --yes',
-            examples=('crane update',)),
+    Command(('build', 'images'), 'Build the crane docker images (core, gpu, sim) tagged with the commit '
+            '(crane:KIND-<commit12>); sim packs a player tarball into crane:core.', 'crane.build:images_main',
+            flags=(DRY,),
+            about='the docker build command per image, then one row per image (tag, size unpacked) and next:. '
+                  '--dry-run prints the commands only.',
+            notes='core < 300 MB compressed; gpu = python:3.12-slim + jax[cuda12] + numba, < 4 GB; sim = core + the '
+                  'player + xvfb/Mesa Vulkan, about 1.2 GB. sim takes the tarball from --player (default the newest '
+                  'Builds/crane-player-*.tar.* with its .sha256) and is built on the core image of the same run. '
+                  'Never pushes: .github/workflows/images.yml pushes lunarzdev/crane:KIND-<sha> (never :latest).',
+            params=(P('kinds', 'list', nargs='*', choices=('core', 'gpu', 'sim'), metavar='KIND',
+                      description='core, gpu, sim (default core).'),
+                    P('--player', 'path', description='The player tarball for sim (its .sha256 beside it).'),
+                    P('--repo', default='crane', description='The image name (lunarzdev/crane in CI).'),
+                    P('--dry-run', 'bool', description='Print the docker build commands; build nothing.')),
+            examples=('crane build images core gpu', 'crane build images sim --player Builds/crane-player-X.tar.zst'),
+            raw='docker build -f Dockerfile.KIND -t crane:KIND-COMMIT .'),
+    Command(('build', 'wheel'), 'Build the crane wheel and sdist (uv build, else python3 -m build) and their '
+            'sha256.', 'crane.build:wheel_main', flags=(JSON, DRY),
+            about='the build command, then one row per file (name, size, sha256[:12]) and next:.',
+            params=(sel('out', description='Where the files go (default ~/.cache/crane/dist).'),
+                    P('--dry-run', 'bool', description='Print the build command only.'),
+                    P('--json', 'bool', description='One JSON document.')),
+            examples=('crane build wheel', 'crane build wheel --out dist'), raw='uv build --out-dir DIR'),
+    Command(('deploy',), 'Bring a host up to this checkout over ssh: check its disk, sync the code (git fetch from '
+            'this machine + ff-only, or rsync when it has no checkout), make its .venv (install.sh), send the T2 '
+            'player with --player (sha256 checked there, current + prev kept), then run crane doctor there.',
+            'crane.deploy:main',
+            flags=(JSON, DRY), json='crane.deploy/1', export=True,
+            about='the probe line (free disk, checkout, player), one row per step as it runs, then the host\'s crane '
+                  'doctor table and next:. --dry-run: the probe and the plan; nothing changes on the host.',
+            notes='Touches only ~/crane_ml, ~/.local/bin/crane and the player store (~/.local/share/crane/player) '
+                  'on HOST. Refuses (exit 2) when HOST has less free space than the player (tarball and unpacked) '
+                  'plus 1 GB, when its checkout cannot fast-forward, or when ~/crane_ml there is neither a crane '
+                  'checkout nor an earlier deploy. The .venv step runs install.sh --yes --no-clone --components '
+                  'LIST there (uv, Python 3.12) when HOST has no .venv or --components is given. The player tarball '
+                  'is --tarball, else the newest Builds/crane-player-*.tar.* with its .sha256 (a warn row when its '
+                  'commit is not the code\'s), else the release player; rsync --partial resumes a cut transfer. '
+                  'HOST fetches the full commit from --from (default ssh://THISHOST/REPO, CRANE_DEPLOY_FROM). local:DIR '
+                  'deploys into DIR as the home (no ssh; for tests). Exit 0 ok, 1 a step or the remote doctor '
+                  'failed, 2 usage or a refusal.',
+            params=(P('host', description='HOST or USER@HOST for ssh, or local:DIR.'),
+                    P('--player', 'bool', description='Also send and install the T2 player.'),
+                    P('--tarball', 'path', description='The player tarball (implies --player).'),
+                    P('--ref', default='HEAD', description='The branch or commit HOST gets (default HEAD, this '
+                      "checkout's commit)."),
+                    P('--components', metavar='A,B', description="The host .venv's components, through install.sh "
+                      '--yes --no-clone (default core; run when HOST has no .venv, or when given).'),
+                    P('--no-venv', 'bool', description='Skip the .venv step.'),
+                    P('--from', dest='source', metavar='URL', description='The git URL HOST fetches from (default '
+                      'ssh://THISHOST/REPO).'),
+                    P('--dry-run', 'bool', description='Probe HOST and print the plan; change nothing.'),
+                    P('--json', 'bool', description='One JSON document.')),
+            examples=('crane deploy HOST --dry-run', 'crane deploy HOST --player', 'crane deploy HOST --components core,fast --player'),
+            raw="ssh HOST 'cd ~/crane_ml && git fetch ssh://THISHOST/REPO main && git merge --ff-only FETCH_HEAD'"),
+    Command(('update',), 'Update this checkout (git fetch + ff-only) or this install (the release wheel), then the '
+            'T2 player from the release into the player store (sha256 checked, current + prev kept).',
+            'crane.update:main', flags=(JSON, DRY), json='crane.update/1', export=True,
+            about='the release line, one row per step (code, player), then next:. --dry-run prints the steps only.',
+            notes='The release is release.json of the latest GitHub Release, or of v<VERSION> (CRANE_RELEASES '
+                  'overrides the base URL or names a local dir laid out the same way). A checkout with no release '
+                  'yet still fast-forwards. Refuses (exit 2) when the store\'s disk has less free space than the '
+                  'player (tarball and unpacked) plus 1 GB. Exit 1 when a file fails its sha256 check. --tarball '
+                  'installs a local player tarball (crane deploy runs it on the host).',
+            params=(P('--version', metavar='X.Y.Z', description='That release (default the latest); a checkout '
+                      'fast-forwards to its tag vX.Y.Z.'),
+                    P('--player-only', 'bool', description='Only the player.'),
+                    P('--no-player', 'bool', description='Only the code.'),
+                    P('--tarball', 'path', description='Install this local player tarball instead of the '
+                      "release's."),
+                    P('--sha256', metavar='HEX', description="--tarball's digest (default its .sha256 file)."),
+                    P('--store', 'path', description='The player store (default ~/.local/share/crane/player).'),
+                    P('--dry-run', 'bool', description='Print the steps; change nothing.'),
+                    P('--json', 'bool', description='One JSON document.')),
+            examples=('crane update', 'crane update --dry-run', 'crane update --version 0.3.0 --player-only'),
+            raw='git fetch && git merge --ff-only @{u}; curl -LO RELEASE/ASSET; sha256sum -c'),
     Command(('heavy',), 'The machine-wide concurrency guard for Unity, sims and test suites.', 'crane.wrap:heavy',
             passthrough=True, about="heavy's own output: it waits for a slot (bounded, exit 75 on timeout), runs CMD "
             'and releases it. `crane heavy status` lists the slots, the queue and ETAs.',
@@ -847,8 +937,26 @@ COMMANDS = [
             notes='Read-only; safe any time. Exit 1 only when the core (python >= 3.10, numpy, pyyaml) is broken.',
             params=(P('--json', 'bool', description='One JSON document.'),),
             examples=('crane doctor',)),
-    Command(('setup',), 'The setup wizard.', today='./install.sh [--yes] [--components core,fast,gpu,view,field,setup]',
-            examples=('crane setup',)),
+    Command(('setup',), 'The setup wizard: detect this machine, choose components and domains, show sizes and '
+            'times, install them (install.sh, the release player), then run crane doctor.', 'crane.setup:main',
+            flags=(JSON, DRY), json='crane.setup/1', export=True,
+            about='the detected machine (OS, cores, GPU and driver, docker, astro_dock, Unity editor, display), '
+                  'the component and domain choices with sizes and time estimates, one line per install step, '
+                  'then crane doctor. --dry-run stops after the plan.',
+            notes='Interactive with rich and questionary (the [setup] extra), else plain prompts; --yes takes the '
+                  'defaults or --components/--domains and asks nothing. Components: core, fast, gpu, view, field, '
+                  'data (pip extras, through install.sh), player (the release player, crane update '
+                  '--player-only), astro (a read-only check of the astro integration). The choices are saved to '
+                  '~/.config/crane/setup.json. Never builds astro images or workspaces (astro owns those).',
+            params=(P('--yes', 'bool', description='Ask nothing: the defaults, or the lists given.'),
+                    P('--components', metavar='A,B', description='Comma list (default core, plus fast on a '
+                      'multicore box, gpu with an NVIDIA driver, player with a display or astro_dock).'),
+                    P('--domains', metavar='A,B', description='Comma list of config/domains names (default all).'),
+                    P('--dry-run', 'bool', description='Detect and plan; install nothing.'),
+                    P('--json', 'bool', description='One JSON document (implies --yes).')),
+            examples=('crane setup', 'crane setup --yes --components core,fast,player --domains boat',
+                      'crane setup --yes --dry-run'),
+            raw='./install.sh --yes --components core,fast; crane update --player-only'),
 
     # ---- help -------------------------------------------------------------------------------------------------
     Command(('help',), 'The nouns and verbs; help NOUN for one noun; --check fails when help.yaml or Docs/CLI.md '
@@ -940,13 +1048,15 @@ def _scalar(value, flow=False):
     return json.dumps(text) if unsafe else text
 
 
-def _yaml_param(param, choices_from=None):
+def _yaml_param(param, choices_from=None, auto=False, form=False):
     kind = {'tier': 'str', 'env': 'str'}.get(param.type, param.type)
     d = {'name': param.name if not param.positional else (param.dest or param.name)}
     if kind != 'str':
         d['type'] = kind
-    if param.default not in (None, False, [], ()):
-        d['default'] = param.default
+    if auto:
+        d['default'] = 'auto'
+    elif param.default not in (None, False, [], ()) or (form and kind == 'bool'):
+        d['default'] = param.default or False
     if param.choices:
         d['choices'] = list(param.choices)
     d['description'] = param.description + (' (repeatable)' if param.repeat and 'repeatable' not in
@@ -965,18 +1075,9 @@ def _yaml_param(param, choices_from=None):
 
 
 def _entries():
-    """help.yaml's entries: the exported commands, and the exported nouns as NOUN VERB [ARGS]."""
+    """help.yaml's entries: the exported commands, one per NOUN VERB (astro's rule: never a verb/command param)."""
     out = []
     for n in NOUNS:
-        if n.export:
-            ready = [c for c in n.verbs if not c.today]
-            out.append(dict(name=f'crane {n.name}', words=(n.name,),
-                            summary=f'{n.summary[0].upper()}{n.summary[1:]}: ' + '; '.join(
-                                f'{c.verb} ({c.summary.split(". ")[0].rstrip(".").lower()})' for c in ready) + '.',
-                            params=[Param('verb', choices=tuple(c.verb for c in ready), description=n.export),
-                                    Param('args', 'list', nargs='*', description=f'The verb\'s options: crane '
-                                          f'{n.name} VERB --help.')],
-                            examples=[c.examples[0] for c in ready]))
         out += [dict(name=c.name, words=c.words, summary=c.summary, ros=c.raw, notes=c.notes, params=params_of(c),
                      examples=list(c.examples)) for c in COMMANDS if c.export and c.noun == n.name]
     return out
@@ -992,6 +1093,19 @@ PICKERS = {
                                '${ASTRO_DATA:-$HOME/astro_dock/bags}/*/*/bundle-*.tgz 2>/dev/null | head -n 30'),
     ('crane view', 'runs'): _RUNS,
     ('crane compare', 'runs'): _RUNS,
+    **{('crane sim up', f'--{w}'): f'{CRANE_RUN} sim up --list {w}' for w in ('seed', 'env', 'current', 'tier')},
+}
+# Commands whose form runs on Enter-Enter: every param shows a default, switches as off.
+FORMS = frozenset({'crane sim up'})
+# Params crane detects when unset: `default: auto` in help.yaml (astro shows "(auto: FOUND)"), with the detection
+# command as choices_from when there is one (its first line is what auto finds).
+_PLAYERS = ('for p in "$CRANE_PLAYER" "${CRANE_DIR:-$HOME/crane_ml}/Builds/CRANE-Worker/CRANE.x86_64" '
+            '"$HOME/.cache/crane-phase1/player/CRANE.x86_64" "$HOME/.local/share/crane/player/current/CRANE.x86_64"; '
+            'do [ -x "$p" ] && echo "$p"; done; true')
+AUTO = {
+    ('crane sim up', '--player'): _PLAYERS,
+    ('crane build player', '--editor'): None,
+    ('crane setup', '--components'): None,
 }
 
 
@@ -1013,7 +1127,10 @@ def help_yaml():
                 lines.append(f'    {key}: {_scalar(e[key])}')
         if e['params']:
             lines.append('    params:')
-            lines += [f'      - {_yaml_param(p, PICKERS.get((e["name"], p.dest or p.name)))}' for p in e['params']]
+            for p in e['params']:
+                key = (e['name'], p.dest or p.name)
+                shown = _yaml_param(p, PICKERS.get(key) or AUTO.get(key), key in AUTO, e['name'] in FORMS)
+                lines.append(f'      - {shown}')
         if e['examples']:
             lines.append('    examples:')
             lines += [f'      - {_scalar(x)}' for x in e['examples']]

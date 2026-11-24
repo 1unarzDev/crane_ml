@@ -332,14 +332,23 @@ def test_help_yaml_and_cli_md_are_generated_and_keep_astros_names(tmp_path, caps
     data = yaml.safe_load((ROOT / 'help.yaml').read_text())
     names = [c['name'] for c in data['commands']]
     assert set(names) >= {'crane doctor', 'crane run', 'crane view', 'crane board', 'crane fit', 'crane compare',
-                          'crane sim check', 'crane bench', 'crane build player', 'crane card', 'crane field import'}
+                          'crane sim check', 'crane bench player', 'crane bench fast', 'crane build player',
+                          'crane card show', 'crane card export', 'crane field import'}
     for command in data['commands']:
         words = shlex.split(command['run'].replace('${CRANE_DIR:-$HOME/crane_ml}', str(ROOT)))
         assert words[0] == str(LAUNCHER) and command['name'].split() == ['crane', *words[1:]]
-        assert reg.find(words[1:]) or reg.noun(words[1]).export, command['name']
+        assert reg.find(words[1:]), command['name']
         for param in command.get('params') or []:
             assert param['name'] and set(param) <= {'name', 'type', 'default', 'choices', 'choices_from', 'description',
                                                     'required', 'form'}
+    # astro's rule: a noun's actions are entries of their own, never a verb/command/action/subcommand param
+    bad = [(c['name'], p['name']) for c in data['commands'] for p in c.get('params') or []
+           if p['name'].lstrip('-') in ('verb', 'command', 'action', 'subcommand')]
+    assert not bad, bad
+    # every auto param names a param that exists, and shows as default: auto
+    auto = {(c['name'], p['name']) for c in data['commands'] for p in c.get('params') or []
+            if p.get('default') == 'auto' and 'auto' not in (p.get('choices') or [])}
+    assert auto == set(reg.AUTO), set(reg.AUTO) ^ auto
     # a drifted file is named with the fix
     (tmp_path / 'Docs').mkdir()
     shutil.copy(ROOT / 'Docs' / 'CLI.md', tmp_path / 'Docs' / 'CLI.md')
@@ -355,7 +364,7 @@ def test_sim_up_check_reaches_crane_and_a_bad_current_is_refused_before_anything
     assert check.returncode == 1 and 'sim check: not ready' in check.stdout  # nothing started under this SIM_UP_RUN
     bad = subprocess.run([paths.SIM_UP, 'up', '--current', 'fast'], env=env, capture_output=True, text=True,
                          timeout=30)
-    assert bad.returncode == 2 and '--current wants SPEED,TOWARD_DEG' in bad.stderr
+    assert bad.returncode == 2 and '--current wants default, 0 or SPEED,TOWARD_DEG' in bad.stderr
     assert not (tmp_path / 'run').exists()
 
 

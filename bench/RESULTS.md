@@ -126,3 +126,46 @@ episodes/s at E=1 and 2.5 at E=64 at T1, slower than scalar fastsim (4.33). It r
 reference path (float64, exact: E=1 writes the scalar run's files byte for byte), so it is the
 compatibility path for domains without a batched controller, not a fast one. Putting its plant and
 tracker on numba kernels per step is the step that makes it pay.
+
+## Sub T1: the 6-DOF marine kernel and the pool-gates mission
+
+```bash
+bin/heavy sim python3 -m domains.sub.bench --E 1,64,1024,4096,16384 --mission 1,64,1024,4096,16384 --out DIR
+```
+
+Measured on 2026-11-24 on the same host (i7-12700K, 20 threads; RTX 4070 Ti SUPER, `jax[cuda12]` 0.12.1;
+Python 3.12, numpy 2.5.5, numba 0.68.1). Raw report: `bench/results/sub-T1/sub.json`. A control period is
+dt = 0.02 s: one RK4 step of the 6-DOF plant (the generic eight-thruster profile, lag 0.02 s: one substep).
+Baseline: the sub platform's numpy twin (`VecDynamics.step`), 0.62 M env-periods/s at E=1024 and 0.77 M at
+E=4096 on this host.
+
+| kernel | E | env-periods/s | x numpy twin |
+|---|---:|---:|---:|
+| numba, all cores | 1 | 1.18 M | |
+| numba, all cores | 1,024 | 14.7 M | 24 |
+| numba, all cores | 4,096 | **19.4 M** | **25** |
+| numba, all cores | 16,384 | 17.4 M | |
+| jax float64, GPU | 4,096 | 20.6 M | 27 |
+| jax float64, GPU | 16,384 | 28.3 M | |
+| jax float32, GPU | 4,096 | 75.0 M | 98 |
+| jax float32, GPU | 16,384 | **99.4 M** | |
+| numpy (reference) | 4,096 | 0.39 M | 0.5 |
+
+The mission (numba, one compiled episode per env, every core; the first call, compile or cache load, apart):
+
+| E | episodes/s | env-periods/s | host setup s | succeeded |
+|---:|---:|---:|---:|---:|
+| 1 | 527 | 1.29 M | 0.00 | 1/1 |
+| 64 | 4,010 | 11.1 M | 0.00 | 64/64 |
+| 1,024 | 4,462 | 12.4 M | 0.29 | 1,024/1,024 |
+| 4,096 | 4,359 | 12.0 M | 0.83 | 4,091/4,096 |
+| 16,384 | **4,746** | 13.1 M | 3.12 | 16,355/16,384 |
+
+An episode is about 55 s simulated (2,800 periods: three gates and a 5 s hold). The autopilot, allocation,
+deadband and mission bookkeeping cost less than the plant (13 M periods/s with them against 17-19 M for the
+kernel alone). JAX float32 is 5x numba on this GPU for the kernel alone; the mission has no JAX twin yet.
+
+| gate | result |
+|---|---|
+| 1 kernel exactness | numpy, numba and JAX float64 (GPU; the test pins the CPU device) against `marine6_ref.Simulator.step` over 600 periods (NED current, lag, saturation, turns past 180 deg): max state error 2.7e-15 / 1.8e-15 / 7.1e-15 at one substep, 3.6e-15 / 3.6e-15 / 7.1e-15 at two; allocation within 1e-12 of the reference |
+| batch invariance | kernel: env i at E=1 = at E=1024 bit for bit (numpy), numba rows within 1e-12; mission: env i at E=1 = at E=1024 bit for bit (outcome, events, numbers, final state) under a per-env current and thrust noise |

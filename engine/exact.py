@@ -5,6 +5,7 @@
     exact.pyround(x, 4)           # == round(x, 4) (Python's correctly rounded decimal rounding)
     exact.fma(a, b, c)            # == fma(a, b, c), correctly rounded, without an fma instruction
     exact.matvec_blas(B, x)       # == B @ x for B [4, 3] as this host's OpenBLAS dgemv computes it
+    exact.openblas()              # numpy's BLAS is OpenBLAS (the order matvec_blas reproduces)
 
 The scalar path (fastsim, domains/boat) mixes three kinds of arithmetic: CPython's ``math`` (libm,
 except ``hypot``/``dist``, which CPython computes itself, correctly rounded in almost all cases),
@@ -63,6 +64,20 @@ def fma(a, b, c, xp=np):
     uh, ul = two_prod(a, b, xp)
     th, tl = two_sum(c, uh)
     return th + _odd_add(tl, ul, xp)
+
+
+def blas():
+    """The BLAS numpy was built against (e.g. 'scipy-openblas', 'cblas'), or 'unknown'."""
+    try:
+        return str(np.show_config(mode='dicts')['Build Dependencies']['blas']['name'])
+    except Exception:  # noqa: BLE001  an older numpy without mode='dicts'
+        return 'unknown'
+
+
+def openblas():
+    """Whether numpy's BLAS is OpenBLAS, whose dgemv order ``matvec_blas`` reproduces. On another BLAS (a distro's
+    reference CBLAS) the scalar path rounds differently and batched runs match it only up to that rounding."""
+    return 'openblas' in blas().lower()
 
 
 def matvec_blas(B, x, xp=np):

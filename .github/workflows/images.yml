@@ -1,0 +1,173 @@
+name: Images
+
+# lunarzdev/crane:{core,gpu,sim}-<sha>: pinned by commit, never :latest. astro's flow: build, push the staging tag
+# KIND-next, smoke-test what was pushed, then promote it to KIND-<sha> (and KIND-vX.Y.Z on a release) and rotate old
+# pins (docker/registry.py). Without the DOCKERHUB_USERNAME / DOCKERHUB_TOKEN secrets every image is still built and
+# smoke-tested locally, and the push, promote and rotate steps are skipped with one line.
+# core and gpu: on main and v* tags (when their inputs change on main) and by hand. sim needs the release's player
+# tarball: release.yml calls this workflow once the release exists, or dispatch it with a tag.
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+    paths:
+      - "Dockerfile.*"
+      - ".dockerignore"
+      - "pyproject.toml"
+      - "crane/**"
+      - "crane_backends/**"
+      - "fastsim/**"
+      - "engine/**"
+      - "judge/**"
+      - "docker/**"
+      - ".github/workflows/images.yml"
+  workflow_dispatch:
+    inputs:
+      kinds:
+        description: Images to build (comma list of core, gpu, sim)
+        default: core,gpu
+        type: string
+      tag:
+        description: The release tag whose player sim packs (vX.Y.Z; sim only)
+        required: false
+        type: string
+  workflow_call:
+    inputs:
+      kinds:
+        type: string
+        default: sim
+      tag:
+        type: string
+        required: true
+
+# One registry mutation at a time (astro's group name: the same Docker Hub account).
+concurrency:
+  group: docker-hub-mutations
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  IMAGE: lunarzdev/crane
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      kinds: ${{ steps.kinds.outputs.kinds }}
+      tag: ${{ steps.kinds.outputs.tag }}
+    steps:
+      - id: kinds
+        env:
+          INPUT_KINDS: ${{ inputs.kinds }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          kinds=${INPUT_KINDS:-core,gpu}
+          tag=$INPUT_TAG
+          case $GITHUB_REF in refs/tags/v*) tag=${tag:-${GITHUB_REF#refs/tags/}} ;; esac
+          case ",$kinds," in *,sim,*) test -n "$tag" || { echo "::error::sim needs a release tag (inputs.tag)"; exit 2; } ;; esac
+          json=$(printf '%s' "$kinds" | tr ',' '\n' | grep -E '^(core|gpu|sim)$' | jq -R . | jq -sc .)
+          test "$json" != "[]" || { echo "::error::no image among '$kinds' (core, gpu, sim)"; exit 2; }
+          echo "kinds=$json" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "images: $json${tag:+ (release $tag)}"
+
+  image:
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: ${{ fromJSON(needs.plan.outputs.kinds) }}
+    env:
+      KIND: ${{ matrix.kind }}
+      TAG: ${{ needs.plan.outputs.tag }}
+      HAVE_HUB: ${{ secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.plan.outputs.tag || github.sha }}
+      - name: Pin (the commit the image is built from)
+        run: |
+          sha=$(git rev-parse HEAD)
+          echo "SHA=$sha" >> "$GITHUB_ENV"
+          echo "LOCAL=crane:$KIND-ci" >> "$GITHUB_ENV"
+          echo "image $IMAGE:$KIND-$sha${TAG:+ and $IMAGE:$KIND-$TAG}"
+      - name: Free runner disk (the gpu image unpacks to about 10 GB)
+        if: matrix.kind == 'gpu'
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL && df -h /
+      - uses: docker/setup-buildx-action@v3
+      - name: The release player for sim (release.json's tarball, sha256 checked)
+        if: matrix.kind == 'sim'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/player"
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern release.json --dir "$RUNNER_TEMP"
+          name=$(jq -r .player.name "$RUNNER_TEMP/release.json")
+          sha=$(jq -r .player.sha256 "$RUNNER_TEMP/release.json")
+          test "$name" != null || { echo "::error::release $TAG has no player"; exit 1; }
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern "$name" --dir "$RUNNER_TEMP/player"
+          echo "$sha  $RUNNER_TEMP/player/$name" | sha256sum -c -
+          echo "PLAYER_SHA256=$sha" >> "$GITHUB_ENV"
+      - name: Build core (the base of sim)
+        if: matrix.kind == 'sim'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.core
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: crane:core-ci
+          cache-from: type=gha,scope=core
+      - name: Build ${{ matrix.kind }} without publishing
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.${{ matrix.kind }}
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: ${{ env.LOCAL }}
+          build-contexts: ${{ matrix.kind == 'sim' && format('player={0}/player', runner.temp) || '' }}
+          build-args: |
+            CORE_IMAGE=crane:core-ci
+            PLAYER_SHA256=${{ env.PLAYER_SHA256 }}
+          labels: |
+            org.opencontainers.image.revision=${{ env.SHA }}
+            org.opencontainers.image.version=${{ env.TAG }}
+          cache-from: type=gha,scope=${{ matrix.kind }}
+          cache-to: ${{ matrix.kind == 'core' && 'type=gha,mode=max,scope=core' || format('type=gha,mode=min,scope={0}', matrix.kind) }}
+      - name: Smoke-test (imports, CLI, boot.sh tools, no ENTRYPOINT, size)
+        run: docker/smoke.sh "$KIND" "$LOCAL"
+      - name: Registry (skipped without Docker Hub secrets)
+        if: env.HAVE_HUB != 'true'
+        run: echo "no DOCKERHUB_USERNAME/DOCKERHUB_TOKEN secrets; $IMAGE:$KIND-$SHA built and smoke-tested, not pushed"
+      - uses: docker/login-action@v3
+        if: env.HAVE_HUB == 'true'
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Push the staging tag ${{ matrix.kind }}-next and smoke-test it from the registry
+        if: env.HAVE_HUB == 'true'
+        run: |
+          docker tag "$LOCAL" "$IMAGE:$KIND-next"
+          docker push --quiet "$IMAGE:$KIND-next"
+          docker rmi "$LOCAL" "$IMAGE:$KIND-next" >/dev/null
+          docker pull --quiet "$IMAGE:$KIND-next"
+          docker/smoke.sh "$KIND" "$IMAGE:$KIND-next"
+      - name: Promote to ${{ matrix.kind }}-<sha> (and the release tag)
+        if: env.HAVE_HUB == 'true' && (github.ref == 'refs/heads/main' || needs.plan.outputs.tag != '')
+        run: |
+          docker buildx imagetools create --tag "$IMAGE:$KIND-$SHA" "$IMAGE:$KIND-next"
+          if [ -n "$TAG" ]; then docker buildx imagetools create --tag "$IMAGE:$KIND-$TAG" "$IMAGE:$KIND-next"; fi
+          echo "### $IMAGE:$KIND-$SHA" >> "$GITHUB_STEP_SUMMARY"
+      - name: Rotate old pins (keeps the newest 20 KIND-<sha> and every KIND-vX.Y.Z)
+        if: env.HAVE_HUB == 'true' && github.ref == 'refs/heads/main'
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: python3 docker/registry.py rotate --repository "$IMAGE" --kind "$KIND" --keep 20 --apply

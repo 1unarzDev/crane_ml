@@ -1,0 +1,12 @@
+{
+ "schema": "crane.modular.assembly/1",
+ "name": "diff-caster",
+ "about": "A differential pod: two conventional wheels on the axle and two ball casters fore and aft.",
+ "types": {
+  "diff": {"size": [0.30, 0.26], "wheel_radius": 0.0485,
+           "wheels": [{"kind": "conventional", "x": 0.0, "y": 0.11}, {"kind": "conventional", "x": 0.0, "y": -0.11},
+                      {"kind": "caster", "x": 0.12, "y": 0.0}, {"kind": "caster", "x": -0.12, "y": 0.0}]}
+ },
+ "modules": [{"id": "D1", "type": "diff", "x": 0.0, "y": 0.0, "yaw": 0.0}],
+ "imu": {"module": "D1", "x": 0.0, "y": 0.0}
+}

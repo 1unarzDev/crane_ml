@@ -1,0 +1,33 @@
+# The aerial stop as a G4 sweep: two stop commands (brake: velocity 0; hold: position hold) x approach speed x card
+# mass x motor time constants, 64 stops per cell, 10,240 in all, paired on the seed (the same heading and wind), on
+# the batched aerial kernel (domains/drones/braking.py; numba: a block of 64 seeds per call). The card is a
+# public x500 profile; the mass and tau levels are card variants. The values here are illustrative, not study
+# parameters.
+#   crane study plan examples/studies/braking.yaml
+#   crane study run examples/studies/braking.yaml
+#   crane study report ~/.cache/crane/studies/braking
+schema: crane.study/1
+name: braking
+tier: T1
+arms:
+  brake: {task: 'domains.drones.braking:stop', args: {card: x500, braking: {stop: brake}}}
+  hold: {task: 'domains.drones.braking:stop', args: {card: x500, braking: {stop: hold}}}
+axes:
+  v0: {param: v0, levels: [4.0, 8.0, 12.0, 16.0]}                       # m/s
+  mass: {param: variant.mass, levels: [2.064, 2.4, 2.7, 3.0]}             # kg (the card's is 2.064)
+  tau:                                                                    # motor up / down time constants, s
+    levels:
+      x1: {variant.tau_up: 0.0125, variant.tau_down: 0.025}               # the card's
+      x1.5: {variant.tau_up: 0.01875, variant.tau_down: 0.0375}
+      x2: {variant.tau_up: 0.025, variant.tau_down: 0.05}
+      x3: {variant.tau_up: 0.0375, variant.tau_down: 0.075}
+      x4: {variant.tau_up: 0.05, variant.tau_down: 0.1}
+seeds:
+  dev: {role: dev, seeds: '0:64'}
+metrics: [stopped, stop_distance_m, stop_time_s, overshoot_m, lateral_m, alt_loss_m, max_tilt_deg, saturated_s,
+          v_cmd_mps]
+baseline: brake
+pack: {unit_s: 0.0005, local_chunk: 64}
+campaign: drones-braking
+purpose: Stopping distance, time and altitude loss of the aerial T1 plant across approach speed, mass and motor lag.
+expect: stopping distance grows with v0 and mass; altitude loss grows once the collective saturates

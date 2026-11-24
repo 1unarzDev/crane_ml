@@ -78,6 +78,27 @@ The boat's scenarios are `roboboat_2026-s{seed}.json` course truths. Seeds 0–4
 `~/.cache/crane/coursegen/` and writes only the missing seeds. It needs a .NET SDK: 10.x, or a newer one, which
 builds it for its own framework. The format's `identity_check` refuses an edited truth.
 
+## The sub
+
+`domains/sub` is a 6-DOF underwater vehicle in a generic pool (NED, origin at a pool corner, FRD body), T1
+only, on the batched engine:
+
+```bash
+crane run --domain sub --tier T1 --engine batched --seeds 0:64
+```
+
+The vehicle starts at the course's start depth, then for each gate goes to a point in front of it, through it
+at its depth and heading, and holds station at the finish. A gate crossed inside its opening less the vehicle's half
+width and height (`publishedPerformance.dimensionsLxHxWM` of the profile) is passed, else missed. Courses come
+from `domains/sub/coursegen.py` (seed only, written under `~/.cache/crane/sub-courses`). The plant is
+`engine/kernels/marine6.py` with `domains/sub/profiles/generic_rov8.json`, an eight-thruster vectored vehicle
+from published numbers; `--card REF` (a profile JSON, or a name in `domains/sub/profiles`) runs another
+vehicle, and a study arm's `card:` binds the same key (`adapter.options.profile`). The autopilot gains are in
+`fastsim_t1.yaml` (`adapter.options.mission`); the current and thrust noise in its `vehicle` block
+(`randomize.current_sd` draws the north and east components only). `metrics.json` holds `sub`: `success`, `gates_passed`,
+`gates_missed`, `time_s`, `path_m`, `effort_Ns`, `hold_rms_m`, `gate_depth_rms_m`, `max_roll_deg`,
+`max_pitch_deg`, `min_clearance_m`.
+
 ## Adding a domain
 
 1. Write `domains/<name>/adapter.py` with a `DomainAdapter` and a `Controller`. Add a plant module if no
@@ -87,4 +108,7 @@ builds it for its own framework. The format's `identity_check` refuses an edited
    one mission outcome.
 4. Run `python3 -m bench.fast --domain <name> --tier T0 --seeds 0:50 --workers 1,8 --out DIR`.
 5. For many seeds at once, run the domain on the batched engine (`crane run --engine batched`): its plant
-   needs a kernel and its controller a batched twin, or it runs in decoupled mode (Docs/Engine.md).
+   needs a kernel and its controller a batched twin, or it runs in decoupled mode, or its adapter brings its
+   own batched episode (`run_batched`, as the sub; Docs/Engine.md).
+6. For RL or obs/action datasets, add a `gym:` section to `config/domains/<name>.yaml` (actions, obs, reward;
+   Docs/Env.md); `crane.env.make` needs the batched controller's `goals(plans)`.

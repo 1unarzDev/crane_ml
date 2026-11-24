@@ -1,0 +1,9 @@
+{
+ "provenance": "illustrative values for the crane.study/1 example (examples/studies/boat_cards.yaml), not a measurement",
+ "thrusters": [
+  {"kForward": 40.0, "kReverse": 30.0},
+  {"kForward": 40.0, "kReverse": 30.0},
+  {"kForward": 40.0, "kReverse": 30.0},
+  {"kForward": 40.0, "kReverse": 30.0}
+ ]
+}

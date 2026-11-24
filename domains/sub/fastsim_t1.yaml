@@ -1,0 +1,33 @@
+# The sub at T1 (dynamic): the pool-gates mission (adapter.py, mission.py) on the batched Fossen 6-DOF kernel
+# (engine/kernels/marine6.py) with a vehicle profile's thrusters. Batched engine only:
+#   crane run --domain sub --tier T1 --engine batched --seeds 0:64
+# Frames: NED world with the origin at a pool corner, FRD body (crane.run/1 frame {world: ned, body: frd}).
+adapter:
+  ref: domains.sub.adapter:SubAdapter
+  options:
+    tier: T1
+    profile: profiles/generic_rov8.json   # the vehicle profile: every plant number (crane run --card REF sets it)
+    # The autopilot and the mission's tolerances (the plant's numbers all come from the profile).
+    mission: {kp_pos: 0.6, vmax_u: 0.5, vmax_v: 0.3, vmax_w: 0.3, kv: 2.0, kp_att: 25.0, kd_att: 8.0,
+              kp_yaw: 1.2, kd_yaw: 3.0, rmax: 0.5, turn_rad: 0.6, face_m: 0.8, wp_tol_m: 0.35,
+              hold_tol_m: 0.3, hold_s: 5.0, approach_m: 2.0, exit_m: 1.5, ki_pos: 0.15, imax: 2.0}
+dt: 0.02            # the control period; the plant's RK4 substeps are fixed per profile (the thruster lag's bound)
+tick_hz: 50.0
+track_hz: 10.0
+# The disturbance: a NED current (m/s), constant in the pool; randomize.current_sd adds a per-env draw to its
+# north and east components only (each env's own stream); thrust_noise_sd is a per-command relative sd.
+vehicle: {current_ned: [0.0, 0.0, 0.0], randomize: {current_sd: 0.0}, thrust_noise_sd: 0.0}
+fidelity: >-
+  T1 dynamic: Fossen 6-DOF rigid body with added mass, Coriolis, linear and quadratic damping, restoring
+  forces and a constant NED current, from the vehicle profile; thrusters with first-order lag, saturation
+  and deadband, least-norm allocation with uniform scaling; no thrust curve, waves, tether, surface effects or
+  contact forces (pool walls are clearance checks only); the autopilot reads truth (no sensors or estimator)
+scenarios:
+  dir: ~/.cache/crane/sub-courses
+  pattern: 'pool_gates-s{seed}.json'
+  generate: ['{python}', '{base}/coursegen.py', '{seeds_from}:{seeds_to}', '{dir}']
+  format: {name: json}
+perception: null
+time_limit_s: 240
+workers: 1
+max_workers: 20

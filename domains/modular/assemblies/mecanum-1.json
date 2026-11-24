@@ -1,0 +1,14 @@
+{
+ "schema": "crane.modular.assembly/1",
+ "name": "mecanum-1",
+ "about": "One mecanum module: four wheels in the X pattern (rollers at 45 deg; hand -1 front-left and rear-right).",
+ "types": {
+  "mecanum": {"size": [0.30, 0.26], "wheel_radius": 0.0485,
+              "wheels": [{"kind": "mecanum", "x": 0.10, "y": 0.11, "hand": -1},
+                         {"kind": "mecanum", "x": 0.10, "y": -0.11, "hand": 1},
+                         {"kind": "mecanum", "x": -0.10, "y": 0.11, "hand": 1},
+                         {"kind": "mecanum", "x": -0.10, "y": -0.11, "hand": -1}]}
+ },
+ "modules": [{"id": "M1", "type": "mecanum", "x": 0.0, "y": 0.0, "yaw": 0.0}],
+ "imu": {"module": "M1", "x": 0.0, "y": 0.0}
+}

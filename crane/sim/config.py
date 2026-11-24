@@ -234,15 +234,18 @@ def has_flag(player, flag):
 
 
 def find_player(t2, given=None):
-    """--player / CRANE_PLAYER, crane's build, then the phase-1 player link: the first that knows the flag."""
+    """--player / CRANE_PLAYER, crane's build, the phase-1 player link, then the installed player (crane update):
+    the first that knows the flag."""
     flag = t2.get('required_flag') or ''
     env = given or os.environ.get('CRANE_PLAYER') or ''
     phase1 = home() / '.cache' / 'crane-phase1' / 'player' / 'CRANE.x86_64'
-    for c in [p for p in (env, str(paths.PLAYER_BUILD / 'CRANE.x86_64'), str(phase1)) if p]:
+    store = home() / '.local' / 'share' / 'crane' / 'player' / 'current' / 'CRANE.x86_64'
+    for c in [p for p in (env, str(paths.PLAYER_BUILD / 'CRANE.x86_64'), str(phase1), str(store)) if p]:
         if os.path.isfile(c) and os.access(c, os.X_OK) and (not flag or has_flag(c, flag)):
             return c
     raise SimError(f'no player with {flag} (tried {env + " " if env else ""}{paths.PLAYER_BUILD}, '
-                   f'~/.cache/crane-phase1/player); build one (crane build player) or set CRANE_PLAYER=/path/CRANE.x86_64')
+                   f'~/.cache/crane-phase1/player, ~/.local/share/crane/player/current); build one (crane build player), '
+                   'install the release one (crane update --player-only) or set CRANE_PLAYER=/path/CRANE.x86_64')
 
 
 def ready_s(t2):

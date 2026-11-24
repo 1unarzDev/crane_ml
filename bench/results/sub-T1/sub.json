@@ -1,0 +1,164 @@
+{
+ "host": {
+  "cpus": 20,
+  "numba_threads": 20
+ },
+ "kernel": [
+  {
+   "backend": "numpy",
+   "E": 1,
+   "periods_per_s": 1477,
+   "first_s": null
+  },
+  {
+   "backend": "numba",
+   "E": 1,
+   "periods_per_s": 1175102,
+   "first_s": 0.13
+  },
+  {
+   "backend": "jax-f64",
+   "E": 1,
+   "periods_per_s": 15297,
+   "first_s": 0.63
+  },
+  {
+   "backend": "jax-f32",
+   "E": 1,
+   "periods_per_s": 29758,
+   "first_s": 0.65
+  },
+  {
+   "backend": "numpy",
+   "E": 64,
+   "periods_per_s": 96339,
+   "first_s": null
+  },
+  {
+   "backend": "numba",
+   "E": 64,
+   "periods_per_s": 9511107,
+   "first_s": 0.0
+  },
+  {
+   "backend": "jax-f64",
+   "E": 64,
+   "periods_per_s": 470492,
+   "first_s": 0.65
+  },
+  {
+   "backend": "jax-f32",
+   "E": 64,
+   "periods_per_s": 1654769,
+   "first_s": 0.78
+  },
+  {
+   "backend": "numpy",
+   "E": 1024,
+   "periods_per_s": 369866,
+   "first_s": null
+  },
+  {
+   "backend": "numba",
+   "E": 1024,
+   "periods_per_s": 14708866,
+   "first_s": 0.0
+  },
+  {
+   "backend": "jax-f64",
+   "E": 1024,
+   "periods_per_s": 9666260,
+   "first_s": 0.63
+  },
+  {
+   "backend": "jax-f32",
+   "E": 1024,
+   "periods_per_s": 22975887,
+   "first_s": 0.93
+  },
+  {
+   "backend": "numpy",
+   "E": 4096,
+   "periods_per_s": 387477,
+   "first_s": null
+  },
+  {
+   "backend": "numba",
+   "E": 4096,
+   "periods_per_s": 19406570,
+   "first_s": 0.0
+  },
+  {
+   "backend": "jax-f64",
+   "E": 4096,
+   "periods_per_s": 20646559,
+   "first_s": 0.81
+  },
+  {
+   "backend": "jax-f32",
+   "E": 4096,
+   "periods_per_s": 75015533,
+   "first_s": 0.8
+  },
+  {
+   "backend": "numba",
+   "E": 16384,
+   "periods_per_s": 17359639,
+   "first_s": 0.0
+  },
+  {
+   "backend": "jax-f64",
+   "E": 16384,
+   "periods_per_s": 28263257,
+   "first_s": 0.87
+  },
+  {
+   "backend": "jax-f32",
+   "E": 16384,
+   "periods_per_s": 99360609,
+   "first_s": 1.07
+  }
+ ],
+ "mission": [
+  {
+   "E": 1,
+   "setup_s": 0.001,
+   "episodes_s": 0.002,
+   "episodes_per_s": 526.6,
+   "periods_per_s": 1288563,
+   "succeeded": 1
+  },
+  {
+   "E": 64,
+   "setup_s": 0.004,
+   "episodes_s": 0.016,
+   "episodes_per_s": 4009.5,
+   "periods_per_s": 11124989,
+   "succeeded": 64
+  },
+  {
+   "E": 1024,
+   "setup_s": 0.287,
+   "episodes_s": 0.23,
+   "episodes_per_s": 4461.7,
+   "periods_per_s": 12375309,
+   "succeeded": 1024
+  },
+  {
+   "E": 4096,
+   "setup_s": 0.826,
+   "episodes_s": 0.94,
+   "episodes_per_s": 4359.0,
+   "periods_per_s": 12029991,
+   "succeeded": 4091
+  },
+  {
+   "E": 16384,
+   "setup_s": 3.118,
+   "episodes_s": 3.452,
+   "episodes_per_s": 4746.0,
+   "periods_per_s": 13103850,
+   "succeeded": 16355
+  }
+ ]
+}
