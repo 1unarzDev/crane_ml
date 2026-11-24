@@ -91,7 +91,7 @@ commands:
     level: setup
     ros: python3 -m fastsim.batch --config CONFIG --seeds 0:3 --out OUT
     params:
-      - {name: "--domain", description: "A domain: config/domains/DOMAIN.yaml (boat, toy)."}
+      - {name: "--domain", description: "A domain: config/domains/DOMAIN.yaml (boat, sub, toy)."}
       - {name: "--config", type: path, description: "A fastsim domain YAML, used as is."}
       - {name: "--tier", choices: [T0, T1, T2, abstract, dynamic, unity], description: "The tier (default: the domain's first tier, T0 with --config)."}
       - {name: "--seeds", description: "N, A:B (B exclusive), a,b,c, @FILE or block:NAME (required, except with --astro-test: 0)."}
@@ -107,7 +107,7 @@ commands:
       - {name: "--dtype", choices: [float64, float32], description: "With --engine batched: default float64; jax on a consumer GPU wants float32 (bench/RESULTS.md)."}
       - {name: "--record", type: int, description: "With --engine batched: also write traj.ctraj with every K-th track row (default: run.json, events.jsonl, metrics.json only)."}
       - {name: "--astro-test", description: "An astro test or group (still, couple-*, speed-*, steps-*, nav2, all) at T0/T1, with metrics named as astro's result fields."}
-      - {name: "--card", description: "With --astro-test: a profile JSON, a plant card or a factorial manifest (repeatable)."}
+      - {name: "--card", description: "A profile JSON or a name in the domain's card dir, bound to its card.keys (config/domains/D.yaml); with --astro-test also a plant card or a factorial manifest (repeatable)."}
       - {name: "--tests", type: path, description: "With --astro-test: astro's tests file or a bundle holding one."}
       - {name: "--space", description: "With --astro-test: the tests file's space (default large)."}
       - {name: "--amp", type: float, description: "With --astro-test: the effort amplitude (default the space's)."}
@@ -117,6 +117,7 @@ commands:
     examples:
       - crane run --domain toy --seeds 0:3
       - crane run --domain boat --tier T1 --seeds 0:2 --out /tmp/runs
+      - crane run --domain sub --tier T1 --engine batched --seeds 0:64
       - crane run --domain boat --tier T1 --astro-test speed-surge --card /tmp/fit/profile.json
 
   - name: crane card

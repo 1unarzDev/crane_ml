@@ -44,7 +44,7 @@ addopts = "--import-mode=importlib -p no:cacheprovider"
 pythonpath = ["."]
 testpaths = [
     "tests", "fastsim/tests", "judge/tests", "plantcard/tests", "theater/tests", "viewer/tests",
-    "crane_backends/tests", "domains/boat/tests", "engine/tests", "Tools/Characterization", "Tools/SimCheck/tests",
+    "crane_backends/tests", "domains/boat/tests", "domains/sub/tests", "engine/tests", "Tools/Characterization", "Tools/SimCheck/tests",
     "Tools/RoboBoat/tests",
 ]
 markers = [

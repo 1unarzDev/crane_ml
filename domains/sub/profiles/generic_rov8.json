@@ -1,0 +1,408 @@
+{
+  "schema": "crane.underwater.vehicle_profile/v1",
+  "vehicle": "generic_rov8",
+  "evidenceLabel": "UNKNOWN",
+  "evidenceNote": "A generic eight-thruster vectored ROV/AUV (BlueROV2-Heavy-like) from published literature and vendor numbers only. Nothing here was identified on a vehicle; it is an example card for the public reference mission.",
+  "frames": {
+    "world": "NED",
+    "body": "FRD, origin at CO = CG",
+    "signConvention": "Added mass and damping are POSITIVE magnitudes: M_A = -diag(X_udot, ...), D = -diag(X_u, ...)."
+  },
+  "sources": {
+    "vonbenzon2022": {
+      "citation": "M. von Benzon, F. F. Sorensen, E. Uth, J. Jouffroy, J. Liniger, S. Pedersen, 'An Open-Source Benchmark Simulator: Control of a BlueROV2 Underwater Robot', J. Mar. Sci. Eng. 10(12):1898, 2022",
+      "doi": "10.3390/jmse10121898",
+      "url": "https://vbn.aau.dk/ws/portalfiles/portal/505520780/jmse_10_01898.pdf",
+      "license": "CC-BY-4.0 (paper). Numeric facts are cited, not copied text.",
+      "vehicle": "BlueROV2 Heavy (8 x T200)",
+      "codeLicenseNote": "Companion code github.com/ROV-Simulator/ROV-Simulator @ 928bcbf has NO license (all rights reserved) and is .mlappinstall binaries: do not port."
+    },
+    "wu2018": {
+      "citation": "C. Wu, '6-DoF Modelling and Control of a Remotely Operated Vehicle', Master of Engineering thesis, Flinders University, 2018",
+      "url": "https://flex.flinders.edu.au/file/27aa0064-9de2-441c-8a17-655405d5fc2e/1/ThesisWu2018.pdf",
+      "license": "UNVERIFIED (no licence statement found). Cite facts only.",
+      "vehicle": "BlueROV2 Heavy geometry (Table 4.2). Mass/inertia/hydrodynamics are a priori values transferred from Sandoy (standard BlueROV2), not measured on a Heavy."
+    },
+    "ardusub_frames": {
+      "citation": "ArduPilot AP_Motors6DOF.cpp, SUB_FRAME_VECTORED_6DOF motor factors (M1 FR, M2 FL, M3 AR, M4 AL: forward/lateral (-1,+1), (-1,-1), (+1,+1), (+1,-1); yaw +-1 for all)",
+      "url": "https://github.com/ArduPilot/ardupilot/blob/40d06e22e5f51e29f8c7d210c8bcaa0f3466642f/libraries/AP_Motors/AP_Motors6DOF.cpp",
+      "license": "GPL-3.0 (ArduPilot). Facts (factor signs) cited, no code copied."
+    },
+    "bluerobotics_t200_page": {
+      "citation": "Blue Robotics T200 product page: 12 V 3.71/2.92 kgf, 16 V 5.25/4.10 kgf, 20 V 6.7/5.05 kgf (forward/reverse)",
+      "url": "https://bluerobotics.com/store/thrusters/t100-t200-thrusters/t200-thruster-r2-rp/",
+      "license": "UNVERIFIED (vendor catalog). Cite facts only."
+    },
+    "bluerobotics_besc": {
+      "citation": "Blue Robotics Basic ESC: 1100-1900 us, stop 1500 us, deadband 1500 +- 25 us, max update 400 Hz",
+      "url": "https://bluerobotics.com/store/thrusters/speed-controllers/besc30-r3/",
+      "license": "UNVERIFIED (vendor catalog). Cite facts only."
+    },
+    "crane_derived": {
+      "citation": "Derived in this profile from the cited primary values; derivation in \"location\".",
+      "license": "GPL-3.0 (this repository)"
+    }
+  },
+  "rigidBody": {
+    "massKg": {
+      "value": 13.5,
+      "source": "vonbenzon2022",
+      "location": "Table A1, m (Experimental)"
+    },
+    "gravityMps2": {
+      "value": 9.82,
+      "source": "vonbenzon2022",
+      "location": "Table A1, g"
+    },
+    "weightN": {
+      "value": 132.57,
+      "source": "crane_derived",
+      "location": "W = m g = 13.5 * 9.82 (von Benzon eq. 8 definition W = mg)"
+    },
+    "displacedVolumeM3": {
+      "value": 0.0134,
+      "source": "vonbenzon2022",
+      "location": "Table A1, nabla (Experimental)"
+    },
+    "waterDensityKgM3": {
+      "value": 1000.0,
+      "source": "vonbenzon2022",
+      "location": "Table A1, rho"
+    },
+    "buoyancyN": {
+      "value": 131.588,
+      "source": "crane_derived",
+      "location": "B = rho g nabla = 1000 * 9.82 * 0.0134 (von Benzon eq. 8 definition). Net W - B = +0.98 N (slightly heavy)."
+    },
+    "inertiaCgKgM2": {
+      "Ixx": {
+        "value": 0.26,
+        "source": "vonbenzon2022",
+        "location": "Table A1, Ix (CAD)"
+      },
+      "Iyy": {
+        "value": 0.23,
+        "source": "vonbenzon2022",
+        "location": "Table A1, Iy (CAD)"
+      },
+      "Izz": {
+        "value": 0.37,
+        "source": "vonbenzon2022",
+        "location": "Table A1, Iz (CAD)"
+      }
+    },
+    "rGMeters": {
+      "value": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "source": "vonbenzon2022",
+      "location": "Table A1, (xg,yg,zg) (Defined)"
+    },
+    "rBMeters": {
+      "value": [
+        0.0,
+        0.0,
+        -0.01
+      ],
+      "source": "vonbenzon2022",
+      "location": "Table A1, (xb,yb,zb) (CAD). BG = 0.01 m."
+    }
+  },
+  "hydrodynamics": {
+    "addedMass": {
+      "u": {
+        "value": 6.36,
+        "source": "vonbenzon2022",
+        "location": "Table A1, X_udot (Eidsvik empirical, ref [33]; paper sec. 2 notes relative error vs physical robot)"
+      },
+      "v": {
+        "value": 7.12,
+        "source": "vonbenzon2022",
+        "location": "Table A1, Y_vdot (Eidsvik empirical)"
+      },
+      "w": {
+        "value": 18.68,
+        "source": "vonbenzon2022",
+        "location": "Table A1, Z_wdot (Eidsvik empirical)"
+      },
+      "p": {
+        "value": 0.189,
+        "source": "vonbenzon2022",
+        "location": "Table A1, K_pdot (Eidsvik empirical)"
+      },
+      "q": {
+        "value": 0.135,
+        "source": "vonbenzon2022",
+        "location": "Table A1, M_qdot (Eidsvik empirical)"
+      },
+      "r": {
+        "value": 0.222,
+        "source": "vonbenzon2022",
+        "location": "Table A1, N_rdot (Eidsvik empirical)"
+      }
+    },
+    "linearDamping": {
+      "u": {
+        "value": 13.7,
+        "source": "vonbenzon2022",
+        "location": "Table A1, X_u (Experimental)"
+      },
+      "v": {
+        "value": 0.0,
+        "source": "vonbenzon2022",
+        "location": "Table A1, Y_v (Experimental)"
+      },
+      "w": {
+        "value": 33.0,
+        "source": "vonbenzon2022",
+        "location": "Table A1, Z_w (Experimental)"
+      },
+      "p": {
+        "value": 0.0,
+        "source": "vonbenzon2022",
+        "location": "Table A1, K_p (Experimental)"
+      },
+      "q": {
+        "value": 0.8,
+        "source": "vonbenzon2022",
+        "location": "Table A1, M_q (Experimental)"
+      },
+      "r": {
+        "value": 0.0,
+        "source": "vonbenzon2022",
+        "location": "Table A1, N_r (Experimental)"
+      }
+    },
+    "quadraticDamping": {
+      "u": {
+        "value": 141.0,
+        "source": "vonbenzon2022",
+        "location": "Table A1, X_u|u| (Experimental)"
+      },
+      "v": {
+        "value": 217.0,
+        "source": "vonbenzon2022",
+        "location": "Table A1, Y_v|v| (Experimental)"
+      },
+      "w": {
+        "value": 190.0,
+        "source": "vonbenzon2022",
+        "location": "Table A1, Z_w|w| (Experimental)"
+      },
+      "p": {
+        "value": 1.19,
+        "source": "vonbenzon2022",
+        "location": "Table A1, K_p|p| (Experimental)"
+      },
+      "q": {
+        "value": 0.47,
+        "source": "vonbenzon2022",
+        "location": "Table A1, M_q|q| (Experimental)"
+      },
+      "r": {
+        "value": 1.5,
+        "source": "vonbenzon2022",
+        "location": "Table A1, N_r|r| (Experimental)"
+      }
+    }
+  },
+  "thrusters": {
+    "model": "T200",
+    "maxForwardN": {
+      "value": 30.4,
+      "source": "crane_derived",
+      "location": "von Benzon eq. 18 F(V) at V=+1: -140.3+389.9-404.1+176.0+8.9 = 30.4 N. Consistent with Table 4: 4*30.4*cos(45deg) = 86 N surge (paper 85 N), 4*30.4 = 122 N heave (paper 120 N)."
+    },
+    "maxReverseN": {
+      "value": 23.8,
+      "source": "bluerobotics_t200_page",
+      "location": "0.78 x 30.4 N: T200 reverse/forward ratio 4.10/5.25 = 0.781 at 16 V (2.92/3.71 = 0.787 at 12 V) applied to the von Benzon eq. 18 forward maximum"
+    },
+    "thrustCurve": {
+      "value": {
+        "form": "odd polynomial in normalised command V in [-1,1]",
+        "coefficients_V9_V7_V5_V3_V1": [
+          -140.3,
+          389.9,
+          -404.1,
+          176.0,
+          8.9
+        ]
+      },
+      "source": "vonbenzon2022",
+      "location": "eq. 18"
+    },
+    "timeConstantS": {
+      "value": 0.02,
+      "source": "crane_derived",
+      "location": "63 % rise time of the unit-step response of von Benzon eq. 19 (poles -13.16, -37.9 +- 82.6j; zero -17.7; no overshoot), computed with python -I. First-order surrogate only.",
+      "uncertainty": {
+        "sweep": [
+          0.02,
+          0.1
+        ],
+        "note": "0.020 s from eq. 19 is optimistic for ESC+motor spin-up; sweep to 0.10 s"
+      }
+    },
+    "deadbandFraction": {
+      "value": 0.0625,
+      "source": "bluerobotics_besc",
+      "location": "25 us / 400 us half-range (Basic ESC deadband 1500 +- 25 us)"
+    },
+    "layout": {
+      "value": [
+        {
+          "name": "T1",
+          "positionM": [
+            0.156,
+            0.111,
+            0.085
+          ],
+          "direction": [
+            0.70710678,
+            -0.70710678,
+            0.0
+          ]
+        },
+        {
+          "name": "T2",
+          "positionM": [
+            0.156,
+            -0.111,
+            0.085
+          ],
+          "direction": [
+            0.70710678,
+            0.70710678,
+            0.0
+          ]
+        },
+        {
+          "name": "T3",
+          "positionM": [
+            -0.156,
+            0.111,
+            0.085
+          ],
+          "direction": [
+            -0.70710678,
+            -0.70710678,
+            0.0
+          ]
+        },
+        {
+          "name": "T4",
+          "positionM": [
+            -0.156,
+            -0.111,
+            0.085
+          ],
+          "direction": [
+            -0.70710678,
+            0.70710678,
+            0.0
+          ]
+        },
+        {
+          "name": "T5",
+          "positionM": [
+            0.12,
+            0.218,
+            0.0
+          ],
+          "direction": [
+            0.0,
+            0.0,
+            -1.0
+          ]
+        },
+        {
+          "name": "T6",
+          "positionM": [
+            0.12,
+            -0.218,
+            0.0
+          ],
+          "direction": [
+            0.0,
+            0.0,
+            -1.0
+          ]
+        },
+        {
+          "name": "T7",
+          "positionM": [
+            -0.12,
+            0.218,
+            0.0
+          ],
+          "direction": [
+            0.0,
+            0.0,
+            -1.0
+          ]
+        },
+        {
+          "name": "T8",
+          "positionM": [
+            -0.12,
+            -0.218,
+            0.0
+          ],
+          "direction": [
+            0.0,
+            0.0,
+            -1.0
+          ]
+        }
+      ],
+      "source": "wu2018",
+      "location": "Table 4.2 (arms, mm) and p.41 rotation angles pi/4, -pi/4, -3pi/4, 3pi/4 with Fx = F cos(a), Fy = -F sin(a). Positions match von Benzon Table A1 r_i = J3(alpha_i)[0.156 0.111 0.085], alpha = {0, 5.05, 1.91, pi}, and r_5..8 = J3(gamma_i)[0.120 0.218 0]. Vertical direction [0,0,-1] is from von Benzon Table A1. Aft horizontal pair mirrored to the forward pair (T3 [-0.707, -0.707, 0], T4 [-0.707, 0.707, 0]) per ardusub_frames SUB_FRAME_VECTORED_6DOF factors: equal yaw arms 0.189 m, max sway 86 N = max surge. Propeller handedness: not modelled (positive command = direction)."
+    }
+  },
+  "publishedPerformance": {
+    "maxSurgeSpeedMps": {
+      "value": 0.72,
+      "source": "vonbenzon2022",
+      "location": "Table 4"
+    },
+    "maxSwaySpeedMps": {
+      "value": 0.63,
+      "source": "vonbenzon2022",
+      "location": "Table 4"
+    },
+    "maxHeaveSpeedMps": {
+      "value": 0.71,
+      "source": "vonbenzon2022",
+      "location": "Table 4"
+    },
+    "maxSurgeForceN": {
+      "value": 85.0,
+      "source": "vonbenzon2022",
+      "location": "Table 4"
+    },
+    "maxHeaveForceN": {
+      "value": 120.0,
+      "source": "vonbenzon2022",
+      "location": "Table 4"
+    },
+    "dimensionsLxHxWM": {
+      "value": [
+        0.46,
+        0.254,
+        0.58
+      ],
+      "source": "bluerobotics_bluerov2",
+      "location": "L 0.46 and W 0.58 (Heavy) from vonbenzon2022 Table 5; H 0.254 from Blue Robotics spec. von Benzon prints H = 0.38, inconsistent with its own A_v = 0.1131 m2 ~ L x 0.25 m",
+      "conflict": {
+        "vonbenzon2022_table5": [
+          0.46,
+          0.38,
+          0.58
+        ]
+      }
+    }
+  }
+}
