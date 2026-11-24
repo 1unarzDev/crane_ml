@@ -36,6 +36,19 @@ commands:
     examples:
       - crane sim down
 
+  - name: crane sim restart
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim restart
+    summary: "Restart one part of the running world and keep the rest: nav (only the Nav2 nodes, so new nav2_limits in the state take effect), ros (the ROS container; the player stays) or player."
+    ros: docker exec CONTAINER pkill ...; docker exec -d CONTAINER ros2 launch ...
+    notes: nav stops the nav nodes named by the domain recipe (tiers.T2.ros.restart.nav) inside the ROS container, starts them again from the same launch (only:=navigation), and waits up to the recipe's ready_s (90 s) for bt_navigator to be active; a domain without the recipe refuses and names `restart ros`. ros re-runs the saved docker run, waits up to 60 s for the endpoint and 120 s for the ready nodes. player re-runs the saved player argv, waits up to 300 s (SIM_UP_READY_S) for the course. Nav goals in flight are lost. Exit 0 ok, 1 failed, 2 usage, config or nothing running, 75 timed out waiting.
+    params:
+      - {name: what, choices: [nav, ros, player], description: The part to restart., required: true}
+      - {name: "--json", type: bool, description: One JSON document.}
+      - {name: "--domain", description: config/domains/DOMAIN.yaml (default boat).}
+    examples:
+      - crane sim restart nav
+      - crane sim restart player --json
+
   - name: crane sim status
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim status
     summary: The status block (mode, ROS_DOMAIN_ID, endpoint, player, ROS container, course, current, logs, next commands). Read-only.
@@ -112,7 +125,7 @@ commands:
     notes: Writes OUT/profile.json (sim_up --profile-json), OUT/profile.gate.json, OUT/cards and OUT/fit.json. A bundle made without --bags gives the gate only; --bags DIR reads bags beside it. --factorial SPEC.yaml writes card variants and a manifest.
     params:
       - {name: bundles, type: list, description: Astro bundles (.tgz); each is one session., required: false}
-      - {name: "--out", type: path, description: Output dir (default fit-<bundle name>).}
+      - {name: "--out", type: path, description: "Output dir (default BUNDLE.fit/ beside the first bundle, else ~/.cache/crane/fit/BUNDLE/ when that is not writable)."}
       - {name: "--bags", type: path, description: A bag dir to read besides the bundle (read only; repeatable).}
       - {name: "--base", description: The base profile the gate imports into (default Ideal).}
       - {name: "--robot", description: The card's robot name (default astro/<state file stem>).}

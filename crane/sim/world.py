@@ -102,6 +102,7 @@ def state(cfg, t2, run):
         'ros': {'running': ros_running, 'container': container, 'launch': launch[1] if len(launch) > 1 else ''},
         'course': {'ready': ready, 'seed': _read(run / 'seed') or None, 'truth': str(run / truth)},
         'current': current or None, 'current_text': _current_text(t2, current) if current else None,
+        'restarted': _read(run / 'restarted') or None,
         'logs': [str(run / n) for n in ('player.log', 'player-stdout.log', 'ros.log')],
         'next': list((t2.get('next_up') if player_up or ros_running else t2.get('next_down')) or []),
     }
@@ -119,6 +120,8 @@ def status_lines(s):
         lines.append(f"  course:    ready (seed {s['course']['seed'] or ''}, truth {s['course']['truth']})")
     if s['current_text']:
         lines.append(f"  current:   {s['current_text']}")
+    if s.get('restarted'):
+        lines.append(f"  restarted: {s['restarted']}")
     lines.append(f"  logs:      {'  '.join(s['logs'])}")
     for i, cmd in enumerate(s['next']):
         lines.append(f"  {'next:' if i == 0 else '':10s} {cmd}")
@@ -171,7 +174,7 @@ def down(cfg, t2, run, as_json=False, stream=None):
         subprocess.run(['docker', 'rm', '-f', container], capture_output=True, timeout=60)
     except (OSError, subprocess.TimeoutExpired):
         pass
-    for n in ('domain', 'port', 'current'):
+    for n in ('domain', 'port', 'current', 'player.argv', 'ros.docker', 'restarted'):
         (run / n).unlink(missing_ok=True)
     if as_json:
         print(json.dumps({'schema': 'crane.sim.down/1', 'down': True, 'player': stopped, 'container': container, 'run': str(run)}))
@@ -317,10 +320,10 @@ def up(cfg, t2, run, o):
 
     # 1. the ROS side, logged to the state dir
     subprocess.run(['docker', 'rm', '-f', container], capture_output=True, timeout=60)
-    values = {'ws': ros.get('workspace') or '', 'run': run, 'dock': config.dock(t2) or '', 'home': config.home()}
-    for p in ros.get('dirs') or []:
-        Path(config.subst(p, **values)).mkdir(parents=True, exist_ok=True)
-    out = subprocess.run(docker_args(t2, run, d, port, img), capture_output=True, text=True, timeout=120)
+    prepare_dirs(t2, run)
+    docker = docker_args(t2, run, d, port, img)
+    save_argv(run, 'ros.docker', docker)
+    out = subprocess.run(docker, capture_output=True, text=True, timeout=120)
     if out.returncode != 0:
         last = (out.stderr.strip().splitlines() or [''])[-1]
         raise SimError(f'docker run failed (exit {out.returncode}): {last}; check the image: docker image ls {img}', 1)
@@ -335,29 +338,68 @@ def up(cfg, t2, run, o):
         time.sleep(1)
 
     # 2. the player, through heavy unity, in its own process group (pid == pgid)
-    env = dict(os.environ, HEAVY_WHO=f'{me} {mode}')
-    with open(run / 'player-stdout.log', 'wb') as log:
-        proc = subprocess.Popen(launch_cmd(t2, guard, mode, player, args), stdin=subprocess.DEVNULL, stdout=log,
-                                stderr=subprocess.STDOUT, env=env, start_new_session=True)
-    (run / 'player.pid').write_text(f'{proc.pid}\n')
+    argv = launch_cmd(t2, guard, mode, player, args)
+    save_argv(run, 'player.argv', argv)
+    proc = spawn_player(run, argv, f'{me} {mode}')
     limit = config.ready_s(t2)
     say(f'player queued on heavy unity ({mode}), waiting up to {limit} s for the course')
+    outcome = wait_course(t2, run, proc, limit)
+    if outcome == 'exited':
+        _tail(run / 'player-stdout.log')
+        down(cfg, t2, run, stream=sys.stderr if as_json else None)
+        raise SimError(f'the player exited, see {run}/player.log', 1)
+    if outcome == 'timeout':
+        down(cfg, t2, run, stream=sys.stderr if as_json else None)
+        raise SimError(f'course not ready in {limit} s, see {run}/player.log and {run}/player-stdout.log', 1)
+    return status(cfg, t2, run, as_json)
+
+
+def prepare_dirs(t2, run):
+    """The host dirs the ROS container mounts, made before docker run."""
+    ros = t2.get('ros') or {}
+    values = {'ws': ros.get('workspace') or '', 'run': run, 'dock': config.dock(t2) or '', 'home': config.home()}
+    for p in ros.get('dirs') or []:
+        Path(config.subst(p, **values)).mkdir(parents=True, exist_ok=True)
+
+
+def save_argv(run, name, argv):
+    """The resolved argv of what up started, for crane sim restart (identical args)."""
+    (run / name).write_text(json.dumps([str(a) for a in argv]) + '\n')
+
+
+def saved_argv(run, name):
+    """The argv up saved, or None."""
+    try:
+        argv = json.loads((run / name).read_text())
+    except (OSError, ValueError):
+        return None
+    return argv if isinstance(argv, list) and argv else None
+
+
+def spawn_player(run, argv, who):
+    """Start the player argv in its own process group (pid == pgid) with its stdout logged; writes player.pid."""
+    env = dict(os.environ, HEAVY_WHO=who)
+    with open(run / 'player-stdout.log', 'wb') as log:
+        proc = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT, env=env,
+                                start_new_session=True)
+    (run / 'player.pid').write_text(f'{proc.pid}\n')
+    return proc
+
+
+def wait_course(t2, run, proc, limit):
+    """Poll once a second until the ready_marker is in the player log: 'ready', 'exited' or 'timeout' after limit s."""
     marker, t0 = t2.get('ready_marker') or '', time.monotonic()
     while True:
         try:
             if marker and marker in (run / 'player.log').read_text(errors='replace'):
-                break
+                return 'ready'
         except OSError:
             pass
         if proc.poll() is not None:
-            _tail(run / 'player-stdout.log')
-            down(cfg, t2, run, stream=sys.stderr if as_json else None)
-            raise SimError(f'the player exited, see {run}/player.log', 1)
+            return 'exited'
         if time.monotonic() - t0 >= limit:
-            down(cfg, t2, run, stream=sys.stderr if as_json else None)
-            raise SimError(f'course not ready in {limit} s, see {run}/player.log and {run}/player-stdout.log', 1)
+            return 'timeout'
         time.sleep(1)
-    return status(cfg, t2, run, as_json)
 
 
 LOGS = {'player': 'player.log', 'stdout': 'player-stdout.log', 'ros': 'ros.log'}

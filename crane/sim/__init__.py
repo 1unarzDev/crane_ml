@@ -4,6 +4,8 @@
                  [--current SPEED,TOWARD_DEG | --current 0] [--display window|headless | --window | --headless]
                  [--player PATH] [--robot R] [--set K=V]... [--domain D] [--json] [--dry-run] [-- PLAYER_ARGS...]
     crane sim down [--json]      stop what up started (its player's process group and its ROS container only)
+    crane sim restart nav|ros|player [--json]   restart one part, keep the rest (nav: only the Nav2 nodes, to read new
+                                 nav2_limits; ros: the ROS container, the player stays; player: the player, ROS stays)
     crane sim status [--json]    the status block: mode, domain, port, pids, current, logs, the next commands
     crane sim check [--wait S] [--json]   live readiness: player, course, plant, ROS side, nodes, player errors
     crane sim logs [player|stdout|ros] [-n LINES]   the last lines of each log
@@ -14,7 +16,7 @@ DISPLAY or WAYLAND_DISPLAY is set, else headless under xvfb-run, so agents and s
 always runs through the host guard (`heavy unity`). up waits up to the ROS endpoint's endpoint_s (60 s) and the
 course's ready_s (300 s, SIM_UP_READY_S). --json: progress on stderr, the status as one JSON document on stdout.
 up --dry-run prints the resolved player argv and the ROS side's docker run, and starts nothing.
-Exit 0 ok, 1 the world failed or is not ready, 2 usage or config.
+Exit 0 ok, 1 the world failed or is not ready, 2 usage or config, 75 a restart timed out waiting.
 
 Environment: ROS_DOMAIN_ID (counted only beside an env named in tiers.T2.host.trust_domain_id, else read from
 the vessel profile's network.env under tiers.T2.host.profiles), the image env (tiers.T2.ros.image.env),
@@ -28,7 +30,7 @@ import sys
 from crane.sim import config
 from crane.sim.config import SimError
 
-VERBS = ('up', 'down', 'status', 'check', 'logs')
+VERBS = ('up', 'down', 'restart', 'status', 'check', 'logs')
 
 
 class _Parser(argparse.ArgumentParser):
@@ -53,7 +55,9 @@ def _parser(verb):
         p.add_argument('--robot', help='the domain robot (default its robot.default)')
         p.add_argument('--set', dest='sets', action='append', default=[], metavar='K=V', help='pin a world parameter')
         p.add_argument('--dry-run', action='store_true', help='print the resolved player argv and docker run; start nothing')
-    if verb in ('up', 'down', 'status'):
+    if verb == 'restart':
+        p.add_argument('what', choices=('nav', 'ros', 'player'), help='the part to restart')
+    if verb in ('up', 'down', 'restart', 'status'):
         p.add_argument('--json', action='store_true', help='one JSON document on stdout')
     if verb == 'logs':
         p.add_argument('which', nargs='*', metavar='LOG', help='player, stdout or ros (default all three)')
@@ -105,6 +109,9 @@ def main(argv=None):
             return world.up(cfg, t2, run, o)
         if verb == 'down':
             return world.down(cfg, t2, run, o.json)
+        if verb == 'restart':
+            from crane.sim import restart
+            return restart.run_restart(cfg, t2, run, o.what, o.json)
         if verb == 'status':
             return world.status(cfg, t2, run, o.json)
         bad = [w for w in o.which if w not in world.LOGS]

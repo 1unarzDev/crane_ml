@@ -86,6 +86,27 @@ What you'll see: the down line.
 
 raw: `Tools/RoboBoat/sim_up down`; --json: `crane.sim.down/1`
 
+### crane sim restart
+
+```sh
+crane sim restart nav
+crane sim restart player --json
+```
+
+Restart one part of the running world and keep the rest: nav (only the Nav2 nodes, so new nav2_limits in the state take effect), ros (the ROS container; the player stays) or player.
+
+What you'll see: one line per step, then `crane sim: PART restarted, ready: ...` and next:. --json: {schema, restarted, ready, at, status}.
+
+nav stops the nav nodes named by the domain recipe (tiers.T2.ros.restart.nav) inside the ROS container, starts them again from the same launch (only:=navigation), and waits up to the recipe's ready_s (90 s) for bt_navigator to be active; a domain without the recipe refuses and names `restart ros`. ros re-runs the saved docker run, waits up to 60 s for the endpoint and 120 s for the ready nodes. player re-runs the saved player argv, waits up to 300 s (SIM_UP_READY_S) for the course. Nav goals in flight are lost. Exit 0 ok, 1 failed, 2 usage, config or nothing running, 75 timed out waiting.
+
+| Param | Type | Description |
+|---|---|---|
+| `what` | str | The part to restart. One of `nav`, `ros`, `player`. |
+| `--json` | bool | One JSON document. |
+| `--domain` | str | config/domains/DOMAIN.yaml (default boat). |
+
+raw: `docker exec CONTAINER pkill ...; docker exec -d CONTAINER ros2 launch ...`; --json: `crane.sim.restart/1`
+
 ### crane sim status
 
 ```sh
@@ -529,7 +550,7 @@ Writes OUT/profile.json (sim_up --profile-json), OUT/profile.gate.json, OUT/card
 | Param | Type | Description |
 |---|---|---|
 | `bundles` | list | Astro bundles (.tgz); each is one session. |
-| `--out` | path | Output dir (default fit-<bundle name>). |
+| `--out` | path | Output dir (default BUNDLE.fit/ beside the first bundle, else ~/.cache/crane/fit/BUNDLE/ when that is not writable). |
 | `--bags` | path | A bag dir to read besides the bundle (read only; repeatable). |
 | `--base` | str | The base profile the gate imports into (default Ideal). |
 | `--robot` | str | The card's robot name (default astro/<state file stem>). |

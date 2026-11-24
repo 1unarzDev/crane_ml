@@ -152,6 +152,23 @@ COMMANDS = [
             json='crane.sim.down/1', export=True, about='the down line.',
             params=(P('--json', 'bool', description='One JSON document instead of the down line.'),),
             examples=('crane sim down',), raw='Tools/RoboBoat/sim_up down'),
+    Command(('sim', 'restart'), 'Restart one part of the running world and keep the rest: nav (only the Nav2 nodes, '
+            'so new nav2_limits in the state take effect), ros (the ROS container; the player stays) or player.',
+            'crane.wrap:sim', passthrough=True, flags=(JSON,), json='crane.sim.restart/1', export=True,
+            about='one line per step, then `crane sim: PART restarted, ready: ...` and next:. --json: {schema, restarted, '
+                  'ready, at, status}.',
+            notes='nav stops the nav nodes named by the domain recipe (tiers.T2.ros.restart.nav) inside the ROS '
+                  'container, starts them again from the same launch (only:=navigation), and waits up to the '
+                  "recipe's ready_s (90 s) for bt_navigator to be active; a domain without the recipe refuses and "
+                  'names `restart ros`. ros re-runs the saved docker run, waits up to 60 s for the endpoint and '
+                  '120 s for the ready nodes. player re-runs the saved player argv, waits up to 300 s '
+                  '(SIM_UP_READY_S) for the course. Nav goals in flight are lost. Exit 0 ok, 1 failed, 2 usage, '
+                  'config or nothing running, 75 timed out waiting.',
+            params=(P('what', choices=('nav', 'ros', 'player'), description='The part to restart.'),
+                    P('--json', 'bool', description='One JSON document.'),
+                    sel('domain', description='config/domains/DOMAIN.yaml (default boat).')),
+            examples=('crane sim restart nav', 'crane sim restart player --json'),
+            raw='docker exec CONTAINER pkill ...; docker exec -d CONTAINER ros2 launch ...'),
     Command(('sim', 'status'), 'The status block (mode, ROS_DOMAIN_ID, endpoint, player, ROS container, course, '
             'current, logs, next commands). Read-only.',
             'crane.wrap:sim', passthrough=True, flags=(JSON,), json='crane.sim.status/1', export=True,
@@ -296,7 +313,8 @@ COMMANDS = [
                   'SPEC.yaml writes card variants and a manifest.',
             params=(P('bundles', 'list', nargs='*', metavar='BUNDLE', description='Astro bundles (.tgz); each is one '
                       'session.'),
-                    P('--out', 'path', description='Output dir (default fit-<bundle name>).'),
+                    P('--out', 'path', description='Output dir (default BUNDLE.fit/ beside the first bundle, else ~/.cache/crane/fit/BUNDLE/ when '
+                      'that is not writable).'),
                     P('--bags', 'path', repeat=True, metavar='DIR', description='A bag dir to read besides the bundle '
                       '(read only; repeatable).'),
                     P('--base', description='The base profile the gate imports into (default Ideal).'),

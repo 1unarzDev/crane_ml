@@ -45,6 +45,23 @@ tiers:
       port_base: 10000                          # the ROS-TCP endpoint: port_base + ROS_DOMAIN_ID
       endpoint_s: 60
       ready_nodes: [ekf_local, rtabmap, bt_navigator]
+      ready_s: 120                              # crane sim restart ros: how long to wait for ready_nodes
+      # crane sim restart nav: the navigation part alone, in the running container, so new nav2_limits in the
+      # state take effect. navigation.launch.py reads them at launch (compile_navigation); the device profile
+      # resolves the same args as the first launch (only:=navigation), so nothing else is started or touched.
+      # stop/alive/kill run through docker exec without a shell; start runs detached in bash (BASH_ENV sets up
+      # ROS) and appends to the ros log. {match} is a regex over the nav nodes' `__node:=NAME` launch argument
+      # (exact names, so never the launch itself, the EKFs, SLAM, the object tracker or the ROS-TCP endpoint).
+      restart:
+        nav:
+          match: '__node:=(controller_server|planner_server|behavior_server|bt_navigator|waypoint_follower|velocity_smoother|lifecycle_manager_navigation|costmap_watchdog|approach_guard)( |$)'
+          stop: ['pkill -TERM -f -- {match}']
+          alive: 'pgrep -f -- {match}'              # exit 0 while any is left
+          kill: ['pkill -KILL -f -- {match}']
+          stop_s: 20                                # TERM, then this long, then KILL; then the same again
+          start: ['ros2 launch {launch} only:=navigation overrides:={overrides}']
+          ready: {nodes: [bt_navigator], state: 'ros2 lifecycle get /{node}', expect: active}
+          ready_s: 90
       # The container mirrors the dev container (.devcontainer/docker-compose.yml of the dock), so `astro on
       # sim` works inside it. {dock} ASTRO_DOCK, {ws} workspace, {run} the state dir, {home} $HOME.
       image: {env: ASTRO_IMAGE, compose: .devcontainer/docker-compose.yml}

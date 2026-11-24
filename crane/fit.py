@@ -1,6 +1,6 @@
 """crane fit: an astro bundle to a profile (through the gate) and a plant card (through the evidence).
 
-    crane fit BUNDLE.tgz [BUNDLE2.tgz ...] [--bags DIR] [--out DIR]
+    crane fit BUNDLE.tgz [BUNDLE2.tgz ...] [--bags DIR] [--out DIR]   (OUT: BUNDLE.fit/ beside the first bundle)
     crane fit --factorial SPEC.yaml [--out DIR]
 
 1. **Gate.** ``Tools/Characterization/bundle.py`` turns the bundle's state and speed results into the gate's
@@ -397,6 +397,8 @@ def main(args):
     if not args.bundles:
         print('crane fit: give an astro bundle (BUNDLE.tgz), or --factorial SPEC.yaml', file=sys.stderr)
         return 2
-    out = args.out or f'fit-{Path(args.bundles[-1]).name.split(".")[0]}'
+    out = args.out or paths.fit_out(args.bundles[0])
     run_fit(args.bundles, out, args.bags, args.base, args.robot, args.n, card=not args.no_card)
+    print(f'next: crane sim up --card {Path(out) / "profile.json"}, then crane compare --field {args.bundles[0]} RUNS '
+          f'--bounds file --fit {out}')
     return 0

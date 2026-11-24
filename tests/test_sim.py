@@ -14,7 +14,7 @@ import time
 import pytest
 
 from crane import paths, player, sim
-from crane.sim import check, config, world
+from crane.sim import check, config, restart as restart_mod, world
 
 ROOT = paths.ROOT
 REFERENCE = '20c29bbf'          # main, where Tools/RoboBoat/sim_up was the bash implementation
@@ -420,3 +420,90 @@ def test_the_sim_path_needs_no_pyyaml(tmp_path):
     plan = json.loads(out)
     assert rc == 0 and plan['schema'] == 'crane.sim.plan/1' and plan['unresolved'], err   # no player, no profile
     assert '--crane-roboboat-contract' in plan['player_argv'] and 'xvfb-run' in plan['player_argv']
+
+
+RESTART_DOCKER = r'''#!/bin/sh
+printf '%s\n' "$*" >> "$STUB/docker.log"
+case $1 in
+  inspect) [ -f "$STUB/running" ] && echo true || { echo "Error: no such object" >&2; exit 1; } ;;
+  run) shift; printf '%s\n' "$@" > "$STUB/docker_run.argv"; touch "$STUB/running"; echo cid ;;
+  rm) rm -f "$STUB/running" ;;
+  exec) shift; case "$*" in
+    *pgrep*) [ -f "$STUB/nav_alive" ] ;;
+    *pkill*) [ -f "$STUB/stubborn" ] || rm -f "$STUB/nav_alive" ;;
+    *"lifecycle get"*) cat "$STUB/lifecycle" 2>/dev/null || echo "active [3]" ;;
+    *"node list"*) printf '/ekf_local\n/rtabmap\n/bt_navigator\n' ;;
+  esac ;;
+esac
+'''
+
+
+def _crane_sim(env, *args):
+    return _sh([str(ROOT / 'bin' / 'crane'), 'sim', *args], env)
+
+
+def test_restart_keeps_the_other_parts_and_updates_the_state(world_env, monkeypatch):
+    """nav kills only the recipe's nav nodes in the container and relaunches only:=navigation with the same overrides
+    and the current state path; ros re-runs the identical docker run, player the identical argv, each keeping the
+    others; refusals and bounded waits exit 2, 1 and 75."""
+    stub, run, env = world_env['stub'], world_env['run'], dict(world_env['env'])
+    _exe(stub / 'bin' / 'docker', RESTART_DOCKER)
+    env.update(ROS_DOMAIN_ID=str(world_env['domain']), ASTRO_STATE=f"{env['HOME']}/.config/mhseals/sim.yaml")
+    assert _crane_sim(env, 'restart', 'nav')[0] == 2                      # nothing running
+    assert _crane_sim(env, 'up', '--headless')[0] == 0
+    log = stub / 'docker.log'
+    pid, docker_run = (run / 'player.pid').read_text(), (stub / 'docker_run.argv').read_text()
+    (stub / 'nav_alive').touch()
+
+    rc, out, err = _crane_sim(env, 'restart', 'nav')
+    assert rc == 0, err
+    assert out.splitlines()[-1] == 'next: crane sim check' and 'nav restarted' in out
+    execs = [l for l in log.read_text().splitlines() if l.split()[0] == 'exec']
+    kinds = [next(k for k in ('pkill', 'pgrep', 'ros2 launch', 'lifecycle') if k in l) for l in execs]
+    assert kinds[0] == 'pkill' and 'pgrep' in kinds and kinds.index('ros2 launch') > kinds.index('pgrep')
+    assert '-TERM -f -- __node:=(controller_server|' in execs[0] and 'lifecycle_manager_navigation' in execs[0]
+    start = next(l for l in execs if 'ros2 launch' in l)
+    assert start.startswith('exec -d -e ASTRO_STATE=/home/roboboat/.config/mhseals/sim.yaml ')
+    assert 'ros2 launch mhseals_nav device.launch.py device:=sim only:=navigation overrides:=' in start
+    assert (run / 'player.pid').read_text() == pid and 'nav ' in (run / 'restarted').read_text()
+    assert 'restarted: nav ' in _crane_sim(env, 'status')[1]
+
+    # a stuck nav is never started a second time
+    cfg, t2 = config.domain('boat')
+    (stub / 'stubborn').touch()
+    (stub / 'nav_alive').touch()
+    before = log.read_text().count('ros2 launch')
+    quick = {**t2, 'ros': {**t2['ros'], 'restart': {'nav': {**t2['ros']['restart']['nav'], 'stop_s': 0.2}}}}
+    with pytest.raises(config.SimError, match='not starting a second set') as e:
+        restart_mod.nav(cfg, quick, run)
+    assert e.value.code == 1 and log.read_text().count('ros2 launch') == before
+    (stub / 'stubborn').unlink()
+    (stub / 'nav_alive').unlink()
+    # a nav that never goes active times out with 75, naming the node and the timeout
+    (stub / 'lifecycle').write_text('inactive [2]\n')
+    slow = {**t2, 'ros': {**t2['ros'], 'restart': {'nav': {**t2['ros']['restart']['nav'], 'ready_s': 0.1}}}}
+    with pytest.raises(config.SimError, match=r'not ready in 0.1 s: bt_navigator') as e:
+        restart_mod.nav(cfg, slow, run)
+    assert e.value.code == 75
+    # no recipe: one line naming the fix
+    bare = {**t2, 'ros': {k: v for k, v in t2['ros'].items() if k != 'restart'}}
+    with pytest.raises(config.SimError, match='restart ros') as e:
+        restart_mod.nav(cfg, bare, run)
+    assert e.value.code == 2
+
+    rc, out, err = _crane_sim(env, 'restart', 'ros', '--json')
+    assert rc == 0, err
+    doc = json.loads(out)
+    assert doc['schema'] == 'crane.sim.restart/1' and doc['restarted'] == 'ros' and doc['status']['ros']['running']
+    assert (stub / 'docker_run.argv').read_text() == docker_run and (run / 'player.pid').read_text() == pid
+
+    heavy_argv = (stub / 'heavy.argv').read_text()
+    (stub / 'heavy.argv').unlink()
+    rc, out, err = _crane_sim(env, 'restart', 'player')
+    assert rc == 0, err
+    new = (run / 'player.pid').read_text()
+    assert new != pid and (stub / 'heavy.argv').read_text() == heavy_argv
+    rc, out, _ = _crane_sim(env, 'check')      # the stub player never logs the plant line, nothing else fails
+    assert rc == 1 and 'failed: plant applied;' in out and 'FAIL  course' not in out and 'ok    nav stack up' in out
+    assert _crane_sim(env, 'down')[0] == 0
+    assert not (run / 'player.argv').exists() and _crane_sim(env, 'restart', 'player')[0] == 2

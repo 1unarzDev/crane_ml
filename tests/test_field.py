@@ -353,3 +353,19 @@ def test_compare_bounds_usage_errors_and_ci_zero_rule(bundle, tmp_path, capsys):
     cross = {'metric': 'measured.cross.*', 'abs': 0.02}
     assert compare.judge_row({**row, 'delta': 0.019}, cross)['result'] == 'pass'
     assert compare.judge_row({**row, 'delta': -0.021, 'ci': None}, cross)['result'] == 'FAIL'
+
+
+def test_fit_defaults_beside_the_first_bundle_else_the_cache_and_compare_reads_the_same_dir(tmp_path, monkeypatch):
+    monkeypatch.setenv('HOME', str(tmp_path / 'home'))
+    ro = tmp_path / 'ro'
+    ro.mkdir()
+    assert paths.fit_out(ro / 'bundle-1.tgz') == ro / 'bundle-1.fit'
+    (ro / 'bundle-1.fit').mkdir()
+    (ro / 'bundle-1.fit' / 'fit.json').write_text(json.dumps({'gate': {'parameters': []}}))
+    assert compare.read_gate(ro / 'bundle-1.tgz')['checked']          # the dir compare reads is the one fit writes
+    ro.chmod(0o500)
+    try:
+        assert paths.fit_out(ro / 'bundle-2.tar.gz') == tmp_path / 'home' / '.cache' / 'crane' / 'fit' / 'bundle-2'
+        assert paths.fit_out(ro / 'bundle-1.tgz') == ro / 'bundle-1.fit'     # an existing writable dir is reused
+    finally:
+        ro.chmod(0o700)

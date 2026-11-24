@@ -89,6 +89,26 @@ crane sim logs                 # player.log, player-stdout.log and ros.log, 40 l
 crane sim logs ros -n 100
 ```
 
+## restart
+
+Restart one part of the running world and keep the rest.
+
+```bash
+crane sim restart nav        # new nav2_limits in the sim state take effect; nothing else stops
+crane sim restart ros        # the ROS container again with the same docker run; the player stays and reconnects
+crane sim restart player     # the player again with the same argv; ROS stays
+```
+
+- **nav** runs the domain's `tiers.T2.ros.restart.nav` recipe inside the ROS container: TERM the Nav2 nodes
+  (matched by exact `__node:=NAME`), wait up to `stop_s` (20 s), KILL if needed, start
+  `ros2 launch mhseals_nav device.launch.py device:=sim only:=navigation` (the same device profile and overrides
+  as `up`, so the same navigation args), and wait up to `ready_s` (90 s) for `bt_navigator` to be `active`. It never
+  starts a second set while the first is alive. Goals in flight are lost.
+- **ros** waits up to 60 s for the endpoint and 120 s for the ready nodes. **player** waits up to `ready_s` of the
+  course (300 s).
+- The state dir keeps the argv of `up` (`player.argv`, `ros.docker`); status shows `restarted:`. Exit 0 ok, 1
+  failed, 2 usage or nothing running, 75 timed out waiting. It ends with `next: crane sim check`.
+
 ## down
 
 Stop the world: the player's process group (TERM, then KILL after 10 s) and the domain's container, nothing

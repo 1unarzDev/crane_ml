@@ -2,7 +2,7 @@
 
 ```bash
 B=~/astro_dock/bags/sim/2026-11-24/bundle-173031.tgz          # astro bundle [--bags]
-crane fit $B --bags ~/astro_dock/bags/sim/2026-11-24/bags --out /tmp/fit
+crane fit $B --bags ~/astro_dock/bags/sim/2026-11-24/bags --out /tmp/fit    # no --out: beside $B, in bundle-173031.fit/
 crane run --domain boat --tier T0 --astro-test all --space small --tests $B --card /tmp/fit/profile.json --out /tmp/sim/t0
 crane run --domain boat --tier T1 --astro-test all --space small --tests $B --card /tmp/fit/profile.json --out /tmp/sim/t1
 crane sim up --headless --profile-json /tmp/fit/profile.json && astro test all     # T2: astro's own tests on Unity
@@ -25,6 +25,9 @@ evidence, the fitted card and its validation. `crane compare --field` prints one
 ## crane fit
 
 `crane fit BUNDLE… [--bags DIR] [--out DIR] [--base PROFILE] [--robot NAME] [--no-card]`
+
+`OUT` defaults to `<bundle stem>.fit/` beside the first bundle (`bundle-173031.fit/`), or
+`~/.cache/crane/fit/<bundle stem>/` when that dir is not writable. The last line is `next:` with the path.
 
 1. **Gate.** `Tools/Characterization/bundle.py` reads the bundle; `gate.py` checks it and `import_yaml.py`
    writes `OUT/profile.json` (for `sim_up --profile-json`) and `OUT/profile.gate.json`. Identified and
@@ -158,7 +161,7 @@ rules:
   row's 95 % CI contains 0. A row no rule matches is `n/a`.
 - Boat: speed at each level within 10 %; `measured.t95` within 25 % or a CI that contains 0; the couple
   cross response (a ratio, unit 1) within 0.02. Steps rows have no rule.
-- Gate: `--fit DIR` (default `fit-<bundle>`, `crane fit`'s default output) is read for `fit.json`. Every
+- Gate: `--fit DIR` (default `crane fit`'s default output for the bundle) is read for `fit.json`. Every
   direction and added-mass row must be `identified`. Without a fit it prints `gate: not checked` and does not
   fail.
 - The verdict is `pass (N rows, M bounds)` or `FAIL (k of N outside bounds; gate: X not identified)`.
