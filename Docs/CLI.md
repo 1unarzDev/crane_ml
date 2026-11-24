@@ -369,12 +369,28 @@ Progress of local and cluster work in one view.
 ### crane monitor
 
 ```sh
-crane monitor --follow
+crane monitor boat01
+crane monitor boat01 --follow --interval 60
+crane monitor ~/.cache/crane/studies/boat01 --local --json
 ```
 
-Progress of local and cluster work in one view (progress.json and the cluster feed).
+Progress of local and cluster work in one view: every progress.json under a study (or a dir) merged with its cluster jobs, per stage, arm and block.
 
-Not yet available; today use `crane heavy status, and crane cluster status`.
+What you'll see: one row per (stage, arm, block): done/total, rate, ETA, failed, jobs running/queued/done/failed, hosts and interim metric means (dev blocks only; held-out and other blocks show progress only), then failures with their reason (crashed, timed out without progress, cancelled), host and a traceback line, and next:. --json: {schema, at, where, study, sources, notes, finished, groups[{stage, arm, block, role, done, total, failed, rate_per_s, eta_s, hosts, jobs, failures, metrics}]}; with --follow one document per refresh (JSONL).
+
+Local: progress.json with cell.json, failure.json and metrics.json beside it. Cluster: when OUT/STUDY/cluster/jobs.json exists, the project job list (research token) and the public feed (/v1/feed); unreachable means a note, not a failure. A progress.json older than 180 s counts as stalled. --follow refreshes every --interval s (5..300) and stops when every job has ended or after --timeout s (exit 75).
+
+| Param | Type | Description |
+|---|---|---|
+| `target` | str | A study name under OUT, or a dir (default every study under OUT). |
+| `--out` | path | The studies root (default CRANE_STUDIES, else ~/.cache/crane/studies). |
+| `--follow` | bool | Refresh until every job has ended or --timeout passes. |
+| `--interval` | float | Seconds between refreshes (5..300). (default `30.0`) |
+| `--timeout` | float | With --follow: stop after this many seconds. (default `3600.0`) |
+| `--local` | bool | Local progress files only; do not ask the cluster. |
+| `--json` | bool | One JSON document (one per refresh with --follow). |
+
+raw: `cat OUT/STUDY/**/progress.json; research status -p crane --campaign STUDY`; --json: `crane.monitor/1`
 
 ## env (alias: course)
 
@@ -883,19 +899,103 @@ Not yet available; today use `python3 -m bench.fast with its --fresh-jobs, on a 
 
 ## cluster
 
-Research-cluster jobs.
+Research-cluster jobs: submit, wait, status, fetch (other verbs go to the research CLI).
 
-### crane cluster
+### crane cluster submit
 
 ```sh
-crane cluster status
+crane cluster submit study.yaml --dry-run
+crane cluster submit study.yaml --est-unit-s 12
+crane cluster submit study.yaml --stage A --block dev --cloud
+crane cluster submit /tmp/jobs.json
 ```
 
-Research-cluster jobs: submit, wait, status, fetch (the research CLI).
+Compile a study spec to rc-job/1 jobs (one per cell x seed chunk, 5-30 min each, pinned to the exact commit) and submit them with the research CLI; a jobs.json goes as is.
 
-What you'll see: the research CLI's output; arguments go to it unchanged. Found at $RESEARCH_CLUSTER/bin/research or ~/research-cluster/bin/research.
+What you'll see: the plan table (stage, arm, block, role, kind, jobs, units, est per job, compute hours) and any warnings, then the created/exists/duplicate counts and next:. --dry-run sends nothing (with --json: the plan and every job body).
 
-raw: `research`
+Jobs: kind crane_batch (the crane-batch backend: one slot, every core) or gpu_command for a GPU cell; seeds [0] with the chunk in spec.seeds; spec.run and spec.argv run python3 -m crane_backends.batch, which runs crane study run-cell SPEC --cell ID --seeds .. --out ..; job ids come from the unit cache keys and the commit, so resubmitting the same plan is idempotent. Refused (exit 2): uncommitted changes (--allow-dirty runs the commit), a cell naming field data (~/field_corpus_*, a bags dir, .mcap/.db3/.bag), a held-out block without --confirm, a cell with no time estimate. The plan is saved to OUT/STUDY/cluster/jobs.json before research submit.
+
+| Param | Type | Description |
+|---|---|---|
+| `source` | str | A crane.study/1 spec, or an rc-job/1 list. |
+| `--stage` | str | Only this stage. |
+| `--block` | str | Only this seed block. |
+| `--est-unit-s` | float | Seconds per (cell, seed) on one job (default the study's estimate). |
+| `--est-from` | path | A bench.fast bench.json: seconds per episode at one worker. |
+| `--measure` | bool | Time one seed of the first cell locally (never for T2). |
+| `--project` | str | The research-cluster project. (default `crane`) |
+| `--campaign` | str | The campaign label (default the study name). |
+| `--purpose` | str | 1-2 sentences, public on the feed (default the spec purpose:). |
+| `--tag` | str | needs.tags (repeatable; all required). |
+| `--cloud` | bool | Allow rented boxes: needs.tags += cloud-ok and cpu (torch for GPU cells); only with an approved REQUESTS.md row. |
+| `--kind` | str | Override the backend kind (crane_batch, gpu_command, py_command, crane-command). |
+| `--confirm` | bool | Allow held-out blocks (the study checks its targets file). |
+| `--allow-dirty` | bool | Submit with uncommitted changes (jobs run the commit). |
+| `--no-skip-done` | bool | Keep seeds already in the study's unit cache. |
+| `--out` | path | The studies root (default CRANE_STUDIES, else ~/.cache/crane/studies). |
+| `--dry-run` | bool | Print the plan; send nothing. |
+| `--json` | bool | One JSON document. |
+
+raw: `research submit -p crane OUT/STUDY/cluster/jobs.json`; --json: `crane.cluster.submit/1`
+
+### crane cluster wait
+
+```sh
+crane cluster wait boat01 --timeout 3600
+```
+
+Block until a study's jobs end, up to --timeout seconds (one research wait), then print the status table.
+
+What you'll see: one line on stderr naming the jobs and the timeout, then the status table (as cluster status). Exit 0 every job done, 1 some failed or were cancelled, 75 the timeout passed first (the jobs are untouched), 2 no plan or no research CLI.
+
+| Param | Type | Description |
+|---|---|---|
+| `study` | str | A study name, its OUT dir, or a plan. |
+| `--timeout` | float | Seconds to wait at most. (default `3600.0`) |
+| `--out` | path | The studies root (default CRANE_STUDIES, else ~/.cache/crane/studies). |
+| `--json` | bool | The final status as one JSON document. |
+
+raw: `research wait -p crane JOB... --timeout 3600`; --json: `crane.cluster.status/1`
+
+### crane cluster status
+
+```sh
+crane cluster status boat01
+```
+
+A study's cluster jobs per stage, arm and block, counted by state, with the failures (digest style; read-only).
+
+What you'll see: a header with the state counts, one row per (stage, arm, block) with jobs, units and a column per state, then failures (state, job, last error line) and next:. --json: {schema, study, project, campaign, states, groups, failures, finished}.
+
+| Param | Type | Description |
+|---|---|---|
+| `study` | str | A study name, its OUT dir, or a plan. |
+| `--out` | path | The studies root (default CRANE_STUDIES, else ~/.cache/crane/studies). |
+| `--json` | bool | One JSON document. |
+
+raw: `research status -p crane --campaign STUDY`; --json: `crane.cluster.status/1`
+
+### crane cluster fetch
+
+```sh
+crane cluster fetch boat01
+```
+
+Bring a study's finished cluster outputs into OUT/STUDY/<stage>/<arm>/<cell>/, the layout a local run writes, each file checked by sha256.
+
+What you'll see: one row per job not yet in place (fetched, missing, failed; rows; from a box pull or the cluster), the counts, and next:. Exit 1 when a file fails its sha256 check.
+
+Box pulls (~/.cache/vast-out/BOX/STUDY/JOB/, CRANE_VAST_OUT) first, else the coordinator's artifacts (a viewer token: RC_VIEWER_TOKEN or ~/.config/research-cluster/platform-viewer.token). Each job lands in <cell>/parts/JOB/; the cell's manifest.json lists every part's files. Safe to rerun.
+
+| Param | Type | Description |
+|---|---|---|
+| `study` | str | A study name, its OUT dir, or a plan. |
+| `--out` | path | The studies root (default CRANE_STUDIES, else ~/.cache/crane/studies). |
+| `--boxes-only` | bool | Only box pulls; do not ask the coordinator. |
+| `--json` | bool | One JSON document. |
+
+raw: `research wait -p crane JOB... --out DIR; rsync from the box`; --json: `crane.cluster.fetch/1`
 
 ## build
 
