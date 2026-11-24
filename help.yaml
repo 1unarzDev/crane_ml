@@ -4,15 +4,67 @@
 package: crane
 summary: Sim and research across domains and tiers (T0 abstract, T1 dynamic, T2 unity); crane help for every command.
 commands:
+  - name: crane sim up
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim up
+    summary: Start a domain's T2 world (the Unity player through heavy unity, plus its ROS side) and return once the course is ready; prints the status block.
+    ros: Tools/RoboBoat/sim_up up
+    notes: "Waits up to 60 s for the ROS endpoint and 300 s (SIM_UP_READY_S) for the course. Without --display, a window only on a terminal with a display, else headless under xvfb-run. Refuses (exit 2) while a sim runs. Exit 0 ready, 1 the world failed, 2 usage or config. Everything specific comes from config/domains/DOMAIN.yaml tiers.T2. Env: ROS_DOMAIN_ID, ASTRO_STATE / MHSEALS_HARDWARE_CONFIG (passed into the ROS side), the image env, SIM_UP_*, CRANE_PLAYER, HEAVY. Same as Tools/RoboBoat/sim_up."
+    params:
+      - {name: "--seed", type: int, description: The world seed (default 1).}
+      - {name: "--env", description: "KIND:NAME, the world (default course:roboboat_2026); --course FAMILY is the same as --env course:FAMILY."}
+      - {name: "--card", type: path, description: A plant profile JSON or a card name (--profile-json is the same).}
+      - {name: "--profile", description: The player's runtime profile (default interactive-low).}
+      - {name: "--current", description: "SPEED,TOWARD_DEG (m/s, deg), or 0 for still water (default the scene current)."}
+      - {name: "--display", choices: [window, headless], description: "Window or xvfb (--window, --headless are the same)."}
+      - {name: "--player", type: path, description: "The player (else CRANE_PLAYER, then the build)."}
+      - {name: "--robot", description: The domain's robot.}
+      - {name: "--set", description: Pin one world parameter (repeatable).}
+      - {name: "--domain", description: config/domains/DOMAIN.yaml (default boat).}
+      - {name: "--dry-run", type: bool, description: Print the resolved player argv and docker run; start nothing.}
+      - {name: "--json", type: bool, description: "Progress on stderr, the status as one JSON document."}
+    examples:
+      - crane sim up --headless --seed 3 --current 0
+      - crane sim up --card characterized --headless
+      - crane sim up --dry-run
+
+  - name: crane sim down
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim down
+    summary: "Stop what crane sim up started: its player's process group (TERM, KILL after 10 s) and its ROS container, nothing else."
+    ros: Tools/RoboBoat/sim_up down
+    params:
+      - {name: "--json", type: bool, description: One JSON document instead of the down line.}
+    examples:
+      - crane sim down
+
+  - name: crane sim status
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim status
+    summary: The status block (mode, ROS_DOMAIN_ID, endpoint, player, ROS container, course, current, logs, next commands). Read-only.
+    ros: Tools/RoboBoat/sim_up status
+    params:
+      - {name: "--json", type: bool, description: One JSON document.}
+    examples:
+      - crane sim status
+
   - name: crane sim check
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim check
     summary: Is the running sim ready (player, course, plant, ROS side, nav stack)? --wait SECONDS polls until ready; CHECK INPUTS runs an offline Tools/SimCheck check.
     ros: Tools/RoboBoat/sim_up check
     params:
-      - {name: "--wait", type: int, description: Poll until ready or this many seconds pass.}
+      - {name: "--wait", type: int, description: Poll every 2 s until ready or this many seconds pass.}
       - {name: "--json", type: bool, description: One JSON document.}
+      - {name: "--domain", description: config/domains/DOMAIN.yaml (default boat).}
     examples:
       - crane sim check --wait 120
+
+  - name: crane sim logs
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim logs
+    summary: The last lines of the player, player stdout and ROS logs, each under its path.
+    ros: Tools/RoboBoat/sim_up logs
+    params:
+      - {name: which, type: list, choices: [player, stdout, ros], description: Which logs (default all three)., required: false}
+      - {name: "-n", type: int, default: 40, description: Lines per log.}
+    examples:
+      - crane sim logs ros -n 100
 
   - name: crane run
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane run

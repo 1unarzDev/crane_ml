@@ -117,8 +117,8 @@ def domain_config(domain):
     path = paths.DOMAINS / f'{domain}.yaml'
     if not path.is_file():
         raise SelectError(f"no domain {domain!r}; domain configs: {', '.join(domains()) or 'none'}")
-    import yaml
-    return yaml.safe_load(path.read_text()) or {}
+    from crane import miniyaml
+    return miniyaml.safe_load(path.read_text()) or {}
 
 
 def parse_tier(text):

@@ -4,7 +4,7 @@
 crane doctor                                            what is installed, what works, what to run next
 crane run --domain toy --seeds 0:3                      T0 abstract, scenarios made on demand
 crane run --domain boat --tier T1 --seeds 0:2           T1 dynamic, the RoboBoat reference mission
-crane sim up --headless                                 the T2 world, used like the boat (astro sim up)
+crane sim up --headless                                 the T2 world, used like the robot
 crane view --live --domain boat --tier T1 --seed 3      the native sandbox: a live sim with sliders
 crane help                                              every noun and verb; crane NOUN VERB --help for one
 ```
@@ -37,28 +37,38 @@ Exit codes: 0 ok; 1 a check or run failed (judge FAIL included); 2 usage or conf
 
 ## sim
 
-T2: the Unity world plus ROS, used like the real boat.
+T2: a domain's Unity world plus its ROS side, used like the robot.
 
 ### crane sim up
 
 ```sh
-crane sim up --headless --seed 3
+crane sim up --headless --seed 3 --current 0
+crane sim up --card characterized --headless
+crane sim up --dry-run
 ```
 
-Start the T2 world (the Unity player plus the ROS side) and return once the course is ready.
+Start a domain's T2 world (the Unity player through heavy unity, plus its ROS side) and return once the course is ready; prints the status block.
 
-What you'll see: the player queued on `heavy unity`, then the status block (mode, domain, endpoint, pids, logs, next commands). Options: [--seed N] [--course FAMILY] [--profile-json F] [--window|--headless] [--player PATH] [--current SPEED,TOWARD_DEG]. Env: ROS_DOMAIN_ID, ASTRO_DATA, ASTRO_STATE, HEAVY, ASTRO_IMAGE, SIM_UP_*, CRANE_PLAYER.
+What you'll see: one line as the ROS side starts and one as the player is queued on `heavy unity`, then the status block (mode, ROS_DOMAIN_ID, endpoint, player pgid, ROS container, course, current, logs, next:). --dry-run: the resolved player argv and docker run, nothing starts (crane.sim.plan/1 with --json).
+
+Waits up to 60 s for the ROS endpoint and 300 s (SIM_UP_READY_S) for the course. Without --display, a window only on a terminal with a display, else headless under xvfb-run. Refuses (exit 2) while a sim runs. Exit 0 ready, 1 the world failed, 2 usage or config. Everything specific comes from config/domains/DOMAIN.yaml tiers.T2. Env: ROS_DOMAIN_ID, ASTRO_STATE / MHSEALS_HARDWARE_CONFIG (passed into the ROS side), the image env, SIM_UP_*, CRANE_PLAYER, HEAVY. Same as Tools/RoboBoat/sim_up.
 
 | Param | Type | Description |
 |---|---|---|
-| `--seed` | int | the course seed |
-| `--course` | str | the course family |
-| `--profile-json` | path | the plant profile the player applies |
-| `--headless` | bool | run under xvfb-run (the default without a terminal) |
-| `--window` | bool | show the player on your display |
-| `--current` | str | the water current (m/s, deg) |
+| `--seed` | int | The world seed (default 1). |
+| `--env` | env | KIND:NAME, the world (default course:roboboat_2026); --course FAMILY is the same as --env course:FAMILY. |
+| `--card` | path | A plant profile JSON or a card name (--profile-json is the same). |
+| `--profile` | str | The player's runtime profile (default interactive-low). |
+| `--current` | str | SPEED,TOWARD_DEG (m/s, deg), or 0 for still water (default the scene current). |
+| `--display` | str | Window or xvfb (--window, --headless are the same). One of `window`, `headless`. |
+| `--player` | path | The player (else CRANE_PLAYER, then the build). |
+| `--robot` | str | The domain's robot. |
+| `--set` | str | Pin one world parameter (repeatable). |
+| `--domain` | str | config/domains/DOMAIN.yaml (default boat). |
+| `--dry-run` | bool | Print the resolved player argv and docker run; start nothing. |
+| `--json` | bool | Progress on stderr, the status as one JSON document. |
 
-raw: `Tools/RoboBoat/sim_up up`
+raw: `Tools/RoboBoat/sim_up up`; --json: `crane.sim.status/1`
 
 ### crane sim down
 
@@ -66,11 +76,15 @@ raw: `Tools/RoboBoat/sim_up up`
 crane sim down
 ```
 
-Stop what sim up started (its player and its ROS container only).
+Stop what crane sim up started: its player's process group (TERM, KILL after 10 s) and its ROS container, nothing else.
 
-What you'll see: one line per stopped process.
+What you'll see: the down line.
 
-raw: `Tools/RoboBoat/sim_up down`
+| Param | Type | Description |
+|---|---|---|
+| `--json` | bool | One JSON document instead of the down line. |
+
+raw: `Tools/RoboBoat/sim_up down`; --json: `crane.sim.down/1`
 
 ### crane sim status
 
@@ -78,13 +92,13 @@ raw: `Tools/RoboBoat/sim_up down`
 crane sim status
 ```
 
-The status block: mode, domain, port, pids, disturbance, logs, the next commands.
+The status block (mode, ROS_DOMAIN_ID, endpoint, player, ROS container, course, current, logs, next commands). Read-only.
 
-What you'll see: the status block, ending with next:. --json: {schema, exit, fields, text}.
+What you'll see: the status block, ending with next:. --json: {schema, domain, mode, player, ros, course, current, logs, next}.
 
 | Param | Type | Description |
 |---|---|---|
-| `--json` | bool | one JSON document |
+| `--json` | bool | One JSON document. |
 
 raw: `Tools/RoboBoat/sim_up status`; --json: `crane.sim.status/1`
 
@@ -96,24 +110,30 @@ crane sim check --wait 120
 
 Is the running sim ready (player, course, plant, ROS side, nav stack)? --wait SECONDS polls until ready; CHECK INPUTS runs an offline Tools/SimCheck check.
 
-What you'll see: one row per check (ok/FAIL, name, detail), then `sim check: ready` or the failed names. Exit 1 when not ready, 75 when --wait SECONDS pass first. --json: {schema, ready, failed, checks[{name, ok, detail}]}.
+What you'll see: one row per check (ok/FAIL, name, detail), then `sim check: ready` or the failed names. Exit 1 when not ready, 75 when --wait SECONDS pass first. --json: {schema, ready, exit, failed, notices, checks[{name, ok, detail}]}.
 
 | Param | Type | Description |
 |---|---|---|
-| `--wait` | int | Poll until ready or this many seconds pass. |
+| `--wait` | int | Poll every 2 s until ready or this many seconds pass. |
 | `--json` | bool | One JSON document. |
+| `--domain` | str | config/domains/DOMAIN.yaml (default boat). |
 
 raw: `Tools/RoboBoat/sim_up check`; --json: `crane.sim.check/1`
 
 ### crane sim logs
 
 ```sh
-crane sim logs
+crane sim logs ros -n 100
 ```
 
-The player's and the ROS side's logs.
+The last lines of the player, player stdout and ROS logs, each under its path.
 
-Not yet available; today use `tail -f ~/.cache/sim_up/player.log`.
+| Param | Type | Description |
+|---|---|---|
+| `which` | list | Which logs (default all three). One of `player`, `stdout`, `ros`. |
+| `-n` | int | Lines per log. (default `40`) |
+
+raw: `Tools/RoboBoat/sim_up logs`
 
 ## run
 

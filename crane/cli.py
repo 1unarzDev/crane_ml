@@ -20,7 +20,7 @@ TOP_EXAMPLES = """examples:
   crane doctor                                            what is installed, what works, what to run next
   crane run --domain toy --seeds 0:3                      T0 abstract, scenarios made on demand
   crane run --domain boat --tier T1 --seeds 0:2           T1 dynamic, the RoboBoat reference mission
-  crane sim up --headless                                 the T2 world, used like the boat (astro sim up)
+  crane sim up --headless                                 the T2 world, used like the robot
   crane view --live --domain boat --tier T1 --seed 3      the native sandbox: a live sim with sliders
   crane help                                              every noun and verb; crane NOUN VERB --help for one
 
@@ -188,6 +188,8 @@ def main(argv=None):
         build_parser().parse_args([argv[0], '--help'])
         return output.OK
     command = reg.find(argv)
+    if command is None and noun.owner:               # its tool's own verbs, usage and options-only form
+        return reg.handler(noun.owner)(argv[1:])
     if command is None:
         build_parser().parse_args(argv[:2])          # an unknown verb: argparse names the choices, exit 2
         return output.USAGE

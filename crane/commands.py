@@ -72,6 +72,7 @@ class Noun:
     summary: str
     aliases: tuple = ()
     export: str = ''               # export the noun itself to help.yaml: the description of its verb param
+    owner: str = ''                # a tool that owns the noun's words: other verbs and options-only go to it
     verbs: list = field(default_factory=list, compare=False)
 
 
@@ -85,7 +86,7 @@ P = Param
 JSON, QUIET, DRY = 'json', 'quiet', 'dry_run'
 
 NOUNS = [
-    Noun('sim', 'T2: the Unity world plus ROS, used like the real boat'),
+    Noun('sim', "T2: a domain's Unity world plus its ROS side, used like the robot", owner='crane.wrap:sim'),
     Noun('run', 'episodes at a tier, one run dir per seed'),
     Noun('study', 'a study spec: arms x axes x seed blocks, run locally or on the cluster'),
     Noun('runs', 'the local run index: list, show, query, diff'),
@@ -115,37 +116,65 @@ NOUNS = [
 
 COMMANDS = [
     # ---- sim -------------------------------------------------------------------------------------------------
-    Command(('sim', 'up'), 'Start the T2 world (the Unity player plus the ROS side) and return once the course is ready.',
-            'crane.wrap:sim', passthrough=True,
-            about="the player queued on `heavy unity`, then the status block (mode, domain, endpoint, pids, logs, "
-                  "next commands). Options: [--seed N] [--course FAMILY] [--profile-json F] [--window|--headless] "
-                  "[--player PATH] [--current SPEED,TOWARD_DEG]. Env: ROS_DOMAIN_ID, ASTRO_DATA, ASTRO_STATE, HEAVY, "
-                  "ASTRO_IMAGE, SIM_UP_*, CRANE_PLAYER.",
-            params=(P('--seed', 'int', description='the course seed'),
-                    P('--course', description='the course family'),
-                    P('--profile-json', 'path', description='the plant profile the player applies'),
-                    P('--headless', 'bool', description='run under xvfb-run (the default without a terminal)'),
-                    P('--window', 'bool', description='show the player on your display'),
-                    P('--current', metavar='SPEED,TOWARD_DEG', description='the water current (m/s, deg)')),
-            examples=('crane sim up --headless --seed 3',), raw='Tools/RoboBoat/sim_up up'),
-    Command(('sim', 'down'), 'Stop what sim up started (its player and its ROS container only).', 'crane.wrap:sim',
-            passthrough=True, about='one line per stopped process.', examples=('crane sim down',),
-            raw='Tools/RoboBoat/sim_up down'),
-    Command(('sim', 'status'), 'The status block: mode, domain, port, pids, disturbance, logs, the next commands.',
-            'crane.wrap:sim', passthrough=True, flags=(JSON,), json='crane.sim.status/1',
-            about='the status block, ending with next:. --json: {schema, exit, fields, text}.',
-            params=(P('--json', 'bool', description='one JSON document'),),
+    Command(('sim', 'up'), "Start a domain's T2 world (the Unity player through heavy unity, plus its ROS side) and "
+            'return once the course is ready; prints the status block.',
+            'crane.wrap:sim', passthrough=True, flags=(JSON, DRY), json='crane.sim.status/1', export=True,
+            about='one line as the ROS side starts and one as the player is queued on `heavy unity`, then the status '
+                  'block (mode, ROS_DOMAIN_ID, endpoint, player pgid, ROS container, course, current, logs, next:). '
+                  '--dry-run: the resolved player argv and docker run, nothing starts (crane.sim.plan/1 with --json).',
+            notes='Waits up to 60 s for the ROS endpoint and 300 s (SIM_UP_READY_S) for the course. Without '
+                  '--display, a window only on a terminal with a display, else headless under xvfb-run. Refuses '
+                  '(exit 2) while a sim runs. Exit 0 ready, 1 the world failed, 2 usage or config. Everything '
+                  'specific comes from config/domains/DOMAIN.yaml tiers.T2. Env: ROS_DOMAIN_ID, ASTRO_STATE / '
+                  'MHSEALS_HARDWARE_CONFIG (passed into the ROS side), the image env, SIM_UP_*, CRANE_PLAYER, HEAVY. '
+                  'Same as Tools/RoboBoat/sim_up.',
+            params=(P('--seed', 'int', description='The world seed (default 1).'),
+                    sel('env', description='KIND:NAME, the world (default course:roboboat_2026); --course FAMILY is '
+                        'the same as --env course:FAMILY.'),
+                    sel('card', type='path', description='A plant profile JSON or a card name (--profile-json is the '
+                        'same).'),
+                    P('--profile', description="The player's runtime profile (default interactive-low)."),
+                    P('--current', metavar='SPEED,TOWARD_DEG', description='SPEED,TOWARD_DEG (m/s, deg), or 0 for '
+                      'still water (default the scene current).'),
+                    P('--display', choices=('window', 'headless'), description='Window or xvfb (--window, --headless '
+                      'are the same).'),
+                    P('--player', 'path', description='The player (else CRANE_PLAYER, then the build).'),
+                    sel('robot'),
+                    P('--set', metavar='K=V', repeat=True, description='Pin one world parameter (repeatable).'),
+                    sel('domain', description='config/domains/DOMAIN.yaml (default boat).'),
+                    P('--dry-run', 'bool', description='Print the resolved player argv and docker run; start nothing.'),
+                    P('--json', 'bool', description='Progress on stderr, the status as one JSON document.')),
+            examples=('crane sim up --headless --seed 3 --current 0', 'crane sim up --card characterized --headless',
+                      'crane sim up --dry-run'),
+            raw='Tools/RoboBoat/sim_up up'),
+    Command(('sim', 'down'), "Stop what crane sim up started: its player's process group (TERM, KILL after 10 s) and "
+            'its ROS container, nothing else.', 'crane.wrap:sim', passthrough=True, flags=(JSON,),
+            json='crane.sim.down/1', export=True, about='the down line.',
+            params=(P('--json', 'bool', description='One JSON document instead of the down line.'),),
+            examples=('crane sim down',), raw='Tools/RoboBoat/sim_up down'),
+    Command(('sim', 'status'), 'The status block (mode, ROS_DOMAIN_ID, endpoint, player, ROS container, course, '
+            'current, logs, next commands). Read-only.',
+            'crane.wrap:sim', passthrough=True, flags=(JSON,), json='crane.sim.status/1', export=True,
+            about='the status block, ending with next:. --json: {schema, domain, mode, player, ros, course, current, '
+                  'logs, next}.',
+            params=(P('--json', 'bool', description='One JSON document.'),),
             examples=('crane sim status',), raw='Tools/RoboBoat/sim_up status'),
     Command(('sim', 'check'), 'Is the running sim ready (player, course, plant, ROS side, nav stack)? '
             '--wait SECONDS polls until ready; CHECK INPUTS runs an offline Tools/SimCheck check.',
             'crane.wrap:sim', passthrough=True, flags=(JSON,), json='crane.sim.check/1', export=True,
             about='one row per check (ok/FAIL, name, detail), then `sim check: ready` or the failed names. Exit 1 '
-                  'when not ready, 75 when --wait SECONDS pass first. --json: {schema, ready, failed, checks[{name, ok, detail}]}.',
-            params=(P('--wait', 'int', description='Poll until ready or this many seconds pass.'),
-                    P('--json', 'bool', description='One JSON document.')),
+                  'when not ready, 75 when --wait SECONDS pass first. --json: {schema, ready, exit, failed, notices, '
+                  'checks[{name, ok, detail}]}.',
+            params=(P('--wait', 'int', description='Poll every 2 s until ready or this many seconds pass.'),
+                    P('--json', 'bool', description='One JSON document.'),
+                    sel('domain', description='config/domains/DOMAIN.yaml (default boat).')),
             examples=('crane sim check --wait 120',), raw='Tools/RoboBoat/sim_up check'),
-    Command(('sim', 'logs'), "The player's and the ROS side's logs.", today='tail -f ~/.cache/sim_up/player.log',
-            examples=('crane sim logs',)),
+    Command(('sim', 'logs'), 'The last lines of the player, player stdout and ROS logs, each under its path.',
+            'crane.wrap:sim', passthrough=True, export=True,
+            params=(P('which', 'list', nargs='*', choices=('player', 'stdout', 'ros'),
+                      description='Which logs (default all three).'),
+                    P('-n', 'int', default=40, description='Lines per log.')),
+            examples=('crane sim logs ros -n 100',), raw='Tools/RoboBoat/sim_up logs'),
 
     # ---- run -------------------------------------------------------------------------------------------------
     Command(('run',), 'Run episodes at a tier, one run dir per seed (OUT/VARIANT/s<seed>). T0 abstract and T1 dynamic; '
@@ -474,9 +503,9 @@ def find(words):
 
 
 def handler(command):
-    """The command's handler function (imported now)."""
+    """The handler function of a command, or of a 'module:function' ref (imported now)."""
     import importlib
-    module, _, fn = command.handler.partition(':')
+    module, _, fn = (command if isinstance(command, str) else command.handler).partition(':')
     return getattr(importlib.import_module(module), fn)
 
 
