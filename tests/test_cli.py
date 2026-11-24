@@ -136,6 +136,9 @@ def test_judge_exits_one_on_fail_and_zero_on_pass(tmp_path):
     assert bad.returncode == 1 and 'judge: FAIL (insight integrity.invalid)' in bad.stderr
     doc = _launch('--json', 'judge', 'oneline', str(tmp_path / 'fail.json'), cwd=tmp_path)
     assert doc.returncode == 1 and _strict(doc.stdout)['insights'][0]['severity'] == 'fail'
+    (tmp_path / 'empty').mkdir()                                           # nothing judged is never a pass
+    assert _launch('judge', 'fastsim', str(tmp_path / 'empty'), cwd=tmp_path).returncode == 2
+    assert _launch('judge', 'fastsim', str(tmp_path / 'nonexistent'), cwd=tmp_path).returncode == 2
 
 
 def test_launcher_runs_from_any_cwd_without_a_shell_and_ignores_the_cwd(tmp_path):
@@ -190,6 +193,8 @@ def test_run_t0_writes_a_run_dir_per_seed_from_a_config_or_a_domain(tmp_path, mo
     for a, b in zip(runs, sorted((tmp_path / 'b' / 'base').iterdir())):
         assert (a / 'track.jsonl').read_text() == (b / 'track.jsonl').read_text()
     capsys.readouterr()
+    assert cli.main(['run', '--domain', 'toy', '--out', str(tmp_path / 'b'), *common]) == 2   # written once
+    assert 'already holds' in (err := capsys.readouterr().err) and 'fix: pass a new --out' in err
     assert cli.main(['run', '--domain', 'boat', '--out', str(tmp_path / 'c'), *common]) == 2
     assert "no domain 'boat'" in (err := capsys.readouterr().err) and 'domain configs: toy' in err
     assert cli.main(['run', '--tier', 'T2', '--config', str(TOY), '--out', str(tmp_path / 'd'), *common]) == 2
@@ -226,6 +231,9 @@ def test_sim_check_ignores_a_stale_log_and_names_what_failed(tmp_path, monkeypat
     assert not rows['nav stack up'][0] and 'rtabmap' in rows['nav stack up'][1]
     assert simcheck.main(['--wait', '0']) == 1
     assert 'sim check: not ready, failed: player running, course ready' in capsys.readouterr().out
+    monkeypatch.setattr(simcheck.time, 'sleep', lambda s: None)
+    assert simcheck.main(['--wait', '0.05']) == 75                           # a bounded wait that ran out
+    assert 'not ready after 0.05 s' in capsys.readouterr().out
     monkeypatch.setattr(simcheck, '_nodes', lambda: ['/ekf_local', '/rtabmap', '/bt_navigator'])
     assert dict((n, ok) for n, ok, _ in simcheck.live(tmp_path))['nav stack up']
 
@@ -339,3 +347,13 @@ def test_sim_up_check_reaches_crane_and_a_bad_current_is_refused_before_anything
                          timeout=30)
     assert bad.returncode == 2 and '--current wants SPEED,TOWARD_DEG' in bad.stderr
     assert not (tmp_path / 'run').exists()
+
+
+def test_env_gen_checks_its_arguments_before_taking_the_unity_slot(monkeypatch, capsys):
+    from crane import wrap
+    monkeypatch.setattr(wrap, 'execute', lambda cmd, **kw: pytest.fail(f'ran {cmd}'))
+    assert cli.main(['env', 'gen']) == 2 and '--out is required' in capsys.readouterr().err
+    assert cli.main(['env', 'gen', '--seed', '3', '--seeds', '0:2', '--out', '/tmp/x']) == 2
+    assert cli.main(['env', 'gen', '--seed', '3', '--out', '/tmp/c3.json', '--dry-run']) == 0
+    out = capsys.readouterr().out
+    assert 'unity' in out and 'generate.sh --seed 3 --out /tmp/c3.json' in out

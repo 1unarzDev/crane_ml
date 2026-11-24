@@ -125,8 +125,12 @@ def _usage(command):
     return f'crane {words} {shown} [ARGS...]'.replace('  ', ' ')
 
 
+def _not_yet(command):
+    return '(not yet) ' if command.today else ''
+
+
 def leaf(sub, name, command, aliases=()):
-    parser = sub.add_parser(name, aliases=list(aliases), help=first_sentence(command.summary),
+    parser = sub.add_parser(name, aliases=list(aliases), help=_not_yet(command) + first_sentence(command.summary),
                             description=_description(command), epilog=_epilog(command), usage=_usage(command),
                             formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.set_defaults(_command=command)
@@ -147,7 +151,8 @@ def build_parser():
         if not noun.verbs:
             leaf(sub, noun.name, reg.BY_WORDS[(noun.name,)], noun.aliases)
             continue
-        np = sub.add_parser(noun.name, aliases=list(noun.aliases), help=noun.summary, description=noun.summary,
+        np = sub.add_parser(noun.name, aliases=list(noun.aliases), description=noun.summary,
+                            help=('(not yet) ' if all(c.today for c in noun.verbs) else '') + noun.summary,
                             epilog='examples:\n' + '\n'.join(f'  {c.examples[0]}' for c in noun.verbs),
                             formatter_class=argparse.RawDescriptionHelpFormatter,
                             usage=f'crane {noun.name} {{{",".join(c.verb for c in noun.verbs)}}} [ARGS...]')
@@ -232,7 +237,7 @@ def help_main(args):
     if topic and len(shown) == 1:
         build_parser().parse_args([*shown[0].words, '--help'])
         return output.OK
-    rows = [(c.name, ('(not yet) ' if c.today else '') + first_sentence(c.summary)) for c in shown]
+    rows = [(c.name, _not_yet(c) + first_sentence(c.summary)) for c in shown]
     width = max(len(r[0]) for r in rows)
     for name, summary in rows:
         print(f'  {name:<{width}}  {summary}')

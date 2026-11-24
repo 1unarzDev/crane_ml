@@ -140,7 +140,7 @@ COMMANDS = [
             '--wait SECONDS polls until ready; CHECK INPUTS runs an offline Tools/SimCheck check.',
             'crane.wrap:sim', passthrough=True, flags=(JSON,), json='crane.sim.check/1', export=True,
             about='one row per check (ok/FAIL, name, detail), then `sim check: ready` or the failed names. Exit 1 '
-                  'when not ready. --json: {schema, ready, failed, checks[{name, ok, detail}]}.',
+                  'when not ready, 75 when --wait SECONDS pass first. --json: {schema, ready, failed, checks[{name, ok, detail}]}.',
             params=(P('--wait', 'int', description='Poll until ready or this many seconds pass.'),
                     P('--json', 'bool', description='One JSON document.')),
             examples=('crane sim check --wait 120',), raw='Tools/RoboBoat/sim_up check'),
@@ -215,10 +215,11 @@ COMMANDS = [
 
     # ---- env (and its alias course) ---------------------------------------------------------------------------
     Command(('env', 'gen'), 'Generate course truth with the Unity course generator (headless, through heavy unity).',
-            'crane.wrap:course', passthrough=True,
-            about='CRANE_COURSE_* lines. Options: --family F --seed N --out T.json | --seeds A:B --out DIR | '
-                  '--validate DIR --out V.json; --mode, --set.',
-            examples=('crane env gen --family roboboat_2026 --seed 3 --out /tmp/c3.json',),
+            'crane.wrap:course', passthrough=True, flags=(DRY,),
+            about='CRANE_COURSE_* lines. Options: [--family F] --seed N --out T.json | --seeds A:B --out DIR | '
+                  "--validate DIR --out V.json; --mode, --set. The family defaults to the generator's. Arguments are "
+                  'checked before the heavy unity slot is taken; --dry-run prints the command only.',
+            examples=('crane env gen --seed 3 --out /tmp/c3.json', 'crane env gen --seeds 0:50 --out /tmp/courses'),
             raw='bin/heavy unity Tools/RoboBoat/generate.sh'),
     Command(('env', 'validate'), 'The independent constraint check of a course truth; exit 0 when every row passes.',
             'crane.wrap:course', passthrough=True, about='one row per constraint. Options: TRUTH.json [--spec S] '
@@ -237,24 +238,24 @@ COMMANDS = [
     Command(('card', 'show'), 'A plant card: one row per block (parameters with their sd and status) and the '
             'validation rows.', 'crane.wrap:card', passthrough=True, flags=(JSON,), json='crane.card/1',
             about='a text table; --json: the card document (robot, sha, status, blocks, validation).',
-            params=(P('ref', nargs='?', default='roboboat/blastoise@HEAD', description='FAMILY/ROBOT@HEAD, a sha '
-                      'prefix or a card dir.'), P('--json', 'bool', description='The card as one JSON document.')),
-            examples=('crane card show roboboat/blastoise@HEAD',), raw='python3 -m plantcard show'),
+            params=(P('ref', nargs='?', description="FAMILY/ROBOT@HEAD, a sha prefix or a card dir (default: "
+                      "plantcard's default card)."), P('--json', 'bool', description='The card as one JSON document.')),
+            examples=('crane card show', 'crane card show FAMILY/ROBOT@HEAD --json'), raw='python3 -m plantcard show'),
     Command(('card', 'export'), "One of a card's tier views (unity | nlc | control | fastsim) as JSON.",
             'crane.wrap:card', passthrough=True, about='JSON on stdout, or --out FILE.',
             params=(P('view', choices=('unity', 'nlc', 'control', 'fastsim'), description='The tier view.'),
-                    P('ref', nargs='?', default='roboboat/blastoise@HEAD', description='The card.'),
+                    P('ref', nargs='?', description="The card (default: plantcard's default card)."),
                     P('--out', 'path', description='Write the JSON here.')),
-            examples=('crane card export fastsim roboboat/blastoise@HEAD --out /tmp/card.json',),
+            examples=('crane card export fastsim --out /tmp/card.json',),
             raw='python3 -m plantcard export'),
     Command(('card', 'fit'), 'Fit a card from field data.', today='crane fit BUNDLE.tgz --bags DIR',
             examples=('crane card fit bundle.tgz --out /tmp/fit',)),
     Command(('card', 'factorial'), 'Card variants from a factorial spec, plus a manifest.',
             today='crane fit BUNDLE.tgz --factorial SPEC.yaml', examples=('crane card factorial spec.yaml',)),
     Command(('card', 'validate'), "A card's held-out prediction coverage.", today='crane fit with two or more bundles',
-            examples=('crane card validate roboboat/blastoise@HEAD',)),
+            examples=('crane card validate FAMILY/ROBOT@HEAD',)),
     Command(('card', 'parity'), "A card's tier views agree (T1 vs T2).", today='crane compare --tiers LOW HIGH',
-            examples=('crane card parity roboboat/blastoise@HEAD',)),
+            examples=('crane card parity FAMILY/ROBOT@HEAD',)),
     Command(('fit',), 'An astro bundle to a profile (through the gate) and a plant card (through its bags as '
             "evidence); prints each parameter's status and why.", 'crane.fit:main', export=True,
             about='the gate verdict per parameter (identified / provisional / prior, and why), the evidence, the card '

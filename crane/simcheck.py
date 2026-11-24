@@ -3,7 +3,8 @@
 With no arguments it checks the live sim; `crane sim check CHECK ...` runs one of Tools/SimCheck's offline
 acceptance checks (axis, sitl, sitl-peer, docking, smoke) on recorded results. Stdlib only.
 
-    crane sim check [--wait SECONDS]    poll until ready (or the timeout), e.g. right after `crane sim up`
+    crane sim check [--wait SECONDS]    poll every 2 s until ready, e.g. right after `crane sim up`; exit 75 when
+                                        SECONDS pass first (0 ok, 1 not ready, 2 usage)
 """
 
 import os
@@ -112,5 +113,11 @@ def main(rest):
                     if WARN.search(l)})
     if warns:
         print(f"  warn  player notices     {', '.join(warns)} (see {log})")
-    print('sim check: ready' if not bad else f"sim check: not ready, failed: {', '.join(bad)}; see `crane sim status`")
-    return 0 if not bad else 1
+    if not bad:
+        print('sim check: ready' + (f' (waited up to {wait:g} s)' if wait else ''))
+        return 0
+    if wait:
+        print(f"crane sim check: not ready after {wait:g} s, failed: {', '.join(bad)}; fix: crane sim status")
+        return 75
+    print(f"crane sim check: not ready, failed: {', '.join(bad)}; fix: crane sim status, or crane sim check --wait 120")
+    return 1

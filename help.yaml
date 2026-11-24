@@ -49,8 +49,8 @@ commands:
       - {name: verb, choices: [show, export], description: show or export., required: true}
       - {name: args, type: list, description: "The verb's options: crane card VERB --help.", required: false}
     examples:
-      - crane card show roboboat/blastoise@HEAD
-      - crane card export fastsim roboboat/blastoise@HEAD --out /tmp/card.json
+      - crane card show
+      - crane card export fastsim --out /tmp/card.json
 
   - name: crane fit
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane fit

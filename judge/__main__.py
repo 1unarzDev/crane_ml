@@ -6,7 +6,8 @@
   markdown REPORT.json       print a report as Markdown
 
 --json prints the report as one JSON document instead. Exit 1 when the report FAILs (a fail-level insight, a
-tier gap verdict FAIL, or a variant comparison that is inferior or worse); demo always exits 0.
+tier gap verdict FAIL, or a variant comparison that is inferior or worse) or every run is refused; exit 2 when
+the path is missing or holds no runs. demo always exits 0.
 """
 
 from __future__ import annotations
@@ -50,6 +51,13 @@ def _fastsim(root, out, as_json=False):
     from judge.sources.fastsim import FastsimSource
     refused = []
     recs = FastsimSource().load_all(root, refused)
+    if not recs:          # nothing judged is never a pass: 2 when ROOT holds no runs, 1 when every run is refused
+        why = f'all {len(refused)} run(s) refused, none judged' if refused else 'no fastsim run dirs in it'
+        if as_json and refused:
+            print(json.dumps({'schema': 'judge.refused/1', 'refused': refused}, indent=1, default=str))
+        print(f'crane judge fastsim: {root}: {why}; fix: crane judge fastsim RUNS_DIR (the --out of crane run)',
+              file=sys.stderr)
+        return 1 if refused else 2
     rep = judge_runs(recs, None, [generic_motion.PACK])
     rep['refused'] = refused
     print(json.dumps(rep, indent=1, default=str) if as_json else render.oneline(rep))
@@ -71,8 +79,14 @@ def main(argv=None):
         return 0
     if not a.path:
         ap.error(f'{a.cmd} needs a path')
+    if not Path(a.path).exists():
+        print(f'crane judge {a.cmd}: {a.path} does not exist; fix: crane judge {a.cmd} '
+              f'{"RUNS_DIR (the --out of crane run)" if a.cmd == "fastsim" else "REPORT.json"}', file=sys.stderr)
+        return 2
     if a.cmd == 'fastsim':
         rep = _fastsim(a.path, a.out, a.json)
+        if isinstance(rep, int):
+            return rep
     else:
         rep = json.loads(Path(a.path).read_text())
         print(json.dumps(rep, indent=1) if a.json else render.oneline(rep) if a.cmd == 'oneline'

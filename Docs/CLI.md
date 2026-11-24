@@ -96,7 +96,7 @@ crane sim check --wait 120
 
 Is the running sim ready (player, course, plant, ROS side, nav stack)? --wait SECONDS polls until ready; CHECK INPUTS runs an offline Tools/SimCheck check.
 
-What you'll see: one row per check (ok/FAIL, name, detail), then `sim check: ready` or the failed names. Exit 1 when not ready. --json: {schema, ready, failed, checks[{name, ok, detail}]}.
+What you'll see: one row per check (ok/FAIL, name, detail), then `sim check: ready` or the failed names. Exit 1 when not ready, 75 when --wait SECONDS pass first. --json: {schema, ready, failed, checks[{name, ok, detail}]}.
 
 | Param | Type | Description |
 |---|---|---|
@@ -341,12 +341,17 @@ Worlds: courses, scenes, worlds (kind from --env).
 ### crane env gen
 
 ```sh
-crane env gen --family roboboat_2026 --seed 3 --out /tmp/c3.json
+crane env gen --seed 3 --out /tmp/c3.json
+crane env gen --seeds 0:50 --out /tmp/courses
 ```
 
 Generate course truth with the Unity course generator (headless, through heavy unity).
 
-What you'll see: CRANE_COURSE_* lines. Options: --family F --seed N --out T.json | --seeds A:B --out DIR | --validate DIR --out V.json; --mode, --set.
+What you'll see: CRANE_COURSE_* lines. Options: [--family F] --seed N --out T.json | --seeds A:B --out DIR | --validate DIR --out V.json; --mode, --set. The family defaults to the generator's. Arguments are checked before the heavy unity slot is taken; --dry-run prints the command only.
+
+| Param | Type | Description |
+|---|---|---|
+| `--dry-run` | bool | Print the resolved plan; run nothing. |
 
 raw: `bin/heavy unity Tools/RoboBoat/generate.sh`
 
@@ -411,7 +416,8 @@ Plant cards: show, export, fit, validate.
 ### crane card show
 
 ```sh
-crane card show roboboat/blastoise@HEAD
+crane card show
+crane card show FAMILY/ROBOT@HEAD --json
 ```
 
 A plant card: one row per block (parameters with their sd and status) and the validation rows.
@@ -420,7 +426,7 @@ What you'll see: a text table; --json: the card document (robot, sha, status, bl
 
 | Param | Type | Description |
 |---|---|---|
-| `ref` | str | FAMILY/ROBOT@HEAD, a sha prefix or a card dir. (default `roboboat/blastoise@HEAD`) |
+| `ref` | str | FAMILY/ROBOT@HEAD, a sha prefix or a card dir (default: plantcard's default card). |
 | `--json` | bool | The card as one JSON document. |
 
 raw: `python3 -m plantcard show`; --json: `crane.card/1`
@@ -428,7 +434,7 @@ raw: `python3 -m plantcard show`; --json: `crane.card/1`
 ### crane card export
 
 ```sh
-crane card export fastsim roboboat/blastoise@HEAD --out /tmp/card.json
+crane card export fastsim --out /tmp/card.json
 ```
 
 One of a card's tier views (unity | nlc | control | fastsim) as JSON.
@@ -438,7 +444,7 @@ What you'll see: JSON on stdout, or --out FILE.
 | Param | Type | Description |
 |---|---|---|
 | `view` | str | The tier view. One of `unity`, `nlc`, `control`, `fastsim`. |
-| `ref` | str | The card. (default `roboboat/blastoise@HEAD`) |
+| `ref` | str | The card (default: plantcard's default card). |
 | `--out` | path | Write the JSON here. |
 
 raw: `python3 -m plantcard export`
@@ -466,7 +472,7 @@ Not yet available; today use `crane fit BUNDLE.tgz --factorial SPEC.yaml`.
 ### crane card validate
 
 ```sh
-crane card validate roboboat/blastoise@HEAD
+crane card validate FAMILY/ROBOT@HEAD
 ```
 
 A card's held-out prediction coverage.
@@ -476,7 +482,7 @@ Not yet available; today use `crane fit with two or more bundles`.
 ### crane card parity
 
 ```sh
-crane card parity roboboat/blastoise@HEAD
+crane card parity FAMILY/ROBOT@HEAD
 ```
 
 A card's tier views agree (T1 vs T2).

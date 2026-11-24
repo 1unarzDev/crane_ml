@@ -109,7 +109,7 @@ def next_commands(rows):
     if state.get('player') == 'ok' and state.get('astro_dock') == 'ok':
         out.append('crane sim up --headless ; crane sim status')
     elif state.get('player') != 'ok':
-        out.append('crane build player   (a Unity editor), or set CRANE_PLAYER to a player with the RoboBoat flags')
+        out.append(f'crane build player   (a Unity editor), or set CRANE_PLAYER to a player that has {required_flag()}')
     if 'boat' in domains:
         out.append('crane run --domain boat --tier T1 --seeds 0:2')
     out.append('crane board ~/.cache/crane/runs     the web replay board')

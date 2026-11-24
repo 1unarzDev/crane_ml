@@ -62,7 +62,8 @@ def main(args):
         plan = {'schema': 'crane.run.plan/1', 'domain': args.domain, 'tier': tier, 'config': str(config),
                 'seeds': seeds, 'out': str(Path(args.out).expanduser()), 'variant': args.variant,
                 'workers': args.workers or cfg.get('workers'), 'overrides': list(args.set),
-                'scenarios': str(source.dir), 'generate': bool(source.generate_cmd)}
+                'scenarios': str(source.dir), 'generator': 'yes' if source.generate_cmd else 'no',
+                'regenerate': bool(args.generate), 'allow_dirty': bool(args.allow_dirty)}
         if not out.doc(plan):
             out.say('crane run (dry run): nothing runs')
             out.say('\n'.join(output.table([(k, v if not isinstance(v, list) or len(v) <= 12 else
@@ -70,6 +71,12 @@ def main(args):
                                             if k != 'schema'])))
             out.next(f'crane run {" ".join(_argv(args))}')
         return output.OK
+    taken = [d for d in (Path(args.out).expanduser() / args.variant / f's{s}' for s in seeds)
+             if d.is_dir() and any(d.iterdir())]
+    if taken:
+        where = Path(args.out).expanduser() / args.variant
+        return out.usage('run', f'{where} already holds {len(taken)} of these runs ({taken[0].name}...); a run dir '
+                         'is written once', 'pass a new --out, or omit --out for a stamped dir')
     missing = [s for s in seeds if not source.path(s).exists()]
     if (missing or args.generate) and not source.generate_cmd:
         what = f'{len(missing)} scenario file(s) missing in {source.dir}' if missing else '--generate: no generator'
@@ -93,6 +100,9 @@ def main(args):
     started = time.perf_counter()
     try:
         results = batch.run_batch(cfg, base, seeds, args.out, args.variant, args.workers, provenance)
+    except FileExistsError as error:      # a run dir written between the check above and its worker
+        return out.usage('run', f'{str(error).partition(":")[0]} already holds a run',
+                         'pass a new --out, or omit --out for a stamped dir')
     except FileNotFoundError as error:
         return out.usage('run', f'{error.filename or error} is missing', 'crane doctor')
     wall = time.perf_counter() - started
@@ -113,9 +123,13 @@ def main(args):
 
 
 def _argv(args):
-    """The command line of a dry run without --dry-run (the one to run next)."""
-    words = [f'--domain {args.domain}' if args.domain else f'--config {args.config}']
+    """The command line of a dry run without --dry-run (the one to run next): every argument given."""
+    words = [f'--domain {args.domain}' if args.domain else f'--config {shlex.quote(str(args.config))}']
     words += [f'--tier {args.tier}'] if args.tier else []
-    words += [f'--seeds {args.seeds}', f'--out {args.out}']
+    words += [f'--seeds {shlex.quote(str(args.seeds))}', f'--out {shlex.quote(str(args.out))}']
+    words += [f'--variant {shlex.quote(args.variant)}'] if args.variant != 'base' else []
+    words += [f'--workers {args.workers}'] if args.workers else []
     words += [f'--set {shlex.quote(s)}' for s in args.set]
+    words += ['--generate'] if args.generate else []
+    words += ['--allow-dirty'] if args.allow_dirty else []
     return words
