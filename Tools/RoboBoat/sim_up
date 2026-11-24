@@ -12,7 +12,7 @@ case ${1:-} in
 esac
 CRANE_SIM_AS=sim_up; export CRANE_SIM_AS     # messages and fixes keep this name
 if [ -x "$crane/bin/crane" ]; then exec "$crane/bin/crane" sim "$@"; fi
-# the checkout's venv python when there is one (it has PyYAML), else the system python3
+# the checkout's venv python when there is one, else the system python3 (crane sim needs only the stdlib)
 py=python3; [ -x "$crane/.venv/bin/python3" ] && py=$crane/.venv/bin/python3
 # this checkout's crane first on sys.path, ahead of the working directory (python3 -m would put it first)
 exec "$py" -c 'import sys; sys.path.insert(0, sys.argv.pop(1)); from crane.cli import main; sys.exit(main())' \

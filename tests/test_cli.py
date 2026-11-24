@@ -250,7 +250,8 @@ def test_bare_sim_prints_help_and_doctor_names_unselected_extras_off(capsys, mon
     with pytest.raises(SystemExit) as done:
         cli.main(['sim'])
     out = capsys.readouterr().out
-    assert done.value.code == 0 and 'crane sim {up,down,status,check,logs} [ARGS...]' in out
+    verbs = ','.join(c.verb for c in reg.noun('sim').verbs)       # the usage follows the registry as verbs are added
+    assert done.value.code == 0 and f'crane sim {{{verbs}}} [ARGS...]' in out and 'check' in verbs
     monkeypatch.setattr(doctor, '_found', lambda module: False)
     rows = {name: (state, detail) for name, state, detail in doctor.checks()}
     assert rows['[view]'][0] == 'off' and 'optional, add with' in rows['[view]'][1]

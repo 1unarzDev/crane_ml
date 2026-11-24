@@ -43,13 +43,12 @@ jobs:
             if bash -n "$f"; then echo "ok    $f"; else echo "FAIL  $f: bash -n $f"; fail=1; fi
           done < <(git ls-files -z -- ':!:Assets' ':!:Packages' ':!:ProjectSettings')
           exit $fail
+      - name: help.yaml and Docs/CLI.md match crane/commands.py (fix with bin/crane help --write)
+        run: bin/crane help --check
       - name: Contracts (tests/test_contracts.py)
         run: python -m pytest -q tests/test_contracts.py
       - name: Every suite (the root pytest)
         run: python -m pytest -q -rs
-      - name: help.yaml matches the commands
-        # TODO: drop `|| true` once `crane help --check` exists (the W1 CLI work); until then it may not parse.
-        run: crane help --check || true
 
   # The full suite on both supported Pythons: reported, never blocking.
   pytest:

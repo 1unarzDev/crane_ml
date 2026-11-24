@@ -304,7 +304,9 @@ def test_compare_bounds_pass_fail_gate_and_ci_rule(bundle, tmp_path, capsys):
     doc = json.loads(capsys.readouterr().out)
     assert doc['schema'] == 'crane.compare/1' and doc['kind'] == 'bounds'
     doc = doc['result']
-    assert doc['verdict']['pass'] and doc['verdict']['bounds'] == 7 and doc['verdict']['gate'] == 'not checked'
+    # the bounded-row count follows config/fidelity/boat.yaml (its rules change as bounds are set), so derive it
+    bounded = sum(r['result'] != 'n/a' for r in doc['rows'])
+    assert doc['verdict']['pass'] and doc['verdict']['bounds'] == bounded > 0 and doc['verdict']['gate'] == 'not checked'
     assert {'metric', 'unit', 'field', 'sim', 'delta', 'result', 'bound', 'rule'} <= set(doc['rows'][0])
     assert {r['result'] for r in doc['rows']} == {'pass', 'n/a'}
 
