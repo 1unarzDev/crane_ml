@@ -11,7 +11,8 @@
 # up starts two things and returns once the course is ready:
 #   1. the ROS side: `ros2 launch mhseals_nav device.launch.py device:=sim` (odometry, EKFs, nav, objects
 #      and the ROS-TCP endpoint) in its own container (sim_up_ros) on the workspace's dev image, host
-#      network and host IPC like the dev container, on the sim vessel's ROS_DOMAIN_ID;
+#      network and host IPC like the dev container, on the sim vessel's ROS_DOMAIN_ID. `astro on sim`
+#      works inside it: the workspace, ~/.config/mhseals and ~/.config/astro are mounted as in the dev container;
 #   2. the crane_ml player (--crane-disable-sitl --crane-ros-thruster-pwm --crane-roboboat-contract
 #      --crane-ros-nav-state) connected to that endpoint on port 10000 + domain, always through the host
 #      heavy guard (`heavy unity`).
@@ -143,11 +144,16 @@ up() {
 
   # 1. the ROS side: device:=sim with its endpoint on this port, logged to RUN
   docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+  # astro on sim works in this container like in the boat's dev container: the state (~/.config/mhseals, which
+  # astro apply writes), the operator config, the workspace (tools/bin/astro on PATH via dev.bashrc, the data dir)
+  mkdir -p "$HOME/.config/mhseals" "$HOME/.config/astro" "$DOCK/bags/sim"
   local overrides="{\"parts\": {\"sensors\": {\"args\": {\"ros_port\": \"$port\"}}}}"
   docker run -d --name "$CONTAINER" --label sim_up=1 --init --network host --ipc host --user roboboat \
     -e ROS_DOMAIN_ID="$d" -e ROS_WS="$WS" -e BASH_ENV="$WS/.devcontainer/dev.bashrc" \
     -e FASTRTPS_DEFAULT_PROFILES_FILE="$WS/config/fastdds.xml" -e FASTDDS_DEFAULT_PROFILES_FILE="$WS/config/fastdds.xml" \
-    -v "$DOCK:$WS" -v "$RUN:$RUN" --entrypoint bash "$img" \
+    -v "$DOCK:$WS" -v "$RUN:$RUN" -w "$WS" \
+    -v "$HOME/.config/mhseals:/home/roboboat/.config/mhseals" -v "$HOME/.config/astro:/home/roboboat/.config/astro" \
+    --entrypoint bash "$img" \
     -c "exec ros2 launch mhseals_nav device.launch.py device:=sim overrides:='$overrides' >$RUN/ros.log 2>&1" >/dev/null
   echo "sim_up: ROS side starting (domain $d, endpoint port $port, log $RUN/ros.log)"
   local waited=0
