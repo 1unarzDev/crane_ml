@@ -1,0 +1,27 @@
+# Three toy arms x two axes x a dev block and a held-out block, at T0. Pairs on the seed (common random numbers).
+#   crane study plan examples/studies/toy_paired.yaml
+#   crane study run examples/studies/toy_paired.yaml                 # dev only; the held-out block waits
+#   crane study report ~/.cache/crane/studies/toy_paired
+#   crane study run examples/studies/toy_paired.yaml --block test --confirm
+schema: crane.study/1
+name: toy_paired
+domain: toy
+tier: T0
+arms:
+  base: {}
+  near: {set: {adapter.options.reach_m: 1.0}}
+  far: {set: {adapter.options.reach_m: 2.5}}
+axes:
+  cruise: {param: limits.vmax, levels: {slow: [1.0, 0.3, 0.6], fast: [1.5, 0.3, 0.6]}}
+  fov: {param: perception.hfov_deg, levels: [60, 90]}
+seeds:
+  dev: {role: dev, seeds: '0:6'}
+  test: {role: held-out, seeds: '100:106'}
+targets: toy_paired.targets.yaml          # committed before the held-out block may run
+scorer: scorers.py:toy                     # named parts -> score.time, score.success, score.total
+metrics: [succeeded, run.duration_s, run.sim_s, run.contacts]
+baseline: base
+pack: {unit_s: 0.05}
+campaign: toy-paired
+purpose: Paired toy study of the visiting reach across cruise speed and field of view, the crane.study/1 example.
+expect: far finishes sooner than base at both cruise speeds

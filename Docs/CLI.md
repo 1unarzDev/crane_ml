@@ -203,62 +203,183 @@ A study spec: arms x axes x seed blocks, run locally or on the cluster.
 ### crane study init
 
 ```sh
-crane study init --domain boat > study.yaml
+crane study init --out study.yaml
+crane study init --domain boat > boat_study.yaml
 ```
 
-Write a study spec (crane.study/1) to start from.
+Write a commented crane.study/1 spec to start from (stdout, or --out FILE).
 
-Not yet available; today use `a hypothesis.yaml beside your runs`.
+What you'll see: the spec on stdout, or `wrote FILE` and next:.
+
+| Param | Type | Description |
+|---|---|---|
+| `--domain` | str | The domain its sim arms run (default toy). |
+| `--out` | path | Write the spec here instead of stdout. |
+| `--force` | bool | Overwrite FILE. |
+| `--json` | bool | One JSON document on stdout (JSONL for streams). |
+
+--json: `crane.study.init/1`
 
 ### crane study plan
 
 ```sh
-crane study plan study.yaml
+crane study plan examples/studies/toy_paired.yaml
+crane study plan examples/studies/boat_cards.yaml --json
 ```
 
-Print the jobs a study spec compiles to (local batch or rc-job/1).
+Count what a study spec compiles to: cells, units, jobs and estimated time per stage, with what is already cached. Nothing runs.
 
-Not yet available; today use `crane run --domain D --seeds A:B --dry-run`.
+What you'll see: one row per stage (tiers, cells, units, done, held-out units, jobs, est, per job), the seed blocks and splits, pending adaptive stages, then next:. --json adds jobs[] (job_id, cell, seeds, est_seconds, kind, campaign, purpose, expect, pin, argv): the cluster compiler's input.
+
+A spec error is one line naming the key and the fix (exit 2). Estimates use pack.unit_s; jobs pack a cell's seeds to about pack.target_s (default 900 s) each.
+
+| Param | Type | Description |
+|---|---|---|
+| `spec` | path | The study spec (YAML). |
+| `--stage` | str | Only this stage. |
+| `--block` | str | Only this seed block or split. |
+| `--out` | path | The study output to count done units in (default ~/.cache/crane/studies/NAME). |
+| `--json` | bool | One JSON document with jobs[]. |
+
+--json: `crane.study.plan/1`
 
 ### crane study run
 
 ```sh
-crane study run study.yaml
+crane study run examples/studies/toy_paired.yaml --max-workers 4
+crane study run examples/studies/toy_paired.yaml --block test --confirm
+crane study run examples/studies/adaptive.yaml --stage V
 ```
 
-Run a study: resume, progress, held-out guard.
+Run a study locally: every stage in order (or --stage), resuming from the unit cache; held-out blocks wait for --block B --confirm and a committed targets file.
 
-Not yet available; today use `crane run --domain D --tier T --seeds A:B per arm`.
+What you'll see: a progress line per minute, then one row per stage (cells, units, ran, reused, failed), the held-out blocks skipped, where the rows and manifest are, and next:.
+
+OUT/progress.json is rewritten at least every 60 s (CRANE_RUN_DIR overrides where). Units are cached in OUT/cache/records.jsonl on (study, stage, arm, cell hash, seed, card hash, code commit) as each finishes; rerunning the same command runs only the missing ones. A held-out block refuses (exit 2) without --confirm, or when the spec's targets file is not committed, has local changes or is not older than now. Exit 0 ok, 1 units failed, 2 spec, usage or refusal.
+
+| Param | Type | Description |
+|---|---|---|
+| `spec` | path | The study spec (YAML). |
+| `--stage` | str | Only this stage (its select stage must be done). |
+| `--block` | str | Only this seed block or split (a held-out one needs --confirm). |
+| `--where` | str | local runs here; cluster: use crane study compile, then research submit. One of `local`, `cluster`. (default `local`) |
+| `--confirm` | bool | Run held-out blocks (needs the committed targets file). |
+| `--max-workers` | int | Worker processes. (default `1`) |
+| `--out` | path | The study output (default ~/.cache/crane/studies/NAME). |
+| `--json` | bool | One summary document; progress lines go to stderr. |
+| `--dry-run` | bool | Print the plan (as study plan); run nothing. |
+| `--quiet` | bool | Only results and failures. |
+
+--json: `crane.study.run/1`
 
 ### crane study status
 
 ```sh
-crane study status study.yaml
+crane study status examples/studies/toy_paired.yaml
+crane study status ~/.cache/crane/studies/toy_paired
 ```
 
-A study's progress per cell.
+A study's progress per stage and block, failures with a sample traceback, and interim per-arm means on dev blocks only (held-out blocks: progress only).
 
-Not yet available; today use `crane heavy status, or crane cluster status`.
+What you'll see: one row per stage and block (role, units, done, %), the progress.json line, the latest failure and its traceback tail, interim dev means per arm, then next:. Exit 1 when units failed.
+
+| Param | Type | Description |
+|---|---|---|
+| `target` | path | A spec, or a study output dir. |
+| `--out` | path | With a spec: its output (default ~/.cache/crane/studies/NAME). |
+| `--json` | bool | One JSON document. |
+
+--json: `crane.study.status/1`
 
 ### crane study report
 
 ```sh
-crane study report study.yaml
+crane study report ~/.cache/crane/studies/toy_paired
+crane study report /tmp/study --metric succeeded --json
 ```
 
-Paired analysis per cell (bootstrap, sign-flip, Holm) through judge.stats.
+Paired analysis of a study output: each arm minus the baseline per cell, paired on the seed (bootstrap CI, sign-flip permutation, Holm across cells), via judge.stats.
 
-Not yet available; today use `crane compare A B`.
+What you'll see: the pooled table (stage, block, arm-baseline, metric, seeds, cells, diff, 95% CI, p, cells with Holm p < 0.05), held-out blocks still running, and where report.md / report.json went.
+
+Reads OUT/manifest.json and its rows (or every */manifest.json under OUT, as a fetched cluster output). A held-out block enters only when all its units are done.
+
+| Param | Type | Description |
+|---|---|---|
+| `out` | path | A study output dir. |
+| `--baseline` | str | The arm the others are compared with (default the spec's). |
+| `--metric` | str | Only these metrics (repeatable). |
+| `--bootstrap` | int | Bootstrap resamples. (default `2000`) |
+| `--json` | bool | One JSON document (also written to OUT/report.json). |
+
+--json: `crane.study.report/1`
 
 ### crane study promote
 
 ```sh
-crane study promote study.yaml --top 5
+crane study promote examples/studies/adaptive.yaml --stage V
 ```
 
-Rerun a stage's top-k at a higher tier.
+Freeze an adaptive stage's selection (top-k of the stage it reads) into a spec whose stage names the chosen arms, to run here or send to the cluster.
 
-Not yet available; today use `crane run --tier T1 on the chosen seeds`.
+What you'll see: the ranking (rank, group, mean, n, chosen) and the written spec, then next:.
+
+| Param | Type | Description |
+|---|---|---|
+| `spec` | path | The study spec (YAML). |
+| `--stage` | str | The stage with select:. |
+| `--out` | path | The study output holding the source stage (default ~/.cache/crane/studies/NAME). |
+| `--write` | path | Where the promoted spec goes (default SPEC.STAGE.yaml beside the spec). |
+| `--json` | bool | One JSON document. |
+
+--json: `crane.study.promote/1`
+
+### crane study run-cell
+
+```sh
+crane study run-cell study.yaml --cell JOB_ID --out /workspace/out/STUDY/JOB_ID
+```
+
+Run one cell or one packed job of a study into DIR: what a cluster job runs (rows, manifest.json with sha256, metrics.json, progress.json).
+
+What you'll see: one line: ran, reused, failed, rows and DIR. Exit 1 when units failed, 2 a refusal.
+
+JOB_ID is a jobs[].job_id of crane study plan --json (CELL_ID, or CELL_ID.jK for one seed chunk). Held-out cells need --confirm and the committed targets file, as study run, or on a box with no git checkout --targets-sha256 from the compiled job. metrics.json holds at most 1000 finite numbers; for held-out cells only unit counts.
+
+| Param | Type | Description |
+|---|---|---|
+| `spec` | path | The study spec (YAML). |
+| `--cell` | str | The cell or job id. |
+| `--out` | path | The job output dir. |
+| `--confirm` | bool | Run a held-out cell. |
+| `--targets-sha256` | str | The targets file hash the submit side checked in git (crane study compile pins it); stands in for git on a box. |
+| `--json` | bool | One JSON document. |
+
+--json: `crane.study.run_cell/1`
+
+### crane study compile
+
+```sh
+crane study compile examples/studies/toy_paired.yaml --write /tmp/jobs.json
+crane study compile examples/studies/toy_paired.yaml --block test --confirm --json
+```
+
+Compile a study's jobs to rc-job/1 bodies for the research cluster: one crane_batch or gpu_command job per cell seed chunk, each running crane study run-cell.
+
+What you'll see: {jobs: [rc-job/1 ...]} on stdout, or `N jobs in FILE` and next: research submit.
+
+Needs purpose (20-600 chars, no local path) and pack.unit_s. Held-out jobs are left out without --confirm; with it the targets file must be committed, clean and older than now (checked here in git), and each held-out argv pins its sha256 with --targets-sha256 for the box to check.
+
+| Param | Type | Description |
+|---|---|---|
+| `spec` | path | The study spec (YAML). |
+| `--stage` | str | Only this stage. |
+| `--block` | str | Only this seed block or split. |
+| `--confirm` | bool | Include held-out jobs (needs the committed targets file). |
+| `--write` | path | Write {jobs: [...]} here instead of stdout. |
+| `--json` | bool | One JSON document with jobs[]. |
+
+--json: `crane.study.compile/1`
 
 ## runs
 

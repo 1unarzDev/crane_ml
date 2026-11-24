@@ -78,9 +78,9 @@ def test_every_command_has_help_with_an_example(command, capsys):
 
 
 def test_stubs_refuse_with_one_line_and_globals_are_checked(capsys):
-    assert cli.main(['study', 'run', 'spec.yaml', '--seeds', '0:9']) == 2
+    assert cli.main(['env', 'explain', 'truth.json', '--seeds', '0:9']) == 2
     err = capsys.readouterr().err.strip().splitlines()
-    assert err == ['crane study run: not yet available; today use crane run --domain D --tier T --seeds A:B per arm']
+    assert len(err) == 1 and err[0].startswith('crane env explain: not yet available; today use ')
     assert cli.main(['--json', 'view']) == 2                                   # view takes no --json
     assert capsys.readouterr().err.strip() == 'crane view: --json is not supported here; fix: crane view --help'
     with pytest.raises(SystemExit) as done:

@@ -304,13 +304,31 @@ def npz_bytes(arrays):
 # ---- the manifest ----------------------------------------------------------------------------------------------
 
 def write_manifest(dir, schema, files, extra=None):
-    """DIR/manifest.json: {schema: crane.data.manifest/1, columns, rows, files: [{path, rows, sha256}], **extra}
-    (written by atomic rename). Rows count each part once (an arrays sidecar is the same rows). Returns it."""
-    files = [dict(f) for f in files]
+    """DIR/manifest.json: {schema: crane.data.manifest/1, columns, rows, files: [{path, rows, sha256[, kind]}],
+    **extra} (written by atomic rename). Paths are relative to DIR (an absolute one inside DIR is made relative; one
+    outside is refused, so no local path ships). A file's ``kind`` defaults to rows; other kinds (traj, events) are
+    listed and hashed but not read as rows. Rows count each rows part once (an arrays sidecar is the same rows)."""
+    dir = Path(dir)
+    files = [{**f, 'path': _relative(dir, f['path'])} for f in files]
     doc = {'schema': SCHEMA, 'columns': check_schema(schema),
-           'rows': sum(f['rows'] for f in files if not f['path'].endswith(ARRAYS)), 'files': files, **(extra or {})}
+           'rows': sum(f['rows'] for f in files if _is_rows(f)), 'files': files, **(extra or {})}
+    dir.mkdir(parents=True, exist_ok=True)
     _atomic(Path(dir) / MANIFEST, (json.dumps(doc, indent=1, default=_plain) + '\n').encode())
     return doc
+
+
+def _relative(dir, path):
+    p = Path(path)
+    if not p.is_absolute():
+        return p.as_posix()
+    try:
+        return p.resolve().relative_to(dir.resolve()).as_posix()
+    except ValueError:
+        raise SchemaError(f'{p}: outside {dir}; manifest paths are relative to the dataset dir') from None
+
+
+def _is_rows(f):
+    return f.get('kind', 'rows') == 'rows' and not f['path'].endswith(ARRAYS)
 
 
 def read_manifest(dir):
@@ -350,11 +368,14 @@ def data_files(path):
         return [path]
     doc = read_manifest(path) if path.is_dir() else None
     if doc is not None:
-        return [path / f['path'] for f in doc['files'] if not f['path'].endswith(ARRAYS)]
+        return [path / f['path'] for f in doc['files'] if _is_rows(f)]
     if not path.is_dir():
         raise SchemaError(f'{path}: no such file or dir')
-    return sorted(p for p in path.iterdir() if p.suffix in EXT.values() and not p.name.endswith(ARRAYS)
-                  and not p.name.startswith('.'))
+    own = sorted(p for p in path.iterdir() if p.suffix in EXT.values() and not p.name.endswith(ARRAYS)
+                 and not p.name.startswith('.'))
+    if own:
+        return own
+    return [f for sub in sorted(path.glob(f'*/{MANIFEST}')) for f in data_files(sub.parent)]
 
 
 def columns_of(path):
@@ -374,8 +395,13 @@ def read_rows(path_or_dir):
 
 
 def _types_for(f):
-    doc = read_manifest(f.parent)
-    return dict(doc['columns']) if doc else None
+    """The columns of the manifest listing F (in F's dir or the one above, e.g. OUT/rows/part.csv)."""
+    for d in (f.parent, f.parent.parent):
+        if (d / MANIFEST).is_file():
+            doc = read_manifest(d)
+            if any((d / e['path']).resolve() == f.resolve() for e in doc['files']):
+                return dict(doc['columns'])
+    return None
 
 
 def _read_file(f):

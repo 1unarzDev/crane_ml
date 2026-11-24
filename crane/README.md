@@ -38,6 +38,9 @@ Every command, its params and examples: [Docs/CLI.md](../Docs/CLI.md), generated
   `recorder.py` (a run's `record:` level: events, decimated trajectories, full-rate obs and actions; `Store` for
   study-level arrays), `export.py` (`crane data export`, `crane data schema`) and `splits.py` (`crane data splits`,
   held-out-safe). Examples: [Docs/Data.md](../Docs/Data.md).
+- `crane/study/`: `crane.study/1` specs ([Docs/Study.md](../Docs/Study.md)): `spec.py` reads and checks one,
+  `plan.py` expands it to cells, units and cluster jobs, `exec.py` runs them locally with the unit cache and
+  progress, `guard.py` keeps held-out blocks closed, `report.py` gives status and the paired report.
 - `crane/build.py`: after the build, `sourceCommit` and `sourceDirty` go into
   `Builds/CRANE-Worker/crane-build-manifest.json`; `--tarball` writes
   `Builds/crane-player-<commit12>-linux-x86_64.tar.zst` (`.tar.gz` without zstd), without debug symbols, and a
