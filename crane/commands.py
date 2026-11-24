@@ -167,6 +167,8 @@ COMMANDS = [
                     P('--generate', 'bool', description="Regenerate the seeds' scenarios (missing ones are always "
                       'made).'),
                     P('--allow-dirty', 'bool', description='Run an adapter tree with uncommitted changes.'),
+                    P('--force', 'bool', description='Move a run dir holding another run (or an incomplete one) to '
+                      '<dir>.stale-N and rerun it; without it such a dir is refused and matching ones are reused.'),
                     P('--astro-test', metavar='TEST', description="An astro test or group (still, couple-*, speed-*, "
                       "steps-*, nav2, all) at T0/T1, with metrics named as astro's result fields."),
                     sel('card', repeat=True, description='With --astro-test: a profile JSON, a plant card or a '

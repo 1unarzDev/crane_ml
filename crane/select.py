@@ -39,11 +39,12 @@ class SelectError(ValueError):
     """A selector that cannot be read; its message names the fix."""
 
 
-def parse_seeds(text, domain=None, blocks=None):
+def parse_seeds(text, domain=None, blocks=None, base=None):
     """A seed spec to a list of ints: 'N', 'A:B' (B exclusive), 'a,b,c', '@FILE' (whitespace- or comma-separated
-    specs, '#' comments) or 'block:NAME' (blocks, else seeds.NAME in config/domains/DOMAIN.yaml). Order is kept,
-    duplicates are refused (a repeated seed would pair a run with itself)."""
-    seeds = _seeds(str(text).strip(), domain, blocks, depth=0)
+    specs, '#' comments; FILE relative to ``base``, a file named inside a file relative to that file) or
+    'block:NAME' (blocks, else seeds.NAME in config/domains/DOMAIN.yaml). Order is kept, duplicates are refused (a
+    repeated seed would pair a run with itself). SelectError (a ValueError) names the fix."""
+    seeds = _seeds(str(text).strip(), domain, blocks, Path(base or '.'), depth=0)
     seen = set()
     dup = [s for s in seeds if s in seen or seen.add(s)]
     if dup:
@@ -51,19 +52,24 @@ def parse_seeds(text, domain=None, blocks=None):
     return seeds
 
 
-def _seeds(text, domain, blocks, depth):
-    if depth > 4:
+def _seeds(text, domain, blocks, base, depth):
+    if depth > 8:
         raise SelectError(f'seed spec {text!r} nests too deep (@file or block: inside each other)')
     if not text:
         raise SelectError('empty seed spec; give N, A:B, a,b,c, @FILE or block:NAME')
+    if ',' in text:
+        return [s for part in text.split(',') if part.strip() for s in _seeds(part.strip(), domain, blocks, base,
+                                                                              depth + 1)]
     if text.startswith('@'):
-        path = Path(text[1:]).expanduser()
+        path = base / Path(text[1:]).expanduser()
         try:
             body = path.read_text()
         except OSError as error:
-            raise SelectError(f'seed file {path}: {error.strerror}') from None
+            raise SelectError(f'seed file {path}: {error.strerror or error}') from None
         words = [w for line in body.splitlines() for w in line.split('#', 1)[0].replace(',', ' ').split()]
-        return [s for w in words for s in _seeds(w, domain, blocks, depth + 1)]
+        if not words:
+            raise SelectError(f'seed file {path} names no seeds')
+        return [s for w in words for s in _seeds(w, domain, blocks, path.parent, depth + 1)]
     if text.startswith('block:'):
         name = text[6:]
         table = blocks if blocks is not None else seed_blocks(domain)
@@ -73,12 +79,10 @@ def _seeds(text, domain, blocks, depth):
             raise SelectError(f'no seed block {name!r} in {where} (blocks: {known})')
         spec = table[name]
         spec = spec.get('seeds') if isinstance(spec, dict) else spec
-        if isinstance(spec, list):
-            return [int(s) for s in spec]
-        return _seeds(str(spec), domain, blocks, depth + 1)
+        if isinstance(spec, (list, tuple, range)):
+            return [s for x in spec for s in _seeds(str(x), domain, blocks, base, depth + 1)]
+        return _seeds(str(spec), domain, blocks, base, depth + 1)
     try:
-        if ',' in text:
-            return [s for part in text.split(',') if part.strip() for s in _seeds(part.strip(), domain, blocks, depth)]
         lo, colon, hi = text.partition(':')
         if colon:
             lo, hi = int(lo), int(hi)

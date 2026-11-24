@@ -63,7 +63,8 @@ def main(args):
                 'seeds': seeds, 'out': str(Path(args.out).expanduser()), 'variant': args.variant,
                 'workers': args.workers or cfg.get('workers'), 'overrides': list(args.set),
                 'scenarios': str(source.dir), 'generator': 'yes' if source.generate_cmd else 'no',
-                'regenerate': bool(args.generate), 'allow_dirty': bool(args.allow_dirty)}
+                'regenerate': bool(args.generate), 'allow_dirty': bool(args.allow_dirty),
+                'force': bool(getattr(args, 'force', False))}
         if not out.doc(plan):
             out.say('crane run (dry run): nothing runs')
             out.say('\n'.join(output.table([(k, v if not isinstance(v, list) or len(v) <= 12 else
@@ -71,12 +72,6 @@ def main(args):
                                             if k != 'schema'])))
             out.next(f'crane run {" ".join(_argv(args))}')
         return output.OK
-    taken = [d for d in (Path(args.out).expanduser() / args.variant / f's{s}' for s in seeds)
-             if d.is_dir() and any(d.iterdir())]
-    if taken:
-        where = Path(args.out).expanduser() / args.variant
-        return out.usage('run', f'{where} already holds {len(taken)} of these runs ({taken[0].name}...); a run dir '
-                         'is written once', 'pass a new --out, or omit --out for a stamped dir')
     missing = [s for s in seeds if not source.path(s).exists()]
     if (missing or args.generate) and not source.generate_cmd:
         what = f'{len(missing)} scenario file(s) missing in {source.dir}' if missing else '--generate: no generator'
@@ -98,25 +93,31 @@ def main(args):
     provenance = {'git': {'core': identity.git_state(Path(batch.__file__).parent), 'adapter': adapter_git},
                   'config_file': str(config), 'tier': tier, 'overrides': list(args.set)}
     started = time.perf_counter()
+    tracker = batch._progress(True, args.out, args.variant, len(seeds))
+    if tracker and out.json:
+        tracker.stream = sys.stderr          # the minute line stays off a --json stdout
     try:
-        results = batch.run_batch(cfg, base, seeds, args.out, args.variant, args.workers, provenance)
-    except FileExistsError as error:      # a run dir written between the check above and its worker
-        return out.usage('run', f'{str(error).partition(":")[0]} already holds a run',
-                         'pass a new --out, or omit --out for a stamped dir')
+        results = batch.run_batch(cfg, base, seeds, args.out, args.variant, args.workers, provenance,
+                                  force=args.force, progress=tracker or False)
+    except batch.RunDirConflict as error:      # another identity or an incomplete dir: one line, the fix in it
+        return out.usage('run', str(error))
     except FileNotFoundError as error:
         return out.usage('run', f'{error.filename or error} is missing', 'crane doctor')
     wall = time.perf_counter() - started
-    rate = len(results) / wall if wall > 0 else 0.0
+    reused = tracker.skipped if tracker else sum(r.wall_s == 0.0 for r in results)
+    rate = (len(results) - reused) / wall if wall > 0 else 0.0
     if out.doc({'schema': 'crane.run.summary/1', 'tier': tier, 'domain': args.domain, 'config': str(config),
                 'out': str(args.out), 'variant': args.variant, 'n': len(results), 'wall_s': round(wall, 3),
-                'runs_per_s': round(rate, 3), 'fidelity': cfg['fidelity'],
+                'runs_per_s': round(rate, 3), 'reused': reused, 'fidelity': cfg['fidelity'],
                 'outcomes': dict(Counter(r.outcome for r in results)),
                 'runs': [{'out': str(r.out), 'outcome': r.outcome, 'sim_s': r.sim_s, 'wall_s': r.wall_s}
                          for r in results]}):
         return output.OK
     for r in results:
         out.line(f'{r.out}: {r.outcome} in {r.sim_s:.0f} s sim ({r.wall_s:.2f} s wall)')
-    out.say(f'{len(results)} runs at {tier}, {wall:.1f} s wall: {rate:.1f} runs/s')
+    ran = len(results) - reused
+    out.say(f'{ran} runs at {tier}, {wall:.1f} s wall: {rate:.1f} runs/s'
+            + (f', {reused} reused (same run identity)' if reused else ''))
     out.say(f'fidelity: {cfg["fidelity"]}')
     out.next(f'crane board {args.out}')
     return output.OK
@@ -132,4 +133,5 @@ def _argv(args):
     words += [f'--set {shlex.quote(s)}' for s in args.set]
     words += ['--generate'] if args.generate else []
     words += ['--allow-dirty'] if args.allow_dirty else []
+    words += ['--force'] if getattr(args, 'force', False) else []
     return words

@@ -143,6 +143,7 @@ What you'll see: one line per seed (run dir, outcome, sim and wall time), then r
 | `--variant` | str | The name of this design or parameter set. (default `base`) |
 | `--generate` | bool | Regenerate the seeds' scenarios (missing ones are always made). |
 | `--allow-dirty` | bool | Run an adapter tree with uncommitted changes. |
+| `--force` | bool | Move a run dir holding another run (or an incomplete one) to <dir>.stale-N and rerun it; without it such a dir is refused and matching ones are reused. |
 | `--astro-test` | str | An astro test or group (still, couple-*, speed-*, steps-*, nav2, all) at T0/T1, with metrics named as astro's result fields. |
 | `--card` | str | With --astro-test: a profile JSON, a plant card or a factorial manifest (repeatable). |
 | `--tests` | path | With --astro-test: astro's tests file or a bundle holding one. |
