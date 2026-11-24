@@ -13,6 +13,7 @@ TOP_EXAMPLES = """examples:
   crane run --domain toy --seeds 0:3 --out /tmp/runs                 T0 abstract, scenarios made on demand
   crane run --domain boat --tier T1 --seeds 0:2 --out /tmp/runs      T1 dynamic, the RoboBoat reference mission
   crane sim up --headless                                 the T2 world, used like the boat (astro sim up)
+  crane view --live --domain boat --tier T1 --seed 3      the native sandbox: a live sim with sliders
   crane VERB --help                                       each verb's options, an example and what you'll see"""
 
 
@@ -102,8 +103,9 @@ def build_parser():
          'roboboat/blastoise@HEAD.',
          'crane card show roboboat/blastoise@HEAD')
     _add(sub, 'board', 'the web replay board over local runs (python -m viewer serve)',
-         'a local URL (default http://127.0.0.1:8765) listing every *.ctraj, course and judge report under ROOTS. '
-         'The cluster dashboard deploys the same app.',
+         'a local URL (default http://127.0.0.1:8765) listing every crane.run/1 record (run.json or crane.run.json), '
+         'bare *.ctraj, course and judge report under ROOTS, with their event lanes and constraint layers. The '
+         'cluster dashboard deploys the same page.',
          'crane board /tmp/runs --port 8765')
     _add(sub, 'course', 'generate, validate or render course truth (Tools/RoboBoat)',
          'gen: the Unity course generator, headless through `heavy unity` (--family F --seed N --out T.json | '
@@ -145,7 +147,26 @@ def build_parser():
          'crane doctor')
     _add(sub, 'setup', 'the setup wizard (not yet available; use install.sh)',
          'a pointer to install.sh.', './install.sh --yes --components core,fast')
-    _add(sub, 'view', 'the native sandbox window (not yet available; use crane board)', 'a pointer to crane board.', 'crane view /tmp/runs')
+    v = _add(sub, 'view', 'the native sandbox window: replay runs, or run a sim live with sliders ([view] extra)',
+             'a window: the top-down map (world layers, constraint volumes, trails, the vehicle at its heading), the '
+             'event lanes under it, play/step/speed/scrub, and in live mode the parameter sliders, Rerun from t or 0 '
+             'and Promote (writes a crane run spec and prints the command). With --screenshot, a PNG rendered '
+             'offscreen and no window.',
+             'crane view --live --domain boat --tier T1 --seed 3')
+    v.add_argument('runs', nargs='*', metavar='RUN', help='crane.run/1 dirs, fastsim run dirs or bare .ctraj files '
+                   '(overlaid in the first one\'s frame and clock)')
+    v.add_argument('--live', action='store_true', help='run the sim in-process (T0 or T1)')
+    v.add_argument('--domain', default='boat', help='live: config/domains/DOMAIN.yaml (default boat)')
+    v.add_argument('--tier', default='T1', help='live: T0|T1 or abstract|dynamic (default T1)')
+    v.add_argument('--seed', type=int, default=0, help='live: the scenario seed (default 0)')
+    v.add_argument('--offset', action='append', metavar='S', help="run 2, 3, ...: the first run's time of its t = 0 "
+                   '(needed when a sim and a wall clock meet)')
+    v.add_argument('--transform', action='append', metavar='JSON', help='run 2, 3, ...: {from, to, xyz, yaw} '
+                   'mapping its origin onto the first run\'s (needed when origins differ)')
+    v.add_argument('--3d', dest='three_d', action='store_true', help='open in the 3-D view (6-DOF records)')
+    v.add_argument('--screenshot', metavar='OUT.png', help='render offscreen to OUT.png and exit (no window)')
+    v.add_argument('--at', type=float, help='screenshot: the playhead time (s; default the end; live: sim to it)')
+    v.add_argument('--promote-dir', default='runs/promoted', help='where Promote writes specs (default runs/promoted)')
     c = _add(sub, 'compare', 'compare two run sets: variant A/B, tier gap (--tiers) or field vs sim (--field)',
              'a Markdown table on stdout and the same as JSON in OUT/compare.json. A B: per matched run the pose '
              'error on a common frame and clock (refused when they cannot be put on one) and the metric deltas. '
@@ -224,6 +245,11 @@ def _build(args):
     return build.main(args)
 
 
+def _view(args):
+    from crane.view import app
+    return app.main(args)
+
+
 def _doctor(_args):
     from crane import doctor
     return doctor.main()
@@ -232,7 +258,7 @@ def _doctor(_args):
 HANDLERS = {
     'run': _run, 'bench': _bench, 'build': _build, 'doctor': _doctor,
     'setup': _stub('the `crane setup` wizard', '`./install.sh [--yes] [--components core,fast,gpu,view,field,setup]`'),
-    'view': _stub('`crane view` (the native window)', '`crane board RUNS`'),
+    'view': _view,
     'compare': lambda a: _module('compare', a), 'fit': lambda a: _module('fit', a),
     'field': lambda a: _module('field', a),
 }

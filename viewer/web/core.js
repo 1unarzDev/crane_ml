@@ -92,7 +92,7 @@ export function firstDivergence(res, thr = 1.0, hold = 2.0) {
 export const SPEED = ['#4F7BFF', '#3FC8E0', '#5FD38A', '#F2D45C'];
 export const RESID = ['#16304d', '#c9531f', '#f28f63', '#ffd9c2'];
 export const SCORE = ['#2a1f3d', '#5b3a8c', '#3f7fbf', '#3fc8b0', '#d7f27a'];
-export const TIER = { fast: '#3987e5', unity: '#C792EA', real: '#f0efec' };
+export const TIER = { T0: '#5FD38A', T1: '#3987e5', T2: '#C792EA', fast: '#3987e5', unity: '#C792EA', field: '#f0efec' };
 export const DECISION = { execute: '#7DD3DC', search: '#F2D45C', retry: '#f28f63', give_up: '#ff5a52' };
 export const VARIANT = ['#3FC8E0', '#F2A65A', '#C792EA', '#5FD38A', '#FF6B8B', '#F2D45C', '#7B9CFF', '#E0E0E0', '#4DD0A8', '#D98FFF'];
 const hx = (c) => { const n = parseInt(c.slice(1), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
@@ -155,6 +155,38 @@ export function hull(ctx, v, x, y, yaw, L, B, o = {}) {
   }
   ctx.beginPath(); ctx.arc(l * 0.85, 0, Math.max(1.5, l * 0.12), 0, 7); ctx.fillStyle = o.bow || o.stroke || '#7DD3DC'; ctx.fill();
   ctx.restore();
+}
+
+/** A vehicle outline (body-frame polygon, metres, x forward) at (x, y, yaw), drawn at least `minPx` long. */
+export function outlineHull(ctx, v, x, y, yaw, pts, o = {}) {
+  const len = Math.max(...pts.map((p) => p[0])) - Math.min(...pts.map((p) => p[0])) || 1;
+  const k = Math.max(1, (o.minPx || 0) / (len * v.s)) * v.s;
+  ctx.save(); ctx.translate(v.sx(x), v.sy(y)); ctx.rotate(-yaw);
+  if (o.alpha != null) ctx.globalAlpha = o.alpha;
+  ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(p[0] * k, -p[1] * k) : ctx.moveTo(p[0] * k, -p[1] * k))); ctx.closePath();
+  if (o.glow) { ctx.shadowColor = o.glow; ctx.shadowBlur = o.blur || 14; }
+  ctx.fillStyle = o.fill || '#0F1217'; ctx.fill(); ctx.shadowBlur = 0;
+  ctx.lineWidth = o.lw || 1.5; ctx.strokeStyle = o.stroke || '#7DD3DC'; ctx.stroke();
+  ctx.restore();
+}
+
+/** A constraint volume's outline [[x, y], ...]: polygon as is, corridor as mitred offsets, circle as 48 points. */
+export function constraintOutline(c) {
+  const P = c.points || [];
+  if (c.shape === 'circle') { const [x, y] = P[0]; return Array.from({ length: 48 }, (_, k) => [x + c.radius * Math.cos((k * Math.PI) / 24), y + c.radius * Math.sin((k * Math.PI) / 24)]); }
+  if (c.shape !== 'corridor') return P;
+  const h = c.width / 2, L = [], R = [];
+  const unit = (dx, dy) => { const n = Math.hypot(dx, dy) || 1; return [dx / n, dy / n]; };
+  P.forEach((p, i) => {
+    const ds = [];
+    if (i > 0) ds.push(unit(p[0] - P[i - 1][0], p[1] - P[i - 1][1]));
+    if (i < P.length - 1) ds.push(unit(P[i + 1][0] - p[0], P[i + 1][1] - p[1]));
+    let nx = 0, ny = 0; for (const [dx, dy] of ds) { nx -= dy; ny += dx; }
+    const n = Math.hypot(nx, ny) || 1; nx /= n; ny /= n;
+    const cos = Math.max(0.25, Math.abs(nx * -ds[0][1] + ny * ds[0][0]));
+    L.push([p[0] + (nx * h) / cos, p[1] + (ny * h) / cos]); R.push([p[0] - (nx * h) / cos, p[1] - (ny * h) / cos]);
+  });
+  return L.concat(R.reverse());
 }
 
 export function sizeCanvas(c) {

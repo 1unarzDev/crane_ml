@@ -4,3 +4,23 @@
 tiers:
   T0: {config: domains/boat/fastsim_t0.yaml}
   T1: {config: domains/boat/fastsim_t1.yaml}
+# How crane view draws the boat and what its live-mode sliders reach (crane/view/spec.py documents the keys).
+view:
+  frame: {world: enu, origin: scenario, body: flu}
+  outline: [[0.62, 0.0], [0.4, 0.45], [-0.53, 0.45], [-0.53, -0.45], [0.4, -0.45]]   # 1.06 m x 0.9 m, bow +x
+  layers: [boundary, footprints, gates, elements, constraints]
+  lanes: {phase: mission, docked: mission, retry: mission, failed: mission, goal: goal}
+  card: [vehicle.profile, adapter.options.profile]
+  current: {T1: vehicle.current}      # T1 takes the current in the plant; T0 drifts kinematically
+  params:
+    - {name: current_speed, label: current speed, unit: m/s, min: 0.0, max: 1.0, step: 0.05, default: 0.0, bind: 'disturbance:current_speed'}
+    - {name: current_toward, label: current toward, unit: deg, min: -180, max: 180, step: 5, default: 0, bind: 'disturbance:current_toward'}
+    - {name: delay, label: plant delay, unit: s, min: 0.0, max: 0.6, step: 0.02, default: 0.0, bind: 'disturbance:delay_s'}
+    - {name: pose_noise, label: pose noise, unit: m, min: 0.0, max: 1.0, step: 0.05, default: 0.0, bind: 'disturbance:pose_noise_m'}
+    - {name: yaw_noise, label: heading noise, unit: deg, min: 0.0, max: 20.0, step: 0.5, default: 0.0, bind: 'disturbance:yaw_noise_deg'}
+    - {name: gain, label: heading gain, unit: 1/s, min: 0.2, max: 3.0, step: 0.1, default: 1.0, bind: 'config:vehicle.gain'}
+    - {name: cruise, label: cruise speed, unit: m/s, min: 0.3, max: 2.5, step: 0.05, default: 1.5, bind: 'config:limits.vmax.0'}
+    - {name: tau_surge, label: surge lag, unit: s, min: 0.05, max: 3.0, step: 0.05, default: 0.65, bind: 'config:vehicle.tau_s.0', tiers: [T0]}
+    - {name: kp_surge, label: surge loop kp, unit: 1/s, min: 0.0, max: 6.0, step: 0.1, default: 2.0, bind: 'config:vehicle.kp.0', tiers: [T1]}
+    - {name: mass, label: card mass, unit: kg, min: 10.0, max: 80.0, step: 1.0, default: 30.0, bind: 'card:mass', tiers: [T1]}
+    - {name: surge_d2, label: card surge d2, unit: N s2/m2, min: 2.0, max: 60.0, step: 0.5, default: 19.4, bind: 'card:surge.d2Pos', tiers: [T1]}

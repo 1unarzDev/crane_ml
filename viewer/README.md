@@ -1,51 +1,55 @@
-# viewer: the fast-tier web viewer
-
-One page with three views over crane-traj/1 runs (`theater/traj.py`) and judge reports
-(`crane.judge.report/1`): the run in depth, two tiers on one clock, and a batch at a glance. It is the
-build of the three prototypes chosen in D-20261102-23 (A as the base, B's tier alignment, C's batch views).
-The page runs locally (`python -m viewer serve`) and on the dashboard at `crane.lunarz.dev/viewer/`, the
-run page's "Deep view". It draws and aligns; scores, flags and judge claims come from the data, and the
-two statistics it shows (Spearman, MMRV) are computed by the server.
-
-| route | view | what it answers |
-|---|---|---|
-| `#/run/<id>[?vs=<id>&t=&align=]` | chart room | Why did this run do that, at this moment? The course, the speed-ramped track, the hull and its goal, the other tier as a ghost with residual whiskers, contacts and the judge's spans on the map; an eight-lane timeline (task, decisions, behaviour, judge, speed, \|Δxy\|, perception, real); an inspector with the decision in force, referee rows, reliability flags and the judge's insights (click to jump). |
-| `#/tiers/<a>/<b>[?t=&align=]` | tier bench | Where and when do the tiers disagree, and is the alignment fair? Linked maps (hover one, see the matched point on the other), the clock-warp diagram (shared anchors, 5 s stretch ticks, scrub on either axis), residual strips, the judge's pair record (gap origin per segment, first differing decision, code mismatch), the G4 table and rank agreement over every pair. |
-| `#/batch/<study>[?seed=&focus=]` | batch board | Which variant is better across courses, and where does each fail? The variant × scenario points matrix, per-variant stats, score ECDFs, the per-seed Δ against a baseline, the ghost race with a live leaderboard, a lap chart and the focused variant's small multiples. |
-
-Alignment (`web/core.js`): **event** warps piecewise-linearly through anchors both runs share
-(task_started, each gate cleared, task_finished only when both finished the same way; past the last
-anchor only the offset carries); **progress** matches fraction of path length and hides residuals when the
-paths differ by more than 1.5×; **relative** starts both clocks at task_started. The first-divergence marker
-(|Δxy| over 1 m for 2 s) is geometry, not a verdict. Channels use the present / empty / absent / invalid
-grammar from the run header (`channels`), and the real tier is drawn as absent until a source adapter exists.
-
-## Use
+# viewer: the web replay board (`crane board`)
 
 ```sh
-python3 -m viewer ingest ~/.cache/fastsim-pairs --out DATA          # a paired archive (index.jsonl + pairs/)
-python3 -m viewer ingest RUN_DIR... --out DATA --tier fast --study S # plain run dirs
-python3 -m viewer serve DATA JUDGE_DIR...                            # http://127.0.0.1:8765/
+crane board runs/ JUDGE_DIR...                                      # http://127.0.0.1:8765/ (python3 -m viewer serve)
 python3 -m viewer serve DATA --remote https://crane.lunarz.dev       # runs not found locally come from the cluster
 python3 -m viewer serve DATA --feed-only                             # the page as the dashboard sees it
+python3 -m viewer ingest runs/ x.ctraj --out DATA --study S          # a self-contained copy, as served, with LODs
 python3 -m viewer shot 'http://127.0.0.1:8765/#/batch/S' out.png     # headless screenshot, never a window
 python3 -m unittest viewer.tests.test_viewer
 ```
 
-`serve` finds `*.ctraj` (with `run.lod.ctraj` beside them), `courses/<sha>.json` and judge `report.json`
-(with `feed.json`, `verdict.txt`) under its roots. Run ids are the header's `run_id`; the judge's anchors
-`[run_id, t0, t1, channels, label]` are on the run's own clock (`t0_s` is its first pose), and the page
-shows every time from the run's task_started.
+One page with three views over runs and judge reports (`crane.judge.report/1`). It runs locally and on the
+dashboard at `crane.lunarz.dev/viewer/` (the run page's "Deep view"). It draws and aligns. Scores, flags and judge
+claims come from the data; the two statistics it shows (Spearman, MMRV) are computed by the server.
+
+| route | view | what it answers |
+|---|---|---|
+| `#/run/<id>[?vs=<id>&t=&align=]` | run | Why did this run do that, at this moment? The world, the speed-ramped track, the vehicle outline and its goal, constraint volumes, a second run as a ghost with residual whiskers, contacts and judge spans on the map; one timeline lane per event lane the runs carry (task, mission, decisions, goals, judge, log, ...), speed and \|Δxy\|; an inspector with the decision in force, referee rows and the judge's insights. |
+| `#/tiers/<a>/<b>[?t=&align=]` | tier bench | Where and when do two tiers disagree, and is the alignment fair? Linked maps, the clock-warp diagram, residual strips, the judge's pair record, the G4 table and rank agreement over every pair. |
+| `#/batch/<study>[?seed=&focus=]` | batch board | Which variant is better across scenarios, and where does each fail? The variant × scenario matrix, per-variant stats, score ECDFs, the per-seed Δ against a baseline, the ghost race, a lap chart and small multiples. |
+
+## What it serves
+`serve` indexes, under its roots:
+- **crane.run/1 records** (`crane.run.json`, or `run.json` with that schema). A record is served as one
+  crane-traj/1 file: its trajectory (an event-kind run gets an empty one), with the meta's id, tier, kind,
+  domain, frame and clock in the header. The header also carries its constraint `layers` (meta or
+  `layers.json`) and the domain's vehicle `outline`. Its `events.jsonl` is merged into the events, each with a
+  `lane` (log lines on `log`).
+- **bare `*.ctraj`** files not inside a record, with `run.lod.ctraj` beside them when present.
+- course truths (`courses/<sha>.json`, or the scenario file a record keeps) and judge `report.json` (with
+  `feed.json` and `verdict.txt`).
+
+Run ids are the meta's `run_id`, else the header's, else the path under the root. A fastsim batch
+`OUT/<variant>/s<seed>` is study OUT, arm `<variant>`. Judge anchors `[run_id, t0, t1, channels, label]` are
+on the run's own clock.
+
+Alignment (`web/core.js`):
+- **event** warps piecewise-linearly through anchors both runs share;
+- **progress** matches the fraction of path length;
+- **relative** starts both clocks at `task_started`.
+
+The first-divergence marker (\|Δxy\| over 1 m for 2 s) is geometry, not a verdict.
 
 ## Pieces
 
 | path | role |
 |---|---|
-| `ingest.py` | run dirs (the fastsim / mhseals_testing layout) -> `run.ctraj` + LOD: pose at 10 Hz, task events, decisions, goals in the world frame, behaviour, referee rows, contacts, near misses, channel status |
-| `store.py` | the local store in the coordinator's feed shapes, the run index (studies, tier pairs, rank agreement) and the judge's evidence per run |
+| `store.py` | the index: records, bare files, courses, judge reports; the coordinator's feed shapes (studies, tier pairs, rank agreement) |
 | `server.py` | stdlib HTTP server: the page, `/ctraj.js` (`theater/web/ctraj.js`), `/v1/feed/*` as in research-cluster `coordinator/src/replay.ts`, and the local-only `/v1/viewer/index` and `/v1/viewer/judge` |
-| `web/` | no build step: `app.js` (routes), `data.js` (sources, run model, judge evidence), `core.js` (sampling, alignment, palettes), `run.js`, `tiers.js`, `batch.js`, `viewer.css` |
+| `ingest.py` | runs under any roots -> `DATA/runs/<id>/run.ctraj` + LOD + `DATA/courses` |
+| `web/` | no build step: `app.js` (routes), `data.js` (sources, run model), `core.js` (sampling, alignment, outlines, constraint shapes), `run.js`, `tiers.js`, `batch.js`, `viewer.css` |
 
-On the dashboard the page reads the public feed only (no judge reports, headers cut to public keys), so
-it says what it cannot show rather than guessing. research-cluster's `coordinator/deploy.sh` copies `web/` and the
-codec into `public/viewer/` at deploy time.
+On the dashboard the page reads the public feed only (no judge reports, headers cut to public keys), so it
+says what it cannot show rather than guessing. research-cluster's `coordinator/deploy.sh` copies `web/*` and
+the codec into `public/viewer/`, so `web/` stays flat (no subdirectories).

@@ -22,6 +22,7 @@ each verb imports what it needs only when it runs, and the `sim` path is stdlib 
 | `judge …` | scoring | `python -m judge` |
 | `card show\|export` | plant cards and their tier views | `python -m plantcard` |
 | `board [ROOTS]` | web replay board | `python -m viewer serve` |
+| `view [RUN…] [--live]` | the native sandbox window, or `--screenshot` offscreen | `crane/view/` (the `[view]` extra; Docs/Viewing.md) |
 | `course gen\|validate\|render` | course truth | `heavy unity Tools/RoboBoat/generate.sh`, `validate.py`, `render.py` |
 | `bench player` | Unity player real-time factor | `heavy unity` + `run_worker.sh` / `sweep_workers.sh` (dir: `paths.BENCH`) |
 | `build player` | the headless Linux player | `heavy unity <editor> … -executeMethod CranePerformanceBuild.BuildLinuxWorker` (`crane/build.py`) |
@@ -31,7 +32,7 @@ each verb imports what it needs only when it runs, and the `sim` path is stdlib 
 | `field import SRC` | bundle, bag dir or .mcap to crane.run/1 (kind field) | `crane/field.py` |
 | `run --astro-test TEST` | astro's tests at T0/T1, metrics named as astro's results | `crane/astrotest.py` over `Tools/Characterization/astro_tests.py` |
 | `compare A B [--tiers]`, `compare --field BUNDLE RUNS` | variant A/B, tier gap, field vs sim | `crane/compare.py` |
-| `setup`, `view`, `bench fast`, `run --tier T2` | not yet available | say what to use today and exit 2 |
+| `setup`, `bench fast`, `run --tier T2` | not yet available | say what to use today and exit 2 |
 
 ## Pieces
 
@@ -55,5 +56,5 @@ each verb imports what it needs only when it runs, and the `sim` path is stdlib 
 `./install.sh [--yes] [--dir D] [--components core,fast,gpu,view,field,setup] [--domains …] [--no-clone]
 [--dry-run]` installs uv (to `~/.local/bin`), a Python 3.12 venv at `<repo>/.venv`, `pip install -e .[extras]`
 and the link `~/.local/bin/crane`. It never uses sudo and prints each step. The extras are `fast` (numba), `gpu`
-(jax CUDA 12), `view` (PySide6, pyqtgraph), `field` (mcap), `setup` (rich, questionary) and `all`. The editable
+(jax CUDA 12), `view` (PySide6, pyqtgraph, PyOpenGL), `field` (mcap), `setup` (rich, questionary) and `all`. The editable
 install also registers the `research_cluster.backends` entry points (fastsim, unity, theater-render).

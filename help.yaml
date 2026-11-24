@@ -31,13 +31,18 @@ commands:
 
   - name: crane view
     run: PYTHONPATH="${CRANE_DIR:-$HOME/crane_ml}${PYTHONPATH:+:$PYTHONPATH}" python3 -m crane view
-    summary: The native sandbox window over runs, live or replayed (not yet available; use crane board).
+    summary: The native sandbox window. Replay runs overlaid in one frame and clock, or run a T0/T1 sim live with sliders, rerun from t, and Promote to a crane run spec. --screenshot renders offscreen (no window).
     params:
-      - {name: runs, type: list, required: false, description: Run dirs to open.}
+      - {name: runs, type: list, required: false, description: 'crane.run/1 dirs, fastsim run dirs or .ctraj files.'}
+      - {name: --live, type: bool, description: 'Run the sim in-process (with --domain, --tier T0|T1, --seed).'}
+      - {name: --screenshot, type: path, description: 'Render offscreen to this PNG and exit (--at T for the time).'}
+    examples:
+      - python3 -m crane view --live --domain boat --tier T1 --seed 3
+      - python3 -m crane view /tmp/runs/base/s3 --screenshot /tmp/view.png --at 60
 
   - name: crane board
     run: PYTHONPATH="${CRANE_DIR:-$HOME/crane_ml}${PYTHONPATH:+:$PYTHONPATH}" python3 -m crane board
-    summary: The web replay board over local runs (.ctraj), courses and judge reports; prints its URL.
+    summary: The web replay board over local runs (crane.run/1 records and .ctraj), courses and judge reports; prints its URL.
     params:
       - {name: roots, type: list, required: false, description: 'Dirs to index (default .).'}
       - {name: --port, type: int, default: 8765, description: Local port.}

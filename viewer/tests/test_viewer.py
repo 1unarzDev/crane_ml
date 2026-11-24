@@ -1,4 +1,5 @@
-"""viewer: ingest -> crane-traj/1, the local store in the feed's shapes, the server's routes, the page's modules."""
+"""viewer: the local store in the feed's shapes, ingest, the server's routes, the page's modules. The store over
+crane.run/1 records is tested in tests/test_view.py (the board index over a mixed root)."""
 
 import json
 import math
@@ -12,7 +13,6 @@ import urllib.request
 from pathlib import Path
 
 from theater import traj as ctraj
-from viewer import ingest
 from viewer.server import WEB, make_handler
 from viewer.store import Store, rank_agreement, reduce_course
 
@@ -23,42 +23,37 @@ COURSE = {'name': 'toy-s3', 'family': 'toy', 'startX': 1.0, 'startY': 2.0, 'star
           'gates': [{'id': 'g.gate1', 'task': 'nav_channel', 'port': 'g.gate1.port', 'starboard': 'g.gate1.starboard', 'x': 5.0, 'y': 2.0, 'order': 1}]}
 
 
-def run_dir(root: Path, name: str, t0: float, speed: float, points: int, contact=False) -> Path:
-    d = root / name
-    (d / 'analysis').mkdir(parents=True)
-    # irregular samples on the run's own clock
-    track = [{'t': t0 + i * 0.07, 'x': 1.0 + speed * i * 0.07, 'y': 2.0, 'yaw': 0.0} for i in range(300)]
-    (d / 'track.jsonl').write_text(''.join(json.dumps(p) + '\n' for p in track))
-    ev = [{'event': 'task_started', 'task': 'nav_channel', 'time': t0 + 1.0},
-          {'event': 'decision', 'kind': 'execute', 'reason': 'through the middle', 'time': t0 + 1.0},
-          {'event': 'goal', 'x': 2.0, 'y': 0.0, 'why': 'gate 1', 'time': t0 + 1.0},
-          {'event': 'gate_cleared', 'gate': 1, 'time': t0 + 1.0 + 4.0 / speed},
-          {'event': 'task_finished', 'outcome': 'SUCCESS', 'time': t0 + 20.0}]
-    (d / 'task_events.jsonl').write_text(''.join(json.dumps(e) + '\n' for e in ev) + '{"torn')
-    (d / 'task_status.jsonl').write_text(json.dumps({'elapsed': 0.0, 'phase': 'execute', 'behaviour': 'through the channel'}) + '\n')
-    (d / 'course_truth.json').write_text(json.dumps(COURSE))
-    contacts = [{'t': t0 + 5.0, 'object': 'g.gate1.port', 'min_clearance_m': 0.0}] if contact else []
-    (d / 'analysis' / 'score.001.json').write_text(json.dumps({
-        'summary': f'{points} pts', 'total': {'points': points},
-        'tasks': {'entry_gates': {'rows': [{'id': 'T1.entry', 'desc': 'through both gates', 'possible': 100, 'points': points, 'status': 'scored', 't': t0 + 6.0}]}},
-        'reliability': {'clean': not contact, 'failed': ['contact'] if contact else [], 'flags': {}},
-        'diagnostics': {'contacts': {'contacts': contacts, 'near_misses': []}}}))
-    (d / 'session.json').write_text(json.dumps({'id': name}))
-    return d
+def write_ctraj(path: Path, header: dict, t0: float, speed: float, events) -> Path:
+    """A bare crane-traj/1 file as another writer (a cluster backend, Unity) leaves it: 10 Hz planar pose."""
+    n = 300
+    cols = {'boat.x': [1.0 + speed * i / 10 for i in range(n)], 'boat.y': [2.0] * n, 'boat.yaw': [0.0] * n}
+    ctraj.write(path, {'pose_dims': 'planar', 'robot': {'model': 'boat', 'agents': ['boat']},
+                       'frame': {'type': 'enu', 'origin': 'course'}, **header}, cols, events, hz=10.0, t0_s=t0)
+    ctraj.write_lod(path)
+    return path
 
 
 class ViewerTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.tmp = Path(tempfile.mkdtemp())
-        src = cls.tmp / 'src'
-        cls.fast = run_dir(src, 'fastrun', 0.0, 1.0, 100)
-        cls.unity = run_dir(src, 'unityrun', 5000.0, 0.8, -25, contact=True)
         cls.out = cls.tmp / 'data'
-        ingest.write_run(cls.fast, cls.out / 'runs' / 'p1_fast', 'fast', 'p1/fast',
-                         {'study': 'toy', 'arm': 'fast', 'pair': {'id': 'p1', 'high': 'unity:unityrun'}}, courses=cls.out / 'courses')
-        ingest.write_run(cls.unity, cls.out / 'runs' / 'unity_unityrun', 'unity', 'unity:unityrun', {'study': 'toy', 'arm': 'unity'},
-                         courses=cls.out / 'courses')
+        sha = COURSE['generator']['truth_sha256']
+        (cls.out / 'courses').mkdir(parents=True)
+        (cls.out / 'courses' / f'{sha}.json').write_text(json.dumps(COURSE))
+        course = {'truth_sha256': sha, 'name': 'toy-s3'}
+        ev = lambda t0, speed: [{'t': t0 + 1.0, 'kind': 'task_started', 'lane': 'task'},
+                                {'t': t0 + 1.0 + 4.0 / speed, 'kind': 'gate_cleared', 'gate': 1, 'lane': 'task'}]
+        (cls.out / 'runs' / 'p1_fast').mkdir(parents=True)
+        write_ctraj(cls.out / 'runs' / 'p1_fast' / 'run.ctraj',
+                    {'run_id': 'p1/fast', 'tier': 'fast', 'study': 'toy', 'arm': 'fast', 'seed': 3, 'task': 'nav_channel',
+                     'score': 100, 'outcome': 'finished', 'course': course, 'pair': {'id': 'p1', 'high': 'unity:unityrun'}},
+                    0.0, 1.0, ev(0.0, 1.0))
+        (cls.out / 'runs' / 'unity_unityrun').mkdir(parents=True)
+        write_ctraj(cls.out / 'runs' / 'unity_unityrun' / 'run.ctraj',
+                    {'run_id': 'unity:unityrun', 'tier': 'unity', 'study': 'toy', 'arm': 'unity', 'seed': 3,
+                     'task': 'nav_channel', 'score': -25, 'outcome': 'failed', 'course': course},
+                    5000.0, 0.8, ev(0.0, 0.8) + [{'t': 5.0, 'kind': 'contact', 'id': 'g.gate1.port'}])
         rep = cls.tmp / 'judge' / 'pairs'
         rep.mkdir(parents=True)
         (rep / 'report.json').write_text(json.dumps({'schema': 'crane.judge.report/1', 'kind': 'tiers', 'n_pairs': 1,
@@ -74,31 +69,17 @@ class ViewerTest(unittest.TestCase):
     def tearDownClass(cls):
         shutil.rmtree(cls.tmp, ignore_errors=True)
 
-    def test_ingest_keeps_the_runs_clock_and_events(self):
-        t = ctraj.read(self.out / 'runs' / 'unity_unityrun' / 'run.ctraj')
-        self.assertEqual(t.header['run_id'], 'unity:unityrun')
-        self.assertEqual(t.header['tier'], 'unity')
-        self.assertAlmostEqual(t.header['t0_s'], 5000.0)
-        self.assertEqual(t.hz, 10.0)
-        kinds = [e['kind'] for e in t.events]
-        for k in ('task_started', 'decision', 'goal', 'gate_cleared', 'task_finished', 'behaviour', 'row', 'contact'):
-            self.assertIn(k, kinds)
-        started = next(e for e in t.events if e['kind'] == 'task_started')
-        self.assertAlmostEqual(started['t'], 1.0, places=3)  # seconds from t0, not absolute
-        goal = next(e for e in t.events if e['kind'] == 'goal')
-        self.assertAlmostEqual(goal['x'], 1.0, places=3)  # task frame (2, 0) turned by the start yaw of 90 degrees
-        self.assertAlmostEqual(goal['y'], 4.0, places=3)
-        contact = next(e for e in t.events if e['kind'] == 'contact')
-        self.assertEqual((contact['x'], contact['y']), (5.0, 3.0))
-        self.assertEqual(t.header['channels']['perception'], 'empty')
-        self.assertEqual(t.header['outcome'], 'finished')
-        self.assertTrue((self.out / 'runs' / 'unity_unityrun' / 'run.lod.ctraj').exists())
-
-    def test_resample_is_fixed_rate_and_wraps_yaw(self):
-        t0, (xs, _, yaws) = ingest.resample([{'t': 0, 'x': 0, 'y': 0, 'yaw': 3.1}, {'t': 1, 'x': 1, 'y': 0, 'yaw': -3.1}], 4.0)
-        self.assertEqual(len(xs), 5)
-        self.assertAlmostEqual(xs[2], 0.5)
-        self.assertGreater(abs(yaws[2]), 3.1)  # through pi, not through 0
+    def test_ingest_copies_runs_with_their_lod_and_stamps(self):
+        from viewer.ingest import ingest
+        dst = self.tmp / 'copy'
+        n = ingest([self.out], dst, study='again', log=lambda *_: None)
+        self.assertEqual(n, 2)
+        t = ctraj.read(dst / 'runs' / 'unity_unityrun' / 'run.ctraj')
+        self.assertEqual((t.header['run_id'], t.header['study']), ('unity:unityrun', 'again'))
+        self.assertAlmostEqual(t.header['t0_s'], 5000.0)          # the run's own clock is kept
+        self.assertIn('contact', [e['kind'] for e in t.events])
+        self.assertTrue((dst / 'runs' / 'unity_unityrun' / 'run.lod.ctraj').exists())
+        self.assertEqual(len(list((dst / 'courses').glob('*.json'))), 1)
 
     def test_index_pairs_studies_and_rank(self):
         idx = self.store.index()
