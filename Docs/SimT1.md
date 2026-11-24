@@ -7,7 +7,8 @@ crane sim up --tier T1 --rate 5 --seed 3 --current 0 --card characterized
 crane sim check --wait 120 ; crane sim status ; crane sim restart nav|ros ; crane sim down
 ```
 
-The T1 world is one rclpy node (`crane/sim/t1node.py`) in the same ROS container as T2, beside
+The T1 world is one rclpy node (`crane/sim/t1node.py`, mounted read-only with the plant's folder) in the same ROS
+container as T2, beside
 `ros2 launch mhseals_nav device.launch.py device:=sim`. It steps `ProfilePlant`
 (`Tools/Characterization/plant.py`, the twin of the player's plant) at the card's `fixedDeltaTime` (0.02 s) on the
 PWM it receives, and publishes what the player publishes, under the same names, types and frames. No player, no
@@ -29,9 +30,12 @@ Rates are in sim time. Frames are REP 103: world ENU, body FLU at `base_link`.
 | `/odom/global` | nav_msgs/Odometry | 50 Hz | map (base_link) | truth | (ekf_global in sensors mode) |
 | `/tf` odom→base_link | tf2_msgs/TFMessage | 50 Hz | odom (base_link) | truth | (ekf_local in sensors mode) |
 | `/tf_static` map→odom | tf2_msgs/TFMessage | once, latched (identity) | map (odom) | truth | (ekf_global in sensors mode) |
-| `/crane/truth/course`, `/crane/truth/states` | std_msgs/String (JSON) | 0.5 Hz, 1 Hz | - | both, only with `publish_truth: true` | CourseTruthPublisher (`--crane-ros-course-truth`, off in T2 too) |
 | `/crane/reset_to_start` (service) | std_srvs/Trigger | - | - | both | RoboBoatStartReset |
 | `/thrusters/pwm` (in) | std_msgs/UInt16MultiArray | 20 Hz from thruster_pwm_node | - | both | ROSThrusterPwmCommand |
+
+Not published, as in T2: `/crane/truth/*` (the player sends them only with `--crane-ros-course-truth`, which T2
+does not pass; the truth is the state dir's `course_truth.json`), the camera, lidar and detection topics, and
+`/crane/sim/horn`.
 
 Message contents, as the player fills them:
 - `/odom/mavros`: the truth pose (the EKFs use only vx, vy), body twist with `fcu_velocity_sigma` noise on vx, vy;
@@ -41,7 +45,9 @@ Message contents, as the player fills them:
 - `/gps/fix`: the `gps_link` antenna position (with `gps_sigma` noise per axis) to latitude/longitude about the
   origin 27.3747, -82.4518 (a flat-earth tangent plane, R 6378137 m); status FIX, service GPS; covariance
   diag(h, h, 4h), h = max(0.01, sigma²), type DIAGONAL_KNOWN.
-- Lever arms from blastoise.xacro (base_link): gps_link (0.0699, -0.1207, 0.0954), imu_link (-0.0572, -0.1016, 0.0954).
+- Lever arms come from the robot's URDF (`robot.robots.<robot>.urdf`, the fixed-joint chain from base_link), so
+  they equal what robot_state_publisher publishes: gps_link (0.0699, -0.1207, 0.0954), imu_link
+  (-0.0572, -0.1016, 0.0954) for blastoise. A test compares them with mhseals_nav's blastoise.xacro.
 
 ## Commands in
 

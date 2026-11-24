@@ -86,7 +86,7 @@ P = Param
 JSON, QUIET, DRY = 'json', 'quiet', 'dry_run'
 
 NOUNS = [
-    Noun('sim', "T2: a domain's Unity world plus its ROS side, used like the robot", owner='crane.wrap:sim'),
+    Noun('sim', "a domain's T2 Unity world or T1 twin plus its ROS side, used like the robot", owner='crane.wrap:sim'),
     Noun('run', 'episodes at a tier, one run dir per seed'),
     Noun('study', 'a study spec: arms x axes x seed blocks, run locally or on the cluster'),
     Noun('runs', 'the local run index: list, show, query, diff'),
@@ -117,7 +117,8 @@ NOUNS = [
 
 COMMANDS = [
     # ---- sim -------------------------------------------------------------------------------------------------
-    Command(('sim', 'up'), "Start a domain's T2 world (the Unity player through heavy unity, plus its ROS side) and "
+    Command(('sim', 'up'), "Start a domain's T2 world (the Unity player through heavy unity, plus its ROS side), or "
+            'with --tier T1 its T1 world (the plant twin as a ROS node beside the same ROS side, no player), and '
             'return once the course is ready; prints the status block.',
             'crane.wrap:sim', passthrough=True, flags=(JSON, DRY), json='crane.sim.status/1', export=True,
             about='one line as the ROS side starts and one as the player is queued on `heavy unity`, then the status '
@@ -128,7 +129,10 @@ COMMANDS = [
                   '(exit 2) while a sim runs. Exit 0 ready, 1 the world failed, 2 usage or config. Everything '
                   'specific comes from config/domains/DOMAIN.yaml tiers.T2. Env: ROS_DOMAIN_ID, ASTRO_STATE / '
                   'MHSEALS_HARDWARE_CONFIG (passed into the ROS side), the image env, SIM_UP_*, CRANE_PLAYER, HEAVY. '
-                  'Same as Tools/RoboBoat/sim_up.',
+                  'Same as Tools/RoboBoat/sim_up. T1 (tiers.T1.sim, Docs/SimT1.md): the node publishes what the '
+                  'player does (/crane/odom, /imu/raw, /gps/fix, /clock; /odom/mavros with --odom sensors, '
+                  '/odom/local, /odom/global and TF with --odom truth, which turns localization off) and steps on '
+                  '/thrusters/pwm; waits up to 60 s for the node; no window, no heavy unity.',
             params=(P('--seed', 'int', description='The world seed (default 1).'),
                     sel('env', description='KIND:NAME, the world (default course:roboboat_2026); --course FAMILY is '
                         'the same as --env course:FAMILY.'),
@@ -142,11 +146,16 @@ COMMANDS = [
                     P('--player', 'path', description='The player (else CRANE_PLAYER, then the build).'),
                     sel('robot'),
                     P('--set', metavar='K=V', repeat=True, description='Pin one world parameter (repeatable).'),
+                    P('--tier', choices=('T2', 'T1'), description='T2 the Unity world (default), T1 the twin (no '
+                      'player).'),
+                    P('--odom', choices=('sensors', 'truth'), description='T1: raw sensors for the real EKFs '
+                      '(default), or truth odometry and TF with localization off.'),
+                    P('--rate', 'float', metavar='N', description='T1: N x real time (default 1).'),
                     sel('domain', description='config/domains/DOMAIN.yaml (default boat).'),
                     P('--dry-run', 'bool', description='Print the resolved player argv and docker run; start nothing.'),
                     P('--json', 'bool', description='Progress on stderr, the status as one JSON document.')),
             examples=('crane sim up --headless --seed 3 --current 0', 'crane sim up --card characterized --headless',
-                      'crane sim up --dry-run'),
+                      'crane sim up --tier T1 --odom truth --rate 2', 'crane sim up --dry-run'),
             raw='Tools/RoboBoat/sim_up up'),
     Command(('sim', 'down'), "Stop what crane sim up started: its player's process group (TERM, KILL after 10 s) and "
             'its ROS container, nothing else.', 'crane.wrap:sim', passthrough=True, flags=(JSON,),
@@ -158,7 +167,8 @@ COMMANDS = [
             'crane.wrap:sim', passthrough=True, flags=(JSON,), json='crane.sim.restart/1', export=True,
             about='one line per step, then `crane sim: PART restarted, ready: ...` and next:. --json: {schema, restarted, '
                   'ready, at, status}.',
-            notes='nav stops the nav nodes named by the domain recipe (tiers.T2.ros.restart.nav) inside the ROS '
+            notes='T1: ros restarts the node with the container (from the course start), player refuses. '
+                  'nav stops the nav nodes named by the domain recipe (tiers.T2.ros.restart.nav) inside the ROS '
                   'container, starts them again from the same launch (only:=navigation), and waits up to the '
                   "recipe's ready_s (90 s) for bt_navigator to be active; a domain without the recipe refuses and "
                   'names `restart ros`. ros re-runs the saved docker run, waits up to 60 s for the endpoint and '
@@ -187,10 +197,11 @@ COMMANDS = [
                     P('--json', 'bool', description='One JSON document.'),
                     sel('domain', description='config/domains/DOMAIN.yaml (default boat).')),
             examples=('crane sim check --wait 120',), raw='Tools/RoboBoat/sim_up check'),
-    Command(('sim', 'logs'), 'The last lines of the player, player stdout and ROS logs, each under its path.',
+    Command(('sim', 'logs'), 'The last lines of the player, player stdout and ROS logs (T1: the node and ROS logs), '
+            'each under its path.',
             'crane.wrap:sim', passthrough=True, export=True,
-            params=(P('which', 'list', nargs='*', choices=('player', 'stdout', 'ros'),
-                      description='Which logs (default all three).'),
+            params=(P('which', 'list', nargs='*', choices=('player', 'stdout', 'ros', 't1'),
+                      description="Which logs (default the running tier's)."),
                     P('-n', 'int', default=40, description='Lines per log.')),
             examples=('crane sim logs ros -n 100',), raw='Tools/RoboBoat/sim_up logs'),
 

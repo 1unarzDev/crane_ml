@@ -2,8 +2,9 @@
 
     nav     only the navigation nodes, inside the running ROS container (the domain's ros.restart.nav recipe:
             stop them, start them again, wait for the ready nodes), so new nav2_limits in the state take effect
-    ros     the ROS container, with the args up used; the player stays and its endpoint reconnects
-    player  the player, with the argv up resolved; the ROS side stays
+    ros     the ROS container, with the args up used; the player stays and its endpoint reconnects (T1: the node
+            restarts with the container, from the course start at sim time 0)
+    player  the player, with the argv up resolved; the ROS side stays (T2 only)
 
 Each step prints one line; waits are bounded and state their timeout. The state dir is updated (status and check
 read it). Exit 0 ok, 1 the part failed, 2 usage or config (also: nothing running), 75 timed out waiting.
@@ -122,7 +123,8 @@ def nav(cfg, t2, run, as_json=False):
     if not recipe.get('alive') or not (gone(stop_s) or (run_all(recipe.get('kill') or []) or gone(stop_s))):
         raise SimError(f'the nav processes did not exit (see {run}/ros.log); not starting a second set: '
                        f'{me} restart ros', 1)
-    overrides = config.subst(ros.get('overrides') or '', port=_read_port(run))
+    overrides = ros.get('overrides') or ''
+    overrides = config.subst(overrides, port=_read_port(run)) if '{port}' in overrides else overrides
     start_values = {'launch': ros.get('launch') or '', 'overrides': shlex.quote(overrides)}
     with_log = ' >>{} 2>&1'.format(shlex.quote(str(run / 'ros.log')))
     for cmd in recipe.get('start') or []:
@@ -150,12 +152,25 @@ def ros(cfg, t2, run, as_json=False):
     docker = world.saved_argv(run, 'ros.docker')
     if not docker:
         raise SimError(f'no saved ROS launch in {run}: {me} up', 2)
-    port = int(_read_port(run))
+    is_t1 = t2.get('tier') == 'T1'
+    port = None if is_t1 else int(_read_port(run))
     world.prepare_dirs(t2, run)
     subprocess.run(['docker', 'rm', '-f', container], capture_output=True, timeout=60)
+    if is_t1:
+        for n in (world.t1.LOG, world.t1.ALIVE):
+            (run / n).unlink(missing_ok=True)
     out = subprocess.run(docker, capture_output=True, text=True, timeout=120)
     if out.returncode != 0:
         raise SimError(f'docker run failed (exit {out.returncode}): {(out.stderr.strip().splitlines() or [""])[-1]}', 1)
+    if is_t1:
+        limit = int(t2.get('ready_s') or 60)
+        _say(f'ROS side and T1 node restarting, waiting up to {limit} s for the world', as_json)
+        outcome = world.wait_world(t2, run, limit)
+        if outcome != 'ready':
+            world._tail(run / world.t1.LOG)
+            raise SimError(f'the T1 world is not up ({outcome}), see {run}/{world.t1.LOG} and {run}/ros.log; '
+                           f'then {me} down', 75 if outcome == 'timeout' else 1)
+        return _wait_ready_nodes(t2, run, ros_cfg, me, as_json)
     limit = int(ros_cfg.get('endpoint_s', 60))
     _say(f'ROS side restarting (endpoint port {port}, the player is kept), waiting up to {limit} s for the endpoint',
          as_json)
@@ -167,8 +182,12 @@ def ros(cfg, t2, run, as_json=False):
         if time.monotonic() - t0 >= limit:
             raise SimError(f'no endpoint on port {port} in {limit} s, see {run}/ros.log; then {me} down', 75)
         time.sleep(1)
+    return _wait_ready_nodes(t2, run, ros_cfg, me, as_json, 'endpoint up')
+
+
+def _wait_ready_nodes(t2, run, ros_cfg, me, as_json, what='world up'):
     nodes, limit = list(ros_cfg.get('ready_nodes') or []), float(ros_cfg.get('ready_s', 120))
-    _say(f'endpoint up, waiting up to {limit:g} s for {", ".join(nodes) or "nothing"}', as_json)
+    _say(f'{what}, waiting up to {limit:g} s for {", ".join(nodes) or "nothing"}', as_json)
     missing = wait_nodes(t2, run, nodes, limit)
     stamp = _record(run, 'ros')
     if missing:
@@ -186,6 +205,9 @@ def _read_port(run):
 def player(cfg, t2, run, as_json=False):
     """Stop the player's process group and start the argv up saved, in a new one; wait for the course."""
     me = config.invoked_as()
+    if t2.get('tier') == 'T1':
+        raise SimError(f'restart player: the T1 world runs no player (its node runs in the ROS container); '
+                       f'{me} restart ros', 2)
     argv = world.saved_argv(run, 'player.argv')
     if not argv:
         raise SimError(f'no saved player launch in {run}: {me} up', 2)

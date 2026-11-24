@@ -3,7 +3,39 @@
 #   python3 -m fastsim.batch --config domains/boat/fastsim_t1.yaml --seeds 0:5 --out runs/boat
 tiers:
   T0: {config: domains/boat/fastsim_t0.yaml}
-  T1: {config: domains/boat/fastsim_t1.yaml}
+  T1:
+    config: domains/boat/fastsim_t1.yaml
+    # crane sim up --tier T1: the T1 twin as a live ROS world, in T2's ROS container (Docs/SimT1.md). Keys it does
+    # not name come from tiers.T2 (host, ros image, container, mounts, restart recipe, next_up/next_down).
+    sim:
+      node: crane/sim/t1node.py                 # the rclpy node, mounted read-only into the container
+      plant: Tools/Characterization/plant.py    # ProfilePlant (stdlib only); its folder is mounted beside the node
+      card: characterized                       # the plant card when --card is not given (card.dir)
+      odom: sensors                             # sensors: the real EKFs run on the raw topics; truth: no EKFs
+      rate: 1                                   # x real time (--rate N)
+      ready_marker: CRANE_T1_READY              # the node's log line: the world steps and publishes
+      plant_marker: CRANE_T1_PLANT              # the node's log line: the plant card it steps
+      ready_s: 60                               # how long up waits for ready_marker
+      # The course truth for (family, seed, --set): the generator, else the committed truth (no --set).
+      course: {generate: 'domains.boat.coursegen:truth', dir: domains/boat/courses, file: '{name}-s{seed}.json'}
+      # What the player publishes and takes (CraneRoboBoatSensorContract, CraneROSNavigationState, ROSClock,
+      # ROSThrusterPwmCommand, RoboBoatStartReset), rates in sim Hz. Lever arms come from the robot's urdf.
+      world:
+        command: {topic: /thrusters/pwm, timeout_ticks: 25}                 # FL,FR,RR,RL us; neutral after 25 ticks
+        truth: {topic: /crane/odom, hz: 50}
+        fcu: {topic: /odom/mavros, hz: 20}
+        imu: {topic: /imu/raw, hz: 20, link: imu_link}
+        gps: {topic: /gps/fix, hz: 5, link: gps_link, origin: [27.3747, -82.4518]}
+        estimate: {local: /odom/local, global: /odom/global, hz: 50}       # --odom truth
+        frames: {map: map, odom: odom, base: base_link}
+        reset: /crane/reset_to_start
+        noise: {gps_sigma: 0.0, fcu_velocity_sigma: 0.0, seed: 0}         # the player's defaults (m, m/s)
+      ros:
+        # device:=sim with the parts T1 has no inputs for turned off (mhseals_nav device_profile PART_KEYS).
+        overrides:
+          sensors: '{"parts": {"camera": {"enabled": false}, "lidar": {"enabled": false}, "objects": {"enabled": false}, "sim_bridge": {"enabled": false}}}'
+          truth: '{"parts": {"camera": {"enabled": false}, "lidar": {"enabled": false}, "objects": {"enabled": false}, "sim_bridge": {"enabled": false}, "localization": {"enabled": false}}}'
+        ready_nodes: {sensors: [ekf_local, bt_navigator], truth: [bt_navigator]}
   # T2: the Unity world, used like the boat (crane sim; crane/player.py builds the player argv from it).
   # crane adds the player's generic flags itself (-screen-*, -logFile, --crane-profile, --crane-scene,
   # --crane-ros-ip/--crane-ros-port); everything RoboBoat-specific is here.
@@ -88,7 +120,7 @@ env:
 # --robot R: the domain's robots; a robot may name its own card and extra player flags.
 robot:
   default: blastoise
-  robots: {blastoise: {}}
+  robots: {blastoise: {urdf: 'Assets/Robot Descriptions/blastoise/blastoise.urdf'}}   # urdf: T1's sensor lever arms
 # --card REF: a plant profile JSON, or a name in dir (REF.json). T2 hands it to the player.
 card:
   dir: Tools/Characterization/profiles

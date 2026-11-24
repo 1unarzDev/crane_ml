@@ -2,6 +2,7 @@
 docker and heavy (no Unity, no ROS); the domain-id rules; check and status on a fake state dir; the shim."""
 
 import json
+import math
 import os
 import re
 import shutil
@@ -510,3 +511,139 @@ def test_restart_keeps_the_other_parts_and_updates_the_state(world_env, monkeypa
     assert rc == 1 and 'failed: plant applied;' in out and 'FAIL  course' not in out and 'ok    nav stack up' in out
     assert _crane_sim(env, 'down')[0] == 0
     assert not (run / 'player.argv').exists() and _crane_sim(env, 'restart', 'player')[0] == 2
+
+
+# ---- the T1 world (crane sim up --tier T1) ------------------------------------------------------------------------
+
+def _t1_doc(odom='sensors', current=(0.0, 0.0)):
+    from crane.sim import t1
+    cfg = player.load_domain('boat')
+    sec = config.t1_section(cfg, config.domain('boat', 'T2')[1], odom)
+    profile = json.loads((ROOT / 'Tools/Characterization/profiles/characterized.json').read_text())
+    urdf = ROOT / cfg['robot']['robots']['blastoise']['urdf']
+    lever = t1.lever_arms(urdf, {'gps': 'gps_link', 'imu': 'imu_link'})
+    return sec, {'odom': odom, 'rate': 1.0, 'dt': profile['fixedDeltaTime'], 'profile': profile,
+                 'current': list(current), 'start': [2.0, -1.0, 0.3], 'lever': {k: list(v) for k, v in lever.items()},
+                 'world': sec['world']}
+
+
+def test_the_t1_node_steps_the_plant_exactly_as_profileboat_and_keeps_the_players_command_contract():
+    """The node's twin, held on a PWM command, lands on ProfileBoat's state bit for bit (current included); it
+    drops a message without four pulses, goes neutral 25 ticks after the last one, and its sensors read as the
+    player's contract does (+g up at rest, the centripetal term of the IMU point in a turn, the antenna's fix)."""
+    from crane.sim import t1, t1node
+    from domains.boat.plant import ProfileBoat
+    from fastsim.plant import Limits
+    sec, doc = _t1_doc(current=(0.1, -0.05))
+    twin = t1node.Twin(doc, t1.load_plant(sec))
+    lim = Limits.from_dict({'vmax': [2, 1, 1], 'vmin': [-1, -1, -1], 'accel': [1, 1, 1], 'decel': [1, 1, 1],
+                            'goal_tol': [0.5, 0.2], 'precise_tol': [0.2, 0.1], 'rotate_above': 1.0, 'rotate_wz': 0.5,
+                            'progress_radius': 0.5, 'progress_s': 10, 'pass_radius': 1, 'footprint': [[0, 0]]})
+    boat = ProfileBoat(lim, pose=tuple(doc['start']), current=(0.1, -0.05))
+    assert twin.specific_force == (0.0, 0.0, t1node.GRAVITY)
+    for pwm, ticks in (([1300, 1300, 1700, 1700], 100), ([1600, 1400, 1600, 1400], 50)):   # forward, then a turn
+        assert not twin.command(pwm[:3])
+        for k in range(ticks):
+            if k % 2 == 0:                                   # thruster_pwm_node repeats at 20 Hz: every 2-3 ticks
+                assert twin.command(pwm)
+            twin.step()
+        boat.apply_pwm(pwm, ticks * twin.dt)
+        assert twin.plant.state == boat.twin.state
+    u, v, r = twin.body_twist()
+    assert u > 0.5 and abs(r) > 0.05
+    fx, fy, fz = twin.specific_force
+    assert fz == t1node.GRAVITY and abs(fy) > 0.01            # the turn's lateral acceleration at the IMU point
+    lat, lon, alt, var = twin.fix()
+    east, north, up = twin.point('gps')
+    assert alt == up == doc['lever']['gps'][2] and var == 0.01
+    assert abs((lat - 27.3747) * math.pi / 180 * t1node.EARTH_RADIUS - north) < 1e-6
+    # silence: the last command holds for 25 ticks, then neutral (the player's --crane-command-timeout-ticks)
+    twin.command([1550, 1550, 1550, 1550])
+    twin.step()                                              # applied at this tick
+    held = list(twin.pwm)
+    for _ in range(25):
+        twin.step()
+    assert twin.pwm == held
+    twin.step()
+    assert twin.pwm == [1500.0] * 4
+    twin.reset()
+    assert twin.pose() == tuple(doc['start']) and twin.body_twist() == (0.0, 0.0, 0.0) and twin.k == 177
+
+
+def test_the_t1_lever_arms_are_the_urdfs_the_stack_publishes():
+    """gps_link and imu_link in base_link from crane's blastoise URDF equal mhseals_nav's xacro, which the sim's
+    robot_state_publisher publishes (box_joint datum_z, then the sensor joints)."""
+    _, doc = _t1_doc()
+    assert doc['lever'] == {'gps': [0.0699, -0.1207, 0.0954], 'imu': [-0.0572, -0.1016, 0.0954]}
+    xacro = config.home() / 'astro_dock/src/mhseals_nav/description/blastoise/blastoise.xacro'
+    if not xacro.is_file():
+        pytest.skip(f'no {xacro} to compare with')
+    props = dict(re.findall(r'<xacro:property name="(\w+)" value="([-0-9.]+)"/>', xacro.read_text()))
+    for link in ('gps', 'imu'):
+        want = [float(props[f'{link}_x']), float(props[f'{link}_y']), float(props['datum_z']) + float(props[f'{link}_z'])]
+        assert doc['lever'][link] == pytest.approx(want, abs=1e-9)
+
+
+T1_DOCKER = r'''#!/bin/sh
+printf '%s\n' "$*" >> "$STUB/docker.log"
+case $1 in
+  inspect) [ -f "$STUB/running" ] && echo true || { echo "Error: no such object" >&2; exit 1; } ;;
+  run) shift; printf '%s\n' "$@" > "$STUB/docker_run.argv"; touch "$STUB/running"
+       printf 'CRANE_T1_PLANT profile=Characterized\nCRANE_T1_READY course=x\n' > "$SIM_UP_RUN/t1.log"
+       python3 -c 'import json, time; print(json.dumps({"t_sim": 4.2, "wall": time.time(), "rate": 1.0}))' \
+         > "$SIM_UP_RUN/t1.alive"; echo cid ;;
+  rm) rm -f "$STUB/running" ;;
+  exec) printf '/crane_t1\n/ekf_local\n/rtabmap\n/bt_navigator\n' ;;
+esac
+'''
+
+
+def test_t1_up_status_check_and_down_with_the_odom_modes(world_env, monkeypatch, capsys):
+    """up --tier T1 runs the node beside device:=sim in the one container (no player), with the odom mode's
+    overrides, the course from the generator or the committed truth; status shows the tier, check reads the node,
+    restart player refuses and down clears the tier."""
+    from domains.boat import coursegen
+    stub, run = world_env['stub'], world_env['run']
+    _exe(stub / 'bin' / 'docker', T1_DOCKER)
+    monkeypatch.setattr(coursegen, 'truth', lambda *a: (_ for _ in ()).throw(RuntimeError('no dotnet')))
+    for odom, ready in (('sensors', ['ekf_local', 'bt_navigator']), ('truth', ['bt_navigator'])):
+        args = ['up', '--tier', 'T1', '--seed', '2', '--current', '0'] + (['--odom', odom] if odom == 'truth' else [])
+        assert sim.main(args) == 0, capsys.readouterr()
+        out, err = capsys.readouterr()
+        assert 'from committed domains/boat/courses/roboboat_2026-s2.json' in out
+        assert f'  tier:      T1 (odom {odom}, rate 1x)' in out and '  world:     T1 node running' in out
+        assert not (stub / 'heavy.argv').exists() and not (run / 'player.pid').exists()
+        docker = (stub / 'docker_run.argv').read_text().splitlines()
+        command = docker[-1]
+        assert command.startswith(f'python3 /opt/crane_t1/t1node.py {run}/t1.json >{run}/t1.log 2>&1 & exec ros2 '
+                                  'launch mhseals_nav device.launch.py device:=sim overrides:=')
+        overrides = json.loads(command.split("overrides:='", 1)[1].split("'", 1)[0])
+        off = {'camera', 'lidar', 'objects', 'sim_bridge'} | ({'localization'} if odom == 'truth' else set())
+        assert overrides == {'parts': {p: {'enabled': False} for p in off}}
+        assert f'{ROOT}/crane/sim/t1node.py:/opt/crane_t1/t1node.py:ro' in docker
+        assert f'{ROOT}/Tools/Characterization:/opt/crane_t1/plant:ro' in docker
+        node = json.loads((run / 't1.json').read_text())
+        assert node['odom'] == odom and node['current'] == [0.0, 0.0] and node['seed'] == 2
+        assert node['plant'] == '/opt/crane_t1/plant/plant.py' and node['course'] == 'roboboat_2026-s2'
+        assert json.loads((run / 'course_truth.json').read_text())['name'] == 'roboboat_2026-s2'
+        cfg, sec = config.domain('boat')
+        assert sec['tier'] == 'T1' and sec['ros']['ready_nodes'] == ready
+        monkeypatch.setattr(check, 'RUN', run)
+        monkeypatch.setattr(check, '_T2', None)
+        assert check.main(['--json']) == 0, capsys.readouterr().out
+        rows = {r['name']: r for r in json.loads(capsys.readouterr().out)['checks']}
+        assert rows['T1 node running']['detail'] == f't 4.2 s sim, 1x real time, odom {odom}'
+        assert rows['nav stack up']['detail'] == ', '.join(ready)
+        assert sim.main(['up', '--tier', 'T1']) == 2 and 'already up' in capsys.readouterr().err
+        assert sim.main(['restart', 'player']) == 2
+        assert 'the T1 world runs no player' in capsys.readouterr().err
+        assert sim.main(['down']) == 0 and not (run / 'tier').exists() and not (stub / 'running').exists()
+        capsys.readouterr()
+    # refusals: one line, exit 2
+    for args, says in ((['up', '--tier', 'T1', '--profile', 'train-gpu'], '--profile is for the T2 player'),
+                       (['up', '--odom', 'truth'], '--odom is for the T1 world'),
+                       (['up', '--tier', 'T1', '--rate', '0'], '--rate wants a positive factor'),
+                       (['up', '--tier', 'T0'], 'not T0'),
+                       (['up', '--tier', 'T1', '--set', 'a.b=1'], '--set needs the generator')):
+        assert sim.main(args) == 2, args
+        assert says in capsys.readouterr().err, args

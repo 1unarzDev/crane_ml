@@ -37,21 +37,22 @@ Exit codes: 0 ok; 1 a check or run failed (judge FAIL included); 2 usage or conf
 
 ## sim
 
-T2: a domain's Unity world plus its ROS side, used like the robot.
+A domain's T2 Unity world or T1 twin plus its ROS side, used like the robot.
 
 ### crane sim up
 
 ```sh
 crane sim up --headless --seed 3 --current 0
 crane sim up --card characterized --headless
+crane sim up --tier T1 --odom truth --rate 2
 crane sim up --dry-run
 ```
 
-Start a domain's T2 world (the Unity player through heavy unity, plus its ROS side) and return once the course is ready; prints the status block.
+Start a domain's T2 world (the Unity player through heavy unity, plus its ROS side), or with --tier T1 its T1 world (the plant twin as a ROS node beside the same ROS side, no player), and return once the course is ready; prints the status block.
 
 What you'll see: one line as the ROS side starts and one as the player is queued on `heavy unity`, then the status block (mode, ROS_DOMAIN_ID, endpoint, player pgid, ROS container, course, current, logs, next:). --dry-run: the resolved player argv and docker run, nothing starts (crane.sim.plan/1 with --json).
 
-Waits up to 60 s for the ROS endpoint and 300 s (SIM_UP_READY_S) for the course. Without --display, a window only on a terminal with a display, else headless under xvfb-run. Refuses (exit 2) while a sim runs. Exit 0 ready, 1 the world failed, 2 usage or config. Everything specific comes from config/domains/DOMAIN.yaml tiers.T2. Env: ROS_DOMAIN_ID, ASTRO_STATE / MHSEALS_HARDWARE_CONFIG (passed into the ROS side), the image env, SIM_UP_*, CRANE_PLAYER, HEAVY. Same as Tools/RoboBoat/sim_up.
+Waits up to 60 s for the ROS endpoint and 300 s (SIM_UP_READY_S) for the course. Without --display, a window only on a terminal with a display, else headless under xvfb-run. Refuses (exit 2) while a sim runs. Exit 0 ready, 1 the world failed, 2 usage or config. Everything specific comes from config/domains/DOMAIN.yaml tiers.T2. Env: ROS_DOMAIN_ID, ASTRO_STATE / MHSEALS_HARDWARE_CONFIG (passed into the ROS side), the image env, SIM_UP_*, CRANE_PLAYER, HEAVY. Same as Tools/RoboBoat/sim_up. T1 (tiers.T1.sim, Docs/SimT1.md): the node publishes what the player does (/crane/odom, /imu/raw, /gps/fix, /clock; /odom/mavros with --odom sensors, /odom/local, /odom/global and TF with --odom truth, which turns localization off) and steps on /thrusters/pwm; waits up to 60 s for the node; no window, no heavy unity.
 
 | Param | Type | Description |
 |---|---|---|
@@ -64,6 +65,9 @@ Waits up to 60 s for the ROS endpoint and 300 s (SIM_UP_READY_S) for the course.
 | `--player` | path | The player (else CRANE_PLAYER, then the build). |
 | `--robot` | str | The domain's robot. |
 | `--set` | str | Pin one world parameter (repeatable). |
+| `--tier` | str | T2 the Unity world (default), T1 the twin (no player). One of `T2`, `T1`. |
+| `--odom` | str | T1: raw sensors for the real EKFs (default), or truth odometry and TF with localization off. One of `sensors`, `truth`. |
+| `--rate` | float | T1: N x real time (default 1). |
 | `--domain` | str | config/domains/DOMAIN.yaml (default boat). |
 | `--dry-run` | bool | Print the resolved player argv and docker run; start nothing. |
 | `--json` | bool | Progress on stderr, the status as one JSON document. |
@@ -97,7 +101,7 @@ Restart one part of the running world and keep the rest: nav (only the Nav2 node
 
 What you'll see: one line per step, then `crane sim: PART restarted, ready: ...` and next:. --json: {schema, restarted, ready, at, status}.
 
-nav stops the nav nodes named by the domain recipe (tiers.T2.ros.restart.nav) inside the ROS container, starts them again from the same launch (only:=navigation), and waits up to the recipe's ready_s (90 s) for bt_navigator to be active; a domain without the recipe refuses and names `restart ros`. ros re-runs the saved docker run, waits up to 60 s for the endpoint and 120 s for the ready nodes. player re-runs the saved player argv, waits up to 300 s (SIM_UP_READY_S) for the course. Nav goals in flight are lost. Exit 0 ok, 1 failed, 2 usage, config or nothing running, 75 timed out waiting.
+T1: ros restarts the node with the container (from the course start), player refuses. nav stops the nav nodes named by the domain recipe (tiers.T2.ros.restart.nav) inside the ROS container, starts them again from the same launch (only:=navigation), and waits up to the recipe's ready_s (90 s) for bt_navigator to be active; a domain without the recipe refuses and names `restart ros`. ros re-runs the saved docker run, waits up to 60 s for the endpoint and 120 s for the ready nodes. player re-runs the saved player argv, waits up to 300 s (SIM_UP_READY_S) for the course. Nav goals in flight are lost. Exit 0 ok, 1 failed, 2 usage, config or nothing running, 75 timed out waiting.
 
 | Param | Type | Description |
 |---|---|---|
@@ -147,11 +151,11 @@ raw: `Tools/RoboBoat/sim_up check`; --json: `crane.sim.check/1`
 crane sim logs ros -n 100
 ```
 
-The last lines of the player, player stdout and ROS logs, each under its path.
+The last lines of the player, player stdout and ROS logs (T1: the node and ROS logs), each under its path.
 
 | Param | Type | Description |
 |---|---|---|
-| `which` | list | Which logs (default all three). One of `player`, `stdout`, `ros`. |
+| `which` | list | Which logs (default the running tier's). One of `player`, `stdout`, `ros`, `t1`. |
 | `-n` | int | Lines per log. (default `40`) |
 
 raw: `Tools/RoboBoat/sim_up logs`
