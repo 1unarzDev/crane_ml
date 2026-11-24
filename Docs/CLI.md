@@ -1267,50 +1267,104 @@ Needs the project's Unity editor. --skip-unity only stamps and packs an existing
 ### crane build images
 
 ```sh
-crane build images core
+crane build images core gpu
+crane build images sim --player Builds/crane-player-X.tar.zst
 ```
 
-The crane docker images (core, gpu, sim), pinned by commit.
+Build the crane docker images (core, gpu, sim) tagged with the commit (crane:KIND-<commit12>); sim packs a player tarball into crane:core.
 
-Not yet available; today use `docker build on the Dockerfiles`.
+What you'll see: the docker build command per image, then one row per image (tag, size unpacked) and next:. --dry-run prints the commands only.
+
+core < 300 MB compressed; gpu = python:3.12-slim + jax[cuda12] + numba, < 4 GB; sim = core + the player + xvfb/Mesa Vulkan, about 1.2 GB. sim takes the tarball from --player (default the newest Builds/crane-player-*.tar.* with its .sha256) and is built on the core image of the same run. Never pushes: .github/workflows/images.yml pushes lunarzdev/crane:KIND-<sha> (never :latest).
+
+| Param | Type | Description |
+|---|---|---|
+| `kinds` | list | core, gpu, sim (default core). One of `core`, `gpu`, `sim`. |
+| `--player` | path | The player tarball for sim (its .sha256 beside it). |
+| `--repo` | str | The image name (lunarzdev/crane in CI). (default `crane`) |
+| `--dry-run` | bool | Print the docker build commands; build nothing. |
+
+raw: `docker build -f Dockerfile.KIND -t crane:KIND-COMMIT .`
 
 ### crane build wheel
 
 ```sh
 crane build wheel
+crane build wheel --out dist
 ```
 
-The crane wheel and sdist.
+Build the crane wheel and sdist (uv build, else python3 -m build) and their sha256.
 
-Not yet available; today use `python3 -m build`.
+What you'll see: the build command, then one row per file (name, size, sha256[:12]) and next:.
+
+| Param | Type | Description |
+|---|---|---|
+| `--out` | path | Where the files go (default ~/.cache/crane/dist). |
+| `--dry-run` | bool | Print the build command only. |
+| `--json` | bool | One JSON document. |
+
+raw: `uv build --out-dir DIR`
 
 ## deploy
 
-Install crane and the player on a host.
+Sync crane and the T2 player to a host.
 
 ### crane deploy
 
 ```sh
-crane deploy HOST
+crane deploy HOST --dry-run
+crane deploy HOST --player
+crane deploy HOST --ref w5-builds
 ```
 
-Install crane (a venv) and the player on a host, then run crane doctor there.
+Bring a host up to this checkout over ssh: check its disk, sync the code (git fetch from this machine + ff-only, or rsync when it has no checkout), send the T2 player with --player (sha256 checked there, current + prev kept), then run crane doctor there.
 
-Not yet available; today use `rsync the checkout, then ./install.sh --yes on the host`.
+What you'll see: the probe line (free disk, checkout, player), one row per step as it runs, then the host's crane doctor table and next:. --dry-run: the probe and the plan; nothing changes on the host.
+
+Touches only ~/crane_ml and the player store (~/.local/share/crane/player) on HOST. Refuses (exit 2) when HOST has less free space than the player (tarball and unpacked) plus 1 GB, or when its checkout cannot fast-forward. The player tarball is --tarball, else the newest Builds/crane-player-*.tar.* with its .sha256, else the release player; rsync --partial resumes a cut transfer. HOST fetches from --from (default ssh://THISHOST/REPO, CRANE_DEPLOY_FROM). Without a .venv on HOST, bin/crane runs on its python3; next: names install.sh. local:DIR deploys into DIR as the home (no ssh; for tests). Exit 0 ok, 1 a step or the remote doctor failed, 2 usage or a refusal.
+
+| Param | Type | Description |
+|---|---|---|
+| `host` | str | HOST or USER@HOST for ssh, or local:DIR. |
+| `--player` | bool | Also send and install the T2 player. |
+| `--tarball` | path | The player tarball (implies --player). |
+| `--ref` | str | The branch or commit HOST fast-forwards to. (default `main`) |
+| `--from` | str | The git URL HOST fetches from (default ssh://THISHOST/REPO). |
+| `--dry-run` | bool | Probe HOST and print the plan; change nothing. |
+| `--json` | bool | One JSON document. |
+
+raw: `ssh HOST 'cd ~/crane_ml && git fetch ssh://THISHOST/REPO main && git merge --ff-only FETCH_HEAD'`; --json: `crane.deploy/1`
 
 ## update
 
-Update this checkout from a release.
+Update crane and the T2 player from a release.
 
 ### crane update
 
 ```sh
 crane update
+crane update --dry-run
+crane update --version 0.3.0 --player-only
 ```
 
-Update this checkout from a release.
+Update this checkout (git fetch + ff-only) or this install (the release wheel), then the T2 player from the release into the player store (sha256 checked, current + prev kept).
 
-Not yet available; today use `git pull, then ./install.sh --yes`.
+What you'll see: the release line, one row per step (code, player), then next:. --dry-run prints the steps only.
+
+The release is release.json of the latest GitHub Release, or of v<VERSION> (CRANE_RELEASES overrides the base URL or names a local dir laid out the same way). A checkout with no release yet still fast-forwards. Refuses (exit 2) when the store's disk has less free space than the player (tarball and unpacked) plus 1 GB. Exit 1 when a file fails its sha256 check. --tarball installs a local player tarball (crane deploy runs it on the host).
+
+| Param | Type | Description |
+|---|---|---|
+| `--version` | str | That release (default the latest); a checkout fast-forwards to its tag vX.Y.Z. |
+| `--player-only` | bool | Only the player. |
+| `--no-player` | bool | Only the code. |
+| `--tarball` | path | Install this local player tarball instead of the release's. |
+| `--sha256` | str | --tarball's digest (default its .sha256 file). |
+| `--store` | path | The player store (default ~/.local/share/crane/player). |
+| `--dry-run` | bool | Print the steps; change nothing. |
+| `--json` | bool | One JSON document. |
+
+raw: `git fetch && git merge --ff-only @{u}; curl -LO RELEASE/ASSET; sha256sum -c`; --json: `crane.update/1`
 
 ## heavy
 
@@ -1359,11 +1413,25 @@ The setup wizard.
 
 ```sh
 crane setup
+crane setup --yes --components core,fast,player --domains boat
+crane setup --yes --dry-run
 ```
 
-The setup wizard.
+The setup wizard: detect this machine, choose components and domains, show sizes and times, install them (install.sh, the release player), then run crane doctor.
 
-Not yet available; today use `./install.sh [--yes] [--components core,fast,gpu,view,field,setup]`.
+What you'll see: the detected machine (OS, cores, GPU and driver, docker, astro_dock, Unity editor, display), the component and domain choices with sizes and time estimates, one line per install step, then crane doctor. --dry-run stops after the plan.
+
+Interactive with rich and questionary (the [setup] extra), else plain prompts; --yes takes the defaults or --components/--domains and asks nothing. Components: core, fast, gpu, view, field, data (pip extras, through install.sh), player (the release player, crane update --player-only), astro (a read-only check of the astro integration). The choices are saved to ~/.config/crane/setup.json. Never builds astro images or workspaces (astro owns those).
+
+| Param | Type | Description |
+|---|---|---|
+| `--yes` | bool | Ask nothing: the defaults, or the lists given. |
+| `--components` | str | Comma list (default core, plus fast on a multicore box, gpu with an NVIDIA driver, player with a display or astro_dock). |
+| `--domains` | str | Comma list of config/domains names (default all). |
+| `--dry-run` | bool | Detect and plan; install nothing. |
+| `--json` | bool | One JSON document (implies --yes). |
+
+raw: `./install.sh --yes --components core,fast; crane update --player-only`; --json: `crane.setup/1`
 
 ## help
 

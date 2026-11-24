@@ -1,0 +1,33 @@
+# crane:gpu, the GPU image for rented boxes (Docker Hub lunarzdev/crane:gpu-<sha>): crane core plus jax[cuda12]
+# (the batched engine's GPU backend) and numba (its CPU backend).
+#
+#   docker build -f Dockerfile.gpu -t crane:gpu-test .
+#   docker run --rm --gpus all crane:gpu-test python -c 'import jax; print(jax.devices())'
+#
+# python:3.12-slim with CUDA 12 from jax's pip wheels (nvidia-* packages), not a CUDA or pytorch base: the box's
+# driver is all it needs. Under 4 GB compressed. The same boot.sh contract as Dockerfile.core: crane importable
+# from /opt/crane_ml with its deps installed; openssh-server/client, rsync, git, curl, procps; no blocking
+# ENTRYPOINT. /opt/crane_ml is a copy without .git, installed editable: code synced over it (rsync) is what runs.
+FROM python:3.12-slim
+
+ARG JAX_VERSION=0.12.1
+ARG NUMBA_VERSION=0.68.1
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends openssh-server openssh-client rsync git curl procps zstd \
+ && rm -rf /var/lib/apt/lists/* /usr/share/doc/* /usr/share/man/* \
+ && useradd --create-home --shell /bin/bash crane
+
+# The heavy dependencies first, in their own layer, so a code change rebuilds only the copy below.
+RUN pip install --no-cache-dir --root-user-action=ignore "jax[cuda12]==${JAX_VERSION}" "numba==${NUMBA_VERSION}" \
+      numpy pyyaml \
+ && find /usr/local/lib/python3.12 -name '__pycache__' -prune -exec rm -rf {} +
+
+COPY --chown=crane:crane . /opt/crane_ml
+RUN pip install --no-cache-dir --root-user-action=ignore --no-deps -e /opt/crane_ml \
+ && python3 -c "import crane_backends.fastsim, fastsim, judge.stats, engine, jax, numba"
+
+ENV PYTHONPATH=/opt/crane_ml PYTHONDONTWRITEBYTECODE=1
+WORKDIR /opt/crane_ml
+LABEL org.opencontainers.image.source="https://github.com/1unarzDev/crane_ml"
+CMD ["crane", "--help"]

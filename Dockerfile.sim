@@ -1,0 +1,36 @@
+# crane:sim, the T2 image (Docker Hub lunarzdev/crane:sim-<sha>): crane:core plus a released headless player and
+# xvfb with Mesa's software Vulkan/GL, so `crane sim up --headless` and T2 batch runs work on a GPU-less box.
+#
+#   docker build -f Dockerfile.sim -t crane:sim-test --build-context player=DIR \
+#     --build-arg CORE_IMAGE=crane:core-test --build-arg PLAYER_SHA256=HEX .
+#   docker run --rm crane:sim-test timeout 60 xvfb-run -a /opt/crane-player/current/CRANE.x86_64 -batchmode -quit -logFile -
+#
+# On a box without a GPU, Unity refuses Mesa's llvmpipe Vulkan device ("No supported renderers found"): rendering
+# needs a real Vulkan GPU. -nographics boots the scene and the plant (CRANE_PLANT_APPLIED) without rendering.
+#
+# DIR holds exactly one crane-player-<commit12>-linux-x86_64.tar.zst (a release asset, or crane build player
+# --tarball); PLAYER_SHA256 is its digest from release.json, checked before it is unpacked (crane update
+# --tarball, the player store's installer) into /opt/crane-player/<commit12>/ with a `current` link.
+# Not used on rented boxes until a Vulkan probe passes there; T2 runs on the Unity hosts. T2 batch pairs it with
+# astro:core for the ROS side. The boot.sh contract of Dockerfile.core holds (it is the base).
+ARG CORE_IMAGE=crane:core-test
+FROM ${CORE_IMAGE}
+
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends xvfb xauth libvulkan1 mesa-vulkan-drivers libgl1 libegl1 \
+      libglx-mesa0 libgl1-mesa-dri libxcursor1 libxrandr2 libxi6 libxinerama1 libxkbcommon0 libxss1 \
+      libgomp1 libminizip1t64 libgtk-3-0t64 \
+ && rm -rf /var/lib/apt/lists/* /usr/share/doc/* /usr/share/man/* \
+ && ln -sf libdl.so.2 /usr/lib/x86_64-linux-gnu/libdl.so
+# (libdl.so: the URDF importer's Assimp dlopens "libdl", which Debian 13 ships only as libdl.so.2.)
+
+ARG PLAYER_SHA256
+RUN --mount=type=bind,from=player,target=/player \
+    set -e; test -n "$PLAYER_SHA256" || { echo "PLAYER_SHA256 is not set (the release.json player.sha256)"; exit 2; }; \
+    set -- /player/crane-player-*-linux-x86_64.tar.*; test "$#" = 1 -a -f "$1" || { echo "want one player tarball in the player context, got: $*"; exit 2; }; \
+    crane update --tarball "$1" --sha256 "$PLAYER_SHA256" --store /opt/crane-player \
+ && chmod -R a+rX /opt/crane-player
+
+ENV CRANE_PLAYER=/opt/crane-player/current/CRANE.x86_64
+LABEL org.opencontainers.image.source="https://github.com/1unarzDev/crane_ml"
+CMD ["crane", "--help"]
