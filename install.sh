@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 # Install crane: the repo, uv, a Python 3.12 venv at <repo>/.venv with crane and its extras, and ~/.local/bin/crane.
 #
-#   ./install.sh [--yes] [--dir D] [--components core,fast,gpu,view,field,setup] [--domains boat,...] [--no-clone]
+#   ./install.sh [--yes] [--dir D] [--components core,fast,gpu,view,field,data,setup] [--domains boat,...] [--no-clone]
 #                [--dry-run]
 #   curl -fsSL https://raw.githubusercontent.com/1unarzDev/crane_ml/main/install.sh | bash -s -- --yes
 #
 # From a checkout it installs that checkout; otherwise it clones (or updates) the repo into --dir (default
 # ~/crane_ml). Idempotent, never uses sudo, prints every step before it runs it. --dry-run prints them only.
 # Components: core (numpy, pyyaml; always), fast (numba), gpu (jax CUDA 12), view (PySide6, pyqtgraph),
-# field (mcap), setup (rich, questionary). The T2 player, domain selection and the wizard come with `crane setup`.
+# field (mcap), data (pyarrow, for parquet), setup (rich, questionary). The T2 player, domain selection and the
+# wizard come with `crane setup`.
 set -euo pipefail
 
 REPO_URL=${CRANE_REPO_URL:-https://github.com/1unarzDev/crane_ml.git}
@@ -38,9 +39,9 @@ IFS=, read -ra wanted <<<"$components"
 for c in "${wanted[@]}"; do
   case $c in
     core|'') ;;
-    fast|gpu|view|field|setup|all) extras+=("$c") ;;
+    fast|gpu|view|field|data|setup|all) extras+=("$c") ;;
     player) say "component player: the T2 player install is not yet available here; use crane build player or set CRANE_PLAYER; skipped" ;;
-    *) die "unknown component $c (core, fast, gpu, view, field, setup)" ;;
+    *) die "unknown component $c (core, fast, gpu, view, field, data, setup)" ;;
   esac
 done
 

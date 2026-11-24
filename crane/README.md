@@ -34,6 +34,10 @@ Every command, its params and examples: [Docs/CLI.md](../Docs/CLI.md), generated
 - `crane/run.py`: `--domain D [--tier T]` reads `config/domains/D.yaml` through `bench.fast.domain_tier`: the tier
   (default the first) names a fastsim config and optional `overrides` merged over it. Missing scenarios are made by
   the config's generator, or the dir is named when there is none; `--generate` regenerates.
+- `crane/data/`: `rows.py` (RowWriter, read_rows and manifest.json with a sha256 per file; parquet, csv or npz),
+  `recorder.py` (a run's `record:` level: events, decimated trajectories, full-rate obs and actions; `Store` for
+  study-level arrays), `export.py` (`crane data export`, `crane data schema`) and `splits.py` (`crane data splits`,
+  held-out-safe). Examples: [Docs/Data.md](../Docs/Data.md).
 - `crane/build.py`: after the build, `sourceCommit` and `sourceDirty` go into
   `Builds/CRANE-Worker/crane-build-manifest.json`; `--tarball` writes
   `Builds/crane-player-<commit12>-linux-x86_64.tar.zst` (`.tar.gz` without zstd), without debug symbols, and a
@@ -43,8 +47,8 @@ Every command, its params and examples: [Docs/CLI.md](../Docs/CLI.md), generated
 
 ## Install
 
-`./install.sh [--yes] [--dir D] [--components core,fast,gpu,view,field,setup] [--domains …] [--no-clone]
+`./install.sh [--yes] [--dir D] [--components core,fast,gpu,view,field,data,setup] [--domains …] [--no-clone]
 [--dry-run]` installs uv (to `~/.local/bin`), a Python 3.12 venv at `<repo>/.venv`, `pip install -e .[extras]`
 and the link `~/.local/bin/crane`. It never uses sudo and prints each step. The extras are `fast` (numba), `gpu`
-(jax CUDA 12), `view` (PySide6, pyqtgraph, PyOpenGL), `field` (mcap), `setup` (rich, questionary) and `all`. The editable
+(jax CUDA 12), `view` (PySide6, pyqtgraph, PyOpenGL), `field` (mcap), `data` (pyarrow, for parquet), `setup` (rich, questionary) and `all`. The editable
 install also registers the `research_cluster.backends` entry points (fastsim, unity, theater-render).

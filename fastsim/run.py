@@ -7,6 +7,7 @@
     states.jsonl         the world's state log {t_sim, id, value}
     run.json             outcome, flags, contacts, error, idle, identity, limits, config, provenance
     crane.run.json       the same run as a crane.run/1 meta (crane/record.py; ``crane_run_meta``)
+    record/              only with a ``record:`` config key (crane/data/recorder.py): obs.npz, traj.npz
     (the adapter's own files, from DomainAdapter.finalize)
 
 No wall clock is read: equal run identities give byte-equal directories.
@@ -38,8 +39,21 @@ def sightings(world, sensor, pose):
                        1.0, True, int(i)) for k, i in enumerate(sensor.see(pose).tolist())]
 
 
-def simulate(scenario, adapter, cfg, seed, out, base=None, provenance=None):
-    """Run ``adapter``'s controller on ``scenario`` with ``seed``; write ``out``; return the summary."""
+def recorder_of(cfg):
+    """The run's crane.data.recorder.Recorder from the config's ``record:`` key, or None (the default: off)."""
+    if not cfg.get('record'):
+        return None
+    try:
+        from crane.data.recorder import Recorder
+    except ImportError as error:  # fastsim without crane beside it
+        raise ValueError(f'config record: needs crane.data beside fastsim ({error})') from None
+    return Recorder.of(cfg['record'])
+
+
+def simulate(scenario, adapter, cfg, seed, out, base=None, provenance=None, recorder=None):
+    """Run ``adapter``'s controller on ``scenario`` with ``seed``; write ``out``; return the summary.
+    ``recorder`` (crane.data.recorder.Recorder; else from the config's ``record:`` key) samples every plant step;
+    without one nothing differs from a run that never heard of recording."""
     out = Path(out)
     if out.exists() and any(out.iterdir()):
         raise FileExistsError(f'{out}: a run directory is written once (provenance)')
@@ -57,6 +71,10 @@ def simulate(scenario, adapter, cfg, seed, out, base=None, provenance=None):
     ctx = ctl.RunContext(seed, scenario, world, nav, lim, identity.rng(seed, 'controller'), clock)
     nav.report = ctx.emit
     brain = adapter.controller(ctx)
+    recorder = recorder or recorder_of(cfg)
+    if recorder is not None:
+        recorder.start(dt, adapter, ctx)
+    seen = None
     time_limit = float(adapter.time_limit(ctx) or cfg['time_limit_s'])
     limit = time_limit + float(cfg['grace_s'])
     track, contacts, touching, least, crash = [], [], False, math.inf, None
@@ -77,7 +95,8 @@ def simulate(scenario, adapter, cfg, seed, out, base=None, provenance=None):
         if step % steps_per_tick == 0:
             tracks = holdover.update(plant.pose, now) if holdover else sightings(world, sensor, plant.pose)
             try:
-                outcome = brain.tick(ctl.Observation(now, plant.pose, tracks, sensor.fov()))
+                seen = ctl.Observation(now, plant.pose, tracks, sensor.fov())
+                outcome = brain.tick(seen)
             except Exception as error:  # noqa: BLE001  the domain's logic raised: this run ends
                 frame = traceback.extract_tb(error.__traceback__)[-1]
                 crash = {'t': now, 'error': f'{type(error).__name__}: {error}',
@@ -89,7 +108,10 @@ def simulate(scenario, adapter, cfg, seed, out, base=None, provenance=None):
         elif outcome is None and now - max(nav.driven or 0.0, nav.held or 0.0) > cfg['mux_idle_s']:
             idle['first_t'] = now if idle['first_t'] is None else idle['first_t']
             idle['s'] += dt
-        moved = plant.step(tracker.command(goal, plant.pose, now, nav.cap), dt)
+        cmd = tracker.command(goal, plant.pose, now, nav.cap)
+        if recorder is not None:
+            recorder.sample(step, now, plant.pose, world.to_world(plant.pose), plant.vel, cmd, seen)
+        moved = plant.step(cmd, dt)
         nav.advance(plant.pose, moved, now)
         step += 1
     brain.close()
@@ -113,7 +135,12 @@ def simulate(scenario, adapter, cfg, seed, out, base=None, provenance=None):
                'identity': ident, 'adapter': adapter.identity(), 'limits': lim.record(),
                'plant': {'gain': tracker.gain, **plant.params()}, 'config': cfg,
                'provenance': provenance or {}}
+    if recorder is not None:
+        recorder.finish(ctx.events)
+        summary['record'] = {'files': {k: f'record/{k}.npz' for k in recorder.arrays()}, **recorder.meta()}
     out.mkdir(parents=True, exist_ok=True)
+    if recorder is not None:
+        recorder.write(out)
     (out / scenario.filename).write_bytes(scenario.data)
     (out / 'track.jsonl').write_text(''.join(line({'t': t, 'x': x, 'y': y, 'yaw': a}) for t, x, y, a in track))
     (out / 'sim_events.jsonl').write_text(''.join(line(e) for e in ctx.events))
@@ -143,7 +170,9 @@ def crane_run_meta(summary):
             'clock': {'source': 'sim', 't0': 0.0, 'time_multiplier': None},
             'timing': {'t_src': 'sim', **({'injected_delay_s': delay} if delay is not None else {})},
             'outcome': summary.get('outcome'), 'scenario': summary.get('scenario'),
-            'files': {'traj': 'run.ctraj', 'events': 'sim_events.jsonl', 'metrics': None, 'native': 'run.json'}}
+            'files': {'traj': 'run.ctraj', 'events': 'sim_events.jsonl', 'metrics': None, 'native': 'run.json',
+                      **({'obs': summary['record']['files']['obs']}
+                         if 'obs' in (summary.get('record') or {}).get('files', {}) else {})}}
 
 
 def write_traj(path, summary, track, events, hz, adapter):

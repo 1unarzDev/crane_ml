@@ -8,6 +8,9 @@ import yaml
 from fastsim.identity import sha256
 
 DEFAULT = Path(__file__).with_name('default.yaml')
+# Keys a domain YAML may add that the defaults leave out, so a config without them (and its run identity) is
+# unchanged: ``record`` (what a run records beyond its summary; fastsim/run.py, crane/data/recorder.py).
+OPTIONAL = ('record',)
 
 
 def merge(base, over):
@@ -31,7 +34,7 @@ def load(path=None, overrides=None):
 
 def resolve(domain, base):
     cfg = defaults()
-    unknown = sorted(set(domain) - set(cfg))
+    unknown = sorted(set(domain) - set(cfg) - set(OPTIONAL))
     if unknown:
         raise ValueError(f'unknown config keys {unknown}; known: {sorted(cfg)}')
     cfg = merge(cfg, domain)

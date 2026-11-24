@@ -229,7 +229,7 @@ COMMANDS = [
                       'crane run --domain boat --tier T1 --astro-test speed-surge --card /tmp/fit/profile.json'),
             raw='python3 -m fastsim.batch --config CONFIG --seeds 0:3 --out OUT'),
 
-    # ---- study, runs, repro, data, monitor (not built yet) ----------------------------------------------------
+    # ---- study, runs, repro, monitor (not built yet); data ----------------------------------------------------
     *[Command(('study', v), s, today=t, examples=(e,)) for v, s, t, e in (
         ('init', 'Write a study spec (crane.study/1) to start from.', 'a hypothesis.yaml beside your runs',
          'crane study init --domain boat > study.yaml'),
@@ -252,12 +252,66 @@ COMMANDS = [
     Command(('repro',), 'Rerun one run from its record and check it reproduces.', today='crane run with the run.json '
             'seed, config and overrides, then crane compare', examples=('crane repro RUN_ID --check',),
             params=(P('run_id', description='The run to reproduce.'),)),
-    *[Command(('data', v), s, today=t, examples=(e,)) for v, s, t, e in (
-        ('export', 'Runs to columnar files (npz or parquet) plus a manifest with sha256.',
-         "each run's metrics.json and track.jsonl", 'crane data export RUNS --format npz --out /tmp/ds'),
-        ('schema', "A dataset's columns and units.", 'Docs/RunRecord.md', 'crane data schema /tmp/ds'),
-        ('splits', "A dataset's train/calib/held-out splits.", 'seed lists per split with --seeds @FILE',
-         'crane data splits /tmp/ds'))],
+    Command(('data', 'export'), 'Run dirs, batch outputs and datasets to one columnar dataset (npz, parquet or csv) '
+            'plus manifest.json with a sha256 per file; --select, --where and --split pick the rows.',
+            'crane.data.export:main', flags=(JSON,), json='crane.data.export/1',
+            about='one line (rows, columns, files, MB, format), one row per file (path, rows, sha256), the manifest '
+                  'path and next:. --json: {schema, out, manifest, rows, columns, files}.',
+            notes='A run dir gives one metrics-first row (seed, outcome, condition.*, metrics, commit, run_sha256) and '
+                  'its recorded arrays as obs / traj columns (record: in the domain YAML, Docs/Data.md). Array columns '
+                  'are stacked to rows x T x channels (shorter rows NaN-padded, COL@len their lengths); with csv or '
+                  'parquet they go to PART.arrays.npz beside each file. Files roll over at 90 MB. Exit 0 written, '
+                  '2 usage (no rows, an unknown column, a non-empty --out).',
+            params=(P('sources', 'list', nargs='+', metavar='SRC', description='Run dirs, batch outputs, datasets '
+                      '(dirs with manifest.json) or row files.'),
+                    P('--format', choices=('npz', 'parquet', 'csv'), default='npz',
+                      description='The file format (parquet needs pyarrow: the [data] extra).'),
+                    P('--select', metavar='COLS', repeat=True, description='Columns to keep, comma-separated '
+                      '(default all).'),
+                    P('--where', metavar='EXPR', repeat=True, description="Keep rows where COLUMN OP VALUE holds; OP "
+                      "is = != > >= < <=; = and != take a,b (repeatable, all must hold)."),
+                    P('--split', metavar='FILE:NAME', description='Keep the rows of one split of a crane data splits '
+                      'file.'),
+                    sel('out', required=True, description='The dataset dir to write (new or empty).'),
+                    P('--json', 'bool', description='One JSON document.')),
+            examples=('crane data export ~/.cache/crane/runs/toy/T0 --format npz --out /tmp/ds',
+                      "crane data export /tmp/runs --select seed,outcome,obs --where 'seed>=10' --out /tmp/ds2",
+                      'crane data export /tmp/ds --split /tmp/ds/splits.json:train --out /tmp/train'),
+            raw='python3 -c "from crane.data.export import export; export([SRC], OUT)"'),
+    Command(('data', 'schema'), "The columns of a dataset or of run dirs: name, type and, for arrays, rate and "
+            'channels; plus the row count.', 'crane.data.export:schema_main', flags=(JSON,),
+            json='crane.data.schema/1',
+            about='one line (rows, columns, files), one row per column (name, type, Hz and channels for arrays), '
+                  'next:. --json: {schema, sources, columns, rows, files, arrays}.',
+            params=(P('sources', 'list', nargs='+', metavar='SRC', description='A dataset dir, row files or run dirs.'),
+                    P('--json', 'bool', description='One JSON document.')),
+            examples=('crane data schema /tmp/ds', 'crane data schema ~/.cache/crane/runs/toy/T0 --json'),
+            raw='python3 -c "import json; print(json.load(open(\'DS/manifest.json\'))[\'columns\'])"'),
+    Command(('data', 'splits'), "A dataset's units (seeds, conditions or timelines) to named splits by a salted "
+            'hash; held-out units go to held-out and never to train or calib.', 'crane.data.splits:main',
+            flags=(JSON, DRY), json='crane.data.splits/1',
+            about='one line (units, by, rows, out), one row per split (units, rows, fraction), the held-out rule, '
+                  'next:. --json: the split file itself plus out and written.',
+            notes='A row is held-out when its role / block_role / tag column says held-out, held_out is true, its '
+                  "block or seed is a held-out block of --domain's seeds, or it matches --held-out. A unit with any "
+                  'held-out row is held-out. A unit keeps its split as data grows (the hash, not the count, decides). '
+                  'Writing over an earlier split file refuses to move a unit into train or calib from elsewhere. '
+                  'Exit 0 written, 2 usage.',
+            params=(P('sources', 'list', nargs='+', metavar='SRC', description='A dataset dir, row files or run dirs.'),
+                    P('--by', default='seed', description='The unit: seed, condition (the condition.* columns), '
+                      'timeline, or COLUMN[,COLUMN].'),
+                    P('--ratios', metavar='NAME=F,...', default='train=0.7,calib=0.15,test=0.15',
+                      description='Split names and fractions (adding up to 1).'),
+                    P('--held-out', metavar='EXPR', repeat=True, description='Rows matching COLUMN OP VALUE are '
+                      'held-out too (repeatable; e.g. source=real).'),
+                    sel('domain', description="Its seeds: blocks with role held-out mark their seeds held-out."),
+                    P('--salt', default='crane', description='The hash salt (another salt, another assignment).'),
+                    P('--out', 'path', description='The split file (default SRC/splits.json for one dataset dir).'),
+                    P('--dry-run', 'bool', description='Print the splits; write nothing.'),
+                    P('--json', 'bool', description='One JSON document.')),
+            examples=('crane data splits /tmp/ds --by seed',
+                      'crane data splits /tmp/ds --by timeline --held-out source=real --ratios train=0.8,calib=0.2',
+                      'crane data splits /tmp/ds --by condition --domain boat --out /tmp/splits.json')),
     Command(('monitor',), 'Progress of local and cluster work in one view (progress.json and the cluster feed).',
             today='crane heavy status, and crane cluster status', examples=('crane monitor --follow',)),
 
