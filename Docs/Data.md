@@ -100,8 +100,9 @@ store.close()                                                  # out/arrays/obs/
 - `--select seed,outcome,obs` keeps only those columns. `--where 'seed>=10'` keeps matching rows; the operators are
   `= != > >= < <=`, and `=` and `!=` take a list `a,b`. `--split FILE:NAME` keeps one split.
 - `--out` must be new or empty, because a dataset is written once.
-- The export notes, without refusing, rows tagged held-out (they carry their outcomes; withholding them is the study
-  layer's job) and non-finite floats per column. `--json` has them as `held_count` and `nonfinite`.
+- Rows tagged held-out (as `crane data splits` reads them, below) are refused unless `--confirm`; pick the others
+  with `--where 'role!=held-out'` or `--split FILE:train`. Non-finite floats are noted per column. `--json` has
+  them as `held_count` and `nonfinite`. The manifest's `source` keeps relative paths and writes the home dir as `~`.
 - `crane data schema SRC` prints every column's name and type (for arrays also the rate and channels) and the row
   count. It reads a dataset's manifest, or scans run dirs.
 

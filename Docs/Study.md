@@ -90,12 +90,13 @@ in a spec (CSV, targets, `file.py:function`, `@FILE`) are relative to the spec.
   the spec's arms. `crane study report` gives each a verdict on the done held-out blocks (met, not met,
   inconclusive, by the 95% CI of the pooled paired difference).
 - A rented box has no git checkout of the study repo. `crane study compile --confirm` checks git where it runs and
-  pins the targets file's sha256 into each held-out job's argv (`--targets-sha256`); `run-cell` on the box checks the
-  file it got against that hash.
+  pins the targets file's sha256 into each held-out job; crane-batch passes it to `run-cell` as `--targets-sha256`,
+  and the box checks the file it got against that hash.
 - Held-out rows carry `touched_held_out = true`. The manifest records the targets commit and sha256, and
   OUT/held_out.jsonl logs every confirmed run.
-- `crane study status` shows progress only for held-out blocks. Interim means are shown for dev blocks only.
-  metrics.json gives held-out blocks unit counts only. `crane study report` leaves a held-out block out until all its
+- `crane study status` shows progress only for held-out blocks. Interim means are shown for dev blocks only
+  (`crane.study.guard.shows_means`, which crane monitor and crane-batch use too); a failure's message shows for dev
+  and check blocks only. metrics.json gives every other block unit counts only. `crane study report` leaves a held-out block out until all its
   units are done.
 
 ## Adaptive stages
@@ -143,12 +144,14 @@ crane study compile SPEC --write jobs.json            # dev/check/calib jobs; he
 research submit -p crane jobs.json
 ```
 
-`crane study compile` writes `{jobs: [rc-job/1 ...]}`, one job per cell and seed chunk (`kind` crane_batch or
-gpu_command, `est_seconds` for the whole job, `needs.tags` from `pin.tags`). The backend runs `spec.argv`
-(`crane study run-cell SPEC --cell JOB_ID --out /workspace/out/STUDY/JOB_ID [--confirm --targets-sha256 SHA]`)
-from the crane checkout and ships `spec.out`. `crane study plan SPEC --json` lists the same jobs with their
-`targets` pin, or `blocked` when the targets file is not ready. An adaptive stage appears once its source stage is
-done; promote it to ship it. `crane study run --where cluster` names compile.
+`crane study compile` writes `{jobs: [rc-job/1 ...]}` through the cluster compiler (`crane.cluster.compile`, the
+one `crane cluster submit` uses; [Cluster.md](Cluster.md) has every field): one job per cell and seed chunk of about
+`pack.target_s` (default 15 min), `kind` crane_batch or gpu_command, repos pinned at the commit, dedup ids, `needs`
+from `pin:`, and campaign, purpose and expect. Each job runs `crane study run-cell SPEC --cell JOB_ID --out DIR`
+through crane-batch; a held-out one adds `--confirm --targets-sha256 SHA`. The spec must be committed under a
+directory in `crane/runtime.sparse` (or in its own repo), and field data is refused. `crane study plan SPEC --json`
+lists the same chunks with their `targets` pin, or `blocked` when the targets file is not ready. An adaptive stage
+appears once its source stage is done; promote it to ship it. `crane study run --where cluster` names compile.
 
 While units run, progress.json is rewritten at least every 20 s and a progress line goes to stdout every minute.
 The manifest's `oversize` lists files over the cluster's 95 MB artifact cap.

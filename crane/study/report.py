@@ -14,7 +14,7 @@ import math
 from pathlib import Path
 
 from crane.cache import UnitCache
-from crane.study import exec as ex, plan
+from crane.study import exec as ex, guard, plan
 
 IDENT = set(ex.KEYS) | set(ex.END) | set(ex.TAIL)
 
@@ -52,7 +52,7 @@ def status(study, out, show=4):
             if rec is not None:
                 st['done'] += 1
                 b['done'] += 1
-                if cell.role == 'dev':
+                if guard.shows_means(cell.role):        # interim means: dev blocks only
                     dev_rows.append(rec['row'])
     failures = ex._failures(out, cache, commit)
     other = sum(1 for e in cache if (e.get('unit') or {}).get('commit') not in (commit, None))
@@ -68,11 +68,12 @@ def status(study, out, show=4):
                        for arm, ms in arms.items()} for stage, arms in means.items()}
     sample = None
     if failures:
-        shown = [f for f in failures if f.get('role') != 'held-out']
+        shown = [f for f in failures if guard.shows_outcomes(f.get('role'))]
         f = (shown or failures)[-1]
-        if f.get('role') == 'held-out':          # its message may carry outcome numbers: progress only
-            sample = {'cell': f.get('cell'), 'seed': f.get('seed'), 'held_out': True,
-                      'error': f'held-out unit failed (its error is in {out / "failures.jsonl"})', 'traceback': ''}
+        if not guard.shows_outcomes(f.get('role')):   # its message may carry outcome numbers: progress only
+            sample = {'cell': f.get('cell'), 'seed': f.get('seed'), 'held_out': guard.is_held_out(f.get('role')),
+                      'error': f'{f.get("role") or "role-less"} unit failed (its error is in failures.jsonl)',
+                      'traceback': ''}
         else:
             sample = {'cell': f.get('cell'), 'seed': f.get('seed'), 'error': f.get('error'),
                       'traceback': '\n'.join([ln for ln in (f.get('traceback') or '').rstrip().splitlines()
@@ -99,8 +100,8 @@ def _complete(manifests):
 
 def _manifests(out):
     out = Path(out)
-    paths = [out / 'manifest.json'] if (out / 'manifest.json').is_file() else sorted(out.glob('*/manifest.json'))
-    return [json.loads(p.read_text()) for p in paths]
+    from crane.data.rows import MANIFEST, dataset_dirs
+    return [json.loads((d / MANIFEST).read_text()) for d in dataset_dirs(out)]
 
 
 def analyse(rows, baseline, metrics=None, axes=(), B=2000, perm_B=10000, alpha=0.05, seed=0):

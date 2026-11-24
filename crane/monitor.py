@@ -8,8 +8,9 @@ Local: every progress.json under OUT, with the cell.json (study, stage, arm, blo
 (reason, traceback) and metrics.json beside it. Cluster: when OUT/<study>/cluster/jobs.json exists, the project's job
 list (research token) and the public feed (/v1/feed: progress, worker, eta, error). A job seen both ways counts once
 (the local copy wins once it is terminal). Groups are (study, stage, arm, block). Interim metric means are shown for
-dev blocks only; every other block (held-out above all) shows progress only, and a held-out block that has started
-is flagged touched_held_out.
+dev blocks only (crane.study.guard.shows_means); every other block (held-out above all) shows progress only, and
+a held-out block that has started is flagged touched_held_out. A failure's traceback line shows for dev and check
+blocks only (guard.shows_outcomes).
 
 A running job's progress.json is at most 60 s old (crane-batch heartbeats it), so one older than STALE_S (or the
 job's stall_s when cell.json gives one) means the runner is gone: the job shows as stalled.
@@ -23,6 +24,7 @@ from pathlib import Path
 
 from crane import output, progress
 from crane.cluster import PLAN, studies_root
+from crane.study import guard
 
 STALE_S = 180.0                # progress.json is rewritten at most 60 s apart; three missed writes is a stall
 FOLLOW_MIN_S, FOLLOW_MAX_S = 5.0, 300.0
@@ -69,6 +71,9 @@ def local_entries(where):
         status = 'done' if phase == 'done' else 'failed' if fail or phase == 'failed' else (
             'cancelled' if phase == 'cancelled' else 'yielded' if phase == 'yielded' else
             'stalled' if (state.get('age_s') or 0) > stale else 'running')
+        if not (d / 'cell.json').is_file() and isinstance(meta.get('units'), dict):
+            out += _study_entries(d, meta, state, status, fail)          # a `crane study run` output
+            continue
         out.append({
             'source': 'local', 'key': meta.get('job_id') or str(d), 'dir': str(d),
             'study': meta.get('study') or (where.name if len(rel) <= 3 else rel[0]),
@@ -79,18 +84,43 @@ def local_entries(where):
             'total': int(state.get('total') or 0), 'failed': int(state.get('failed') or 0),
             'rate_per_s': float(state.get('rate_per_s') or 0.0) if status == 'running' else 0.0,
             'eta_s': state.get('eta_s') if status == 'running' else None, 'age_s': state.get('age_s'),
-            'failure': _failure(fail, status, state), 'metrics': _metrics(d, state),
+            'failure': _failure(fail, status, state, meta.get('role')), 'metrics': _metrics(d, state),
             'touched_held_out': bool(meta.get('touched_held_out')) or _held(meta.get('role'))})
     return out
 
 
+def _study_entries(d, manifest, state, status, fail):
+    """A local study output (one progress.json for the run): one entry per (stage, block) from the manifest's units,
+    with metrics.json's per-arm means (mean.STAGE.ARM.METRIC) as ARM.METRIC on blocks whose role shows means."""
+    means = {k: v for k, v in (_json(Path(d) / 'metrics.json') or {}).items() if k.startswith('mean.')}
+    out = []
+    for stage, blocks in manifest['units'].items():
+        mine = {k[len(f'mean.{stage}.'):] + '.mean': v for k, v in means.items() if k.startswith(f'mean.{stage}.')}
+        for block, u in blocks.items():
+            done, total = int(u.get('done') or 0), int(u.get('total') or 0)
+            st = 'done' if total and done >= total else status if status != 'done' else 'queued'
+            out.append({'source': 'local', 'key': f'{d}:{stage}:{block}', 'dir': str(d), 'study': manifest.get('study'),
+                        'stage': stage, 'arm': '*', 'block': block, 'role': u.get('role'), 'cell': None,
+                        'host': None, 'status': st, 'done': done, 'total': total,
+                        'failed': int(state.get('failed') or 0) if st == status else 0,
+                        'rate_per_s': float(state.get('rate_per_s') or 0.0) if st == 'running' else 0.0,
+                        'eta_s': state.get('eta_s') if st == 'running' else None, 'age_s': state.get('age_s'),
+                        'failure': _failure(fail, st, state, u.get('role')) if st == status else None,
+                        'metrics': mine if guard.shows_means(u.get('role')) else {},
+                        'touched_held_out': _held(u.get('role')) and done > 0})
+    return out
+
+
 def _held(role):
-    return str(role or '').lower().replace('_', '-') in ('held-out', 'heldout', 'holdout')
+    from crane.study import guard
+    return guard.is_held_out(role)
 
 
-def _failure(fail, status, state):
+def _failure(fail, status, state, role=None):
     if fail:
         tb = (fail.get('traceback') or '').strip().splitlines()
+        if not guard.shows_outcomes(role):      # a traceback may quote outcome numbers: the reason only
+            tb = [f'({role or "no role"}: traceback in failure.json)'] if tb else []
         return {'reason': fail.get('reason') or 'crashed', 'traceback': tb[-1] if tb else '', 'host': fail.get('host'),
                 'traceback_head': tb[:1]}
     if status == 'stalled':
@@ -237,10 +267,10 @@ def merge(entries):
         left = max(g['total'] - g['done'], 0)
         if g['eta_s'] is None and g['rate_per_s'] > 0:
             g['eta_s'] = round(left / g['rate_per_s'], 1)
-        if g['role'] == 'dev':
+        if guard.shows_means(g['role']):
             g['metrics'] = {k: round(s / n, 6) for k, (s, n) in sorted(m.items()) if n}
         else:
-            g['metrics'] = None          # progress only: held-out (and every non-dev block) shows no outcomes
+            g['metrics'] = None          # progress only: held-out, train, calib and a role-less block
         out.append(g)
     return sorted(out, key=lambda g: tuple(str(g[k] or '') for k in ('study', 'stage', 'arm', 'block')))
 
@@ -279,7 +309,7 @@ def snapshot(target=None, root=None, cluster=True, feed_url=None):
 def _fmt_metrics(g):
     if g['metrics'] is None:
         touched = '; touched' if g.get('touched_held_out') else ''
-        return f'({g["role"] or "no role"}: progress only{touched})' if g['role'] != 'dev' else ''
+        return f'({g["role"] or "no role"}: progress only{touched})' if not guard.shows_means(g['role']) else ''
     shown = list(g['metrics'].items())[:METRICS_SHOWN]
     return '  '.join(f'{k} {v:.4g}' for k, v in shown)
 

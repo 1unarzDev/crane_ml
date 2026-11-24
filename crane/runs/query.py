@@ -266,7 +266,8 @@ def cluster_rows(study, limit=1000, timeout=5.0):
                      'arm': m.get('variant') or m.get('arm'), 'block': block, 'run_sha256': None,
                      'meta': m, 'metrics': metrics, 'mtime': 0, 'sealed': 0, 'truncated': 0}
         done = m.get('complete') is True or str(m.get('status') or m.get('state') or '').lower() in DONE
-        if held_out(block) and not done:
+        if held_out(block, m.get('role') or (m['study'].get('role') if isinstance(m.get('study'), dict) else None)) \
+                and not done:
             row = seal(row, {'done': m.get('progress'), 'total': None, 'phase': m.get('status') or m.get('state')})
         rows.append(row)
     return rows, f'cluster: {len(rows)} runs of {study} from {url}'

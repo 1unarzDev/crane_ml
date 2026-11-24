@@ -13,6 +13,14 @@ A cluster job cannot ask git (a rented box has no checkout of the study repo): t
 the file's sha256 into the job's argv (``--targets-sha256``); the box then checks the file it got against that hash.
 A target is ``{contrast: A - B, metric: M, direction: lower|higher|not lower|not higher}``; `crane study report`
 gives each a verdict on the held-out rows once they are done.
+
+What may be shown while work runs is decided here too, for every reader (crane study status, crane monitor, a
+job's metrics.json, crane runs, crane data export):
+
+    guard.is_held_out(role)       # held-out, heldout, hold-out, held_out ...
+    guard.shows_means(role)       # interim per-arm means: dev blocks only; every other role shows progress only
+    guard.shows_outcomes(role)    # a failure's message and traceback while work runs: dev and check blocks only
+    guard.sealed(role, done)      # a held-out record that is not done: no outcome, no metrics
 """
 
 import json
@@ -22,6 +30,37 @@ import subprocess
 import time
 
 DIRECTIONS = ('lower', 'higher', 'not lower', 'not higher')
+HELD_OUT = 'held-out'
+MEANS = frozenset({'dev'})              # interim per-arm means are published for these roles only
+OUTCOMES = frozenset({'dev', 'check'})  # per-unit outcome detail (failure messages) shows while running; train,
+                                        # calib, held-out and a role-less block hide it by default
+
+
+def norm_role(role):
+    """A block role in its one spelling (held_out, heldout, hold-out ... are held-out); None stays None."""
+    if role is None or str(role).strip() == '':
+        return None
+    r = str(role).strip().lower().replace('_', '-')
+    return HELD_OUT if r in ('held-out', 'heldout', 'holdout', 'hold-out') else r
+
+
+def is_held_out(role):
+    return norm_role(role) == HELD_OUT
+
+
+def shows_means(role):
+    """Whether interim per-arm means (monitor, metrics.json, study status) of a block with this role may be shown."""
+    return norm_role(role) in MEANS
+
+
+def shows_outcomes(role):
+    """Whether a running block's per-unit outcome detail (a failure's message and traceback) may be shown."""
+    return norm_role(role) in OUTCOMES
+
+
+def sealed(role, done):
+    """Whether a record's outcome and metrics stay hidden: a held-out one until its work is done."""
+    return is_held_out(role) and not done
 
 
 def _git(where, *argv):

@@ -345,6 +345,13 @@ def _absolute(raw, base):
                                       for p in block['seeds'].split(','))
 
 
+def _seed_list(text):
+    try:
+        return [int(x) for x in str(text).split(',') if x.strip()]
+    except ValueError:
+        raise StudyError(f'--seeds {text!r}: comma-separated ints, e.g. 3,4,5') from None
+
+
 def run_cell_main(args):
     out = args.output
     study, code = _load(out, 'run-cell', args.spec)
@@ -353,7 +360,8 @@ def run_cell_main(args):
     try:
         summary, refused = ex.run_job(study, args.cell, args.out, args.confirm,
                                       stream=sys.stderr if out.json else None,
-                                      targets_sha256=args.targets_sha256)
+                                      targets_sha256=args.targets_sha256,
+                                      only=_seed_list(args.seeds) if getattr(args, 'seeds', None) else None)
     except StudyError as error:
         return out.usage('study run-cell', str(error))
     if refused:
@@ -368,20 +376,22 @@ def run_cell_main(args):
 
 
 def compile_main(args):
+    from crane.cluster import compile as cc
     out = args.output
-    study, code = _load(out, 'compile', args.spec)
-    if not study:
-        return code
     try:
-        jobs, skipped = plan.rc_jobs(study, args.stage, args.block, None, args.confirm)
-    except StudyError as error:
+        study, jobs = cc.compile_spec(args.spec, args.stage, args.block, confirm=args.confirm,
+                                      allow_dirty=getattr(args, 'allow_dirty', False))
+    except cc.CompileError as error:
         return out.usage('study compile', str(error))
-    body = {'jobs': jobs}
+    if not jobs and jobs.skip_reason:
+        return out.usage('study compile', jobs.skip_reason, f'crane study compile {args.spec} --block BLOCK --confirm')
+    body = {'jobs': list(jobs)}
     if args.write:
         from crane import progress
         progress.write_atomic(Path(args.write).expanduser(), json.dumps(body, indent=1) + '\n')
-    doc = {'schema': 'crane.study.compile/1', 'study': study.name, 'written': args.write, 'skipped_held_out': skipped,
-           'est_seconds': sum(j['est_seconds'] for j in jobs), **body}
+    doc = {'schema': 'crane.study.compile/1', 'study': study.name, 'written': args.write, 'skipped_held_out':
+           jobs.skipped, 'warnings': jobs.warnings, 'est_seconds': sum(j['est_seconds'] for j in jobs),
+           'plan': cc.summarize(jobs), **body}
     if out.doc(doc):
         return output.OK
     if not args.write:
@@ -390,7 +400,7 @@ def compile_main(args):
     kinds = sorted({j['kind'] for j in jobs})
     out.say(f'{len(jobs)} rc-job/1 jobs ({", ".join(kinds) or "-"}, {_dur(doc["est_seconds"])} in all) in '
             f'{args.write}')
-    if skipped:
-        out.line(f'  held-out jobs left out: {len(skipped)}; they compile with --confirm and a committed targets file')
+    for w in jobs.warnings:
+        out.line(f'  {w}')
     out.next(f'research submit -p crane {args.write}')
     return output.OK

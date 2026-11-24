@@ -49,11 +49,9 @@ class Cell:
 
 
 class Study:
-    def __init__(self, cells, blocks=None, guard=None, jobs=None):
+    def __init__(self, cells, blocks=None, jobs=None):
         self.name, self.purpose = 'toy01', 'Pairs two toy arms on shared seeds to test the cluster compiler end to end.'
         self._cells, self.blocks = cells, blocks or {'dev': {'role': 'dev'}, 'test': {'role': 'held-out'}}
-        if guard:
-            self.check_held_out = guard
         if jobs:
             self.jobs = jobs
 
@@ -126,23 +124,16 @@ def test_compile_sizes_jobs_pairs_arms_dedups_and_refuses_field_data_and_held_ou
             _compile(bad, est_unit_s=60.0)
     assert not cc.field_paths(['sandbags/x', 'docs/my.bag.md', 'bags', {'arm': 'bags'}])
 
-    # held-out: refused without --confirm, and with it unless the study's guard passes (no guard: fail closed)
+    # held-out: left out without --confirm (jobs.skipped); with it only crane.study.guard may pass them, so a study it
+    # cannot read fails closed
     cells = [Cell('toy01', 'A', 'base', [1, 2, 3], block='test', est_unit_s=200.0),
              Cell('toy01', 'A', 'base', [1, 2, 3], block='final', role='held-out', est_unit_s=200.0)]
     for c in cells:
-        with pytest.raises(cc.CompileError, match='held-out.*--confirm'):
-            _compile(Study([c]))
+        left = _compile(Study([c, Cell('toy01', 'A', 'base', [1, 2, 3], est_unit_s=200.0)]))
+        assert left.skipped == [cc.cell_id(c)] and {j['spec']['role'] for j in left} == {'dev'}
+        assert '--confirm' in left.skip_reason and left.skip_reason in left.warnings
         with pytest.raises(cc.CompileError, match='nothing here can check its targets'):
             _compile(Study([c]), confirm=True)
-
-    def refuse(cs):
-        raise cc.CompileError('targets file t.yaml is not committed; fix: git add t.yaml && git commit')
-    with pytest.raises(cc.CompileError, match='t.yaml is not committed'):
-        _compile(Study(cells, guard=refuse), confirm=True)
-    ok = _compile(Study(cells, guard=lambda cs: {'path': 't.yaml', 'commit': 'c' * 40}), confirm=True)
-    assert {j['spec']['role'] for j in ok} == {'held-out'}
-    assert all(j['spec']['confirm'] and j['spec']['touched_held_out'] and j['spec']['targets']['commit'] == 'c' * 40
-               for j in ok)
 
     # pins: a dirty tracked file in the pinned repo is refused (the job would run the commit)
     repo = tmp_path / 'repo'
@@ -446,9 +437,9 @@ def test_a_real_crane_study_compiles_and_runs_through_the_batch_runner(tmp_path,
         '''))
     study = study_mod.load(spec)
     pins = {**PINS, '_spec': {'repo': 'crane_ml', 'path': str(spec)}}
-    with pytest.raises(cc.CompileError, match='--confirm'):
-        cc.compile(study, pins=pins, est_unit_s=60.0)
-    jobs = cc.compile(study, block='dev', pins=pins, est_unit_s=60.0)
+    jobs = cc.compile(study, pins=pins, est_unit_s=60.0)
+    assert len(jobs.skipped) == 2 and {j['spec']['role'] for j in jobs} == {'dev'}      # held-out: left out
+    assert jobs == cc.compile(study, block='dev', pins=pins, est_unit_s=60.0)
     assert {j['spec']['arm'] for j in jobs} == {'a', 'b'} and all(j['spec']['role'] == 'dev' for j in jobs)
     names = {c.id for c in study.cells()}
     assert all(j['spec']['run_cell'].split('.j')[0] in names for j in jobs)

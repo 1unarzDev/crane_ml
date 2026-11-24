@@ -375,7 +375,23 @@ def data_files(path):
                  and not p.name.startswith('.'))
     if own:
         return own
-    return [f for sub in sorted(path.glob(f'*/{MANIFEST}')) for f in data_files(sub.parent)]
+    return [f for d in dataset_dirs(path) for f in data_files(d)]
+
+
+def dataset_dirs(path):
+    """The dirs under ``path`` holding a manifest.json (``path`` itself when it does), not looking below one: a
+    fetched study (OUT/STUDY/stage/arm/cell/) reads as all its cells. Hidden dirs are skipped."""
+    path = Path(path)
+    if (path / MANIFEST).is_file():
+        return [path]
+    found = []
+    for here, dirs, files in os.walk(path):
+        if MANIFEST in files and Path(here) != path:
+            found.append(Path(here))
+            dirs[:] = []
+        else:
+            dirs[:] = sorted(d for d in dirs if not d.startswith('.'))
+    return sorted(found)
 
 
 def columns_of(path):

@@ -15,7 +15,7 @@ from pathlib import Path
 
 STUDIES_ROOT = Path.home() / '.cache' / 'crane' / 'studies'
 PLAN = 'cluster/jobs.json'        # under OUT/<study>/: what submit sent, read by status, wait, fetch and monitor
-HELD_OUT = 'held-out'
+HELD_OUT = 'held-out'            # crane.study.guard.HELD_OUT: the guard owns the role vocabulary
 
 
 def slug(text, n=40):
@@ -59,8 +59,8 @@ def role_of(study, cell):
 
 
 def norm_role(role):
-    r = str(role).lower().replace('_', '-')
-    return HELD_OUT if r in ('held-out', 'heldout', 'holdout', 'hold-out') else r
+    from crane.study import guard
+    return guard.norm_role(role)
 
 
 def cell_dir(root, study, cell, name=None):

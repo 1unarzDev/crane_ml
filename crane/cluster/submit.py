@@ -24,15 +24,6 @@ RESEARCH_EXIT = {0: output.OK, 1: output.FAILED, 2: output.FAILED, 3: output.TIM
                  75: output.TIMEOUT}
 
 
-def load_study(path):
-    """crane.study.load (w3-study owns it), with a one-line reason when this checkout lacks it."""
-    try:
-        from crane import study as study_mod
-    except ImportError:
-        raise cc.CompileError('crane study is not in this checkout (crane/study/); give a jobs.json instead') from None
-    return study_mod.load(path)
-
-
 def load_plan(target, root=None):
     """(plan doc, path) for a study name, an OUT/<study> dir or a jobs file; (None, path) when there is none."""
     p = Path(str(target)).expanduser()
@@ -95,29 +86,12 @@ def compile_from(args):
         if not plan['jobs']:
             raise cc.CompileError(f'{src} holds no jobs (a list of rc-job/1 bodies or {{"jobs": [...]}})')
         return plan['jobs'], plan['study'] or src.stem, []
-    study = load_study(src)
-    est = args.est_unit_s
-    if not est and args.est_from:
-        est = cc.bench_estimate(args.est_from)
-    if not est and args.measure:
-        first = next(c for c in study.cells() if (not args.stage or c.stage == args.stage)
-                     and (not args.block or c.block == args.block))
-        est = cc.measure(src, first, first.seeds[0])
-    done = None
-    cache_dir = getattr(study, 'cache_dir', None)
-    if not cache_dir:
-        try:                                        # crane.study keeps its unit cache in OUT/<study>/cache
-            from crane.study.plan import default_out
-            cache_dir = default_out(study) / 'cache'
-        except (ImportError, AttributeError):
-            cache_dir = None
-    if cache_dir and not args.no_skip_done:
-        from crane.cache import UnitCache
-        done = UnitCache(cache_dir)
-    jobs = cc.compile(study, stage=args.stage, block=args.block, spec_path=src, est_unit_s=est, done=done,
-                      tags=list(args.tag or []) + (['cloud-ok', 'cpu'] if args.cloud else []), project=args.project,
-                      campaign=args.campaign, purpose=args.purpose, confirm=args.confirm,
-                      allow_dirty=args.allow_dirty, out_root=args.out, kind=args.kind)
+    study, jobs = cc.compile_spec(
+        src, stage=args.stage, block=args.block, est_unit_s=args.est_unit_s, est_from=args.est_from,
+        measure_one=args.measure, skip_done=not args.no_skip_done,
+        tags=list(args.tag or []) + (['cloud-ok', 'cpu'] if args.cloud else []), project=args.project,
+        campaign=args.campaign, purpose=args.purpose, confirm=args.confirm, allow_dirty=args.allow_dirty,
+        out_root=args.out, kind=args.kind)
     if args.cloud:
         for j in jobs:
             if j['needs'].get('gpu'):
@@ -132,6 +106,8 @@ def submit_main(args):
     except (cc.CompileError, ValueError) as error:
         return out.usage('cluster submit', str(error))
     project = args.project or 'crane'
+    if not jobs and getattr(jobs, 'skip_reason', None):
+        return out.usage('cluster submit', jobs.skip_reason, f'crane cluster submit {args.source} --confirm')
     if not jobs:
         out.say(f'cluster submit: nothing to run for {name} (every unit is done)')
         out.doc({'schema': 'crane.cluster.submit/1', 'study': name, 'jobs': [], 'submitted': False})

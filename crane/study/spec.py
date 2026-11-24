@@ -121,6 +121,11 @@ class Study:
         from crane.study import plan
         return plan.jobs(self, stage, block, out)
 
+    def estimate(self, cell):
+        """Seconds per (cell, seed): the stage's pack.unit_s, else the study's (None without one)."""
+        from crane.study import plan
+        return plan.unit_s(self, cell.stage)
+
     def order(self):
         """Stage names, each after the stages it depends on."""
         done, out = set(), []

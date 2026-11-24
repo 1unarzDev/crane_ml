@@ -324,22 +324,29 @@ COMMANDS = [
             params=(P('spec', 'path', description='The study spec (YAML).'),
                     P('--cell', required=True, metavar='JOB_ID', description='The cell or job id.'),
                     P('--out', 'path', required=True, metavar='DIR', description='The job output dir.'),
+                    P('--seeds', metavar='A,B,...', description='Only these of its seeds.'),
                     P('--confirm', 'bool', description='Run a held-out cell.'),
                     P('--targets-sha256', metavar='SHA', description='The targets file hash the submit side checked '
                       'in git (crane study compile pins it); stands in for git on a box.'),
                     P('--json', 'bool', description='One JSON document.')),
             examples=('crane study run-cell study.yaml --cell JOB_ID --out /workspace/out/STUDY/JOB_ID',)),
     Command(('study', 'compile'), 'Compile a study\'s jobs to rc-job/1 bodies for the research cluster: one '
-            'crane_batch or gpu_command job per cell seed chunk, each running crane study run-cell.',
+            'crane_batch or gpu_command job per cell seed chunk (5-30 min), each running crane study run-cell '
+            'through crane-batch. The compiler crane cluster submit uses.',
             'crane.study.cli:compile_main', flags=(JSON,), json='crane.study.compile/1',
             about='{jobs: [rc-job/1 ...]} on stdout, or `N jobs in FILE` and next: research submit.',
-            notes='Needs purpose (20-600 chars, no local path) and pack.unit_s. Held-out jobs are left out without '
-                  '--confirm; with it the targets file must be committed, clean and older than now (checked here in '
-                  'git), and each held-out argv pins its sha256 with --targets-sha256 for the box to check.',
+            notes='Needs purpose (20-600 chars, no local path) and pack.unit_s. Jobs pin crane_ml (and the spec\'s '
+                  'repo) at the exact commit, carry dedup ids from the unit keys and the commit, needs from pin:, '
+                  'campaign and expect; units in the study\'s unit cache are left out; field data is refused. '
+                  'Held-out jobs are left out without --confirm; with it the targets file must be committed, clean '
+                  'and older than now (checked here in git), and each held-out job pins its sha256, which '
+                  'crane-batch passes to run-cell as --targets-sha256 for the box to check. Exit 2 on a refusal.',
             params=(P('spec', 'path', description='The study spec (YAML).'),
                     P('--stage', description='Only this stage.'),
                     P('--block', description='Only this seed block or split.'),
                     P('--confirm', 'bool', description='Include held-out jobs (needs the committed targets file).'),
+                    P('--allow-dirty', 'bool', dest='allow_dirty', description='Compile with uncommitted changes '
+                      '(jobs run the commit).'),
                     P('--write', 'path', metavar='FILE', description='Write {jobs: [...]} here instead of stdout.'),
                     P('--json', 'bool', description='One JSON document with jobs[].')),
             examples=('crane study compile examples/studies/toy_paired.yaml --write /tmp/jobs.json',
@@ -433,13 +440,14 @@ COMMANDS = [
             'plus manifest.json with a sha256 per file; --select, --where and --split pick the rows.',
             'crane.data.export:main', flags=(JSON,), json='crane.data.export/1',
             about='one line (rows, columns, files, MB, format), one row per file (path, rows, sha256), the manifest '
-                  'path, a note for held-out rows or non-finite floats, next:. --json: {schema, out, manifest, rows, '
+                  'path, a note for confirmed held-out rows or non-finite floats, next:. --json: {schema, out, manifest, rows, '
                   'columns, files, held_count, nonfinite}.',
             notes='A run dir gives one metrics-first row (seed, outcome, condition.*, metrics, commit, run_sha256) and '
                   'its recorded arrays as obs / traj columns (record: in the domain YAML, Docs/Data.md). Array columns '
                   'are stacked to rows x T x channels (shorter rows NaN-padded, COL@len their lengths); with csv or '
-                  'parquet they go to PART.arrays.npz beside each file. Files roll over at 90 MB. Exit 0 written, '
-                  '2 usage (no rows, an unknown column, a non-empty --out).',
+                  'parquet they go to PART.arrays.npz beside each file. Files roll over at 90 MB. Held-out rows '
+                  '(role, block_role or tag held-out, held_out true) are refused without --confirm. Exit 0 written, '
+                  '2 usage (no rows, an unknown column, a non-empty --out, held-out rows).',
             params=(P('sources', 'list', nargs='+', metavar='SRC', description='Run dirs, batch outputs, datasets '
                       '(dirs with manifest.json) or row files (.parquet .csv .npz .jsonl).'),
                     P('--format', choices=('npz', 'parquet', 'csv', 'jsonl'), default='npz',
@@ -450,6 +458,7 @@ COMMANDS = [
                       "is = != > >= < <=; = and != take a,b (repeatable, all must hold)."),
                     P('--split', metavar='FILE:NAME', description='Keep the rows of one split of a crane data splits '
                       'file.'),
+                    P('--confirm', 'bool', description='Export held-out rows too (refused without it).'),
                     sel('out', required=True, description='The dataset dir to write (new or empty).'),
                     P('--json', 'bool', description='One JSON document.')),
             examples=('crane data export ~/.cache/crane/runs/toy/T0 --format npz --out /tmp/ds',
@@ -707,11 +716,12 @@ COMMANDS = [
             notes='Jobs: kind crane_batch (the crane-batch backend: one slot, every core) or gpu_command for a GPU '
                   'cell; seeds [0] with the chunk in spec.seeds; spec.run and spec.argv run python3 -m '
                   'crane_backends.batch, which runs crane study run-cell SPEC --cell JOB --out .. (the study\'s own '
-                  'job ids and seed chunks; --confirm on held-out jobs); job ids come from the unit cache keys and '
+                  'job ids and seed chunks; --confirm --targets-sha256 on held-out jobs); job ids come from the unit cache keys and '
                   'the commit, so resubmitting the same plan is idempotent. Refused (exit 2): uncommitted changes '
                   '(--allow-dirty runs the commit), a spec outside crane/runtime.sparse, a cell naming field data '
-                  '(~/field_corpus_*, a bag dir, .mcap/.db3/.bag), a held-out block without --confirm or whose '
-                  'targets file is not committed before now, a cell with no time estimate. The plan is saved to '
+                  '(~/field_corpus_*, a bag dir, .mcap/.db3/.bag), a held-out block whose targets file is not '
+                  'committed before now, a cell with no time estimate. Without --confirm held-out cells are left '
+                  'out (only held-out selected: exit 2). The same compiler as crane study compile. The plan is saved to '
                   'OUT/STUDY/cluster/jobs.json before research submit. An adaptive stage goes after its source: '
                   'submit --stage A, wait, fetch, crane study promote --stage B, submit the promoted spec.',
             params=(P('source', metavar='SPEC|JOBS.json', description='A crane.study/1 spec, or an rc-job/1 list.'),
@@ -728,10 +738,10 @@ COMMANDS = [
                     P('--tag', repeat=True, description='needs.tags (repeatable; all required).'),
                     P('--cloud', 'bool', description='Allow rented boxes: needs.tags += cloud-ok and cpu (torch for '
                       'GPU cells); only with an approved REQUESTS.md row.'),
-                    P('--kind', description='Override the backend kind (crane_batch, gpu_command, py_command, '
-                      'crane-command).'),
-                    P('--confirm', 'bool', description='Allow held-out blocks (the study\'s guard checks its targets '
-                      'file; without a guard they are refused).'),
+                    P('--kind', choices=('crane_batch', 'gpu_command'), description='Override the backend kind '
+                      '(default the spec\'s kind:, gpu_command for a GPU cell).'),
+                    P('--confirm', 'bool', description='Include held-out blocks (crane.study.guard checks the targets '
+                      'file in git; each job pins its sha256 for the box).'),
                     P('--allow-dirty', 'bool', dest='allow_dirty', description='Submit with uncommitted changes '
                       '(jobs run the commit).'),
                     P('--no-skip-done', 'bool', dest='no_skip_done', description="Keep seeds already in the study's "

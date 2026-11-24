@@ -43,7 +43,6 @@ MANIFEST = 'crane.data.manifest/1'
 META_FILES = ('crane.run.json', 'run.json', 'metrics.json', 'manifest.json')
 MAX_METRICS = 1000
 STALE = re.compile(r'\.stale-\d+$')
-HELD_OUT = frozenset({'held-out', 'heldout', 'held_out'})
 DONE = frozenset({'done', 'complete', 'completed', 'finished', 'succeeded'})
 OUTCOME_KEYS = ('metrics', 'outcome', 'score', 'scores', 'result', 'results', 'summary')
 
@@ -99,8 +98,10 @@ def _cap(metrics: dict) -> tuple:
     return dict(items[:MAX_METRICS]), max(len(items) - MAX_METRICS, 0)
 
 
-def held_out(block) -> bool:
-    return str(block or '').strip().lower() in HELD_OUT
+def held_out(block, role=None) -> bool:
+    """A held-out record: its block's role says so (crane.study.guard), or the block is named held-out."""
+    from crane.study import guard
+    return guard.is_held_out(role) or guard.is_held_out(block)
 
 
 def _progress_done(state) -> bool:
@@ -228,7 +229,7 @@ def read_dir(path, root=None) -> dict | None:
         return None
     row['metrics'], row['truncated'] = _cap(row['metrics'])
     row.setdefault('sealed', 0)
-    if held_out(row.get('block')):
+    if held_out(row.get('block'), (row.get('meta') or {}).get('role')):
         done, progress = run_state(d, row['meta'], root)
         if not done:
             row = seal(row, progress)

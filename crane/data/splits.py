@@ -50,7 +50,8 @@ def parse_ratios(text):
 
 
 def _is_held(value):
-    return str(value).strip().lower().replace('_', '-') in ('held-out', 'heldout')
+    from crane.study import guard
+    return guard.is_held_out(value)
 
 
 def held_rule(domain=None, exprs=()):

@@ -12,8 +12,8 @@ What a run leaves in its run dir (``$CRANE_RUN_DIR``):
                   run-cell's crane.progress.Progress writes it as units finish, and this runner rewrites it with a
                   fresh `updated` whenever it is older than HEARTBEAT_S (a long unit still heartbeats);
   cell.json       which study, stage, arm, block, role, cell, seeds, host, job, stall_s and touched_held_out;
-  metrics.json    rows, failed, units, wall_s, units_per_s, touched_held_out, and per-column means on dev blocks
-                  only (the cluster feed publishes metric means; every other block reports counts only);
+  metrics.json    rows, failed, units, wall_s, units_per_s, touched_held_out, and per-column means on dev
+                  blocks only (the cluster feed publishes metric means; every other block reports counts only);
   failure.json    on failure: reason (crashed / timed out without progress / cancelled), exit code, a traceback sample;
   artifacts/rows/ the columnar rows plus manifest.json (sha256 per file). With an output root (option ``out_root``,
                   CRANE_OUT_ROOT, or /workspace/out on a rented box) the rows go to OUT_ROOT/<study>/<job_id>/ and
@@ -45,8 +45,6 @@ YIELDED = 75                # research-cluster: exit 75 is a release, not a fail
 ARTIFACT_MAX = 95 * 1024 * 1024
 METRICS_MAX = 1000
 BOX_OUT = Path('/workspace/out')
-HELD_OUT = 'held-out'
-DEV = 'dev'
 ROOT = Path(__file__).resolve().parent.parent
 REASONS = ('crashed', 'timed out without progress', 'cancelled')
 
@@ -140,14 +138,15 @@ def _means(rows):
 
 
 def metrics_of(out, role, progress, wall_s, units):
-    """metrics.json: counts always; per-column means on dev blocks only (role exactly 'dev': held-out, check, train,
-    calib and a role-less cell report counts only); at most METRICS_MAX finite numbers."""
+    """metrics.json: counts always; per-column means only where crane.study.guard.shows_means(role) (dev blocks:
+    held-out, check, train, calib and a role-less cell report counts only); at most METRICS_MAX finite numbers."""
     from crane.data.rows import read_rows
+    from crane.study import guard
     man = _read_json(Path(out) / 'manifest.json') or {}
     m = {'rows': int(man.get('rows') or sum(int(f.get('rows') or 0) for f in man.get('files', []))),
          'failed': int((progress or {}).get('failed') or 0), 'units': units, 'wall_s': round(wall_s, 3),
-         'units_per_s': round(units / wall_s, 6) if wall_s > 0 else 0.0, 'touched_held_out': int(role == HELD_OUT)}
-    if role == DEV and man.get('files'):
+         'units_per_s': round(units / wall_s, 6) if wall_s > 0 else 0.0, 'touched_held_out': int(guard.is_held_out(role))}
+    if guard.shows_means(role) and man.get('files'):
         for k, v in sorted(_means(read_rows(out)).items()):
             if len(m) >= METRICS_MAX:
                 break
@@ -173,13 +172,18 @@ def _manifest(out, job, job_id):
             raise RuntimeError(f'{f["path"]}: sha256 differs from manifest.json')
     extra = {'study': job['study'], 'stage': job.get('stage'), 'arm': job['arm'], 'block': job.get('block'),
              'role': job.get('role'), 'cell': job['cell'], 'seeds': job['seeds'], 'job_id': job_id,
-             'touched_held_out': job.get('role') == HELD_OUT, 'commit': job.get('commit')}
+             'touched_held_out': _held(job), 'commit': job.get('commit')}
     if job.get('targets'):
         extra['targets'] = job['targets']
     if any(man.get(k) != v for k, v in extra.items()):
         man.update(extra)
         _write_json(out / 'manifest.json', man)
     return man
+
+
+def _held(job):
+    from crane.study import guard
+    return guard.is_held_out(job.get('role'))
 
 
 def _sha(path):
@@ -223,8 +227,8 @@ class Runner:
         self.proc, self.cancelled, self.yielding = None, False, None
 
     def argv(self, spec, out):
-        """crane study run-cell SPEC --cell RUN_ID --out OUT, plus --confirm on a held-out job and --seeds a,b,c
-        only when the compiler chunked a study that has no job ids of its own."""
+        """crane study run-cell SPEC --cell RUN_ID --out OUT, plus --confirm --targets-sha256 SHA on a held-out job
+        and --seeds a,b,c only when the compiler chunked a study that has no job ids of its own."""
         job = self.job
         fields = {'spec': str(spec), 'cell': job.get('run_cell') or job['cell'],
                   'seeds': ','.join(map(str, job['seeds'])), 'out': str(out), 'python': self.python}
@@ -234,8 +238,11 @@ class Runner:
                 '--out', fields['out']]
         if job.get('pass_seeds', True):
             argv += ['--seeds', fields['seeds']]
-        if job.get('confirm') or job.get('role') == HELD_OUT:
+        if job.get('confirm') or _held(job):
             argv.append('--confirm')
+            sha = (job.get('targets') or {}).get('sha256')
+            if sha:                     # the box has no git: run-cell checks the targets file against this hash
+                argv += ['--targets-sha256', sha]
         return argv
 
     def _spec_path(self):
@@ -264,7 +271,7 @@ class Runner:
         out.mkdir(parents=True, exist_ok=True)
         meta = {'schema': 'crane.cluster.cell/1', 'job_id': self.job_id, 'host': socket.gethostname(),
                 'started': _now(), 'out': str(out), 'stall_s': self.stall_s,
-                'touched_held_out': job.get('role') == HELD_OUT, **{k: job.get(k) for k in (
+                'touched_held_out': _held(job), **{k: job.get(k) for k in (
                     'study', 'stage', 'arm', 'block', 'role', 'cell', 'cell_dir', 'tier', 'seeds', 'dedup',
                     'commit', 'targets')}}
         _write_json(rd / 'cell.json', meta)

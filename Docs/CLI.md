@@ -351,6 +351,7 @@ JOB_ID is a jobs[].job_id of crane study plan --json (CELL_ID, or CELL_ID.jK for
 | `spec` | path | The study spec (YAML). |
 | `--cell` | str | The cell or job id. |
 | `--out` | path | The job output dir. |
+| `--seeds` | str | Only these of its seeds. |
 | `--confirm` | bool | Run a held-out cell. |
 | `--targets-sha256` | str | The targets file hash the submit side checked in git (crane study compile pins it); stands in for git on a box. |
 | `--json` | bool | One JSON document. |
@@ -364,11 +365,11 @@ crane study compile examples/studies/toy_paired.yaml --write /tmp/jobs.json
 crane study compile examples/studies/toy_paired.yaml --block test --confirm --json
 ```
 
-Compile a study's jobs to rc-job/1 bodies for the research cluster: one crane_batch or gpu_command job per cell seed chunk, each running crane study run-cell.
+Compile a study's jobs to rc-job/1 bodies for the research cluster: one crane_batch or gpu_command job per cell seed chunk (5-30 min), each running crane study run-cell through crane-batch. The compiler crane cluster submit uses.
 
 What you'll see: {jobs: [rc-job/1 ...]} on stdout, or `N jobs in FILE` and next: research submit.
 
-Needs purpose (20-600 chars, no local path) and pack.unit_s. Held-out jobs are left out without --confirm; with it the targets file must be committed, clean and older than now (checked here in git), and each held-out argv pins its sha256 with --targets-sha256 for the box to check.
+Needs purpose (20-600 chars, no local path) and pack.unit_s. Jobs pin crane_ml (and the spec's repo) at the exact commit, carry dedup ids from the unit keys and the commit, needs from pin:, campaign and expect; units in the study's unit cache are left out; field data is refused. Held-out jobs are left out without --confirm; with it the targets file must be committed, clean and older than now (checked here in git), and each held-out job pins its sha256, which crane-batch passes to run-cell as --targets-sha256 for the box to check. Exit 2 on a refusal.
 
 | Param | Type | Description |
 |---|---|---|
@@ -376,6 +377,7 @@ Needs purpose (20-600 chars, no local path) and pack.unit_s. Held-out jobs are l
 | `--stage` | str | Only this stage. |
 | `--block` | str | Only this seed block or split. |
 | `--confirm` | bool | Include held-out jobs (needs the committed targets file). |
+| `--allow-dirty` | bool | Compile with uncommitted changes (jobs run the commit). |
 | `--write` | path | Write {jobs: [...]} here instead of stdout. |
 | `--json` | bool | One JSON document with jobs[]. |
 
@@ -532,9 +534,9 @@ crane data export /tmp/ds --split /tmp/ds/splits.json:train --out /tmp/train
 
 Run dirs, batch outputs and datasets to one columnar dataset (npz, parquet, csv or jsonl) plus manifest.json with a sha256 per file; --select, --where and --split pick the rows.
 
-What you'll see: one line (rows, columns, files, MB, format), one row per file (path, rows, sha256), the manifest path, a note for held-out rows or non-finite floats, next:. --json: {schema, out, manifest, rows, columns, files, held_count, nonfinite}.
+What you'll see: one line (rows, columns, files, MB, format), one row per file (path, rows, sha256), the manifest path, a note for confirmed held-out rows or non-finite floats, next:. --json: {schema, out, manifest, rows, columns, files, held_count, nonfinite}.
 
-A run dir gives one metrics-first row (seed, outcome, condition.*, metrics, commit, run_sha256) and its recorded arrays as obs / traj columns (record: in the domain YAML, Docs/Data.md). Array columns are stacked to rows x T x channels (shorter rows NaN-padded, COL@len their lengths); with csv or parquet they go to PART.arrays.npz beside each file. Files roll over at 90 MB. Exit 0 written, 2 usage (no rows, an unknown column, a non-empty --out).
+A run dir gives one metrics-first row (seed, outcome, condition.*, metrics, commit, run_sha256) and its recorded arrays as obs / traj columns (record: in the domain YAML, Docs/Data.md). Array columns are stacked to rows x T x channels (shorter rows NaN-padded, COL@len their lengths); with csv or parquet they go to PART.arrays.npz beside each file. Files roll over at 90 MB. Held-out rows (role, block_role or tag held-out, held_out true) are refused without --confirm. Exit 0 written, 2 usage (no rows, an unknown column, a non-empty --out, held-out rows).
 
 | Param | Type | Description |
 |---|---|---|
@@ -543,6 +545,7 @@ A run dir gives one metrics-first row (seed, outcome, condition.*, metrics, comm
 | `--select` | str | Columns to keep, comma-separated (default all). |
 | `--where` | str | Keep rows where COLUMN OP VALUE holds; OP is = != > >= < <=; = and != take a,b (repeatable, all must hold). |
 | `--split` | str | Keep the rows of one split of a crane data splits file. |
+| `--confirm` | bool | Export held-out rows too (refused without it). |
 | `--out` | path | The dataset dir to write (new or empty). |
 | `--json` | bool | One JSON document. |
 
@@ -1146,7 +1149,7 @@ Compile a study spec to rc-job/1 jobs (one per cell x seed chunk, 5-30 min each,
 
 What you'll see: the plan table (stage, arm, block, role, kind, jobs, units, est per job, compute hours) and any warnings, then the created/exists/duplicate counts and next:. --dry-run sends nothing (with --json: the plan and every job body).
 
-Jobs: kind crane_batch (the crane-batch backend: one slot, every core) or gpu_command for a GPU cell; seeds [0] with the chunk in spec.seeds; spec.run and spec.argv run python3 -m crane_backends.batch, which runs crane study run-cell SPEC --cell JOB --out .. (the study's own job ids and seed chunks; --confirm on held-out jobs); job ids come from the unit cache keys and the commit, so resubmitting the same plan is idempotent. Refused (exit 2): uncommitted changes (--allow-dirty runs the commit), a spec outside crane/runtime.sparse, a cell naming field data (~/field_corpus_*, a bag dir, .mcap/.db3/.bag), a held-out block without --confirm or whose targets file is not committed before now, a cell with no time estimate. The plan is saved to OUT/STUDY/cluster/jobs.json before research submit. An adaptive stage goes after its source: submit --stage A, wait, fetch, crane study promote --stage B, submit the promoted spec.
+Jobs: kind crane_batch (the crane-batch backend: one slot, every core) or gpu_command for a GPU cell; seeds [0] with the chunk in spec.seeds; spec.run and spec.argv run python3 -m crane_backends.batch, which runs crane study run-cell SPEC --cell JOB --out .. (the study's own job ids and seed chunks; --confirm --targets-sha256 on held-out jobs); job ids come from the unit cache keys and the commit, so resubmitting the same plan is idempotent. Refused (exit 2): uncommitted changes (--allow-dirty runs the commit), a spec outside crane/runtime.sparse, a cell naming field data (~/field_corpus_*, a bag dir, .mcap/.db3/.bag), a held-out block whose targets file is not committed before now, a cell with no time estimate. Without --confirm held-out cells are left out (only held-out selected: exit 2). The same compiler as crane study compile. The plan is saved to OUT/STUDY/cluster/jobs.json before research submit. An adaptive stage goes after its source: submit --stage A, wait, fetch, crane study promote --stage B, submit the promoted spec.
 
 | Param | Type | Description |
 |---|---|---|
@@ -1161,8 +1164,8 @@ Jobs: kind crane_batch (the crane-batch backend: one slot, every core) or gpu_co
 | `--purpose` | str | 1-2 sentences, public on the feed (default the spec purpose:). |
 | `--tag` | str | needs.tags (repeatable; all required). |
 | `--cloud` | bool | Allow rented boxes: needs.tags += cloud-ok and cpu (torch for GPU cells); only with an approved REQUESTS.md row. |
-| `--kind` | str | Override the backend kind (crane_batch, gpu_command, py_command, crane-command). |
-| `--confirm` | bool | Allow held-out blocks (the study's guard checks its targets file; without a guard they are refused). |
+| `--kind` | str | Override the backend kind (default the spec's kind:, gpu_command for a GPU cell). One of `crane_batch`, `gpu_command`. |
+| `--confirm` | bool | Include held-out blocks (crane.study.guard checks the targets file in git; each job pins its sha256 for the box). |
 | `--allow-dirty` | bool | Submit with uncommitted changes (jobs run the commit). |
 | `--no-skip-done` | bool | Keep seeds already in the study's unit cache. |
 | `--out` | path | The studies root (default CRANE_STUDIES, else ~/.cache/crane/studies). |

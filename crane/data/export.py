@@ -9,9 +9,10 @@ A source is a dataset (a dir with manifest.json, or one row file: .parquet .csv 
 per run, with its recorded arrays as ``obs`` / ``traj`` columns) or any dir holding those (walked; ``.stale-N`` and
 partial dirs are skipped).
 
-The export notes, never refuses: rows that splits would call held-out (``held_count``) and non-finite floats per
-column (``nonfinite``). Held-out outcomes are the study layer's to withhold; a cluster job's metrics.json is checked
-where it is written.
+Rows that splits would call held-out (crane.study.guard's roles: role / block_role / tag held-out, held_out true)
+are refused unless ``confirm`` (``--confirm``): pick the others with --where 'role!=held-out' or --split FILE:train.
+With confirm they are written and counted (``held_count``). Non-finite floats are noted per column (``nonfinite``).
+The manifest names its sources as given, with the home dir as ``~`` (no /home path ships).
 """
 
 import json
@@ -187,8 +188,9 @@ def _order(schema):
     return {c: schema[c] for c in head + [c for c in schema if c not in head]}
 
 
-def export(sources, out, fmt='npz', select=None, where=None, part=None, split=None):
-    """Write the rows of ``sources`` (filtered by --where and a split, selected) to ``out``; returns its manifest."""
+def export(sources, out, fmt='npz', select=None, where=None, part=None, split=None, confirm=False):
+    """Write the rows of ``sources`` (filtered by --where and a split, selected) to ``out``; returns its manifest.
+    Held-out rows raise SourceError unless ``confirm``."""
     where = parse_where(where)
     inside = None
     if split:
@@ -215,16 +217,31 @@ def export(sources, out, fmt='npz', select=None, where=None, part=None, split=No
         raise SourceError(f"no column {unknown[0]!r} in the sources; list them with crane data schema {sources[0]}")
     if not n:
         raise SourceError('no rows match' + (' --where' if where else '') + '; check the columns with crane data schema')
+    if n_held and not confirm:
+        raise SourceError(f'{n_held} of {n} rows are held-out (role/block_role/tag held-out or held_out true) and carry '
+                          "their outcomes; fix: --where 'role!=held-out' (or --split FILE:train), or --confirm to "
+                          'export them')
     schema = _order({k: v or 'json' for k, v in schema.items()})
     meta = {}
     with R.RowWriter(out, schema, fmt=fmt, part=part) as w:
         for row, meta in iter_rows(sources):  # pass 2: the rows
             if keep(row):
                 w.write(_pick(row, select))
-    extra = {'source': [str(Path(s).expanduser().resolve()) for s in sources], 'format': w.fmt,
+    extra = {'source': [_shown(s) for s in sources], 'format': w.fmt,
              'select': select, 'split': split, 'where': [f'{c}{s}{",".join(map(str, v))}' for c, s, _, v in where],
              'arrays': {k: v for k, v in meta.items() if k in schema}, 'held_count': n_held, 'nonfinite': nonfinite}
     return R.write_manifest(out, schema, w.files, extra)
+
+
+def _shown(path):
+    """A source path as the manifest records it: relative stays relative, the home dir becomes ~."""
+    p = Path(path).expanduser()
+    if not p.is_absolute():
+        return p.as_posix()
+    try:
+        return '~/' + p.resolve().relative_to(Path.home().resolve()).as_posix()
+    except ValueError:
+        return p.as_posix()
 
 
 def schema_of(sources):
@@ -257,7 +274,8 @@ def main(args):
                          f'pick another --out, or rm -r {dest}')
     from crane.data.splits import SplitError
     try:
-        doc = export(args.sources, dest, args.format, args.select, args.where, split=args.split)
+        doc = export(args.sources, dest, args.format, args.select, args.where, split=args.split,
+                     confirm=getattr(args, 'confirm', False))
     except (SourceError, R.SchemaError, SplitError) as error:
         return out.usage('data export', str(error))
     if out.doc({'schema': 'crane.data.export/1', 'out': str(dest), 'manifest': str(dest / R.MANIFEST),
@@ -270,8 +288,8 @@ def main(args):
     out.table([(f['path'], f"{f['rows']} rows", f['sha256'][:12]) for f in doc['files']])
     out.line(f'  manifest  {dest / R.MANIFEST}')
     if doc['held_count']:
-        out.line(f"  note: {doc['held_count']} row(s) are tagged held-out and carry their outcomes; "
-                 'keep this dataset out of training (or export --split FILE:train)')
+        out.line(f"  note: {doc['held_count']} held-out row(s) exported (--confirm) with their outcomes; "
+                 'keep this dataset out of training')
     if doc['nonfinite']:
         out.line('  note: non-finite floats: ' + ', '.join(f'{k} {v}' for k, v in doc['nonfinite'].items())
                  + ' (nan/inf; a cluster metrics.json must not carry them)')

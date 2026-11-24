@@ -216,7 +216,10 @@ def test_splits_never_leak_held_out_and_never_move_a_unit_into_train(tmp_path, c
     capsys.readouterr()
     tiny = S.splits([dataset('tiny', [1, 2])], by='seed')       # two units cannot fill three splits
     assert tiny['warnings'] and all('is empty' in w for w in tiny['warnings'])
-    assert cli.main(['data', 'export', str(full), '--out', str(tmp_path / 'all')]) == 0
-    assert f'{len(held_seeds)} row(s) are tagged held-out' in capsys.readouterr().out
+    assert cli.main(['data', 'export', str(full), '--out', str(tmp_path / 'all')]) == 2     # held-out rows: refused
+    assert f'{len(held_seeds)} of 400 rows are held-out' in capsys.readouterr().err
+    assert cli.main(['data', 'export', str(full), '--where', 'role!=held-out', '--out', str(tmp_path / 'dev')]) == 0
+    assert cli.main(['data', 'export', str(full), '--confirm', '--out', str(tmp_path / 'all')]) == 0
+    assert f'{len(held_seeds)} held-out row(s) exported' in capsys.readouterr().out
     train = list(R.read_rows(tmp_path / 'train'))
     assert {r['seed'] for r in train} == set(sp['train']['units']) and not any(r['role'] == 'held-out' for r in train)

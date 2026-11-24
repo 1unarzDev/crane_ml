@@ -497,7 +497,7 @@ def compile_rows(study, out, cells=None, part=None):
         if (out / 'held_out.jsonl').is_file() else []
     failures = _failures(out, cache, commit)
     big = [f['path'] for f in files if (out / f['path']).stat().st_size > ARTIFACT_MAX]
-    extra = {'study': study.name, 'spec': study.path.name, 'commit': commit, 'updated': now(),
+    extra = {'study': study.name, 'spec': study.path.name, 'domain': study.domain, 'commit': commit, 'updated': now(),
              'baseline': study.baseline, 'axes': [a.name for a in study.axes], 'record': study.record['level'],
              'units': units, 'failed_units': len(failures),
              'touched_held_out': any(r.get('touched_held_out') for r in all_rows) or bool(held),
@@ -572,7 +572,7 @@ def _failures(out, cache, commit):
 
 def _metrics_json(out, units, rows, failed):
     """OUT/metrics.json: at most 1000 finite numbers: unit counts per stage and block, and per-arm means of the
-    rows of blocks that are not held-out (a held-out block gives counts only)."""
+    rows of dev blocks (guard.shows_means; held-out, check, train and calib blocks give counts only)."""
     numbers = {'units.done': sum(b['done'] for s in units.values() for b in s.values()),
                'units.total': sum(b['total'] for s in units.values() for b in s.values()), 'units.failed': failed}
     for stage, blocks in units.items():
@@ -581,7 +581,7 @@ def _metrics_json(out, units, rows, failed):
             numbers[f'{stage}.{name}.total'] = b['total']
     sums = {}
     for r in rows:
-        if r.get('role') == 'held-out':
+        if not guard.shows_means(r.get('role')):
             continue
         for k, v in r.items():
             if k in KEYS or k in END or not isinstance(v, (int, float)) or isinstance(v, bool):
@@ -602,13 +602,19 @@ def _metrics_json(out, units, rows, failed):
 
 # ---- run-cell: one cluster job -------------------------------------------------------------------------------
 
-def run_job(study, job_id, out, confirm=False, stream=None, targets_sha256=None):
+def run_job(study, job_id, out, confirm=False, stream=None, targets_sha256=None, only=None):
     """One job (a cell, or one of its seed chunks) into OUT: what `crane study run-cell` does on a box.
     ``targets_sha256`` (the job argv's --targets-sha256) stands in for git on a box with no study checkout.
-    Returns (summary, refusal)."""
+    ``only``: run just these of its seeds (crane cluster submit --measure times one). Returns (summary, refusal)."""
     from crane.progress import Progress
     out = Path(out).expanduser()
     cell, seeds = plan.find_job(study, job_id)
+    if only is not None:
+        extra = sorted(set(only) - set(seeds))
+        if extra:
+            raise StudyError(f'seed {extra[0]} is not in {job_id} (its seeds: {seeds[0]}..{seeds[-1]}); fix: crane '
+                             f'study plan {study.ref} --json')
+        seeds = [s for s in seeds if s in set(only)]
     targets = None
     if cell.held_out:
         fix = f'crane study run-cell {study.ref} --cell {job_id} --out {out} --confirm'

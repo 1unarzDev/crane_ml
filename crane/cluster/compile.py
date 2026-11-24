@@ -17,8 +17,12 @@ Chunks: a study with ``jobs(stage, block)`` (crane.study) decides them, and RUN_
 CELL_ID.jK); any other study gets chunks here and RUN_ID is the cell id plus ``--seeds a,b,c``.
 Seeds already in `done` (a UnitCache or a predicate on unit keys) are left out. Field data never goes in: a cell or
 spec that names a path under ~/field_corpus_*, a bag dir (rosbag, *_bags/) or an .mcap/.db3/.bag file is refused.
-A held-out block needs confirm and passes the study's targets-file guard (crane.study.guard, or study.check_held_out);
-with neither guard available it is refused.
+Held-out cells are left out (``jobs.skipped``) unless ``confirm``; with it crane.study.guard checks here, where git is,
+that the targets file is committed before now, and each held-out job carries the file's sha256, which crane-batch
+passes to run-cell as ``--targets-sha256`` (the box has no git). A study without that guard fails closed.
+
+This module is the one study -> rc-job/1 compiler: `crane study compile` and `crane cluster submit SPEC` both call
+compile_spec().
 """
 
 import json
@@ -36,10 +40,13 @@ from crane.cluster import HELD_OUT, cell_dir, cell_id, role_of, slug, studies_ro
 from crane.ids import digest
 
 KIND_CPU, KIND_GPU = 'crane_batch', 'gpu_command'
+KINDS = (KIND_CPU, KIND_GPU)
+JOB_ID = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$')
+LOCAL_PATH = re.compile(r'(^|\s)(/|~/)\S')
 JOB_MIN_S, JOB_TARGET_S, JOB_MAX_S = 300.0, 900.0, 1800.0      # compute's contract: 5-30 min, aim for the middle
 SEED_CAP_S = 240 * 60.0                                         # one unit may never take longer
 OVERHEAD_S = 30.0                                               # process start, spec load, upload
-PURPOSE_MIN = 20
+PURPOSE_MIN, PURPOSE_MAX = 20, 600       # rc-job/1: 20-600 chars, published, no local path
 CRANE_REPO = 'crane_ml'
 FIELD_CORPUS = re.compile(r'(^|[\s/"\'=:~])field_corpus_[^\s"\'/]*')
 FIELD_FILE = re.compile(r'\.(mcap|db3|bag)(?=$|[\s"\',;/])')
@@ -51,8 +58,11 @@ class CompileError(ValueError):
 
 
 class Jobs(list):
-    """The rc-job/1 bodies, plus what the plan should say about them."""
+    """The rc-job/1 bodies, plus what the plan should say about them: warnings, and the held-out cells left out
+    (skipped: [cell id], with skip_reason the guard's line) because confirm was not given."""
     warnings: list
+    skipped: list
+    skip_reason: str = None
 
 
 def unit_key(cell, seed, commit):
@@ -226,14 +236,14 @@ def _needs(study, cell, tags):
     # a host is pinned by its worker tag (worker.yaml caps.tags: [HOST])
     own['tags'] = [*(pin.get('tags') or []), *hosts, *(study_needs.get('tags') or []), *(cell_needs.get('tags') or [])]
     gpu = bool(own.get('gpu') or str(getattr(cell, 'device', '')).lower() in ('gpu', 'cuda'))
-    needs = {'tags': sorted({*tags, *(own.get('tags') or [])})}
+    needs = {'os': own.get('os') or ['linux'], 'tags': sorted({*tags, *(own.get('tags') or [])})}
     if gpu:
         needs['gpu'] = True
         needs['vram_gb'] = float(own.get('vram_gb') or own.get('vram') or 8)
     cpus = own.get('min_cpu') or own.get('cpus')
     if cpus:
         needs['min_cpu'] = int(cpus)
-    for k in ('min_ram_gb', 'host', 'os', 'cuda'):
+    for k in ('min_ram_gb', 'host', 'cuda'):
         if own.get(k):
             needs[k] = own[k]
     return needs, gpu
@@ -258,27 +268,42 @@ def _study_chunks(study, stage, block):
 
 
 def held_out_guard(study, cells, confirm):
-    """None when the held-out cells may go (confirmed, and the targets file committed before now), else raises.
-    The guard is the study's: study.check_held_out(cells), else crane.study.guard.refuse; with neither it fails
-    closed. Returns the targets state the guard reports (recorded on every held-out job)."""
+    """The targets state recorded on every held-out job ({path, commit, committed_at, sha256}) when the held-out
+    cells may go, else raises with the guard's line. The guard is crane.study.guard (the one implementation); a study
+    it cannot read (no targets: in its spec) fails closed."""
     names = sorted({cell_id(c) for c in cells})
-    if not confirm:
-        raise CompileError(f'{len(names)} cell(s) are on a held-out block ({names[0]}); they run only with --confirm '
-                           'and a committed targets file older than the run')
-    own = getattr(study, 'check_held_out', None)
-    if callable(own):
-        return own(cells)               # raises with its own fix
-    try:
-        from crane.study import guard
-    except ImportError:
-        guard = None
-    if guard is None or not hasattr(study, 'targets'):
-        raise CompileError(f'held-out {names[0]}: nothing here can check its targets file (no crane.study guard for '
-                           'this study); run it with crane study run --confirm, or load the spec with crane.study')
-    reason, state = guard.refuse(study, cells, True)
+    from crane.study import guard
+    if not hasattr(study, 'targets') or not hasattr(study, 'splits'):
+        raise CompileError(f'held-out {names[0]}: nothing here can check its targets file (not a crane.study spec); '
+                           'load the spec with crane.study (targets: PATH, committed before the run)')
+    reason, state = guard.refuse(study, cells, confirm, fix=f'crane study compile {study.ref} --confirm'
+                                 if hasattr(study, 'ref') else None)
     if reason:
         raise CompileError(reason)
     return state
+
+
+def _expect(given, submitter):
+    """rc-job/1 expect {owner, metrics, stop}: a dict from the spec as is; free text becomes the stop line."""
+    default = {'owner': submitter, 'metrics': ['rows', 'failed'],
+               'stop': 'Stop when every cell has rows for all its seeds; a failed job is rerun from its cell, not in bulk.'}
+    if isinstance(given, dict):
+        bad = sorted(set(given) - {'owner', 'metrics', 'artifacts', 'stop'})
+        if bad:
+            raise CompileError(f'expect.{bad[0]}: rc-job/1 expect has owner, metrics, artifacts and stop only')
+        return {**default, **given}
+    if given and len(str(given).strip()) >= 10:
+        return {**default, 'stop': ' '.join(str(given).split())[:PURPOSE_MAX]}
+    return default
+
+
+def _purpose(text):
+    purpose = ' '.join(str(text or '').split())
+    if not PURPOSE_MIN <= len(purpose) <= PURPOSE_MAX or LOCAL_PATH.search(purpose):
+        raise CompileError(f'jobs need a purpose of {PURPOSE_MIN}-{PURPOSE_MAX} chars with no local path (public on the '
+                           'cluster feed): set purpose: in the spec (one sentence on what the study tests) or pass '
+                           '--purpose')
+    return purpose
 
 
 def compile(study, stage=None, block=None, *, spec_path=None, est_unit_s=None, done=None, tags=(), project='crane',
@@ -289,14 +314,16 @@ def compile(study, stage=None, block=None, *, spec_path=None, est_unit_s=None, d
     name = study_name(study)
     crane_root = Path(crane_root or paths.ROOT)
     own = getattr(study, 'cluster', None) or {}
-    cells = [c for c in study.cells() if (stage is None or c.stage == stage) and (block is None or c.block == block)]
+    cells = [c for c in study.cells() if (stage is None or c.stage == stage)
+             and (block is None or block in (c.block, getattr(c, 'split', None)))]
     if not cells:
         raise CompileError(f'no cells in {name}' + (f' for stage {stage}' if stage else '')
                            + (f' block {block}' if block else '') + '; crane study plan SPEC lists them')
-    purpose = ' '.join(str(purpose or own.get('purpose') or getattr(study, 'purpose', '') or '').split())
-    if len(purpose) < PURPOSE_MIN:
-        raise CompileError('jobs need a purpose (1-2 sentences, public on the cluster feed): set purpose: in the spec '
-                           'or pass --purpose')
+    purpose = _purpose(purpose or own.get('purpose') or getattr(study, 'purpose', ''))
+    for k in (kind, own.get('kind')):
+        if k and k not in KINDS:
+            raise CompileError(f'kind {k!r}: one of {", ".join(KINDS)} (crane_batch: one slot, every core; '
+                               'gpu_command)')
     spec_path = spec_path or getattr(study, 'path', None)
     spec_text = Path(spec_path).expanduser().read_text() if spec_path and Path(spec_path).expanduser().is_file() else ''
     bad = field_paths(spec_text.splitlines())
@@ -306,7 +333,14 @@ def compile(study, stage=None, block=None, *, spec_path=None, est_unit_s=None, d
         raise CompileError(f'{name} names field data ({bad[0]}); field data never goes to the cluster: run that cell '
                            'locally (crane study run), or point it at a derived table outside the corpus')
     held = [c for c in cells if role_of(study, c) == HELD_OUT]
-    targets = held_out_guard(study, held, confirm) if held else None
+    skipped, skip_reason, targets = [], None, None
+    if held and not confirm:
+        skipped = sorted({cell_id(c) for c in held})
+        skip_reason = f'{len(skipped)} held-out cell(s) left out ({skipped[0]}); they compile only with --confirm ' \
+                      'and a committed targets file older than now'
+        cells = [c for c in cells if role_of(study, c) != HELD_OUT]
+    elif held:
+        targets = held_out_guard(study, held, confirm)
 
     if pins is None:
         pins = {CRANE_REPO: pin_repo(crane_root, CRANE_REPO, allow_dirty, only=sparse_dirs(crane_root))}
@@ -322,9 +356,8 @@ def compile(study, stage=None, block=None, *, spec_path=None, est_unit_s=None, d
     commit = pins[CRANE_REPO]['ref']
     repos = list(pins.values())
     campaign = slug(campaign or own.get('campaign') or getattr(study, 'campaign', None) or name, 100)
-    expect = expect or own.get('expect') or getattr(study, 'expect', None) or {
-        'owner': submitter, 'metrics': ['rows', 'failed'],
-        'stop': 'Stop when every cell has rows for all its seeds; a failed job is rerun from its cell, not in bulk.'}
+    given_expect = expect or own.get('expect') or getattr(study, 'expect', None)
+    expect = _expect(given_expect, submitter)
     is_done = done.has if isinstance(done, UnitCache) else (done or (lambda key: False))
     study_root = studies_root(out_root) / name
     packed = _study_chunks(study, stage, block)
@@ -337,7 +370,7 @@ def compile(study, stage=None, block=None, *, spec_path=None, est_unit_s=None, d
         if packed is not None and not given:
             continue                    # the study packs no job for this cell (nothing left, or not resolvable)
         est = unit_estimate(study, c, est_unit_s)
-        if est is None and given and given[0][2]:
+        if est is None and given and given[0][2] is not None:
             est = float(given[0][2]) / max(1, len(given[0][1]))
         if est is None:
             missing.append(cid)
@@ -372,6 +405,9 @@ def compile(study, stage=None, block=None, *, spec_path=None, est_unit_s=None, d
     for c, est, parts in plans:
         role = role_of(study, c)
         needs, gpu = _needs(study, c, tags)
+        job_kind = kind or (KIND_GPU if gpu else own.get('kind') or KIND_CPU)
+        if job_kind == KIND_GPU and not gpu:
+            needs.update(gpu=True, vram_gb=float(needs.get('vram_gb') or 8))
         cid = cell_id(c)
         try:
             rel = cell_dir(out_root, study, c, name).relative_to(study_root).as_posix()
@@ -389,19 +425,61 @@ def compile(study, stage=None, block=None, *, spec_path=None, est_unit_s=None, d
                    'est_unit_s': round(est, 3), 'stall_s': int(max(600.0, 3 * est + 120)), 'dedup': dedup,
                    'commit': commit}
             if role == HELD_OUT and targets:
-                job['targets'] = {k: targets.get(k) for k in ('path', 'commit', 'committed_at') if k in targets}
+                job['targets'] = {k: targets.get(k) for k in ('path', 'commit', 'committed_at', 'sha256')
+                                  if k in targets}
+            if given_expect and not isinstance(given_expect, dict):
+                job['expect'] = str(given_expect)
+            if not JOB_ID.match(job_id):
+                raise CompileError(f'job id {job_id!r} is not an rc-job/1 id; use a shorter study, stage or arm name')
             line = json.dumps(job, separators=(',', ':'), sort_keys=True)
             spec = {**job, 'schema': 'crane.cluster.job/1', 'repo': CRANE_REPO,
                     'run': f'PYTHONPATH=src/{CRANE_REPO} python3 -m crane_backends.batch --job {shlex.quote(line)}',
                     'argv': ['python3', '-m', 'crane_backends.batch', '--job', line]}
             jobs.append({
                 'schema': 'rc-job/1', 'job_id': job_id,
-                'kind': kind or (KIND_GPU if gpu else own.get('kind') or KIND_CPU),
+                'kind': job_kind,
                 'purpose': purpose, 'est_seconds': round(est * len(seeds) + OVERHEAD_S, 1), 'submitter': submitter,
                 'campaign': campaign, 'priority': int(priority) + i, 'needs': needs, 'seeds': [0], 'repos': repos,
                 'spec': spec, 'outputs': {'class': 'summary'}, 'expect': expect, 'max_attempts': 3})
-    jobs.warnings = warnings
+    jobs.warnings, jobs.skipped, jobs.skip_reason = warnings, skipped, skip_reason
+    if skip_reason:
+        warnings.append(skip_reason)
     return jobs
+
+
+def load_study(path):
+    """crane.study.load, with its StudyError as a CompileError."""
+    from crane import study as study_mod
+    try:
+        return study_mod.load(path)
+    except study_mod.StudyError as error:
+        raise CompileError(str(error)) from None
+
+
+def compile_spec(spec_path, stage=None, block=None, *, est_unit_s=None, est_from=None, measure_one=False,
+                 skip_done=True, out=None, **kw):
+    """The study spec at ``spec_path`` to rc-job/1 jobs: what `crane study compile` and `crane cluster submit SPEC`
+    both run. The estimate is est_unit_s, else a bench.json's rate (est_from), else one seed measured here
+    (measure_one), else the spec's pack.unit_s. Units already in the study's unit cache (OUT/cache, default
+    ~/.cache/crane/studies/NAME) are left out unless skip_done is False. ``kw`` goes to compile(). Returns
+    (study, jobs)."""
+    src = Path(spec_path).expanduser()
+    if not src.is_file():
+        raise CompileError(f'no file {src}')
+    study = load_study(src)
+    if not est_unit_s and est_from:
+        est_unit_s = bench_estimate(est_from)
+    if not est_unit_s and measure_one:
+        first = next(c for c in study.cells() if (not stage or c.stage == stage)
+                     and (not block or block in (c.block, getattr(c, 'split', None))))
+        est_unit_s = measure(src, first, first.seeds[0])
+    done = None
+    if skip_done:
+        from crane.study.plan import default_out
+        cache_dir = (Path(out).expanduser() if out else default_out(study)) / 'cache'
+        if cache_dir.is_dir():
+            done = UnitCache(cache_dir)
+    return study, compile(study, stage=stage, block=block, spec_path=src, est_unit_s=est_unit_s, done=done, **kw)
 
 
 def summarize(jobs):

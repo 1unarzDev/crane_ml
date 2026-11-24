@@ -151,6 +151,9 @@ def test_held_out_runs_only_with_confirm_and_an_older_committed_targets_file(tmp
     assert status['stages']['main']['blocks']['test'] == {'role': 'held-out', 'units': 8, 'done': 0}
     assert set(status['interim']['main']) == {'a', 'b'}
     assert rp.report(out)['held_out_waiting'] == {'main:test': {'done': 0, 'total': 8}}
+    from crane import monitor                                 # crane monitor: dev means per arm, held-out progress
+    groups = {g['block']: g for g in monitor.snapshot(str(out), cluster=False)['groups']}
+    assert groups['test']['metrics'] is None and {'a.y', 'b.y'} <= set(groups['dev']['metrics'])
     (repo / 'targets.yaml').write_text('changed\n')
     code, cap = run('--block', 'test', '--confirm')
     assert code == 2 and 'holds no targets' in cap.err
@@ -182,18 +185,22 @@ def test_held_out_runs_only_with_confirm_and_an_older_committed_targets_file(tmp
     git(repo, 'revert', '--no-edit', 'HEAD', env={'GIT_COMMITTER_DATE': f'{int(time.time()) - 20} +0000'})
 
     # a rented box: the spec and its files, no git. compile checked git here and pinned the targets sha256
-    jobs, skipped = plan.rc_jobs(s, block='test', confirm=False)
-    assert not jobs and skipped
-    jobs, _ = plan.rc_jobs(s, block='test', confirm=True)
+    from crane.cluster import compile as cc
+    from crane_backends.batch import Runner
+    pins = {'crane_ml': {'name': 'crane_ml', 'url': str(ROOT), 'ref': 'a' * 40},
+            '_spec': {'repo': 'study', 'path': 'study.yaml'}}
+    jobs = cc.compile(s, block='test', pins=pins)
+    assert not jobs and jobs.skipped and '--confirm' in jobs.skip_reason
+    jobs = cc.compile(s, block='test', pins=pins, confirm=True)
     job = jobs[0]
     assert job['schema'] == 'rc-job/1' and job['kind'] == 'crane_batch' and job['est_seconds'] >= 1
+    assert job['spec']['targets']['sha256'] and job['spec']['touched_held_out']
     box = tmp_path / 'box'
     box.mkdir()
     for name in ('study.yaml', 'tasks.py', 'targets.yaml'):
         (box / name).write_bytes((repo / name).read_bytes())
-    argv = job['spec']['argv'][1:]
-    argv[argv.index('--out') + 1] = str(tmp_path / 'job')
-    argv[argv.index('--cell') - 1] = str(box / 'study.yaml')
+    argv = Runner(job['spec'], tmp_path / 'run').argv(box / 'study.yaml', tmp_path / 'job')[3:]   # crane-batch's
+    assert argv[:2] == ['study', 'run-cell'] and '--targets-sha256' in argv                       # run-cell line
     assert cli.main(argv) == 0, capsys.readouterr().err
     got = json.loads((tmp_path / 'job' / 'manifest.json').read_text())
     assert got['held_out']['targets']['pinned'] and got['rows'] == len(job['spec']['seeds'])

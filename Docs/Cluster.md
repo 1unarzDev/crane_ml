@@ -24,18 +24,19 @@ crane cluster submit study.promoted.yaml --stage C
 
 ## What a study compiles to
 
-`crane.cluster.compile.compile(study, stage=None, block=None, ...)` gives one rc-job/1 body per (cell, seed chunk).
+`crane.cluster.compile` is the one study -> rc-job/1 compiler: `crane cluster submit SPEC` and `crane study compile
+SPEC` both call `compile_spec(path, ...)`, which gives one rc-job/1 body per (cell, seed chunk).
 
 | Field | Value |
 |---|---|
-| `kind` | `crane_batch` (the `crane-batch` backend: one slot, every core); `gpu_command` for a GPU cell; `--kind` overrides |
+| `kind` | `crane_batch` (the `crane-batch` backend: one slot, every core) or `gpu_command`: the spec's `kind:`, `gpu_command` for a GPU cell, `--kind` overrides; nothing else |
 | `seeds` | `[0]`: a batch job reports one run. The chunk is `spec.seeds` |
 | `est_seconds` | per-unit estimate x chunk + 30 s, for the whole job |
-| `needs` | `tags` (`--tag`, `--cloud` adds `cloud-ok` + `cpu`/`torch`, the spec's `pin.tags`, and `pin.hosts` as a worker tag), `gpu`, `vram_gb`, `min_cpu` |
+| `needs` | `os: [linux]`, `tags` (`--tag`, `--cloud` adds `cloud-ok` + `cpu`/`torch`, the spec's `pin.tags`, and `pin.hosts` as a worker tag), `gpu`, `vram_gb`, `min_cpu` |
 | `repos` | `crane_ml` and the spec's own repo, each a local path at its exact HEAD commit (research submit bundles them) |
 | `spec` | `crane.cluster.job/1`: study, stage, arm, block, role, cell, run_cell, cell_dir, seeds, spec_file, commit, dedup, touched_held_out, targets, `run`, `argv` |
 | `job_id` | `<study>.<stage>.<arm>.c<i>.<dedup>`; dedup digests the chunk's unit cache keys, the commit and the spec |
-| `campaign`, `purpose`, `expect` | from the spec (`--campaign`, `--purpose` override) |
+| `campaign`, `purpose`, `expect` | from the spec (`--campaign`, `--purpose` override). `purpose` is 20-600 chars with no local path. `expect` is `{owner, metrics, stop}`; a free-text `expect:` becomes `stop` and is kept in `spec.expect` |
 
 A unit is one (cell, seed), its key `UnitCache.key(cell.unit(seed, commit))`, the key `crane study` caches it
 under. Units already in the study's unit cache (OUT/<study>/cache) are left out, so a resubmitted plan only carries
@@ -56,23 +57,26 @@ spec outside `crane/runtime.sparse` (rented boxes would not have it), a cell or 
 (`field_corpus_*`, a bag dir such as `bags/`, `rosbag/`, `lake_bags/`, an `.mcap`/`.db3`/`.bag` file) or a pinned
 commit tracking any, no time estimate, no purpose. Derived tables committed under other names pass.
 
-**Held-out.** A held-out cell (its block's or its condition split's role) needs `--confirm`, and then the study's guard:
-the `targets:` file committed, clean and older than now (`crane.study.guard`). With no guard to ask, the cell is
-refused. Held-out jobs carry `--confirm` to run-cell, `touched_held_out` and the targets commit.
+**Held-out.** A held-out cell (its block's or its condition split's role) is left out without `--confirm` (a selection
+of only held-out cells is refused). With it, `crane.study.guard` checks here, in git, that the `targets:` file parses
+to at least one target and is committed, clean and older than now; a study it cannot read fails closed. Held-out jobs
+carry `touched_held_out` and the targets path, commit and sha256; crane-batch runs run-cell with `--confirm
+--targets-sha256 SHA`, and the box checks the file it got against that hash (it has no git).
 
 ## On the worker
 
 `spec.run` (py_command, gpu_command) and `spec.argv` (crane-command) are `python3 -m crane_backends.batch --job JSON`;
 the `crane-batch` backend runs the same thing in process. It runs
-`crane study run-cell SPEC --cell JOB --out DIR` with every core, then leaves in `$CRANE_RUN_DIR`:
+`crane study run-cell SPEC --cell JOB --out DIR [--confirm --targets-sha256 SHA]` with every core, then leaves in
+`$CRANE_RUN_DIR`:
 
 | File | |
 |---|---|
 | `progress.json` | `{done, total, failed, rate_per_s, eta_s, phase, updated}`, atomic; the runner heartbeats it every 30 s while a unit runs |
 | `cell.json` | study, stage, arm, block, role, cell, seeds, host, job_id, stall_s, commit, touched_held_out |
-| `metrics.json` | rows, failed, units, wall_s, units_per_s, touched_held_out, and `<column>.mean` on dev blocks only; at most 1000 finite numbers |
+| `metrics.json` | rows, failed, units, wall_s, units_per_s, touched_held_out, and `<column>.mean` on dev blocks only (`crane.study.guard.shows_means`); at most 1000 finite numbers |
 | `failure.json` | reason (`crashed`, `timed out without progress`, `cancelled`), exit, a traceback sample |
-| `artifacts/rows/` | the rows and `manifest.json` (`crane.data.manifest/1`, sha256 per file); each file at most 95 MB |
+| `artifacts/rows/` | the rows and `manifest.json` (`crane.data.manifest/1`, sha256 per file, paths relative); a file over 95 MB fails the job |
 
 With an output root (`out_root` option, `CRANE_OUT_ROOT`, or `/workspace/out` on a rented box) the rows go to
 `<root>/<study>/<job_id>/` and only `manifest.json` stays under `artifacts/rows/`. stdout gets one progress line and
@@ -92,6 +96,6 @@ artifacts (`RC_VIEWER_TOKEN` or `platform-viewer.token`). Each job lands in `<ce
 `manifest.json` lists every part's files, so `read_rows(cell_dir)` returns them all.
 
 `crane monitor` reads every `progress.json` under OUT with its `cell.json`, `failure.json` and `metrics.json`, plus the
-plan's jobs from the project job list and the public feed. Interim means appear for dev blocks only; held-out and
-other blocks show progress only, and a held-out block that has started is flagged `touched_held_out`. A
+plan's jobs from the project job list and the public feed. Interim means appear for dev blocks only; held-out,
+check, train, calib and role-less blocks show progress only (a failure's traceback line for dev and check only), and a held-out block that has started is flagged `touched_held_out`. A
 `progress.json` older than 180 s (or the job's `stall_s`) means its runner is gone, and the job shows as stalled.
