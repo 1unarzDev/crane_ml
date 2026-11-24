@@ -34,6 +34,7 @@ JUDGE G4 6/6 usable | quad.time_to_last_gate bias -3.09 [-4.71,-1.25] band 0.5 F
 | `sources/fastsim.py` | fastsim run directories |
 | `packs/generic_motion.py` | robot-agnostic motion metrics |
 | `packs/toy_quad/` | a planar quadrotor (sim, source, pack, replayer): the second domain and the seeded-fault fixture |
+| `packs/motion_quality/` | motion quality of a recorded Nav2 run from its bag (chatter, shake, jerk, spin, overshoot, stalls) against `motion_quality.yaml`: `python3 -m judge.packs.motion_quality BAG_DIR` |
 | `packs/roboboat_course/` | the RoboBoat referee (per-task PASS/FAIL/N/A from course truth and the true track) and its pack: `python3 -m judge.packs.roboboat_course SESSION_DIR [TASK...]` |
 
 ## A new robot

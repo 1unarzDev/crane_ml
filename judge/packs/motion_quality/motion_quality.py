@@ -1,6 +1,6 @@
-"""Score the motion quality of a recorded Nav2 run (crane_ml sim) from a rosbag2 directory.
+"""Score the motion quality of a recorded Nav2 run (T2 sim or the boat) from a rosbag2 directory.
 
-    python3 motion_quality.py <bag_dir> [thresholds.yaml]
+    python3 -m judge.packs.motion_quality <bag_dir> [thresholds.yaml]
 
 prints one JSON document: {"metrics", "pass", "segments", "inputs", "bag"}. Metric
 definitions, parameters and pass thresholds live in motion_quality.yaml beside this file.
@@ -473,7 +473,7 @@ def _jsonable(value):
 
 def main(argv):
     if len(argv) not in (2, 3):
-        sys.exit('usage: motion_quality.py <bag_dir> [thresholds.yaml]')
+        sys.exit('usage: python3 -m judge.packs.motion_quality <bag_dir> [thresholds.yaml]')
     thresholds = yaml.safe_load(Path(argv[2] if len(argv) == 3 else DEFAULTS).read_text())
     series = read_bag(argv[1])
     result = score(series, thresholds)

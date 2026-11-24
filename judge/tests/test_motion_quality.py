@@ -1,11 +1,11 @@
-"""Tests for the ROS-free core of motion_quality.py on synthetic series (no bag, no ROS)."""
+"""Tests for the ROS-free core of the motion_quality pack on synthetic series (no bag, no ROS)."""
 from pathlib import Path
 
 import numpy as np
 import pytest
 import yaml
 
-import motion_quality as mq
+from judge.packs.motion_quality import motion_quality as mq
 
 THRESHOLDS = yaml.safe_load(Path(mq.__file__).with_name('motion_quality.yaml').read_text())
 P = THRESHOLDS['params']
