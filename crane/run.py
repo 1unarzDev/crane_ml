@@ -87,14 +87,22 @@ def main(args):
     provenance = {'git': {'core': identity.git_state(Path(batch.__file__).parent), 'adapter': adapter_git},
                   'config_file': str(config), 'tier': tier, 'overrides': list(args.set)}
     started = time.perf_counter()
+    tracker = batch._progress(True, args.out, args.variant, len(seeds))
     try:
-        results = batch.run_batch(cfg, base, seeds, args.out, args.variant, args.workers, provenance)
+        results = batch.run_batch(cfg, base, seeds, args.out, args.variant, args.workers, provenance,
+                                  force=args.force, progress=tracker or False)
+    except batch.RunDirConflict as error:
+        print(f'crane run: {error}', file=sys.stderr)
+        return 2
     except FileNotFoundError as error:
         print(f'crane run: {error.filename or error} is missing', file=sys.stderr)
         return 2
     wall = time.perf_counter() - started
     for r in results:
         print(f'{r.out}: {r.outcome} in {r.sim_s:.0f} s sim ({r.wall_s:.2f} s wall)')
-    print(f'{len(results)} runs at {tier}, {wall:.1f} s wall: {len(results) / wall:.1f} runs/s')
+    reused = tracker.skipped if tracker else sum(r.wall_s == 0.0 for r in results)
+    ran = len(results) - reused
+    print(f'{ran} runs at {tier}, {wall:.1f} s wall: {ran / wall:.1f} runs/s'
+          + (f', {reused} reused (same run identity)' if reused else ''))
     print(f'fidelity: {cfg["fidelity"]}')
     return 0

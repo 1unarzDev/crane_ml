@@ -73,6 +73,13 @@ def test_run_t0_writes_a_run_dir_per_seed_from_a_config_or_a_domain(tmp_path, mo
     assert 'not yet available' in (err := capsys.readouterr().err) and 'crane sim up' in err
     assert crane_run.overrides(['a.b=1', 'a.c=[1, 2]', 'd=x']) == {'a': {'b': 1, 'c': [1, 2]}, 'd': 'x'}
 
+    # a rerun reuses matching run dirs; another identity is refused in one line until --force
+    a = ['run', '--config', str(TOY), '--out', str(tmp_path / 'a'), *common]
+    assert cli.main(a) == 0 and '0 runs at T0' in (out := capsys.readouterr().out) and '3 reused' in out
+    assert cli.main([*a, '--set', 'vehicle.gain=0.5']) == 2            # another identity: one line naming --force
+    assert len(err := capsys.readouterr().err.strip().splitlines()) == 1 and 'rerun with --force' in err[0]
+    assert cli.main([*a, '--set', 'vehicle.gain=0.5', '--force']) == 0 and '3 runs at T0' in capsys.readouterr().out
+
 
 def test_run_domain_from_a_clean_checkout_applies_overrides_and_makes_missing_scenarios(tmp_path, capsys):
     # the real toy domain: its tier overrides name a generator, the scenarios do not exist yet

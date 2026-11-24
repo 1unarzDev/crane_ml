@@ -7,11 +7,13 @@ Each seed's scenario comes from the config's ``scenarios`` source; each run is
 ``OUT/<variant>/s<seed>`` (run.py). A dirty adapter tree is refused unless ``--allow-dirty``
 (then every run records it). Workers are spawned processes, never above ``max_workers``.
 
-Rerunning resumes: a seed whose run directory holds the same run identity is reused, not rerun. A
-directory with another identity, or an incomplete one, is refused (``--force`` moves it to
-``<dir>.stale-N``). Each run is written to a hidden ``.s<seed>.partial-<pid>`` beside it and renamed
+Rerunning resumes: a seed whose run directory holds the same run identity is reused, not rerun; its
+run.json keeps the provenance (git state, ``--allow-dirty``) of the run that wrote it, since provenance is
+not part of the identity. A reused ERROR run is moved to ``<dir>.stale-N`` and run again. A directory
+with another identity, or an incomplete one, is refused (``--force`` moves it to ``<dir>.stale-N``). Each run is written to a hidden ``.s<seed>.partial-<pid>`` beside it and renamed
 into place, so a run directory is always whole. ``OUT/progress.json`` (crane.progress; under
-``$CRANE_RUN_DIR`` when set) tracks the batch; ``OUT/<variant>`` holds only run directories.
+``$CRANE_RUN_DIR`` when set) tracks the latest batch into OUT, its variant as ``label``; ``OUT/<variant>``
+holds only run directories.
 """
 
 import argparse
@@ -139,8 +141,11 @@ def _check(out, want, force):
         return None
     run = _existing(out)
     have = (run or {}).get('identity', {}).get('run_sha256')
-    if have == want['run_sha256']:
+    if have == want['run_sha256'] and run.get('outcome') != 'ERROR':
         return _reused(out, run)
+    if have == want['run_sha256']:  # this run, but it errored: keep it aside and run it again
+        out.rename(_stale(out))
+        return None
     if force:
         out.rename(_stale(out))
         return None

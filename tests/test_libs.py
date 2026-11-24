@@ -108,12 +108,13 @@ def test_an_interrupted_batch_resumes_and_reruns_only_the_missing_seed(toy_batch
     trees = {r.seed: tree_sha(r.out) for r in first}
     shutil.rmtree(out / 'base' / 's4')          # the interruption
     (out / 'base' / '.s2.partial-999999999').mkdir()   # and a dead worker's leftovers
+    (out / 'base' / '.s3.partial-1').mkdir()           # a live process's partial (pid 1) is left alone
     again = batch.run_batch(cfg, base, range(6), out, workers=3)
     assert [r.seed for r in again] == list(range(6))
     assert [r.run_sha256 for r in again] == [r.run_sha256 for r in first]
     assert [r.wall_s == 0.0 for r in again] == [s != 4 for s in range(6)]   # only s4 ran
     assert {r.seed: tree_sha(r.out) for r in again} == trees                # byte for byte
-    assert sorted(p.name for p in (out / 'base').iterdir()) == [f's{s}' for s in range(6)]   # run dirs only
+    assert sorted(p.name for p in (out / 'base').iterdir()) == ['.s3.partial-1', *(f's{s}' for s in range(6))]
     assert progress.read(out)['done'] == 6 and progress.read(out)['label'] == 'base'
 
 
@@ -128,4 +129,8 @@ def test_a_conflicting_or_partial_run_directory_is_refused_unless_forced(toy_bat
         batch.run_batch(cfg, base, [2], out, workers=1)
     forced = batch.run_batch(other, base, [1, 2], out, workers=2, force=True)
     assert {r.wall_s > 0 for r in forced} == {True}
+    run = out / 'base' / 's1' / 'run.json'                          # this run, but it errored: rerun
+    run.write_text(json.dumps({**json.loads(run.read_text()), 'outcome': 'ERROR'}))
+    [again] = batch.run_batch(other, base, [1], out, workers=1)
+    assert again.wall_s > 0 and again.outcome != 'ERROR' and len(list((out / 'base').glob('s1.stale-*'))) == 2
     assert (out / 'base' / 's1.stale-1' / 'run.json').exists() and (out / 'base' / 's2.stale-1').exists()

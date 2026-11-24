@@ -83,6 +83,8 @@ def build_parser():
     r.add_argument('--variant', default='base', help='name of this design or parameter set (default base)')
     r.add_argument('--generate', action='store_true', help="regenerate the seeds' scenarios with the config's generator (missing ones are always generated)")
     r.add_argument('--allow-dirty', action='store_true', help='run an adapter tree with uncommitted changes')
+    r.add_argument('--force', action='store_true', help='move a run dir holding another run (or an incomplete one) '
+                   'to <dir>.stale-N and rerun it; without it such a dir is refused and matching ones are reused')
     r.add_argument('--astro-test', metavar='TEST', help="astro's test or group (still, couple-*, speed-*, steps-*, "
                    'nav2, all) as a T0/T1 scenario: runs land in OUT/<card>/<test>/s<seed> with metrics named as '
                    "astro's result fields")
