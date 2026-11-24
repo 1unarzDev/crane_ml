@@ -137,9 +137,12 @@ def splits(sources, by='seed', ratios=None, salt='crane', domain=None, held_out=
         out[assign[k]]['units'].append(units[k])
         out[assign[k]]['rows'] += counts[k]
     n = len(units)
+    empty = [name for name, r in ratios.items() if r > 0 and not out[name]['units']]
+    warnings = [f"split {name} is empty ({n} units hashed; the hash does not stratify, so few units can leave a "
+                'split empty); add units or change --salt' for name in empty]
     return {'schema': SCHEMA, 'source': [str(Path(s).expanduser().resolve()) for s in sources], 'by': by,
             'columns': list(cols), 'ratios': ratios, 'salt': salt, 'held_out_rule': rule,
-            'units': n, 'rows': len(rows),
+            'units': n, 'rows': len(rows), 'warnings': warnings,
             'splits': {name: {**s, 'n_units': len(s['units']), 'fraction': round(len(s['units']) / n, 4)}
                        for name, s in out.items()}}
 
@@ -198,5 +201,7 @@ def main(args):
     out.table([(name, f"{s['n_units']} units", f"{s['rows']} rows", f"{s['fraction']:.1%}")
                for name, s in doc['splits'].items()])
     out.line(f"  held-out rule: {'; '.join(doc['held_out_rule'])}")
+    for w in doc['warnings']:
+        out.line(f'  warning: {w}')
     out.next(f'crane data export {args.sources[0]} --split {dest}:{next(iter(doc["ratios"]))} --out DIR')
     return output.OK

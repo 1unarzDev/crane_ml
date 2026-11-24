@@ -5,12 +5,17 @@
     crane data export /tmp/ds --split /tmp/ds/splits.json:train --out /tmp/train
     crane data schema /tmp/ds
 
-A source is a dataset (a dir with manifest.json, or one row file), a run directory (run.json: one metrics-first row
+A source is a dataset (a dir with manifest.json, or one row file: .parquet .csv .npz .jsonl), a run directory (run.json: one metrics-first row
 per run, with its recorded arrays as ``obs`` / ``traj`` columns) or any dir holding those (walked; ``.stale-N`` and
 partial dirs are skipped).
+
+The export notes, never refuses: rows that splits would call held-out (``held_count``) and non-finite floats per
+column (``nonfinite``). Held-out outcomes are the study layer's to withhold; a cluster job's metrics.json is checked
+where it is written.
 """
 
 import json
+import math
 import operator
 import os
 from pathlib import Path
@@ -37,7 +42,7 @@ def find(src):
             return [('run', p.parent)]
         if p.suffix in R.EXT.values() and not p.name.endswith(R.ARRAYS):
             return [('dataset', p)]
-        raise SourceError(f'{p}: not a row file (.parquet, .csv, .npz) or a run.json')
+        raise SourceError(f'{p}: not a row file (.parquet, .csv, .npz, .jsonl) or a run.json')
     if not p.is_dir():
         raise SourceError(f'{p}: no such file or dir')
     if (p / R.MANIFEST).is_file():
@@ -193,12 +198,17 @@ def export(sources, out, fmt='npz', select=None, where=None, part=None, split=No
     def keep(row):
         return _match(row, where) and (inside is None or inside(row))
     select = parse_select(select)
-    schema, n, seen = {}, 0, set()
+    from crane.data.splits import held_rule
+    held = held_rule()[0]
+    schema, n, seen, n_held, nonfinite = {}, 0, set(), 0, {}
     for row, _ in iter_rows(sources):        # pass 1: the columns and their types
         seen.update(row)
         if keep(row):
+            n_held += bool(held(row))
             for k, v in _pick(row, select).items():
                 schema[k] = R.widen(schema.get(k), R.infer_type(v))
+                if isinstance(v, float) and not math.isfinite(v):
+                    nonfinite[k] = nonfinite.get(k, 0) + 1
             n += 1
     unknown = [c for c in [*(select or ()), *(c for c, *_ in where)] if c not in seen]
     if unknown:
@@ -213,7 +223,7 @@ def export(sources, out, fmt='npz', select=None, where=None, part=None, split=No
                 w.write(_pick(row, select))
     extra = {'source': [str(Path(s).expanduser().resolve()) for s in sources], 'format': w.fmt,
              'select': select, 'split': split, 'where': [f'{c}{s}{",".join(map(str, v))}' for c, s, _, v in where],
-             'arrays': {k: v for k, v in meta.items() if k in schema}}
+             'arrays': {k: v for k, v in meta.items() if k in schema}, 'held_count': n_held, 'nonfinite': nonfinite}
     return R.write_manifest(out, schema, w.files, extra)
 
 
@@ -251,13 +261,20 @@ def main(args):
     except (SourceError, R.SchemaError, SplitError) as error:
         return out.usage('data export', str(error))
     if out.doc({'schema': 'crane.data.export/1', 'out': str(dest), 'manifest': str(dest / R.MANIFEST),
-                'rows': doc['rows'], 'columns': doc['columns'], 'files': doc['files']}):
+                'rows': doc['rows'], 'columns': doc['columns'], 'files': doc['files'],
+                'held_count': doc['held_count'], 'nonfinite': doc['nonfinite']}):
         return output.OK
     size = sum((dest / f['path']).stat().st_size for f in doc['files'])
     out.say(f"crane data export: {doc['rows']} rows, {len(doc['columns'])} columns, {len(doc['files'])} file(s), "
             f"{size / 1e6:.1f} MB, {doc['format']}")
     out.table([(f['path'], f"{f['rows']} rows", f['sha256'][:12]) for f in doc['files']])
     out.line(f'  manifest  {dest / R.MANIFEST}')
+    if doc['held_count']:
+        out.line(f"  note: {doc['held_count']} row(s) are tagged held-out and carry their outcomes; "
+                 'keep this dataset out of training (or export --split FILE:train)')
+    if doc['nonfinite']:
+        out.line('  note: non-finite floats: ' + ', '.join(f'{k} {v}' for k, v in doc['nonfinite'].items())
+                 + ' (nan/inf; a cluster metrics.json must not carry them)')
     out.next(f'crane data schema {dest}')
     return output.OK
 

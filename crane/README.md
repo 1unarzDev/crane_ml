@@ -34,7 +34,7 @@ Every command, its params and examples: [Docs/CLI.md](../Docs/CLI.md), generated
 - `crane/run.py`: `--domain D [--tier T]` reads `config/domains/D.yaml` through `bench.fast.domain_tier`: the tier
   (default the first) names a fastsim config and optional `overrides` merged over it. Missing scenarios are made by
   the config's generator, or the dir is named when there is none; `--generate` regenerates.
-- `crane/data/`: `rows.py` (RowWriter, read_rows and manifest.json with a sha256 per file; parquet, csv or npz),
+- `crane/data/`: `rows.py` (RowWriter, read_rows and manifest.json with a sha256 per file; parquet, csv, npz or jsonl),
   `recorder.py` (a run's `record:` level: events, decimated trajectories, full-rate obs and actions; `Store` for
   study-level arrays), `export.py` (`crane data export`, `crane data schema`) and `splits.py` (`crane data splits`,
   held-out-safe). Examples: [Docs/Data.md](../Docs/Data.md).

@@ -31,9 +31,12 @@ rows = list(read_rows(out))
 
 - Types: `int`, `float`, `str`, `bool`, `json` (any JSON value) and `array:DTYPE` (one numpy array per row). A missing
   value is null.
-- `fmt`: `auto` (parquet when pyarrow imports, else csv), `parquet`, `csv` or `npz`. csv and npz read back with the
-  stdlib and numpy alone; parquet needs the `[data]` extra (`pip install 'crane[data]'`).
-- Array columns are stored in npz. With `fmt='npz'` they sit in the part itself; with csv or parquet they go in
+- `fmt`: `auto` (parquet when pyarrow imports, else csv), `parquet`, `csv`, `npz` or `jsonl`. csv, jsonl and npz read
+  back with the stdlib and numpy alone; parquet needs the `[data]` extra (`pip install 'crane[data]'`).
+- `read_rows` also reads any `.jsonl` of one JSON object per line, such as a unit cache's `records.jsonl`.
+- Null and NaN: parquet, jsonl and npz keep a null apart from a float NaN. csv has one empty cell for null, so an
+  empty string reads back as null; a NaN reads back as NaN.
+- Array columns are stored in npz. With `fmt='npz'` they sit in the part itself; with csv, jsonl or parquet they go in
   `PART.arrays.npz` beside it, row for row. Rows of unequal length are padded (NaN for floats, 0 for ints), and
   `COL@len` holds each length.
 - A part rolls over to `PART-001`, `PART-002`... at one million rows or about 90 MB of arrays, so every file stays
@@ -97,6 +100,8 @@ store.close()                                                  # out/arrays/obs/
 - `--select seed,outcome,obs` keeps only those columns. `--where 'seed>=10'` keeps matching rows; the operators are
   `= != > >= < <=`, and `=` and `!=` take a list `a,b`. `--split FILE:NAME` keeps one split.
 - `--out` must be new or empty, because a dataset is written once.
+- The export notes, without refusing, rows tagged held-out (they carry their outcomes; withholding them is the study
+  layer's job) and non-finite floats per column. `--json` has them as `held_count` and `nonfinite`.
 - `crane data schema SRC` prints every column's name and type (for arrays also the rate and channels) and the row
   count. It reads a dataset's manifest, or scans run dirs.
 
@@ -105,7 +110,8 @@ store.close()                                                  # out/arrays/obs/
 `crane.data.splits/1`: `{by, columns, ratios, salt, held_out_rule, splits: {NAME: {units, rows, n_units, fraction}}}`.
 
 - A unit's split comes from a salted sha256 of its value. A unit therefore keeps its split as data grows. Fractions
-  are close to the ratios, not exact.
+  are close to the ratios, not exact. With few units a split can come out empty; the output then warns
+  (`warnings` in the file).
 - A unit is `held-out`, and in no other split, when any of its rows is held-out. A row is held-out when:
   - its `role`, `block_role` or `tag` column is held-out;
   - its `held_out` column is true;

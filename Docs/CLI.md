@@ -340,16 +340,16 @@ crane data export /tmp/runs --select seed,outcome,obs --where 'seed>=10' --out /
 crane data export /tmp/ds --split /tmp/ds/splits.json:train --out /tmp/train
 ```
 
-Run dirs, batch outputs and datasets to one columnar dataset (npz, parquet or csv) plus manifest.json with a sha256 per file; --select, --where and --split pick the rows.
+Run dirs, batch outputs and datasets to one columnar dataset (npz, parquet, csv or jsonl) plus manifest.json with a sha256 per file; --select, --where and --split pick the rows.
 
-What you'll see: one line (rows, columns, files, MB, format), one row per file (path, rows, sha256), the manifest path and next:. --json: {schema, out, manifest, rows, columns, files}.
+What you'll see: one line (rows, columns, files, MB, format), one row per file (path, rows, sha256), the manifest path, a note for held-out rows or non-finite floats, next:. --json: {schema, out, manifest, rows, columns, files, held_count, nonfinite}.
 
 A run dir gives one metrics-first row (seed, outcome, condition.*, metrics, commit, run_sha256) and its recorded arrays as obs / traj columns (record: in the domain YAML, Docs/Data.md). Array columns are stacked to rows x T x channels (shorter rows NaN-padded, COL@len their lengths); with csv or parquet they go to PART.arrays.npz beside each file. Files roll over at 90 MB. Exit 0 written, 2 usage (no rows, an unknown column, a non-empty --out).
 
 | Param | Type | Description |
 |---|---|---|
-| `sources` | list | Run dirs, batch outputs, datasets (dirs with manifest.json) or row files. |
-| `--format` | str | The file format (parquet needs pyarrow: the [data] extra). One of `npz`, `parquet`, `csv`. (default `npz`) |
+| `sources` | list | Run dirs, batch outputs, datasets (dirs with manifest.json) or row files (.parquet .csv .npz .jsonl). |
+| `--format` | str | The file format (parquet needs pyarrow: the [data] extra). One of `npz`, `parquet`, `csv`, `jsonl`. (default `npz`) |
 | `--select` | str | Columns to keep, comma-separated (default all). |
 | `--where` | str | Keep rows where COLUMN OP VALUE holds; OP is = != > >= < <=; = and != take a,b (repeatable, all must hold). |
 | `--split` | str | Keep the rows of one split of a crane data splits file. |

@@ -14,12 +14,14 @@ from fastsim.scenario import JsonScenarioFormat
 import toy
 
 TOY = Path(toy.__file__).parent
-FORMATS = ['csv', 'npz'] + (['parquet'] if R.have_parquet() else [])
+FORMATS = ['csv', 'npz', 'jsonl'] + (['parquet'] if R.have_parquet() else [])
 
 
 def _same(a, b):
     if isinstance(a, np.ndarray) or isinstance(b, np.ndarray):
         return a is not None and b is not None and a.dtype == b.dtype and np.array_equal(a, b, equal_nan=True)
+    if isinstance(a, float) and isinstance(b, float) and a != a:
+        return b != b                                  # NaN stays NaN, apart from null
     return a == b
 
 
@@ -27,7 +29,7 @@ def _same(a, b):
 def test_rows_round_trip_with_nulls_arrays_rollover_and_a_sha256_manifest(fmt, tmp_path):
     schema = {'seed': 'int', 'arm': 'str', 'score': 'float', 'ok': 'bool', 'cond': 'json', 'obs': 'array:float16'}
     rng = np.random.default_rng(0)
-    rows = [{'seed': s, 'arm': 'ab'[s % 2], 'score': None if s == 3 else s / 7, 'ok': s % 3 == 0,
+    rows = [{'seed': s, 'arm': 'ab'[s % 2], 'score': None if s == 3 else float('nan') if s == 5 else s / 7, 'ok': s % 3 == 0,
              'cond': {'mass': s, 'tags': ['x']} if s != 4 else None,
              'obs': rng.normal(size=(10 + s, 3)).astype(np.float16) if s != 2 else None} for s in range(7)]
     w = R.RowWriter(tmp_path / 'ds', schema, fmt=fmt, max_rows=3)      # 7 rows: three parts
@@ -54,6 +56,21 @@ def test_rows_round_trip_with_nulls_arrays_rollover_and_a_sha256_manifest(fmt, t
         for row in rows:
             again.write(row)
         assert [f['sha256'] for f in again.close()] == [f['sha256'] for f in files]
+
+
+def test_any_jsonl_of_objects_exports_like_a_dataset(tmp_path, capsys):
+    from crane.cache import UnitCache
+    cache = UnitCache(tmp_path / 'cache')               # the unit cache's records.jsonl is a row source as it is
+    for s in range(3):
+        cache.put({'seed': s, 'arm': 'a'}, {'score': s / 2, 'ok': s != 1})
+    src = next((tmp_path / 'cache').rglob('records.jsonl'))
+    assert cli.main(['data', 'export', str(src), '--format', 'csv', '--out', str(tmp_path / 'o'), '--json']) == 0
+    doc = json.loads(capsys.readouterr().out)
+    assert doc['rows'] == 3 and doc['held_count'] == 0 and R.verify(tmp_path / 'o') == []
+    assert len(list(R.read_rows(tmp_path / 'o'))) == 3
+    (tmp_path / 'bad.jsonl').write_text('{"a": 1}\n[1, 2]\n')
+    assert cli.main(['data', 'export', str(tmp_path / 'bad.jsonl'), '--out', str(tmp_path / 'b')]) == 2
+    assert 'bad.jsonl:2: a list, not an object' in capsys.readouterr().err
 
 
 def _cfg(record=None):
@@ -197,5 +214,9 @@ def test_splits_never_leak_held_out_and_never_move_a_unit_into_train(tmp_path, c
     assert cli.main(['data', 'export', str(full), '--split', f'{full / "splits.json"}:train', '--out',
                      str(tmp_path / 'train')]) == 0
     capsys.readouterr()
+    tiny = S.splits([dataset('tiny', [1, 2])], by='seed')       # two units cannot fill three splits
+    assert tiny['warnings'] and all('is empty' in w for w in tiny['warnings'])
+    assert cli.main(['data', 'export', str(full), '--out', str(tmp_path / 'all')]) == 0
+    assert f'{len(held_seeds)} row(s) are tagged held-out' in capsys.readouterr().out
     train = list(R.read_rows(tmp_path / 'train'))
     assert {r['seed'] for r in train} == set(sp['train']['units']) and not any(r['role'] == 'held-out' for r in train)

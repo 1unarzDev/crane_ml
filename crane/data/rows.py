@@ -1,4 +1,4 @@
-"""Columnar rows: one schema, parquet / csv / npz files, a manifest with a sha256 per file.
+"""Columnar rows: one schema, parquet / csv / npz / jsonl files, a manifest with a sha256 per file.
 
     w = RowWriter(out, {'seed': 'int', 'arm': 'str', 'score': 'float', 'obs': 'array:float16'})
     w.write({'seed': 3, 'arm': 'a', 'score': 0.5, 'obs': array_T_by_C})
@@ -13,13 +13,16 @@ the csv/parquet file, row for row. In npz an array column is stacked to (rows, *
 dimension are padded (NaN, or 0 for ints) and ``COL@len`` holds each row's length. A file rolls over to the next
 (``PART-001``...) at ``max_rows`` rows or about ``max_bytes`` of arrays, so no artifact passes the cluster's 95 MB.
 npz files are written with fixed zip timestamps: equal rows give equal bytes.
+
+Nulls and NaN: parquet, jsonl and npz keep a null and a float NaN apart (npz marks nulls in ``COL@null``; jsonl
+writes ``NaN`` as Python's json does). csv has one empty cell for null: an empty string reads back as null, a NaN
+reads back as NaN. Any ``.jsonl`` of one JSON object per line reads as rows (e.g. a UnitCache ``records.jsonl``).
 """
 
 import csv
 import hashlib
 import io
 import json
-import math
 import os
 from pathlib import Path
 import tempfile
@@ -30,7 +33,7 @@ import numpy as np
 MANIFEST = 'manifest.json'
 SCHEMA = 'crane.data.manifest/1'
 SCALARS = ('int', 'float', 'str', 'bool', 'json')
-EXT = {'parquet': '.parquet', 'csv': '.csv', 'npz': '.npz'}
+EXT = {'parquet': '.parquet', 'csv': '.csv', 'npz': '.npz', 'jsonl': '.jsonl'}
 ARRAYS = '.arrays.npz'
 LEN = '@len'
 NULL = '@null'
@@ -114,7 +117,7 @@ class RowWriter:
         if fmt == 'auto':
             fmt = 'parquet' if have_parquet() else 'csv'
         if fmt not in EXT:
-            raise SchemaError(f"format {fmt!r}: use auto, parquet, npz or csv")
+            raise SchemaError(f"format {fmt!r}: use auto, parquet, npz, csv or jsonl")
         if fmt == 'parquet':
             _need_parquet('parquet')
         self.fmt, self.max_rows, self.max_bytes = fmt, int(max_rows), int(max_bytes)
@@ -179,7 +182,7 @@ class RowWriter:
         if self.fmt == 'npz':
             self._emit(f'{stem}.npz', npz_bytes({**_np_scalars(scalars, self.schema), **_np_arrays(arrays, self.schema)}))
         else:
-            data = _csv_bytes(scalars, self.schema, self._n) if self.fmt == 'csv' else _parquet_bytes(scalars, self.schema)
+            data = {'csv': _csv_bytes, 'jsonl': _jsonl_bytes}.get(self.fmt, _parquet_bytes)(scalars, self.schema, self._n)
             self._emit(stem + EXT[self.fmt], data)
             if arrays:
                 self._emit(stem + ARRAYS, npz_bytes(_np_arrays(arrays, self.schema)))
@@ -223,7 +226,19 @@ def _csv_bytes(cols, schema, n):
     return buf.getvalue().encode()
 
 
-def _parquet_bytes(cols, schema):
+def _jsonl_bytes(cols, schema, n):
+    names = list(cols)
+    out = []
+    for i in range(n):
+        row = {}
+        for c in names:
+            v = cols[c][i]
+            row[c] = json.loads(v) if schema[c] == 'json' and v is not None else v
+        out.append(json.dumps(row, separators=(',', ':')) + '\n')
+    return ''.join(out).encode()
+
+
+def _parquet_bytes(cols, schema, n=None):
     import pyarrow as pa
     import pyarrow.parquet as pq
     types = {'int': pa.int64(), 'float': pa.float64(), 'str': pa.string(), 'bool': pa.bool_(), 'json': pa.string()}
@@ -239,7 +254,6 @@ def _np_scalars(cols, schema):
         kind, nulls = schema[name], np.array([v is None for v in values], dtype=bool)
         if kind == 'float':
             out[name] = np.array([np.nan if v is None else v for v in values], dtype=np.float64)
-            nulls = None   # NaN is the null
         elif kind == 'int':
             out[name] = np.array([0 if v is None else v for v in values], dtype=np.int64)
         elif kind == 'bool':
@@ -353,8 +367,8 @@ def columns_of(path):
 
 
 def read_rows(path_or_dir):
-    """Every row of a file or a dataset dir, as dicts (arrays as numpy arrays). csv and npz need only the stdlib and
-    numpy; parquet needs pyarrow. A csv without a manifest beside it reads ints, floats and strings by their look."""
+    """Every row of a file or a dataset dir, as dicts (arrays as numpy arrays). csv, jsonl and npz need only the
+    stdlib and numpy; parquet needs pyarrow. A csv without a manifest beside it reads ints, floats and strings by their look."""
     for f in data_files(path_or_dir):
         yield from _read_file(f)
 
@@ -372,6 +386,8 @@ def _read_file(f):
         return
     if f.suffix == '.csv':
         rows = _read_csv(f, types)
+    elif f.suffix == '.jsonl':
+        rows = _read_jsonl(f)
     elif f.suffix == '.parquet':
         _need_parquet(f'reading {f.name}')
         import pyarrow.parquet as pq
@@ -380,7 +396,7 @@ def _read_file(f):
             rows = ({k: json.loads(v) if types.get(k) == 'json' and v is not None else v for k, v in r.items()}
                     for r in rows)
     else:
-        raise SchemaError(f'{f}: not a row file (.parquet, .csv, .npz)')
+        raise SchemaError(f'{f}: not a row file (.parquet, .csv, .npz, .jsonl)')
     side = f.with_name(f.name[:-len(f.suffix)] + ARRAYS)
     arrays = _npz_columns(side) if side.is_file() else None
     for i, row in enumerate(rows):
@@ -395,6 +411,20 @@ def _read_csv(f, types):
         header = next(reader, None) or []
         for values in reader:
             yield {k: _parse(v, (types or {}).get(k)) for k, v in zip(header, values)}
+
+
+def _read_jsonl(f):
+    with open(f) as fh:
+        for i, line in enumerate(fh, 1):
+            if not line.strip():
+                continue
+            try:
+                row = json.loads(line)
+            except ValueError:
+                raise SchemaError(f'{f}:{i}: not JSON; a .jsonl holds one JSON object per line') from None
+            if not isinstance(row, dict):
+                raise SchemaError(f'{f}:{i}: a {type(row).__name__}, not an object; a .jsonl row is one JSON object')
+            yield row
 
 
 def _parse(text, kind):
@@ -434,9 +464,7 @@ def _npz_columns(f):
             values = list(arr)
         else:
             values = arr.tolist()
-            if kind == 'float':
-                values = [None if isinstance(v, float) and math.isnan(v) else v for v in values]
-            elif kind == 'json':
+            if kind == 'json':
                 values = [None if v == '' else json.loads(v) for v in values]
         if name + NULL in raw:
             values = [None if null else v for v, null in zip(values, raw[name + NULL])]

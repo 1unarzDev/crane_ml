@@ -252,19 +252,20 @@ COMMANDS = [
     Command(('repro',), 'Rerun one run from its record and check it reproduces.', today='crane run with the run.json '
             'seed, config and overrides, then crane compare', examples=('crane repro RUN_ID --check',),
             params=(P('run_id', description='The run to reproduce.'),)),
-    Command(('data', 'export'), 'Run dirs, batch outputs and datasets to one columnar dataset (npz, parquet or csv) '
+    Command(('data', 'export'), 'Run dirs, batch outputs and datasets to one columnar dataset (npz, parquet, csv or jsonl) '
             'plus manifest.json with a sha256 per file; --select, --where and --split pick the rows.',
             'crane.data.export:main', flags=(JSON,), json='crane.data.export/1',
             about='one line (rows, columns, files, MB, format), one row per file (path, rows, sha256), the manifest '
-                  'path and next:. --json: {schema, out, manifest, rows, columns, files}.',
+                  'path, a note for held-out rows or non-finite floats, next:. --json: {schema, out, manifest, rows, '
+                  'columns, files, held_count, nonfinite}.',
             notes='A run dir gives one metrics-first row (seed, outcome, condition.*, metrics, commit, run_sha256) and '
                   'its recorded arrays as obs / traj columns (record: in the domain YAML, Docs/Data.md). Array columns '
                   'are stacked to rows x T x channels (shorter rows NaN-padded, COL@len their lengths); with csv or '
                   'parquet they go to PART.arrays.npz beside each file. Files roll over at 90 MB. Exit 0 written, '
                   '2 usage (no rows, an unknown column, a non-empty --out).',
             params=(P('sources', 'list', nargs='+', metavar='SRC', description='Run dirs, batch outputs, datasets '
-                      '(dirs with manifest.json) or row files.'),
-                    P('--format', choices=('npz', 'parquet', 'csv'), default='npz',
+                      '(dirs with manifest.json) or row files (.parquet .csv .npz .jsonl).'),
+                    P('--format', choices=('npz', 'parquet', 'csv', 'jsonl'), default='npz',
                       description='The file format (parquet needs pyarrow: the [data] extra).'),
                     P('--select', metavar='COLS', repeat=True, description='Columns to keep, comma-separated '
                       '(default all).'),
