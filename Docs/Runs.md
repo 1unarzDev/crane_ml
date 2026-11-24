@@ -24,13 +24,33 @@ One SQLite file, `~/.cache/crane/index.sqlite` (`CRANE_INDEX` moves it). It is d
 | study or dataset output | `manifest.json` with schema `crane.data.manifest/1` | `metrics.json` beside it |
 
 Columns: `run_id path source domain tier kind seed card backend dtype commit dirty outcome created study stage arm
-block run_sha256`. Metrics are flattened to dotted keys (`score.a`), at most 1000 per record. A fastsim batch's
+block run_sha256 sealed`. Metrics are flattened to dotted keys (`score.a`), at most 1000 per record. A fastsim batch's
 variant is its `arm`. `created` is the record's own time when it has one, else the meta file's mtime.
 
 Indexing is incremental: a record whose meta files keep their mtime is skipped, one whose bytes keep their sha256
-is not reread, and records gone from a root are dropped. Run dirs are not descended into; hidden dirs
+is not reread, and records gone from a root are dropped. A remembered root that no longer exists is dropped with
+its records and one stderr line. A study output without a `job_id` is named `<study>/<job dir>`. A record with more
+than 1000 metrics keeps the first 1000 by key, and `crane runs index` says so. Run dirs are not descended into; hidden dirs
 (`.s3.partial-*`) and `*.stale-N` dirs are skipped. `crane runs ls` on a new, empty index first indexes
 `~/.cache/crane/runs`.
+
+## Held-out runs
+
+A record whose `block` is `held-out` is sealed until its run is done:
+
+```
+run           domain  tier  seed  outcome  arm  created           success_rate  path
+nlc08/job-9   -       T1    -     sealed   b    2026-11-24 10:02  sealed        /tmp/study-out/nlc08/job-9
+crane runs: held-out: 1 run(s) sealed until done (progress only; no outcome or metrics)
+```
+
+- A sealed row keeps its keys and its progress (`{done, total, phase}`), but no outcome and no metrics. None are
+  stored, so `--where` metric and outcome terms never match it.
+- `show` prints `metrics: sealed` with the progress, `diff` compares no metrics for it, and `repro` refuses it.
+- Done means the record says `complete: true` or `status: done`, or every `progress.json` from the record's dir up
+  to its root is `phase: done` with done >= total. Sealed records are reread on each `crane runs index`.
+- Cluster rows take `block` from the coordinator's run; a held-out run whose status is not done is sealed the same
+  way.
 
 ## --where
 

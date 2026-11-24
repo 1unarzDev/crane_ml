@@ -275,7 +275,7 @@ List indexed runs, newest first: crane.run/1 dirs, fastsim run dirs and study ou
 
 What you'll see: an aligned table (run, domain, tier, seed, outcome, arm, created, any --metric columns, path), then shown/matched/indexed counts and next:. A new, empty index first indexes ~/.cache/crane/runs.
 
-The index is ~/.cache/crane/index.sqlite (CRANE_INDEX moves it); crane runs index ROOT adds roots. --cluster adds the coordinator's runs of --study (GET /v1/runs/query, read-only; CRANE_COORDINATOR, and CRANE_VIEWER_TOKEN or CRANE_TOKEN); offline it says so on stderr and lists the local runs.
+The index is ~/.cache/crane/index.sqlite (CRANE_INDEX moves it); crane runs index ROOT adds roots. --cluster adds the coordinator's runs of --study (GET /v1/runs/query, read-only; CRANE_COORDINATOR, and CRANE_VIEWER_TOKEN or CRANE_TOKEN); offline it says so on stderr and lists the local runs. A held-out run that is not done is sealed: outcome and metrics read `sealed`, none are stored, and stderr says how many.
 
 | Param | Type | Description |
 |---|---|---|
@@ -301,7 +301,7 @@ Runs matching --where: FIELD OP VALUE joined by and / or / not and parentheses; 
 
 What you'll see: the crane runs ls table for the matching runs. A bad expression is one line naming the column and an example (exit 2).
 
-OP is = != < <= > >= or ~ (glob; a value without * or ? matches anywhere) or in (A, B). Columns: run_id, path, source, domain, tier, kind, seed, card, backend, dtype, commit, dirty, outcome, created, study, stage, arm, block, run_sha256. `null` tests for a missing value; commit= and run_id= take a hex prefix. Parsed to SQL with bound parameters, never evaluated.
+OP is = != < <= > >= or ~ (glob; a value without * or ? matches anywhere) or in (A, B). Columns: run_id, path, source, domain, tier, kind, seed, card, backend, dtype, commit, dirty, outcome, created, study, stage, arm, block, run_sha256, sealed. A sealed (held-out, not done) run has no outcome or metrics, so metric terms never match it. `null` tests for a missing value; commit= and run_id= take a hex prefix. Parsed to SQL with bound parameters, never evaluated.
 
 | Param | Type | Description |
 |---|---|---|
@@ -361,7 +361,7 @@ Index the runs under ROOTs (default: the roots indexed before, else ~/.cache/cra
 
 What you'll see: each root, then `N records under R root(s): added, changed, unchanged, removed; total indexed`.
 
-Reads crane.run/1 dirs, fastsim run dirs (their crane.run/1 meta, nothing written) and study outputs (manifest.json crane.data.manifest/1 with metrics.json). Records gone from a root are dropped. Hidden and *.stale-N dirs are skipped.
+Reads crane.run/1 dirs, fastsim run dirs (their crane.run/1 meta, nothing written) and study outputs (manifest.json crane.data.manifest/1 with metrics.json). Records gone from a root are dropped, and so is a remembered root that is gone. Hidden and *.stale-N dirs are skipped. Held-out records stay sealed until done (the record says complete, or every progress.json up to the root is phase done) and are reread each time.
 
 | Param | Type | Description |
 |---|---|---|

@@ -14,6 +14,12 @@ Columns: path, root, source, run_id, domain, tier, kind, seed, card, backend, dt
 created, study, stage, arm, block, run_sha256, plus the meta as JSON. Each record's numbers go to ``metrics``
 (path, key, value), flattened to dotted keys (at most 1000 per record, the compute contract's bound).
 
+Held-out guard: a record whose block is held-out is *sealed* until its run is done. A sealed row keeps its keys
+and identity but no outcome and no metrics (none are stored, so no query can test them); ``sealed`` is 1 and
+``progress`` holds {done, total, phase}. Done means the record says so (``complete: true`` or ``status`` done), or
+every ``progress.json`` from the record's dir up to its root (three levels up without a root) is
+``phase: done`` with done >= total, and there is at least one. Sealed rows are reread on every update.
+
 Updates are incremental: a record whose meta files keep their mtime is skipped, one whose bytes keep their sha256
 only gets the new mtime; records gone from a root are dropped. Run dirs are not descended into; hidden dirs
 (``.s3.partial-*``) and ``*.stale-N`` dirs are skipped.
@@ -30,16 +36,19 @@ from pathlib import Path
 import re
 import sqlite3
 
-SCHEMA = 'crane.runs.index/2'
+SCHEMA = 'crane.runs.index/3'
 FASTSIM = 'crane.fastsim.run/1'
 RUN = 'crane.run/1'
 MANIFEST = 'crane.data.manifest/1'
 META_FILES = ('crane.run.json', 'run.json', 'metrics.json', 'manifest.json')
 MAX_METRICS = 1000
 STALE = re.compile(r'\.stale-\d+$')
+HELD_OUT = frozenset({'held-out', 'heldout', 'held_out'})
+DONE = frozenset({'done', 'complete', 'completed', 'finished', 'succeeded'})
+OUTCOME_KEYS = ('metrics', 'outcome', 'score', 'scores', 'result', 'results', 'summary')
 
 COLUMNS = ('path', 'root', 'source', 'run_id', 'domain', 'tier', 'kind', 'seed', 'card', 'backend', 'dtype',
-           'code_commit', 'dirty', 'outcome', 'created', 'study', 'stage', 'arm', 'block', 'run_sha256')
+           'code_commit', 'dirty', 'outcome', 'created', 'study', 'stage', 'arm', 'block', 'run_sha256', 'sealed')
 
 DDL = f"""
 CREATE TABLE IF NOT EXISTS info (key TEXT PRIMARY KEY, value TEXT);
@@ -47,7 +56,8 @@ CREATE TABLE IF NOT EXISTS roots (root TEXT PRIMARY KEY, indexed TEXT);
 CREATE TABLE IF NOT EXISTS runs (
   path TEXT PRIMARY KEY, root TEXT, source TEXT, run_id TEXT, domain TEXT, tier TEXT, kind TEXT, seed INTEGER,
   card TEXT, backend TEXT, dtype TEXT, code_commit TEXT, dirty INTEGER, outcome TEXT, created TEXT, study TEXT,
-  stage TEXT, arm TEXT, block TEXT, run_sha256 TEXT, mtime INTEGER, sha TEXT, meta TEXT);
+  stage TEXT, arm TEXT, block TEXT, run_sha256 TEXT, sealed INTEGER DEFAULT 0, mtime INTEGER, sha TEXT, meta TEXT,
+  progress TEXT, truncated INTEGER DEFAULT 0);
 CREATE INDEX IF NOT EXISTS runs_run_id ON runs (run_id);
 CREATE INDEX IF NOT EXISTS runs_created ON runs (created);
 CREATE TABLE IF NOT EXISTS metrics (path TEXT, key TEXT, value REAL, PRIMARY KEY (path, key)) WITHOUT ROWID;
@@ -83,8 +93,46 @@ def flat_numbers(tree, prefix='', out=None) -> dict:
     return out
 
 
-def _cap(metrics: dict) -> dict:
-    return dict(sorted(metrics.items())[:MAX_METRICS])
+def _cap(metrics: dict) -> tuple:
+    """(the first MAX_METRICS metrics by key, how many were dropped)."""
+    items = sorted(metrics.items())
+    return dict(items[:MAX_METRICS]), max(len(items) - MAX_METRICS, 0)
+
+
+def held_out(block) -> bool:
+    return str(block or '').strip().lower() in HELD_OUT
+
+
+def _progress_done(state) -> bool:
+    try:
+        return state.get('phase') == 'done' and int(state['done']) >= int(state['total'])
+    except (AttributeError, KeyError, TypeError, ValueError):
+        return False
+
+
+def run_state(d: Path, meta, root=None) -> tuple:
+    """(done, progress) of a record: done when the record says so or every progress.json from ``d`` up to
+    ``root`` (three levels without one) is done; progress is the innermost {done, total, phase} found."""
+    meta = meta if isinstance(meta, dict) else {}
+    if meta.get('complete') is True or str(meta.get('status') or '').lower() in DONE:
+        return True, None
+    states, here = [], Path(d)
+    stop = Path(root).resolve() if root else None
+    for _ in range(64 if stop else 4):
+        state = _json(here / 'progress.json')
+        if isinstance(state, dict):
+            states.append(state)
+        if (stop and here == stop) or here.parent == here:
+            break
+        here = here.parent
+    shown = {k: states[0].get(k) for k in ('done', 'total', 'phase')} if states else None
+    return bool(states) and all(_progress_done(s) for s in states), shown
+
+
+def seal(row: dict, progress=None) -> dict:
+    """The row with its outcome numbers taken out (held-out, not done)."""
+    meta = {k: v for k, v in (row.get('meta') or {}).items() if k not in OUTCOME_KEYS}
+    return {**row, 'outcome': None, 'metrics': {}, 'meta': meta, 'sealed': 1, 'progress': progress}
 
 
 def _first(*values):
@@ -142,8 +190,9 @@ def fastsim_metrics(native: dict) -> dict:
     return flat_numbers({k: v for k, v in m.items() if v is not None})
 
 
-def read_dir(path) -> dict | None:
-    """The index row of one directory (with ``meta`` and ``metrics``), or None when it holds no record."""
+def read_dir(path, root=None) -> dict | None:
+    """The index row of one directory (with ``meta`` and ``metrics``), or None when it holds no record.
+    A held-out record that is not done comes back sealed (no outcome, no metrics)."""
     d = Path(path).expanduser().resolve()
     present = [d / n for n in META_FILES if (d / n).is_file()]
     if not present:
@@ -177,7 +226,12 @@ def read_dir(path) -> dict | None:
                 row = _manifest_row(d, manifest, metrics_file)
     if row is None:
         return None
-    row['metrics'] = _cap(row['metrics'])
+    row['metrics'], row['truncated'] = _cap(row['metrics'])
+    row.setdefault('sealed', 0)
+    if held_out(row.get('block')):
+        done, progress = run_state(d, row['meta'], root)
+        if not done:
+            row = seal(row, progress)
     row.update(path=str(d), mtime=mtime, created=row.get('created') or _created(row['meta'], mtime))
     return row
 
@@ -204,7 +258,7 @@ def _manifest_row(d: Path, manifest, metrics_file) -> dict:
     seeds = manifest.get('seeds')
     seed = manifest.get('seed', seeds[0] if isinstance(seeds, list) and len(seeds) == 1 else None)
     run_id = _first(manifest.get('run_id'), manifest.get('job_id'), manifest.get('id'),
-                    hashlib.sha256(str(d).encode()).hexdigest()[:16])
+                    f'{d.parent.name}/{d.name}')    # <study>/<job_id>: stable when the out dir moves
     return {'source': 'manifest', 'run_id': str(run_id), 'domain': manifest.get('domain'),
             'tier': manifest.get('tier'), 'kind': manifest.get('kind') or 'dataset', 'seed': seed,
             'card': _card(manifest.get('card')), 'backend': manifest.get('backend'), 'dtype': manifest.get('dtype'),
@@ -279,34 +333,42 @@ class Index:
         """Index every record under ``roots`` (incremental unless ``rebuild``); returns the counts."""
         if rebuild:
             self.rebuild()
-        stats = {'seen': 0, 'added': 0, 'changed': 0, 'unchanged': 0, 'removed': 0, 'roots': []}
+        stats = {'seen': 0, 'added': 0, 'changed': 0, 'unchanged': 0, 'removed': 0, 'sealed': 0, 'truncated': [],
+                 'roots': []}
         for root in roots:
             root = Path(root).expanduser().resolve()
             if not root.is_dir():
                 raise FileNotFoundError(str(root))
             stats['roots'].append(str(root))
-            known = {r['path']: (r['mtime'], r['sha']) for r in self.db.execute(
-                'SELECT path, mtime, sha FROM runs WHERE path = ? OR substr(path, 1, ?) = ?',
+            known = {r['path']: (r['mtime'], r['sha'], r['sealed']) for r in self.db.execute(
+                'SELECT path, mtime, sha, sealed FROM runs WHERE path = ? OR substr(path, 1, ?) = ?',
                 (str(root), len(str(root)) + 1, str(root) + os.sep))}
             seen = set()
             for d in walk(root):
                 key = str(d)
                 present = [d / n for n in META_FILES if (d / n).is_file()]
                 mtime = max(p.stat().st_mtime_ns for p in present)
-                if key in known and known[key][0] == mtime:
+                if key in known and known[key][0] == mtime and not known[key][2]:   # sealed: reread
                     seen.add(key)
                     stats['unchanged'] += 1
                     continue
                 sha = _sha(d)
-                if key in known and known[key][1] == sha:
+                if key in known and known[key][1] == sha and not known[key][2]:
                     self.db.execute('UPDATE runs SET mtime = ? WHERE path = ?', (mtime, key))
                     seen.add(key)
                     stats['unchanged'] += 1
                     continue
-                row = read_dir(d)
+                row = read_dir(d, root)
                 if row is None:
                     continue
                 seen.add(key)
+                stats['sealed'] += row['sealed']
+                if row['truncated']:
+                    stats['truncated'].append((key, row['truncated']))
+                if key in known and known[key][2] and row['sealed'] and known[key][1] == sha:
+                    stats['unchanged'] += 1             # still sealed, same bytes
+                    self._put(row, str(root), sha)       # (the progress may have moved)
+                    continue
                 stats['changed' if key in known else 'added'] += 1
                 self._put(row, str(root), sha)
             gone = set(known) - seen
@@ -327,9 +389,11 @@ class Index:
                 values['seed'] = int(values['seed'])
             except (TypeError, ValueError):
                 values['seed'] = None
-        self.db.execute(f'INSERT OR REPLACE INTO runs ({", ".join(COLUMNS)}, mtime, sha, meta) VALUES '
-                        f'({", ".join("?" * len(COLUMNS))}, ?, ?, ?)',
-                        [values[c] for c in COLUMNS] + [row['mtime'], sha, json.dumps(row['meta'], default=str)])
+        values['sealed'] = int(bool(values['sealed']))
+        self.db.execute(f'INSERT OR REPLACE INTO runs ({", ".join(COLUMNS)}, mtime, sha, meta, progress, truncated) '
+                        f'VALUES ({", ".join("?" * len(COLUMNS))}, ?, ?, ?, ?, ?)',
+                        [values[c] for c in COLUMNS] + [row['mtime'], sha, json.dumps(row['meta'], default=str),
+                                                        json.dumps(row.get('progress')), row.get('truncated') or 0])
         self.db.execute('DELETE FROM metrics WHERE path = ?', (row['path'],))
         self.db.executemany('INSERT INTO metrics VALUES (?, ?, ?)',
                             [(row['path'], k, v) for k, v in row['metrics'].items()])
@@ -348,9 +412,27 @@ class Index:
     @staticmethod
     def _row(r) -> dict:
         d = {k: r[k] for k in COLUMNS}
-        d['dirty'] = bool(d['dirty'])
+        d['dirty'], d['sealed'] = bool(d['dirty']), bool(d['sealed'])
         d['meta'] = json.loads(r['meta']) if r['meta'] else {}
+        d['progress'] = json.loads(r['progress']) if r['progress'] else None
+        d['truncated'] = r['truncated'] or 0
         return d
+
+    def forget(self, root) -> int:
+        """Drop a root and its rows; how many rows went."""
+        root = str(Path(root).expanduser().resolve())
+        cond, args = 'path = ? OR substr(path, 1, ?) = ?', (root, len(root) + 1, root + os.sep)
+        n = self.db.execute(f'SELECT count(*) FROM runs WHERE {cond}', args).fetchone()[0]
+        self.db.execute(f'DELETE FROM metrics WHERE {cond}', args)
+        self.db.execute(f'DELETE FROM runs WHERE {cond}', args)
+        self.db.execute('DELETE FROM roots WHERE root = ?', (root,))
+        self.db.commit()
+        return n
+
+    def sealed(self, where='1', params=()) -> int:
+        """How many rows matching a compiled condition are sealed held-out runs."""
+        return self.db.execute(f'SELECT count(*) FROM runs r WHERE r.sealed = 1 AND ({where})',
+                               list(params)).fetchone()[0]
 
     def metrics(self, path) -> dict:
         return {k: v for k, v in self.db.execute('SELECT key, value FROM metrics WHERE path = ? ORDER BY key',

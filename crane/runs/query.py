@@ -7,7 +7,7 @@
 A condition is FIELD OP VALUE, FIELD in (V, ...), joined by and / or / not and parentheses. OP is one of
 = != < <= > >= and ~ (a glob: * and ?; a value without either matches anywhere). FIELD is a column (run_id, path,
 source, domain, tier, kind, seed, card, backend, dtype, commit, dirty, outcome, created, study, stage, arm, block,
-run_sha256) or metric.NAME. VALUE is a bare word, a number or a quoted string; ``null`` (bare) with = / != tests
+run_sha256, sealed) or metric.NAME. A sealed (held-out, not done) run has no outcome and no metrics to match. VALUE is a bare word, a number or a quoted string; ``null`` (bare) with = / != tests
 for a missing value. tier takes T0|T1|T2 or abstract|dynamic|unity; commit= and run_id= with a short hex value
 match its prefix. The expression is parsed, never evaluated: fields come from a fixed list and every value is a
 bound SQL parameter.
@@ -21,7 +21,8 @@ from pathlib import Path
 import re
 
 from crane import output, select
-from crane.runs.index import COLUMNS, Index, RunNotFound, default_path, find, flat_numbers
+from crane.runs.index import (COLUMNS, DONE, MAX_METRICS, Index, RunNotFound, default_path, find, flat_numbers,
+                              held_out, seal)
 
 FIELDS = {**{c: c for c in COLUMNS if c not in ('root', 'code_commit')}, 'commit': 'code_commit', 'id': 'run_id'}
 TEXT_OPS = {'=': '=', '==': '=', '!=': '!=', '<': '<', '<=': '<=', '>': '>', '>=': '>=', '~': 'GLOB'}
@@ -184,7 +185,7 @@ class _Parser:
                 return float(value)
             if name == 'seed':
                 return int(value)
-            if name == 'dirty':
+            if name in ('dirty', 'sealed'):
                 lowered = value.lower()
                 if lowered not in ('true', 'false', '1', '0', 'yes', 'no'):
                     raise ValueError
@@ -192,7 +193,8 @@ class _Parser:
             if name == 'tier' and not quoted:
                 return select.parse_tier(value)
         except (ValueError, select.SelectError):
-            want = {'seed': 'an integer', 'dirty': 'true or false', 'tier': 'T0, T1 or T2'}.get(name, 'a number')
+            want = {'seed': 'an integer', 'dirty': 'true or false', 'sealed': 'true or false',
+                    'tier': 'T0, T1 or T2'}.get(name, 'a number')
             raise QueryError(f'{name} wants {want}, got {value!r} (column {col})') from None
         return value
 
@@ -253,15 +255,25 @@ def cluster_rows(study, limit=1000, timeout=5.0):
         run_id = str(m.get('run_id'))
         metrics = flat_numbers({'score': m.get('score'), 'iteration': m.get('iteration'),
                                 'progress': m.get('progress')})
-        rows.append({'path': f'cluster:{run_id}', 'source': 'cluster', 'run_id': run_id,
+        study = m.get('study')
+        block = m.get('block') or (study.get('block') if isinstance(study, dict) else None)
+        row = {'path': f'cluster:{run_id}', 'source': 'cluster', 'run_id': run_id,
                      'domain': m.get('domain'), 'tier': m.get('tier'), 'kind': None, 'seed': m.get('seed'),
                      'card': None, 'backend': m.get('backend'), 'dtype': None, 'code_commit': m.get('commit'),
                      'dirty': 0, 'outcome': m.get('outcome'), 'created': m.get('created_at') or m.get('reported_at'),
-                     'study': m.get('study'), 'stage': m.get('stage') or (None if m.get('iteration') is None
+                     'study': _name(m.get('study')), 'stage': m.get('stage') or (None if m.get('iteration') is None
                                                                           else str(m['iteration'])),
-                     'arm': m.get('variant') or m.get('arm'), 'block': None, 'run_sha256': None,
-                     'meta': m, 'metrics': metrics, 'mtime': 0})
+                     'arm': m.get('variant') or m.get('arm'), 'block': block, 'run_sha256': None,
+                     'meta': m, 'metrics': metrics, 'mtime': 0, 'sealed': 0, 'truncated': 0}
+        done = m.get('complete') is True or str(m.get('status') or m.get('state') or '').lower() in DONE
+        if held_out(block) and not done:
+            row = seal(row, {'done': m.get('progress'), 'total': None, 'phase': m.get('status') or m.get('state')})
+        rows.append(row)
     return rows, f'cluster: {len(rows)} runs of {study} from {url}'
+
+
+def _name(study):
+    return study.get('name') if isinstance(study, dict) else study
 
 
 def _with_cluster(rows, sql, params, limit, study, out):
@@ -299,7 +311,31 @@ def _fmt(v):
 
 def _public(row):
     return {**{k: row.get(k) for k in COLUMNS if k != 'root'}, 'commit': row.get('code_commit'),
-            'metrics': row.get('metrics') or {}}
+            'sealed': bool(row.get('sealed')), 'progress': row.get('progress') if row.get('sealed') else None,
+            'metrics': {} if row.get('sealed') else row.get('metrics') or {}}
+
+
+def _progress(p):
+    p = p or {}
+    if p.get('total') is not None:
+        return f"{p.get('done')}/{p.get('total')} {p.get('phase') or ''}".strip()
+    return 'no progress.json' if not p else f"{p.get('done') if p.get('done') is not None else '?'} " \
+        f"{p.get('phase') or ''}".strip()
+
+
+SEALED_NOTE = 'held-out: {n} run(s) sealed until done (progress only; no outcome or metrics)'
+
+
+def _sealed_note(out, idx, sql, params, rows, where_text):
+    """One stderr line when sealed held-out runs are shown, or could have matched a metric/outcome term."""
+    shown = sum(1 for r in rows if r.get('sealed'))
+    if shown:
+        print('crane runs: ' + SEALED_NOTE.format(n=shown), file=out.stderr)
+    elif re.search(r'\b(metric\.|outcome\b)', where_text or ''):
+        n = idx.sealed()
+        if n:
+            print(f'crane runs: held-out: {n} sealed run(s) in the index never match metric or outcome terms '
+                  'until done', file=out.stderr)
 
 
 def _open(out, what):
@@ -319,8 +355,9 @@ def _listing(args, where_parts, params, what):
         rows = idx.rows(sql, params, limit, metrics=True)
         total = idx.db.execute(f'SELECT count(*) FROM runs r WHERE {sql}', params).fetchone()[0]
         indexed, where = idx.count(), idx.path
-    if getattr(args, 'cluster', False):
-        rows = _with_cluster(rows, sql, params, limit, getattr(args, 'study', None), out)
+        if getattr(args, 'cluster', False):
+            rows = _with_cluster(rows, sql, params, limit, getattr(args, 'study', None), out)
+        _sealed_note(out, idx, sql, params, rows, getattr(args, 'where', ''))
     shown_metrics = list(args.metric or [])
     if out.doc({'schema': 'crane.runs.list/1', 'index': str(where), 'n': len(rows), 'matched': total,
                 'indexed': indexed, 'runs': [_public(r) for r in rows]}):
@@ -330,8 +367,9 @@ def _listing(args, where_parts, params, what):
         out.next('crane runs index ROOT' if not indexed else 'crane runs ls')
         return output.OK
     head = ['run', 'domain', 'tier', 'seed', 'outcome', 'arm', 'created', *shown_metrics, 'path']
-    body = [[(r['run_id'] or '')[:12], _fmt(r['domain']), _fmt(r['tier']), _fmt(r['seed']), _fmt(r['outcome']),
-             _fmt(r['arm']), _short_time(r['created']), *[_fmt((r['metrics'] or {}).get(m)) for m in shown_metrics],
+    body = [[(r['run_id'] or '')[:12], _fmt(r['domain']), _fmt(r['tier']), _fmt(r['seed']),
+             'sealed' if r.get('sealed') else _fmt(r['outcome']), _fmt(r['arm']), _short_time(r['created']),
+             *['sealed' if r.get('sealed') else _fmt((r['metrics'] or {}).get(m)) for m in shown_metrics],
              _home(r['path'])] for r in rows]
     out.table([head, *body])
     out.line(f'{len(rows)} shown, {total} matched, {indexed} indexed ({_home(where)})')
@@ -406,6 +444,8 @@ def show_main(args):
     files = _files(row['path'])
     meta = row.get('meta') or {}
     ident = meta.get('identity') or {}
+    if row.get('sealed'):
+        print('crane runs: ' + SEALED_NOTE.format(n=1), file=out.stderr)
     if out.doc({'schema': 'crane.runs.show/1', 'run': _public(row), 'meta': meta, 'files': files,
                 'next': _next_for(row)}):
         return output.OK
@@ -418,9 +458,12 @@ def show_main(args):
     fields += [(k, str(v)[:16]) for k, v in ident.items() if k.endswith('_sha256') and k != 'run_sha256']
     out.line('meta')
     out.table([(k, _fmt(v)) for k, v in fields])
-    metrics = row.get('metrics') or {}
-    out.line(f'metrics ({len(metrics)})')
-    out.table([(k, _fmt(v)) for k, v in metrics.items()] or [('(none)',)])
+    if row.get('sealed'):
+        out.line(f"metrics: sealed (held-out, not done; progress {_progress(row.get('progress'))})")
+    else:
+        metrics = row.get('metrics') or {}
+        out.line(f'metrics ({len(metrics)})')
+        out.table([(k, _fmt(v)) for k, v in metrics.items()] or [('(none)',)])
     out.line(f'files ({len(files)})')
     out.table([(f['name'], _size(f['size'])) for f in files] or [('(none)',)])
     out.next(_next_for(row))
@@ -508,6 +551,9 @@ def diff_main(args):
     if b is None:
         return code
     d = diff(a, b)
+    sealed = sum(1 for r in (a, b) if r.get('sealed'))
+    if sealed:
+        print('crane runs: ' + SEALED_NOTE.format(n=sealed) + '; their metrics are not compared', file=out.stderr)
     if out.doc(d):
         return output.OK
     out.line(f'A {a["run_id"][:12]}  {_home(a["path"])}')
@@ -533,22 +579,29 @@ def diff_main(args):
 def index_main(args):
     out = args.output
     with Index() as idx:
-        roots = [Path(r).expanduser() for r in (args.roots or [])] or [Path(r) for r in idx.roots()] or \
-            ([select.RUNS_ROOT] if select.RUNS_ROOT.is_dir() else [])
+        given = [Path(r).expanduser() for r in (args.roots or [])]
+        roots = given or [Path(r) for r in idx.roots()] or ([select.RUNS_ROOT] if select.RUNS_ROOT.is_dir() else [])
         if not roots:
             return out.usage('runs index', f'no roots given and {_home(select.RUNS_ROOT)} does not exist',
                              'crane runs index ROOT')
         missing = [r for r in roots if not r.is_dir()]
-        if missing:
+        if missing and given:
             return out.usage('runs index', f'{missing[0]} is not a directory', 'crane runs index ROOT')
-        stats = idx.update(roots, rebuild=args.rebuild)
+        dropped = [idx.forget(r) for r in missing]       # remembered roots that are gone: their rows go too
+        for r, n in zip(missing, dropped):
+            print(f'crane runs: {_home(r)} is gone; dropped it and its {n} record(s)', file=out.stderr)
+        stats = idx.update([r for r in roots if r.is_dir()], rebuild=args.rebuild)
+        stats['removed'] += sum(dropped)
         total = idx.count()
+    for path, n in stats['truncated']:
+        print(f'crane runs: {_home(path)} has {n} metrics past the {MAX_METRICS} kept (by key)', file=out.stderr)
     if out.doc({'schema': 'crane.runs.index/1', 'index': str(default_path()), 'indexed': total, **stats}):
         return output.OK
     for root in stats['roots']:
         out.line(f'  {_home(root)}')
     out.say(f"{stats['seen']} records under {len(stats['roots'])} root(s): {stats['added']} added, "
-            f"{stats['changed']} changed, {stats['unchanged']} unchanged, {stats['removed']} removed; "
+            f"{stats['changed']} changed, {stats['unchanged']} unchanged, {stats['removed']} removed"
+            f"{'; ' + str(stats['sealed']) + ' held-out sealed' if stats['sealed'] else ''}; "
             f"{total} indexed ({_home(default_path())})")
     out.next('crane runs ls')
     return output.OK

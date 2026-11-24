@@ -251,7 +251,8 @@ COMMANDS = [
             notes='The index is ~/.cache/crane/index.sqlite (CRANE_INDEX moves it); crane runs index ROOT adds '
                   "roots. --cluster adds the coordinator's runs of --study (GET /v1/runs/query, read-only; "
                   'CRANE_COORDINATOR, and CRANE_VIEWER_TOKEN or CRANE_TOKEN); offline it says so on stderr and '
-                  'lists the local runs.',
+                  'lists the local runs. A held-out run that is not done is sealed: outcome and metrics read '
+                  '`sealed`, none are stored, and stderr says how many.',
             params=(sel('domain', description='Only this domain.'), sel('tier', description='Only this tier.'),
                     P('--study', description='Only this study.'),
                     P('--where', metavar='EXPR', description='A condition, as crane runs query --where.'),
@@ -269,7 +270,8 @@ COMMANDS = [
                   'and an example (exit 2).',
             notes='OP is = != < <= > >= or ~ (glob; a value without * or ? matches anywhere) or in (A, B). Columns: '
                   'run_id, path, source, domain, tier, kind, seed, card, backend, dtype, commit, dirty, outcome, '
-                  'created, study, stage, arm, block, run_sha256. `null` tests for a missing value; commit= and '
+                  'created, study, stage, arm, block, run_sha256, sealed. A sealed (held-out, not done) run has '
+                  'no outcome or metrics, so metric terms never match it. `null` tests for a missing value; commit= and '
                   'run_id= take a hex prefix. Parsed to SQL with bound parameters, never evaluated.',
             params=(P('--where', metavar='EXPR', required=True, description='The condition.'),
                     P('--metric', repeat=True, metavar='NAME', description='Show this metric as a column '
@@ -302,7 +304,9 @@ COMMANDS = [
             about='each root, then `N records under R root(s): added, changed, unchanged, removed; total indexed`.',
             notes='Reads crane.run/1 dirs, fastsim run dirs (their crane.run/1 meta, nothing written) and study '
                   'outputs (manifest.json crane.data.manifest/1 with metrics.json). Records gone from a root are '
-                  'dropped. Hidden and *.stale-N dirs are skipped.',
+                  'dropped, and so is a remembered root that is gone. Hidden and *.stale-N dirs are skipped. '
+                  'Held-out records stay sealed until done (the record says complete, or every progress.json up '
+                  'to the root is phase done) and are reread each time.',
             params=(P('roots', 'list', nargs='*', metavar='ROOT', description='Directories to index.'),
                     P('--rebuild', 'bool', description='Drop every row first and read everything again.'),
                     P('--json', 'bool', description='One JSON document with the counts.')),

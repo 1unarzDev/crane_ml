@@ -61,6 +61,9 @@ def _git(repo, *args, check=False):
 
 def recipe(row) -> dict:
     """What to rerun: {native, seed, commit, repo, base, run_sha256}; Refused names why it cannot be."""
+    if row.get('sealed'):
+        raise Refused(f"{row['run_id'][:12]} is in a held-out block that is not done; it is sealed (progress only) "
+                      'until the block finishes')
     if row.get('source') != 'fastsim':
         raise Refused(f"{row['run_id'][:12]} is a {row.get('source')} record ({row.get('backend') or 'no backend'}); "
                       'repro reruns fastsim runs (T0/T1) only')

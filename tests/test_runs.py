@@ -59,6 +59,7 @@ def two_roots(tmp_path):
         'files': [{'path': 'part-0.csv', 'rows': 2, 'sha256': '0' * 64}], 'study': 'nlc08', 'stage': 'R',
         'arm': 'b', 'block': 'held-out', 'job_id': 'job-7', 'tier': 'T1', 'commit': 'feed' + '0' * 36}))
     (job / 'metrics.json').write_text(json.dumps({'success_rate': 0.75, 'n': 2}))
+    (job / 'progress.json').write_text(json.dumps({'done': 2, 'total': 2, 'phase': 'done'}))   # finished
     return {'a': a, 'b': b, 'fast': fast, 'slow': slow, 'quick': quick, 't2': t2, 'job': job,
             'idx': rindex.Index(tmp_path / 'index.sqlite')}
 
@@ -107,6 +108,81 @@ def test_index_two_roots_incrementally_and_query_them(two_roots, monkeypatch):
     assert rquery.cluster_rows('nlc08')[0] == [] and 'unreachable' in rquery.cluster_rows('nlc08')[1]
     assert cli.main(['runs', 'ls', '--tier', 'T1', '--where', 'metric.time>120', '--cluster', '--study', 's1',
                      '--json']) == 0
+
+
+def test_held_out_runs_stay_sealed_until_done(tmp_path, capsys, monkeypatch):
+    out = tmp_path / 'out' / 'nlc08'
+    jobs = {}
+    for name, block in (('job-1', 'held-out'), ('job-2', 'dev')):
+        d = out / name
+        d.mkdir(parents=True)
+        (d / 'manifest.json').write_text(json.dumps({
+            'schema': 'crane.data.manifest/1', 'columns': {'seed': 'int'}, 'files': [], 'study': 'nlc08',
+            'arm': 'b', 'block': block, 'tier': 'T1', 'outcome': 'SUCCEEDED', 'metrics': {'hidden': 9}}))
+        (d / 'metrics.json').write_text(json.dumps({'success_rate': 0.83}))
+        (d / 'progress.json').write_text(json.dumps({'done': 2, 'total': 2, 'phase': 'done'}))
+        jobs[block] = d
+    (out / 'progress.json').write_text(json.dumps({'done': 3, 'total': 10, 'phase': 'run'}))  # the block runs on
+    idx = rindex.Index(tmp_path / 'index.sqlite')
+    assert idx.update([tmp_path / 'out'])['sealed'] == 1
+    held = rindex.find(jobs['held-out'])                       # read directly, too: sealed
+    assert held['sealed'] and held['metrics'] == {} and held['outcome'] is None and 'metrics' not in held['meta']
+    assert held['run_id'] == 'nlc08/job-1' and held['progress'] == {'done': 2, 'total': 2, 'phase': 'done'}
+    stored = idx.db.execute('SELECT count(*) FROM metrics m JOIN runs r ON r.path = m.path WHERE r.sealed = 1')
+    assert stored.fetchone()[0] == 0                           # nothing to leak: no number was stored
+    assert ids(rquery.query('metric.success_rate>0.8', idx)) == ['nlc08/job-2']
+    assert ids(rquery.query('block=held-out and metric.success_rate>0.8', idx)) == []
+    assert ids(rquery.query('sealed=true', idx)) == ['nlc08/job-1']
+
+    monkeypatch.setenv('CRANE_INDEX', str(idx.path))
+    assert cli.main(['runs', 'ls', '--metric', 'success_rate']) == 0
+    got = capsys.readouterr()
+    line = next(x for x in got.out.splitlines() if 'job-1' in x)
+    assert '0.83' not in line and 'sealed' in line and 'held-out: 1 run(s) sealed' in got.err
+    assert cli.main(['runs', 'ls', '--json']) == 0
+    doc = json.loads(capsys.readouterr().out)
+    sealed = next(r for r in doc['runs'] if r['block'] == 'held-out')
+    assert sealed['sealed'] and sealed['metrics'] == {} and sealed['outcome'] is None
+    assert cli.main(['runs', 'show', 'nlc08/job-1', '--json']) == 0
+    assert '0.83' not in capsys.readouterr().out
+    assert cli.main(['repro', str(jobs['held-out'])]) == 2
+    assert 'held-out block that is not done' in capsys.readouterr().err
+
+    (out / 'progress.json').write_text(json.dumps({'done': 10, 'total': 10, 'phase': 'done'}))   # the block ends
+    stats = idx.update([tmp_path / 'out'])
+    assert (stats['sealed'], stats['changed']) == (0, 1)
+    assert ids(rquery.query('block=held-out and metric.success_rate>0.8', idx)) == ['nlc08/job-1']
+
+    # the coordinator's held-out runs are sealed the same way; a remembered root that is gone is dropped
+    import http.server
+    import threading
+
+    class Coordinator(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            body = json.dumps({'runs': [
+                {'run_id': 'c1', 'study': 'nlc08', 'block': 'held-out', 'status': 'running', 'score': 0.91},
+                {'run_id': 'c2', 'study': 'nlc08', 'block': 'dev', 'status': 'running', 'score': 0.42}]}).encode()
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *a):
+            pass
+    server = http.server.HTTPServer(('127.0.0.1', 0), Coordinator)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        monkeypatch.setenv('CRANE_COORDINATOR', f'http://127.0.0.1:{server.server_port}')
+        rows = {r['run_id']: r for r in rquery.cluster_rows('nlc08')[0]}
+        assert rows['c1']['sealed'] and rows['c1']['metrics'] == {} and 'score' not in rows['c1']['meta']
+        assert rows['c2']['metrics'] == {'score': 0.42} and rows['c2']['block'] == 'dev'
+        assert cli.main(['runs', 'query', '--where', 'metric.score>0.4', '--cluster', '--study', 'nlc08',
+                         '--json']) == 0
+        assert [r['run_id'] for r in json.loads(capsys.readouterr().out)['runs']] == ['c2']
+    finally:
+        server.shutdown()
+    shutil.rmtree(tmp_path / 'out')
+    assert cli.main(['runs', 'index']) == 0
+    assert 'is gone; dropped it and its 2 record(s)' in capsys.readouterr().err and idx.count() == 0
 
 
 def test_query_language_edge_cases_and_injection(two_roots, capsys, monkeypatch):
