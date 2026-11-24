@@ -34,13 +34,13 @@ JUDGE G4 6/6 usable | quad.time_to_last_gate bias -3.09 [-4.71,-1.25] band 0.5 F
 | `sources/fastsim.py` | fastsim run directories |
 | `packs/generic_motion.py` | robot-agnostic motion metrics |
 | `packs/toy_quad/` | a planar quadrotor (sim, source, pack, replayer): the second domain and the seeded-fault fixture |
+| `packs/roboboat_course/` | the RoboBoat referee (per-task PASS/FAIL/N/A from course truth and the true track) and its pack: `python3 -m judge.packs.roboboat_course SESSION_DIR [TASK...]` |
 
 ## A new robot
 
 Write a `Source` (artifact -> `RunRecord`) and a `Pack` (metrics, outcome, decision event kinds, a
 dependency graph, optionally a `Replayer` for the plant/interaction split). No core change; the
-contract test fails if the core imports a domain. RoboBoat lives in
-`mhseals_testing/mhseals_testing/judge_pack/`; the toy quadrotor here is the template.
+contract test fails if the core imports a domain. The toy quadrotor here is the template.
 
 ## How the gap origin is decided
 

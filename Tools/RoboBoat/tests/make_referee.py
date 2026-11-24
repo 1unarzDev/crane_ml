@@ -102,6 +102,16 @@ def short_of(target, origin, metres):
     return (target[0] + (origin[0] - target[0]) * metres / d, target[1] + (origin[1] - target[1]) * metres / d)
 
 
+def headings(track):
+    """Yaw along the direction of travel (the hull rectangle's heading); held while stationary."""
+    out, yaw = [], 0.0
+    for k, (_, x, y) in enumerate(track):
+        nxt = next(((x1, y1) for _, x1, y1 in track[k + 1:] if math.dist((x, y), (x1, y1)) > 1e-6), None)
+        yaw = round(math.atan2(nxt[1] - y, nxt[0] - x), 4) if nxt else yaw
+        out.append(yaw)
+    return out
+
+
 def write(name, truth, track, expected, events=()):
     """``expected`` is what the case is built to produce, stated independently of explain: dict
     leaves must equal explain's, lists match item by item, and {'approx', 'tol'} bounds a number."""
@@ -114,7 +124,8 @@ def write(name, truth, track, expected, events=()):
         target.symlink_to('../../fixtures/roboboat_2026-s1.json')
     else:
         target.write_text(json.dumps(truth, indent=1) + '\n')
-    (d / 'track.jsonl').write_text(''.join(json.dumps({'t': t, 'x': round(x, 3), 'y': round(y, 3), 'yaw': 0.0}) + '\n' for t, x, y in track))
+    (d / 'track.jsonl').write_text(''.join(json.dumps({'t': t, 'x': round(x, 3), 'y': round(y, 3), 'yaw': yaw})
+                                           + '\n' for (t, x, y), yaw in zip(track, headings(track))))
     (d / 'events.jsonl').write_text(''.join(json.dumps(e) + '\n' for e in events))
     (d / 'expected.json').write_text(json.dumps(expected, indent=1) + '\n')
 
