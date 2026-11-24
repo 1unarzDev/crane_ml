@@ -200,7 +200,8 @@ COMMANDS = [
             'crane.run:main', flags=(JSON, QUIET, DRY), groups=('source',), json='crane.run.summary/1', export=True,
             about='one line per seed (run dir, outcome, sim and wall time), then runs/s and next:. --dry-run prints '
                   'the resolved plan and runs nothing; --json prints one summary document.',
-            params=(sel('domain', group='source', description='A domain: config/domains/DOMAIN.yaml (boat, sub, toy).'),
+            params=(sel('domain', group='source', description='A domain: config/domains/DOMAIN.yaml (boat, sub, drones, '
+                                'modular, toy).'),
                     P('--config', 'path', group='source', description='A fastsim domain YAML, used as is.'),
                     sel('tier', choices=('T0', 'T1', 'T2', 'abstract', 'dynamic', 'unity'),
                         description="The tier (default: the domain's first tier, T0 with --config)."),
@@ -224,11 +225,15 @@ COMMANDS = [
                       'float64; jax on a consumer GPU wants float32 (bench/RESULTS.md).'),
                     P('--record', 'int', default=0, metavar='K', description='With --engine batched: also write '
                       'traj.ctraj with every K-th track row (default: run.json, events.jsonl, metrics.json only).'),
+                    P('--replay', 'path', metavar='TIMELINES', description='A domain whose tier replays logged '
+                      'command timelines (modular): an npz of cmd [M, T, 3]; every seed replays every timeline.'),
+                    sel('robot', description="The domain's robot (modular: an assembly, default the domain's)."),
+                    sel('env', description='The world (modular: route:NAME or route:random).'),
                     P('--astro-test', metavar='TEST', description="An astro test or group (still, couple-*, speed-*, "
                       "steps-*, nav2, all) at T0/T1, with metrics named as astro's result fields."),
                     sel('card', repeat=True, description="A profile JSON or a name in the domain's card dir, bound "
                         "to its card.keys (config/domains/D.yaml); with --astro-test also a plant card or a "
-                        'factorial manifest (repeatable).'),
+                        'factorial manifest; modular: a profile, REF#VARIANT for one plate state (repeatable).'),
                     P('--tests', 'path', description="With --astro-test: astro's tests file or a bundle holding one."),
                     P('--space', description="With --astro-test: the tests file's space (default large)."),
                     P('--amp', 'float', description="With --astro-test: the effort amplitude (default the space's)."),
@@ -237,7 +242,8 @@ COMMANDS = [
             examples=('crane run --domain toy --seeds 0:3',
                       'crane run --domain boat --tier T1 --seeds 0:2 --out /tmp/runs',
                       'crane run --domain sub --tier T1 --engine batched --seeds 0:64',
-                      'crane run --domain boat --tier T1 --astro-test speed-surge --card /tmp/fit/profile.json'),
+                      'crane run --domain boat --tier T1 --astro-test speed-surge --card /tmp/fit/profile.json',
+                      'crane run --domain modular --replay timelines.npz --seeds 0:24 --card example#plated'),
             raw='python3 -m fastsim.batch --config CONFIG --seeds 0:3 --out OUT'),
 
     # ---- study ----------------------------------------------------------------------------------------------

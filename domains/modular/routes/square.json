@@ -1,0 +1,10 @@
+{
+ "schema": "crane.modular.route/1",
+ "name": "square",
+ "about": "A 2 m square driven holonomically (heading held): forward, strafe left, back, strafe right home.",
+ "waypoints": [[2.0, 0.0], [2.0, 2.0], [0.0, 2.0], [0.0, 0.0]],
+ "corridor_m": 0.45,
+ "tol_m": 0.08,
+ "vmax": [0.5, 0.4, 1.0],
+ "time_limit_s": 60.0
+}

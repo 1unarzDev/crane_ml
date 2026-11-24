@@ -1,0 +1,15 @@
+{
+ "schema": "crane.modular.assembly/1",
+ "name": "mecanum-pair",
+ "about": "Two mecanum modules latched front to rear (a 0.60 m x 0.26 m train), driven as one rigid assembly.",
+ "types": {
+  "mecanum": {"size": [0.30, 0.26], "wheel_radius": 0.0485,
+              "wheels": [{"kind": "mecanum", "x": 0.10, "y": 0.11, "hand": -1},
+                         {"kind": "mecanum", "x": 0.10, "y": -0.11, "hand": 1},
+                         {"kind": "mecanum", "x": -0.10, "y": 0.11, "hand": 1},
+                         {"kind": "mecanum", "x": -0.10, "y": -0.11, "hand": -1}]}
+ },
+ "modules": [{"id": "M1", "type": "mecanum", "x": 0.15, "y": 0.0, "yaw": 0.0},
+             {"id": "M2", "type": "mecanum", "x": -0.15, "y": 0.0, "yaw": 0.0}],
+ "imu": {"module": "M1", "x": 0.0, "y": 0.0}
+}
