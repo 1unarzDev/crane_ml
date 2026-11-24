@@ -100,8 +100,7 @@ Selection, highest precedence first:
    14 s per tier tried (14 s on a fast machine, 42 s worst case). Unattended launches
    (`-batchmode`, `--crane-worker`, `--crane-benchmark`) never measure: they use the cached tier or
    Full and log `CRANE_SIM_PROFILE_UNATTENDED`; add `--crane-sim-profile-measure` to measure anyway.
-   `Tools/Bench/run_worker.sh` (`CRANE_SIM_PROFILE`) and `Tools/Rig/run_sim.sh`
-   (`--sim-profile`) pin `full` by default. Concurrent players write the cache atomically.
+   `Tools/Bench/run_worker.sh` (`CRANE_SIM_PROFILE`) pins `full` by default. Concurrent players write the cache atomically.
 
 Warnings: forcing a tier above the cached auto tier, `--crane-sim-profile-save` without a profile,
 and a requested rate that matched no sensor all log a `CRANE_SIM_PROFILE` warning. The resolved
@@ -166,14 +165,8 @@ render-independent `geometric` depth backend and exits with code 3 if an aquatic
 rather than silently invalidating HDRP water physics. The geometric backend observes PhysX
 colliders, not arbitrary render-only/transparent/HDRP-water surfaces.
 
-The generic NavigateToPose fixture also records delivered `BehaviorTreeLog` transition counts,
-latest observed status per node, feedback-message count, maximum `number_of_recoveries`, and the
-ordered recovery-count changes. It also samples delivered odometry at a declared wall-time period
-for route-shape QA while explicitly withholding any internal-consumption claim. These are QA
-summaries, not a replacement for the explanation
-capture's retained raw event stream. The summary explicitly marks BT delivery as potentially
-incomplete because Nav2 Jazzy can omit terminal-tick transitions; a nearby topic message also does
-not prove internal sensor consumption.
+NavigateToPose runs on the sim are `astro test nav2` on `astro sim`; their behaviour-tree and
+recovery records come from the boat stack's own bag.
 
 ### Training with full visual sensors
 
@@ -762,8 +755,8 @@ at 72,000 points/scan, and zero invalid water searches. The endpoint observed tw
 connections and two disconnects, at most one live connection, zero duplicate-node registrations,
 and zero errors. `navigation-reset-summary.json` is the bounded acceptance record.
 
-The Nav2-inclusive density sweep is implemented by `sweep_nav2_workers.sh`; every worker owns a
-Unity process, seed, TCP port, ROS domain, endpoint container, five-process Nav2 container, logs,
+In the Nav2-inclusive density sweep (multi-seed Nav2 runs now go through the cluster's `unity`
+backend) every worker owned a Unity process, seed, TCP port, ROS domain, endpoint container, five-process Nav2 container, logs,
 metrics, and result directory. The summary includes Docker interval samples for endpoint and Nav2
 CPU/RAM rather than accounting only for Unity. On the reference machine, two 1× workers were valid
 at 2.002× aggregate measured RTF. Four 1× workers reached 4.006× and passed a matched repeat, but a

@@ -275,9 +275,6 @@ Enable it with `--crane-ros-cmd-vel /crane/cmd_vel_stamped`. Velocity normalizat
 1 m/s and 1 rad/s and can be set with `--crane-cmd-vel-linear-scale` and
 `--crane-cmd-vel-yaw-scale`. Use `--crane-command-timeout-ticks` for the hold watchdog and
 `--crane-action-policy bounded --crane-max-action-lag-ticks N` for stale-action rejection.
-`Tools/Performance/ros_observation_command_bridge.py --mode nav2` stamps standard Nav2 `/cmd_vel`
-with the newest observation delivered to the bridge. This records delivery provenance; the
-standard Nav2 message still cannot prove that a planner internally consumed that exact sample.
 
 Enable authoritative navigation state with `--crane-ros-nav-state`. The adapter locates the same
 Rigidbody or ArticulationBody that owns the production Omni-X controller and publishes
@@ -328,17 +325,8 @@ ros2 launch mhseals_nav robot.launch.py sim:=true fcu:=false
 ros2 run mhseals_hardware thruster_pwm_node --ros-args -p output_backend:=topic
 ```
 
-`CRANE_RESPONSE_INPUT=pwm Tools/Performance/run_roboboat_command_response.sh` runs the axis
-response fixture through this input with boat-mixed pulses, checked by
-`check_roboboat_axis_response.py` like the velocity input.
-
-The included acceptance fixture runs the real Jazzy Nav2 lifecycle manager, BT navigator, NavFn
-planner, behavior server, LiDAR-fed voxel/inflation global and local costmaps, Regulated Pure
-Pursuit controller, and `NavigateToPose` action. It uses authoritative Unity `odom` as its global
-frame and therefore does not validate localization/SLAM, static-map navigation, or lockstep. Its
-bridge stamps each returned command with the newest odometry delivered to the fixture; this
-bounds delivery age but does not reveal which sample Nav2 internally consumed. Set
-`CRANE_NAV2_ACTION_MODE=follow-path` to run the narrower controller-only action.
+`python3 -m Tools.SimCheck axis RESULT.json` checks a command-response result against the FLU axis
+contract. Step, speed and Nav2 runs on this stack are `astro test steps|speed|nav2` on `astro sim`.
 
 `Clock.time` and published `/clock` are episode-relative, not process-uptime-relative. Scene load
 or an explicit in-place reset starts the authoritative episode clock at zero. Runtime scene
@@ -380,9 +368,9 @@ The RoboBoat plant (hull, added mass, damping, thrusters) comes from one profile
 | `characterized` | Runs that should behave like the real boat | Ideal, overwritten only where real data passed the quality gate; every parameter records its status and reason |
 
 - `--crane-boat-profile-json PATH` overrides the selected asset with a profile JSON (same schema).
-  For the rig, use `Tools/Rig/run_sim.sh --boat-profile ideal|characterized|PATH.json`.
+  For the sim vessel, use `Tools/RoboBoat/sim_up up --profile-json PATH.json`.
 - Every run logs `CRANE_PLANT_APPLIED profile=<name> sha256=<profile json> status=<summary>`.
-  The rig copies it into the run log and `rigq results`. A result is only comparable with another
+  A result is only comparable with another
   result that has the same profile and sha256. `--crane-roboboat-legacy-physics` keeps the authored
   scene physics instead and logs `CRANE_PLANT_LEGACY`.
 - Calibration faults (`--crane-calibration-faults`) are a separate error layer on top of either
@@ -481,29 +469,17 @@ SDL_VIDEODRIVER=x11 ./Builds/CRANE-Worker/CRANE.x86_64 \
 
 Benchmark results include an `actionTiming` block with known-source coverage, mean/maximum
 observation-to-application and receive-to-application tick age, maximum application interval, and
-watchdog stops. The Nav2 fixture additionally fails acceptance if any applied command lacks stamped
-provenance or either measured lag maximum exceeds `--crane-max-action-lag-ticks`. In the accepted
-single-worker 2× reference run, all 40 actions had provenance, mean/maximum source age was
-4.175/7 ticks, queue age was 1/1 tick, and the sole watchdog stop occurred after goal completion.
-
-On the ROS 2 side, pair Nav2's ordinary `Twist` output with the latest delivered detection stamp:
-
-```bash
-source /opt/ros/jazzy/setup.bash
-python3 Tools/Performance/ros_observation_command_bridge.py \
-  --mode nav2 --observation-topic /detections \
-  --input-topic /cmd_vel --output-topic /crane/cmd_vel_stamped
-```
+watchdog stops.
 
 Run the aquatic ArduPilot JSON/SITL UDP protocol fixture independently of ROS-TCP:
 
 ```bash
 CRANE_RESULT_ROOT="$PWD/PerformanceResults/sitl-udp" \
-CRANE_MAVROS_PORT=10302 Tools/Performance/run_sitl_udp_fixture.sh
+CRANE_MAVROS_PORT=10302 Tools/SimCheck/run_sitl_udp.sh
 ```
 
 The legacy filename/class `MAVROSConnection` implements ArduPilot's JSON backend rather than a
-MAVROS node. The fixture waits for the measured episode boundary, injects one malformed datagram,
+MAVROS node. The script runs `python3 -m Tools.SimCheck sitl-peer` and then `sitl`; it waits for the measured episode boundary, injects one malformed datagram,
 sends valid 40-byte servo packets, receives JSON IMU/pose/velocity telemetry, and verifies that its
 timestamp follows accelerated simulated time monotonically. The accepted 2× reference run applied
 198 of 200 packets (two intentional latest-value replacements), returned 653 peer-visible telemetry
@@ -516,33 +492,8 @@ an explicit non-shared-memory transport); graph discovery alone does not prove p
 If the full stack cannot keep up, lower the requested RTF or use bounded rejection; CRANE does not
 currently provide a Nav2 lockstep barrier.
 
-Run the reproducible Nav2 navigation vertical slice after building the player and the
-`lunarzdev/astro:cuda` image/workspace are available:
-
-```bash
-Tools/Performance/run_nav2_controller_fixture.sh
-```
-
-The script owns the ROS-TCP endpoint, shared IPC configuration, lifecycle manager, planner,
-global/local costmaps, BT navigator, behaviors, controller, action client/command bridge, Unity
-worker, logs, and result directory. Its default scope is `nav2-navigate-to-pose`; report it as an
-authoritative-odom navigation qualification, not localization/SLAM or training lockstep.
-
-Exercise the accepted ROS-connected scene-reload boundary and require its machine-readable
-transport/reset checks:
-
-```bash
-CRANE_RESULT_ROOT=PerformanceResults/nav2-scene-reload \
-CRANE_DURATION=22 CRANE_FIXTURE_DELAY=12 \
-CRANE_NAV2_UNITY_EXTRA_ARGS='--crane-reset-probe' \
-Tools/Performance/run_nav2_controller_fixture.sh
-```
-
-The script writes `navigation-reset-summary.json` and fails unless the goal succeeds, benchmark
-and water/sensor checks are valid, action rejection counters remain zero, endpoint errors and
-duplicate registrations remain zero, no TCP connections overlap, the clock rewind is recovered,
-and the scene-reload probe executes. The expected TF-buffer rewind warning is evidence of the
-episode-time discontinuity; successful navigation afterward is the recovery criterion.
+Nav2 navigation on the sim runs from the boat's own stack: `astro sim up`, then
+`astro test nav2` (see `Tools/RoboBoat/sim_up`).
 
 Run strict graphics-free land or aerial physics:
 
@@ -578,24 +529,7 @@ For a measured benchmark command and worker sweeps, use
 its own ROS-TCP port, ROS domain/namespace, seed, logs, recorder path, and MAVROS/SITL port where
 applicable.
 
-Run isolated closed-loop Nav2 workers with one endpoint and Nav2 graph per Unity process:
-
-```bash
-CRANE_ROS_PORT_BASE=10100 CRANE_ROS_DOMAIN_BASE=80 \
-CRANE_DURATION=24 CRANE_TIME_SCALE=0.75 \
-Tools/Performance/sweep_nav2_workers.sh 6
-```
-
-The launcher writes one `navigation-reset-summary.json` per worker plus an aggregate
-`sweep-summary.json`. It rejects duplicate ports/domains, invalid Unity sensor/physics results,
-stale/rejected/cross-episode actions, endpoint errors, and missing endpoint/controller CPU/RAM
-samples. On the reference machine six workers at 0.75× are the current accepted density point;
-eight at 1× and eight at 0.75× produced stale depth observations, while four at 1× had one
-stale-action outlier across two matched runs. For higher per-worker acceleration, one 2× worker
-and two concurrent 2× workers pass; the latter delivers 4.003× aggregate measured RTF. Three
-workers at 1.5× or 2× fail the observation-validity gate because at least one depth acquisition is
-stale, even though every Nav2 goal succeeds. Choose worker count and time scale from the complete
-validity record, not goal status or requested time scale alone.
+Multi-seed closed-loop Nav2 runs go through the cluster's `unity` backend, one player per seed.
 
 Validate the in-place reset vertical slice without graphics:
 

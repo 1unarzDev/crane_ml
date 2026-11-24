@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SITL UDP acceptance on a real player: run_worker.sh with the loopback scenario, the sitl-peer
+# drives its servo port, then the sitl check joins both records (RESULT_ROOT/sitl-summary.json).
 set -euo pipefail
 
 root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -37,13 +39,13 @@ if (( ready == 0 )); then
 fi
 sleep "${CRANE_FIXTURE_DELAY:-0.5}"
 fixture_failed=0
-python3 "${root_dir}/Tools/Performance/sitl_udp_fixture.py" \
+python3 "${root_dir}/Tools/SimCheck" sitl-peer \
     --port "${port}" --duration "${CRANE_FIXTURE_DURATION:-4}" \
     --output "${result_root}/fixture-summary.json" || fixture_failed=1
 wait "${player_pid}"
 player_pid=""
 
 summary_failed=0
-python3 "${root_dir}/Tools/Performance/summarize_sitl_fixture.py" \
+python3 "${root_dir}/Tools/SimCheck" sitl \
     "${result_root}" --maximum-lag-ticks "${maximum_lag_ticks}" || summary_failed=1
 if (( fixture_failed != 0 || summary_failed != 0 )); then exit 1; fi
