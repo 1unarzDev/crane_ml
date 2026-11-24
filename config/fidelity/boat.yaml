@@ -7,6 +7,10 @@ gate:
 rules:
   - {metric: 'measured.speed.*', rel: 0.10, ci_zero_ok: false, unit: m/s, hint: 'refit the axis curve: crane fit {bundle}'}
   - {metric: 'measured.t95', rel: 0.25, ci_zero_ok: true, unit: s, hint: 'refit the lag (M_eff): crane fit {bundle}'}
-  - {metric: 'measured.cross.*', abs: 0.02, ci_zero_ok: false, unit: '1', hint: 'check the thruster matrix and couple: crane fit {bundle}'}
-# steps: the owner's rule names none; add rows such as
-#   - {metric: 'measured.*.rise_time', rel: 0.25, ci_zero_ok: false, unit: s}
+  - {metric: 'measured.cross.*', abs: 0.02, ci_zero_ok: false, unit: '1', hint: 'check the thruster matrix and couple: crane fit {bundle}'}   # cross/main speed ratio
+# steps: PROVISIONAL bounds (proposed 2026-11-24 until the owner sets their own). overshoot is a fraction, so
+# 0.10 abs is 10 percentage points; steady-state error is m/s (rad/s for yaw).
+  - {metric: '*.rise_time', rel: 0.25, ci_zero_ok: false, unit: s, hint: 'refit the lag and velocity loop: crane fit {bundle}'}
+  - {metric: '*.overshoot', abs: 0.10, ci_zero_ok: false, unit: '1', hint: 'check the velocity loop gains in the sim state'}
+  - {metric: '*.settling_time', rel: 0.30, ci_zero_ok: false, unit: s, hint: 'refit the lag and velocity loop: crane fit {bundle}'}
+  - {metric: '*.steady_state_error', abs: 0.05, ci_zero_ok: false, unit: m/s, hint: 'check the velocity loop and the speed curves: crane fit {bundle}'}
