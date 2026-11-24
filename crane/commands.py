@@ -929,7 +929,7 @@ def _scalar(value, flow=False):
     return json.dumps(text) if unsafe else text
 
 
-def _yaml_param(param):
+def _yaml_param(param, choices_from=None):
     kind = {'tier': 'str', 'env': 'str'}.get(param.type, param.type)
     d = {'name': param.name if not param.positional else (param.dest or param.name)}
     if kind != 'str':
@@ -940,6 +940,8 @@ def _yaml_param(param):
         d['choices'] = list(param.choices)
     d['description'] = param.description + (' (repeatable)' if param.repeat and 'repeatable' not in
                                             param.description else '')
+    if choices_from:
+        d['choices_from'] = choices_from
     if param.positional:
         d['required'] = param.nargs not in ('?', '*')
     elif param.required:
@@ -969,6 +971,20 @@ def _entries():
     return out
 
 
+# astro's help browser: `astro help` shows `level: core` entries, `--all` adds `setup`. The everyday commands are core.
+CORE = frozenset({'crane sim', 'crane sim up', 'crane sim down', 'crane sim restart', 'crane sim status',
+                  'crane sim check', 'crane view', 'crane fit', 'crane compare', 'crane doctor'})
+# astro's picker (`choices_from`): a command printing one choice per line, run when the param is missing on a TTY.
+_RUNS = ("find \"${CRANE_RUNS:-$HOME/.cache/crane/runs}\" -name crane.run.json -printf '%T@ %h\\n' 2>/dev/null "
+         "| sort -rn | head -n 30 | cut -d' ' -f2-")
+PICKERS = {
+    ('crane fit', 'bundles'): ("find \"${ASTRO_DATA:-$HOME/astro_dock/bags}\" -maxdepth 3 -name 'bundle-*.tgz' "
+                               "-printf '%T@ %p\\n' 2>/dev/null | sort -rn | head -n 30 | cut -d' ' -f2-"),
+    ('crane view', 'runs'): _RUNS,
+    ('crane compare', 'runs'): _RUNS,
+}
+
+
 def help_yaml():
     lines = ["# crane's commands for astro's help browser and verbs (`astro help crane`). Generated from",
              '# crane/commands.py by `crane help --write`; `crane help --check` fails when it drifts. Schema:',
@@ -980,13 +996,14 @@ def help_yaml():
     for e in _entries():
         lines += [f'  - name: {_scalar(e["name"])}',
                   f'    run: {_scalar(CRANE_RUN + " " + " ".join(e["words"]))}',
-                  f'    summary: {_scalar(e["summary"])}']
+                  f'    summary: {_scalar(e["summary"])}',
+                  f'    level: {"core" if e["name"] in CORE else "setup"}']
         for key in ('ros', 'notes'):
             if e.get(key):
                 lines.append(f'    {key}: {_scalar(e[key])}')
         if e['params']:
             lines.append('    params:')
-            lines += [f'      - {_yaml_param(p)}' for p in e['params']]
+            lines += [f'      - {_yaml_param(p, PICKERS.get((e["name"], p.dest or p.name)))}' for p in e['params']]
         if e['examples']:
             lines.append('    examples:')
             lines += [f'      - {_scalar(x)}' for x in e['examples']]

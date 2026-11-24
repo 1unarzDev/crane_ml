@@ -338,7 +338,7 @@ def test_help_yaml_and_cli_md_are_generated_and_keep_astros_names(tmp_path, caps
         assert words[0] == str(LAUNCHER) and command['name'].split() == ['crane', *words[1:]]
         assert reg.find(words[1:]) or reg.noun(words[1]).export, command['name']
         for param in command.get('params') or []:
-            assert param['name'] and set(param) <= {'name', 'type', 'default', 'choices', 'description',
+            assert param['name'] and set(param) <= {'name', 'type', 'default', 'choices', 'choices_from', 'description',
                                                     'required', 'form'}
     # a drifted file is named with the fix
     (tmp_path / 'Docs').mkdir()

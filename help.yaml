@@ -7,6 +7,7 @@ commands:
   - name: crane sim up
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim up
     summary: Start a domain's T2 world (the Unity player through heavy unity, plus its ROS side) and return once the course is ready; prints the status block.
+    level: core
     ros: Tools/RoboBoat/sim_up up
     notes: "Waits up to 60 s for the ROS endpoint and 300 s (SIM_UP_READY_S) for the course. Without --display, a window only on a terminal with a display, else headless under xvfb-run. Refuses (exit 2) while a sim runs. Exit 0 ready, 1 the world failed, 2 usage or config. Everything specific comes from config/domains/DOMAIN.yaml tiers.T2. Env: ROS_DOMAIN_ID, ASTRO_STATE / MHSEALS_HARDWARE_CONFIG (passed into the ROS side), the image env, SIM_UP_*, CRANE_PLAYER, HEAVY. Same as Tools/RoboBoat/sim_up."
     params:
@@ -30,6 +31,7 @@ commands:
   - name: crane sim down
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim down
     summary: "Stop what crane sim up started: its player's process group (TERM, KILL after 10 s) and its ROS container, nothing else."
+    level: core
     ros: Tools/RoboBoat/sim_up down
     params:
       - {name: "--json", type: bool, description: One JSON document instead of the down line.}
@@ -39,6 +41,7 @@ commands:
   - name: crane sim restart
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim restart
     summary: "Restart one part of the running world and keep the rest: nav (only the Nav2 nodes, so new nav2_limits in the state take effect), ros (the ROS container; the player stays) or player."
+    level: core
     ros: docker exec CONTAINER pkill ...; docker exec -d CONTAINER ros2 launch ...
     notes: nav stops the nav nodes named by the domain recipe (tiers.T2.ros.restart.nav) inside the ROS container, starts them again from the same launch (only:=navigation), and waits up to the recipe's ready_s (90 s) for bt_navigator to be active; a domain without the recipe refuses and names `restart ros`. ros re-runs the saved docker run, waits up to 60 s for the endpoint and 120 s for the ready nodes. player re-runs the saved player argv, waits up to 300 s (SIM_UP_READY_S) for the course. Nav goals in flight are lost. Exit 0 ok, 1 failed, 2 usage, config or nothing running, 75 timed out waiting.
     params:
@@ -52,6 +55,7 @@ commands:
   - name: crane sim status
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim status
     summary: The status block (mode, ROS_DOMAIN_ID, endpoint, player, ROS container, course, current, logs, next commands). Read-only.
+    level: core
     ros: Tools/RoboBoat/sim_up status
     params:
       - {name: "--json", type: bool, description: One JSON document.}
@@ -61,6 +65,7 @@ commands:
   - name: crane sim check
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim check
     summary: Is the running sim ready (player, course, plant, ROS side, nav stack)? --wait SECONDS polls until ready; CHECK INPUTS runs an offline Tools/SimCheck check.
+    level: core
     ros: Tools/RoboBoat/sim_up check
     params:
       - {name: "--wait", type: int, description: Poll every 2 s until ready or this many seconds pass.}
@@ -72,6 +77,7 @@ commands:
   - name: crane sim logs
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim logs
     summary: The last lines of the player, player stdout and ROS logs, each under its path.
+    level: setup
     ros: Tools/RoboBoat/sim_up logs
     params:
       - {name: which, type: list, choices: [player, stdout, ros], description: Which logs (default all three)., required: false}
@@ -82,6 +88,7 @@ commands:
   - name: crane run
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane run
     summary: Run episodes at a tier, one run dir per seed (OUT/VARIANT/s<seed>). T0 abstract and T1 dynamic; T2 is not yet available (use crane sim up). Missing scenarios are generated on demand.
+    level: setup
     ros: python3 -m fastsim.batch --config CONFIG --seeds 0:3 --out OUT
     params:
       - {name: "--domain", description: "A domain: config/domains/DOMAIN.yaml (boat, toy)."}
@@ -115,6 +122,7 @@ commands:
   - name: crane card
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane card
     summary: "Plant cards: show, export, fit, validate: show (a plant card: one row per block (parameters with their sd and status) and the validation rows); export (one of a card's tier views (unity | nlc | control | fastsim) as json)."
+    level: setup
     params:
       - {name: verb, choices: [show, export], description: show or export., required: true}
       - {name: args, type: list, description: "The verb's options: crane card VERB --help.", required: false}
@@ -125,10 +133,11 @@ commands:
   - name: crane fit
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane fit
     summary: An astro bundle to a profile (through the gate) and a plant card (through its bags as evidence); prints each parameter's status and why.
+    level: core
     ros: python3 -m Tools.Characterization.from_bundle
     notes: Writes OUT/profile.json (sim_up --profile-json), OUT/profile.gate.json, OUT/cards and OUT/fit.json. A bundle made without --bags gives the gate only; --bags DIR reads bags beside it. --factorial SPEC.yaml writes card variants and a manifest.
     params:
-      - {name: bundles, type: list, description: Astro bundles (.tgz); each is one session., required: false}
+      - {name: bundles, type: list, description: Astro bundles (.tgz); each is one session., choices_from: "find \"${ASTRO_DATA:-$HOME/astro_dock/bags}\" -maxdepth 3 -name 'bundle-*.tgz' -printf '%T@ %p\\n' 2>/dev/null | sort -rn | head -n 30 | cut -d' ' -f2-", required: false}
       - {name: "--out", type: path, description: "Output dir (default BUNDLE.fit/ beside the first bundle, else ~/.cache/crane/fit/BUNDLE/ when that is not writable)."}
       - {name: "--bags", type: path, description: A bag dir to read besides the bundle (read only; repeatable).}
       - {name: "--base", description: The base profile the gate imports into (default Ideal).}
@@ -142,6 +151,7 @@ commands:
   - name: crane field import
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane field import
     summary: "A bundle (made with --bags), a bag dir or an .mcap file to crane.run/1 records: odometry trajectory, /events and log.txt lines, frame and clock."
+    level: setup
     params:
       - {name: source, type: path, description: "A bundle, a rosbag2 dir or an .mcap file.", required: true}
       - {name: "--out", type: path, description: The run dir (one bag) or the root (several)., required: true}
@@ -156,8 +166,9 @@ commands:
   - name: crane compare
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane compare
     summary: "Two run sets as a Markdown table and JSON: variant A/B on one frame and clock, tier gap (--tiers) or field vs sim per astro test (--field BUNDLE RUNS)."
+    level: core
     params:
-      - {name: runs, type: list, description: "Two run sets, A then B; with --field, the sim runs.", required: true}
+      - {name: runs, type: list, description: "Two run sets, A then B; with --field, the sim runs.", choices_from: "find \"${CRANE_RUNS:-$HOME/.cache/crane/runs}\" -name crane.run.json -printf '%T@ %h\\n' 2>/dev/null | sort -rn | head -n 30 | cut -d' ' -f2-", required: true}
       - {name: "--tiers", type: bool, description: "A is the lower tier, B the higher."}
       - {name: "--field", type: path, description: An astro bundle to compare the runs against.}
       - {name: "--metric", description: Only these metrics (repeatable).}
@@ -176,8 +187,9 @@ commands:
   - name: crane view
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane view
     summary: The native sandbox window. Replay runs overlaid in one frame and clock, or run a T0/T1 sim live with sliders, rerun from t, and Promote to a crane run spec. --screenshot renders offscreen (no window).
+    level: core
     params:
-      - {name: runs, type: list, description: "crane.run/1 dirs, fastsim run dirs or .ctraj files.", required: false}
+      - {name: runs, type: list, description: "crane.run/1 dirs, fastsim run dirs or .ctraj files.", choices_from: "find \"${CRANE_RUNS:-$HOME/.cache/crane/runs}\" -name crane.run.json -printf '%T@ %h\\n' 2>/dev/null | sort -rn | head -n 30 | cut -d' ' -f2-", required: false}
       - {name: "--live", type: bool, description: "Run the sim in-process (with --domain, --tier T0|T1, --seed)."}
       - {name: "--domain", default: boat, description: "live: the domain."}
       - {name: "--tier", default: T1, choices: [T0, T1, abstract, dynamic], description: "live: the tier."}
@@ -195,6 +207,7 @@ commands:
   - name: crane board
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane board
     summary: The web replay board over local runs (crane.run/1 records and .ctraj), courses and judge reports; prints its URL.
+    level: setup
     ros: python3 -m viewer serve
     params:
       - {name: roots, type: list, description: Dirs to index (default .)., required: false}
@@ -206,6 +219,7 @@ commands:
   - name: crane bench
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane bench
     summary: "Throughput benchmarks: player (the unity player real-time factor: one worker, or a sweep over worker counts, through heavy unity); fast (fast-tier throughput: the scalar table b, the batched engine (--engine batched) or the gate-3 equivalence report (--equivalence))."
+    level: setup
     params:
       - {name: verb, choices: [player, fast], description: Which benchmark., required: true}
       - {name: args, type: list, description: "The verb's options: crane bench VERB --help.", required: false}
@@ -216,6 +230,7 @@ commands:
   - name: crane build player
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane build player
     summary: Build the headless Linux player through heavy unity and stamp its manifest with the source commit.
+    level: setup
     notes: Needs the project's Unity editor. --skip-unity only stamps and packs an existing Builds/CRANE-Worker.
     params:
       - {name: "--tarball", type: bool, description: Also write the player tarball and its .sha256.}
@@ -229,6 +244,7 @@ commands:
   - name: crane doctor
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane doctor
     summary: Check this machine (python, extras, the T2 player and its flags, heavy, astro_dock, GPU) and print the next commands.
+    level: core
     notes: Read-only; safe any time. Exit 1 only when the core (python >= 3.10, numpy, pyyaml) is broken.
     params:
       - {name: "--json", type: bool, description: One JSON document.}
