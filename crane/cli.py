@@ -83,6 +83,14 @@ def build_parser():
     r.add_argument('--variant', default='base', help='name of this design or parameter set (default base)')
     r.add_argument('--generate', action='store_true', help="regenerate the seeds' scenarios with the config's generator (missing ones are always generated)")
     r.add_argument('--allow-dirty', action='store_true', help='run an adapter tree with uncommitted changes')
+    r.add_argument('--engine', choices=('fastsim', 'batched'), default='fastsim',
+                   help='fastsim: one scalar episode per seed (default); batched: every seed at once (Docs/Engine.md)')
+    r.add_argument('--backend', choices=('numpy', 'numba', 'jax'), default='numba',
+                   help='with --engine batched: numpy (float64 reference), numba (every core) or jax (GPU); default numba')
+    r.add_argument('--dtype', choices=('float64', 'float32'), help='with --engine batched: default float64 '
+                   '(jax may run float32)')
+    r.add_argument('--record', type=int, default=0, metavar='K', help='with --engine batched: also write traj.ctraj '
+                   'with every K-th track row (default 0: run.json, events.jsonl and metrics.json only)')
     r.add_argument('--astro-test', metavar='TEST', help="astro's test or group (still, couple-*, speed-*, steps-*, "
                    'nav2, all) as a T0/T1 scenario: runs land in OUT/<card>/<test>/s<seed> with metrics named as '
                    "astro's result fields")
@@ -114,12 +122,16 @@ def build_parser():
          'render TRUTH.json [--track T.jsonl]: an SVG on stdout.',
          'crane course gen --family roboboat_2026 --seed 3 --out /tmp/c3.json && crane course validate /tmp/c3.json')
 
-    b = _add(sub, 'bench', 'throughput benchmarks: the Unity player (the fast tier: python3 -m bench.fast)',
-             'player: per-worker results under PerformanceResults/ and, for a sweep, a summary.json per worker '
-             'count. Player settings come from env (CRANE_PLAYER, CRANE_DURATION, CRANE_SCENE, ...).',
-             'crane bench player --sweep 1 2 4')
+    b = _add(sub, 'bench', 'throughput benchmarks: the fast tier (bench.fast) or the Unity player',
+             'fast: bench.fast\'s tables (bench/BASELINE.md for the scalar path, bench/RESULTS.md for --engine '
+             'batched; --equivalence prints the gate-3 report); its arguments go to bench.fast unchanged. player: '
+             'per-worker results under PerformanceResults/ and, for a sweep, a summary.json per worker count. Player '
+             'settings come from env (CRANE_PLAYER, CRANE_DURATION, CRANE_SCENE, ...).',
+             'crane bench fast --engine batched --domain boat --tier T1 --backend numba,jax --E 1024,4096 --out /tmp/b')
     bs = b.add_subparsers(dest='what', metavar='WHAT', required=True)
-    bs.add_parser('fast', help='fast-tier throughput table (not yet available here; use python3 -m bench.fast)')
+    bf = bs.add_parser('fast', help='fast-tier throughput: scalar table B, or --engine batched, or --equivalence',
+                       add_help=False)
+    bf.add_argument('rest', nargs=argparse.REMAINDER, help='bench.fast arguments (python3 -m bench.fast --help)')
     bp = bs.add_parser('player', help='Unity player real-time factor: one worker, or a sweep over worker counts')
     bp.add_argument('--worker', type=int, default=0, help='run one worker with this id (default 0)')
     bp.add_argument('--sweep', type=int, nargs='*', metavar='N',
@@ -242,7 +254,11 @@ def _run(args):
 
 def _bench(args):
     if args.what == 'fast':
-        return _stub('`crane bench fast`', '`python3 -m bench.fast --domain boat --tier T1 --seeds 0:50 --out DIR`')(args)
+        from crane import paths
+        if str(paths.ROOT) not in sys.path:
+            sys.path.insert(0, str(paths.ROOT))
+        from bench import fast
+        return fast.main(args.rest)
     from crane import wrap
     return wrap.bench_player(args.worker, args.sweep)
 
@@ -279,6 +295,8 @@ def main(argv=None):
                 (rest[:1] and rest[0] in LOCAL_SUBHELP.get(verb, ()) and set(rest[1:2]) & {'-h', '--help'}):
             build_parser().parse_args([verb, '-h'])
         return _passthrough(verb, rest)
+    if argv[:2] == ['bench', 'fast']:  # bench.fast parses its own arguments
+        return _bench(argparse.Namespace(what='fast', rest=argv[2:]))
     parser = build_parser()
     args = parser.parse_args(argv)
     if not args.verb:

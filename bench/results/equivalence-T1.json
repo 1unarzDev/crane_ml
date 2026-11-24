@@ -1,0 +1,216 @@
+{
+  "schema": "crane.engine.equivalence/1",
+  "tier": "T1",
+  "seeds": [
+    0,
+    500
+  ],
+  "reference": "numpy",
+  "margins": {
+    "agreement": 0.98,
+    "time_rel": 0.02,
+    "dock_m": 0.05
+  },
+  "candidates": {
+    "numba": {
+      "seeds": 500,
+      "outcome_agreement": 1.0,
+      "agreement_ok": true,
+      "exact_records": 500,
+      "both_docked": 500,
+      "time_to_finish_rel": {
+        "mean": 0.0,
+        "ci90": [
+          0.0,
+          0.0
+        ],
+        "n": 500,
+        "margin": 0.02,
+        "equivalent": true
+      },
+      "dock_error_m": {
+        "mean": 0.0,
+        "ci90": [
+          0.0,
+          0.0
+        ],
+        "n": 500,
+        "margin": 0.05,
+        "equivalent": true
+      },
+      "disagree": [],
+      "pass": true,
+      "exact_differences": {},
+      "wall_s": 0.67
+    },
+    "numba-fastmath": {
+      "seeds": 500,
+      "outcome_agreement": 1.0,
+      "agreement_ok": true,
+      "exact_records": 500,
+      "both_docked": 500,
+      "time_to_finish_rel": {
+        "mean": 0.0,
+        "ci90": [
+          0.0,
+          0.0
+        ],
+        "n": 500,
+        "margin": 0.02,
+        "equivalent": true
+      },
+      "dock_error_m": {
+        "mean": 0.0,
+        "ci90": [
+          0.0,
+          0.0
+        ],
+        "n": 500,
+        "margin": 0.05,
+        "equivalent": true
+      },
+      "disagree": [],
+      "pass": true,
+      "exact_differences": {},
+      "wall_s": 0.42
+    },
+    "jax-f64": {
+      "seeds": 500,
+      "outcome_agreement": 1.0,
+      "agreement_ok": true,
+      "exact_records": 500,
+      "both_docked": 500,
+      "time_to_finish_rel": {
+        "mean": 0.0,
+        "ci90": [
+          0.0,
+          0.0
+        ],
+        "n": 500,
+        "margin": 0.02,
+        "equivalent": true
+      },
+      "dock_error_m": {
+        "mean": 0.0,
+        "ci90": [
+          0.0,
+          0.0
+        ],
+        "n": 500,
+        "margin": 0.05,
+        "equivalent": true
+      },
+      "disagree": [],
+      "pass": true,
+      "exact_differences": {},
+      "wall_s": 14.09
+    },
+    "jax-f32": {
+      "seeds": 500,
+      "outcome_agreement": 1.0,
+      "agreement_ok": true,
+      "exact_records": 461,
+      "both_docked": 500,
+      "time_to_finish_rel": {
+        "mean": -1.406299649663943e-06,
+        "ci90": [
+          -6.6411432594770965e-06,
+          3.828543960149211e-06
+        ],
+        "n": 500,
+        "margin": 0.02,
+        "equivalent": true
+      },
+      "dock_error_m": {
+        "mean": -0.00020600000000000002,
+        "ci90": [
+          -0.0007758975941966072,
+          0.00036389759419660714
+        ],
+        "n": 500,
+        "margin": 0.05,
+        "equivalent": true
+      },
+      "disagree": [],
+      "pass": true,
+      "exact_differences": {
+        "1": [
+          "sim_s",
+          "events",
+          "boat"
+        ],
+        "33": [
+          "boat"
+        ],
+        "72": [
+          "min_clearance_m"
+        ],
+        "73": [
+          "boat"
+        ],
+        "74": [
+          "boat"
+        ],
+        "85": [
+          "min_clearance_m",
+          "boat"
+        ],
+        "96": [
+          "boat"
+        ],
+        "100": [
+          "boat"
+        ],
+        "107": [
+          "sim_s",
+          "min_clearance_m",
+          "events",
+          "boat"
+        ],
+        "112": [
+          "sim_s",
+          "events",
+          "boat"
+        ],
+        "120": [
+          "min_clearance_m",
+          "boat"
+        ],
+        "121": [
+          "min_clearance_m",
+          "boat"
+        ],
+        "123": [
+          "sim_s",
+          "events",
+          "boat"
+        ],
+        "127": [
+          "boat"
+        ],
+        "154": [
+          "min_clearance_m",
+          "boat"
+        ],
+        "155": [
+          "boat"
+        ],
+        "182": [
+          "boat"
+        ],
+        "183": [
+          "boat"
+        ],
+        "203": [
+          "boat"
+        ],
+        "209": [
+          "events",
+          "boat"
+        ]
+      },
+      "wall_s": 10.73
+    }
+  },
+  "reference_wall_s": 78.7
+}

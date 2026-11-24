@@ -41,12 +41,31 @@ class FastsimBackend:
             self.source.generate(job['seeds'])
         self.out = Path(job['out']) / job.get('variant', 'base')
         self.provenance = {'variant': job.get('variant', 'base'), 'job': job.get('id')}
+        self.engine = job.get('engine')
         return self
 
     def run(self, seed):
         out = self.out / f's{int(seed)}'
         simulate(self.source.load(seed), self.adapter, self.cfg, seed, out, self.base, self.provenance)
         return out
+
+    def run_batch(self, seeds):
+        """{seed: metrics} of many seeds at once on the batched engine (crane ``engine/``, imported here
+        only), with the same keys as ``metrics(run(seed))``; no run directory per seed. The job's
+        ``engine`` key picks {backend: numba|jax|numpy, dtype: float64|float32} (default numba, float64).
+        Writes ``<out>/batch_<first>_<last>.jsonl``, one line per seed."""
+        import json as _json
+        from engine.episode import Setup, run
+        spec = dict(self.engine or {})
+        seeds = [int(s) for s in seeds]
+        self.source.generate(seeds)
+        setup = Setup(self.cfg, self.base, self.adapter, seeds)
+        out = run(setup, spec.get('backend', 'numba'), spec.get('dtype', 'float64'))
+        numbers = {seed: out.metrics(e) for e, seed in enumerate(seeds)}
+        self.out.mkdir(parents=True, exist_ok=True)
+        path = self.out / f'batch_{seeds[0]}_{seeds[-1]}.jsonl'
+        path.write_text(''.join(_json.dumps({'seed': s, **m}) + '\n' for s, m in numbers.items()))
+        return numbers
 
     def metrics(self, run_dir):
         """{outcome, run_sha256, flags, **numbers}: the run's own numbers and the adapter's."""
@@ -88,7 +107,15 @@ class ClusterBackend:
         return self.fast.run(seed)
 
     def metrics(self, run_dir):
-        m = self.fast.metrics(run_dir)
+        return self._numbers(self.fast.metrics(run_dir))
+
+    def run_batch(self, seeds):
+        """{seed: metrics} on the batched engine (additive; ``run(seed)`` stays): the numbers ``metrics``
+        gives for each seed's run, from one batched call (FastsimBackend.run_batch)."""
+        return {seed: self._numbers(m) for seed, m in self.fast.run_batch(seeds).items()}
+
+    @staticmethod
+    def _numbers(m):
         numbers = {k: float(v) for k, v in m.items() if isinstance(v, (int, float)) and not isinstance(v, bool)}
         numbers.update(succeeded=float(m['outcome'] == 'SUCCEEDED'), flags=float(len(m['flags'])))
         return numbers

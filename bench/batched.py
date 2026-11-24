@@ -175,7 +175,6 @@ def split_jax(cfg, base, adapter, E, dtype='float32', calls=200):
 
 def main(a, cfg, base, adapter, domain, tier):
     """``bench.fast --engine batched``: write DIR/batched.json and DIR/batched.md."""
-    from engine import equivalence
     os.environ.setdefault('XLA_PYTHON_CLIENT_PREALLOCATE', 'false')
     sizes = [int(e) for e in a.E.split(',')]
     base_b = B.get((domain, tier))
@@ -198,8 +197,6 @@ def main(a, cfg, base, adapter, domain, tier):
             report['split_numba'] = split_numba(cfg, base, adapter)
         if 'jax' in names:
             report['split_jax'] = split_jax(cfg, base, adapter, max(sizes))
-    if a.equivalence:
-        report['equivalence'] = equivalence.main_report(tier, a.equivalence_seeds)
     return report
 
 

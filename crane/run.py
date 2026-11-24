@@ -86,6 +86,18 @@ def main(args):
         return 2
     provenance = {'git': {'core': identity.git_state(Path(batch.__file__).parent), 'adapter': adapter_git},
                   'config_file': str(config), 'tier': tier, 'overrides': list(args.set)}
+    if getattr(args, 'engine', 'fastsim') == 'batched':
+        from engine.runs import run_seeds
+        started = time.perf_counter()
+        rows, engine_s = run_seeds(cfg, base, seeds, args.out, args.variant, args.backend, args.dtype, args.record,
+                                   {**provenance, 'engine': 'batched', 'backend': args.backend})
+        wall = time.perf_counter() - started
+        for seed, outcome, sim_s, d in rows:
+            print(f'{d}: {outcome} in {sim_s:.0f} s sim')
+        print(f'{len(rows)} runs at {tier} on the batched engine ({args.backend}), {wall:.1f} s wall '
+              f'({engine_s:.1f} s episodes): {len(rows) / wall:.1f} runs/s')
+        print(f'fidelity: {cfg["fidelity"]}')
+        return 0
     started = time.perf_counter()
     try:
         results = batch.run_batch(cfg, base, seeds, args.out, args.variant, args.workers, provenance)

@@ -1,0 +1,35 @@
+{
+  "schema": "crane.engine.fidelity/1",
+  "seeds": [
+    0,
+    50
+  ],
+  "vehicle": "boat T0 (fastsim_t0.yaml) replayed on the T1 twin goal segments",
+  "sides": {
+    "scalar_T1": {
+      "rms_mean": 4.53188,
+      "ci95": [
+        4.13702,
+        4.96422
+      ],
+      "seeds": 50
+    },
+    "batched_T1_numba_float64": {
+      "rms_mean": 4.53188,
+      "ci95": [
+        4.13702,
+        4.96422
+      ],
+      "seeds": 50
+    }
+  },
+  "paired_difference_m": {
+    "mean": 0.0,
+    "ci95": [
+      0.0,
+      0.0
+    ],
+    "identical_seeds": 50
+  },
+  "t2_pairs": "none at /home/lunarz/.cache/crane-fastsim-pairs: regenerate T2 pairs with `crane run --tier T2` (Unity) to compare against T2"
+}

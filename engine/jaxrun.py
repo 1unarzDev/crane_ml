@@ -36,21 +36,30 @@ def run(setup, dtype='float32', record=0, slots=None, chunk_steps=250):
     n = max(1, chunk_steps // per)
     sh = tree_map(ops.to, shared)
 
-    @jax.jit
-    def chunk(C, S):
-        CC = {**C, **sh}
+    key = ('jax', dtype, record, n)
+    cache = setup.__dict__.setdefault('_compiled', {})
+    if key not in cache:
+        @jax.jit
+        def chunk(C, S):
+            CC = {**C, **sh}
 
-        def one_period(S, _):
-            for k in range(per):
-                S = step_body(ops, setup, CC, S, record, k % setup.track_every == 0, k % setup.steps_per_tick == 0)
-            return S, None
-        S, _ = jax.lax.scan(one_period, S, None, length=n)
-        return S
+            def one_period(S, _):
+                for k in range(per):
+                    S = step_body(ops, setup, CC, S, record, k % setup.track_every == 0, k % setup.steps_per_tick == 0)
+                return S, None
+            S, _ = jax.lax.scan(one_period, S, None, length=n)
+            return S
 
-    @jax.jit
-    def refill(C, S, idx, C_new, S_new):
-        put = lambda a, b: a.at[idx].set(b)  # noqa: E731
-        return tree_map2(put, C, C_new), tree_map2(put, S, S_new)
+        @jax.jit
+        def refill(C, S, idx, C_new, S_new):
+            put = lambda a, b: a.at[idx].set(b)  # noqa: E731
+            return tree_map2(put, C, C_new), tree_map2(put, S, S_new)
+
+        @jax.jit
+        def take_rows(S, idx):
+            return tree_map(lambda a: a[idx], S)
+        cache[key] = chunk, refill, take_rows
+    chunk, refill, take_rows = cache[key]
 
     env = np.arange(slots)                     # the seed index each slot runs (-1: idle)
     queue = slots
@@ -61,8 +70,10 @@ def run(setup, dtype='float32', record=0, slots=None, chunk_steps=250):
         out = np.asarray(S['M']['outcome'])
         done = np.flatnonzero((out != BB.OUT_NONE) & (env >= 0))
         if len(done):
-            host = tree_map(lambda a: np.asarray(a)[done], S)
-            _put_rows(S_all, env[done], host)
+            size = 1 << int(np.ceil(np.log2(len(done))))
+            di = np.concatenate([done, np.full(size - len(done), done[0])])
+            host = jax.device_get(take_rows(S, ops.to(di)))
+            _put_rows(S_all, env[done], tree_map(lambda a: np.asarray(a)[:len(done)], host))
             env[done] = -1
             take = done[:max(0, N - queue)]
             if len(take):

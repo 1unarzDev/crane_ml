@@ -246,70 +246,83 @@ def _fit(xp, a, R):
 
 
 def _seg_hits(ops, A, ax, ay, bx, by):
-    """detour's test of one leg per env: (hit, t, x, y, r) of its first obstacle, lexicographic."""
+    """detour's test of legs [E, M] per env: (hit, (x, y, r)) of each leg's first obstacle, the
+    lexicographic least (t, x, y, r) as Python's min of tuples."""
     xp = ops.xp
-    ox, oy, r = A['obst'][..., 0], A['obst'][..., 1], A['obst'][..., 2]
-    ax, ay, bx, by = (v[:, None] for v in (ax, ay, bx, by))
+    ox, oy, r = (A['obst'][:, None, :, k] for k in range(3))                 # [E, 1, N]
+    ax, ay, bx, by = (v[..., None] for v in (ax, ay, bx, by))                 # [E, M, 1]
     need = r + BM.CLEARANCE_M
     dx, dy = bx - ax, by - ay
     L2 = dx * dx + dy * dy
     raw = ((ox - ax) * dx + (oy - ay) * dy) / xp.where(L2 == 0, 1.0, L2)
-    t = xp.where(L2 == 0, 0.0, xp.where(0.0 < xp.where(raw < 1.0, raw, 1.0), xp.where(raw < 1.0, raw, 1.0), 0.0))
+    m = xp.where(raw < 1.0, raw, 1.0)                                         # min(1.0, raw)
+    t = xp.where(L2 == 0, 0.0, xp.where(0.0 < m, m, 0.0))                     # max(0.0, ...)
     d = ops.chypot(ox - ax - t * dx, oy - ay - t * dy)
-    hit = A['obst_valid'] & (d < need) & (ops.chypot(ox - ax, oy - ay) > need) & (ops.chypot(ox - bx, oy - by) > need)
-    inf = xp.inf
+    hit = (A['obst_valid'][:, None, :] & (d < need) & (ops.chypot(ox - ax, oy - ay) > need)
+           & (ops.chypot(ox - bx, oy - by) > need))
+    shape = hit.shape
+    keys = [xp.broadcast_to(v, shape) for v in (t, ox, oy, r)]
     keep = hit
-    for key in (t, ox, oy, r):
-        best = xp.min(xp.where(keep, key, inf), axis=1, keepdims=True)
+    for key in keys:
+        best = xp.min(xp.where(keep, key, xp.inf), axis=-1, keepdims=True)
         keep = keep & (key == best)
-    k = xp.argmax(keep, axis=1)[:, None]
-    pick = [xp.take_along_axis(v, k, axis=1)[:, 0] for v in (ox, oy, r)]
-    return xp.any(hit, axis=1), pick
+    k = xp.argmax(keep, axis=-1)[..., None]
+    pick = [xp.take_along_axis(v, k, axis=-1)[..., 0] for v in keys[1:]]
+    return xp.any(hit, axis=-1), pick
+
+
+def _interleave(xp, u, v):
+    return xp.stack([u, v], axis=-1).reshape(u.shape[0], -1)
+
+
+# in-order position of each (level, node, p|q) candidate, the heap read level by level
+_HEAP = [(L, j) for L in range(DEPTH) for j in range(2 ** L)]
+INORDER_CAND = np.array([2 * _HEAP.index((int(np.log2(n + 1)), n + 1 - 2 ** int(np.log2(n + 1)))) + w
+                         for n in ORDER for w in (0, 1)])
 
 
 def fairway(ops, A, x, y, R):
-    """Mission.route(here, 'fairway') for every env: (route [E, R, 3], length [E])."""
+    """Mission.route(here, 'fairway') for every env: (route [E, R, 3], length [E]). The detour tree is
+    evaluated a level at a time (every leg of a level at once); a node's children are its legs to p and
+    from q, valid where it hit."""
     xp = ops.xp
     m0x, m0y, m1x, m1y = A['mouths'][:, 0, 0], A['mouths'][:, 0, 1], A['mouths'][:, 1, 0], A['mouths'][:, 1, 1]
     second = ops.chypot(m1x - x, m1y - y) < ops.chypot(m0x - x, m0y - y)
     mx, my = xp.where(second, m1x, m0x), xp.where(second, m1y, m0y)
     keep = xp.where(second, A['mouth_keep'][:, 1], A['mouth_keep'][:, 0])
-    # the detour tree, level by level: node n's leg is (a, b); a hit adds (p, q) and two children
-    ends = {0: (x, y, mx, my)}
-    valid = {0: keep}
-    pts = {}
-    for n in range(NODES):
-        ax, ay, bx, by = ends[n]
+    ax, ay, bx, by = x[:, None], y[:, None], mx[:, None], my[:, None]
+    valid = keep[:, None]
+    cands = []                                                                 # per level: [E, 2^L, 2] of (ok, x, y)
+    for L in range(DEPTH):
         hit, (ox, oy, r) = _seg_hits(ops, A, ax, ay, bx, by)
-        hit = hit & valid[n]
+        hit = hit & valid
         dx, dy = bx - ax, by - ay
-        L = ops.chypot(dx, dy)
-        L = xp.where(L == 0, 1.0, L)
-        nx, ny = -dy / L, dx / L
+        Ln = ops.chypot(dx, dy)
+        Ln = xp.where(Ln == 0, 1.0, Ln)
+        nx, ny = -dy / Ln, dx / Ln
         side = (ax - ox) * nx + (ay - oy) * ny
         off = xp.where(side >= 0, 1.0, -1.0) * (r + BM.CLEARANCE_M + BM.DETOUR_WIDE_M)
-        ux, uy = dx / L, dy / L
+        ux, uy = dx / Ln, dy / Ln
         px, py = ox + off * nx - BM.DETOUR_ALONG_M * ux, oy + off * ny - BM.DETOUR_ALONG_M * uy
         qx, qy = ox + off * nx + BM.DETOUR_ALONG_M * ux, oy + off * ny + BM.DETOUR_ALONG_M * uy
-        pts[n] = (hit, px, py, qx, qy)
-        if 2 * n + 2 < NODES:
-            ends[2 * n + 1], valid[2 * n + 1] = (ax, ay, px, py), hit
-            ends[2 * n + 2], valid[2 * n + 2] = (qx, qy, bx, by), hit
-    # in order: each hit node's p and q, then the mouth (kept) and the approach
-    cand = []
-    for n in ORDER:
-        hit, px, py, qx, qy = pts[n]
-        cand += [(hit, px, py), (hit, qx, qy)]
-    cand.append((keep, mx, my))
-    E = x.shape[0]
-    rx, ry = xp.zeros((E, R), x.dtype), xp.zeros((E, R), x.dtype)
-    count = xp.zeros(E, dtype=A['course_len'].dtype)
-    slot = xp.arange(R)[None]
-    for ok, cx, cy in cand:
-        at = (slot == count[:, None]) & ok[:, None]
-        rx = xp.where(at, cx[:, None], rx)
-        ry = xp.where(at, cy[:, None], ry)
-        count = count + ok
+        cands.append((_interleave(xp, hit, hit), _interleave(xp, px, qx), _interleave(xp, py, qy)))
+        if L + 1 < DEPTH:
+            ax, ay, bx, by = (_interleave(xp, ax, qx), _interleave(xp, ay, qy), _interleave(xp, px, bx),
+                              _interleave(xp, py, by))
+            valid = _interleave(xp, hit, hit)
+    order = INORDER_CAND
+    ok = xp.concatenate([c[0] for c in cands], axis=1)[:, order]
+    cx = xp.concatenate([c[1] for c in cands], axis=1)[:, order]
+    cy = xp.concatenate([c[2] for c in cands], axis=1)[:, order]
+    ok = xp.concatenate([ok, keep[:, None]], axis=1)                          # then the mouth
+    cx = xp.concatenate([cx, mx[:, None]], axis=1)
+    cy = xp.concatenate([cy, my[:, None]], axis=1)
+    count = xp.sum(ok, axis=1).astype(A['course_len'].dtype)
+    rank = xp.cumsum(ok, axis=1)                                              # slot s takes the (s+1)-th kept candidate
+    slot = xp.arange(R)[None, :]
+    src = xp.argmax(rank[:, None, :] >= (slot + 1)[..., None], axis=-1)       # [E, R]
+    rx = xp.take_along_axis(cx, src, axis=1)
+    ry = xp.take_along_axis(cy, src, axis=1)
     prevx = xp.concatenate([x[:, None], rx[:, :-1]], axis=1)
     prevy = xp.concatenate([y[:, None], ry[:, :-1]], axis=1)
     yaw = xp.arctan2(ry - prevy, rx - prevx)

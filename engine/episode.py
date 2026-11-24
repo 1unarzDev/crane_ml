@@ -364,7 +364,7 @@ class Output:
         return [(self.now(j * every), *(float(v) for v in r)) for j, r in enumerate(self.S['rec'][e, :rows])]
 
 
-def run(setup, backend='numpy', dtype='float64', record=0, fastmath=False, threads=None):
+def run(setup, backend='numpy', dtype='float64', record=0, fastmath=False, threads=None, slots=None):
     import time
     t0 = time.perf_counter()
     if backend == 'numpy':
@@ -372,7 +372,8 @@ def run(setup, backend='numpy', dtype='float64', record=0, fastmath=False, threa
             raise ValueError('engine: the numpy backend is the float64 reference')
         S = run_numpy(setup, record)
     elif backend == 'jax':
-        S = run_jax(setup, dtype, record)
+        from engine import jaxrun
+        S = jaxrun.run(setup, dtype, record, slots=slots)
     elif backend == 'numba':
         from engine import nbepisode
         S = nbepisode.run(setup, record, fastmath=fastmath, threads=threads)
