@@ -18,7 +18,7 @@ as a ROS node beside the same ROS side), used exactly like the robot.
     crane sim check [--wait S] [--json]   live readiness: player, course, plant, ROS side, nodes, player errors
     crane sim logs [player|stdout|ros|t1] [-n LINES]   the last lines of each log (the running tier's by default)
 
-Every verb takes --instance N (N >= 1; else CRANE_SIM_INSTANCE, else the cluster worker's CRANE_ISOLATION_ID): a
+Every verb takes --instance N (N >= 0, 0 the default world; else CRANE_SIM_INSTANCE, else the cluster worker's CRANE_ISOLATION_ID): a
 parallel world with ROS_DOMAIN_ID = the profile's + N, endpoint port 10000 + that (CRANE_PORT_BASE replaces 10000),
 container sim_up_ros_N and state dir ~/.cache/sim_up/N. down stops only that instance; status without one also lists
 the running instances. T1 worlds run side by side; a T2 world needs the one Unity player free.

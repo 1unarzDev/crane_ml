@@ -78,7 +78,7 @@ Works with no options: the default course, its normal water current, seed 1, and
 | `--domain` | str | Which kind of robot world to use, e.g. boat (the default) or sub. (default `boat`) |
 | `--nav` | str | Hand the navigation part a launch argument, e.g. preset:=pool; give it again for more. A restart of nav reuses them (default none). (default `none`) |
 | `--nav-args` | str | Several --nav at once in one quoted text, e.g. "preset:=pool params_file:=/path/variant.yaml"; a path must be under the workspace, ~/.config/astro or ~/.config/mhseals so the robot container sees it (default none). (default `none`) |
-| `--instance` | int | Which parallel world to use, a number from 1 up, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too). (default `none`) |
+| `--instance` | int | Which parallel world to use, 0 for the default world or 1 and up, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too). (default `none`) |
 | `--dry-run` | bool | Show exactly what would start, without starting anything (default off). |
 | `--json` | bool | Print the final status as one JSON document for scripts; progress goes to stderr. |
 
@@ -101,7 +101,7 @@ Only stops what crane sim up started; other programs are left alone. Safe to run
 
 | Param | Type | Description |
 |---|---|---|
-| `--instance` | int | Which parallel world to use, a number from 1 up, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too). (default `none`) |
+| `--instance` | int | Which parallel world to use, 0 for the default world or 1 and up, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too). (default `none`) |
 | `--json` | bool | Print what was stopped as one JSON document, for scripts. |
 
 raw: `Tools/RoboBoat/sim_up down`; --json: `crane.sim.down/1`
@@ -127,7 +127,7 @@ Use nav after editing nav settings: only the navigation restarts, so the course 
 | `what` | str | Which part to restart: nav (navigation only), ros (all the robot software) or player (the 3-D world). One of `nav`, `ros`, `player`. |
 | `words` | list | Only with nav: launch arguments for the navigation part, e.g. preset:=pool. They replace the ones from the last start; with none, those are used again (default none). (default `none`) |
 | `--nav-args` | str | The same words in one quoted text, e.g. "preset:=pool params_file:=/path/variant.yaml"; a path must be under the workspace, ~/.config/astro or ~/.config/mhseals (default none). (default `none`) |
-| `--instance` | int | Which parallel world to use, a number from 1 up, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too). (default `none`) |
+| `--instance` | int | Which parallel world to use, 0 for the default world or 1 and up, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too). (default `none`) |
 | `--json` | bool | Print the result as one JSON document instead of text, for scripts. |
 | `--domain` | str | Which kind of robot world is running, e.g. boat (the default). |
 
@@ -148,7 +148,7 @@ What you'll see: the status block (what is running, the course and current, the 
 
 | Param | Type | Description |
 |---|---|---|
-| `--instance` | int | Which parallel world to use, a number from 1 up, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too). (default `none`) |
+| `--instance` | int | Which parallel world to use, 0 for the default world or 1 and up, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too). (default `none`) |
 | `--json` | bool | Print the status as one JSON document instead of text, for scripts. |
 
 raw: `Tools/RoboBoat/sim_up status`; --json: `crane.sim.status/1`
@@ -170,7 +170,7 @@ Ends with `sim check: ready` when everything is up. Right after crane sim up, gi
 | Param | Type | Description |
 |---|---|---|
 | `--wait` | int | Keep checking every 2 seconds until ready, for at most this many seconds, e.g. 120 (default: check once). |
-| `--instance` | int | Which parallel world to use, a number from 1 up, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too). (default `none`) |
+| `--instance` | int | Which parallel world to use, 0 for the default world or 1 and up, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too). (default `none`) |
 | `--json` | bool | Print the checks as one JSON document instead of text, for scripts. |
 | `--domain` | str | Which kind of robot world is running, e.g. boat (the default). |
 
@@ -192,7 +192,7 @@ What you'll see: the last lines of each log, under its file path.
 |---|---|---|
 | `which` | list | Which logs: player, stdout, ros or t1 (default the running tier's). One of `player`, `stdout`, `ros`, `t1`. |
 | `-n` | int | How many lines of each log to show, e.g. 100 (default 40). (default `40`) |
-| `--instance` | int | Which parallel world to use, a number from 1 up, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too). (default `none`) |
+| `--instance` | int | Which parallel world to use, 0 for the default world or 1 and up, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too). (default `none`) |
 
 raw: `Tools/RoboBoat/sim_up logs`
 

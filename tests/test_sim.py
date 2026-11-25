@@ -806,7 +806,9 @@ def test_instances_are_parallel_worlds_with_their_own_domain_container_and_state
     assert sim.main(['status']) == 0 and '  instance:  2' in capsys.readouterr().out
     assert sim.main(['down']) == 0 and not (stub / 'running.sim_up_ros_2').exists()
     monkeypatch.delenv('CRANE_SIM_INSTANCE')
-    assert sim.main(['status', '--instance', '0']) == 2 and 'whole number from 1 up' in capsys.readouterr().err
+    assert sim.main(['status', '--instance', '0']) == 0 and config.instance() is None   # 0 is the default world
+    capsys.readouterr()
+    assert sim.main(['status', '--instance', '-1']) == 2 and 'whole number, 0' in capsys.readouterr().err
 
     # one Unity player: the T2 world is single, so an instance refuses while another T2 runs
     assert sim.main(['up', '--headless']) == 0

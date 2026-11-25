@@ -234,7 +234,11 @@ class Node:
             static.publish(TFMessage(transforms=fixed))
             self.pub['tf_static'] = static
         else:
+            from geometry_msgs.msg import PoseWithCovarianceStamped
             self.pub['fcu'] = node.create_publisher(Odometry, w['fcu']['topic'], 10)
+            # both EKFs (robot_localization) subscribe /set_pose: a reset re-seats them on the teleported boat
+            self.pub['set_pose'] = node.create_publisher(PoseWithCovarianceStamped, w.get('set_pose', '/set_pose'), 10)
+            self.msgs['PoseWithCovarianceStamped'] = PoseWithCovarianceStamped
         if twin.walls():
             from nav_msgs.msg import OccupancyGrid
             from sensor_msgs.msg import PointCloud2
@@ -248,8 +252,20 @@ class Node:
         self.next = {k: 0.0 for k in ('truth', 'fcu', 'imu', 'gps', 'estimate', 'lidar')}
 
     def _reset(self, request, response):
+        """Teleport to the start at rest. Sim time keeps running (/clock never steps back); in sensors mode the EKFs
+        are re-seated there through /set_pose, stamped now, so odom/local jumps once, consistently."""
         self.twin.reset()
         x, y, yaw = self.twin.pose()
+        if 'set_pose' in self.pub:
+            msg = self.msgs['PoseWithCovarianceStamped']()
+            msg.header.stamp, msg.header.frame_id = _stamp(self.twin.t), self.frames['odom']
+            msg.pose.pose.position.x, msg.pose.pose.position.y = float(x), float(y)
+            msg.pose.pose.orientation = _quat(yaw)
+            cov = [0.0] * 36
+            for i in (0, 7, 14, 21, 28, 35):
+                cov[i] = 1e-4
+            msg.pose.covariance = cov
+            self.pub['set_pose'].publish(msg)
         response.success, response.message = True, f'x={x:.3f} y={y:.3f} yaw={yaw:.4f}'
         return response
 

@@ -61,7 +61,7 @@ def instance():
 
 
 def set_instance(value):
-    """Set the instance from --instance or CRANE_SIM_INSTANCE (a whole number >= 1); None clears it."""
+    """Set the instance from --instance or CRANE_SIM_INSTANCE (a whole number; 0 or None is the default world)."""
     if value in (None, ''):
         _INSTANCE['n'] = None
         return
@@ -69,9 +69,9 @@ def set_instance(value):
         n = int(str(value))
     except ValueError:
         n = 0
-    if n < 1:
-        raise SimError(f'--instance wants a whole number from 1 up, got {value}')
-    _INSTANCE['n'] = n
+    if n < 0 or str(value).strip().lstrip('+') != str(n):
+        raise SimError(f'--instance wants a whole number, 0 (the default world) or more, got {value}')
+    _INSTANCE['n'] = n or None          # 0 is the default world: domain base, sim_up_ros, the legacy state dir
 
 
 def env_instance():

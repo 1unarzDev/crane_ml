@@ -122,7 +122,7 @@ _JSON = 'Print the result as one JSON document instead of text, for scripts (def
 _STUDIES = 'Where studies are kept (default CRANE_STUDIES, else ~/.cache/crane/studies).'
 
 
-_INSTANCE = ('Which parallel world to use, a number from 1 up, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the '
+_INSTANCE = ('Which parallel world to use, 0 for the default world or 1 and up, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the '
              'number), port, container and state folder, so several T1 worlds can run side by side (default none: '
              'the one world; the environment variable CRANE_SIM_INSTANCE sets it too).')
 
