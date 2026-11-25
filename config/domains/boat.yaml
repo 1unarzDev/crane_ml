@@ -100,6 +100,9 @@ tiers:
           kill: ['pkill -KILL -f -- {match}']
           stop_s: 20                                # TERM, then this long, then KILL; then the same again
           start: ['ros2 launch {launch} only:=navigation overrides:={overrides}']
+          # NAME:=VALUE given to crane sim restart nav (or up --nav) go to this part's args in the overrides JSON,
+          # on top of the overrides the running world was launched with (device.launch.py forwards no plain args).
+          args_part: navigation
           ready: {nodes: [bt_navigator], state: 'ros2 lifecycle get /{node}', expect: active}
           ready_s: 90
       # The container mirrors the dev container (.devcontainer/docker-compose.yml of the dock), so `astro on

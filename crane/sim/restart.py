@@ -94,8 +94,9 @@ def _need_container(t2):
     return me
 
 
-def nav(cfg, t2, run, as_json=False):
-    """Stop the recipe's nav processes in the container, start them again, wait for the ready nodes."""
+def nav(cfg, t2, run, as_json=False, new=None):
+    """Stop the recipe's nav processes in the container, start them again, wait for the ready nodes. new: the nav
+    arguments {name: value} given now, which replace the saved ones; else the saved ones are used again."""
     ros = t2.get('ros') or {}
     me = config.invoked_as()
     recipe = (ros.get('restart') or {}).get('nav')
@@ -103,6 +104,11 @@ def nav(cfg, t2, run, as_json=False):
         raise SimError(f'no ros.restart.nav recipe in config/domains/{cfg.get("name")}.yaml: {me} restart ros '
                        'restarts the whole ROS side instead', 2)
     _need_container(t2)
+    saved = world._read(run / 'ros.overrides')       # what up launched with: a T1 world keeps its disabled parts
+    overrides = saved or ros.get('overrides') or ''
+    overrides = config.subst(overrides, port=_read_port(run)) if '{port}' in overrides else overrides
+    args = new if new else world.read_nav(run)
+    overrides = config.with_nav(overrides, args, recipe.get('args_part'), t2, run)
     values = {'match': recipe['match']} if recipe.get('match') else {}
     stop_s = float(recipe.get('stop_s', 20))
 
@@ -118,13 +124,13 @@ def nav(cfg, t2, run, as_json=False):
             time.sleep(0.5)
         return True
 
+    if new:
+        (run / 'nav.args').write_text(json.dumps(new) + '\n')
     _say(f'nav stopping (up to {stop_s:g} s, then KILL and up to {stop_s:g} s more)', as_json)
     run_all(recipe.get('stop') or [])
     if not recipe.get('alive') or not (gone(stop_s) or (run_all(recipe.get('kill') or []) or gone(stop_s))):
         raise SimError(f'the nav processes did not exit (see {run}/ros.log); not starting a second set: '
                        f'{me} restart ros', 1)
-    overrides = ros.get('overrides') or ''
-    overrides = config.subst(overrides, port=_read_port(run)) if '{port}' in overrides else overrides
     start_values = {'launch': ros.get('launch') or '', 'overrides': shlex.quote(overrides)}
     with_log = ' >>{} 2>&1'.format(shlex.quote(str(run / 'ros.log')))
     for cmd in recipe.get('start') or []:
@@ -239,10 +245,12 @@ def player(cfg, t2, run, as_json=False):
     return {'restarted': 'player', 'ready': [t2.get('ready_marker')], 'at': stamp}
 
 
-def run_restart(cfg, t2, run, what, as_json=False):
-    """Restart WHAT and print the result; the exit code (SimError carries its own)."""
+def run_restart(cfg, t2, run, what, as_json=False, new=None):
+    """Restart WHAT and print the result; the exit code (SimError carries its own). new: nav arguments (nav only)."""
     me = config.invoked_as()
-    result = {'nav': nav, 'ros': ros, 'player': player}[what](cfg, t2, run, as_json)
+    if new and what != 'nav':
+        raise SimError(f'NAME:=VALUE arguments are for restart nav, not restart {what}')
+    result = nav(cfg, t2, run, as_json, new) if what == 'nav' else {'ros': ros, 'player': player}[what](cfg, t2, run, as_json)
     if as_json:
         print(json.dumps({'schema': 'crane.sim.restart/1', **result, 'status': world.state(cfg, t2, run)}, indent=2))
     else:

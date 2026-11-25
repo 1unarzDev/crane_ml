@@ -4,7 +4,7 @@ as a ROS node beside the same ROS side), used exactly like the robot.
     crane sim up [--seed N] [--env KIND:NAME | --course FAMILY] [--card F | --profile-json F] [--profile P]
                  [--current default|0|SPEED,TOWARD_DEG] [--display auto|window|headless | --window | --headless]
                  [--player PATH] [--robot R] [--set K=V]... [--domain D] [--tier T2] [--json] [--dry-run]
-                 [-- PLAYER_ARGS...]
+                 [--nav NAME:=VALUE]... [--nav-args "A:=x B:=y"] [--instance N] [-- PLAYER_ARGS...]
     crane sim up --list seed|env|current|tier   the choices, one per line as VALUE<TAB>meaning (astro's pickers)
     crane sim up --tier T1 [--odom sensors|truth] [--rate N] [--seed N] [--env KIND:NAME] [--world course|pool[:LxW]] [--card F]
                  [--current default|0|SPEED,TOWARD_DEG] [--set K=V]... [--json] [--dry-run]
@@ -12,11 +12,19 @@ as a ROS node beside the same ROS side), used exactly like the robot.
                                  localization off and publishes /odom/local and TF itself; --rate N runs at N x real time;
                                  --world pool[:LxW] a rectangular pool (default 10x4.5 m) whose walls the lidar sees
     crane sim down [--json]      stop what up started (its player's process group and its ROS container only)
-    crane sim restart nav|ros|player [--json]   restart one part, keep the rest (nav: only the Nav2 nodes, to read new
+    crane sim restart nav|ros|player [NAME:=VALUE ...] [--json]   restart one part, keep the rest (nav: only the Nav2 nodes, to read new
                                  nav2_limits; ros: the ROS container, the player stays; player: the player, ROS stays)
     crane sim status [--json]    the status block: mode, domain, port, pids, current, logs, the next commands
     crane sim check [--wait S] [--json]   live readiness: player, course, plant, ROS side, nodes, player errors
     crane sim logs [player|stdout|ros|t1] [-n LINES]   the last lines of each log (the running tier's by default)
+
+Every verb takes --instance N (N >= 1; else CRANE_SIM_INSTANCE, else the cluster worker's CRANE_ISOLATION_ID): a
+parallel world with ROS_DOMAIN_ID = the profile's + N, endpoint port 10000 + that (CRANE_PORT_BASE replaces 10000),
+container sim_up_ros_N and state dir ~/.cache/sim_up/N. down stops only that instance; status without one also lists
+the running instances. T1 worlds run side by side; a T2 world needs the one Unity player free.
+up and restart nav take NAME:=VALUE navigation launch arguments (up: --nav NAME:=VALUE, repeatable; restart nav:
+the words themselves; --nav-args "A:=x B:=y" is several at once): they go to the navigation part of the launch and
+are kept in the state, so a bare restart nav reuses them and new ones replace them.
 
 crane sim names its verb (bare sim_up still means up). The domain (default config/sim.yaml's, boat) names everything
 specific in config/domains/<domain>.yaml tiers.T2. --display auto (the default): a window when stdin is a terminal
@@ -102,10 +110,17 @@ def _parser(verb):
         p.add_argument('--odom', choices=('sensors', 'truth'), help='T1: raw sensors for the real EKFs (default), or '
                        'truth odometry and TF with localization off')
         p.add_argument('--rate', type=float, metavar='N', help='T1: N x real time (default 1)')
+        p.add_argument('--nav', action='append', default=[], metavar='NAME:=VALUE',
+                       help='a navigation launch argument, e.g. preset:=pool (repeat for more)')
+        p.add_argument('--nav-args', action='append', default=[], metavar='"A:=x B:=y"',
+                       help='several --nav at once, in one quoted string')
         p.add_argument('--world', metavar='course|pool[:LxW]', help='T1: course (the default) or a rectangular pool, '
                        'e.g. pool:10x4.5 (--env pool:LxW is the same)')
     if verb == 'restart':
         p.add_argument('what', choices=('nav', 'ros', 'player'), help='the part to restart')
+        p.add_argument('words', nargs='*', metavar='NAME:=VALUE', help='restart nav: navigation launch arguments')
+        p.add_argument('--nav-args', action='append', default=[], metavar='"A:=x B:=y"',
+                       help='several NAME:=VALUE at once, in one quoted string')
     if verb in ('up', 'down', 'restart', 'status'):
         p.add_argument('--json', action='store_true', help='one JSON document on stdout')
     if verb == 'logs':
@@ -152,6 +167,27 @@ def _up_tier(o, extra):
     return tier
 
 
+def _take_instance(rest):
+    """Set the instance from --instance N (any verb; removed from REST) or the environment; --instance wins."""
+    out, value, i = [], None, 0
+    while i < len(rest):
+        word = rest[i]
+        if word == '--':
+            out += rest[i:]
+            break
+        if word == '--instance':
+            if i + 1 >= len(rest):
+                raise SimError('--instance wants a number, e.g. --instance 2')
+            value, i = rest[i + 1], i + 2
+        elif word.startswith('--instance='):
+            value, i = word.split('=', 1)[1], i + 1
+        else:
+            out.append(word)
+            i += 1
+    config.set_instance(value if value is not None else config.env_instance())
+    return out
+
+
 def main(argv=None):
     """crane sim VERB ARGS: the exit code (0 ok, 1 the world failed or is not ready, 2 usage or config)."""
     argv = list(sys.argv[1:] if argv is None else argv)
@@ -163,6 +199,11 @@ def main(argv=None):
         _usage()
         return 2
     verb, rest = argv[0], argv[1:]
+    try:
+        rest = _take_instance(rest)
+    except SimError as error:
+        print(f'{config.invoked_as()}: {error}', file=sys.stderr)
+        return error.code
     if verb == 'check':
         from crane.sim import check
         return check.main(rest)
@@ -198,7 +239,8 @@ def main(argv=None):
             return world.down(cfg, t2, run, o.json)
         if verb == 'restart':
             from crane.sim import restart
-            return restart.run_restart(cfg, t2, run, o.what, o.json)
+            return restart.run_restart(cfg, t2, run, o.what, o.json,
+                                       config.parse_nav(o.words, o.nav_args) or None)
         if verb == 'status':
             return world.status(cfg, t2, run, o.json)
         bad = [w for w in o.which if w not in world.LOGS]

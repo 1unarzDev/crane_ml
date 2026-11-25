@@ -122,6 +122,15 @@ _JSON = 'Print the result as one JSON document instead of text, for scripts (def
 _STUDIES = 'Where studies are kept (default CRANE_STUDIES, else ~/.cache/crane/studies).'
 
 
+_INSTANCE = ('Which parallel world to use, a number from 1 up, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the '
+             'number), port, container and state folder, so several T1 worlds can run side by side (default none: '
+             'the one world; the environment variable CRANE_SIM_INSTANCE sets it too).')
+
+
+def _instance():
+    return P('--instance', 'int', metavar='N', default='none', description=_INSTANCE)
+
+
 def _json(text=_JSON):
     return P('--json', 'bool', description=text)
 
@@ -183,6 +192,14 @@ COMMANDS = [
                       'metres; give it again for more (default none).'),
                     sel('domain', default='boat', free='a domain name: one file per domain in config/domains',
                         description='Which kind of robot world to use, e.g. boat (the default) or sub.'),
+                    P('--nav', metavar='NAME:=VALUE', repeat=True, default='none', free='a navigation launch '
+                      'argument as NAME:=VALUE', description='Hand the navigation part a launch argument, e.g. '
+                      'preset:=pool; give it again for more. A restart of nav reuses them (default none).'),
+                    P('--nav-args', metavar='"A:=x B:=y"', default='none', free='several NAME:=VALUE words in one '
+                      'quoted text', description='Several --nav at once in one quoted text, e.g. '
+                      '"preset:=pool params_file:=/path/variant.yaml"; a path must be under the workspace, '
+                      '~/.config/astro or ~/.config/mhseals so the robot container sees it (default none).'),
+                    _instance(),
                     P('--dry-run', 'bool', description='Show exactly what would start, without starting anything '
                       '(default off).'),
                     P('--json', 'bool', description='Print the final status as one JSON document for scripts; '
@@ -190,6 +207,7 @@ COMMANDS = [
             examples=('crane sim up', 'crane sim up --current 0', 'crane sim up --headless --seed 3',
                       'crane sim up --card characterized --headless', 'crane sim up --tier T1',
                       'crane sim up --tier T1 --odom truth --rate 2', 'crane sim up --tier T1 --world pool',
+                      'crane sim up --tier T1 --world pool --nav preset:=pool', 'crane sim up --tier T1 --instance 2',
                       'crane sim up --dry-run'),
             raw='Tools/RoboBoat/sim_up up'),
     Command(('sim', 'down'), 'Stop the simulator that crane sim up started.', 'crane.wrap:sim', passthrough=True,
@@ -198,8 +216,9 @@ COMMANDS = [
                   'is running.',
             details="Stops the player's process group (TERM, then KILL after 10 s) and the sim_up_ros container. "
                     'Same as Tools/RoboBoat/sim_up down.',
-            params=(P('--json', 'bool', description='Print what was stopped as one JSON document, for scripts.'),),
-            examples=('crane sim down',), raw='Tools/RoboBoat/sim_up down'),
+            params=(_instance(),
+                    P('--json', 'bool', description='Print what was stopped as one JSON document, for scripts.')),
+            examples=('crane sim down', 'crane sim down --instance 2'), raw='Tools/RoboBoat/sim_up down'),
     Command(('sim', 'restart'), 'Restart one part of the running simulator (navigation, ROS or the 3-D world) and '
             'keep the rest, e.g. after changing navigation settings.',
             'crane.wrap:sim', passthrough=True, flags=(JSON,), json='crane.sim.restart/1', export=True,
@@ -216,11 +235,21 @@ COMMANDS = [
                     'failed, 2 usage, config or nothing running, 75 timed out waiting.',
             params=(P('what', choices=('nav', 'ros', 'player'), description='Which part to restart: nav (navigation '
                       'only), ros (all the robot software) or player (the 3-D world).'),
+                    P('words', 'list', nargs='*', metavar='NAME:=VALUE', default='none', free='navigation launch '
+                      'arguments as NAME:=VALUE', description='Only with nav: launch arguments for the navigation '
+                      'part, e.g. preset:=pool. They replace the ones from the last start; with none, those are '
+                      'used again (default none).'),
+                    P('--nav-args', metavar='"A:=x B:=y"', default='none', free='several NAME:=VALUE words in one '
+                      'quoted text', description='The same words in one quoted text, e.g. "preset:=pool '
+                      'params_file:=/path/variant.yaml"; a path must be under the workspace, ~/.config/astro or '
+                      '~/.config/mhseals (default none).'),
+                    _instance(),
                     P('--json', 'bool', description='Print the result as one JSON document instead of text, for '
                       'scripts.'),
                     sel('domain', free='a domain name: one file per domain in config/domains',
                         description='Which kind of robot world is running, e.g. boat (the default).')),
-            examples=('crane sim restart nav', 'crane sim restart player --json'),
+            examples=('crane sim restart nav', 'crane sim restart nav preset:=pool',
+                      'crane sim restart player --json'),
             raw='docker exec CONTAINER pkill ...; docker exec -d CONTAINER ros2 launch ...'),
     Command(('sim', 'status'), 'Show whether the simulator is running and where its parts and logs are; changes '
             'nothing.', 'crane.wrap:sim', passthrough=True, flags=(JSON,), json='crane.sim.status/1', export=True,
@@ -228,9 +257,10 @@ COMMANDS = [
             details='The block: mode, ROS_DOMAIN_ID, endpoint, player, ROS container, course, current, logs, next. '
                     '--json: {schema, domain, mode, player, ros, course, current, logs, next}. Same as '
                     'Tools/RoboBoat/sim_up status.',
-            params=(P('--json', 'bool', description='Print the status as one JSON document instead of text, for '
-                      'scripts.'),),
-            examples=('crane sim status',), raw='Tools/RoboBoat/sim_up status'),
+            params=(_instance(),
+                    P('--json', 'bool', description='Print the status as one JSON document instead of text, for '
+                      'scripts.')),
+            examples=('crane sim status', 'crane sim status --instance 2'), raw='Tools/RoboBoat/sim_up status'),
     Command(('sim', 'check'), 'Check the running simulator is ready to drive (world, course, boat, robot software, '
             'navigation); can wait until it is.', 'crane.wrap:sim', passthrough=True, flags=(JSON,),
             json='crane.sim.check/1', export=True,
@@ -242,6 +272,7 @@ COMMANDS = [
                     'Tools/SimCheck check on recorded results instead. Same as Tools/RoboBoat/sim_up check.',
             params=(P('--wait', 'int', description='Keep checking every 2 seconds until ready, for at most this many '
                       'seconds, e.g. 120 (default: check once).'),
+                    _instance(),
                     P('--json', 'bool', description='Print the checks as one JSON document instead of text, for '
                       'scripts.'),
                     sel('domain', free='a domain name: one file per domain in config/domains',
@@ -254,7 +285,8 @@ COMMANDS = [
                     'Same as Tools/RoboBoat/sim_up logs.',
             params=(P('which', 'list', nargs='*', choices=('player', 'stdout', 'ros', 't1'),
                       description='Which logs: player, stdout, ros or t1 (default the running tier\'s).'),
-                    P('-n', 'int', default=40, description='How many lines of each log to show, e.g. 100 (default 40).')),
+                    P('-n', 'int', default=40, description='How many lines of each log to show, e.g. 100 (default 40).'),
+                    _instance()),
             examples=('crane sim logs ros -n 100',), raw='Tools/RoboBoat/sim_up logs'),
 
     # ---- run -------------------------------------------------------------------------------------------------

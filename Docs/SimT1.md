@@ -90,6 +90,24 @@ lethal cells (100) in a 24 m square at 0.15 m about `base_link`. The global cost
 rolling 100 m window on the same `/perception/costmap`, so the walls reach it too and no `/map` is needed.
 `crane sim status` shows `world: pool 10x4.5 m, T1 node running ...`.
 
+## Nav arguments and parallel worlds
+
+```
+crane sim up --tier T1 --world pool --nav preset:=pool
+crane sim restart nav preset:=pool        # new arguments replace the saved ones; bare `restart nav` reuses them
+crane sim up --tier T1 --instance 2       # a second world beside the first
+```
+
+`NAME:=VALUE` goes under `parts.navigation.args` of the overrides the running world was launched with (kept in the
+state dir as `ros.overrides`, so the T1 world keeps its disabled parts); `--nav-args "A:=x B:=y"` is several at once.
+A host path value must lie under the workspace, `~/.config/astro` or `~/.config/mhseals` (mapped into the container),
+else the command refuses.
+
+`--instance N` (or `CRANE_SIM_INSTANCE`, else the cluster worker's `CRANE_ISOLATION_ID`) gives a world its own
+`ROS_DOMAIN_ID` (the profile's + N), endpoint port (10000, or `CRANE_PORT_BASE`, + that), container `sim_up_ros_N` and
+state dir `~/.cache/sim_up/N`. `down` stops only that instance; `status` without one lists the running ones. A T2
+instance refuses while another T2 world runs.
+
 ## Clock and rate
 
 The twin steps at the card's `fixedDeltaTime` (0.02 s). `--rate N` paces the steps at N× real time (default 1×);

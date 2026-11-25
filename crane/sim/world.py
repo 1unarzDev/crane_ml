@@ -104,8 +104,13 @@ def state(cfg, t2, run):
                  'world_name': _read(run / 'world') or 'course',
                  'world': {'running': player_up, 't_sim': beat and beat.get('t_sim'), 'rate': beat and beat.get('rate'),
                            'heartbeat_age_s': beat and beat.get('age_s')}}
+    n = config.instance()
+    nxt = list((t2.get('next_up') if player_up or ros_running else t2.get('next_down')) or [])
+    if n and (player_up or ros_running) and _read(run / 'domain'):
+        nxt = [f"ROS_DOMAIN_ID={_read(run / 'domain')} {cmd}" for cmd in nxt]
     return {
         **extra,
+        'instance': n, 'nav_args': read_nav(run) or None, 'instances': None if n else other_instances(t2),
         'schema': 'crane.sim.status/1', 'domain': cfg.get('name'), 'mode': _read(run / 'mode') or None, 'vessel': config.vessel(t2),
         'ros_domain_id': _read(run / 'domain') or None, 'port': _read(run / 'port') or None,
         'player': {'running': player_up, 'pgid': _read(run / 'player.pid') if player_up else None,
@@ -115,8 +120,20 @@ def state(cfg, t2, run):
         'current': current or None, 'current_text': _current_text(t2, current) if current else None,
         'restarted': _read(run / 'restarted') or None,
         'logs': [str(run / n) for n in ((t1.LOG, 'ros.log') if is_t1 else ('player.log', 'player-stdout.log', 'ros.log'))],
-        'next': list((t2.get('next_up') if player_up or ros_running else t2.get('next_down')) or []),
+        'next': nxt,
     }
+
+
+def other_instances(t2):
+    """The running instances, one dict each (instance, tier, ros_domain_id, container); [] when none."""
+    found = []
+    name = t2['ros']['container']
+    for i in config.instances():
+        container, path = f'{name}_{i}', config.state_base() / str(i)
+        if ros_up(container):
+            found.append({'instance': i, 'tier': 'T1' if _read(path / 'tier') == 'T1' else 'T2',
+                          'ros_domain_id': _read(path / 'domain') or None, 'container': container})
+    return found
 
 
 def status_lines(s):
@@ -140,11 +157,18 @@ def status_lines(s):
         lines.append('  course:    none (pool)')
     elif s['course']['ready']:
         lines.append(f"  course:    ready (seed {s['course']['seed'] or ''}, truth {s['course']['truth']})")
+    if s.get('nav_args'):
+        lines.append('  nav args:  ' + ' '.join(f'{k}:={v}' for k, v in s['nav_args'].items()))
     if s['current_text']:
         lines.append(f"  current:   {s['current_text']}")
     if s.get('restarted'):
         lines.append(f"  restarted: {s['restarted']}")
     lines.append(f"  logs:      {'  '.join(s['logs'])}")
+    if s.get('instance'):
+        lines.insert(1, f"  instance:  {s['instance']}")
+    for o in s.get('instances') or []:
+        lines.append(f"  instance {o['instance']}: {o['tier']}, ROS_DOMAIN_ID {o['ros_domain_id'] or '-'}, "
+                     f"container {o['container']} running")
     for i, cmd in enumerate(s['next']):
         lines.append(f"  {'next:' if i == 0 else '':10s} {cmd}")
     return lines
@@ -197,7 +221,7 @@ def down(cfg, t2, run, as_json=False, stream=None):
     except (OSError, subprocess.TimeoutExpired):
         pass
     for n in ('domain', 'port', 'current', 'player.argv', 'ros.docker', 'restarted', 'tier', 'odom', 'rate', 'world',
-              t1.ALIVE):
+              'nav.args', 'ros.overrides', t1.ALIVE):
         (run / n).unlink(missing_ok=True)
     if as_json:
         print(json.dumps({'schema': 'crane.sim.down/1', 'down': True, 'player': stopped, 'container': container, 'run': str(run)}))
@@ -214,12 +238,20 @@ def in_container(path, container_home):
     return path
 
 
-def docker_args(t2, run, d, port, img):
-    """The `docker run` argv of the ROS side: host network and IPC like the dev container, on domain d."""
+def launch_overrides(t2, run, port, nav=None):
+    """The overrides JSON text the launch gets: the domain's, with the {port} filled and nav {name: value} merged
+    under the recipe's args_part. Without nav the domain's text, unchanged."""
+    text = config.subst((t2.get('ros') or {}).get('overrides') or '', port=port)
+    return config.with_nav(text, nav, config.nav_part(t2), t2, run)
+
+
+def docker_args(t2, run, d, port, img, nav=None):
+    """The `docker run` argv of the ROS side: host network and IPC like the dev container, on domain d; nav
+    {name: value} are the nav arguments for the first launch."""
     ros = t2.get('ros') or {}
     ws = ros.get('workspace') or '/workspace'
     values = {'ws': ws, 'run': run, 'dock': config.dock(t2) or '', 'home': config.home(), 'port': port}
-    overrides = config.subst(ros.get('overrides') or '', port=port)
+    overrides = launch_overrides(t2, run, port, nav)
     launch = f"exec ros2 launch {ros.get('launch')}" + (f" overrides:='{overrides}'" if overrides else '')
     is_t1 = t2.get('tier') == 'T1'
     if is_t1:                                    # the T1 node in the background, beside the launch
@@ -287,13 +319,13 @@ def plan(cfg, t2, run, o, mode, current, as_json=False):
     guard = get(config.heavy, t2, placeholder=['<heavy>', 'unity'])
     player = get(config.find_player, t2, o.player, placeholder='<player>')
     d = get(config.domain_id, t2, placeholder=None)
-    port = int(ros.get('port_base', 10000)) + (d or 0)
+    port = config.port_base(t2) + (d or 0)
     img = get(config.image, t2, placeholder='<image>')
     args = resolver.resolve(cfg, env=o.env, robot=o.robot, card=o.card, seed=o.seed, profile=o.profile,
                             current=current, sets=o.sets, ros={'ip': ros.get('ip'), 'port': port},
                             extra=o.extra, out=run)
     player_argv = launch_cmd(t2, guard, mode, player, args)
-    docker = docker_args(t2, run, '<domain>' if d is None else d, port, img)
+    docker = docker_args(t2, run, '<domain>' if d is None else d, port, img, nav_from(o))
     doc = {'schema': 'crane.sim.plan/1', 'domain': cfg.get('name'), 'mode': mode, 'run': str(run),
            'ros_domain_id': d, 'port': port, 'player': player, 'player_argv': player_argv, 'docker_run': docker,
            'unresolved': problems}
@@ -328,6 +360,10 @@ def up(cfg, t2, run, o):
     if alive(run) or ros_up(container):
         status(cfg, t2, run, as_json)
         raise SimError(f'already up; {me} down first')
+    refuse_second_t2(t2, run)
+    nav = nav_from(o)
+    if nav:
+        launch_overrides(t2, run, 0, nav)                 # a nav argument the domain cannot take is refused here
     guard = config.heavy(t2)
     if mode == 'headless' and not shutil.which('xvfb-run'):
         raise SimError('headless needs xvfb-run: install xvfb or use --window')
@@ -335,7 +371,7 @@ def up(cfg, t2, run, o):
         raise SimError('no docker on PATH: install docker (the ROS side runs in a container)')
     player = config.find_player(t2, o.player)
     d = config.domain_id(t2)
-    port = int(ros.get('port_base', 10000)) + d
+    port = config.port_base(t2) + d
     img = config.image(t2)
     args = resolver.resolve(cfg, env=o.env, robot=o.robot, card=o.card, seed=o.seed, profile=o.profile,
                             current=current, sets=o.sets, ros={'ip': ros.get('ip'), 'port': port},
@@ -344,7 +380,7 @@ def up(cfg, t2, run, o):
     run.mkdir(parents=True, exist_ok=True)
     for p in [*run.glob('player*.log'), run / 'ros.log', run / ((t2.get('truth') or {}).get('file') or 'course_truth.json')]:
         p.unlink(missing_ok=True)
-    for n in ('odom', 'rate', 'world', t1.ALIVE):
+    for n in ('odom', 'rate', 'world', 'nav.args', 'ros.overrides', t1.ALIVE):
         (run / n).unlink(missing_ok=True)
     for name, value in (('current', current or 'default'), ('domain', d), ('port', port), ('mode', mode),
                         ('seed', seed), ('player.path', player), ('tier', 'T2')):
@@ -353,7 +389,8 @@ def up(cfg, t2, run, o):
     # 1. the ROS side, logged to the state dir
     subprocess.run(['docker', 'rm', '-f', container], capture_output=True, timeout=60)
     prepare_dirs(t2, run)
-    docker = docker_args(t2, run, d, port, img)
+    docker = docker_args(t2, run, d, port, img, nav)
+    save_nav(run, t2, d, port, nav)
     save_argv(run, 'ros.docker', docker)
     out = subprocess.run(docker, capture_output=True, text=True, timeout=120)
     if out.returncode != 0:
@@ -426,7 +463,8 @@ def up_t1(cfg, sec, run, o, current):
             doc = t1.resolve(cfg, sec, run, o, current, truth=Path(tmp) / 'course_truth.json')
     else:
         doc = t1.resolve(cfg, sec, run, o, current)
-    docker = docker_args(sec, run, d, '', img)
+    nav = nav_from(o)
+    docker = docker_args(sec, run, d, '', img, nav)
     if dry:
         plan_doc = {'schema': 'crane.sim.plan/1', 'domain': cfg.get('name'), 'tier': 'T1', 'odom': doc['odom'],
                     'rate': doc['rate'], 'run': str(run), 'ros_domain_id': None if problems else d,
@@ -446,6 +484,9 @@ def up_t1(cfg, sec, run, o, current):
         print(f'next: {me} up --tier T1' if not problems else f'next: fix the unresolved line(s), then {me} up --tier T1')
         return 0
     t1.write(run, doc)
+    for n in ('nav.args', 'ros.overrides'):
+        (run / n).unlink(missing_ok=True)
+    save_nav(run, sec, d, '', nav)
     world_name = t1.world_text((doc['pool']['length'], doc['pool']['width']) if doc.get('pool') else None)
     for name, value in (('tier', 'T1'), ('odom', doc['odom']), ('rate', f"{doc['rate']:g}"), ('world', world_name),
                         ('domain', d),
@@ -493,6 +534,42 @@ def prepare_dirs(t2, run):
     values = {'ws': ros.get('workspace') or '', 'run': run, 'dock': config.dock(t2) or '', 'home': config.home()}
     for p in ros.get('dirs') or []:
         Path(config.subst(p, **values)).mkdir(parents=True, exist_ok=True)
+
+
+def nav_from(o):
+    """The nav arguments up was given (--nav NAME:=VALUE, --nav-args 'A:=x B:=y'), as {name: value}."""
+    return config.parse_nav(getattr(o, 'nav', None), getattr(o, 'nav_args', None))
+
+
+def read_nav(run):
+    """The nav arguments the world was started (or last restarted) with, {} when none."""
+    try:
+        return json.loads((run / 'nav.args').read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def save_nav(run, t2, d, port, nav):
+    """Keep what restart nav needs: the overrides the world launched with (before nav args), and the nav args."""
+    ros = t2.get('ros') or {}
+    (run / 'ros.overrides').write_text(config.subst(ros.get('overrides') or '', port=port) + '\n')
+    if nav:
+        (run / 'nav.args').write_text(json.dumps(nav) + '\n')
+
+
+def refuse_second_t2(t2, run):
+    """An instance's T2 world needs the one Unity player to be free: refuse while another T2 world runs."""
+    n = config.instance()
+    if not n:
+        return
+    name = t2['ros']['container']
+    base = name[:-len(f'_{n}')]
+    others = [(config.state_base(), base)] + [(config.state_base() / str(i), f'{base}_{i}')
+                                               for i in config.instances() if i != n]
+    for path, container in others:
+        if path != run and _read(path / 'tier') != 'T1' and (alive(path) or ros_up(container)):
+            raise SimError(f'a T2 world is already running ({container}): the one Unity player runs one at a time; '
+                           f'{config.invoked_as()} down first, or use --tier T1 for side-by-side worlds')
 
 
 def save_argv(run, name, argv):

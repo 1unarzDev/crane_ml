@@ -697,6 +697,143 @@ def test_t1_up_status_check_and_down_with_the_odom_modes(world_env, monkeypatch,
         assert says in capsys.readouterr().err, args
 
 
+# ---- nav arguments and parallel instances ------------------------------------------------------------------------
+
+PARALLEL_DOCKER = r"""#!/bin/sh
+printf '%s\n' "$*" >> "$STUB/docker.log"
+case $1 in
+  inspect) eval "last=\${$#}"; [ -f "$STUB/running.$last" ] && echo true || { echo "Error: no such object" >&2; exit 1; } ;;
+  run) shift; name=; prev=
+       for a in "$@"; do [ "$prev" = --name ] && name=$a; prev=$a; done
+       printf '%s\n' "$@" > "$STUB/docker_run.$name.argv"; touch "$STUB/running.$name"
+       run=$(printf '%s' "$*" | sed -n 's/.*t1node.py \([^ ]*\)\/t1.json.*/\1/p')
+       if [ -n "$run" ]; then
+         printf 'CRANE_T1_PLANT profile=Characterized\nCRANE_T1_READY course=x\n' > "$run/t1.log"
+         python3 -c 'import json, time; print(json.dumps({"t_sim": 4.2, "wall": time.time(), "rate": 1.0}))' > "$run/t1.alive"
+       fi; echo cid ;;
+  rm) eval "last=\${$#}"; rm -f "$STUB/running.$last" ;;
+  exec) shift; case "$*" in
+    *pgrep*) [ -f "$STUB/nav_alive" ] ;;
+    *pkill*) rm -f "$STUB/nav_alive" ;;
+    *"lifecycle get"*) echo "active [3]" ;;
+    *"node list"*) printf '/crane_t1\n/ekf_local\n/bt_navigator\n' ;;
+  esac ;;
+esac
+"""
+
+
+def _nav_launches(stub):
+    """The overrides JSON of each nav relaunch (docker exec ... only:=navigation) in the stub's log."""
+    lines = [l for l in (stub / 'docker.log').read_text().splitlines() if 'only:=navigation' in l]
+    return [json.loads(l.split("overrides:='", 1)[1].split("'", 1)[0]) for l in lines]
+
+
+def _first_launch(stub, name):
+    command = (stub / f'docker_run.{name}.argv').read_text().splitlines()[-1]
+    return json.loads(command.split("overrides:='", 1)[1].split("'", 1)[0])
+
+
+T1_OFF = {p: {'enabled': False} for p in ('camera', 'lidar', 'objects', 'sim_bridge', 'localization')}
+
+
+def test_restart_nav_merges_args_into_the_running_worlds_own_overrides(world_env, capsys):
+    """NAME:=VALUE on restart nav goes under parts.navigation.args on top of what up launched with: a T1 world keeps
+    its disabled parts, a T2 world its sim_bridge port; up --nav saves them for a bare restart, new ones replace,
+    a bad word or a host path the container cannot see is refused before anything stops."""
+    stub, run, tmp = world_env['stub'], world_env['run'], world_env['tmp']
+    _exe(stub / 'bin' / 'docker', PARALLEL_DOCKER)
+    assert sim.main(['up', '--tier', 'T1', '--world', 'pool', '--odom', 'truth', '--nav', 'preset:=pool']) == 0
+    assert _first_launch(stub, 'sim_up_ros')['parts']['navigation'] == {'args': {'preset': 'pool'}}
+    assert 'nav args:  preset:=pool' in capsys.readouterr().out
+    assert json.loads((run / 'nav.args').read_text()) == {'preset': 'pool'}
+
+    assert sim.main(['restart', 'nav']) == 0                           # bare: the saved args again
+    assert sim.main(['restart', 'nav', 'preset:=lake']) == 0           # new ones replace
+    dock = world_env['tmp'] / 'dock'
+    assert sim.main(['restart', 'nav', '--nav-args', f'preset:=pool params_file:={dock}/v.yaml']) == 0
+    capsys.readouterr()
+    again, lake, mixed = _nav_launches(stub)
+    for doc in (again, lake, mixed):
+        assert {k: v for k, v in doc['parts'].items() if k != 'navigation'} == T1_OFF
+    assert again['parts']['navigation']['args'] == {'preset': 'pool'}
+    assert lake['parts']['navigation']['args'] == {'preset': 'lake'}
+    assert mixed['parts']['navigation']['args'] == {'preset': 'pool',
+                                                    'params_file': '/home/roboboat/roboboat_ws/v.yaml'}
+    n = len(_nav_launches(stub))
+    execs = (stub / 'docker.log').read_text().count('exec ')
+    assert sim.main(['restart', 'nav', 'preset']) == 2
+    assert "'preset' is not NAME:=VALUE" in capsys.readouterr().err
+    home_file = tmp / 'home' / 'elsewhere.yaml'
+    assert sim.main(['restart', 'nav', f'params_file:={home_file}']) == 2
+    assert 'not visible inside the ROS container' in capsys.readouterr().err
+    assert sim.main(['restart', 'ros', 'preset:=x']) == 2
+    assert sim.main(['up', '--tier', 'T1', '--nav', 'oops']) == 2
+    assert len(_nav_launches(stub)) == n and (stub / 'docker.log').read_text().count('exec ') == execs
+    assert sim.main(['status']) == 0 and 'nav args:  preset:=pool' in capsys.readouterr().out
+    assert sim.main(['down']) == 0 and not (run / 'nav.args').exists()
+
+    # T2: the sim_bridge port stays
+    assert sim.main(['up', '--headless']) == 0
+    assert sim.main(['restart', 'nav', 'preset:=pool']) == 0, capsys.readouterr()
+    parts = _nav_launches(stub)[-1]['parts']
+    assert parts['sim_bridge']['args']['ros_port'] == str(10000 + world_env['domain'])
+    assert parts['navigation']['args'] == {'preset': 'pool'}
+    assert sim.main(['down']) == 0
+
+
+def test_instances_are_parallel_worlds_with_their_own_domain_container_and_state(world_env, monkeypatch, capsys):
+    """Two T1 instances get distinct ROS_DOMAIN_ID, containers and state dirs; down stops only its own; status
+    without one lists the others; a second T2 refuses; the environment names an instance (flag first)."""
+    stub, run, base = world_env['stub'], world_env['run'], world_env['domain']
+    _exe(stub / 'bin' / 'docker', PARALLEL_DOCKER)
+    for n in (1, 2):
+        assert sim.main(['up', '--tier', 'T1', '--world', 'pool', '--instance', str(n)]) == 0, capsys.readouterr()
+        out = capsys.readouterr().out
+        argv = (stub / f'docker_run.sim_up_ros_{n}.argv').read_text().splitlines()
+        assert f'ROS_DOMAIN_ID={base + n}' in argv and (run / str(n) / 'domain').read_text().strip() == str(base + n)
+        assert f'ROS_DOMAIN_ID={base + n} astro on sim' in out and '  instance:  ' + str(n) in out
+        assert f'{run}/{n}:{run}/{n}' in argv
+    assert (run / '1' / 'domain').read_text() != (run / '2' / 'domain').read_text()
+    assert sim.main(['status']) == 0
+    listed = capsys.readouterr().out
+    assert f'instance 1: T1, ROS_DOMAIN_ID {base + 1}, container sim_up_ros_1 running' in listed
+    assert 'instance 2: T1' in listed
+    assert sim.main(['down', '--instance', '1']) == 0
+    assert not (stub / 'running.sim_up_ros_1').exists() and (stub / 'running.sim_up_ros_2').exists()
+    assert (run / '2' / 'tier').exists() and not (run / '1' / 'tier').exists()
+    capsys.readouterr()
+    monkeypatch.setenv('CRANE_SIM_INSTANCE', '2')
+    assert sim.main(['status']) == 0 and '  instance:  2' in capsys.readouterr().out
+    assert sim.main(['down']) == 0 and not (stub / 'running.sim_up_ros_2').exists()
+    monkeypatch.delenv('CRANE_SIM_INSTANCE')
+    assert sim.main(['status', '--instance', '0']) == 2 and 'whole number from 1 up' in capsys.readouterr().err
+
+    # one Unity player: the T2 world is single, so an instance refuses while another T2 runs
+    assert sim.main(['up', '--headless']) == 0
+    capsys.readouterr()
+    assert sim.main(['up', '--headless', '--instance', '3']) == 2
+    assert 'a T2 world is already running' in capsys.readouterr().err
+    assert sim.main(['down']) == 0
+
+    # the environment: flag > CRANE_SIM_INSTANCE > CRANE_ISOLATION_ID (a name is hashed); CRANE_PORT_BASE
+    for env, flag, want in (({'CRANE_ISOLATION_ID': '7'}, [], 7), ({'CRANE_ISOLATION_ID': '7', 'CRANE_SIM_INSTANCE': '3'}, [], 3),
+                            ({'CRANE_SIM_INSTANCE': '3'}, ['--instance', '4'], 4), ({}, [], None)):
+        for k in ('CRANE_ISOLATION_ID', 'CRANE_SIM_INSTANCE'):
+            monkeypatch.delenv(k, raising=False)
+        for k, v in env.items():
+            monkeypatch.setenv(k, v)
+        sim._take_instance(flag)
+        assert config.instance() == want
+    monkeypatch.setenv('CRANE_ISOLATION_ID', 'trial-0007')
+    sim._take_instance([])
+    assert 1 <= config.instance() <= 100
+    monkeypatch.setenv('CRANE_PORT_BASE', '20000')
+    cfg, t2 = config.domain('boat')
+    assert config.port_base(t2) + config.domain_id(t2) == 20000 + base + config.instance()
+    monkeypatch.delenv('CRANE_ISOLATION_ID')
+    sim._take_instance([])
+
+
 def test_sim_up_runs_on_enter_enter_every_param_has_a_default_and_each_picker_lists_valid_values(capsys):
     """astro's form for sim up: every param shows a default and a meaning; the pickers (sim up --list) print
     VALUE<TAB>meaning lines whose values sim up accepts; --current default is the scene's; --tier T1/T0 refuse in
