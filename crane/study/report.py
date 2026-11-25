@@ -28,11 +28,11 @@ def _number(v):
     return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
 
 
-def _metric_names(rows, wanted=None):
+def _metric_names(rows, wanted=None, skip=()):
     if wanted:
         return list(wanted)
     names = sorted({k for r in rows for k, v in r.items() if k not in IDENT and not k.startswith('cond.')
-                    and _number(v)})
+                    and k not in skip and _number(v)})
     return names
 
 
@@ -61,7 +61,8 @@ def status(study, out, show=4):
                     dev_rows.append(rec['row'])
     failures = ex._failures(out, cache, commit)
     other = sum(1 for e in cache if (e.get('unit') or {}).get('commit') not in (commit, None))
-    names = _metric_names(dev_rows, study.report.get('metrics') or (study.metrics or [])[:show] or None)[:show]
+    names = _metric_names(dev_rows, study.report.get('metrics') or (study.metrics or [])[:show] or None,
+                          skip=set(study.design_names))[:show]
     means = {}
     for r in dev_rows:
         for m in names:
@@ -112,7 +113,7 @@ def _manifests(out):
 def analyse(rows, baseline, metrics=None, axes=(), B=2000, perm_B=10000, alpha=0.05, seed=0):
     """Paired per-cell contrasts and the pooled lines (see the module doc). Pure: rows in, dict out."""
     from judge import stats
-    names = _metric_names(rows, metrics)
+    names = _metric_names(rows, metrics, skip=set(axes))     # a design's numeric columns are levels, not metrics
     cells = {}
     for r in rows:
         c = cells.setdefault((r['stage'], r['pair']), {'rows': {}, 'context': r})
@@ -165,33 +166,189 @@ def analyse(rows, baseline, metrics=None, axes=(), B=2000, perm_B=10000, alpha=0
     return {'baseline': baseline, 'metrics': names, 'alpha': alpha, 'B': B, 'pooled': lines, 'cells': per_cell}
 
 
-def verdicts(targets, pooled):
-    """Each target ({contrast: A - B, metric, direction}) against the pooled held-out lines that pair A with B:
-    met / not met / inconclusive (the 95% CI decides), or no data. ``lower`` and ``higher`` need the CI on that
-    side of 0; ``not lower`` and ``not higher`` fail only when the CI is wholly on the wrong side."""
+def _decide(t, lo, hi):
+    """met / not met / inconclusive of a contrast target's CI [lo, hi]."""
+    e = t.get('expect')
+    if e and 'interval' in e:
+        a, b = e['interval']
+        return 'met' if a <= lo and hi <= b else 'not met' if hi < a or lo > b else 'inconclusive'
+    if e:
+        x = e['threshold']
+        above, below = lo > x, hi < x
+        if e['direction'] == 'below':
+            above, below = below, above
+        return 'met' if above else 'not met' if below else 'inconclusive'
+    below, above = hi < 0, lo > 0
+    return {'lower': 'met' if below else 'not met' if above else 'inconclusive',
+            'higher': 'met' if above else 'not met' if below else 'inconclusive',
+            'not lower': 'not met' if below else 'met',
+            'not higher': 'not met' if above else 'met'}[t['direction']]
+
+
+def describe(t):
+    """A target's expectation in a few words (the report's direction column)."""
+    kind = t.get('kind', 'contrast')
+    if kind == 'gap_closed':
+        return f">= {t['min']:g} closed"
+    if kind == 'share':
+        return f"{describe(t['condition'])} in >= {t['at_least']:g} of cells"
+    if kind == 'fn':
+        return f"targets_fn {t['fn']}"
+    e, rel = t.get('expect'), ' (relative)' if t.get('relative') else ''
+    if e and 'interval' in e:
+        return f"in [{e['interval'][0]:g}, {e['interval'][1]:g}]{rel}"
+    if e:
+        return f"{e['direction']} {e['threshold']:g}{rel}"
+    return f"{t['direction']}{rel}"
+
+
+def per_seed(rows, arms, metric):
+    """{seed: {arm: value}}: each seed's mean over the cells (rows sharing ``pair``) where every arm has it."""
+    groups = {}
+    for r in rows:
+        if r.get('arm') in arms and _number(r.get(metric)):
+            groups.setdefault((r.get('pair'), r['seed']), {})[r['arm']] = r[metric]
+    by = {}
+    for (_, seed), got in groups.items():
+        if all(a in got for a in arms):
+            by.setdefault(seed, []).append(got)
+    return {seed: {a: sum(g[a] for g in gs) / len(gs) for a in arms} for seed, gs in sorted(by.items())}
+
+
+def _mean(xs):
+    return sum(xs) / len(xs)
+
+
+def _contrast_line(t, rows, B, alpha, seed=0):
+    """{diff, ci, seeds, verdict} of a contrast target on ``rows`` (paired on the seed), or None without pairs."""
+    from judge import stats
+    vals = per_seed(rows, (t['a'], t['b']), t['metric'])
+    units = [(v[t['a']], v[t['b']]) for v in vals.values()]
+    if not units:
+        return None
+    if t.get('relative'):
+        def stat(u):
+            base = _mean([b for _, b in u])
+            return _mean([a - b for a, b in u]) / base if base else float('nan')
+    else:
+        def stat(u):
+            return _mean([a - b for a, b in u])
+    est, (lo, hi) = stats.bootstrap_ci(units, stat, B=B, alpha=alpha, seed=seed)
+    if not all(_number(x) for x in (est, lo, hi)):
+        return {'diff': est, 'ci': [lo, hi], 'seeds': len(units), 'verdict': 'inconclusive',
+                'why': 'mean(B) is 0: no relative contrast'}
+    return {'diff': est, 'ci': [lo, hi], 'seeds': len(units), 'verdict': _decide(t, lo, hi)}
+
+
+def _gap_line(t, rows, B, alpha, seed=0):
+    """The share of the fixed-to-reference gap the treated arm closes, as a ratio of means over seeds:
+    mean_s(fixed - treated) / mean_s(fixed - reference); the bootstrap resamples seeds and recomputes both means per
+    draw. Met when the CI's lower bound is >= min, not met when its upper bound is below it; inconclusive (no gap to
+    close) when the reference gap's own CI includes 0."""
+    from judge import stats
+    a = t['arms']
+    vals = per_seed(rows, (a['fixed'], a['treated'], a['reference']), t['metric'])
+    units = [(v[a['fixed']] - v[a['treated']], v[a['fixed']] - v[a['reference']]) for v in vals.values()]
+    if not units:
+        return None
+
+    def ratio(us):
+        gap = _mean([u[1] for u in us])
+        return _mean([u[0] for u in us]) / gap if gap else float('nan')
+
+    gap, (glo, ghi) = stats.bootstrap_ci(units, lambda us: _mean([u[1] for u in us]), B=B, alpha=alpha, seed=seed)
+    est, (lo, hi) = stats.bootstrap_ci(units, ratio, B=B, alpha=alpha, seed=seed)
+    line = {'diff': est, 'ci': [lo, hi], 'seeds': len(units), 'gap': gap, 'gap_ci': [glo, ghi]}
+    if glo <= 0 <= ghi:
+        return {**line, 'verdict': 'inconclusive', 'why': 'no gap to close (the reference gap CI includes 0)'}
+    return {**line, 'verdict': 'met' if lo >= t['min'] else 'not met' if hi < t['min'] else 'inconclusive'}
+
+
+def _share_line(t, rows, B, alpha, seed=0):
+    """The share of cells (rows sharing ``pair``) where the condition is met: met when the met cells reach at_least,
+    not met when even the inconclusive ones would not, else inconclusive."""
+    cells = {}
+    for r in rows:
+        cells.setdefault(r.get('pair'), []).append(r)
+    got = [x for x in (_contrast_line(t['condition'], rs, B, alpha, seed) for _, rs in sorted(cells.items())) if x]
+    if not got:
+        return None
+    n = len(got)
+    met = sum(1 for x in got if x['verdict'] == 'met')
+    maybe = met + sum(1 for x in got if x['verdict'] == 'inconclusive')
+    verdict = 'met' if met >= t['at_least'] * n else 'not met' if maybe < t['at_least'] * n else 'inconclusive'
+    return {'diff': met / n, 'ci': [met / n, maybe / n], 'cells': n, 'seeds': None, 'verdict': verdict}
+
+
+def _fn_verdicts(t, rows, base):
+    """A targets_fn entry: its script, checked against the sha256 pinned when the held-out block ran, called on the
+    held-out rows. ``fn(rows)`` returns {name: verdict | {verdict, ...}} or [{name, verdict, ...}]."""
+    from crane.ids import sha256
+    head = {'contrast': t['contrast'], 'metric': '-', 'direction': describe(t), 'lines': []}
+    if base is None:
+        return [{**head, 'verdict': 'no data', 'why': 'the spec is not known here: crane study report OUT needs '
+                 'OUT/study.json'}]
+    path = Path(base) / t['path']
+    if not path.is_file() or sha256(path.read_bytes()) != t['sha256']:
+        return [{**head, 'verdict': 'no data', 'why': f"{t['path']} is not the pinned script (sha256 "
+                 f"{t['sha256'][:12]}); fix: git checkout the commit the held-out block ran at"}]
+    from fastsim import plugin
+    got = ex.plugin_scope(lambda: plugin.load(f"{t['path']}:{t['attr']}", str(base))(rows))()
+    items = got.items() if isinstance(got, dict) else ((g.get('name') or g.get('contrast'), g) for g in got or [])
+    out = []
+    for name, v in items:
+        v = v if isinstance(v, dict) else {'verdict': v}
+        verdict = v.get('verdict')
+        why = v.get('why')
+        if verdict not in guard.VERDICTS:
+            verdict, why = 'no data', f'targets_fn gave verdict {verdict!r}; fix: one of {", ".join(guard.VERDICTS)}'
+        out.append({**head, 'contrast': f"{t['contrast']}:{name}", 'metric': str(v.get('metric', '-')),
+                    'verdict': verdict, 'why': why, 'detail': {k: x for k, x in v.items()
+                                                               if k not in ('verdict', 'why', 'metric', 'name')}})
+    return out or [{**head, 'verdict': 'no data', 'why': 'targets_fn returned no verdicts'}]
+
+
+def verdicts(targets, pooled, rows=None, B=2000, alpha=0.05, base=None):
+    """Each target against the done held-out data: met / not met / inconclusive (the 95% CI decides), or no data.
+    A ``direction`` contrast reads the pooled held-out lines that pair A with B: ``lower`` and ``higher`` need the
+    CI on that side of 0; ``not lower`` and ``not higher`` fail only when the CI is wholly on the wrong side. Every
+    other kind (expect, relative, gap_closed, share, targets_fn; guard.py) reads the held-out ``rows``, per (stage,
+    block), the seed the bootstrap unit; ``base`` is the spec's dir (targets_fn scripts)."""
     result = []
+    held = [r for r in rows or [] if r.get('role') == 'held-out']
+    groups = {}
+    for r in held:
+        groups.setdefault((r['stage'], plan.label(r['block'], r.get('split'))), []).append(r)
     for t in targets:
+        kind = t.get('kind', 'contrast')
+        if kind == 'fn':
+            result += _fn_verdicts(t, held, base) if held else [
+                {'contrast': t['contrast'], 'metric': '-', 'direction': describe(t), 'lines': [],
+                 'verdict': 'no data', 'why': 'no done held-out rows'}]
+            continue
         lines = []
-        for x in pooled:
-            if x.get('role') != 'held-out' or x['metric'] != t['metric']:
-                continue
-            if (x['arm'], x['baseline']) == (t['a'], t['b']):
-                diff, lo, hi = x['diff'], x['ci'][0], x['ci'][1]
-            elif (x['arm'], x['baseline']) == (t['b'], t['a']):
-                diff, lo, hi = -x['diff'], -x['ci'][1], -x['ci'][0]
-            else:
-                continue
-            below, above = hi < 0, lo > 0
-            verdict = {'lower': 'met' if below else 'not met' if above else 'inconclusive',
-                       'higher': 'met' if above else 'not met' if below else 'inconclusive',
-                       'not lower': 'not met' if below else 'met',
-                       'not higher': 'not met' if above else 'met'}[t['direction']]
-            lines.append({'stage': x['stage'], 'block': x['block'], 'diff': diff, 'ci': [lo, hi],
-                          'seeds': x['seeds'], 'verdict': verdict})
-        why = None if lines else (f"no done held-out line pairs {t['a']} with {t['b']} on {t['metric']} (the report "
-                                  f"pairs arms with the baseline; --baseline {t['b']})")
-        result.append({'contrast': t['contrast'], 'metric': t['metric'], 'direction': t['direction'],
-                       'lines': lines, 'verdict': 'no data' if not lines else lines[0]['verdict']
+        if kind == 'contrast' and not t.get('expect') and not t.get('relative'):
+            for x in pooled:
+                if x.get('role') != 'held-out' or x['metric'] != t['metric']:
+                    continue
+                if (x['arm'], x['baseline']) == (t['a'], t['b']):
+                    diff, lo, hi = x['diff'], x['ci'][0], x['ci'][1]
+                elif (x['arm'], x['baseline']) == (t['b'], t['a']):
+                    diff, lo, hi = -x['diff'], -x['ci'][1], -x['ci'][0]
+                else:
+                    continue
+                lines.append({'stage': x['stage'], 'block': x['block'], 'diff': diff, 'ci': [lo, hi],
+                              'seeds': x['seeds'], 'verdict': _decide(t, lo, hi)})
+            why = None if lines else (f"no done held-out line pairs {t['a']} with {t['b']} on {t['metric']} (the "
+                                      f"report pairs arms with the baseline; --baseline {t['b']})")
+        else:
+            line = {'contrast': _contrast_line, 'gap_closed': _gap_line, 'share': _share_line}[kind]
+            for (stage, block), rs in sorted(groups.items()):
+                got = line(t, rs, B, alpha)
+                if got:
+                    lines.append({'stage': stage, 'block': block, **got})
+            why = None if lines else f"no done held-out rows pair the target's arms on {t['metric']}"
+        result.append({'contrast': t['contrast'], 'metric': t['metric'], 'direction': describe(t), 'kind': kind, 'lines': lines, 'verdict': 'no data' if not lines else lines[0]['verdict']
                        if len({x['verdict'] for x in lines}) == 1 else 'mixed', 'why': why})
     return result
 
@@ -332,7 +489,9 @@ def report(out, baseline=None, metrics=None, B=2000, alpha=0.05, write=True, stu
            'touched_held_out': any(m.get('touched_held_out') for m in manifests),
            **analyse(rows, baseline, metrics, manifests[0].get('axes') or (), B=B, alpha=alpha)}
     held = next((m['held_out'] for m in manifests if (m.get('held_out') or {}).get('targets')), None)
-    doc['targets'] = verdicts(held['targets'].get('entries') or [], doc['pooled']) if held else []
+    base = study.base if study is not None else _spec_base(out)
+    doc['targets'] = verdicts(held['targets'].get('entries') or [], doc['pooled'], rows, B=B, alpha=alpha,
+                              base=base) if held else []
     if study is not None and study.scorers:
         cards = {}
         for m in manifests:
@@ -344,6 +503,18 @@ def report(out, baseline=None, metrics=None, B=2000, alpha=0.05, write=True, stu
         progress.write_atomic(out / 'report.json', json.dumps(doc, indent=1, default=str) + '\n')
         progress.write_atomic(out / 'report.md', markdown(doc))
     return doc
+
+
+def _spec_base(out):
+    """The spec's dir from OUT/study.json (relative to the crane checkout or ~), else None."""
+    from crane import paths
+    try:
+        ref = json.loads((Path(out) / 'study.json').read_text())['spec']
+    except (OSError, ValueError, KeyError):
+        return None
+    path = Path(ref).expanduser()
+    path = path if path.is_absolute() else paths.ROOT / path
+    return path.parent if path.is_file() else None
 
 
 def fmt(v, digits=4):

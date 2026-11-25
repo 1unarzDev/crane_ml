@@ -10,7 +10,10 @@ engine only, as the sub: its run_batched), with the cell's overrides merged in
 whole seed chunk in one engine call (E envs on numpy, numba or jax) and builds the same rows from the engine's
 summaries, with no run directories. Task cells call ``module:function(args, seed, cell)`` or run
 ``argv`` with ``{args}`` (JSON), ``{seed}``, ``{out}``, ``{cell}``, ``{python}`` filled in; a task's numbers are its
-return value, or its argv's OUT/metrics.json, or the last JSON line it prints.
+return value, or its argv's OUT/metrics.json, or the last JSON line it prints. A ``batch: true`` task is called once
+per seed chunk, ``module:function(args, seeds, cell) -> [result per seed]``, and each result becomes the row a per-unit
+call would give, cached per seed. A task result's ``events`` list goes to OUT/events.jsonl under ``record: events``
+(``sample: F``: the units whose seed hashes below F, the same seeds in every arm).
 
 Finished units go to OUT/cache/records.jsonl within FLUSH_S (crane.cache.UnitCache.put_many, one append and one
 fsync for many; several processes may write), so a killed run loses only the units of its last second and the
@@ -165,6 +168,7 @@ def base_row(cell, seed, commit):
            'commit': commit, 'card_sha': cell.key.get('card'), 'engine': engine_label(cell),
            'touched_held_out': cell.held_out}
     row.update(cell.axes)
+    row.update(cell.design or {})
     for k, v in (cell.condition or {}).items():
         row[f'cond.{k}'] = v
     return row
@@ -270,7 +274,8 @@ class _Sim:
         if rec.get('level') in ('traj_decimated', 'obs') and (run_dir / 'track.jsonl').is_file():
             hz = rec.get('hz') if rec['level'] == 'traj_decimated' else None
             blobs['traj'] = cache.put_blob(_decimate(run_dir / 'track.jsonl', hz, rec.get('until_s')), '.npz')
-        if rec.get('level') in ('events', 'traj_decimated', 'obs') and (run_dir / 'sim_events.jsonl').is_file():
+        if rec.get('level') in ('events', 'traj_decimated', 'obs') and (run_dir / 'sim_events.jsonl').is_file() \
+                and sampled(seed, rec.get('sample')):
             data = (run_dir / 'sim_events.jsonl').read_bytes()
             if data.strip():
                 blobs['events'] = cache.put_blob(data, '.jsonl')
@@ -308,7 +313,7 @@ class _Batch(_Sim):
             blobs = {}
             if level == 'traj_decimated':
                 blobs['traj'] = cache.put_blob(_decimate(out.track(e), rec.get('hz'), rec.get('until_s')), '.npz')
-            if level in ('events', 'traj_decimated'):
+            if level in ('events', 'traj_decimated') and sampled(seed, rec.get('sample')):
                 data = ''.join(line(ev) for ev in out.events(e)).encode()
                 if data.strip():
                     blobs['events'] = cache.put_blob(data, '.jsonl')
@@ -317,7 +322,16 @@ class _Batch(_Sim):
         return result
 
 
-def _task(cell, seed, out):
+def sampled(seed, fraction):
+    """Whether a unit's events are kept under ``record: {sample: F}``: its seed's hash is below F, so the same seeds
+    are kept in every arm and cell, and a rerun keeps the same ones."""
+    if fraction is None or fraction >= 1:
+        return True
+    from crane.ids import derive_seed
+    return derive_seed(int(seed), 'record.sample') / 2.0 ** 64 < fraction
+
+
+def _task(cell, seed, out, cache):
     import shlex
     run_seed = cell.run_seeds[seed]
     args = plan.nest(cell.params)
@@ -349,6 +363,12 @@ def _task(cell, seed, out):
                     continue
         if not isinstance(got, dict):
             raise ValueError(f'{shlex.join(argv)[:200]} wrote no metrics.json in {{out}} and printed no JSON object')
+    return _task_result(cell, seed, args, got, cache)
+
+
+def _task_result(cell, seed, args, got, cache):
+    """(numbers, blobs) of one task result: the row a unit gives, per-unit or from a batch."""
+    ctx = cell.ctx
     if not isinstance(got, dict):
         raise TypeError(f'task {ctx["task"]} returned {type(got).__name__}, not a dict of numbers')
     outcome = str(got.get('outcome', 'ok'))
@@ -358,10 +378,51 @@ def _task(cell, seed, out):
     if cens['censored'] and cens['time_cap_s'] is None:
         raise ValueError(f'task {ctx.get("task") or ctx["argv"][0]} returned a censored unit without its time cap; '
                          'fix: return time_cap_s with censored (never NaN)')
-    numbers = _numbers({k: v for k, v in got.items() if k not in ('outcome', 'censored', 'time_cap_s')})
-    numbers.update(_score(cell, {'metrics': numbers, 'outcome': outcome, 'seed': seed, 'run_seed': run_seed,
-                                 'run_dir': None, 'run': got}))
-    return {'outcome': outcome, 'error': None, **cens, **_keep(cell, numbers)}, {}
+    events = got.get('events')
+    numbers = _numbers({k: v for k, v in got.items() if k not in ('outcome', 'censored', 'time_cap_s', 'events')})
+    numbers.update(_score(cell, {'metrics': numbers, 'outcome': outcome, 'seed': seed,
+                                 'run_seed': cell.run_seeds[seed], 'run_dir': None, 'run': got}))
+    blobs = {}
+    rec = cell.record or {}
+    if events and rec.get('level', 'metrics') != 'metrics' and sampled(seed, rec.get('sample')):
+        if not isinstance(events, list):
+            raise TypeError(f'task {ctx.get("task")} returned events as {type(events).__name__}, not a list of dicts')
+        data = ''.join(json.dumps(e if isinstance(e, dict) else {'event': e}, default=str) + '\n' for e in events)
+        blobs['events'] = cache.put_blob(data.encode(), '.jsonl')
+    return {'outcome': outcome, 'error': None, **cens, **_keep(cell, numbers)}, blobs
+
+
+def _work_task_batch(cell, seeds, out, commit, cache):
+    """A ``batch: true`` task's chunk: the missing seeds in one call, ``fn(args, run_seeds, cell)`` -> one result per
+    seed (in order), each made into the row a per-unit call gives and cached per seed; a raise fails the chunk."""
+    done, todo = [], []
+    for seed in seeds:
+        if cache.has(cell.unit(seed, commit)):
+            done.append((seed, True, None))
+        else:
+            todo.append(seed)
+    if not todo:
+        return done
+    started = time.perf_counter()
+    try:
+        args = plan.nest(cell.params)
+        fn = _load(cell.ctx['task'], cell.ctx['base'], cell)
+        got = fn(args, [cell.run_seeds[s] for s in todo], cell.info())
+        got = list(got) if not isinstance(got, dict) else got
+        if not isinstance(got, list) or len(got) != len(todo):
+            raise ValueError(f'batch task {cell.ctx["task"]} returned {len(got) if isinstance(got, list) else type(got).__name__}'
+                             f' results for {len(todo)} seeds; fix: return one dict per seed, in order')
+        results = [_task_result(cell, seed, args, r, cache) for seed, r in zip(todo, got)]
+    except Exception as error:  # noqa: BLE001  the chunk failed: every unit of it is a failure, retried on rerun
+        return done + [(seed, False, _failure(cell, seed, error)) for seed in todo]
+    wall = round((time.perf_counter() - started) / len(todo), 6)
+    pending = []
+    for seed, (numbers, blobs) in zip(todo, results):
+        row = {**base_row(cell, seed, commit), **numbers, 'wall_s': wall}
+        pending.append((cell.unit(seed, commit), {'row': row, 'blobs': blobs}))
+        done.append((seed, numbers.get('outcome') != 'ERROR', None))
+    cache.put_many(pending)
+    return done
 
 
 def _failure(cell, seed, error):
@@ -422,6 +483,8 @@ def work(cell, seeds, out, commit):
     cell = materialize(cell, out)
     if cell.engine.get('mode') == 'batched':
         return _work_batched(cell, seeds, out, commit, cache)
+    if cell.kind == 'task' and cell.ctx.get('batch'):
+        return _work_task_batch(cell, seeds, out, commit, cache)
     done, sim, pending, flushed = [], None, [], time.perf_counter()
     for seed in seeds:
         if pending and time.perf_counter() - flushed >= FLUSH_S:
@@ -437,7 +500,7 @@ def work(cell, seeds, out, commit):
                 sim = sim or _Sim(cell)
                 numbers, blobs = sim.run(cell, seed, out, cache)
             else:
-                numbers, blobs = _task(cell, seed, out)
+                numbers, blobs = _task(cell, seed, out, cache)
         except Exception as error:  # noqa: BLE001  one unit failed: record it, keep going
             done.append((seed, False, _failure(cell, seed, error)))
             continue
@@ -473,7 +536,8 @@ def run_cell(cell, out, progress=None, workers=1, commit=None):
 
 def _chunks(cell, seeds, study):
     size = (study.stages[cell.stage].pack or {}).get('local_chunk') or study.pack.get('local_chunk') \
-        or plan.CHUNK['batched' if cell.engine.get('mode') == 'batched' else cell.kind]
+        or plan.CHUNK['batched' if cell.engine.get('mode') == 'batched' else 'task_batch'
+                      if cell.kind == 'task' and cell.ctx.get('batch') else cell.kind]
     return [seeds[i:i + size] for i in range(0, len(seeds), size)]
 
 
@@ -648,6 +712,11 @@ def schema(study, rows):
     identity columns."""
     cols = dict(KEYS)
     cols.update({a.name: 'str' for a in [*study.axes, *study.card_axes]})
+    points = [p for d in [study.design, *(g.design for g in study.stages.values())] if d for p in d]
+    for name in study.design_names:      # a design column is a number when every point gives it one
+        values = [p[name] for p in points if name in p]
+        cols[name] = 'float' if all(isinstance(v, (int, float)) and not isinstance(v, bool) for v in values) \
+            else 'str'
     cols.update({f'cond.{c}': 'str' for c in study.condition_columns})
     for c in study.condition_columns:
         values = [r['row'][c] for r in study.conditions or []]
@@ -712,7 +781,8 @@ def compile_rows(study, out, cells=None, part=None):
     failures = _failures(out, cache, commit)
     big = [f['path'] for f in files if (out / f['path']).stat().st_size > ARTIFACT_MAX]
     extra = {'study': study.name, 'spec': study.path.name, 'domain': study.domain, 'commit': commit, 'updated': now(),
-             'baseline': study.baseline, 'axes': [a.name for a in [*study.axes, *study.card_axes]],
+             'baseline': study.baseline, 'axes': [a.name for a in [*study.axes, *study.card_axes]]
+             + study.design_names,
              'record': study.record['level'],
              'units': units, 'failed_units': len(failures),
              'touched_held_out': any(r.get('touched_held_out') for r in all_rows) or bool(held),
@@ -723,7 +793,7 @@ def compile_rows(study, out, cells=None, part=None):
     if cards:
         extra['cards'] = cards                            # derived card sha -> its card-axis levels
     manifest = write_manifest(out, cols, files, extra)
-    _metrics_json(out, units, all_rows, len(failures))
+    _metrics_json(out, units, all_rows, len(failures), skip=set(study.design_names))
     return manifest
 
 
@@ -764,7 +834,8 @@ def _extras(out, cache, blobs):
                 data = cache.get_blob(sha, '.jsonl') or b''
                 for line in data.decode().splitlines():
                     if line.strip():
-                        f.write(json.dumps({'cell': c, 'seed': s, **json.loads(line)}) + '\n')
+                        f.write(json.dumps({'cell': c, 'stage': c.split('.', 1)[0], 'arm': c.split('.')[1],
+                                            'seed': s, **json.loads(line)}) + '\n')
                         n += 1
         path.with_name('.events.jsonl.tmp').replace(path)
         files.append({'path': path.name, 'rows': n, 'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
@@ -789,7 +860,7 @@ def _failures(out, cache, commit):
     return [f for k, f in latest.items() if k not in done]
 
 
-def _metrics_json(out, units, rows, failed):
+def _metrics_json(out, units, rows, failed, skip=()):
     """OUT/metrics.json: at most 1000 finite numbers: unit counts per stage and block, and per-arm means of the
     rows of dev blocks (guard.shows_means; held-out, check, train and calib blocks give counts only)."""
     numbers = {'units.done': sum(b['done'] for s in units.values() for b in s.values()),
@@ -803,7 +874,7 @@ def _metrics_json(out, units, rows, failed):
         if not guard.shows_means(r.get('role')):
             continue
         for k, v in r.items():
-            if k in KEYS or k in END or not isinstance(v, (int, float)) or isinstance(v, bool):
+            if k in KEYS or k in END or k in skip or not isinstance(v, (int, float)) or isinstance(v, bool):
                 continue
             key = f"{r['stage']}.{r['arm']}.{k}"
             s = sums.setdefault(key, [0.0, 0])
