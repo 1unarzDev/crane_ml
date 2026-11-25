@@ -169,3 +169,18 @@ kernel alone). JAX float32 is 5x numba on this GPU for the kernel alone; the mis
 |---|---|
 | 1 kernel exactness | numpy, numba and JAX float64 (GPU; the test pins the CPU device) against `marine6_ref.Simulator.step` over 600 periods (NED current, lag, saturation, turns past 180 deg): max state error 2.7e-15 / 1.8e-15 / 7.1e-15 at one substep, 3.6e-15 / 3.6e-15 / 7.1e-15 at two; allocation within 1e-12 of the reference |
 | batch invariance | kernel: env i at E=1 = at E=1024 bit for bit (numpy), numba rows within 1e-12; mission: env i at E=1 = at E=1024 bit for bit (outcome, events, numbers, final state) under a per-env current and thrust noise |
+
+## Rented RTX 3090 (2026-11-25)
+Commit 01a78e11. Box vast-jax (RTX 3090, 26 cgroup cores, python:3.12-slim + jax[cuda12] + numba). Boat T1,
+`--course-pool 5`. Job wall 338 s.
+
+| backend | E | episodes/s | this host (4070 Ti SUPER, 20 cores) |
+|---|---|---|---|
+| jax float32 GPU | 16,384 | 4,596 | 4,849 |
+| jax float32 GPU | 4,096 | 3,282 | – |
+| numba CPU (26 cores) | 4,096 | 3,710 | 3,385 (20 cores) |
+
+On the 3090 the GPU path barely beats numba on the same box, and it is no faster than the 4070 Ti SUPER, so the GPU
+is underused. The time goes to host-side prep, transfers and many small per-tick kernels (113 per tick, see above),
+not GPU compute. The next step toward the GPU target is a profile of one E=16,384 tick (jax.profiler or nsys),
+followed by fusing the tick step and refilling more often. Until then, numba on CPU cores is as fast and cheaper.
