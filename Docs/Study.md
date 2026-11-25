@@ -188,8 +188,9 @@ done.
   - {targets_fn: verdicts.py:fn}
   ```
 
-  - `gap_closed` is (fixed - treated) / (fixed - reference) per seed (seeds with fixed = reference are dropped);
-    met when the CI's lower bound is >= `min`, not met when its upper bound is below it, else inconclusive.
+  - `gap_closed` is the ratio of means over seeds, mean(fixed - treated) / mean(fixed - reference); the bootstrap
+    redraws seeds and recomputes both means. Met when the CI's lower bound is >= `min`, not met when its upper bound
+    is below it, else inconclusive; inconclusive (no gap to close) when the reference gap's own CI includes 0.
   - `share` gives the condition a verdict per cell: met when the met cells reach `at_least`, not met when even the
     inconclusive ones would not.
   - `targets_fn` (relative to the targets file) gets the done held-out rows and returns `{name: verdict}` or

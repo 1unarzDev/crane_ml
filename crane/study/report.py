@@ -241,19 +241,27 @@ def _contrast_line(t, rows, B, alpha, seed=0):
 
 
 def _gap_line(t, rows, B, alpha, seed=0):
-    """(fixed - treated) / (fixed - reference) per seed, its mean and bootstrap CI; met when the CI's lower bound is
-    >= min, not met when its upper bound is below it."""
+    """The share of the fixed-to-reference gap the treated arm closes, as a ratio of means over seeds:
+    mean_s(fixed - treated) / mean_s(fixed - reference); the bootstrap resamples seeds and recomputes both means per
+    draw. Met when the CI's lower bound is >= min, not met when its upper bound is below it; inconclusive (no gap to
+    close) when the reference gap's own CI includes 0."""
     from judge import stats
     a = t['arms']
     vals = per_seed(rows, (a['fixed'], a['treated'], a['reference']), t['metric'])
-    ratios = [(v[a['fixed']] - v[a['treated']]) / (v[a['fixed']] - v[a['reference']]) for v in vals.values()
-              if v[a['fixed']] != v[a['reference']]]
-    if not ratios:
+    units = [(v[a['fixed']] - v[a['treated']], v[a['fixed']] - v[a['reference']]) for v in vals.values()]
+    if not units:
         return None
-    est, (lo, hi) = stats.bootstrap_ci(ratios, _mean, B=B, alpha=alpha, seed=seed)
-    verdict = 'met' if lo >= t['min'] else 'not met' if hi < t['min'] else 'inconclusive'
-    return {'diff': est, 'ci': [lo, hi], 'seeds': len(ratios), 'dropped': len(vals) - len(ratios),
-            'verdict': verdict}
+
+    def ratio(us):
+        gap = _mean([u[1] for u in us])
+        return _mean([u[0] for u in us]) / gap if gap else float('nan')
+
+    gap, (glo, ghi) = stats.bootstrap_ci(units, lambda us: _mean([u[1] for u in us]), B=B, alpha=alpha, seed=seed)
+    est, (lo, hi) = stats.bootstrap_ci(units, ratio, B=B, alpha=alpha, seed=seed)
+    line = {'diff': est, 'ci': [lo, hi], 'seeds': len(units), 'gap': gap, 'gap_ci': [glo, ghi]}
+    if glo <= 0 <= ghi:
+        return {**line, 'verdict': 'inconclusive', 'why': 'no gap to close (the reference gap CI includes 0)'}
+    return {**line, 'verdict': 'met' if lo >= t['min'] else 'not met' if hi < t['min'] else 'inconclusive'}
 
 
 def _share_line(t, rows, B, alpha, seed=0):

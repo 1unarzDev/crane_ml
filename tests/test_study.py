@@ -784,3 +784,22 @@ def test_batch_task_rows_equal_per_unit_rows_resume_and_sampled_events(tmp_path)
         assert [ex.sampled(x, f) for x in range(500)] == [ex.sampled(x, f) for x in range(500)]
         rate = sum(ex.sampled(x, f) for x in range(20000)) / 20000
         assert abs(rate - f) < 0.15 * f
+
+
+def test_gap_closed_is_a_ratio_of_means_and_inconclusive_without_a_gap():
+    """gap_closed estimates mean(fixed - treated) / mean(fixed - reference) over seeds (the bootstrap redraws seeds);
+    a reference gap whose CI includes 0 is 'no gap to close'."""
+    from crane.study import report
+    t = {'arms': {'fixed': 'F', 'treated': 'T', 'reference': 'R'}, 'metric': 'm', 'min': 0.7}
+
+    def rows(gaps, closed):
+        out = []
+        for s, (g, c) in enumerate(zip(gaps, closed)):
+            out += [{'arm': 'F', 'seed': s, 'm': 10.0}, {'arm': 'T', 'seed': s, 'm': 10.0 - c},
+                    {'arm': 'R', 'seed': s, 'm': 10.0 - g}]
+        return out
+    # seed gaps 0.01 and 4: per-seed ratios would blow up on the first; the ratio of means is (0.01+3.2)/(0.01+4)
+    line = report._gap_line(t, rows([0.01, 4.0] * 20, [0.01, 3.2] * 20), 500, 0.05)
+    assert abs(line['diff'] - 3.21 / 4.01) < 1e-9 and line['verdict'] == 'met'
+    flat = report._gap_line(t, rows([1.0, -1.0] * 20, [0.5, -0.5] * 20), 500, 0.05)
+    assert flat['verdict'] == 'inconclusive' and 'no gap to close' in flat['why']
