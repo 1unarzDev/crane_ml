@@ -1,0 +1,32 @@
+# The modular domain: wheeled assemblies of modules (mecanum, omni, conventional wheels, ball casters) on the batched
+# kernel engine/kernels/mecanum.py. T1 has its own runner (domains/modular/cli.py): a waypoint route per seed, or
+# logged command timelines replayed (--replay FILE: N seeds x M timelines in one call).
+# The kernel is a port of the capplan truth stepper, built for the FP0 module (0.42 x 0.30 m, a different drive).
+# It is not corpus-identified and has not been cross-checked against the corpus robot's identified model.
+# Corpus validation pending (cross-check against capxfer replay on the corpus calibration sessions).
+#   crane run --domain modular --seeds 0:64
+#   crane run --domain modular --replay TIMELINES.npz --seeds 0:24 --set faults.p_healthy=0.25
+tiers:
+  T1:
+    runner: domains.modular.cli:run
+    dt_s: 0.005                                 # the plant step
+    tick_hz: 50                                 # the command and channel rate (whole plant steps)
+# --env KIND:NAME: route:NAME is domains/modular/routes/NAME.json, route:random draws one from each seed.
+env:
+  default: route:square
+  kinds:
+    route: {dir: domains/modular/routes}
+# --robot R: an assembly in domains/modular/assemblies.
+robot:
+  default: mecanum-1
+  robots:
+    mecanum-1: {assembly: mecanum-1}
+    mecanum-pair: {assembly: mecanum-pair}
+    diff-caster: {assembly: diff-caster}
+# --card REF: a profile in dir (REF.json) or a path; REF#VARIANT picks a variant (one card per plate state).
+card:
+  dir: domains/modular/profiles
+  default: example
+# What a replay records per env (crane.data.recorder's obs layout): the robot-visible 50 Hz channels.
+record:
+  obs: {channels: [cmd, duty, counts, imu], hz: 50, dtype: float32}

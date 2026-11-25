@@ -2,8 +2,9 @@
 
     nav     only the navigation nodes, inside the running ROS container (the domain's ros.restart.nav recipe:
             stop them, start them again, wait for the ready nodes), so new nav2_limits in the state take effect
-    ros     the ROS container, with the args up used; the player stays and its endpoint reconnects
-    player  the player, with the argv up resolved; the ROS side stays
+    ros     the ROS container, with the args up used; the player stays and its endpoint reconnects (T1: the node
+            restarts with the container, from the course start at sim time 0)
+    player  the player, with the argv up resolved; the ROS side stays (T2 only)
 
 Each step prints one line; waits are bounded and state their timeout. The state dir is updated (status and check
 read it). Exit 0 ok, 1 the part failed, 2 usage or config (also: nothing running), 75 timed out waiting.
@@ -93,8 +94,9 @@ def _need_container(t2):
     return me
 
 
-def nav(cfg, t2, run, as_json=False):
-    """Stop the recipe's nav processes in the container, start them again, wait for the ready nodes."""
+def nav(cfg, t2, run, as_json=False, new=None):
+    """Stop the recipe's nav processes in the container, start them again, wait for the ready nodes. new: the nav
+    arguments {name: value} given now, which replace the saved ones; else the saved ones are used again."""
     ros = t2.get('ros') or {}
     me = config.invoked_as()
     recipe = (ros.get('restart') or {}).get('nav')
@@ -102,6 +104,11 @@ def nav(cfg, t2, run, as_json=False):
         raise SimError(f'no ros.restart.nav recipe in config/domains/{cfg.get("name")}.yaml: {me} restart ros '
                        'restarts the whole ROS side instead', 2)
     _need_container(t2)
+    saved = world._read(run / 'ros.overrides')       # what up launched with: a T1 world keeps its disabled parts
+    overrides = saved or ros.get('overrides') or ''
+    overrides = config.subst(overrides, port=_read_port(run)) if '{port}' in overrides else overrides
+    args = new if new else world.read_nav(run)
+    overrides = config.with_nav(overrides, args, recipe.get('args_part'), t2, run)
     values = {'match': recipe['match']} if recipe.get('match') else {}
     stop_s = float(recipe.get('stop_s', 20))
 
@@ -117,12 +124,13 @@ def nav(cfg, t2, run, as_json=False):
             time.sleep(0.5)
         return True
 
+    if new:
+        (run / 'nav.args').write_text(json.dumps(new) + '\n')
     _say(f'nav stopping (up to {stop_s:g} s, then KILL and up to {stop_s:g} s more)', as_json)
     run_all(recipe.get('stop') or [])
     if not recipe.get('alive') or not (gone(stop_s) or (run_all(recipe.get('kill') or []) or gone(stop_s))):
         raise SimError(f'the nav processes did not exit (see {run}/ros.log); not starting a second set: '
                        f'{me} restart ros', 1)
-    overrides = config.subst(ros.get('overrides') or '', port=_read_port(run))
     start_values = {'launch': ros.get('launch') or '', 'overrides': shlex.quote(overrides)}
     with_log = ' >>{} 2>&1'.format(shlex.quote(str(run / 'ros.log')))
     for cmd in recipe.get('start') or []:
@@ -142,20 +150,55 @@ def nav(cfg, t2, run, as_json=False):
     return {'restarted': 'nav', 'ready': nodes, 'at': stamp}
 
 
+def docker_with_nav(docker, t2, run):
+    """The saved docker run argv, its launch carrying the base overrides up saved plus the latest nav.args (merged as
+    restart nav merges them), so a nav argument given by a later restart nav is not lost."""
+    saved = world._read(run / 'ros.overrides')
+    base = saved if saved is not None else (t2.get('ros') or {}).get('overrides') or ''
+    base = config.subst(base, port=_read_port(run)) if '{port}' in base and (run / 'port').exists() else base
+    nav = world.read_nav(run)
+    if not nav:
+        return docker
+    overrides = config.with_nav(base, nav, config.nav_part(t2), t2, run)
+    script, marker = docker[-1], " overrides:='"
+    tail = f" >{run}/ros.log 2>&1"
+    end = script.rfind("'" + tail) if marker in script else script.rfind(tail)
+    if end < 0:
+        return docker
+    start = script.find(marker) if marker in script else end
+    head = script[:start]
+    return [*docker[:-1], f"{head}{marker}{overrides}'{tail}"]
+
+
 def ros(cfg, t2, run, as_json=False):
-    """Remove and re-run the ROS container with the argv up saved; wait for the endpoint and the ready nodes."""
+    """Remove and re-run the ROS container with the argv up saved (the latest nav args in its overrides); wait for
+    the endpoint and the ready nodes."""
     ros_cfg = t2.get('ros') or {}
     me = config.invoked_as()
     container = ros_cfg['container']
     docker = world.saved_argv(run, 'ros.docker')
     if not docker:
         raise SimError(f'no saved ROS launch in {run}: {me} up', 2)
-    port = int(_read_port(run))
+    docker = docker_with_nav(docker, t2, run)
+    is_t1 = t2.get('tier') == 'T1'
+    port = None if is_t1 else int(_read_port(run))
     world.prepare_dirs(t2, run)
     subprocess.run(['docker', 'rm', '-f', container], capture_output=True, timeout=60)
+    if is_t1:
+        for n in (world.t1.LOG, world.t1.ALIVE):
+            (run / n).unlink(missing_ok=True)
     out = subprocess.run(docker, capture_output=True, text=True, timeout=120)
     if out.returncode != 0:
         raise SimError(f'docker run failed (exit {out.returncode}): {(out.stderr.strip().splitlines() or [""])[-1]}', 1)
+    if is_t1:
+        limit = int(t2.get('ready_s') or 60)
+        _say(f'ROS side and T1 node restarting, waiting up to {limit} s for the world', as_json)
+        outcome = world.wait_world(t2, run, limit)
+        if outcome != 'ready':
+            world._tail(run / world.t1.LOG)
+            raise SimError(f'the T1 world is not up ({outcome}), see {run}/{world.t1.LOG} and {run}/ros.log; '
+                           f'then {me} down', 75 if outcome == 'timeout' else 1)
+        return _wait_ready_nodes(t2, run, ros_cfg, me, as_json)
     limit = int(ros_cfg.get('endpoint_s', 60))
     _say(f'ROS side restarting (endpoint port {port}, the player is kept), waiting up to {limit} s for the endpoint',
          as_json)
@@ -167,8 +210,12 @@ def ros(cfg, t2, run, as_json=False):
         if time.monotonic() - t0 >= limit:
             raise SimError(f'no endpoint on port {port} in {limit} s, see {run}/ros.log; then {me} down', 75)
         time.sleep(1)
+    return _wait_ready_nodes(t2, run, ros_cfg, me, as_json, 'endpoint up')
+
+
+def _wait_ready_nodes(t2, run, ros_cfg, me, as_json, what='world up'):
     nodes, limit = list(ros_cfg.get('ready_nodes') or []), float(ros_cfg.get('ready_s', 120))
-    _say(f'endpoint up, waiting up to {limit:g} s for {", ".join(nodes) or "nothing"}', as_json)
+    _say(f'{what}, waiting up to {limit:g} s for {", ".join(nodes) or "nothing"}', as_json)
     missing = wait_nodes(t2, run, nodes, limit)
     stamp = _record(run, 'ros')
     if missing:
@@ -186,6 +233,9 @@ def _read_port(run):
 def player(cfg, t2, run, as_json=False):
     """Stop the player's process group and start the argv up saved, in a new one; wait for the course."""
     me = config.invoked_as()
+    if t2.get('tier') == 'T1':
+        raise SimError(f'restart player: the T1 world runs no player (its node runs in the ROS container); '
+                       f'{me} restart ros', 2)
     argv = world.saved_argv(run, 'player.argv')
     if not argv:
         raise SimError(f'no saved player launch in {run}: {me} up', 2)
@@ -217,10 +267,12 @@ def player(cfg, t2, run, as_json=False):
     return {'restarted': 'player', 'ready': [t2.get('ready_marker')], 'at': stamp}
 
 
-def run_restart(cfg, t2, run, what, as_json=False):
-    """Restart WHAT and print the result; the exit code (SimError carries its own)."""
+def run_restart(cfg, t2, run, what, as_json=False, new=None):
+    """Restart WHAT and print the result; the exit code (SimError carries its own). new: nav arguments (nav only)."""
     me = config.invoked_as()
-    result = {'nav': nav, 'ros': ros, 'player': player}[what](cfg, t2, run, as_json)
+    if new and what != 'nav':
+        raise SimError(f'NAME:=VALUE arguments are for restart nav, not restart {what}')
+    result = nav(cfg, t2, run, as_json, new) if what == 'nav' else {'ros': ros, 'player': player}[what](cfg, t2, run, as_json)
     if as_json:
         print(json.dumps({'schema': 'crane.sim.restart/1', **result, 'status': world.state(cfg, t2, run)}, indent=2))
     else:

@@ -6,8 +6,11 @@ names the image env. crane's own env: SIM_UP_VESSEL, SIM_UP_RUN (~/.cache/sim_up
 HEAVY (default crane's bin/heavy; ``none`` runs bare), CRANE_SIM_AS (the name messages carry; the sim_up shim sets it).
 """
 
+import json
 import os
 import re
+import shlex
+import zlib
 from pathlib import Path
 
 from crane import paths
@@ -38,9 +41,139 @@ def home():
     return Path(os.environ.get('HOME') or Path.home())
 
 
-def run_dir():
-    """The state dir: pids, logs, the course truth (SIM_UP_RUN, default ~/.cache/sim_up)."""
+def state_base():
+    """The state root (SIM_UP_RUN, default ~/.cache/sim_up): the world without an instance lives here."""
     return Path(os.environ.get('SIM_UP_RUN') or home() / '.cache' / PROG)
+
+
+def run_dir():
+    """The state dir: pids, logs, the course truth. An instance N has its own, state_base()/N."""
+    n = instance()
+    return state_base() / str(n) if n else state_base()
+
+
+_INSTANCE = {'n': None}
+
+
+def instance():
+    """The parallel-world number (1, 2, ...) this process works on, or None (the one world)."""
+    return _INSTANCE['n']
+
+
+def set_instance(value):
+    """Set the instance from --instance or CRANE_SIM_INSTANCE (a whole number; 0 or None is the default world)."""
+    if value in (None, ''):
+        _INSTANCE['n'] = None
+        return
+    try:
+        n = int(str(value))
+    except ValueError:
+        n = 0
+    if n < 0 or str(value).strip().lstrip('+') != str(n):
+        raise SimError(f'--instance wants a whole number, 0 (the default world) or more, got {value}')
+    _INSTANCE['n'] = n or None          # 0 is the default world: domain base, sim_up_ros, the legacy state dir
+
+
+def env_instance():
+    """The instance the environment names: CRANE_SIM_INSTANCE, else the cluster worker's CRANE_ISOLATION_ID (a whole
+    number, else its text hashed to 1..100), else None."""
+    if os.environ.get('CRANE_SIM_INSTANCE'):
+        return os.environ['CRANE_SIM_INSTANCE']
+    iso = (os.environ.get('CRANE_ISOLATION_ID') or '').strip()
+    if not iso:
+        return None
+    return iso if iso.isdigit() and int(iso) >= 1 else zlib.crc32(iso.encode()) % 100 + 1
+
+
+def port_base(t2):
+    """The ROS-TCP endpoint's port base: CRANE_PORT_BASE when set, else tiers.T2.ros.port_base (10000)."""
+    try:
+        return int(os.environ.get('CRANE_PORT_BASE') or (t2.get('ros') or {}).get('port_base', 10000))
+    except ValueError:
+        raise SimError(f"CRANE_PORT_BASE={os.environ['CRANE_PORT_BASE']} is not a number") from None
+
+
+def instances():
+    """The instance numbers that have a state dir (digit-named folders in the state root)."""
+    try:
+        return sorted(int(p.name) for p in state_base().iterdir() if p.name.isdigit() and p.is_dir())
+    except OSError:
+        return []
+
+
+def with_instance(t2):
+    """T2 section for the running instance: its container is NAME_N (a copy; the section itself stays)."""
+    n = instance()
+    if not n or not (t2.get('ros') or {}).get('container'):
+        return t2
+    return {**t2, 'ros': {**t2['ros'], 'container': f"{t2['ros']['container']}_{n}"}}
+
+
+NAV_NAME = re.compile(r'^[A-Za-z_][A-Za-z0-9_.]*$')
+
+
+def parse_nav(words, nav_args=()):
+    """NAME:=VALUE words (plus --nav-args strings of several) as {name: value}; a bad word is one line, code 2."""
+    flat = list(words or [])
+    for text in nav_args or ():
+        try:
+            flat += shlex.split(text)
+        except ValueError as error:
+            raise SimError(f'--nav-args {text!r}: {error}; give NAME:=VALUE words, e.g. --nav-args "preset:=pool"') from None
+    out = {}
+    for word in flat:
+        name, sep, value = word.partition(':=')
+        if not sep or not NAV_NAME.match(name):
+            raise SimError(f'{word!r} is not NAME:=VALUE (e.g. preset:=pool)')
+        if "'" in value:
+            raise SimError(f'{word!r}: a quote in a value cannot be passed to the launch')
+        out[name] = value
+    return out
+
+
+def container_path(t2, run, value):
+    """A nav argument value as the ROS container sees it. A host path under the workspace dock, ~/.config/astro,
+    ~/.config/mhseals or the state dir is mapped; any other path under $HOME is refused (the container cannot see it);
+    anything else (a name, a container path) passes unchanged."""
+    if not str(value).startswith(('/', '~')):
+        return value
+    ros = t2.get('ros') or {}
+    path = str(home()) + value[1:] if value.startswith('~') else value
+    host = str(home()).rstrip('/')
+
+    def under(root):
+        root = str(root).rstrip('/')
+        return bool(root) and (path == root or path.startswith(root + '/')), path[len(root):]
+    for root, there in ((run, str(run)), (dock(t2), ros.get('workspace') or '/workspace'),
+                        (home() / '.config' / 'astro', None), (home() / '.config' / 'mhseals', None)):
+        if root is None:
+            continue
+        hit, rest = under(root)
+        if hit:
+            if there is None:
+                return str(ros.get('home') or home()).rstrip('/') + path[len(host):]
+            return there + rest
+    if path == host or path.startswith(host + '/'):
+        where = f'{dock(t2) or "the workspace"}, ~/.config/astro or ~/.config/mhseals'
+        raise SimError(f'{value} is not visible inside the ROS container: put the file under {where}')
+    return value
+
+
+def with_nav(overrides, nav, part, t2, run):
+    """The overrides JSON text with nav {name: value} merged under parts.PART.args (values mapped for the container).
+    No nav: the text unchanged."""
+    if not nav:
+        return overrides
+    if not part:
+        raise SimError("this domain's ros.restart.nav recipe has no args_part: nav arguments cannot be passed")
+    doc = json.loads(overrides) if overrides else {}
+    args = doc.setdefault('parts', {}).setdefault(part, {}).setdefault('args', {})
+    args.update({k: container_path(t2, run, v) for k, v in nav.items()})
+    return json.dumps(doc)
+
+
+def nav_part(t2):
+    return (((t2.get('ros') or {}).get('restart') or {}).get('nav') or {}).get('args_part')
 
 
 def _host(t2):
@@ -76,15 +209,59 @@ def default_domain():
     return 'boat'
 
 
-def domain(name=None):
-    """(domain config, its T2 section); SimError(2) naming the fix when either is missing."""
+def domain(name=None, tier=None, odom=None):
+    """(domain config, its sim section); SimError(2) naming the fix when either is missing.
+
+    The sim section is tiers.T2, or for T1 tiers.T2 overlaid with tiers.T1.sim (its ros.overrides and
+    ros.ready_nodes picked for the odom mode), with ``tier`` (and ``odom``) set. tier None: the running world's
+    (the state dir's ``tier``), else T2."""
+    tier = tier or state_tier()
+    cfg, section = _domain(name, tier, odom)
+    return cfg, with_instance(section)
+
+
+def _domain(name, tier, odom):
     try:
         cfg = load_domain(name or default_domain())
-        return cfg, tier_cfg(cfg, 'T2')
+        t2 = tier_cfg(cfg, 'T2')
     except ConfigError as error:
         worlds = _t2_domains()
         fix = f'; next: {invoked_as()} up --domain {worlds[0]}' if worlds and worlds[0] != name else ''
         raise SimError(f'{error}{fix}') from None
+    if tier == 'T2':
+        return cfg, t2
+    return cfg, t1_section(cfg, t2, odom or _state('odom'))
+
+
+def _state(name):
+    try:
+        return (run_dir() / name).read_text().strip()
+    except OSError:
+        return ''
+
+
+def state_tier():
+    """The running (or last) world's tier from the state dir: T1 or T2 (the default)."""
+    return 'T1' if _state('tier') == 'T1' else 'T2'
+
+
+ODOM = ('sensors', 'truth')
+
+
+def t1_section(cfg, t2, odom=None):
+    """tiers.T2 overlaid with tiers.T1.sim for ODOM (default the section's odom): the T1 world's sim section."""
+    t1 = ((cfg.get('tiers') or {}).get('T1') or {}).get('sim')
+    if not t1:
+        raise SimError(f"domain {cfg.get('name', '?')} has no tiers.T1.sim (config/domains/{cfg.get('name')}.yaml): "
+                       f'its T1 runs no ROS world; {invoked_as()} up runs its T2 world')
+    odom = odom or t1.get('odom') or 'sensors'
+    if odom not in ODOM:
+        raise SimError(f"--odom wants {' or '.join(ODOM)}, got {odom}")
+    ros = {**(t2.get('ros') or {}), **(t1.get('ros') or {})}
+    for key in ('overrides', 'ready_nodes'):
+        if isinstance(ros.get(key), dict):
+            ros[key] = ros[key].get(odom)
+    return {**t2, **t1, 'ros': ros, 'tier': 'T1', 'odom': odom}
 
 
 def _t2_domains():
@@ -125,10 +302,22 @@ def _hint(t2, how):
 
 
 def domain_id(t2):
-    """The ROS_DOMAIN_ID: ROS_DOMAIN_ID when one of host.trust_domain_id is set (the host tooling exported it),
-    else the vessel profile's network.env. Never guessed: a bare shell's ROS_DOMAIN_ID may be a robot's."""
+    """The ROS_DOMAIN_ID, plus the instance number for an instance (the base is the vessel profile's own, so an
+    exported ROS_DOMAIN_ID of an earlier instance is never counted twice)."""
+    n = instance()
+    if not n:
+        return _base_domain(t2)
+    try:
+        return _base_domain(t2, trust=False) + n
+    except SimError:
+        return _base_domain(t2) + n
+
+
+def _base_domain(t2, trust=True):
+    """ROS_DOMAIN_ID when one of host.trust_domain_id is set (the host tooling exported it), else the vessel
+    profile's network.env. Never guessed: a bare shell's ROS_DOMAIN_ID may be a robot's."""
     d = os.environ.get('ROS_DOMAIN_ID') or ''
-    if d and any(os.environ.get(k) for k in _host(t2).get('trust_domain_id') or ()):
+    if trust and d and any(os.environ.get(k) for k in _host(t2).get('trust_domain_id') or ()):
         if not d.isdigit():
             raise SimError(f'ROS_DOMAIN_ID={d} is not a number{_hint(t2, "it is exported by")}')
         return int(d)
@@ -195,15 +384,18 @@ def has_flag(player, flag):
 
 
 def find_player(t2, given=None):
-    """--player / CRANE_PLAYER, crane's build, then the phase-1 player link: the first that knows the flag."""
+    """--player / CRANE_PLAYER, crane's build, the phase-1 player link, then the installed player (crane update):
+    the first that knows the flag."""
     flag = t2.get('required_flag') or ''
     env = given or os.environ.get('CRANE_PLAYER') or ''
     phase1 = home() / '.cache' / 'crane-phase1' / 'player' / 'CRANE.x86_64'
-    for c in [p for p in (env, str(paths.PLAYER_BUILD / 'CRANE.x86_64'), str(phase1)) if p]:
+    store = home() / '.local' / 'share' / 'crane' / 'player' / 'current' / 'CRANE.x86_64'
+    for c in [p for p in (env, str(paths.PLAYER_BUILD / 'CRANE.x86_64'), str(phase1), str(store)) if p]:
         if os.path.isfile(c) and os.access(c, os.X_OK) and (not flag or has_flag(c, flag)):
             return c
     raise SimError(f'no player with {flag} (tried {env + " " if env else ""}{paths.PLAYER_BUILD}, '
-                   f'~/.cache/crane-phase1/player); build one (crane build player) or set CRANE_PLAYER=/path/CRANE.x86_64')
+                   f'~/.cache/crane-phase1/player, ~/.local/share/crane/player/current); build one (crane build player), '
+                   'install the release one (crane update --player-only) or set CRANE_PLAYER=/path/CRANE.x86_64')
 
 
 def ready_s(t2):

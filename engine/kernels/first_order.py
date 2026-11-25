@@ -11,10 +11,10 @@ max + 1 targets; before a delayed sample exists the axis holds the current veloc
 
 import math
 
-import numba
 import numpy as np
 
-from engine import exact, nbexact
+from engine import exact
+from engine.jit import nbexact, numba
 
 NAMES = ['g0', 'g1', 'g2', 'lag0', 'lag1', 'lag2', 'k', 'n0', 'n1', 'n2', 'delayed',
          'up0', 'up1', 'up2', 'down0', 'down1', 'down2']

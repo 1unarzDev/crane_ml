@@ -1,7 +1,9 @@
 """crane.study/1: spec errors, common random numbers, the held-out guard, resume after a kill, adaptive stages and
 the paired report."""
 
+import io
 import json
+import math
 import os
 from pathlib import Path
 import random
@@ -11,12 +13,14 @@ import sys
 import textwrap
 import time
 
+import numpy as np
 import pytest
 
 from crane import cli, study
 from crane.cache import UnitCache
 from crane.data.rows import RowWriter, read_rows, write_manifest
 from crane.study import exec as ex, plan, report as rp
+from engine import exact as engine_exact
 
 ROOT = Path(__file__).resolve().parents[1]
 TASKS = '''\
@@ -317,3 +321,224 @@ def test_report_finds_a_synthetic_paired_effect_and_holm_adjusts_across_cells(tm
 
 if __name__ == '__main__':
     sys.exit(pytest.main([__file__, '-q']))
+
+
+# ---- the batched engine, plugins, card axes, population scorers, censoring, session splits ---------------------
+
+def test_a_batched_engine_cell_gives_the_scalar_rows(tmp_path, capsys):
+    """Boat T1 cells on the batched engine (numpy, float64: numpy alone) and on the scalar path, over two derived
+    cards and two condition rows (one cap the course fits in, one it does not): the same rows, events and decimated
+    track; successes observed, timeouts censored at the cap. A record level the engine cannot serve is refused."""
+    write(tmp_path, 'conds.csv', '''\
+        id,time_limit_s
+        short,20
+        long,300
+        ''')
+    spec = write(tmp_path, 'boat.yaml', '''\
+        name: engine_rows
+        domain: boat
+        tier: T1
+        arms:
+          scalar: {}
+          batched: {engine: batched, backend: numpy}
+        card: ideal
+        card_axes:
+          lag: {fields: [thrusters.*.tauT], levels: {pre: base, slow: {values: {thrusters.*.tauT: 0.3}}}}
+        conditions: {csv: conds.csv, id: id, set: {time_limit_s: time_limit_s}}
+        seeds: {dev: {role: dev, seeds: '0:2'}}
+        record: {level: traj_decimated, hz: 2}
+        ''')
+    s, out = study.load(spec), tmp_path / 'out'
+    assert {c.arm: ex.engine_label(c) for c in s.cells()} == {'scalar': 'scalar', 'batched': 'batched/numpy/float64'}
+    assert len({c.pair for c in s.cells()}) == 4 and len({c.id for c in s.cells()}) == 8   # pair, own unit keys
+    assert ex.run_study(s, out)['ran'] == 16
+    rows = {(r['arm'], r['card_sha'], r['cond.id'], r['seed']): r for r in read_rows(out)}
+    cards = {k[1] for k in rows}
+    assert len(cards) == 2
+    exact = engine_exact.openblas()    # bit for bit on OpenBLAS; on another BLAS the scalar path rounds differently
+    for (arm, card, cond, seed), a in rows.items():
+        if arm != 'scalar':
+            continue
+        b = rows['batched', card, cond, seed]
+        differ = {k for k in a if a[k] != b[k] and not (not exact and isinstance(a[k], float)
+                                                         and math.isclose(a[k], b[k], rel_tol=1e-9, abs_tol=1e-9))}
+        assert differ == {'arm', 'cell', 'wall_s', 'engine'}, (card, cond, seed)
+        assert all(v == v for v in a.values() if isinstance(v, float))                       # never NaN
+        if cond == 'short':                                   # cut off at the cap, time_limit_s + grace_s
+            assert a['censored'] is True and a['time_cap_s'] == 25.0 and a['outcome'] == 'TIMEOUT'
+        else:
+            assert a['censored'] is False and a['outcome'] == 'SUCCEEDED' and a['run.sim_s'] < 300
+    by_card = {c: sorted(r['run.sim_s'] for k, r in rows.items() if k[1] == c and k[2] == 'long') for c in cards}
+    assert len({tuple(v) for v in by_card.values()}) == 2           # each derived card drives its own boat
+    cache, pair_of, blobs = UnitCache(out / 'cache'), {c.key['cell']: c.pair for c in s.cells()}, {}
+    for e in cache:
+        blobs.setdefault((pair_of[e['unit']['cell']], e['unit']['seed']), []).append(e['record']['blobs'])
+    assert len(blobs) == 8
+    for one, other in blobs.values():
+        assert set(one) == set(other) == {'traj', 'events'} and one['events'] == other['events']
+        if exact:
+            assert one['traj'] == other['traj']
+        else:
+            t1, t2 = (np.load(io.BytesIO(cache.get_blob(x['traj'], '.npz'))) for x in (one, other))
+            assert all(np.allclose(t1[k], t2[k], atol=1e-4) for k in ('t', 'x', 'y', 'yaw'))
+    write(tmp_path, 'obs.yaml', spec.read_text().replace('level: traj_decimated', 'level: obs'))
+    with pytest.raises(study.StudyError) as caught:
+        study.load(tmp_path / 'obs.yaml')
+    assert "record: level 'obs' is not served by the batched engine" in str(caught.value)
+    assert cli.main(['study', 'plan', str(spec)]) == 0
+    assert 'engine: stage main: scalar 4 cells; batched/numpy/float64 4 cells' in capsys.readouterr().out
+
+
+PLUGIN_TASK = '''\
+import json
+
+
+def episode(args, seed, cell):
+    """Time to capture = distance / (surge gain), capped: past the cap the unit is censored at it."""
+    card = json.loads(open(args['card']).read())
+    speed = card['thrusters'][0]['kf'] * card['surge']['scale'] * (1.0 - card['deadband'])
+    t = 10.0 / speed + args.get('latcomp_s', 0.0) + 0.01 * (seed % 3)
+    cap = args['time_limit_s']
+    if t > cap:
+        return {'censored': True, 'time_cap_s': cap, 'time_s': cap}
+    return {'time_s': t, 'time_cap_s': cap}
+
+
+def parts(result, cell):
+    return {'fast': 1.0 if result['metrics'].get('time_s', 99) < 8 else 0.0}
+'''
+
+
+def test_plugins_card_axes_and_censoring(tmp_path, capsys):
+    """A plugin dir on the study's sys.path, its git state in the manifest; 5 binary card axes x a 3-level surge
+    scale x latcomp = 192 cells, each derived card written once and its sha on its rows; censored units carry
+    the flag and the cap, never NaN."""
+    repo = tmp_path / 'repo'
+    (repo / 'plug').mkdir(parents=True)
+    git(repo, 'init', '-q')
+    write(repo / 'plug', 'plug_task.py', PLUGIN_TASK)
+    (repo / 'base.json').write_text(json.dumps({'thrusters': [{'kf': 1.0, 'kr': 1.0}] * 4, 'deadband': 0.0,
+                                                'delay_s': 0.0, 'izz': 4.0, 'surge': {'scale': 1.0, 'd1': 10.0}}))
+    (repo / 'measured.json').write_text(json.dumps({'thrusters': [{'kf': 0.8, 'kr': 0.7}] * 4}))
+    spec = write(repo, 'cards.yaml', '''\
+        name: cards
+        plugins: [plug]
+        arms: {a: {task: 'plug_task:episode', args: {time_limit_s: 12.0}}}
+        scorer: 'plug_task:parts'
+        card: base.json
+        card_axes:
+          thrust: {fields: [thrusters.*.kf, thrusters.*.kr], levels: {pre: base, measured: measured.json}}
+          deadband: {fields: [deadband], levels: {pre: base, doc: 0.05}}
+          delay: {fields: [delay_s], levels: {pre: base, measured: {values: {delay_s: 0.3}}}}
+          yaw: {fields: [izz], levels: {pre: base, measured: 5.2}}
+          slow: {fields: [surge.scale], levels: {pre: base, half: {scale: 0.5}}}
+          surge: {fields: [surge.scale, surge.d1], transform: scale, levels: [0.5, 1.0, 2.0]}
+        axes: {latcomp: {param: latcomp_s, levels: [0.0, 0.2]}}
+        seeds: {dev: {role: dev, seeds: '0:1'}}
+        ''')
+    git(repo, 'add', '.')
+    git(repo, 'commit', '-qm', 'plugin')
+    s, out = study.load(spec), tmp_path / 'out'
+    assert s.card_count() == 96 and len(s.cells()) == 192
+    write(repo / 'plug', 'plug_task.py', PLUGIN_TASK + '\n# an edit\n')        # dirty: recorded, and it reruns
+    s = study.load(spec)
+    assert cli.main(['study', 'plan', str(spec)]) == 0
+    assert 'cards: 96 derived' in capsys.readouterr().out
+    assert ex.run_study(s, out)['ran'] == 192
+    rows = list(read_rows(out))
+    assert len(rows) == 192 and len({r['card_sha'] for r in rows}) == 96
+    from crane.ids import sha256
+    for r in rows[:20]:
+        path = out / 'cards' / f"{r['card_sha']}.json"
+        assert sha256(path.read_bytes()) == r['card_sha']
+    one = next(r for r in rows if (r['thrust'], r['deadband'], r['slow'], r['surge']) == ('measured', 'doc', 'half',
+                                                                                          'x2'))
+    card = json.loads((out / 'cards' / f"{one['card_sha']}.json").read_text())
+    assert card['thrusters'][2] == {'kf': 0.8, 'kr': 0.7} and card['deadband'] == 0.05
+    assert card['surge'] == {'scale': 1.0, 'd1': 20.0} and card['crane_derived']['levels']['surge'] == 'x2'
+    censored = [r for r in rows if r['censored']]
+    assert censored and all(r['time_cap_s'] == 12.0 and r['time_s'] == 12.0 for r in censored)
+    assert all(v == v for r in rows for v in r.values() if isinstance(v, float))
+    manifest = json.loads((out / 'manifest.json').read_text())
+    [plug] = manifest['plugins']
+    assert plug['path'] == 'plug' and len(plug['commit']) == 40 and plug['dirty'] and plug['diff_sha']
+    assert len(manifest['cards']) == 96
+
+
+def test_population_scorers_rank_cards_with_a_session_held_out_split(tmp_path, capsys):
+    """Conditions split by session (s5, s6 held out); a population scorer per card x block; the report ranks the
+    cards on calib and gives Spearman vs held-out with a session-cluster bootstrap CI. The held-out sessions run
+    only with --confirm and committed targets."""
+    repo = tmp_path / 'repo'
+    repo.mkdir()
+    git(repo, 'init', '-q')
+    write(repo, 'pop.py', '''\
+        import random
+
+
+        def ep(args, seed, cell):
+            """y = the card's gain times the condition's level, plus session-shared and per-seed noise."""
+            import json
+            g = json.loads(open(args['card']).read())['gain']
+            r = random.Random(seed * 1000 + hash(cell['condition']['session_id']) % 997)
+            return {'y': g * args['level'] + 0.05 * r.gauss(0, 1)}
+
+
+        def fit(rows, group):
+            errs = [abs(r['y'] - r['cond.observed']) for r in rows]
+            return {'loss': sum(errs) / len(errs), 'n': len(rows)}
+        ''')
+    (repo / 'base.json').write_text('{"gain": 1.0}')
+    lines = ['id,session_id,level,observed']
+    for i in range(12):
+        lines.append(f'c{i:02d},s{i // 2 + 1},{1 + i % 3},{1.1 * (1 + i % 3):.3f}')
+    (repo / 'conds.csv').write_text('\n'.join(lines) + '\n')
+    spec = write(repo, 'pop.yaml', '''\
+        name: pop
+        arms: {a: {task: pop.py:ep}}
+        card: base.json
+        card_axes: {gain: {fields: [gain], levels: {g08: 0.8, g10: base, g11: 1.1, g13: 1.3, g20: 2.0}}}
+        conditions: {csv: conds.csv, id: id, set: {level: level}}
+        splits:
+          column: session_id
+          groups: {test: [s5, s6], calib: '*'}
+          roles: {calib: calib, test: held-out}
+        seeds: {dev: {role: dev, seeds: '0:3'}}
+        targets: targets.yaml
+        scorers: [{fn: pop.py:fit, over: card x block}]
+        report: {population: {part: fit.loss, order: min, cluster: cond.session_id, B: 100}}
+        ''')
+    s, out = study.load(spec), tmp_path / 'out'
+    assert {c.split for c in s.cells()} == {'calib', 'test'}
+    assert {c.condition['session_id'] for c in s.cells() if c.held_out} == {'s5', 's6'}
+
+    def run(*extra):
+        return cli.main(['study', 'run', str(spec), '--out', str(out), *extra]), capsys.readouterr()
+    code, cap = run()
+    assert code == 0 and 'held-out main:test skipped' in cap.out
+    code, cap = run('--block', 'test')
+    assert code == 2 and 'held-out test needs --confirm' in cap.err and len(cap.err.strip().splitlines()) == 1
+    doc = rp.report(out, study=s)
+    rk = doc['population']['ranking']
+    assert [t['label'] for t in rk['cards']][0] == 'gain=g11' and rk['spearman'] is None and 'ranking only' in rk['why']
+    (repo / 'targets.yaml').write_text('- {contrast: a - a, metric: y, direction: not lower}\n')
+    git(repo, 'add', '.')
+    git(repo, 'commit', '-qm', 'targets', env={'GIT_COMMITTER_DATE': f'{int(time.time()) - 60} +0000'})
+    code, cap = run('--block', 'test', '--confirm')
+    assert code == 0, cap.err
+    assert cli.main(['study', 'report', str(out)]) == 0
+    text = capsys.readouterr().out
+    assert 'cards by fit.loss (min first on calib): Spearman' in text and 'cond.session_id clusters' in text
+    doc = json.loads((out / 'report.json').read_text())
+    rk = doc['population']['ranking']
+    assert len(rk['cards']) == 5 and all(t['test'] is not None for t in rk['cards'])
+    assert rk['spearman'] > 0.8 and rk['ci'][0] <= rk['spearman'] <= rk['ci'][1] and rk['clusters'] == 6
+    groups = doc['population']['groups']
+    assert {(g['key']['block'], g['role']) for g in groups} == {('dev/calib', 'calib'), ('dev/test', 'held-out')}
+    from judge import stats                        # the cluster bootstrap resamples sessions, not rows
+    units = list(range(40))
+    clusters = [u // 10 for u in units]
+    vals = {u: float(u // 10) for u in units}
+    _, (lo, hi) = stats.cluster_bootstrap_ci(units, clusters, lambda xs: sum(vals[x] for x in xs) / len(xs), B=400)
+    _, (blo, bhi) = stats.bootstrap_ci(units, lambda xs: sum(vals[x] for x in xs) / len(xs), B=400)
+    assert hi - lo > 1.5 * (bhi - blo)

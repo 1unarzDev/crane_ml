@@ -23,7 +23,8 @@ from crane.study.spec import StudyError, _card_path, card_keys
 OUT_ROOT = Path.home() / '.cache' / 'crane' / 'studies'
 BOX_OUT = '/workspace/out'
 TARGET_S = 900.0          # a job of ~15 min (compute: 5-30 min on interruptible boxes)
-CHUNK = {'sim': 8, 'task': 1}
+CHUNK = {'sim': 8, 'task': 1, 'batched': 256}   # units per local work item (a batched one is one engine call)
+DERIVED = '@derived:'     # a card key's value until the executor writes the derived card (OUT/cards/SHA.json)
 
 
 @dataclass
@@ -47,10 +48,17 @@ class Cell:
     run_seeds: dict = field(default_factory=dict)  # seed -> the seed the episode runs with
     record: dict = None
     ctx: dict = field(default_factory=dict)       # what the executor needs (spec path, task ref, scorer, ...)
+    engine: dict = field(default_factory=lambda: {'mode': 'scalar'})   # {mode, backend, dtype, why}
+    card_doc: dict = None          # the derived card (card_axes) until the executor writes it
 
     @property
     def held_out(self):
         return self.role == 'held-out'
+
+    @property
+    def device(self):
+        """gpu for a cell on the batched engine's jax backend (the cluster compiler asks for a GPU), else cpu."""
+        return 'gpu' if self.engine.get('backend') == 'jax' else 'cpu'
 
     def unit(self, seed, commit):
         return {**self.key, 'seed': int(seed), 'commit': commit}
@@ -64,7 +72,8 @@ class Cell:
         """The JSON a task or scorer is handed about its cell."""
         return {'study': self.study, 'stage': self.stage, 'arm': self.arm, 'axes': dict(self.axes),
                 'condition': self.condition, 'tier': self.tier, 'block': self.block, 'split': self.split,
-                'role': self.role, 'id': self.id}
+                'role': self.role, 'id': self.id, 'card': self.card, 'card_sha': self.key.get('card'),
+                'engine': dict(self.engine)}
 
 
 class StageNotReady(StudyError):
@@ -116,6 +125,121 @@ def _card_sha(path):
     return ids.sha256(Path(path).read_bytes()) if path else None
 
 
+@functools.lru_cache(maxsize=64)
+def _adapter_ref(domain, tier):
+    from crane.run import tier_config
+    from fastsim import config as fsconfig
+    _, path, over = tier_config(domain, tier)
+    cfg, _ = fsconfig.load(path, over)
+    return str((cfg.get('adapter') or {}).get('ref', ''))
+
+
+def engine(study, arm, tier, params):
+    """{mode, backend, dtype, why} a sim cell runs on: the batched engine when the spec asks for it and the
+    domain adapter has a batched controller; else the scalar fastsim path, ``why`` saying so (a plugin mission
+    is Python mission code: scalar)."""
+    from crane.study.spec import engine_of
+    if arm.kind != 'sim':
+        return {'mode': 'task'}
+    mode, backend, dtype = engine_of(study, arm, tier)
+    if mode != 'batched':
+        return {'mode': 'scalar'}
+    ref = str(params.get('adapter.ref') or _adapter_ref(study.domain, tier))
+    if arm.mission:
+        return {'mode': 'scalar', 'why': f'plugin mission {arm.mission} is Python mission code: scalar path'}
+    from engine.episode import CONTROLLERS
+    if ref.rpartition(':')[2] not in CONTROLLERS:
+        return {'mode': 'scalar', 'why': f'no batched controller for {ref}: scalar path'}
+    return {'mode': 'batched', 'backend': backend, 'dtype': dtype}
+
+
+def plugin_state(study):
+    """[{path, commit, dirty, diff_sha, sha256}] of the spec's plugin dirs: git state (recorded in the manifest)
+    and the sha256 of their files (in every cell hash, so an edited plugin reruns)."""
+    got = study.__dict__.get('_plugin_state')
+    if got is None:
+        import hashlib
+        import os
+        got = []
+        for d in study.plugins:
+            h = hashlib.sha256()
+            for f in sorted(p for p in Path(d).rglob('*') if p.is_file() and '__pycache__' not in p.parts
+                            and not p.name.startswith('.')):
+                h.update(f.relative_to(d).as_posix().encode() + b'\0' + f.read_bytes() + b'\0')
+            git = ids.git_state(d)
+            dirty = bool(git.get('dirty'))
+            if git.get('commit'):          # untracked files in the dir count too (its sha256 covers them)
+                import subprocess
+                try:
+                    dirty = dirty or bool(subprocess.run(['git', '-C', str(d), 'status', '--porcelain', '--', '.'],
+                                                         capture_output=True, text=True, timeout=30).stdout.strip())
+                except (OSError, subprocess.TimeoutExpired):
+                    pass
+            rel = os.path.relpath(d, study.base)
+            got.append({'path': Path(rel).as_posix() if not rel.startswith('..') else str(d),
+                        'commit': git.get('commit'), 'dirty': dirty, 'diff_sha': git.get('diff_sha'),
+                        'sha256': h.hexdigest()})
+        study.__dict__['_plugin_state'] = got
+    return got
+
+
+def _stable_card_level(level):
+    if level['kind'] == 'file':
+        return {'kind': 'file', 'sha256': _card_sha(level['path'])}
+    return level
+
+
+def apply_card(doc, axis, level, sources):
+    """Edit ``doc`` in place by one card axis level."""
+    from crane.study.spec import card_doc, card_matches
+    kind = level['kind']
+    if kind == 'base':
+        return
+    if kind == 'values':
+        for path, v in level['values'].items():
+            for c, k in card_matches(doc, path):
+                c[k] = v
+        return
+    for f in axis.fields:
+        hits = card_matches(doc, f)
+        if kind == 'file':
+            if level['path'] not in sources:
+                sources[level['path']] = card_doc(level['path'])
+            src = card_matches(sources[level['path']], f)
+            for (c, k), (sc, sk) in zip(hits, src):
+                c[k] = sc[sk]
+        elif kind == 'value':
+            for c, k in hits:
+                c[k] = level['value']
+        else:                               # scale: a multiplicative transform
+            for c, k in hits:
+                if isinstance(c[k], bool) or not isinstance(c[k], (int, float)):
+                    raise StudyError(f'card_axes.{axis.name}: field {f} is not a number; fix: scale numeric fields')
+                c[k] = c[k] * level['value']
+
+
+def derive_card(study, base_path, picks):
+    """(doc, sha256, bytes) of the base card edited by ``picks`` [(CardAxis, level name)], made once per
+    combination (the factorial is crossed lazily, cell by cell). The doc records its base and levels."""
+    import copy
+    import json
+    memo = study.__dict__.setdefault('_derived', {})
+    key = (str(base_path), tuple((a.name, n) for a, n in picks))
+    if key not in memo:
+        from crane.study.spec import card_doc
+        bases = study.__dict__.setdefault('_card_bases', {})
+        if str(base_path) not in bases:
+            bases[str(base_path)] = card_doc(base_path)
+        doc = copy.deepcopy(bases[str(base_path)])
+        sources = study.__dict__.setdefault('_card_sources', {})
+        for axis, name in picks:
+            apply_card(doc, axis, axis.levels[name], sources)
+        doc['crane_derived'] = {'base_sha256': _card_sha(base_path), 'levels': {a.name: n for a, n in picks}}
+        data = (json.dumps(doc, indent=1, sort_keys=True) + '\n').encode()
+        memo[key] = (doc, ids.sha256(data), data)
+    return memo[key]
+
+
 def stage_cells(study, stage, block=None, chosen=None):
     """The cells of one stage (``chosen``: the selected (arm, *levels) tuples of an adaptive stage)."""
     spec = study.stages[stage]
@@ -127,6 +251,8 @@ def stage_cells(study, stage, block=None, chosen=None):
         conds = [c for c in conds if c and c['split'] in spec.splits]
     record = spec.record or study.record
     levels = [[(a.name, n, v) for n, v in a.levels.items()] for a in study.axes]
+    levels += [[(a.name, n, ('@card_axis', a, n)) for n in a.levels] for a in study.card_axes]
+    plugins = [p['sha256'] for p in plugin_state(study)] if study.plugins else None
     by = (spec.select or {}).get('by', ['arm'])
     if chosen is None and spec.only:
         by = list(spec.only[0])
@@ -144,7 +270,10 @@ def stage_cells(study, stage, block=None, chosen=None):
                 if pick not in chosen:
                     continue
             params, card = dict(arm.set if arm.kind == 'sim' else {**_flat_args(arm.args), **arm.set}), arm.card
+            picks = [v[1:] for _, _, v in combo if isinstance(v, tuple)]
             for _, _, values in combo:
+                if isinstance(values, tuple):
+                    continue
                 for k, v in values.items():
                     if k == '@card':
                         card = v
@@ -153,32 +282,47 @@ def stage_cells(study, stage, block=None, chosen=None):
             if cond:
                 params.update(cond['set'])
             params.update(spec.set)
-            card_path = None
-            if card is not None and arm.kind == 'sim':
+            card_path, card_doc, card_sha = None, None, None
+            if picks:
+                from crane.study.spec import any_card
+                base = any_card(study.path.name, study, f'arms.{arm.name}.card', card or study.card)
+                card_doc, card_sha, _ = derive_card(study, base, picks)
+                for k in (card_keys(study) if arm.kind == 'sim' else ['card']):
+                    params[k] = DERIVED + card_sha
+            elif card is not None and arm.kind == 'sim':
                 card_path = str(_card_path(study.path.name, study, f'arms.{arm.name}.card', card))
                 for k in card_keys(study):
                     params[k] = card_path
             elif card is not None:
                 params['card'] = card
+            eng = engine(study, arm, tier, params)
             content = {'domain': study.domain, 'tier': tier, 'kind': arm.kind,
-                       'axes': {a: _stable_values(study, v) for a, _, v in combo},
+                       'axes': {a: (_stable_card_level(v[1].levels[v[2]]) if isinstance(v, tuple)
+                                    else _stable_values(study, v)) for a, _, v in combo},
                        'condition': cond['row'] if cond else None, 'set': spec.set, 'record': record,
                        'scorer': _stable_scorer(study), 'crn': study.crn,
                        'metrics': study.metrics, 'block_role': role}
-            pair = ids.digest(content)
+            if plugins:
+                content['plugins'] = plugins
+            pair = ids.digest(content)        # the card axes' levels are in it; the derived card's sha is in key
             stable = {k: v for k, v in params.items() if k not in card_keys(study) and k != 'card'}
-            chash = ids.digest({**content, 'arm': _stable_arm(study, arm), 'params': stable})
-            card_sha = _card_sha(card_path)
+            unit = {**content, 'arm': _stable_arm(study, arm), 'params': stable}
+            if eng['mode'] == 'batched':      # in the unit key, not the pair: arms on either engine pair on the seed
+                unit['engine'] = {k: eng[k] for k in ('mode', 'backend', 'dtype')}
+            chash = ids.digest(unit)
+            card_sha = card_sha or _card_sha(card_path)
             key = {'study': study.name, 'stage': stage, 'arm': arm.name, 'cell': chash, 'card': card_sha}
             cell = Cell(study=study.name, stage=stage, arm=arm.name, axes=axes,
                         condition=dict(cond['row']) if cond else None, tier=tier, seeds=list(blk.seeds),
                         block=blk.name, key=key, split=split, role=role, id=f'{stage}.{arm.name}.{chash[:10]}',
                         pair=pair[:16], kind=arm.kind, params=params, card=card_path,
-                        run_seeds={s: _run_seed(study, s, cond) for s in blk.seeds}, record=record)
+                        run_seeds={s: _run_seed(study, s, cond) for s in blk.seeds}, record=record, engine=eng,
+                        card_doc=card_doc)
             cell.ctx = {'spec': str(study.path), 'base': str(study.base), 'domain': study.domain,
                         'task': arm.task, 'argv': arm.argv, 'timeout_s': arm.timeout_s or study.timeout_s,
                         'scorer': study.scorer, 'metrics': study.metrics, 'keep_runs': study.keep_runs,
-                        'condition_id': cond['id'] if cond else None}
+                        'condition_id': cond['id'] if cond else None,
+                        'plugins': [str(p) for p in study.plugins]}
             out.append(cell)
     return out
 
@@ -299,9 +443,13 @@ def selection(study, stage, out):
             'metric': sel['metric'], 'order': sel['order'], 'top_k': sel['top_k']}
 
 
-def unit_s(study, stage):
+def unit_s(study, stage, mode='scalar'):
+    """Seconds per unit of a stage: pack.unit_s, a number or {scalar: S, batched: S, task: S} by engine mode."""
     s = study.stages[stage]
-    return (s.pack or {}).get('unit_s') or study.pack.get('unit_s')
+    got = (s.pack or {}).get('unit_s') or study.pack.get('unit_s')
+    if isinstance(got, dict):
+        return got.get(mode) or got.get('scalar' if mode == 'task' else 'task')
+    return got
 
 
 def jobs(study, stage=None, block=None, out=None, box_out=BOX_OUT):
@@ -318,7 +466,7 @@ def jobs(study, stage=None, block=None, out=None, box_out=BOX_OUT):
         if cell.held_out and pinned is None:
             pinned = guard.targets_state(study)       # checked here, where git is; the box checks the sha256
         spec = study.stages[cell.stage]
-        per_unit = unit_s(study, cell.stage)
+        per_unit = unit_s(study, cell.stage, cell.engine.get('mode', 'scalar'))
         target = (spec.pack or {}).get('target_s') or study.pack.get('target_s') or TARGET_S
         size = max(1, int(target // per_unit)) if per_unit else len(cell.seeds)
         chunks = [cell.seeds[i:i + size] for i in range(0, len(cell.seeds), size)]
@@ -330,6 +478,7 @@ def jobs(study, stage=None, block=None, out=None, box_out=BOX_OUT):
             result.append({'job_id': job_id, 'cell': cell.id, 'stage': cell.stage, 'arm': cell.arm,
                            'block': cell.block, 'split': cell.split, 'role': cell.role, 'tier': cell.tier,
                            'held_out': cell.held_out, 'seeds': seeds, 'units': len(seeds),
+                           'engine': cell.engine.get('mode'),
                            'est_seconds': round(len(seeds) * per_unit, 1) if per_unit else None,
                            'kind': study.cluster['kind'], 'campaign': study.cluster['campaign'],
                            'purpose': study.cluster['purpose'], 'expect': study.cluster['expect'],

@@ -14,6 +14,8 @@ schema: crane.study/1
 name: {name}
 domain: {domain}  # config/domains/{domain}.yaml; sim arms run its tiers
 tier: T0  # or tiers: [T0, T1]
+# engine: batched  # one engine call per cell x seed chunk (backend: numpy | numba | jax); default scalar
+# plugins: [DIR]   # module:attr refs (mission, task, scorer) resolve there, for this study's runs only
 # Arms: what is compared. set: config overrides (dotted keys); card: a plant card; task: module:function or
 # argv: [...] with JSON args for work that is not a sim. sample: {{n, seed, set: {{key: {{uniform: [lo, hi]}}}}}}
 # draws n arms.
@@ -32,6 +34,8 @@ seeds:
   test: {{role: held-out, seeds: '1000:1008'}}
 targets: {name}.targets.yaml  # committed before a held-out block may run (--confirm)
 # scorer: scorers.py:score       # result, cell -> {{part: number}}; rows get score.PART
+# card: ideal                     # with card_axes: {{AXIS: {{fields: [PATH], levels: {{pre: base, measured: CARD}}}}}}
+# scorers: [{{fn: pop.py:fit, over: card x block}}]   # population scorers: rows of a group -> named parts
 # metrics: [succeeded, run.sim_s] # the fixed row columns (default: every number the runs give)
 # stages: {{R: {{blocks: [dev]}}, V: {{after: R, select: {{top_k: 2, metric: score.total}}, tier: T1}}}}
 pack: {{unit_s: 0.05, target_s: 900}}   # seconds per unit, and the job size the cluster plan packs to
@@ -93,12 +97,22 @@ def plan_main(args):
         cs = [c for c in cells if c.stage == name]
         units = sum(len(c.seeds) for c in cs)
         unit_s = plan.unit_s(study, name)
+        per_cell = [(c, plan.unit_s(study, name, c.engine.get('mode', 'scalar'))) for c in cs]
+        known = all(u for _, u in per_cell)
         js = [j for j in jobs if j['stage'] == name]
         tiers = sorted({c.tier for c in cs}) or (study.stages[name].tiers or study.tiers)
+        engines, why = {}, {}
+        for c in cs:
+            label = ex.engine_label(c)
+            engines[label] = engines.get(label, 0) + 1
+            if c.engine.get('why'):
+                why.setdefault(c.engine['why'], set()).add(c.arm)
         stages.append({'stage': name, 'tiers': tiers,
                        'cells': len(cs), 'units': units, 'done': sum(len(done.get(c.id, {})) for c in cs),
                        'held_out_units': sum(len(c.seeds) for c in cs if c.held_out), 'jobs': len(js),
-                       'unit_s': unit_s, 'est_s': round(units * unit_s, 1) if unit_s else None,
+                       'engines': engines, 'engine_notes': {w: sorted(a) for w, a in why.items()},
+                       'unit_s': unit_s, 'est_s': round(sum(len(c.seeds) * u for c, u in per_cell), 1)
+                       if cs and known else None,
                        'job_s': [min(j['est_seconds'] for j in js), max(j['est_seconds'] for j in js)]
                        if js and unit_s else None,
                        'after': study.stages[name].after, 'select': study.stages[name].select})
@@ -106,7 +120,9 @@ def plan_main(args):
     doc = {'schema': 'crane.study.plan/1', 'study': study.name, 'spec': str(study.path), 'out': str(where),
            'domain': study.domain, 'commit': plan.code_commit(),
            'blocks': {b.name: {'role': b.role, 'seeds': len(b.seeds)} for b in study.blocks.values()},
-           'splits': study.splits, 'stages': stages, 'pending': pending, 'cluster': study.cluster, 'jobs': jobs}
+           'splits': study.splits, 'stages': stages, 'pending': pending, 'cluster': study.cluster,
+           'cards': study.card_count() if study.card_axes else None,
+           'plugins': plan.plugin_state(study) if study.plugins else [], 'jobs': jobs}
     if out.doc(doc):
         return output.OK
     out.say(f'study {study.name}  {study.path}  domain {study.domain or "-"}  (nothing runs)')
@@ -114,8 +130,18 @@ def plan_main(args):
     for s in stages:
         per = f'{_dur(s["job_s"][0])}-{_dur(s["job_s"][1])}' if s['job_s'] else '?'
         rows.append((s['stage'], ','.join(s['tiers']), s['cells'], s['units'], s['done'], s['held_out_units'],
-                     s['jobs'], _dur(s['est_s']) if s['unit_s'] else '? (pack.unit_s)', per))
+                     s['jobs'], _dur(s['est_s']) if s['est_s'] is not None else '? (pack.unit_s)', per))
     out.table(rows)
+    for s in stages:
+        if set(s['engines']) - {'task', 'scalar'} or s['engine_notes']:
+            out.line(f'  engine: stage {s["stage"]}: ' + '; '.join(f'{k} {n} cells' for k, n in s['engines'].items()))
+        for w, arms in s['engine_notes'].items():
+            out.line(f'  engine: arm {", ".join(arms)}: {w} (estimated at pack.unit_s.scalar)')
+    if doc['cards']:
+        out.line(f'  cards: {doc["cards"]} derived ({" x ".join(f"{a.name} {len(a.levels)}" for a in study.card_axes)}),'
+                 ' each written once to OUT/cards/SHA.json when its cells run')
+    for p in doc['plugins']:
+        out.line(f'  plugin: {p["path"]} at {(p["commit"] or "no git")[:12]}' + (' (dirty)' if p['dirty'] else ''))
     out.line('  blocks: ' + '; '.join(f'{n} {b["role"]} {b["seeds"]} seeds' for n, b in doc['blocks'].items()))
     if study.splits:
         out.line('  splits: ' + '; '.join(f'{n} {r}' for n, r in study.splits.items()))
@@ -249,8 +275,14 @@ def status_main(args):
 
 def report_main(args):
     out = args.output
+    study = None
+    if (Path(args.out).expanduser() / 'study.json').is_file():
+        try:
+            study = load(_spec_of(args.out)[0])
+        except (StudyError, OSError, ValueError, KeyError):
+            study = None            # the paired report needs no spec; population scorers do
     try:
-        doc = rp.report(args.out, args.baseline, args.metric or None, B=args.bootstrap)
+        doc = rp.report(args.out, args.baseline, args.metric or None, B=args.bootstrap, study=study)
     except FileNotFoundError as error:
         return out.usage('study report', str(error), 'crane study run SPEC (writes OUT/manifest.json)')
     if out.doc(doc):
@@ -263,6 +295,13 @@ def report_main(args):
         out.table(rp.pooled_rows(doc))
     else:
         out.line('  no paired rows yet (each cell needs the baseline and another arm on the same seeds)')
+    rk = (doc.get('population') or {}).get('ranking')
+    if rk:
+        rho = (f"Spearman {rp.fmt(rk['spearman'])} [{rp.fmt(rk['ci'][0])}, {rp.fmt(rk['ci'][1])}] over "
+               f"{rk.get('clusters')} {rk['cluster']} clusters" if rk.get('ci') else rk.get('why') or '')
+        out.line(f"cards by {rk['part']} ({rk['order']} first on {rk['calib']}): {rho}")
+        out.table([('rank', 'card', rk['calib'], rk['test']),
+                   *((t['rank'], t['label'], rp.fmt(t['calib']), rp.fmt(t['test'])) for t in rk['cards'][:10])])
     if doc['targets']:
         out.line('held-out targets:')
         out.table([('contrast', 'metric', 'direction', 'verdict'),
@@ -343,6 +382,24 @@ def _absolute(raw, base):
     for arm in (raw.get('arms') or {}).values() if isinstance(raw.get('arms'), dict) else ():
         if isinstance(arm, dict) and arm.get('task'):
             arm['task'] = ref(arm['task'])
+    if raw.get('plugins'):
+        raw['plugins'] = [fix(p) for p in (raw['plugins'] if isinstance(raw['plugins'], list) else [raw['plugins']])]
+    for sc in raw.get('scorers') or []:
+        if isinstance(sc, dict) and sc.get('fn'):
+            sc['fn'] = ref(sc['fn'])
+
+    def card(r):          # a card file beside the spec; a name in the domain's card dir stays a name
+        return fix(r) if isinstance(r, str) and (base / r).is_file() else r
+    if raw.get('card'):
+        raw['card'] = card(raw['card'])
+    for axis in (raw.get('card_axes') or {}).values():
+        levels = axis.get('levels') if isinstance(axis, dict) else None
+        if isinstance(levels, dict):
+            for k, v in levels.items():
+                if isinstance(v, dict) and 'file' in v:
+                    v['file'] = card(v['file'])
+                elif isinstance(v, str) and v != 'base':
+                    levels[k] = card(v)
     for block in (raw.get('seeds') or {}).values():
         if isinstance(block, dict) and isinstance(block.get('seeds'), str):
             block['seeds'] = ','.join('@' + fix(p[1:]) if p.strip().startswith('@') else p

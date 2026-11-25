@@ -96,6 +96,15 @@ class Setup:
     def E(self):
         return len(self.seeds)
 
+    def domain_metrics(self, numbers):
+        """What the domain adapter's ``metrics(run_dir)`` gives, from its finalize numbers (no run directory):
+        the adapter's ``metrics_from(numbers)`` when it has one, else its batched controller module's
+        ``metrics(numbers)`` (engine/boat.py for the boat). The metric names are the domain's."""
+        fn = getattr(self.adapter, 'metrics_from', None)
+        if fn is None:
+            fn = CONTROLLERS[type(self.adapter).__name__].metrics
+        return fn(numbers)
+
     def identity(self, backend, dtype, fastmath=False):
         """What the engine adds to every run identity: backend, dtype, the substep policy."""
         return {'engine': self.mode, 'backend': backend + ('-fastmath' if fastmath else ''), 'dtype': dtype,
@@ -234,12 +243,13 @@ class Output:
         return run_identity(st.scenarios[e].content_sha256, hashed, st.adapter.identity(), st.seeds[e], core_version())
 
     def metrics(self, e):
-        """crane_backends.fastsim.FastsimBackend.metrics of env e, without a run directory."""
+        """crane_backends.fastsim.FastsimBackend.metrics of env e, without a run directory: run.* plus the domain's
+        own metric names (``Setup.domain_metrics``)."""
         from fastsim.pairs import flat_numbers
         s = self.summary(e)
         numbers = flat_numbers({'run': {'sim_s': s['sim_s'], 'contacts': len(s['contacts']),
                                         'min_clearance_m': s['min_clearance_m']}})
-        numbers.update(flat_numbers({'boat': {k: v for k, v in self.numbers(e).items() if isinstance(v, (int, float))}}))
+        numbers.update(flat_numbers(self.setup.domain_metrics(self.numbers(e))))
         return {'outcome': s['outcome'], 'run_sha256': self.identity(e)['run_sha256'], 'flags': s['flags'], **numbers}
 
     def write(self, e, run_dir, provenance=None):
@@ -350,6 +360,8 @@ def run(setup, backend='numpy', dtype='float64', record=0, fastmath=False, threa
         from engine import jaxrun
         S = jaxrun.run(setup, dtype, record, slots=slots)
     elif backend == 'numba':
+        from engine.jit import need_numba
+        need_numba()
         from engine import nbepisode
         S = nbepisode.run(setup, record, fastmath=fastmath, threads=threads)
     else:

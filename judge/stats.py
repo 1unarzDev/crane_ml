@@ -232,6 +232,38 @@ def bootstrap_ci(units: Sequence, stat: Callable[[Sequence], float], B=2000, alp
     return stat(list(units)), (lo, hi)
 
 
+def cluster_bootstrap_ci(units: Sequence, clusters: Sequence, stat: Callable[[Sequence], float], B=2000,
+                         alpha=0.05, seed=0, strata: Sequence = None):
+    """Percentile CI of ``stat`` resampling whole clusters (sessions, worlds) with replacement, never units.
+
+    ``clusters[i]`` is unit i's cluster; ``strata[i]`` (optional) its stratum, and clusters are drawn within each
+    stratum (e.g. calibration and held-out sessions apart). A replicate is every unit of the drawn clusters, a cluster
+    drawn twice entering twice. Replicates whose stat is not finite are left out of the interval."""
+    units = list(units)
+    if not units:
+        return float('nan'), (float('nan'), float('nan'))
+    strata = list(strata) if strata is not None else [None] * len(units)
+    groups = {}
+    for u, c, s in zip(units, clusters, strata):
+        groups.setdefault(s, {}).setdefault(c, []).append(u)
+    order = [[groups[s][c] for c in sorted(groups[s], key=str)] for s in sorted(groups, key=str)]
+    rng = random.Random(seed)
+    vals = []
+    for _ in range(B):
+        sample = []
+        for members in order:
+            for _ in range(len(members)):
+                sample.extend(members[rng.randrange(len(members))])
+        v = stat(sample)
+        if isinstance(v, (int, float)) and math.isfinite(v):
+            vals.append(float(v))
+    if not vals:
+        return stat(units), (float('nan'), float('nan'))
+    vals.sort()
+    n = len(vals)
+    return stat(units), (vals[int(alpha / 2 * n)], vals[min(n - 1, int((1 - alpha / 2) * n))])
+
+
 def permutation_paired(diffs: Sequence[float], B: int = 20000, seed: int = 0, alternative: str = 'two-sided'):
     """Paired sign-flip permutation test on per-unit differences (one difference per scenario/world).
 

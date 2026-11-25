@@ -1,2 +1,2 @@
-# Targets for boat_cards.yaml's held-out test split, committed before it runs.
-- {contrast: measured - pre, metric: score.total, direction: not lower}
+# Targets for boat_cards.yaml's held-out session, committed before it runs.
+- {contrast: capped - reference, metric: run.sim_s, direction: not lower}

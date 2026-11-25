@@ -7,30 +7,44 @@ the noun or after the verb, on commands that take them.
 import argparse
 import re
 import sys
+import textwrap
 
 from crane import commands as reg
 from crane import output
 
-TOP = """crane: sim and research across domains (boat, sub, drones, modular) and tiers.
+TOP = """crane: simulators and experiments for our robots (boat, sub, drones, modular).
 
-Tiers: T0 abstract (no forces), T1 dynamic (plant card dynamics), T2 unity (the Unity sim).
---tier takes T0|T1|T2 or abstract|dynamic|unity."""
+Words you will meet:
+  tier         how detailed a simulation is. T0 abstract (no physics) and T1 dynamic (physics) are the
+               light simulators: no graphics, many seeds a second. T2 unity is the full 3-D simulator, run
+               in real time with the robot's own software. --tier takes T0|T1|T2 or abstract|dynamic|unity.
+  ROS          the robot software framework; in T2 the same navigation software as on the boat drives.
+  domain       a kind of robot world (boat, sub, drones, modular, toy); --domain picks one.
+  seed         a number that fixes the random parts (course layout, noise): the same seed, the same run.
+  run          one simulated episode for one seed, saved in its own folder.
+  plant card   a robot's physics numbers (mass, drag, thrust...) measured on the water.
+  bundle       the .tgz file astro saves after a day of testing; crane fit reads it.
+  study        a planned experiment: several settings over many seeds, compared fairly.
+  held-out     seeds kept back for the final test; crane refuses to run them unless you confirm.
+  cluster      the shared pool of compute machines (ours and rented) that runs big studies.
+  astro        the field-testing tool used on the water; crane reads the files it records."""
 
 TOP_EXAMPLES = """examples:
-  crane doctor                                            what is installed, what works, what to run next
-  crane run --domain toy --seeds 0:3                      T0 abstract, scenarios made on demand
-  crane run --domain boat --tier T1 --seeds 0:2           T1 dynamic, the RoboBoat reference mission
-  crane sim up --headless                                 the T2 world, used like the robot
-  crane view --live --domain boat --tier T1 --seed 3      the native sandbox: a live sim with sliders
-  crane help                                              every noun and verb; crane NOUN VERB --help for one
+  crane doctor                                            check this computer; says what to run next
+  crane sim up                                            start the 3-D simulator and wait until it is ready
+  crane run --domain toy --seeds 0:3                      simulate seeds 0, 1 and 2 in the light simulator
+  crane run --domain boat --tier T1 --seeds 0:2           the boat's course with physics, seeds 0 and 1
+  crane view --live --domain boat --tier T1 --seed 3      try settings live with sliders in a window
+  crane help                                              every command; crane NOUN VERB --help for one
 
-exit codes: 0 ok, 1 failed (judge FAIL included), 2 usage or config, 75 a bounded wait timed out"""
+exit codes: 0 ok, 1 something failed (a FAIL verdict too), 2 a mistake in the command or config,
+75 a wait ran out of time"""
 
 FLAG_PARAMS, FLAG_OF, params_of = reg.FLAG_PARAMS, reg.FLAG_OF, reg.params_of
 
 
 def first_sentence(text):
-    return re.split(r'(?<=[.?])\s', text, maxsplit=1)[0].rstrip('.')
+    return re.split(r'(?<!e\.g\.)(?<!i\.e\.)(?<=[.?])\s', text, maxsplit=1)[0].rstrip('.')
 
 
 def _type(param):
@@ -95,23 +109,34 @@ def add_param(parser, param, groups):
     target.add_argument(param.name, **kw)
 
 
+WIDTH = 100
+
+
+def _wrap(text, indent=''):
+    return '\n'.join(textwrap.wrap(text, WIDTH, initial_indent=indent, subsequent_indent=indent,
+                                   break_on_hyphens=False, break_long_words=False))
+
+
 def _description(command):
-    text = command.summary
+    parts = [command.summary]
     if command.today:
-        text += f'\n\nnot yet available; today use {command.today}'
+        parts.append(f'not yet available; today use {command.today}')
     if command.about:
-        text += f"\n\nwhat you'll see: {command.about}"
+        parts.append(f"what you'll see: {command.about}")
     if command.notes:
-        text += f'\n\n{command.notes}'
-    return text
+        parts.append(command.notes)
+    return '\n\n'.join(_wrap(p) for p in parts)
 
 
 def _epilog(command):
     lines = ['example:' if len(command.examples) == 1 else 'examples:', *(f'  {e}' for e in command.examples)]
+    tech = [_wrap(command.details, '  ')] if command.details else []
     if command.raw:
-        lines.append(f'raw: {command.raw}')
+        tech.append(f'  raw: {command.raw}')
     if command.json:
-        lines.append(f'--json schema: {command.json}')
+        tech.append(f'  --json schema: {command.json}')
+    if tech:
+        lines += ['', 'details:', *tech]
     return '\n'.join(lines)
 
 

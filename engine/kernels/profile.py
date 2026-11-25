@@ -15,10 +15,10 @@ map as numba scalars over one env's row. A thruster's dead time is a ring buffer
 import json
 import math
 
-import numba
 import numpy as np
 
-from engine import exact, nbexact
+from engine import exact
+from engine.jit import nbexact, numba
 
 THRUSTERS = 4
 AXES = ('surge', 'sway', 'yaw')

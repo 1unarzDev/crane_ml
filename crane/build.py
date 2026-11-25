@@ -110,3 +110,109 @@ def main(args):
         out = make_tarball(build_dir, builds, commit)
         print(f'crane build player: {out} ({out.stat().st_size / 1e6:.1f} MB) and {out.name}.sha256')
     return 0
+
+
+# ---- crane build images, crane build wheel ------------------------------------------------------------------
+
+DOCKERFILES = {'core': 'Dockerfile.core', 'gpu': 'Dockerfile.gpu', 'sim': 'Dockerfile.sim'}
+
+
+def newest_tarball(builds=paths.BUILDS):
+    """The newest crane-player-*.tar.* in builds that has its .sha256, or None."""
+    found = sorted((p for p in Path(builds).glob('crane-player-*-linux-x86_64.tar.*')
+                    if not p.name.endswith('.sha256') and p.with_name(p.name + '.sha256').is_file()),
+                   key=lambda p: p.stat().st_mtime)
+    return found[-1] if found else None
+
+
+def image_commands(kinds, commit, repo='crane', player=None, context=None):
+    """[(kind, tag, argv)] of the docker builds; sim builds on the core tag of the same commit and takes the player
+    tarball's dir as the `player` build context (context: a dir holding only the tarball)."""
+    out = []
+    for kind in kinds:
+        tag = f'{repo}:{kind}-{commit[:12]}'
+        argv = ['docker', 'build', '-f', str(paths.ROOT / DOCKERFILES[kind]), '-t', tag,
+                '--label', f'org.opencontainers.image.revision={commit}']
+        if kind == 'sim':
+            sha = (Path(player).with_name(Path(player).name + '.sha256').read_text().split()[0])
+            argv += ['--build-context', f'player={context}', '--build-arg', f'CORE_IMAGE={repo}:core-{commit[:12]}',
+                     '--build-arg', f'PLAYER_SHA256={sha}']
+        out.append((kind, tag, [*argv, str(paths.ROOT)]))
+    return out
+
+
+def images_main(args):
+    from crane import output
+    out = args.output
+    kinds = list(dict.fromkeys(args.kinds or ['core']))
+    if 'sim' in kinds and 'core' not in kinds:
+        kinds.insert(0, 'core')                   # sim builds on the core image of this commit
+    commit, dirty = source_state()
+    player = Path(args.player).expanduser().resolve() if args.player else newest_tarball()
+    if 'sim' in kinds and (player is None or not player.with_name(player.name + '.sha256').is_file()):
+        return out.usage('build images', 'sim needs a player tarball with its .sha256',
+                         'crane build player --tarball, or crane build images sim --player PATH')
+    if not shutil.which('docker') and not out.dry_run:
+        return out.usage('build images', 'no docker on PATH', 'install docker')
+    scratch = None
+    if 'sim' in kinds:                            # the player context: a dir with only the tarball (a hard link)
+        scratch = paths.HOME / '.cache' / 'crane' / 'build' / f'player-{commit[:12]}'
+        if not out.dry_run:
+            shutil.rmtree(scratch, ignore_errors=True)
+            scratch.mkdir(parents=True)
+            try:
+                os.link(player, scratch / player.name)
+            except OSError:
+                shutil.copy2(player, scratch / player.name)
+    rows = []
+    try:
+        for kind, tag, argv in image_commands(kinds, commit, args.repo, player, scratch):
+            out.line('+ ' + ' '.join(argv))
+            if out.dry_run:
+                continue
+            code = subprocess.call(argv)
+            if code:
+                return out.fail('build images', f'docker build of {kind} exited {code}',
+                                f'docker build -f {DOCKERFILES[kind]} .   (its log is above)')
+            size = subprocess.run(['docker', 'image', 'inspect', tag, '--format', '{{.Size}}'], capture_output=True,
+                                  text=True).stdout.strip()
+            rows.append((kind, tag, f'{int(size) / 1e6:.0f} MB unpacked' if size.isdigit() else ''))
+    finally:
+        if scratch:
+            shutil.rmtree(scratch, ignore_errors=True)
+    if dirty:
+        out.line(f'note: the checkout has uncommitted changes; the tags name {commit[:12]}')
+    out.table(rows)
+    out.next(f'docker run --rm {rows[0][1]} crane doctor' if rows else 'crane build images ' + ' '.join(kinds))
+    return output.OK
+
+
+def wheel_main(args):
+    import hashlib
+    from crane import output
+    out = args.output
+    dest = Path(args.out).expanduser().resolve() if args.out else paths.HOME / '.cache' / 'crane' / 'dist'
+    uv = shutil.which('uv')
+    if uv:
+        argv = [uv, 'build', '--quiet', '--out-dir', str(dest), str(paths.ROOT)]
+    else:
+        argv = [sys.executable, '-m', 'build', '--outdir', str(dest), str(paths.ROOT)]
+    out.line('+ ' + ' '.join(argv))
+    if out.dry_run:
+        return output.OK
+    proc = subprocess.run(argv, capture_output=True, text=True)
+    if proc.returncode:
+        tail = (proc.stderr or proc.stdout).strip().splitlines()[-1:] or [f'exit {proc.returncode}']
+        return out.fail('build wheel', tail[0], 'install uv (or pip install build), then crane build wheel')
+    from crane import __version__
+    files = sorted(p for p in dest.glob(f'crane-{__version__}*') if p.suffix in ('.whl', '.gz'))
+    rows = []
+    for f in files:
+        digest = hashlib.sha256(f.read_bytes()).hexdigest()
+        f.with_name(f.name + '.sha256').write_text(f'{digest}  {f.name}\n')
+        rows.append({'name': f.name, 'path': str(f), 'bytes': f.stat().st_size, 'sha256': digest})
+    if out.doc({'schema': 'crane.build.wheel/1', 'version': __version__, 'files': rows}):
+        return output.OK
+    out.table([(r['name'], f'{r["bytes"] / 1e6:.1f} MB', r['sha256'][:12]) for r in rows])
+    out.next(f'pip install {rows[0]["path"]}' if rows else 'crane build wheel')
+    return output.OK

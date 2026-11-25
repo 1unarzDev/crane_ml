@@ -5,8 +5,9 @@
     study.blocks['test'].role       # 'held-out'
 
 The spec's keys (Docs/Study.md has the full table):
-    name, domain, tier | tiers, record, crn, targets, baseline, metrics, scorer, timeout_s, keep_runs,
-    arms, axes, conditions, splits, seeds, stages, pack, campaign, purpose, expect, pin, kind
+    name, domain, tier | tiers, engine, backend, dtype, record, crn, targets, baseline, metrics, scorer, scorers,
+    timeout_s, keep_runs, plugins, card, card_axes, arms, axes, conditions, splits, seeds, stages, pack, report,
+    campaign, purpose, expect, pin, kind
 """
 
 from dataclasses import dataclass, field
@@ -20,13 +21,19 @@ from crane import ids, select, tiers as tierlib
 SCHEMA = 'crane.study/1'
 ROLES = ('dev', 'check', 'train', 'calib', 'held-out')
 RECORDS = ('metrics', 'events', 'traj_decimated', 'obs')
+ENGINES = ('scalar', 'batched')
+BACKENDS = ('numpy', 'numba', 'jax')
+DTYPES = ('float64', 'float32')
+BATCHED_RECORDS = ('metrics', 'events', 'traj_decimated')    # what the batched engine serves (no full-rate obs)
 NAME = re.compile(r'^[A-Za-z0-9][A-Za-z0-9_-]{0,47}$')
 TOP = {'schema', 'name', 'domain', 'tier', 'tiers', 'record', 'crn', 'targets', 'baseline', 'metrics', 'scorer',
        'timeout_s', 'keep_runs', 'arms', 'axes', 'conditions', 'splits', 'seeds', 'stages', 'pack', 'campaign',
-       'purpose', 'expect', 'pin', 'kind', 'report', 'description', 'inputs'}
+       'purpose', 'expect', 'pin', 'kind', 'report', 'description', 'engine', 'backend', 'dtype', 'plugins', 'card',
+       'card_axes', 'scorers', 'inputs'}
 DEFAULT_STAGE = 'main'
 RESERVED = {'study', 'stage', 'arm', 'cell', 'pair', 'block', 'split', 'role', 'tier', 'seed', 'run_seed', 'condition',
-            'outcome', 'error', 'wall_s', 'commit', 'card_sha', 'touched_held_out', 'succeeded'}   # row columns
+            'outcome', 'error', 'wall_s', 'commit', 'card_sha', 'touched_held_out', 'succeeded', 'censored',
+            'time_cap_s', 'engine'}   # row columns
 
 
 class StudyError(ValueError):
@@ -45,6 +52,8 @@ class Arm:
     timeout_s: float = None
     source: str = None             # the sample generator it came from
     raw: dict = field(default_factory=dict)       # its definition, hashed into the cell
+    mission: str = None            # 'module:Class': a DomainAdapter (Python mission code) replacing the domain's
+    engine: dict = field(default_factory=dict)    # {engine, backend, dtype}: what this arm overrides (per tier too)
 
 
 @dataclass
@@ -52,6 +61,14 @@ class Axis:
     name: str
     levels: dict                   # level name -> {dotted key: value}
     card: bool = False             # level values are card refs
+
+
+@dataclass
+class CardAxis:
+    """An axis whose levels edit fields of the cell's plant card (``card_axes``)."""
+    name: str
+    fields: list                   # field paths in the card JSON: dotted, '*' for every list item or key
+    levels: dict                   # level name -> {kind: base|file|value|values|scale, ...}
 
 
 @dataclass
@@ -103,6 +120,12 @@ class Study:
     cluster: dict = field(default_factory=dict)  # kind, campaign, purpose, expect, pin
     inputs: list = field(default_factory=list)   # scenario packs (crane env pack), absolute paths
     report: dict = field(default_factory=dict)
+    engine: dict = field(default_factory=dict)   # {engine, backend, dtype}: str, or {tier: str} each
+    plugins: list = field(default_factory=list)  # Paths of the spec's plugin dirs (on sys.path for its runs only)
+    card: str = None               # the base card the card axes edit (an arm's card overrides it)
+    card_axes: list = field(default_factory=list)
+    scorers: list = None           # population scorers: [{fn, over: [keys], args, name}]
+    split_groups: dict = field(default_factory=dict)   # column value -> split name (splits.groups)
 
     @property
     def ref(self):
@@ -123,9 +146,17 @@ class Study:
         return plan.jobs(self, stage, block, out)
 
     def estimate(self, cell):
-        """Seconds per (cell, seed): the stage's pack.unit_s, else the study's (None without one)."""
+        """Seconds per (cell, seed): the stage's pack.unit_s, else the study's (None without one), for the cell's
+        engine (pack.unit_s may be {scalar: S, batched: S})."""
         from crane.study import plan
-        return plan.unit_s(self, cell.stage)
+        return plan.unit_s(self, cell.stage, cell.engine.get('mode', 'scalar'))
+
+    def card_count(self):
+        """How many derived cards the card axes cross to (1 without card axes), without deriving any."""
+        n = 1
+        for a in self.card_axes:
+            n *= len(a.levels)
+        return n
 
     def order(self):
         """Stage names, each after the stages it depends on."""
@@ -196,6 +227,8 @@ def parse(raw, path):
                    'and condition)')
     st.timeout_s = _num(s, 'timeout_s', raw.get('timeout_s'))
     st.keep_runs = bool(raw.get('keep_runs', False))
+    st.engine = _engine(s, 'engine', raw)
+    st.plugins = _plugins(s, st, raw.get('plugins'))
     if raw.get('targets') is not None:
         st.targets = (st.base / str(raw['targets'])).resolve()
     st.metrics = _names(s, 'metrics', raw.get('metrics'))
@@ -205,10 +238,16 @@ def parse(raw, path):
     st.cluster = _cluster(s, raw)
     st.inputs = _inputs(s, st, raw.get('inputs'))
     st.arms = _arms(s, st, raw.get('arms'))
+    if raw.get('card') is not None:
+        any_card(s, st, 'card', raw['card'])
+        st.card = str(raw['card'])
     st.axes = _axes(s, st, raw.get('axes'))
+    st.card_axes = _card_axes(s, st, raw.get('card_axes'))
     _conditions(s, st, raw.get('conditions'), raw.get('splits'))
+    st.scorers = _scorers(s, st, raw.get('scorers'))
     st.blocks = _blocks(s, st, raw.get('seeds'))
     st.stages = _stages(s, st, raw.get('stages'))
+    _check_engines(s, st)
     if st.crn == 'derive' and any(a.kind == 'sim' for a in st.arms.values()):
         raise _err(s, 'crn', 'derive is for task arms: a sim episode draws its scenario from the seed itself',
                    'crn: plain (sim streams are already derived from the seed, the same in every arm)')
@@ -288,8 +327,16 @@ def _pack(s, where, value):
     bad = sorted(set(pack) - {'unit_s', 'target_s', 'local_chunk'})
     if bad:
         raise _err(s, f'{where}.{bad[0]}', 'unknown key', f'{where}: {{unit_s, target_s, local_chunk}}')
-    out = {'unit_s': _num(s, f'{where}.unit_s', pack.get('unit_s')),
-           'target_s': _num(s, f'{where}.target_s', pack.get('target_s'))}
+    unit = pack.get('unit_s')
+    if isinstance(unit, dict):
+        bad = sorted(set(unit) - {'scalar', 'batched', 'task'})
+        if bad:
+            raise _err(s, f'{where}.unit_s.{bad[0]}', 'unknown key', 'unit_s: {scalar: S, batched: S, task: S} '
+                       '(seconds per unit by engine)')
+        unit = {k: _num(s, f'{where}.unit_s.{k}', v) for k, v in unit.items()} or None
+    else:
+        unit = _num(s, f'{where}.unit_s', unit)
+    out = {'unit_s': unit, 'target_s': _num(s, f'{where}.target_s', pack.get('target_s'))}
     if pack.get('local_chunk') is not None:
         out['local_chunk'] = int(_num(s, f'{where}.local_chunk', pack['local_chunk']))
     return {k: v for k, v in out.items() if v is not None}
@@ -335,7 +382,7 @@ def _flat(value, prefix='', leaf=None):
     return out
 
 
-ARM_KEYS = {'set', 'card', 'task', 'argv', 'args', 'timeout_s', 'sample'}
+ARM_KEYS = {'set', 'card', 'task', 'argv', 'args', 'timeout_s', 'sample', 'mission', 'engine', 'backend', 'dtype'}
 SAMPLERS = ('uniform', 'log_uniform', 'int', 'choice')
 
 
@@ -424,11 +471,233 @@ def _arm(s, st, where, name, spec):
     card = spec.get('card')
     if card is not None and kind == 'sim':
         _card_path(s, st, f'{where}.card', card)
-    _no_pool(s, f'{where}.set', _flat(sets))
-    return Arm(name=name, kind=kind, set=_flat(sets), card=None if card is None else str(card), task=task,
+    mission = spec.get('mission')
+    sets = _flat(sets)
+    _no_pool(s, f'{where}.set', sets)
+    if mission is not None:
+        if kind != 'sim':
+            raise _err(s, f'{where}.mission', 'is for sim arms (it replaces the domain adapter)',
+                       'drop task/argv, or drop mission')
+        sets['adapter.ref'] = _ref(s, f'{where}.mission', mission)
+    engine = _engine(s, where, spec)
+    if engine and kind != 'sim':
+        raise _err(s, f'{where}.engine', 'is for sim arms', 'drop engine/backend/dtype from a task arm')
+    return Arm(name=name, kind=kind, set=sets, card=None if card is None else str(card), task=task,
                argv=None if argv is None else [str(a) for a in argv], args=dict(args),
                timeout_s=_num(s, f'{where}.timeout_s', spec.get('timeout_s')),
-               raw={k: v for k, v in spec.items()})
+               raw={k: v for k, v in spec.items()}, mission=mission, engine=engine)
+
+
+def _engine(s, where, spec):
+    """{engine, backend, dtype} of a spec or arm, each a str or {tier: str}; only the keys it gives."""
+    out = {}
+    for key, known in (('engine', ENGINES), ('backend', BACKENDS), ('dtype', DTYPES)):
+        value = spec.get(key)
+        if value is None:
+            continue
+        values = value if isinstance(value, dict) else {'*': value}
+        for tier, v in values.items():
+            if tier != '*':
+                try:
+                    tierlib.normalise(tier)
+                except ValueError as error:
+                    raise _err(s, f'{where}.{key}.{tier}', str(error)) from None
+            if v not in known:
+                raise _err(s, f'{where}.{key}' + (f'.{tier}' if tier != '*' else ''), f'{v!r}',
+                           f'one of {", ".join(known)}')
+        out[key] = {('*' if t == '*' else tierlib.normalise(t)): str(v) for t, v in values.items()}
+    return out
+
+
+def engine_of(st, arm, tier):
+    """(engine, backend, dtype) the arm runs at a tier with: the arm's keys over the spec's, a tier's over '*'.
+    Defaults: scalar; numba; float64 (float32 on jax)."""
+    def pick(key, default):
+        for src in (arm.engine if arm else {}, st.engine):
+            table = src.get(key) or {}
+            if tier in table:
+                return table[tier]
+            if '*' in table:
+                return table['*']
+        return default
+    engine = pick('engine', 'scalar')
+    backend = pick('backend', 'numba')
+    return engine, backend, pick('dtype', 'float32' if backend == 'jax' else 'float64')
+
+
+def _check_engines(s, st):
+    for arm in st.arms.values():
+        if arm.kind != 'sim':
+            continue
+        for tier in st.tiers + [t for g in st.stages.values() for t in (g.tiers or [])]:
+            engine, backend, dtype = engine_of(st, arm, tier)
+            if engine == 'batched' and backend == 'numpy' and dtype != 'float64':
+                raise _err(s, f'arms.{arm.name}.dtype', 'the numpy backend is the float64 reference',
+                           'dtype: float64, or backend: jax for float32')
+            if engine != 'batched':
+                continue
+            for rec in [st.record] + [g.record for g in st.stages.values() if g.record]:
+                if rec['level'] not in BATCHED_RECORDS:
+                    raise _err(s, 'record', f'level {rec["level"]!r} is not served by the batched engine (it keeps '
+                               'metrics, events and the decimated track)',
+                               f'engine: {{{tier}: scalar}} for full-rate obs, or record: traj_decimated')
+
+
+def _plugins(s, st, value):
+    """The spec's plugin dirs (relative to the spec): their modules resolve 'module:attr' refs (mission, task,
+    scorer, scorers) for this study's runs only."""
+    if value is None:
+        return []
+    values = value if isinstance(value, list) else [value]
+    out = []
+    for i, v in enumerate(values):
+        path = (st.base / str(v)).expanduser().resolve()
+        if not path.is_dir():
+            raise _err(s, f'plugins[{i}]', f'{v!r} is not a directory', 'plugins: [DIR] (relative to the spec)')
+        out.append(path)
+    return out
+
+
+def card_doc(ref_path):
+    import json
+    return json.loads(Path(ref_path).read_text())
+
+
+def card_matches(doc, path):
+    """[(container, key)] of a field path in a card: dotted, '*' for every list item or dict key, an int for one
+    list item. Empty when it names nothing."""
+    nodes = [(None, None, doc)]
+    for part in str(path).split('.'):
+        nxt = []
+        for _, _, node in nodes:
+            if isinstance(node, list):
+                keys = range(len(node)) if part == '*' else ([int(part)] if part.lstrip('-').isdigit()
+                                                               and -len(node) <= int(part) < len(node) else [])
+            elif isinstance(node, dict):
+                keys = list(node) if part == '*' else ([part] if part in node else [])
+            else:
+                keys = []
+            nxt += [(node, k, node[k]) for k in keys]
+        nodes = nxt
+    return [(c, k) for c, k, _ in nodes]
+
+
+LEVEL_KINDS = ('base', 'file', 'value', 'values', 'scale')
+
+
+def _card_level(s, st, where, value, transform):
+    if value is None or value == 'base':
+        return {'kind': 'base'}
+    if isinstance(value, bool):
+        raise _err(s, where, f'{value!r}', 'base, a card ref, a number, {values: {...}}, {scale: X}')
+    if isinstance(value, (int, float)):
+        return {'kind': transform, 'value': float(value)} if transform == 'scale' else {'kind': 'value',
+                                                                                      'value': value}
+    if isinstance(value, str):
+        value = {'file': value}
+    if not isinstance(value, dict) or len(value) != 1 or next(iter(value)) not in ('file', 'values', 'scale', 'value'):
+        raise _err(s, where, f'{value!r}', 'base, a card ref (a named source), a number, {values: {PATH: V}}, '
+                   '{scale: X}')
+    (kind, v), = value.items()
+    if kind == 'file':
+        return {'kind': 'file', 'path': str(any_card(s, st, where, v)), 'ref': str(v)}
+    if kind == 'values':
+        if not isinstance(v, dict) or not v:
+            raise _err(s, where, 'values wants a mapping of field path -> value', '{values: {mass: 31.0}}')
+        return {'kind': 'values', 'values': {str(k): x for k, x in _flat(v).items()}}
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        raise _err(s, where, f'{kind} wants a number', f'{{{kind}: 2.0}}')
+    return {'kind': kind, 'value': float(v) if kind == 'scale' else v}
+
+
+def _card_axes(s, st, value):
+    """card_axes: {AXIS: {fields: [PATH], levels: {NAME: LEVEL}}}; a level is base (the card as is), a card ref
+    (a named source: the fields' values from that card), a number (every field set to it), {values: {PATH: V}},
+    or {scale: X} (every field multiplied). transform: scale makes plain-number levels multipliers."""
+    if not value:
+        return []
+    if not isinstance(value, dict):
+        raise _err(s, 'card_axes', 'must be a mapping of name -> {fields, levels}',
+                   'card_axes: {thrust: {fields: [thrusters.*.kForward], levels: {pre: base, measured: m.json}}}')
+    sim = [a for a in st.arms.values() if a.kind == 'sim']
+    bases = {a.card or st.card for a in sim} if sim else {st.card}
+    if None in bases:
+        raise _err(s, 'card_axes', 'needs a base card', 'card: REF at the top (or a card on every sim arm)')
+    docs = {b: card_doc(any_card(s, st, 'card', b)) for b in bases}
+    taken = {a.name for a in st.axes}
+    out = []
+    for name, spec in value.items():
+        where = f'card_axes.{name}'
+        if not NAME.match(str(name)) or name in RESERVED or name in taken:
+            raise _err(s, where, 'a card axis name is letters, digits, _ or -, not a row column or another axis')
+        spec = dict(spec or {})
+        bad = sorted(set(spec) - {'fields', 'levels', 'transform'})
+        if bad:
+            raise _err(s, f'{where}.{bad[0]}', 'unknown key', 'a card axis takes fields, levels, transform')
+        fields = spec.get('fields')
+        fields = [fields] if isinstance(fields, str) else fields
+        if not fields or not all(isinstance(f, str) and f for f in fields):
+            raise _err(s, f'{where}.fields', 'wants field paths', 'fields: [thrusters.*.kForward, izz]')
+        transform = spec.get('transform', 'value')
+        if transform not in ('value', 'scale'):
+            raise _err(s, f'{where}.transform', f'{transform!r}', 'value (numbers set the fields) or scale')
+        levels = spec.get('levels')
+        if isinstance(levels, list):
+            levels = {(f'x{v:g}' if transform == 'scale' and isinstance(v, (int, float)) else str(v)): v
+                      for v in levels}
+        if not isinstance(levels, dict) or not levels:
+            raise _err(s, f'{where}.levels', 'is empty', 'levels: {pre: base, measured: CARD}')
+        parsed = {str(k): _card_level(s, st, f'{where}.levels.{k}', v, transform) for k, v in levels.items()}
+        for b, doc in docs.items():
+            for f in fields:
+                if not card_matches(doc, f):
+                    raise _err(s, f'{where}.fields', f'card {b} has no field {f!r}',
+                               'a dotted path into the card JSON (* for every thruster)')
+            for lname, lv in parsed.items():
+                paths = list(lv['values']) if lv['kind'] == 'values' else fields
+                for f in paths:
+                    if not card_matches(doc, f):
+                        raise _err(s, f'{where}.levels.{lname}', f'card {b} has no field {f!r}')
+                if lv['kind'] == 'file':
+                    src = card_doc(lv['path'])
+                    for f in fields:
+                        if len(card_matches(src, f)) != len(card_matches(doc, f)):
+                            raise _err(s, f'{where}.levels.{lname}', f'{lv["ref"]} and {b} differ at {f!r}',
+                                       'a named source card with the same fields as the base')
+        out.append(CardAxis(str(name), [str(f) for f in fields], parsed))
+    return out
+
+
+POPULATION_KEYS = ('card', 'block', 'split', 'role', 'arm', 'tier', 'stage')
+
+
+def _scorers(s, st, value):
+    """Population scorers: [{fn: module:function, over: 'card x block', args, name}]. Each gets the rows (condition
+    columns + sim columns) of one group and returns named parts."""
+    if value is None:
+        return None
+    if not isinstance(value, list) or not value:
+        raise _err(s, 'scorers', 'wants a list', 'scorers: [{fn: module:function, over: card x block}]')
+    known = set(POPULATION_KEYS) | {a.name for a in st.axes} | {f'cond.{c}' for c in st.condition_columns}
+    out, names = [], set()
+    for i, sc in enumerate(value):
+        where = f'scorers[{i}]'
+        sc = {'fn': sc} if isinstance(sc, str) else dict(sc or {})
+        bad = sorted(set(sc) - {'fn', 'over', 'args', 'name'})
+        if bad:
+            raise _err(s, f'{where}.{bad[0]}', 'unknown key', 'a population scorer takes fn, over, args, name')
+        fn = _ref(s, f'{where}.fn', sc.get('fn'))
+        over = sc.get('over', 'card x block')
+        keys = [k.strip() for k in (over if isinstance(over, list) else str(over).split(' x '))]
+        for k in keys:
+            if k not in known:
+                raise _err(s, f'{where}.over', f'{k!r}', f'keys joined by " x " from {", ".join(sorted(known))}')
+        name = str(sc.get('name') or fn.rpartition(':')[2])
+        if name in names:
+            raise _err(s, f'{where}.name', f'{name!r} is taken', 'name: OTHER')
+        names.add(name)
+        out.append({'fn': fn, 'over': keys, 'args': dict(sc.get('args') or {}), 'name': name})
+    return out
 
 
 def card_keys(st):
@@ -456,6 +725,16 @@ def _card_path(s, st, where, ref):
         if c.is_file():
             return c.resolve()
     raise _err(s, where, f'no card {ref!r}', f'a profile JSON path, or a name in {folder or "the card dir"}')
+
+
+def any_card(s, st, where, ref):
+    """A card file: the domain's card lookup when it names card keys, else a path relative to the spec."""
+    if st.domain and card_keys(st):
+        return _card_path(s, st, where, ref)
+    path = (st.base / str(ref)).expanduser()
+    if path.is_file():
+        return path.resolve()
+    raise _err(s, where, f'no card file {ref!r}', 'a JSON path relative to the spec')
 
 
 def _axes(s, st, value):
@@ -545,13 +824,13 @@ def _conditions(s, st, value, splits):
     if spec.get('limit'):
         rows = rows[:int(spec['limit'])]
     seen = set()
-    split_col, roles = None, {}
+    split_col, roles, groups, rest = None, {}, {}, None
     if splits:
         sp = dict(splits)
-        bad = sorted(set(sp) - {'column', 'roles'})
+        bad = sorted(set(sp) - {'column', 'roles', 'groups'})
         if bad or not sp.get('column') or not sp.get('roles'):
-            raise _err(s, 'splits', 'wants column and roles', 'splits: {column: split, roles: {calib: calib, '
-                       'test: held-out}}')
+            raise _err(s, 'splits', 'wants column and roles (and optionally groups)',
+                       'splits: {column: split, roles: {calib: calib, test: held-out}}')
         split_col, roles = str(sp['column']), {str(k): str(v) for k, v in sp['roles'].items()}
         if split_col not in columns:
             raise _err(s, 'splits.column', f'no column {split_col!r} in {path.name}',
@@ -559,6 +838,28 @@ def _conditions(s, st, value, splits):
         for k, r in roles.items():
             if r not in ROLES:
                 raise _err(s, f'splits.roles.{k}', f'role {r!r}', f'one of {", ".join(ROLES)}')
+        for name, values in dict(sp.get('groups') or {}).items():
+            where = f'splits.groups.{name}'
+            if str(name) not in roles:
+                raise _err(s, where, 'names no split of splits.roles', f'add {name}: ROLE under splits.roles')
+            if values == '*':
+                if rest is not None:
+                    raise _err(s, where, f"'*' is already split {rest}", "one split takes '*' (every other value)")
+                rest = str(name)
+                continue
+            if isinstance(values, str) and values.startswith('@'):
+                try:
+                    values = [ln.strip() for ln in (st.base / values[1:]).read_text().splitlines()
+                              if ln.strip() and not ln.startswith('#')]
+                except OSError as error:
+                    raise _err(s, where, f'{values}: {error.strerror or error}') from None
+            values = values if isinstance(values, list) else [values]
+            for v in values:
+                v = str(v)
+                if v in groups and groups[v] != str(name):
+                    raise _err(s, where, f'{split_col} {v!r} is also in split {groups[v]}',
+                               'a column value sits in one split only')
+                groups[v] = str(name)
     out = []
     for r in rows:
         cid = str(r[id_col])
@@ -567,12 +868,17 @@ def _conditions(s, st, value, splits):
         seen.add(cid)
         split = None
         if split_col:
-            split = str(r[split_col])
+            value = str(r[split_col])
+            split = groups.get(value, rest) if (groups or rest) else value
+            if split is None:
+                raise _err(s, 'splits.groups', f'condition {cid} has {split_col} {value!r} in no group',
+                           f"add it to a group, or give one group '*' (every other value)")
             if split not in roles:
                 raise _err(s, 'splits.roles', f'condition {cid} has split {split!r} with no role',
                            f'add {split}: ROLE under splits.roles')
         out.append({'id': cid, 'row': r, 'set': {str(param): r[col] for col, param in sets.items()}, 'split': split})
     st.conditions, st.condition_columns, st.splits = out, columns, roles
+    st.split_groups = dict(groups)
 
 
 def _blocks(s, st, value):

@@ -17,19 +17,24 @@ from crane import paths, tiers
 # One spec per selector; crane/commands.py turns these into params (argparse, help.yaml, Docs/CLI.md).
 SPECS = {
     'domain': dict(name='--domain',
-                   description='A domain: config/domains/DOMAIN.yaml.'),
+                   description='Which kind of robot world, e.g. boat; one file each in config/domains.'),
     'tier': dict(name='--tier', type='tier', choices=('T0', 'T1', 'T2', 'abstract', 'dynamic', 'unity'),
-                 description='The tier: T0 abstract, T1 dynamic, T2 unity.'),
+                 description='How detailed: T0 abstract (no physics), T1 dynamic (physics) or T2 unity (the 3-D '
+                             'simulator).'),
     'env': dict(name='--env', metavar='KIND:NAME', type='env',
-                description='The world: course:NAME, scene:NAME or world:NAME.'),
-    'robot': dict(name='--robot', description="The domain's robot."),
-    'card': dict(name='--card', metavar='REF', description='A plant card ref or a profile JSON.'),
-    'seed': dict(name='--seed', type='int', description='One seed.'),
+                description='Which world, written KIND:NAME, e.g. course:roboboat_2026.'),
+    'robot': dict(name='--robot', description="Which robot, e.g. blastoise (default the domain's)."),
+    'card': dict(name='--card', metavar='REF', description="The robot's physics numbers: a card name or a profile file, e.g. "
+                 'characterized.'),
+    'seed': dict(name='--seed', type='int', description='One seed, e.g. 3.'),
     'seeds': dict(name='--seeds', metavar='SPEC',
-                  description='Seeds: N, A:B (B exclusive), a,b,c, @FILE or block:NAME.'),
+                  description='Which seeds, e.g. 0:10 (0 to 9), 5, 1,4,9, @FILE (a list in a file) or block:NAME '
+                              '(a named group).'),
     'set': dict(name='--set', metavar='KEY=VALUE', repeat=True,
-                description='Override a config key; dotted keys nest, the value is YAML (repeatable).'),
-    'out': dict(name='--out', type='path', description='Output dir (default ~/.cache/crane/runs/DOMAIN/TIER/STAMP).'),
+                description='Change one setting, KEY=VALUE, e.g. time_limit_s=60; dots reach inside, e.g. '
+                            'a.b=1 (repeatable).'),
+    'out': dict(name='--out', type='path',
+                description='Where to save the output (default ~/.cache/crane/runs/DOMAIN/TIER/...).'),
 }
 
 RUNS_ROOT = Path.home() / '.cache' / 'crane' / 'runs'

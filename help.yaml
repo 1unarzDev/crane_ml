@@ -2,265 +2,403 @@
 # crane/commands.py by `crane help --write`; `crane help --check` fails when it drifts. Schema:
 # astro_dock/.devcontainer/astro-help.py. Each run line is crane's launcher, which needs no install.
 package: crane
-summary: Sim and research across domains and tiers (T0 abstract, T1 dynamic, T2 unity); crane help for every command.
+summary: "Robot simulators and experiments: start the 3-D sim, fit it to a test day, compare boat and sim; crane help lists every command."
 commands:
   - name: crane sim up
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim up
-    summary: Start a domain's T2 world (the Unity player through heavy unity, plus its ROS side) and return once the course is ready; prints the status block.
+    summary: Start the simulator and wait until the course is ready to drive.
     level: core
     ros: Tools/RoboBoat/sim_up up
-    notes: "Waits up to 60 s for the ROS endpoint and 300 s (SIM_UP_READY_S) for the course. Without --display, a window only on a terminal with a display, else headless under xvfb-run. Refuses (exit 2) while a sim runs. Exit 0 ready, 1 the world failed, 2 usage or config. Everything specific comes from config/domains/DOMAIN.yaml tiers.T2. Env: ROS_DOMAIN_ID, ASTRO_STATE / MHSEALS_HARDWARE_CONFIG (passed into the ROS side), the image env, SIM_UP_*, CRANE_PLAYER, HEAVY. Same as Tools/RoboBoat/sim_up."
+    notes: "Works with no options: the default course, its normal water current, seed 1, and a window if you have a screen; --tier T1 starts the light twin instead (no 3-D world, can run faster). It waits about 6 minutes at most, and refuses if a sim is already running (run crane sim down first)."
+    details: "Starts the Unity player through heavy unity plus its ROS side (the sim_up_ros container), then prints the status block (mode, ROS_DOMAIN_ID, endpoint, player pgid, ROS container, course, current, logs, next:). Waits up to 60 s for the ROS endpoint and 300 s (SIM_UP_READY_S) for the course. --tier T1 (tiers.T1.sim, Docs/SimT1.md): no Unity; a ROS node steps the plant-card twin and publishes what the player does (/crane/odom, /imu/raw, /gps/fix, /clock; /odom/mavros with --odom sensors; /odom/local, /odom/global and TF with --odom truth, which turns localization off) and drives on /thrusters/pwm. --tier T0 refuses naming crane run. --dry-run prints the resolved player argv and docker run (crane.sim.plan/1 with --json). Exit 0 ready, 1 the world failed, 2 usage, config or a sim already running. Everything specific comes from config/domains/DOMAIN.yaml tiers.T2. Env: ROS_DOMAIN_ID, ASTRO_STATE / MHSEALS_HARDWARE_CONFIG (passed into the ROS side), the image env, SIM_UP_*, CRANE_PLAYER, HEAVY. Same as Tools/RoboBoat/sim_up up."
     params:
-      - {name: "--seed", type: int, description: The world seed (default 1).}
-      - {name: "--env", description: "KIND:NAME, the world (default course:roboboat_2026); --course FAMILY is the same as --env course:FAMILY."}
-      - {name: "--card", type: path, description: A plant profile JSON or a card name (--profile-json is the same).}
-      - {name: "--profile", description: The player's runtime profile (default interactive-low).}
-      - {name: "--current", description: "SPEED,TOWARD_DEG (m/s, deg), or 0 for still water (default the scene current)."}
-      - {name: "--display", choices: [window, headless], description: "Window or xvfb (--window, --headless are the same)."}
-      - {name: "--player", type: path, description: "The player (else CRANE_PLAYER, then the build)."}
-      - {name: "--robot", description: The domain's robot.}
-      - {name: "--set", description: Pin one world parameter (repeatable).}
-      - {name: "--domain", description: config/domains/DOMAIN.yaml (default boat).}
-      - {name: "--dry-run", type: bool, description: Print the resolved player argv and docker run; start nothing.}
-      - {name: "--json", type: bool, description: "Progress on stderr, the status as one JSON document."}
+      - {name: "--seed", type: int, default: 1, description: "Which course layout to build; the same number always gives the same buoys, e.g. 3 (default 1).", choices_from: "${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim up --list seed"}
+      - {name: "--env", default: course:roboboat_2026, description: "Which world to load, written KIND:NAME, e.g. course:roboboat_2026 (the default); --course NAME is a shortcut.", choices_from: "${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim up --list env"}
+      - {name: "--card", type: path, default: none, description: "The boat's physics settings: a fitted profile file or a card name, e.g. characterized (default none: the built-in boat)."}
+      - {name: "--profile", default: interactive-low, description: "The simulator's graphics and physics quality preset, e.g. interactive-high (default interactive-low).", free: a preset name the player defines (config/domains/DOMAIN.yaml tiers.T2.profiles)}
+      - {name: "--current", default: default, description: "The water current: default (the course's own, 0.15 metres per second toward 270 degrees), 0 for still water, or SPEED,TOWARD_DEG, e.g. 0.3,90.", choices_from: "${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim up --list current"}
+      - {name: "--display", default: auto, choices: [auto, window, headless], description: auto opens a window when you have a screen and runs without one otherwise; --window and --headless are shortcuts.}
+      - {name: "--player", type: path, default: auto, description: "The simulator program to run, e.g. Builds/CRANE-Worker/CRANE.x86_64 (default auto: the newest one found).", choices_from: "for p in \"$CRANE_PLAYER\" \"${CRANE_DIR:-$HOME/crane_ml}/Builds/CRANE-Worker/CRANE.x86_64\" \"$HOME/.cache/crane-phase1/player/CRANE.x86_64\" \"$HOME/.local/share/crane/player/current/CRANE.x86_64\"; do [ -x \"$p\" ] && echo \"$p\"; done; true"}
+      - {name: "--tier", default: T2, choices: [T2, T1, T0], description: "How detailed the sim is: T2 is the full 3-D simulator (default); T1 is the light twin with the same robot software connections, no 3-D world, and can run faster; T0 runs only through crane run.", choices_from: "${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim up --list tier"}
+      - {name: "--odom", default: sensors, choices: [sensors, truth], description: "T1 only: sensors feeds the robot's own position estimate like on the water (default); truth hands it perfect positions instead."}
+      - {name: "--rate", type: float, default: 1, description: "T1 only: how many times faster than real time to run, e.g. 2 (default 1)."}
+      - {name: "--world", default: course, description: "T1 only: course (the default) or a rectangular pool whose walls the lidar sees, pool for 10 by 4.5 metres or pool:LxW for another size, e.g. pool:9x5; the boat starts 1.5 metres from one end, facing along it. --env pool:LxW does the same.", free: pool:LENGTHxWIDTH in metres}
+      - {name: "--robot", default: blastoise, description: "Which robot to put in the world, e.g. blastoise (the default).", free: a robot name from the domain's config}
+      - {name: "--set", default: none, description: "Pin one course setting as TASK_ID.PARAM=VALUE, e.g. a gate spacing in metres; give it again for more (default none). (repeatable)", free: a course setting name and value}
+      - {name: "--domain", default: boat, description: "Which kind of robot world to use, e.g. boat (the default) or sub.", free: "a domain name: one file per domain in config/domains"}
+      - {name: "--nav", default: none, description: "Hand the navigation part a launch argument, e.g. preset:=pool; give it again for more. A restart of nav reuses them (default none). (repeatable)", free: a navigation launch argument as NAME:=VALUE}
+      - {name: "--nav-args", default: none, description: "Several --nav at once in one quoted text, e.g. \"preset:=pool params_file:=/path/variant.yaml\"; a path must be under the workspace, ~/.config/astro or ~/.config/mhseals so the robot container sees it (default none).", free: several NAME:=VALUE words in one quoted text}
+      - {name: "--instance", type: int, default: none, description: "Which parallel world to use, 0 for the default world or 1 and up, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too)."}
+      - {name: "--dry-run", type: bool, default: false, description: "Show exactly what would start, without starting anything (default off)."}
+      - {name: "--json", type: bool, default: false, description: Print the final status as one JSON document for scripts; progress goes to stderr.}
     examples:
-      - crane sim up --headless --seed 3 --current 0
+      - crane sim up
+      - crane sim up --current 0
+      - crane sim up --headless --seed 3
       - crane sim up --card characterized --headless
+      - crane sim up --tier T1
+      - crane sim up --tier T1 --odom truth --rate 2
+      - crane sim up --tier T1 --world pool
+      - crane sim up --tier T1 --world pool --nav preset:=pool
+      - crane sim up --tier T1 --instance 2
       - crane sim up --dry-run
 
   - name: crane sim down
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim down
-    summary: "Stop what crane sim up started: its player's process group (TERM, KILL after 10 s) and its ROS container, nothing else."
+    summary: Stop the simulator that crane sim up started.
     level: core
     ros: Tools/RoboBoat/sim_up down
+    notes: Only stops what crane sim up started; other programs are left alone. Safe to run when nothing is running.
+    details: Stops the player's process group (TERM, then KILL after 10 s) and the sim_up_ros container. Same as Tools/RoboBoat/sim_up down.
     params:
-      - {name: "--json", type: bool, description: One JSON document instead of the down line.}
+      - {name: "--instance", type: int, default: none, description: "Which parallel world to use, 0 for the default world or 1 and up, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too)."}
+      - {name: "--json", type: bool, description: "Print what was stopped as one JSON document, for scripts."}
     examples:
       - crane sim down
+      - crane sim down --instance 2
 
   - name: crane sim restart
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim restart
-    summary: "Restart one part of the running world and keep the rest: nav (only the Nav2 nodes, so new nav2_limits in the state take effect), ros (the ROS container; the player stays) or player."
+    summary: Restart one part of the running simulator (navigation, ROS or the 3-D world) and keep the rest, e.g. after changing navigation settings.
     level: core
     ros: docker exec CONTAINER pkill ...; docker exec -d CONTAINER ros2 launch ...
-    notes: nav stops the nav nodes named by the domain recipe (tiers.T2.ros.restart.nav) inside the ROS container, starts them again from the same launch (only:=navigation), and waits up to the recipe's ready_s (90 s) for bt_navigator to be active; a domain without the recipe refuses and names `restart ros`. ros re-runs the saved docker run, waits up to 60 s for the endpoint and 120 s for the ready nodes. player re-runs the saved player argv, waits up to 300 s (SIM_UP_READY_S) for the course. Nav goals in flight are lost. Exit 0 ok, 1 failed, 2 usage, config or nothing running, 75 timed out waiting.
+    notes: "Use nav after editing nav settings: only the navigation restarts, so the course and boat stay where they are. Any goal the boat was driving to is lost."
+    details: "T1: ros restarts the twin node with the container (from the course start); player refuses. nav stops the nav nodes named by the domain recipe (tiers.T2.ros.restart.nav) inside the ROS container, starts them again from the same launch (only:=navigation), and waits up to the recipe's ready_s (90 s) for bt_navigator to be active; a domain without the recipe refuses and names `restart ros`. ros re-runs the saved docker run, waits up to 60 s for the endpoint and 120 s for the ready nodes. player re-runs the saved player argv and waits up to 300 s (SIM_UP_READY_S) for the course. --json: {schema, restarted, ready, at, status}. Exit 0 ok, 1 failed, 2 usage, config or nothing running, 75 timed out waiting."
     params:
-      - {name: what, choices: [nav, ros, player], description: The part to restart., required: true}
-      - {name: "--json", type: bool, description: One JSON document.}
-      - {name: "--domain", description: config/domains/DOMAIN.yaml (default boat).}
+      - {name: what, choices: [nav, ros, player], description: "Which part to restart: nav (navigation only), ros (all the robot software) or player (the 3-D world).", required: true}
+      - {name: words, type: list, default: none, description: "Only with nav: launch arguments for the navigation part, e.g. preset:=pool. They replace the ones from the last start; with none, those are used again (default none).", required: false}
+      - {name: "--nav-args", default: none, description: "The same words in one quoted text, e.g. \"preset:=pool params_file:=/path/variant.yaml\"; a path must be under the workspace, ~/.config/astro or ~/.config/mhseals (default none).", free: several NAME:=VALUE words in one quoted text}
+      - {name: "--instance", type: int, default: none, description: "Which parallel world to use, 0 for the default world or 1 and up, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too)."}
+      - {name: "--json", type: bool, description: "Print the result as one JSON document instead of text, for scripts."}
+      - {name: "--domain", description: "Which kind of robot world is running, e.g. boat (the default).", free: "a domain name: one file per domain in config/domains"}
     examples:
       - crane sim restart nav
+      - crane sim restart nav preset:=pool
       - crane sim restart player --json
 
   - name: crane sim status
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim status
-    summary: The status block (mode, ROS_DOMAIN_ID, endpoint, player, ROS container, course, current, logs, next commands). Read-only.
+    summary: Show whether the simulator is running and where its parts and logs are; changes nothing.
     level: core
     ros: Tools/RoboBoat/sim_up status
+    details: "The block: mode, ROS_DOMAIN_ID, endpoint, player, ROS container, course, current, logs, next. --json: {schema, domain, mode, player, ros, course, current, logs, next}. Same as Tools/RoboBoat/sim_up status."
     params:
-      - {name: "--json", type: bool, description: One JSON document.}
+      - {name: "--instance", type: int, default: none, description: "Which parallel world to use, 0 for the default world or 1 and up, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too)."}
+      - {name: "--json", type: bool, description: "Print the status as one JSON document instead of text, for scripts."}
     examples:
       - crane sim status
+      - crane sim status --instance 2
 
   - name: crane sim check
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim check
-    summary: Is the running sim ready (player, course, plant, ROS side, nav stack)? --wait SECONDS polls until ready; CHECK INPUTS runs an offline Tools/SimCheck check.
+    summary: Check the running simulator is ready to drive (world, course, boat, robot software, navigation); can wait until it is.
     level: core
     ros: Tools/RoboBoat/sim_up check
+    notes: "Ends with `sim check: ready` when everything is up. Right after crane sim up, give it time with --wait 120 rather than checking once."
+    details: "Exit 1 when not ready, 75 when --wait SECONDS pass first. --json: {schema, ready, exit, failed, notices, checks[{name, ok, detail}]}. `crane sim check CHECK INPUTS` runs an offline Tools/SimCheck check on recorded results instead. Same as Tools/RoboBoat/sim_up check."
     params:
-      - {name: "--wait", type: int, description: Poll every 2 s until ready or this many seconds pass.}
-      - {name: "--json", type: bool, description: One JSON document.}
-      - {name: "--domain", description: config/domains/DOMAIN.yaml (default boat).}
+      - {name: "--wait", type: int, description: "Keep checking every 2 seconds until ready, for at most this many seconds, e.g. 120 (default: check once)."}
+      - {name: "--instance", type: int, default: none, description: "Which parallel world to use, 0 for the default world or 1 and up, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too)."}
+      - {name: "--json", type: bool, description: "Print the checks as one JSON document instead of text, for scripts."}
+      - {name: "--domain", description: "Which kind of robot world is running, e.g. boat (the default).", free: "a domain name: one file per domain in config/domains"}
     examples:
       - crane sim check --wait 120
 
   - name: crane sim logs
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim logs
-    summary: The last lines of the player, player stdout and ROS logs, each under its path.
+    summary: Show the last lines of the simulator's logs, to see why something went wrong.
     level: setup
     ros: Tools/RoboBoat/sim_up logs
+    details: "The logs: player (the Unity player log), stdout (its console output) and ros (the ROS container). Same as Tools/RoboBoat/sim_up logs."
     params:
-      - {name: which, type: list, choices: [player, stdout, ros], description: Which logs (default all three)., required: false}
-      - {name: "-n", type: int, default: 40, description: Lines per log.}
+      - {name: which, type: list, choices: [player, stdout, ros, t1], description: "Which logs: player, stdout, ros or t1 (default the running tier's).", required: false}
+      - {name: "-n", type: int, default: 40, description: "How many lines of each log to show, e.g. 100 (default 40)."}
+      - {name: "--instance", type: int, default: none, description: "Which parallel world to use, 0 for the default world or 1 and up, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too)."}
     examples:
       - crane sim logs ros -n 100
 
   - name: crane run
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane run
-    summary: Run episodes at a tier, one run dir per seed (OUT/VARIANT/s<seed>). T0 abstract and T1 dynamic; T2 is not yet available (use crane sim up). Missing scenarios are generated on demand.
+    summary: Simulate many seeds quickly in a light simulator (T0 or T1) and save each run in its own folder; for the full 3-D simulator use crane sim up.
     level: setup
     ros: python3 -m fastsim.batch --config CONFIG --seeds 0:3 --out OUT
+    notes: You need --domain (or --config) and --seeds, e.g. crane run --domain toy --seeds 0:3. Rerunning the same command reuses finished runs instead of running them again.
+    details: "Runs go to OUT/VARIANT/s<seed> (default ~/.cache/crane/runs/DOMAIN/TIER/KEY). Missing scenarios are generated on demand. T2 is not available here (crane sim up). A run dir holding another run, or an incomplete one, is refused unless --force. --dry-run prints the resolved plan; --json prints one crane.run.summary/1 document. --engine batched runs every seed at once (Docs/Engine.md); jax on a consumer GPU wants --dtype float32 (bench/RESULTS.md). modular: the kernel is a port of the capplan truth stepper (FP0 module), not corpus-identified; corpus validation pending."
     params:
-      - {name: "--domain", description: "A domain: config/domains/DOMAIN.yaml (boat, toy)."}
-      - {name: "--config", type: path, description: "A fastsim domain YAML, used as is."}
-      - {name: "--tier", choices: [T0, T1, T2, abstract, dynamic, unity], description: "The tier (default: the domain's first tier, T0 with --config)."}
-      - {name: "--seeds", description: "N, A:B (B exclusive), a,b,c, @FILE or block:NAME (required, except with --astro-test: 0)."}
-      - {name: "--out", type: path, description: Output root; runs go to OUT/VARIANT/s<seed> (default ~/.cache/crane/runs/DOMAIN/TIER/STAMP).}
-      - {name: "--workers", type: int, description: Worker processes (default the config's workers).}
-      - {name: "--set", description: "Override a config key; dotted keys nest, the value is YAML (repeatable)."}
-      - {name: "--variant", default: base, description: The name of this design or parameter set.}
-      - {name: "--generate", type: bool, description: Regenerate the seeds' scenarios (missing ones are always made).}
-      - {name: "--allow-dirty", type: bool, description: Run an adapter tree with uncommitted changes.}
-      - {name: "--force", type: bool, description: Move a run dir holding another run (or an incomplete one) to <dir>.stale-N and rerun it; without it such a dir is refused and matching ones are reused.}
-      - {name: "--engine", default: fastsim, choices: [fastsim, batched], description: "fastsim: one scalar episode per seed; batched: every seed at once on the batched engine (Docs/Engine.md)."}
-      - {name: "--backend", default: numba, choices: [numpy, numba, jax], description: "With --engine batched: numpy (float64 reference), numba (every core) or jax (GPU)."}
-      - {name: "--dtype", choices: [float64, float32], description: "With --engine batched: default float64; jax on a consumer GPU wants float32 (bench/RESULTS.md)."}
-      - {name: "--record", type: int, description: "With --engine batched: also write traj.ctraj with every K-th track row (default: run.json, events.jsonl, metrics.json only)."}
-      - {name: "--astro-test", description: "An astro test or group (still, couple-*, speed-*, steps-*, nav2, all) at T0/T1, with metrics named as astro's result fields."}
-      - {name: "--card", description: "With --astro-test: a profile JSON, a plant card or a factorial manifest (repeatable)."}
-      - {name: "--tests", type: path, description: "With --astro-test: astro's tests file or a bundle holding one."}
-      - {name: "--space", description: "With --astro-test: the tests file's space (default large)."}
-      - {name: "--amp", type: float, description: "With --astro-test: the effort amplitude (default the space's)."}
-      - {name: "--json", type: bool, description: One summary document.}
-      - {name: "--dry-run", type: bool, description: Print the resolved plan; run nothing.}
-      - {name: "--quiet", type: bool, description: Only results and failures.}
+      - {name: "--domain", description: "Which kind of robot world, e.g. boat (also sub, drones, modular, toy); one file each in config/domains."}
+      - {name: "--config", type: path, description: "Use this simulator config file as it is, instead of a domain, e.g. my_domain.yaml."}
+      - {name: "--tier", choices: [T0, T1, T2, abstract, dynamic, unity], description: "How detailed: T0 abstract (no physics) or T1 dynamic (physics) (default the domain's first tier, T0 with --config)."}
+      - {name: "--seeds", description: "Which seeds to run, e.g. 0:10 (0 to 9), 5, or 1,4,9 (required, except with --astro-test: 0)."}
+      - {name: "--out", type: path, description: Where to save the runs (default ~/.cache/crane/runs/DOMAIN/TIER/...).}
+      - {name: "--workers", type: int, description: "How many processes to run at once, e.g. 8 (default the config's)."}
+      - {name: "--set", description: "Change one setting, KEY=VALUE, e.g. time_limit_s=60; dots reach inside, e.g. a.b=1 (repeatable)."}
+      - {name: "--variant", default: base, description: "A name for this set of settings, used in the folder name, e.g. heavier-hull (default base)."}
+      - {name: "--generate", type: bool, description: Make the scenarios again even if they exist (missing ones are always made).}
+      - {name: "--allow-dirty", type: bool, description: Run even though the code has uncommitted changes.}
+      - {name: "--force", type: bool, description: Rerun a seed whose folder holds another or an unfinished run (the old one is kept as <dir>.stale-N).}
+      - {name: "--engine", default: fastsim, choices: [fastsim, batched], description: "fastsim runs one seed at a time; batched runs every seed at once, much faster for many seeds."}
+      - {name: "--backend", default: numba, choices: [numpy, numba, jax], description: "With --engine batched: numpy (slow, exact reference), numba (every CPU core) or jax (GPU)."}
+      - {name: "--dtype", choices: [float64, float32], description: "With --engine batched: number precision (default float64; use float32 for jax on a gaming GPU)."}
+      - {name: "--record", type: int, description: "With --engine batched: also save the track, keeping every K-th step (default 0: results only)."}
+      - {name: "--replay", type: path, description: Replay recorded command timelines from an npz file (modular); every seed replays every timeline.}
+      - {name: "--robot", description: "Which robot, e.g. mecanum-pair for modular (default the domain's)."}
+      - {name: "--env", description: "Which world, e.g. route:random for modular."}
+      - {name: "--astro-test", description: "Run one of astro's characterization tests in the sim, e.g. speed-surge or all, with results named as astro names them."}
+      - {name: "--card", description: "The robot's physics numbers: a profile file or a card name from the domain's card folder, e.g. /tmp/fit/profile.json (repeatable)."}
+      - {name: "--tests", type: path, description: "With --astro-test: astro's tests file, or a bundle holding one."}
+      - {name: "--space", description: "With --astro-test: which size of test space, e.g. large (the default)."}
+      - {name: "--amp", type: float, description: "With --astro-test: how hard to push, as an effort fraction, e.g. 0.5 (default the test's)."}
+      - {name: "--json", type: bool, description: "Print the result as one JSON document instead of text, for scripts (default off)."}
+      - {name: "--dry-run", type: bool, description: Show what would run; run nothing.}
+      - {name: "--quiet", type: bool, description: "Print only the results and any failures, not the progress lines."}
     examples:
       - crane run --domain toy --seeds 0:3
       - crane run --domain boat --tier T1 --seeds 0:2 --out /tmp/runs
+      - crane run --domain sub --tier T1 --engine batched --seeds 0:64
       - crane run --domain boat --tier T1 --astro-test speed-surge --card /tmp/fit/profile.json
+      - "crane run --domain modular --replay timelines.npz --seeds 0:24 --card example#plated"
 
   - name: crane env pack
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane env pack
-    summary: A domain's scenarios for seeds A:B in one compressed pack (zstd, else gzip); missing ones are generated first, on a machine with the generator.
+    summary: Bundle the courses for a range of seeds into one file, so a computer that cannot make courses (a rented box) can still run them.
     level: setup
     params:
       - {name: "--domain", description: The domain whose scenarios to pack., required: true}
       - {name: "--seeds", description: "Seeds: N, A:B (B exclusive), a,b,c, @FILE or block:NAME.", required: true}
       - {name: "--out", type: path, description: The pack file (default under ~/.cache/crane-packs).}
-      - {name: "--json", type: bool, description: One JSON document on stdout (JSONL for streams).}
-      - {name: "--quiet", type: bool, description: Only results and failures.}
+      - {name: "--json", type: bool, description: "Print the result as one JSON document instead of text, for scripts."}
+      - {name: "--quiet", type: bool, description: "Print only the results and any failures, not the progress lines."}
     examples:
       - crane env pack --domain boat --seeds 0:64 --out boat-courses.tar.zst
 
-  - name: crane card
-    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane card
-    summary: "Plant cards: show, export, fit, validate: show (a plant card: one row per block (parameters with their sd and status) and the validation rows); export (one of a card's tier views (unity | nlc | control | fastsim) as json)."
+  - name: crane card show
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane card show
+    summary: "Show a robot's plant card: its physics numbers, how sure each one is, and how well it was checked."
     level: setup
+    ros: python3 -m plantcard show
+    details: "Rows per block: parameters with their sd and status; then the validation rows. --json: the card document (robot, sha, status, blocks, validation)."
     params:
-      - {name: verb, choices: [show, export], description: show or export., required: true}
-      - {name: args, type: list, description: "The verb's options: crane card VERB --help.", required: false}
+      - {name: ref, description: "Which card: FAMILY/ROBOT@HEAD, the first characters of its id, or a card folder (default the standard card).", required: false}
+      - {name: "--json", type: bool, description: Print the card as one JSON document.}
     examples:
       - crane card show
+      - crane card show FAMILY/ROBOT@HEAD --json
+
+  - name: crane card export
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane card export
+    summary: Write a robot's plant card in the format one simulator or tool reads.
+    level: setup
+    ros: python3 -m plantcard export
+    details: "Tier views: unity (T2), fastsim (T0/T1), nlc and control."
+    params:
+      - {name: view, choices: [unity, nlc, control, fastsim], description: "Which format: unity (the 3-D simulator), fastsim (the light simulators), or control and nlc (for those tools).", required: true}
+      - {name: ref, description: Which card (default the standard card)., required: false}
+      - {name: "--out", type: path, description: Save it to this file.}
+    examples:
       - crane card export fastsim --out /tmp/card.json
 
   - name: crane fit
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane fit
-    summary: An astro bundle to a profile (through the gate) and a plant card (through its bags as evidence); prints each parameter's status and why.
+    summary: Turn a day's bundle into updated simulator settings, with why for each.
     level: core
     ros: python3 -m Tools.Characterization.from_bundle
-    notes: Writes OUT/profile.json (sim_up --profile-json), OUT/profile.gate.json, OUT/cards and OUT/fit.json. A bundle made without --bags gives the gate only; --bags DIR reads bags beside it. --factorial SPEC.yaml writes card variants and a manifest.
+    notes: Give it the bundle astro wrote after a day of testing; add --bags DIR for the recordings too, which gives a full plant card. Use the result with crane sim up --card OUT/profile.json.
+    details: "The bundle goes through the gate to a profile; the bags give evidence for a plant card. Verdicts: identified / provisional / prior. Writes OUT/profile.json (sim_up --profile-json), OUT/profile.gate.json, OUT/cards and OUT/fit.json. A bundle made without --bags gives the gate only. --factorial SPEC.yaml writes card variants and a manifest. Held-out validation runs when there are two or more sessions."
     params:
-      - {name: bundles, type: list, description: Astro bundles (.tgz); each is one session., choices_from: "ls -1t ${ASTRO_DATA:-$HOME/astro_dock/bags}/*/bundle-*.tgz ${ASTRO_DATA:-$HOME/astro_dock/bags}/*/*/bundle-*.tgz 2>/dev/null | head -n 30", required: false}
-      - {name: "--out", type: path, description: "Output dir (default BUNDLE.fit/ beside the first bundle, else ~/.cache/crane/fit/BUNDLE/ when that is not writable)."}
-      - {name: "--bags", type: path, description: A bag dir to read besides the bundle (read only; repeatable).}
-      - {name: "--base", description: The base profile the gate imports into (default Ideal).}
-      - {name: "--robot", description: The card's robot name (default astro/<state file stem>).}
-      - {name: "--n", type: int, default: 64, description: Rollouts per held-out segment.}
-      - {name: "--no-card", type: bool, description: "Stop after the gate (no evidence, no card)."}
-      - {name: "--factorial", type: path, description: Card variants from a spec (measured vs prior levels per property).}
+      - {name: bundles, type: list, description: "Astro's test bundles (.tgz), one per session, e.g. bundle-173031.tgz.", choices_from: "ls -1t ${ASTRO_DATA:-$HOME/astro_dock/bags}/*/bundle-*.tgz ${ASTRO_DATA:-$HOME/astro_dock/bags}/*/*/bundle-*.tgz 2>/dev/null | head -n 30", required: false}
+      - {name: "--out", type: path, description: "Where to save the results, e.g. /tmp/fit (default BUNDLE.fit/ beside the first bundle, else ~/.cache/crane/fit/BUNDLE/)."}
+      - {name: "--bags", type: path, description: "A folder of recordings to read as well, e.g. ~/astro_dock/bags/sim/2026-11-24/bags (only read; repeatable)."}
+      - {name: "--base", description: "The settings to start from and update, e.g. Ideal (the default).", free: a profile name the gate knows}
+      - {name: "--robot", description: "The name to give the robot's card, e.g. astro/blastoise (default astro/ plus the state file name).", free: any name; it labels the card}
+      - {name: "--n", type: int, default: 64, description: "How many simulated tries per held-out check, e.g. 128 (more is slower and steadier)."}
+      - {name: "--no-card", type: bool, description: Stop after the settings; make no plant card (default off).}
+      - {name: "--factorial", type: path, description: "Also write card variants from a plan file (measured vs default per number), e.g. spec.yaml."}
     examples:
       - crane fit bundle-173031.tgz --bags ~/astro_dock/bags/sim/2026-11-24/bags --out /tmp/fit
 
   - name: crane field import
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane field import
-    summary: "A bundle (made with --bags), a bag dir or an .mcap file to crane.run/1 records: odometry trajectory, /events and log.txt lines, frame and clock."
+    summary: Turn a real-robot recording into a run that crane can replay, view and compare with the sim.
     level: setup
+    details: "Reads a bundle (made with --bags), a rosbag2 dir or an .mcap file into crane.run/1 records: the odometry trajectory, /events and log.txt lines, frame and clock. --frame ID=enu|ned names an odometry frame id that is not a REP 103/105 name."
     params:
-      - {name: source, type: path, description: "A bundle, a rosbag2 dir or an .mcap file.", required: true}
-      - {name: "--out", type: path, description: The run dir (one bag) or the root (several)., required: true}
-      - {name: "--odom", default: /odom/local, description: The odometry topic.}
-      - {name: "--events", default: /events, description: The astro events topic.}
-      - {name: "--frame", description: ID=enu|ned for an odometry frame id that is not a REP 103/105 name. (repeatable)}
-      - {name: "--hz", type: float, default: 20.0, description: The trajectory rate (Hz).}
-      - {name: "--domain", default: boat, description: The run's domain.}
+      - {name: source, type: path, description: "A bundle, a recording folder or an .mcap file.", required: true}
+      - {name: "--out", type: path, description: "Where to save: a run folder (one recording) or a parent folder (several).", required: true}
+      - {name: "--odom", default: /odom/local, description: The topic holding the robot position.}
+      - {name: "--events", default: /events, description: The topic holding astro's event messages.}
+      - {name: "--frame", description: "Say which way a position frame faces, e.g. odom=ned, when its name does not say. (repeatable)"}
+      - {name: "--hz", type: float, default: 20.0, description: How many position samples per second to keep.}
+      - {name: "--domain", default: boat, description: "Which kind of robot it is, e.g. boat."}
     examples:
       - crane field import ~/astro_dock/bags/sim/2026-11-24/bags/171208-smoke --out /tmp/field
 
   - name: crane compare
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane compare
-    summary: "Two run sets as a Markdown table and JSON: variant A/B on one frame and clock, tier gap (--tiers) or field vs sim per astro test (--field BUNDLE RUNS)."
+    summary: Compare two sets of runs side by side (e.g. the boat vs the sim).
     level: core
+    notes: For boat vs sim, give the bundle with --field and the sim runs after it. With --bounds file, exit 1 means some result is further off than allowed.
+    details: "Kinds: variant A/B on one frame and clock; tier gap (--tiers, A the lower tier); field vs sim per astro test (--field BUNDLE RUNS). --bounds file reads config/fidelity/DOMAIN.yaml, --bounds FILE a file of your own, plus the fit's gate (--fit DIR, default fit-<bundle>); 'card' is not yet available. --fidelity CONFIG replays B's goal windows on CONFIG's vehicle. --json: {schema, kind, result}; with --bounds, result holds rows, gate and verdict. Exit 0 pass, 1 FAIL, 2 usage."
     params:
-      - {name: runs, type: list, description: "Two run sets, A then B; with --field, the sim runs.", choices_from: "ls -1td ${CRANE_RUNS:-$HOME/.cache/crane/runs}/*/*/*/*/s* 2>/dev/null | head -n 30", required: true}
-      - {name: "--tiers", type: bool, description: "A is the lower tier, B the higher."}
-      - {name: "--field", type: path, description: An astro bundle to compare the runs against.}
-      - {name: "--metric", description: Only these metrics (repeatable).}
-      - {name: "--direction", default: higher, choices: [higher, lower], description: "--tiers: better is higher or lower."}
-      - {name: "--band", type: float, description: "--tiers: the allowed |low - high| gap (metric units)."}
-      - {name: "--fidelity", type: path, description: "--tiers: also replay B's goal windows on CONFIG's vehicle."}
-      - {name: "--bounds", description: "--field: pass/FAIL per row against config/fidelity/DOMAIN.yaml ('file') or FILE, and the fit's gate; a verdict line, exit 1 on FAIL ('card': not yet available)."}
-      - {name: "--fit", type: path, description: "--bounds: the `crane fit --out` dir whose gate is required (default fit-<bundle>)."}
-      - {name: "--domain", default: boat, description: "--bounds: config/fidelity/DOMAIN.yaml."}
-      - {name: "--out", type: path, description: Write compare.json and compare.md here.}
-      - {name: "--json", type: bool, description: "One JSON document: {schema, kind, result}; with --bounds, result holds rows, gate and verdict."}
+      - {name: runs, type: list, description: "Two sets of runs, A then B, e.g. runs/a runs/b; with --field, just the sim runs.", choices_from: "ls -1td ${CRANE_RUNS:-$HOME/.cache/crane/runs}/*/*/*/*/s* 2>/dev/null | head -n 30", required: true}
+      - {name: "--tiers", type: bool, description: A is the lighter simulator and B the fuller one; show the gap (default off).}
+      - {name: "--field", type: path, description: "Compare the runs with a real day's bundle, e.g. bundle-173031.tgz."}
+      - {name: "--metric", description: "Only compare these results, e.g. time (repeatable; default all).", free: any result name the runs record}
+      - {name: "--direction", default: higher, choices: [higher, lower], description: "With --tiers: whether a higher or a lower number is better."}
+      - {name: "--band", type: float, description: "With --tiers: the biggest gap you'll accept, in the result's own units, e.g. 0.5."}
+      - {name: "--fidelity", type: path, description: "With --tiers: also replay B's goals on another vehicle's config, e.g. config.yaml."}
+      - {name: "--bounds", description: "With --field: pass or FAIL each row against allowed limits, e.g. file (the standard limits) or your own FILE.", free: "file, or a path to your own limits file"}
+      - {name: "--fit", type: path, description: "With --bounds: the crane fit output folder to check too, e.g. /tmp/fit (default fit-<bundle>)."}
+      - {name: "--domain", default: boat, description: "With --bounds: which limits file to use, e.g. boat (the default).", free: "a domain name: one file per domain in config/fidelity"}
+      - {name: "--out", type: path, description: "Also save compare.json and compare.md here, e.g. /tmp/cmp."}
+      - {name: "--json", type: bool, description: "Print the comparison as one JSON document instead of the table, for scripts."}
     examples:
       - crane compare --field bundle-173031.tgz runs/sim
       - crane compare --field bundle-173031.tgz runs/sim --bounds file --fit /tmp/fit
 
   - name: crane view
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane view
-    summary: The native sandbox window. Replay runs overlaid in one frame and clock, or run a T0/T1 sim live with sliders, rerun from t, and Promote to a crane run spec. --screenshot renders offscreen (no window).
+    summary: Watch runs replay, or try settings live.
     level: core
+    notes: Give run folders to replay them together, or --live to drive a light sim with sliders. Promote saves the slider settings as a file crane run can use.
+    details: Replays crane.run/1 dirs, fastsim run dirs or .ctraj files overlaid in one frame and clock (--offset and --transform line up runs 2, 3, ...). --live runs a T0/T1 sim in-process; Rerun from t or 0; Promote writes a crane run spec to --promote-dir. --screenshot renders offscreen to a PNG and opens no window.
     params:
-      - {name: runs, type: list, description: "crane.run/1 dirs, fastsim run dirs or .ctraj files.", choices_from: "ls -1td ${CRANE_RUNS:-$HOME/.cache/crane/runs}/*/*/*/*/s* 2>/dev/null | head -n 30", required: false}
-      - {name: "--live", type: bool, description: "Run the sim in-process (with --domain, --tier T0|T1, --seed)."}
-      - {name: "--domain", default: boat, description: "live: the domain."}
-      - {name: "--tier", default: T1, choices: [T0, T1, abstract, dynamic], description: "live: the tier."}
-      - {name: "--seed", type: int, description: "live: the scenario seed."}
-      - {name: "--offset", description: "Run 2, 3, ...: the first run's time of its t = 0. (repeatable)"}
-      - {name: "--transform", description: "Run 2, 3, ...: {from, to, xyz, yaw} mapping its origin onto the first run's. (repeatable)"}
-      - {name: "--3d", type: bool, description: Open in the 3-D view (6-DOF records).}
-      - {name: "--screenshot", type: path, description: Render offscreen to this PNG and exit.}
-      - {name: "--at", type: float, description: "Screenshot: the playhead time (s; default the end)."}
-      - {name: "--promote-dir", type: path, default: runs/promoted, description: Where Promote writes specs.}
+      - {name: runs, type: list, description: "Run folders or track files to replay together, e.g. /tmp/runs/base/s3.", choices_from: "ls -1td ${CRANE_RUNS:-$HOME/.cache/crane/runs}/*/*/*/*/s* 2>/dev/null | head -n 30", required: false}
+      - {name: "--live", type: bool, description: "Run a light sim right here with sliders, instead of replaying (default off)."}
+      - {name: "--domain", default: boat, description: "With --live: which kind of robot world, e.g. boat (the default).", free: "a domain name: one file per domain in config/domains"}
+      - {name: "--tier", default: T1, choices: [T0, T1, abstract, dynamic], description: "With --live: T0 (no physics) or T1 (physics, the default)."}
+      - {name: "--seed", type: int, description: "With --live: which scenario to load, e.g. 3 (default 0)."}
+      - {name: "--offset", description: "For the second and later runs: when their start happened on the first run's clock, in seconds, e.g. 12.5. (repeatable)", free: a time in seconds}
+      - {name: "--transform", description: "For the second and later runs: how to move them onto the first run's map, e.g. '{\"xyz\": [1, 0, 0], \"yaw\": 90}'. (repeatable)", free: a small JSON object}
+      - {name: "--3d", type: bool, description: "Open in the 3-D view, for robots that move in all directions."}
+      - {name: "--screenshot", type: path, description: "Save a picture to this file instead of opening a window, e.g. /tmp/view.png."}
+      - {name: "--at", type: float, description: "With --screenshot: the moment to capture, in seconds, e.g. 60 (default the end)."}
+      - {name: "--promote-dir", type: path, default: runs/promoted, description: "Where Promote saves settings files, e.g. runs/promoted (the default)."}
     examples:
       - crane view --live --domain boat --tier T1 --seed 3
       - crane view /tmp/runs/base/s3 --screenshot /tmp/view.png --at 60
 
   - name: crane board
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane board
-    summary: The web replay board over local runs (crane.run/1 records and .ctraj), courses and judge reports; prints its URL.
+    summary: Browse and replay your runs, courses and reports in a web browser.
     level: setup
     ros: python3 -m viewer serve
+    details: Indexes crane.run/1 records and .ctraj files, course truths and judge reports under ROOTS.
     params:
-      - {name: roots, type: list, description: Dirs to index (default .)., required: false}
-      - {name: "--port", type: int, default: 8765, description: Local port.}
-      - {name: "--host", default: 127.0.0.1, description: The address to bind.}
+      - {name: roots, type: list, description: Folders to look in (default the current one)., required: false}
+      - {name: "--port", type: int, default: 8765, description: The local port to serve on.}
+      - {name: "--host", default: 127.0.0.1, description: The address to listen on (the default is only this computer).}
     examples:
       - crane board /tmp/runs
 
-  - name: crane bench
-    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane bench
-    summary: "Throughput benchmarks: player (the unity player real-time factor: one worker, or a sweep over worker counts, through heavy unity); fast (fast-tier throughput: the scalar table b, the batched engine (--engine batched) or the gate-3 equivalence report (--equivalence))."
+  - name: crane bench player
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane bench player
+    summary: Measure how much faster than real time the 3-D simulator runs here, with one or several copies at once.
     level: setup
+    ros: bin/heavy unity Tools/Bench/sweep_workers.sh 1 2 4
+    details: "Runs the Unity player through heavy unity: one worker, or a sweep over worker counts (summary.json per count). Player settings come from env (CRANE_PLAYER, CRANE_DURATION, CRANE_SCENE, ...)."
     params:
-      - {name: verb, choices: [player, fast], description: Which benchmark., required: true}
-      - {name: args, type: list, description: "The verb's options: crane bench VERB --help.", required: false}
+      - {name: "--worker", type: int, description: "Run a single copy, numbered with this id."}
+      - {name: "--sweep", type: list, description: "Try these numbers of copies at once, e.g. 1 2 4 (default from config/bench.yaml)."}
     examples:
       - crane bench player --sweep 1 2 4
+
+  - name: crane bench fast
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane bench fast
+    summary: Measure how many runs per second the light simulators (T0, T1) manage here.
+    level: setup
+    ros: python3 -m bench.fast
+    details: "The scalar table B, the batched engine (--engine batched: episodes/s per backend and E, x table B, the time split) or the gate-3 equivalence report (--equivalence). Arguments go to bench.fast unchanged (python3 -m bench.fast --help)."
+    params:
+      - {name: args, type: list, description: "bench.fast's own options, e.g. --domain boat --tier T1 --seeds 0:50 (python3 -m bench.fast --help lists them).", required: false}
+    examples:
       - crane bench fast --engine batched --domain boat --tier T1 --backend numba,jax --E 1024,4096 --out /tmp/bench
+      - crane bench fast --equivalence --tier T1 --seeds 0:500
+      - crane bench fast --domain boat --tier T1 --seeds 0:50 --out /tmp/b
 
   - name: crane build player
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane build player
-    summary: Build the headless Linux player through heavy unity and stamp its manifest with the source commit.
+    summary: Build the 3-D simulator program (no window) from this checkout, labelled with the code version.
     level: setup
-    notes: Needs the project's Unity editor. --skip-unity only stamps and packs an existing Builds/CRANE-Worker.
+    notes: Needs this project's Unity editor installed, and waits its turn for Unity. --skip-unity only re-labels and packs a build you already have.
+    details: Builds the headless Linux player through heavy unity and stamps Builds/CRANE-Worker/crane-build-manifest.json with the source commit; --tarball writes Builds/crane-player-<commit12>-linux-x86_64.tar.zst and its .sha256.
     params:
-      - {name: "--tarball", type: bool, description: Also write the player tarball and its .sha256.}
-      - {name: "--skip-unity", type: bool, description: Stamp and pack an existing build only.}
-      - {name: "--editor", type: path, description: "The Unity editor (default UNITY_EDITOR, else the ProjectVersion.txt editor)."}
-      - {name: "--builds", type: path, description: The Builds dir (default <repo>/Builds).}
-      - {name: "--dry-run", type: bool, description: Print the Unity command and stop.}
+      - {name: "--tarball", type: bool, description: Also pack it into one file to copy to other computers.}
+      - {name: "--skip-unity", type: bool, description: Label and pack an existing build only.}
+      - {name: "--editor", type: path, default: auto, description: "The Unity editor to use (default UNITY_EDITOR, else the project's version)."}
+      - {name: "--builds", type: path, description: The builds folder (default Builds in this checkout).}
+      - {name: "--dry-run", type: bool, description: Show the Unity command; build nothing.}
     examples:
       - crane build player --tarball
 
+  - name: crane deploy
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane deploy
+    summary: Copy this version of crane (and, if you ask, the 3-D simulator) onto another computer you work from, then check it there.
+    level: setup
+    ros: ssh HOST 'cd ~/crane_ml && git fetch ssh://THISHOST/REPO main && git merge --ff-only FETCH_HEAD'
+    notes: "Try --dry-run first; it changes nothing there. Robot computers are refused: robot code goes through `astro hot`."
+    details: "Over ssh: checks the host's disk, syncs the code (git fetch from this machine + ff-only, or rsync when it has no checkout), makes its .venv (install.sh), sends the T2 player with --player (sha256 checked there, current + prev kept), then runs crane doctor there. Touches only ~/crane_ml, ~/.local/bin/crane and the player store (~/.local/share/crane/player) on HOST. Refuses (exit 2) a robot computer (a host whose roles in astro's registry, ASTRO_PROFILES/*/devices.yaml, include a robot role and no operator role; config/deploy.yaml), a host with less free space than the player (tarball and unpacked) plus 1 GB, a checkout that cannot fast-forward, or a ~/crane_ml that is neither a crane checkout nor an earlier deploy. The .venv step runs install.sh --yes --no-clone --components LIST there (uv, Python 3.12) when HOST has no .venv or --components is given. The player tarball is --tarball, else the newest Builds/crane-player-*.tar.* with its .sha256 (a warn row when its commit is not the code's), else the release player; rsync --partial resumes a cut transfer. HOST fetches the full commit from --from (default ssh://THISHOST/REPO, CRANE_DEPLOY_FROM). local:DIR deploys into DIR as the home (no ssh; for tests). Exit 0 ok, 1 a step or the remote doctor failed, 2 usage or a refusal."
+    params:
+      - {name: host, description: "The computer to set up: its ssh name, e.g. lab-pc, or USER@HOST.", required: true}
+      - {name: "--player", type: bool, description: Also copy and install the 3-D simulator.}
+      - {name: "--tarball", type: path, description: The packed simulator file to send (implies --player).}
+      - {name: "--ref", default: HEAD, description: "Which code version to send: a branch or commit (default HEAD, what you have checked out)."}
+      - {name: "--components", description: "Which parts to install there, e.g. core,fast (default core; only when it has none yet or you give this)."}
+      - {name: "--no-venv", type: bool, description: Skip installing the Python environment there.}
+      - {name: "--from", description: Where the other computer fetches the code from (default this computer over ssh).}
+      - {name: "--dry-run", type: bool, description: Look at the other computer and show the plan; change nothing.}
+      - {name: "--json", type: bool, description: "Print the result as one JSON document instead of text, for scripts (default off)."}
+    examples:
+      - crane deploy HOST --dry-run
+      - crane deploy HOST --player
+      - crane deploy HOST --components core,fast --player
+
+  - name: crane update
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane update
+    summary: Get the latest crane and 3-D simulator on this computer.
+    level: setup
+    ros: git fetch && git merge --ff-only @{u}; curl -LO RELEASE/ASSET; sha256sum -c
+    notes: The previous simulator is kept, so a bad update can be rolled back. It refuses when the disk is too full, before downloading anything.
+    details: Updates this checkout (git fetch + ff-only) or this install (the release wheel), then the T2 player from the release into the player store (sha256 checked, current + prev kept). The release is release.json of the latest GitHub Release, or of v<VERSION> (CRANE_RELEASES overrides the base URL or names a local dir laid out the same way). A checkout with no release yet still fast-forwards. Refuses (exit 2) when the store's disk has less free space than the player (tarball and unpacked) plus 1 GB. Exit 1 when a file fails its sha256 check. --tarball installs a local player tarball (crane deploy runs it on the host).
+    params:
+      - {name: "--version", description: "Get this release, e.g. 0.3.0 (default the latest)."}
+      - {name: "--player-only", type: bool, description: Only update the simulator.}
+      - {name: "--no-player", type: bool, description: Only update the code.}
+      - {name: "--tarball", type: path, description: Install this packed simulator file instead of downloading one.}
+      - {name: "--sha256", description: "--tarball's checksum (default read from its .sha256 file)."}
+      - {name: "--store", type: path, description: Where simulators are kept (default ~/.local/share/crane/player).}
+      - {name: "--dry-run", type: bool, description: Show the steps; change nothing.}
+      - {name: "--json", type: bool, description: "Print the result as one JSON document instead of text, for scripts (default off)."}
+    examples:
+      - crane update
+      - crane update --dry-run
+      - crane update --version 0.3.0 --player-only
+
   - name: crane doctor
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane doctor
-    summary: Check this machine (python, extras, the T2 player and its flags, heavy, astro_dock, GPU) and print the next commands.
+    summary: Check this computer can run the simulator; prints what to run next.
     level: core
-    notes: Read-only; safe any time. Exit 1 only when the core (python >= 3.10, numpy, pyyaml) is broken.
+    notes: Safe to run any time; it changes nothing. Things marked missing are optional extras; only FAIL needs fixing.
+    details: "Checks python, the extras, the T2 player and its flags, heavy, astro_dock and the GPU. Exit 1 only when the core (python >= 3.10, numpy, pyyaml) is broken. --json: {schema, ok, checks[{name, state, detail}], next[]}."
     params:
-      - {name: "--json", type: bool, description: One JSON document.}
-      - {name: "--quiet", type: bool, description: Only results and failures.}
+      - {name: "--json", type: bool, description: "Print the checks as one JSON document instead of a table, for scripts."}
+      - {name: "--quiet", type: bool, description: "Print only the results and any failures, not the progress lines."}
     examples:
       - crane doctor
+
+  - name: crane setup
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane setup
+    summary: "Install crane on this computer step by step: it looks at the machine, suggests what to install, then does it."
+    level: setup
+    ros: ./install.sh --yes --components core,fast; crane update --player-only
+    notes: Answer the questions, or add --yes to take the suggestions. It never touches astro's own images or workspaces.
+    details: "Interactive with rich and questionary (the [setup] extra), else plain prompts; --yes takes the defaults or --components/--domains. Components: core, fast, gpu, view, field, data (pip extras, through install.sh), player (the release player, crane update --player-only), astro (a read-only check of the astro integration). The choices are saved to ~/.config/crane/setup.json. --dry-run stops after the plan."
+    params:
+      - {name: "--yes", type: bool, description: "Ask nothing: take the suggestions, or the lists given."}
+      - {name: "--components", default: auto, description: "Which parts to install, e.g. core,fast,player (default suggested from this computer)."}
+      - {name: "--domains", description: "Which robot worlds to set up, e.g. boat,sub (default all)."}
+      - {name: "--dry-run", type: bool, description: Look and plan; install nothing.}
+      - {name: "--json", type: bool, description: Print the result as one JSON document (implies --yes).}
+    examples:
+      - crane setup
+      - crane setup --yes --components core,fast,player --domains boat
+      - crane setup --yes --dry-run

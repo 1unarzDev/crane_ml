@@ -10,12 +10,10 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-pytest.importorskip('numba', reason='the engine compiles with numba (the [fast] extra); its numpy backend too')
-
 from domains.boat import mission as BM
 from domains.boat.adapter import Mission
 from domains.boat.plant import ROOT
-from engine import boat as BB, decoupled, equivalence as EQ
+from engine import boat as BB, decoupled, equivalence as EQ, exact
 from engine.episode import Setup, run
 from engine.kernels import profile as PK
 from engine.ops import numpy_ops
@@ -34,22 +32,27 @@ def load(tier, overrides=None):
 
 
 def backends():
-    out = ['numpy', 'numba']
-    try:
-        import jax  # noqa: F401
-        out.append('jax')
-    except ImportError:
-        pass
-    return out
+    """numpy, plus numba and jax where they import (the numpy backend needs numpy alone)."""
+    import importlib.util
+    return ['numpy', *(b for b in ('numba', 'jax') if importlib.util.find_spec(b) is not None)]
 
 
+HAVE_NUMBA = 'numba' in backends()
+
+
+# The float64 reference reproduces OpenBLAS's dgemv order; on another BLAS the scalar path itself rounds differently.
+openblas = pytest.mark.skipif(not exact.openblas(),
+                              reason=f"numpy's BLAS is {exact.blas()}, not OpenBLAS: the scalar path's matvec order "
+                                     "differs; fix: pip install numpy (its wheel bundles OpenBLAS)")
+
+
+@openblas
 def test_this_hosts_blas_is_the_order_the_reference_reproduces():
     """The scalar plant's ``pinv @ tau`` is OpenBLAS dgemv: fma(b2, t2, fma(b0, t0, b1 t1)) per row."""
     cfg = config.load(BOAT / 'fastsim_t1.yaml')[0]
     q = PK.pack_loop(json.loads((ROOT / cfg['vehicle']['profile']).read_text()))
     B = q[PK.LX['B00']:PK.LX['B00'] + 12].reshape(4, 3)
     tau = np.random.default_rng(0).normal(0, 50, (20000, 3))
-    from engine import exact
     assert (np.array([B @ t for t in tau]) == exact.matvec_blas(B, tau)).all()
 
 
@@ -125,6 +128,7 @@ def _flat(tree, prefix=''):
     return out
 
 
+@openblas
 def test_decoupled_mode_at_E1_is_the_scalar_path(tmp_path):
     """The boat's own scalar Mission on the batched plant and tracker: the same run directory files."""
     for tier in ('T1', 'T0'):
@@ -157,12 +161,16 @@ def test_the_fairway_planner_is_mission_route():
         for j, (x, y) in enumerate(here):
             want, _ = m.route((float(x), float(y)), 'fairway')
             assert [tuple(r) for r in route[j, :n[j]].tolist()] == [tuple(p) for p in want], (seed, j)
+            if not HAVE_NUMBA:
+                continue
             k = BB.nb_fairway(A['obst'][0], len(w.ids), A['mouths'][0], A['mouth_keep'][0], A['approach'][0],
                               float(x), float(y), buf)
             assert [tuple(r) for r in buf[:k].tolist()] == [tuple(p) for p in want], (seed, j, 'numba')
 
 
 def test_the_run_identity_names_backend_dtype_and_substeps():
+    if not HAVE_NUMBA:
+        pytest.skip("numba is not installed; pip install 'crane[fast]'")
     cfg, base, adapter = load('T1', {'time_limit_s': 1.0})
     setup = Setup(cfg, base, adapter, [1])
     ids = {(b, d, f): run(setup, b, d, fastmath=f).identity(0)['run_sha256']

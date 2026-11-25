@@ -1,0 +1,55 @@
+{
+  "schema": "crane-aerial-vehicle-profile-v1",
+  "id": "px4-x500-gz-e5997f4",
+  "description": "PX4 x500 (NXP HoverGames-class 500 mm quad X) as parameterized in PX4-gazebo-models. Coefficients are simulator defaults identical to RotorS defaults (RotorS license is from file headers/package metadata only, no top-level LICENSE; no RotorS meshes are bundled); no published system identification of physical x500 hardware was found.",
+  "evidenceLabel": "IMPLEMENTED",
+  "frames": {"body": "FLU", "world": "ENU z-up", "spin": "+1 = CCW seen from above"},
+  "sources": {
+    "PX4GZ": {
+      "url": "https://github.com/PX4/PX4-gazebo-models",
+      "commit": "e5997f455e33ec071c7c677fc59a65781de496a4",
+      "files": {
+        "models/x500/model.sdf": "cb76a4afd439f253a8c516b1fcd3528f80347619cfa46bebb620557054fbf125",
+        "models/x500_base/model.sdf": "6eccbff824a0e1ceaaf3bc12fe18cd0eb3ece890bf995a2607b477c3d2ae5772",
+        "models/x500/LICENSE": "cee4ef94e73cd38fb2886f5d7e7a04d6488f54b1e70cd8b1b29d74f38bfdba5b",
+        "LICENSE": "5fcb2a52fc0390cc8c7eccaa0cde9316c810f38811efb357e1ede7858e26e289"
+      },
+      "license": "BSD-3-Clause (repo LICENSE: PX4 Autopilot for Drones 2022; models/x500/LICENSE: Rudis Laboratories 2022)",
+      "gplCompatible": true,
+      "meshLicense": "x500_base meshes (NXP-HGD-CF.dae, 5010Base/Bell.dae, 1345_prop_*.stl) carry no separate notice; covered only by directory/repo BSD-3-Clause. Not imported; re-verify before any mesh port."
+    },
+    "GZSIM": {
+      "url": "https://github.com/gazebosim/gz-sim",
+      "commit": "3984434a2e9de3e7e771dfa59616b802d017e404",
+      "files": {"src/systems/multicopter_motor_model/MulticopterMotorModel.cc": "0faaf567d26a9c50657348444aae6d5d74bb2b3fa3d6b4c1c53eff431c8711d4"},
+      "license": "Apache-2.0",
+      "gplCompatible": true,
+      "note": "Force law reference only (thrust = kf w^2, drag torque = -dir*kf w^2*km, rotor drag = -|w| lambda1 v_perp, rolling moment = -|w| mu1 v_perp). Read, not executed."
+    }
+  },
+  "parameters": {
+    "mass": {"value": 2.0643076923076924, "unit": "kg", "source": "PX4GZ", "locator": "x500_base/model.sdf: base_link 2.0 + 4 rotor links 0.016076923", "status": "SIMULATOR_DEFAULT"},
+    "inertia": {"value": [[0.02166666666666667, 0, 0], [0, 0.02166666666666667, 0], [0, 0, 0.04000000000000001]], "unit": "kg m^2", "source": "PX4GZ", "locator": "x500_base/model.sdf base_link <inertia>; rotor link inertia neglected (<3e-5 each)", "status": "SIMULATOR_DEFAULT"},
+    "kf": {"value": 8.54858e-06, "unit": "N/(rad/s)^2", "source": "PX4GZ", "locator": "x500/model.sdf motorConstant (identical to RotorS firefly/hummingbird)", "status": "SIMULATOR_DEFAULT"},
+    "km": {"value": 0.016, "unit": "m", "source": "PX4GZ", "locator": "momentConstant", "status": "SIMULATOR_DEFAULT"},
+    "tau_up": {"value": 0.0125, "unit": "s", "source": "PX4GZ", "locator": "timeConstantUp", "status": "SIMULATOR_DEFAULT"},
+    "tau_down": {"value": 0.025, "unit": "s", "source": "PX4GZ", "locator": "timeConstantDown", "status": "SIMULATOR_DEFAULT"},
+    "omega_max": {"value": 1000.0, "unit": "rad/s", "source": "PX4GZ", "locator": "maxRotVelocity", "status": "SIMULATOR_DEFAULT"},
+    "rotor_drag": {"value": 8.06428e-05, "unit": "N s/(m rad)", "source": "PX4GZ", "locator": "rotorDragCoefficient", "status": "SIMULATOR_DEFAULT"},
+    "rolling_moment": {"value": 1e-06, "unit": "N s/rad", "source": "PX4GZ", "locator": "rollingMomentCoefficient", "status": "SIMULATOR_DEFAULT"},
+    "rotor_radius": {"value": 0.1651, "unit": "m", "source": "PX4GZ", "locator": "inferred from mesh name 1345_prop (13 in diameter); not a stated parameter", "status": "ASSUMED"},
+    "drag_linear": {"value": [0.0, 0.0, 0.0], "unit": "N s/m", "source": null, "locator": "x500 SDF has no body drag; rotor drag only", "status": "SIMULATOR_DEFAULT"},
+    "drag_quadratic": {"value": 0.0, "unit": "N s^2/m^2", "source": null, "locator": "none", "status": "UNKNOWN"}
+  },
+  "rotors": [
+    {"name": "rotor_0", "position": [0.174, -0.174, 0.06], "spin": 1, "source": "PX4GZ", "locator": "rotor_0 link pose; turningDirection ccw; motorNumber 0 (front-right)"},
+    {"name": "rotor_1", "position": [-0.174, 0.174, 0.06], "spin": 1, "source": "PX4GZ", "locator": "rotor_1 ccw; motorNumber 1 (rear-left)"},
+    {"name": "rotor_2", "position": [0.174, 0.174, 0.06], "spin": -1, "source": "PX4GZ", "locator": "rotor_2 cw; motorNumber 2 (front-left)"},
+    {"name": "rotor_3", "position": [-0.174, -0.174, 0.06], "spin": -1, "source": "PX4GZ", "locator": "rotor_3 cw; motorNumber 3 (rear-right)"}
+  ],
+  "notes": [
+    "Rotor z offset 0.06 m is relative to the base_link origin; the base_link CoM is at the origin in the SDF.",
+    "rotorVelocitySlowdownSim=10 is a Gazebo visualization/aliasing device; the force law uses the real rotor speed.",
+    "Hover rotor speed ~ sqrt(m g / 4 kf) = 769 rad/s, thrust-to-weight ~1.69 at omega_max."
+  ]
+}

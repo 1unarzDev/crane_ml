@@ -12,10 +12,10 @@ over one env.
 
 import math
 
-import numba
 import numpy as np
 
-from engine import exact, nbexact
+from engine import exact
+from engine.jit import nbexact, numba
 
 CAUSES = ('no_goal', 'goal_at_obstacle', 'route_through_obstacle')
 

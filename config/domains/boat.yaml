@@ -3,7 +3,48 @@
 #   python3 -m fastsim.batch --config domains/boat/fastsim_t1.yaml --seeds 0:5 --out runs/boat
 tiers:
   T0: {config: domains/boat/fastsim_t0.yaml}
-  T1: {config: domains/boat/fastsim_t1.yaml}
+  T1:
+    config: domains/boat/fastsim_t1.yaml
+    # crane sim up --tier T1: the T1 twin as a live ROS world, in T2's ROS container (Docs/SimT1.md). Keys it does
+    # not name come from tiers.T2 (host, ros image, container, mounts, restart recipe, next_up/next_down).
+    sim:
+      node: crane/sim/t1node.py                 # the rclpy node, mounted read-only into the container
+      plant: Tools/Characterization/plant.py    # ProfilePlant (stdlib only); its folder is mounted beside the node
+      card: characterized                       # the plant card when --card is not given (card.dir)
+      odom: sensors                             # sensors: the real EKFs run on the raw topics; truth: no EKFs
+      rate: 1                                   # x real time (--rate N)
+      ready_marker: CRANE_T1_READY              # the node's log line: the world steps and publishes
+      plant_marker: CRANE_T1_PLANT              # the node's log line: the plant card it steps
+      ready_s: 60                               # how long up waits for ready_marker
+      # The course truth for (family, seed, --set): the generator, else the committed truth (no --set).
+      # --world pool[:LxW]: a rectangular pool, no course; the boat starts start_m from one end wall, centred,
+      # facing along the length (world +x; the walls are x 0..L, y -W/2..W/2).
+      pool: {default: 10x4.5, start_m: 1.5}
+      course: {generate: 'domains.boat.coursegen:truth', dir: domains/boat/courses, file: '{name}-s{seed}.json'}
+      # What the player publishes and takes (CraneRoboBoatSensorContract, CraneROSNavigationState, ROSClock,
+      # ROSThrusterPwmCommand, RoboBoatStartReset), rates in sim Hz. Lever arms come from the robot's urdf.
+      world:
+        command: {topic: /thrusters/pwm, timeout_ticks: 25}                 # FL,FR,RR,RL us; neutral after 25 ticks
+        truth: {topic: /crane/odom, hz: 50}
+        fcu: {topic: /odom/mavros, hz: 20}
+        imu: {topic: /imu/raw, hz: 20, link: imu_link}
+        gps: {topic: /gps/fix, hz: 5, link: gps_link, origin: [27.3747, -82.4518]}
+        estimate: {local: /odom/local, global: /odom/global, hz: 50}       # --odom truth
+        frames: {map: map, odom: odom, base: base_link}
+        reset: /crane/reset_to_start
+        reset_wait: {tolerance_m: 0.1, tolerance_rad: 0.05, timeout_s: 3.0}   # the reply waits for /odom/local at the start (wall s)
+        # --world pool: the walls as a 2-D lidar ring at the lidar's mount height (link: its lever arm, from the
+        # urdf), and the same returns as the perception costmap Nav2's costmaps read (StaticLayer on
+        # /perception/costmap; the objects part that makes it from /points is off in T1).
+        lidar: {topic: /points, hz: 10, link: lidar_link, beams: 720, range: 30.0}
+        costmap: {topic: /perception/costmap, frame: base_link, size: 24.0, resolution: 0.15}
+        noise: {gps_sigma: 0.0, fcu_velocity_sigma: 0.0, seed: 0}         # the player's defaults (m, m/s)
+      ros:
+        # device:=sim with the parts T1 has no inputs for turned off (mhseals_nav device_profile PART_KEYS).
+        overrides:
+          sensors: '{"parts": {"camera": {"enabled": false}, "lidar": {"enabled": false}, "objects": {"enabled": false}, "sim_bridge": {"enabled": false}}}'
+          truth: '{"parts": {"camera": {"enabled": false}, "lidar": {"enabled": false}, "objects": {"enabled": false}, "sim_bridge": {"enabled": false}, "localization": {"enabled": false}}}'
+        ready_nodes: {sensors: [ekf_local, bt_navigator], truth: [bt_navigator]}
   # T2: the Unity world, used like the boat (crane sim; crane/player.py builds the player argv from it).
   # crane adds the player's generic flags itself (-screen-*, -logFile, --crane-profile, --crane-scene,
   # --crane-ros-ip/--crane-ros-port); everything RoboBoat-specific is here.
@@ -60,6 +101,9 @@ tiers:
           kill: ['pkill -KILL -f -- {match}']
           stop_s: 20                                # TERM, then this long, then KILL; then the same again
           start: ['ros2 launch {launch} only:=navigation overrides:={overrides}']
+          # NAME:=VALUE given to crane sim restart nav (or up --nav) go to this part's args in the overrides JSON,
+          # on top of the overrides the running world was launched with (device.launch.py forwards no plain args).
+          args_part: navigation
           ready: {nodes: [bt_navigator], state: 'ros2 lifecycle get /{node}', expect: active}
           ready_s: 90
       # The container mirrors the dev container (.devcontainer/docker-compose.yml of the dock), so `astro on
@@ -84,17 +128,30 @@ tiers:
 env:
   default: course:roboboat_2026
   kinds:
-    course: {T2: [--crane-course-family, '{name}', --crane-course-seed, '{seed}']}
+    # list: the families crane sim up --list env offers (a glob from the repo root; NAME is the file name to its dot)
+    course: {T2: [--crane-course-family, '{name}', --crane-course-seed, '{seed}'],
+             list: Assets/Config/Course/Resources/*.constraints.json}
 # --robot R: the domain's robots; a robot may name its own card and extra player flags.
 robot:
   default: blastoise
-  robots: {blastoise: {}}
+  robots: {blastoise: {urdf: 'Assets/Robot Descriptions/blastoise/blastoise.urdf'}}   # urdf: T1's sensor lever arms
 # --card REF: a plant profile JSON, or a name in dir (REF.json). T2 hands it to the player.
 card:
   dir: Tools/Characterization/profiles
   T2: {flag: --crane-boat-profile-json}
 judge:
   pack: roboboat_course
+# crane.env.make('boat', ...): the Gym-style batched env (Docs/Env.md). Actions: body-velocity setpoints through the
+# plant's velocity loop (bounds: the tier config's limits.vmin/vmax), or the four thrusters' PWM straight to the T1
+# plant. Obs channels: pose, vel, goal (body-frame offset to the next goal of the course route, approach and berth),
+# perception (the camera's visible targets). Reward: progress toward the goal (m) plus the weights per event.
+gym:
+  action: velocity
+  actions:
+    velocity: {channels: [surge, sway, yaw], unit: [m/s, m/s, rad/s]}
+    pwm: {channels: [pwm0, pwm1, pwm2, pwm3], low: 1100, high: 1900, unit: us}
+  obs: [pose, vel, goal]
+  reward: {progress: 1.0, goal: 1.0, contact: -5.0, step: 0.0, success: 10.0}
 # How crane view draws the boat and what its live-mode sliders reach (crane/view/spec.py documents the keys).
 view:
   frame: {world: enu, origin: scenario, body: flu}

@@ -1,0 +1,9 @@
+# crane deploy's robot guard: robot computers get robot code through `astro hot`, never crane deploy.
+# The host registry is astro's profile set: every */devices.yaml there lists hosts with their roles
+# (ASTRO_PROFILES overrides the path). The decision is by registry role only: a listed host with a robot role and
+# no allowed role is refused; any other host, including one the registry does not list, is deployed to. When the
+# registry cannot be read, crane deploy warns and goes on.
+robot_guard:
+  registry: ~/astro_dock/profiles
+  allowed_roles: [operator]
+  robot_roles: [boat_computer, camera_host]

@@ -1,7 +1,0 @@
-id,split,range_m,time_limit_s,note
-c01,calib,20,300,open water
-c02,calib,15,300,short sight
-c03,calib,25,240,long sight
-c04,test,20,300,open water
-c05,test,15,240,short sight
-c06,test,25,300,long sight
