@@ -45,7 +45,8 @@ class Setup:
     scenarios: list = None
     randomize: dict = None
     mode: str = 'batched'
-    workers: int = None          # host processes that load scenarios (default: one per core)
+    workers: int = None          # host processes that load scenarios (default: crane.resources.prep_processes)
+    backend: str = None          # the backend that will run it; 'jax' bounds the prep pool at 8 processes
     lim: object = field(init=False)
 
     def __post_init__(self):
@@ -63,7 +64,8 @@ class Setup:
         self.vehicle = vehicle(cfg['vehicle'], self.lim, self.base, self.dt, self.randomize)
         if self.scenarios is None and self.mode == 'batched':
             from engine.prepare import prepare
-            self.scenarios, self.W, self.plans, self.time_limit = prepare(cfg, self.base, list(self.seeds), self.workers)
+            self.scenarios, self.W, self.plans, self.time_limit = prepare(cfg, self.base, list(self.seeds), self.workers,
+                                                                          gpu=self.backend == 'jax')
             self.worlds = None
         else:
             if self.scenarios is None:

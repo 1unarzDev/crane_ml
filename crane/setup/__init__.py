@@ -167,7 +167,7 @@ def _split(text):
 
 
 def _show_machine(out, m):
-    rows = [(k, m[k] or 'none') for k in ('os', 'python', 'cores', 'memory', 'disk', 'gpu', 'docker', 'astro_dock',
+    rows = [(k, m[k] or 'none') for k in ('os', 'python', 'cores', 'cpus', 'memory', 'disk', 'gpu', 'docker', 'astro_dock',
                                           'unity', 'display', 'checkout')]
     try:
         if out.json or out.quiet or not sys.stdout.isatty():

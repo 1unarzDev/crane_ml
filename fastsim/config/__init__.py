@@ -13,6 +13,19 @@ DEFAULT = Path(__file__).with_name('default.yaml')
 OPTIONAL = ('record',)
 
 
+def cpus():
+    """The CPU budget (crane.resources.cpus when crane is beside fastsim, else the same rule on env and affinity)."""
+    try:
+        from crane.resources import cpus as budget
+        return budget()
+    except ImportError:
+        import os
+        env = os.environ.get('CRANE_CPUS', '')
+        if env.isdigit() and int(env) >= 1:
+            return int(env)
+        return max(1, min(os.cpu_count() or 1, len(getattr(os, 'sched_getaffinity', lambda p: range(10**6))(0))))
+
+
 def merge(base, over):
     out = copy.deepcopy(base)
     for key, value in (over or {}).items():
@@ -45,5 +58,5 @@ def resolve(domain, base):
         cfg['vehicle'] = merge(cfg['vehicle'], epoch['plant'])
         cfg['calibration'] = {'file': str(path), 'epoch': epoch.get('epoch'),
                               'basis': epoch.get('basis'), 'sha256': sha256(path.read_bytes())}
-    cfg['workers'] = max(1, min(int(cfg['workers']), int(cfg['max_workers'])))
+    cfg['workers'] = max(1, min(int(cfg['workers']), int(cfg['max_workers']), cpus()))
     return cfg

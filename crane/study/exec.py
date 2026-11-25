@@ -35,6 +35,7 @@ import time
 import traceback
 
 from crane.cache import UnitCache
+from crane.resources import cpus
 from crane.study import guard, plan
 from crane.study.spec import StudyError
 
@@ -555,7 +556,7 @@ def run_study(study, out, stage=None, block=None, confirm=False, max_workers=1, 
                     failures.clear()
             else:
                 ctx = get_context('spawn')
-                with ProcessPoolExecutor(max_workers, mp_context=ctx) as pool:
+                with ProcessPoolExecutor(min(max_workers, cpus()), mp_context=ctx) as pool:
                     futures = [pool.submit(work, cell, chunk, str(out), commit) for cell, chunk in todo]
                     try:
                         for fut in as_completed(futures):

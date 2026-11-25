@@ -17,7 +17,7 @@ def run_seeds(cfg, base, seeds, out, variant='base', backend='numba', dtype=None
     adapter = adapter_of(cfg, base)
     if hasattr(adapter, 'run_batched'):
         return adapter.run_batched(cfg, base, list(seeds), out, variant, backend, dtype, record, provenance)
-    setup = Setup(cfg, base, adapter, list(seeds))
+    setup = Setup(cfg, base, adapter, list(seeds), backend=backend)
     t0 = time.perf_counter()
     result = run(setup, backend, dtype, record=record)
     wall = time.perf_counter() - t0

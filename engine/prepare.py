@@ -52,24 +52,29 @@ def _chunk(job):
             BoatPlans.pack(adapter, scenarios, worlds), limits)
 
 
-def prepare(cfg, base, seeds, workers=None):
+def prepare(cfg, base, seeds, workers=None, gpu=False):
     from engine.boat import BoatPlans
     from engine.world import Worlds
     from fastsim.scenario import ScenarioSource
     ScenarioSource(**cfg['scenarios'], base=base).generate(seeds)     # or refuse in one line, before any pool
     jobs = [(cfg, base, seeds[i:i + CHUNK]) for i in range(0, len(seeds), CHUNK)]
-    workers = min(len(jobs), workers or os.cpu_count() or 1)
+    from crane.resources import prep_processes, single_thread_env
+    workers = min(len(jobs), workers) if workers else prep_processes(len(jobs), gpu=gpu)
     if workers <= 1:
         parts = [_chunk(j) for j in jobs]
     else:
         # Spawned workers inherit sys.path. A course truth already loaded here put Tools/RoboBoat first on
         # it (course_truth.py does), whose coverage.py would shadow the package numba imports at start-up.
-        saved = list(sys.path)
+        # Each child gets one numba/BLAS thread (set in the env it inherits): processes x threads <= cpus().
+        saved, saved_env = list(sys.path), {k: os.environ.get(k) for k in single_thread_env()}
         sys.path[:] = [p for p in saved if not (Path(p) / 'course_truth.py').is_file()]
         try:
+            os.environ.update(single_thread_env())
             with get_context('spawn').Pool(workers) as pool:
                 parts = pool.map(_chunk, jobs, chunksize=1)
         finally:
             sys.path[:] = saved
+            for k, v in saved_env.items():
+                os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
     return ([i for p in parts for i in p[0]], Worlds.stack([p[1] for p in parts]),
             BoatPlans.stack([p[2] for p in parts]), [t for p in parts for t in p[3]])

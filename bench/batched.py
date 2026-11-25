@@ -16,6 +16,8 @@ import time
 
 import numpy as np
 
+from crane.resources import cpus
+
 B = {('boat', 'T1'): {'W1': 4.33, 'W8': 27.9}, ('boat', 'T0'): {'W1': 9.63, 'W8': 55.9}}
 
 
@@ -32,7 +34,7 @@ def measure(cfg, base, adapter, backend, dtype, E, min_seeds, repeats=2, fastmat
     n = E if backend != 'jax' else max(E, min(4 * E, min_seeds))   # through E slots, refilled
     seeds = list(range(n))
     t0 = time.perf_counter()
-    setup = Setup(cfg, base, adapter, seeds)
+    setup = Setup(cfg, base, adapter, seeds, backend=backend)
     setup_s = time.perf_counter() - t0
     kw = {'slots': E} if backend == 'jax' else {}
     first = run(setup, backend, dtype, fastmath=fastmath, **kw)
@@ -79,7 +81,7 @@ def split_numba(cfg, base, adapter, n=200):
     ms = {k: round(v * 1e-6, 3) for k, v in ms.items()}
     ms['perception (cone, occlusion; full run less one with nothing to perceive)'] = round(1e3 * (wall - blind) / n, 3)
     ms['decision and other (by difference)'] = round(total - sum(ms.values()), 3)
-    numba.set_num_threads(numba.config.NUMBA_NUM_THREADS)
+    numba.set_num_threads(min(numba.config.NUMBA_NUM_THREADS, cpus()))
     return {'ms_per_episode_single_thread': round(total, 3), 'parts_ms': ms, 'steps_per_episode': round(per_ep, 1)}
 
 

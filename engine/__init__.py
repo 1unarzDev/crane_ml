@@ -1,7 +1,12 @@
 """crane's batched fast-tier engine (Docs/Engine.md): kernels, batched episodes, backends numpy|numba|jax."""
 
+import os as _os
 import sys as _sys
 from pathlib import Path as _Path
+
+from crane.resources import cpus as _cpus
+
+_os.environ.setdefault('NUMBA_NUM_THREADS', str(_cpus()))   # numba's pool is the CPU budget, not the host's cores
 
 # Tools/RoboBoat/course_truth.py puts its folder first on sys.path, and its coverage.py would shadow the
 # package numba imports (lazily, `import coverage`): import numba's coverage support without that folder.

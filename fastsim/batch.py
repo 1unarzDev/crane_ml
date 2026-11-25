@@ -27,7 +27,7 @@ import sys
 import time
 
 from fastsim import config as fsconfig, identity, plugin
-from fastsim.config import merge
+from fastsim.config import cpus, merge
 from fastsim.run import CRANE_RUN, UNHASHED, simulate
 from fastsim.scenario import ScenarioSource
 
@@ -186,7 +186,7 @@ def run_batch(cfg, base, seeds, out, variant='base', workers=None, provenance=No
     moves it aside. ``progress`` True writes ``OUT/progress.json`` (crane.progress), False nothing,
     or pass a crane.progress.Progress."""
     jobs = [(i, int(s), str(Path(out) / variant / f's{s}')) for i, s in enumerate(seeds)]
-    workers = max(1, min(workers or cfg['workers'], cfg['max_workers'], len(jobs)))
+    workers = max(1, min(workers or min(cfg['workers'], cpus()), cfg['max_workers'], len(jobs)))
     provenance = {'variant': variant, **(provenance or {})}
     results, todo = [None] * len(jobs), []
     if any(Path(o).exists() for _, _, o in jobs):

@@ -49,6 +49,14 @@ ROOT = Path(__file__).resolve().parent.parent
 REASONS = ('crashed', 'timed out without progress', 'cancelled')
 
 
+def _cpus():
+    try:
+        from crane.resources import cpus
+        return cpus()
+    except ImportError:
+        return int(os.environ.get('CRANE_CPUS') or os.cpu_count() or 1)
+
+
 def _write_json(path, doc):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -281,7 +289,7 @@ class Runner:
         crane_root = resolve_repo('crane_ml', self.repos)
         env = {**os.environ, 'CRANE_RUN_DIR': str(rd), 'CRANE_STUDY_OUT': str(out),
                'PYTHONPATH': os.pathsep.join(filter(None, [str(crane_root), os.environ.get('PYTHONPATH')])),
-               'CRANE_WORKERS': str(os.cpu_count() or 1)}
+               'CRANE_WORKERS': str(_cpus())}
         t0 = time.monotonic()
         log_path = rd / 'run.log'
         reason, code = None, None

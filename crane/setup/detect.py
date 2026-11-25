@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from crane import paths
+from crane.resources import cpus
 
 
 def _run(argv, timeout=5):
@@ -77,6 +78,7 @@ def machine():
         'os': os_name(),
         'python': f'{platform.python_version()} at {sys.executable}',
         'cores': os.cpu_count() or 1,
+        'cpus': cpus(),
         'memory': f'{mem:.0f} GB' if mem else '',
         'disk': f'{free / 1e9:.0f} GB free at {paths.HOME}',
         'free_bytes': free,

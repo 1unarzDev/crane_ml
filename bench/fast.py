@@ -34,6 +34,7 @@ if str(ROOT) not in sys.path:
 
 import yaml  # noqa: E402
 
+from crane.resources import cpus  # noqa: E402
 from fastsim import config as fsconfig, controller as fsctl, perception as fsperc, run as fsrun  # noqa: E402
 from fastsim.batch import adapter_of, parse_seeds, run_batch  # noqa: E402
 from fastsim.plant import Limits, vehicle  # noqa: E402
@@ -241,7 +242,7 @@ def host():
     commit = out('git', '-C', str(ROOT), 'rev-parse', 'HEAD')
     dirty = bool(out('git', '-C', str(ROOT), 'status', '--porcelain', '--untracked-files=no'))
     return {'date': datetime.datetime.now().astimezone().isoformat(timespec='seconds'),
-            'host': platform.node(), 'cores': os.cpu_count(), 'gpu': gpu or None,
+            'host': platform.node(), 'cores': os.cpu_count(), 'cpus': cpus(), 'gpu': gpu or None,
             'cpu': next((line.split(':', 1)[1].strip() for line in Path('/proc/cpuinfo').read_text().splitlines()
                          if line.startswith('model name')), platform.processor()) if Path('/proc/cpuinfo').exists() else platform.processor(),
             'python': platform.python_version(), 'executable': sys.executable, 'numpy': np.__version__,

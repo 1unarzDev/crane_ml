@@ -211,8 +211,8 @@ def compiled(fastmath):
 
 
 def run(setup, record=0, fastmath=False, threads=None):
-    if threads:
-        numba.set_num_threads(int(threads))
+    from crane.resources import cpus
+    numba.set_num_threads(max(1, min(int(threads or cpus()), numba.config.NUMBA_NUM_THREADS)))
     S = init_state(setup, record)
     A, W, M = setup.plans.A, setup.W, S['M']
     rec = S['rec'] if record else np.zeros((setup.E, 1, 3))
