@@ -542,3 +542,245 @@ def test_population_scorers_rank_cards_with_a_session_held_out_split(tmp_path, c
     _, (lo, hi) = stats.cluster_bootstrap_ci(units, clusters, lambda xs: sum(vals[x] for x in xs) / len(xs), B=400)
     _, (blo, bhi) = stats.bootstrap_ci(units, lambda xs: sum(vals[x] for x in xs) / len(xs), B=400)
     assert hi - lo > 1.5 * (bhi - blo)
+
+
+# ---- numeric held-out targets, designs, batch task callables, sampled events -----------------------------------
+
+def _paired_rows(effects, cells=4, seeds=30, noise=None):
+    """Synthetic held-out rows: each seed's world w is shared by every arm (common random numbers); arm value
+    = w + effect (a number, or one per cell) + its own noise (``noise[arm]``, default 0.02)."""
+    rng = random.Random(11)
+    rows = []
+    for cell in range(cells):
+        for seed in range(seeds):
+            w = 5.0 + rng.gauss(0, 1)
+            for arm, effect in effects.items():
+                e = effect[cell] if isinstance(effect, list) else effect
+                rows.append({'stage': 'main', 'pair': f'p{cell}', 'block': 'test', 'split': None, 'role': 'held-out',
+                             'arm': arm, 'seed': seed, 'y': w + e + rng.gauss(0, (noise or {}).get(arm, 0.02))})
+    return rows
+
+
+def test_numeric_targets_give_met_not_met_and_inconclusive_on_paired_data(tmp_path):
+    # F fixed, T treated (closes 0.8 of the gap to R), R reference, N noisy, Z: T's effect in 3 of 4 cells
+    rows = _paired_rows({'F': 1.0, 'T': 0.2, 'R': 0.0, 'N': 0.6, 'Z': [0.2, 0.2, 0.2, 1.0]}, noise={'N': 3.0})
+    s = study.load(task_spec(tmp_path).parent / write(tmp_path, 's.yaml', '''\
+        name: kinds
+        arms: {F: {task: tasks.py:noisy}, T: {task: tasks.py:noisy}, R: {task: tasks.py:noisy},
+               N: {task: tasks.py:noisy}, Z: {task: tasks.py:noisy}}
+        seeds: {dev: {role: dev, seeds: '0:2'}}
+        '''))
+    con = '{contrast: %s - F, metric: y, %s}'
+    cases = {
+        'threshold': [(con % ('T', 'expect: {threshold: -0.5, direction: below}'), 'met'),
+                      (con % ('T', 'expect: {threshold: -0.9, direction: below}'), 'not met'),
+                      (con % ('N', 'expect: {threshold: 0.0, direction: below}'), 'inconclusive')],
+        'interval': [(con % ('T', 'expect: {interval: [-1.0, -0.6]}'), 'met'),
+                     (con % ('T', 'expect: {interval: [0.0, 1.0]}'), 'not met'),
+                     (con % ('N', 'expect: {interval: [-0.1, 0.1]}'), 'inconclusive')],
+        'relative': [(con % ('T', 'relative: true, expect: {interval: [-0.2, -0.1]}'), 'met'),   # -0.8 / 6
+                     (con % ('T', 'relative: true, expect: {threshold: -0.2, direction: below}'), 'not met'),
+                     (con % ('N', 'relative: true, expect: {threshold: 0.0, direction: above}'), 'inconclusive')],
+        'gap_closed': [('{gap_closed: {fixed: F, treated: T, reference: R}, metric: y, min: 0.7}', 'met'),
+                       ('{gap_closed: {fixed: F, treated: T, reference: R}, metric: y, min: 0.9}', 'not met'),
+                       ('{gap_closed: {fixed: F, treated: N, reference: R}, metric: y, min: 0.3}', 'inconclusive')],
+        'share': [('{share: {condition: {contrast: Z - F, metric: y, direction: lower}, at_least: 0.75}}', 'met'),
+                  ('{share: {condition: {contrast: Z - F, metric: y, direction: higher}, at_least: 0.5}}', 'not met'),
+                  ('{share: {condition: {contrast: Z - F, metric: y, direction: lower}, at_least: 1.0}}',
+                   'inconclusive')],
+    }
+    from crane.study import guard
+    for kind, items in cases.items():
+        path = write(tmp_path, 'targets.yaml', ''.join(f'- {t}\n' for t, _ in items))
+        entries, reason = guard.read_targets(s, path)
+        assert reason is None, reason
+        got = rp.verdicts(entries, [], rows, B=500)
+        assert [t['verdict'] for t in got] == [v for _, v in items], (kind, got)
+    gap = rp.verdicts(guard.read_targets(s, write(tmp_path, 'g.yaml', '- ' + cases['gap_closed'][0][0]))[0],
+                      [], rows, B=500)[0]['lines'][0]
+    assert abs(gap['diff'] - 0.8) < 0.05 and gap['seeds'] == 30 and gap['ci'][0] > 0.7
+    share = rp.verdicts(guard.read_targets(s, write(tmp_path, 'h.yaml', '- ' + cases['share'][0][0]))[0], [], rows,
+                        B=500)[0]['lines'][0]
+    assert share['cells'] == 4 and share['diff'] == 0.75
+    assert rp.verdicts(entries, [], [{**r, 'role': 'dev'} for r in rows])[0]['verdict'] == 'no data'   # held-out only
+    for bad, want in (('{contrast: T - F, metric: y, expect: {interval: [1, 0]}}', 'expect'),
+                      ('{gap_closed: {fixed: F, treated: T}, metric: y, min: 0.7}', 'gap_closed'),
+                      ('{share: {condition: {contrast: Q - F, metric: y, direction: lower}, at_least: 0.8}}', "'Q'")):
+        _, reason = guard.read_targets(s, write(tmp_path, 'bad.yaml', f'- {bad}\n'))
+        assert want in reason and '\n' not in reason
+
+
+TARGETS_FN = '''\
+def verdicts(rows):
+    ys = {}
+    for r in rows:
+        ys.setdefault(r['arm'], []).append(r['y'])
+    mean = {a: sum(v) / len(v) for a, v in ys.items()}
+    return {'b_above_a': 'met' if mean['b'] > mean['a'] else 'not met', 'n': {'verdict': 'met', 'rows': len(rows)}}
+'''
+
+
+def test_a_targets_fn_is_pinned_like_the_targets_file_and_refused_when_dirty(tmp_path, capsys):
+    from crane.ids import sha256
+    from crane.study import guard
+    repo = tmp_path / 'repo'
+    repo.mkdir()
+    git(repo, 'init', '-q')
+    spec = task_spec(repo, 'targets: targets.yaml', seeds="{dev: {role: dev, seeds: '0:4'}, "
+                     "test: {role: held-out, seeds: '100:106'}}")
+    (repo / 'targets.yaml').write_text('- {targets_fn: judge_fn.py:verdicts, name: fn}\n'
+                                       '- {contrast: b - a, metric: y, expect: {threshold: 0.0, direction: above}}\n')
+    git(repo, 'add', 'study.yaml', 'tasks.py', 'targets.yaml')
+    git(repo, 'commit', '-qm', 'targets', env={'GIT_COMMITTER_DATE': f'{int(time.time()) - 120} +0000'})
+    s, out = study.load(spec), tmp_path / 'out'
+    assert 'targets_fn file judge_fn.py is missing' in guard.targets_state(s)[1]
+    write(repo, 'judge_fn.py', TARGETS_FN)
+    assert 'targets_fn file judge_fn.py is not committed' in guard.targets_state(s)[1]
+    git(repo, 'add', 'judge_fn.py')
+    git(repo, 'commit', '-qm', 'fn', env={'GIT_COMMITTER_DATE': f'{int(time.time()) - 60} +0000'})
+    state, reason = guard.targets_state(s)
+    fn_sha = sha256((repo / 'judge_fn.py').read_bytes())
+    assert reason is None and state['entries'][0]['sha256'] == fn_sha and len(state['entries'][0]['commit']) == 40
+    assert state['sha256'] != sha256((repo / 'targets.yaml').read_bytes())      # the pin covers the script too
+    assert guard.pinned_state(s, state['sha256'])[1] is None
+    (repo / 'judge_fn.py').write_text(TARGETS_FN + '# edited\n')                  # dirty: refused, and the pin moves
+    assert 'judge_fn.py has uncommitted changes' in guard.targets_state(s)[1]
+    assert 'but the job pinned' in guard.pinned_state(s, state['sha256'])[1]
+    assert cli.main(['study', 'run', str(spec), '--out', str(out), '--confirm']) == 2
+    assert 'judge_fn.py has uncommitted changes' in capsys.readouterr().err
+    git(repo, 'checkout', '--', 'judge_fn.py')
+    assert cli.main(['study', 'run', str(spec), '--out', str(out), '--confirm']) == 0
+    capsys.readouterr()
+    doc = rp.report(out, study=s, B=300)
+    got = {t['contrast']: t for t in doc['targets']}
+    assert got['fn:b_above_a']['verdict'] == 'met' and got['fn:n']['detail'] == {'rows': 12}   # held-out rows only
+    assert got['b - a']['verdict'] == 'met' and got['b - a']['direction'] == 'above 0'
+    manifest = json.loads((out / 'manifest.json').read_text())
+    assert manifest['held_out']['targets']['entries'][0]['sha256'] == fn_sha
+    (repo / 'judge_fn.py').write_text(TARGETS_FN.replace("'met' if", "'not met' if"))   # not the pinned script
+    got = rp.report(out, study=s, B=300)['targets'][0]
+    assert got['verdict'] == 'no data' and 'not the pinned script' in got['why']
+
+
+ECHO = '''\
+import json, os, random
+
+
+def echo(args, seed, cell):
+    """The args it got, as numbers, plus a seeded y; logs each call when CALLS is set."""
+    if os.environ.get('CALLS'):
+        with open(os.environ['CALLS'], 'a') as f:
+            f.write(json.dumps({'arm': cell['arm'], 'seed': seed}) + '\\n')
+    r = random.Random(seed)
+    w = args.get('world', {})
+    return {'y': float(w.get('x', 0)) + r.gauss(0, 1), 'gain': float(args.get('axes', {}).get('gain', -1)),
+            'x': float(w.get('x', -1)), 'z': float(w.get('z', -1)), 'events': [{'k': i} for i in range(3)]}
+
+
+def echo_batch(args, seeds, cell):
+    if os.environ.get('STOP') and os.path.exists(os.environ['STOP']) and seeds[0] >= 10:
+        raise KeyboardInterrupt
+    return [echo(args, s, cell) for s in seeds]
+'''
+
+
+def test_oat_and_lhs_designs_and_condition_columns_as_task_args(tmp_path):
+    write(tmp_path, 'echo.py', ECHO)
+    write(tmp_path, 'conds.csv', 'id,gain\nc1,0.5\nc2,2.0\n')
+    oat = write(tmp_path, 'oat.yaml', '''\
+        name: oat
+        arms: {a: {task: echo.py:echo}, b: {task: echo.py:echo, args: {k: 1}}}
+        design:
+          oat: {base: {x: 1.0, y: 0, z: 3}, axes: {x: [0.5, 1.0, 2.0], z: [3, 4]}}
+          param: {x: world.x, z: world.z}
+        conditions: {csv: conds.csv, id: id, set: {gain: axes.gain}}
+        seeds: {dev: {role: dev, seeds: '0:3'}}
+        ''')
+    s = study.load(oat)
+    cells = s.cells()
+    points = {(c.design['x'], c.design['y'], c.design['z']) for c in cells}
+    assert points == {(1.0, 0, 3), (0.5, 0, 3), (2.0, 0, 3), (1.0, 0, 4)}                  # base + 2 + 1
+    assert len(cells) == 4 * 2 * 2                                                          # x 2 arms x 2 conditions
+    for c in cells:
+        assert c.axes == {k: str(v) for k, v in c.design.items()}
+        assert plan.nest(c.params)['world'] == {'x': c.design['x'], 'z': c.design['z']} and c.params['y'] == 0
+    pairs = {}
+    for c in cells:
+        pairs.setdefault(c.pair, set()).add(c.arm)
+    assert len(pairs) == 8 and all(v == {'a', 'b'} for v in pairs.values())               # CRN: arms share a pair
+    # a design point hashes as the factorial cell of the same values would: the same unit keys, the cache shared
+    fact = write(tmp_path, 'fact.yaml', oat.read_text().split('design:')[0] + textwrap.dedent('''\
+        axes: {x: {param: world.x, levels: [0.5]}, y: {param: y, levels: [0]}, z: {param: world.z, levels: [3]}}
+        conditions: {csv: conds.csv, id: id, set: {gain: axes.gain}}
+        seeds: {dev: {role: dev, seeds: '0:3'}}
+        ''').replace('name: oat', 'name: oat'))
+    want = {(c.arm, c.condition['id']): (c.key, c.pair) for c in study.load(fact).cells()}
+    assert {(c.arm, c.condition['id']): (c.key, c.pair) for c in cells if c.design['x'] == 0.5} == want
+    out = tmp_path / 'out'
+    assert ex.run_study(s, out)['ran'] == 48
+    rows = list(read_rows(out))
+    assert {(r['cond.id'], r['gain']) for r in rows} == {('c1', 0.5), ('c2', 2.0)}         # CSV column -> axes.gain
+    assert all(r['x'] == r['x'] and isinstance(r['x'], float) and r['z'] in (3.0, 4.0) for r in rows)
+    # LHS: deterministic from the seed, one point per stratum of each range, categories spread evenly
+    lhs = oat.read_text().replace(
+        "oat: {base: {x: 1.0, y: 0, z: 3}, axes: {x: [0.5, 1.0, 2.0], z: [3, 4]}}",
+        "lhs: {n: 20, seed: 4, ranges: {x: [0.0, 2.0], z: {values: [a, b, c, d]}}}")
+
+    def points(text):
+        st = study.load(write(tmp_path, 'lhs.yaml', text))
+        return st.design
+    one, again = points(lhs), points(lhs)
+    assert one == again and len(one) == 20
+    assert points(lhs.replace('seed: 4', 'seed: 5')) != one
+    assert sorted(int(p['x'] / 2.0 * 20) for p in one) == list(range(20))                  # one per stratum
+    assert sorted(sum(p['z'] == v for p in one) for v in 'abcd') == [5, 5, 5, 5]
+    wider = points(lhs.replace('z: {values: [a, b, c, d]}', 'z: {values: [a, b, c, d]}, w: [0, 1]'))
+    assert [p['x'] for p in wider] == [p['x'] for p in one]                                 # a new range: same x
+    assert len(study.load(write(tmp_path, 'lhs.yaml', lhs)).cells()) == 20 * 2 * 2
+
+
+def test_batch_task_rows_equal_per_unit_rows_resume_and_sampled_events(tmp_path):
+    write(tmp_path, 'echo.py', ECHO)
+    spec = write(tmp_path, 'batch.yaml', '''\
+        name: batch
+        arms:
+          unit: {task: echo.py:echo, args: {world: {x: 0.5}}}
+          batch: {task: echo.py:echo_batch, batch: true, args: {world: {x: 0.5}}}
+        seeds: {dev: {role: dev, seeds: '0:40'}}
+        record: {level: events, sample: 0.25}
+        pack: {local_chunk: 5}
+        ''')
+    s, out = study.load(spec), tmp_path / 'out'
+    calls, stop = tmp_path / 'calls.jsonl', tmp_path / 'stop'
+    stop.write_text('')
+    os.environ.update(CALLS=str(calls), STOP=str(stop))
+    try:
+        with pytest.raises(KeyboardInterrupt):                    # the batch arm stops at its chunk of seeds 10..14
+            ex.run_study(s, out, stage=None)
+        cached = {(e['unit']['arm'], e['unit']['seed']) for e in UnitCache(out / 'cache')}
+        assert {x for a, x in cached if a == 'batch'} == set(range(10))
+        stop.unlink()
+        calls.write_text('')
+        summary = ex.run_study(s, out)
+        again = [json.loads(x) for x in calls.read_text().splitlines()]
+    finally:
+        for k in ('CALLS', 'STOP'):
+            os.environ.pop(k, None)
+    assert summary['reused'] == len(cached) and summary['ran'] == 80 - len(cached)
+    assert not {(c['arm'], c['seed']) for c in again} & cached                              # only the missing units
+    rows = {(r['arm'], r['seed']): r for r in read_rows(out)}
+    assert len(rows) == 80
+    for seed in range(40):
+        a, b = rows[('unit', seed)], rows[('batch', seed)]
+        assert a['pair'] == b['pair']
+        assert {k: v for k, v in a.items() if k not in ('arm', 'cell', 'wall_s')} == \
+               {k: v for k, v in b.items() if k not in ('arm', 'cell', 'wall_s')}
+    events = [json.loads(x) for x in (out / 'events.jsonl').read_text().splitlines()]
+    kept = {seed for seed in range(40) if ex.sampled(seed, 0.25)}
+    assert kept and {(e['arm'], e['seed']) for e in events} == {(a, x) for a in ('unit', 'batch') for x in kept}
+    assert all(e['stage'] == 'main' and e['cell'].startswith(f"main.{e['arm']}.") for e in events)
+    assert len(events) == 3 * 2 * len(kept)
+    for f in (0.02, 0.25):                                       # deterministic, and the rate is about right
+        assert [ex.sampled(x, f) for x in range(500)] == [ex.sampled(x, f) for x in range(500)]
+        rate = sum(ex.sampled(x, f) for x in range(20000)) / 20000
+        assert abs(rate - f) < 0.15 * f

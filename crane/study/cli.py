@@ -26,6 +26,8 @@ arms:
 # when there is no param; card: true makes the values card refs).
 axes:
   fov: {{param: perception.hfov_deg, levels: [60, 90]}}
+# design: {{oat: {{base: {{x: 1}}, axes: {{x: [0, 2]}}}}, lhs: {{n: 64, seed: 0, ranges: {{x: [0, 1]}}}}}}  points
+#   crossed with the axes instead of a full factorial (param: {{x: a.b}} names the key each point sets)
 # conditions: {{csv: conditions.csv, id: id, set: {{column: config.key}}}}   rows of a CSV, each a condition
 # splits: {{column: split, roles: {{calib: calib, test: held-out}}}}       conditions split by a column
 # Seed blocks: the seed is the pairing unit (the same seeds run in every arm). Roles: dev check train calib held-out.
@@ -115,7 +117,8 @@ def plan_main(args):
                        if cs and known else None,
                        'job_s': [min(j['est_seconds'] for j in js), max(j['est_seconds'] for j in js)]
                        if js and unit_s else None,
-                       'after': study.stages[name].after, 'select': study.stages[name].select})
+                       'after': study.stages[name].after, 'select': study.stages[name].select,
+                       'design': len(d) if (d := study.stages[name].design or study.design) else None})
     pending = plan.pending(study, have)
     doc = {'schema': 'crane.study.plan/1', 'study': study.name, 'spec': str(study.path), 'out': str(where),
            'domain': study.domain, 'commit': plan.code_commit(),
@@ -140,6 +143,10 @@ def plan_main(args):
     if doc['cards']:
         out.line(f'  cards: {doc["cards"]} derived ({" x ".join(f"{a.name} {len(a.levels)}" for a in study.card_axes)}),'
                  ' each written once to OUT/cards/SHA.json when its cells run')
+    for s in stages:
+        if s['design']:
+            out.line(f'  design: stage {s["stage"]}: {s["design"]} points ({", ".join(study.design_names)}), '
+                     'each crossed with the axes')
     for p in doc['plugins']:
         out.line(f'  plugin: {p["path"]} at {(p["commit"] or "no git")[:12]}' + (' (dirty)' if p['dirty'] else ''))
     out.line('  blocks: ' + '; '.join(f'{n} {b["role"]} {b["seeds"]} seeds' for n, b in doc['blocks'].items()))

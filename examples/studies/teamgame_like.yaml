@@ -1,0 +1,28 @@
+# A toy team game in the shape of a T0 sweep: three policies, one-axis-at-a-time cells around a base world plus a
+# Latin hypercube of worlds, sub-millisecond units run as one batch call per seed chunk, and numeric held-out targets.
+#   crane study plan examples/studies/teamgame_like.yaml
+#   crane study run examples/studies/teamgame_like.yaml --max-workers 4      # dev; the held-out block waits
+#   crane study report ~/.cache/crane/studies/teamgame_like
+schema: crane.study/1
+name: teamgame_like
+arms:                                   # task(args, seeds, cell) -> [one result per seed], once per seed chunk
+  fixed: {task: toy_game.py:play_batch, batch: true, args: {policy: fixed}}
+  adaptive: {task: toy_game.py:play_batch, batch: true, args: {policy: adaptive}}
+  oracle: {task: toy_game.py:play_batch, batch: true, args: {policy: oracle}}
+stages:
+  oat:                                  # the base world, then each axis moved alone: 1 + 2 + 2 + 2 = 7 cells per arm
+    design:
+      oat: {base: {gain: 1.0, noise: 0.1, team: 4}, axes: {gain: [0.5, 2.0], noise: [0.0, 0.3], team: [2, 8]}}
+      param: {gain: world.gain, noise: world.noise, team: world.team}
+  lhs:                                  # 24 worlds, one per stratum of each range, deterministic from the seed
+    design:
+      lhs: {n: 24, seed: 7, ranges: {gain: [0.5, 2.0], noise: [0.0, 0.3], team: {values: [2, 4, 8]}}}
+      param: {gain: world.gain, noise: world.noise, team: world.team}
+seeds:
+  dev: {role: dev, seeds: '0:200'}
+  test: {role: held-out, seeds: '1000:1200'}
+targets: teamgame_like.targets.yaml     # committed before the held-out block may run (--confirm)
+record: {level: events, sample: 0.02}   # the events of 2% of the seeds (the same seeds in every arm)
+baseline: fixed
+metrics: [loss, caught]
+pack: {unit_s: {task: 0.0002}, local_chunk: 100}

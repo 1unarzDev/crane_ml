@@ -368,8 +368,8 @@ COMMANDS = [
                   'groups, then next:.',
             notes='Nothing runs, so it is safe to try. A mistake in the study file is one line naming the setting '
                   'and the fix.',
-            details='Rows: tiers, cells, units, done, held-out units, jobs, est, per job; plus seed blocks, splits and '
-                    "pending adaptive stages. --json adds jobs[] (job_id, cell, seeds, est_seconds, kind, campaign, "
+            details='Rows: tiers, cells, units, done, held-out units, jobs, est, per job; plus design points, seed '
+                    "blocks, splits and pending adaptive stages. --json adds jobs[] (job_id, cell, seeds, est_seconds, kind, campaign, "
                     "purpose, expect, pin, argv): the cluster compiler's input. Estimates use pack.unit_s; jobs pack a "
                     "cell's seeds to about pack.target_s (default 900 s) each. A spec error exits 2.",
             params=(P('spec', 'path', description='The study file (YAML).'),
@@ -379,6 +379,7 @@ COMMANDS = [
                       '~/.cache/crane/studies/NAME).'),
                     _json('Print the plan, with every job, as one JSON document.')),
             examples=('crane study plan examples/studies/toy_paired.yaml',
+                      'crane study plan examples/studies/teamgame_like.yaml',
                       'crane study plan examples/studies/boat_cards.yaml --json')),
     Command(('study', 'run'), 'Run a study on this computer, picking up where it stopped.',
             'crane.study.cli:run_main', flags=(JSON, QUIET, DRY), json='crane.study.run/1',
@@ -429,7 +430,8 @@ COMMANDS = [
                   'count only once all of them have finished.',
             details='Paired on the seed per cell: bootstrap CI, sign-flip permutation, Holm across cells, via '
                     'judge.stats. Reads OUT/manifest.json and its rows (or every */manifest.json under OUT, as a '
-                    'fetched cluster output).',
+                    'fetched cluster output). Held-out targets get met, not met or inconclusive: a direction, an '
+                    'interval or threshold (relative too), a gap closed, a share of cells, or a pinned targets_fn.',
             params=(P('out', 'path', metavar='OUT', description="The study's results folder."),
                     P('--baseline', description="The setting the others are compared with, e.g. base (default the "
                       "study file's)."),

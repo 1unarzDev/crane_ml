@@ -1,0 +1,5 @@
+# The held-out targets of teamgame_like.yaml, committed before its held-out block runs.
+- {contrast: adaptive - fixed, metric: loss, expect: {threshold: -0.3, direction: below}}
+- {contrast: adaptive - fixed, metric: loss, relative: true, expect: {interval: [-0.9, -0.4]}}
+- {gap_closed: {fixed: fixed, treated: adaptive, reference: oracle}, metric: loss, min: 0.6}
+- {share: {condition: {contrast: adaptive - fixed, metric: loss, direction: lower}, at_least: 0.8}}

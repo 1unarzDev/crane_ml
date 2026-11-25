@@ -36,6 +36,7 @@ arms:                            # what is compared
   far: {set: {adapter.options.reach_m: 2.5}}    # config overrides, dotted keys
   measured: {card: characterized}                # a plant card (domain card.dir, or a path)
   llm: {task: tasks.py:judge, args: {model: m}}  # a callable (args, seed, cell) -> {name: number}
+  fast: {task: game.py:play_batch, batch: true}   # (args, seeds, cell) -> [one result per seed], per seed chunk
   ext: {argv: ['{python}', run.py, '{args}', '{out}'], timeout_s: 600}   # a command; JSON args
   rand: {sample: {n: 8, seed: 1, set: {vehicle.gain: {uniform: [0.6, 1.4]}}}}   # rand-0 .. rand-7
   mine: {mission: 'mymod:MyAdapter', engine: scalar}   # a plugin DomainAdapter (Python mission code); engine per arm
@@ -44,6 +45,10 @@ axes:                            # crossed with every arm
   cruise: {param: limits.vmax, levels: {slow: [1.0, 0.3, 0.6], fast: [1.5, 0.3, 0.6]}}
   gain: {levels: {pre: {vehicle.gain: 1.0}, measured: {vehicle.gain: 0.85}}}   # named sources: value sets
   card: {card: true, levels: {pre: ideal, measured: characterized}}           # named sources: cards
+design:                          # points instead of a full factorial, crossed with axes and card_axes
+  oat: {base: {gain: 1.0, team: 4}, axes: {gain: [0.5, 2.0], team: [2, 8]}}   # one axis at a time
+  lhs: {n: 200, seed: 7, ranges: {gain: [0.5, 2.0], team: {values: [2, 4, 8]}}}   # a Latin hypercube
+  param: {gain: world.gain, team: world.team}    # the key each name sets (default the name)
 card: ideal                      # the base card the card axes edit (an arm's card overrides it)
 card_axes:                       # axes whose levels edit card fields; crossed with everything else
   thrust: {fields: [thrusters.*.kForward, thrusters.*.kReverse], levels: {pre: base, measured: m.json}}
@@ -59,12 +64,13 @@ scorer: scorers.py:toy           # (result, cell) -> {part: number}; rows get sc
 scorers: [{fn: 'pop:fit', over: card x block}]   # population scorers: (rows of one group, group) -> {part: number}
 report: {population: {part: fit.loss, order: min, cluster: cond.session_id, B: 200}}
 metrics: [succeeded, run.sim_s]  # the fixed row columns (default: every number the runs give, sorted)
-record: metrics                  # metrics | events | traj_decimated | obs, or {level, hz, until_s}
+record: metrics                  # metrics | events | traj_decimated | obs, or {level, hz, until_s, sample}
 crn: plain                       # plain: the run seed is the seed; derive (task arms): derive_seed(seed, study, condition)
 baseline: base                   # the arm the report compares the others with (default the first)
 stages:                          # default: one stage, main, of everything
   R: {tier: T0, blocks: [dev]}
   V: {after: R, select: {top_k: 2, metric: score.total, order: max, by: arm}, tier: T1, set: {dt: 0.01}}
+  L: {design: {lhs: {n: 64, ranges: {gain: [0.5, 2.0]}}}}    # a stage's own design
 pack: {unit_s: 0.05, target_s: 900}   # seconds per unit ({scalar: S, batched: S, task: S} by engine); the
                                       # cluster plan packs a cell's seeds to ~target_s
 campaign: toy-paired             # campaign, purpose, expect, pin and kind go to the cluster compiler as given
@@ -82,6 +88,33 @@ stage's `set` merged over it, in that order. A card binds to the domain's `card.
 gets the same merge as its `args`; `argv` fills in `{args}` (JSON), `{seed}`, `{out}` (a unit dir), `{cell}` (JSON),
 `{python}` and `{spec_dir}`, and its numbers are `{out}/metrics.json` or the last JSON line it prints. Relative paths
 in a spec (CSV, targets, `file.py:function`, `@FILE`) are relative to the spec.
+
+## Designs and batch tasks
+
+```sh
+crane study plan examples/studies/teamgame_like.yaml      # oat: 7 points, lhs: 24 points, x 3 arms x 2 blocks
+crane study run examples/studies/teamgame_like.yaml --max-workers 4
+```
+
+- `design.oat` runs the base point, then each axis's levels with every other name at its base value (a level equal
+  to the base is the base point): 1 + 2 + 2 points for the spec above.
+- `design.lhs` draws `n` points, deterministic from `seed`: each `[lo, hi]` range is cut into n strata with one
+  point in each, and `{values: [...]}` spreads the points evenly over the values. Each name draws on its own, so a
+  new range changes no other name's values.
+- `oat` and `lhs` together give their union, OAT's base filling the names LHS leaves out. A stage's `design`
+  replaces the spec's.
+- A design point is a cell per arm (crossed with `axes`, `card_axes` and conditions). It hashes as the factorial
+  cell `{NAME: {param: KEY, levels: [VALUE]}}` would, so unit keys, `pair` and the cache are the factorial's. Rows
+  carry each name's value (a number column when every point gives a number). `select.by`, `only` and population
+  `over` accept design names.
+- A condition CSV column reaches a task arm as an arg: `conditions: {set: {gain: axes.gain}}` gives
+  `args['axes']['gain']`.
+- `batch: true` on a task arm calls `fn(args, seeds, cell)` once per seed chunk (`pack.local_chunk`, default
+  1024) with the run seeds, and wants one result per seed, in order. Each result becomes the row a per-unit call
+  gives, cached per seed, so a killed run resumes with the missing seeds. A raise fails the chunk's units.
+- A task result's `events` list (of dicts) goes to `events.jsonl` (with `cell`, `stage`, `arm`, `seed`) under
+  `record: events`. `record: {level: events, sample: 0.02}` keeps the units whose seed hashes below 0.02: the
+  same seeds in every arm and cell, and on every rerun (`crane.study.exec.sampled`).
 
 ## The batched engine
 
@@ -141,9 +174,28 @@ done.
   everything), but only when the spec's `targets` file parses, is committed, has no local changes and was last
   committed before the output's first held-out unit (before now, on a first run). Otherwise it refuses with one line
   and exits 2.
-- A targets file is a list of `{contrast: A - B, metric: M, direction: lower|higher|not lower|not higher}` naming
-  the spec's arms. `crane study report` gives each a verdict on the done held-out blocks (met, not met,
-  inconclusive, by the 95% CI of the pooled paired difference).
+- A targets file is a list of targets naming the spec's arms. `crane study report` gives each a verdict on the
+  done held-out blocks, per (stage, block): met, not met or inconclusive, by a 95% bootstrap CI over seeds (each
+  seed's values averaged over the cells first):
+
+  ```yaml
+  - {contrast: far - base, metric: run.duration_s, direction: lower}       # lower | higher | not lower | not higher
+  - {contrast: far - base, metric: loss, expect: {interval: [-0.5, -0.1]}} # met: CI inside; not met: CI outside
+  - {contrast: far - base, metric: loss, expect: {threshold: -0.2, direction: below}}
+  - {contrast: far - base, metric: loss, relative: true, expect: {threshold: -0.1, direction: below}}  # (A-B)/mean(B)
+  - {gap_closed: {fixed: base, treated: far, reference: oracle}, metric: loss, min: 0.7}
+  - {share: {condition: {contrast: far - base, metric: loss, direction: lower}, at_least: 0.8}}
+  - {targets_fn: verdicts.py:fn}
+  ```
+
+  - `gap_closed` is (fixed - treated) / (fixed - reference) per seed (seeds with fixed = reference are dropped);
+    met when the CI's lower bound is >= `min`, not met when its upper bound is below it, else inconclusive.
+  - `share` gives the condition a verdict per cell: met when the met cells reach `at_least`, not met when even the
+    inconclusive ones would not.
+  - `targets_fn` (relative to the targets file) gets the done held-out rows and returns `{name: verdict}` or
+    `{name: {verdict, ...}}`. The script is held like the targets file: committed, clean and older than the first
+    held-out unit, or the run refuses. Its sha256 is recorded on the entry and folded into the targets sha256 a
+    cluster job pins, and the report runs it only while it still has that sha256.
 - A rented box has no git checkout of the study repo. `crane study compile --confirm` checks git where it runs and
   pins the targets file's sha256 into each held-out job; crane-batch passes it to `run-cell` as `--targets-sha256`,
   and the box checks the file it got against that hash.

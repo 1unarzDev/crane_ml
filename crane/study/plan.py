@@ -23,7 +23,8 @@ from crane.study.spec import StudyError, _card_path, card_keys
 OUT_ROOT = Path.home() / '.cache' / 'crane' / 'studies'
 BOX_OUT = '/workspace/out'
 TARGET_S = 900.0          # a job of ~15 min (compute: 5-30 min on interruptible boxes)
-CHUNK = {'sim': 8, 'task': 1, 'batched': 256}   # units per local work item (a batched one is one engine call)
+CHUNK = {'sim': 8, 'task': 1, 'batched': 256, 'task_batch': 1024}   # units per local work item (a batched one
+                                                                    # is one engine call; task_batch one task call)
 DERIVED = '@derived:'     # a card key's value until the executor writes the derived card (OUT/cards/SHA.json)
 
 
@@ -50,6 +51,7 @@ class Cell:
     ctx: dict = field(default_factory=dict)       # what the executor needs (spec path, task ref, scorer, ...)
     engine: dict = field(default_factory=lambda: {'mode': 'scalar'})   # {mode, backend, dtype, why}
     card_doc: dict = None          # the derived card (card_axes) until the executor writes it
+    design: dict = None            # the design point's values (design: oat | lhs), its row columns
 
     @property
     def held_out(self):
@@ -73,7 +75,7 @@ class Cell:
         return {'study': self.study, 'stage': self.stage, 'arm': self.arm, 'axes': dict(self.axes),
                 'condition': self.condition, 'tier': self.tier, 'block': self.block, 'split': self.split,
                 'role': self.role, 'id': self.id, 'card': self.card, 'card_sha': self.key.get('card'),
-                'engine': dict(self.engine)}
+                'engine': dict(self.engine), 'design': dict(self.design) if self.design else None}
 
 
 class StageNotReady(StudyError):
@@ -252,13 +254,21 @@ def stage_cells(study, stage, block=None, chosen=None):
     record = spec.record or study.record
     levels = [[(a.name, n, v) for n, v in a.levels.items()] for a in study.axes]
     levels += [[(a.name, n, ('@card_axis', a, n)) for n in a.levels] for a in study.card_axes]
+    combos = list(itertools.product(*levels))
+    design = spec.design if spec.design is not None else study.design
+    if design:      # each point hashes as the factorial cell {name: {param: KEY, levels: [...]}} of its values would
+        from crane.study.spec import _level_name
+        names = study.design_names
+        points = [tuple((k, _level_name(p[k]), {study.design_params[k]: p[k]}) for k in names if k in p)
+                  for p in design]
+        combos = [d + rest for d in points for rest in combos]
     plugins = [p['sha256'] for p in plugin_state(study)] if study.plugins else None
     by = (spec.select or {}).get('by', ['arm'])
     if chosen is None and spec.only:
         by = list(spec.only[0])
         chosen = {tuple(d[b] for b in by) for d in spec.only}
     out = []
-    for blk, tier, cond, combo in itertools.product(blocks, tiers, conds, itertools.product(*levels)):
+    for blk, tier, cond, combo in itertools.product(blocks, tiers, conds, combos):
         split = cond['split'] if cond else None
         if block and block not in (blk.name, split):
             continue
@@ -317,14 +327,19 @@ def stage_cells(study, stage, block=None, chosen=None):
                         block=blk.name, key=key, split=split, role=role, id=f'{stage}.{arm.name}.{chash[:10]}',
                         pair=pair[:16], kind=arm.kind, params=params, card=card_path,
                         run_seeds={s: _run_seed(study, s, cond) for s in blk.seeds}, record=record, engine=eng,
-                        card_doc=card_doc)
+                        card_doc=card_doc, design=_point(study, combo) if design else None)
             cell.ctx = {'spec': str(study.path), 'base': str(study.base), 'domain': study.domain,
-                        'task': arm.task, 'argv': arm.argv, 'timeout_s': arm.timeout_s or study.timeout_s,
+                        'task': arm.task, 'batch': arm.batch, 'argv': arm.argv, 'timeout_s': arm.timeout_s or study.timeout_s,
                         'scorer': study.scorer, 'metrics': study.metrics, 'keep_runs': study.keep_runs,
                         'condition_id': cond['id'] if cond else None,
                         'plugins': [str(p) for p in study.plugins]}
             out.append(cell)
     return out
+
+
+def _point(study, combo):
+    names = set(study.design_names)
+    return {a: next(iter(v.values())) for a, _, v in combo if a in names}
 
 
 def ref_id(ref, base):

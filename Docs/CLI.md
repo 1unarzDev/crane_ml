@@ -281,6 +281,7 @@ Details: The file is a crane.study/1 spec: arms (the settings to compare), axes,
 
 ```sh
 crane study plan examples/studies/toy_paired.yaml
+crane study plan examples/studies/teamgame_like.yaml
 crane study plan examples/studies/boat_cards.yaml --json
 ```
 
@@ -300,7 +301,7 @@ Nothing runs, so it is safe to try. A mistake in the study file is one line nami
 
 --json: `crane.study.plan/1`
 
-Details: Rows: tiers, cells, units, done, held-out units, jobs, est, per job; plus seed blocks, splits and pending adaptive stages. --json adds jobs[] (job_id, cell, seeds, est_seconds, kind, campaign, purpose, expect, pin, argv): the cluster compiler's input. Estimates use pack.unit_s; jobs pack a cell's seeds to about pack.target_s (default 900 s) each. A spec error exits 2.
+Details: Rows: tiers, cells, units, done, held-out units, jobs, est, per job; plus design points, seed blocks, splits and pending adaptive stages. --json adds jobs[] (job_id, cell, seeds, est_seconds, kind, campaign, purpose, expect, pin, argv): the cluster compiler's input. Estimates use pack.unit_s; jobs pack a cell's seeds to about pack.target_s (default 900 s) each. A spec error exits 2.
 
 ### crane study run
 
@@ -379,7 +380,7 @@ Each setting is compared with the baseline on the same seeds, so luck cancels ou
 
 --json: `crane.study.report/1`
 
-Details: Paired on the seed per cell: bootstrap CI, sign-flip permutation, Holm across cells, via judge.stats. Reads OUT/manifest.json and its rows (or every */manifest.json under OUT, as a fetched cluster output).
+Details: Paired on the seed per cell: bootstrap CI, sign-flip permutation, Holm across cells, via judge.stats. Reads OUT/manifest.json and its rows (or every */manifest.json under OUT, as a fetched cluster output). Held-out targets get met, not met or inconclusive: a direction, an interval or threshold (relative too), a gap closed, a share of cells, or a pinned targets_fn.
 
 ### crane study promote
 

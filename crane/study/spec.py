@@ -6,8 +6,8 @@
 
 The spec's keys (Docs/Study.md has the full table):
     name, domain, tier | tiers, engine, backend, dtype, record, crn, targets, baseline, metrics, scorer, scorers,
-    timeout_s, keep_runs, plugins, card, card_axes, arms, axes, conditions, splits, seeds, stages, pack, report,
-    campaign, purpose, expect, pin, kind
+    timeout_s, keep_runs, plugins, card, card_axes, arms, axes, design, conditions, splits, seeds, stages, pack,
+    report, campaign, purpose, expect, pin, kind
 """
 
 from dataclasses import dataclass, field
@@ -29,7 +29,7 @@ NAME = re.compile(r'^[A-Za-z0-9][A-Za-z0-9_-]{0,47}$')
 TOP = {'schema', 'name', 'domain', 'tier', 'tiers', 'record', 'crn', 'targets', 'baseline', 'metrics', 'scorer',
        'timeout_s', 'keep_runs', 'arms', 'axes', 'conditions', 'splits', 'seeds', 'stages', 'pack', 'campaign',
        'purpose', 'expect', 'pin', 'kind', 'report', 'description', 'engine', 'backend', 'dtype', 'plugins', 'card',
-       'card_axes', 'scorers', 'inputs'}
+       'card_axes', 'scorers', 'inputs', 'design'}
 DEFAULT_STAGE = 'main'
 RESERVED = {'study', 'stage', 'arm', 'cell', 'pair', 'block', 'split', 'role', 'tier', 'seed', 'run_seed', 'condition',
             'outcome', 'error', 'wall_s', 'commit', 'card_sha', 'touched_held_out', 'succeeded', 'censored',
@@ -47,6 +47,7 @@ class Arm:
     set: dict = field(default_factory=dict)       # dotted key -> value (config overrides, or task args)
     card: str = None
     task: str = None               # 'module:function' or 'file.py:function'
+    batch: bool = False            # task(args, seeds, cell) -> [result per seed], once per seed chunk
     argv: list = None
     args: dict = field(default_factory=dict)
     timeout_s: float = None
@@ -91,6 +92,7 @@ class Stage:
     only: list = None              # [{arm: A, AXIS: LEVEL}]: the combinations a promoted stage runs
     record: dict = None
     pack: dict = None
+    design: list = None            # this stage's design points (overrides the spec's)
 
 
 @dataclass
@@ -126,6 +128,13 @@ class Study:
     card_axes: list = field(default_factory=list)
     scorers: list = None           # population scorers: [{fn, over: [keys], args, name}]
     split_groups: dict = field(default_factory=dict)   # column value -> split name (splits.groups)
+    design: list = None            # design points [{name: value}] (oat, lhs), crossed with the axes; None: factorial
+    design_params: dict = field(default_factory=dict)  # design name -> the dotted key it sets (default the name)
+
+    @property
+    def design_names(self):
+        """Every design name of the spec and its stages, in first-seen order."""
+        return list(self.design_params)
 
     @property
     def ref(self):
@@ -243,6 +252,10 @@ def parse(raw, path):
         st.card = str(raw['card'])
     st.axes = _axes(s, st, raw.get('axes'))
     st.card_axes = _card_axes(s, st, raw.get('card_axes'))
+    st.design = _design(s, st, 'design', raw.get('design'))
+    for name, stage in dict(raw.get('stages') or {}).items():      # stage designs: names known before stages parse
+        if isinstance(stage, dict) and stage.get('design') is not None:
+            _design(s, st, f'stages.{name}.design', stage['design'])
     _conditions(s, st, raw.get('conditions'), raw.get('splits'))
     st.scorers = _scorers(s, st, raw.get('scorers'))
     st.blocks = _blocks(s, st, raw.get('seeds'))
@@ -277,11 +290,18 @@ def _record(s, where, value):
     level = rec.get('level', 'metrics')
     if level not in RECORDS:
         raise _err(s, where, f'level {level!r}', f'one of {", ".join(RECORDS)}')
-    bad = sorted(set(rec) - {'level', 'hz', 'until_s'})
+    bad = sorted(set(rec) - {'level', 'hz', 'until_s', 'sample'})
     if bad:
-        raise _err(s, f'{where}.{bad[0]}', 'unknown key', 'record: {level, hz, until_s}')
+        raise _err(s, f'{where}.{bad[0]}', 'unknown key', 'record: {level, hz, until_s, sample}')
     rec['hz'] = _num(s, f'{where}.hz', rec.get('hz', 2.0 if level == 'traj_decimated' else None))
     rec['until_s'] = _num(s, f'{where}.until_s', rec.get('until_s'))
+    if rec.get('sample') is not None:
+        sample = _num(s, f'{where}.sample', rec['sample'])
+        if sample > 1:
+            raise _err(s, f'{where}.sample', f'{rec["sample"]!r} is not a fraction', 'sample: 0.02 (0 < f <= 1)')
+        rec['sample'] = sample
+    else:
+        rec.pop('sample', None)
     rec['level'] = level
     return rec
 
@@ -382,7 +402,8 @@ def _flat(value, prefix='', leaf=None):
     return out
 
 
-ARM_KEYS = {'set', 'card', 'task', 'argv', 'args', 'timeout_s', 'sample', 'mission', 'engine', 'backend', 'dtype'}
+ARM_KEYS = {'set', 'card', 'task', 'argv', 'args', 'timeout_s', 'sample', 'mission', 'engine', 'backend', 'dtype',
+            'batch'}
 SAMPLERS = ('uniform', 'log_uniform', 'int', 'choice')
 
 
@@ -462,6 +483,10 @@ def _arm(s, st, where, name, spec):
         raise _err(s, where, 'a sim arm needs a domain', 'domain: D at the top, or task: module:function')
     if task is not None:
         _ref(s, f'{where}.task', task)
+    batch = spec.get('batch', False)
+    if not isinstance(batch, bool) or (batch and task is None):
+        raise _err(s, f'{where}.batch', 'is for a task callable: batch: true calls task(args, seeds, cell) -> [results]'
+                   ' once per seed chunk', f'{where}: {{task: module:function, batch: true}}')
     args = spec.get('args') or {}
     if not isinstance(args, dict):
         raise _err(s, f'{where}.args', 'must be a mapping (JSON args)')
@@ -482,7 +507,7 @@ def _arm(s, st, where, name, spec):
     engine = _engine(s, where, spec)
     if engine and kind != 'sim':
         raise _err(s, f'{where}.engine', 'is for sim arms', 'drop engine/backend/dtype from a task arm')
-    return Arm(name=name, kind=kind, set=sets, card=None if card is None else str(card), task=task,
+    return Arm(name=name, kind=kind, set=sets, card=None if card is None else str(card), task=task, batch=batch,
                argv=None if argv is None else [str(a) for a in argv], args=dict(args),
                timeout_s=_num(s, f'{where}.timeout_s', spec.get('timeout_s')),
                raw={k: v for k, v in spec.items()}, mission=mission, engine=engine)
@@ -678,7 +703,8 @@ def _scorers(s, st, value):
         return None
     if not isinstance(value, list) or not value:
         raise _err(s, 'scorers', 'wants a list', 'scorers: [{fn: module:function, over: card x block}]')
-    known = set(POPULATION_KEYS) | {a.name for a in st.axes} | {f'cond.{c}' for c in st.condition_columns}
+    known = set(POPULATION_KEYS) | {a.name for a in st.axes} | set(st.design_names) | \
+        {f'cond.{c}' for c in st.condition_columns}
     out, names = [], set()
     for i, sc in enumerate(value):
         where = f'scorers[{i}]'
@@ -782,6 +808,89 @@ def _axes(s, st, value):
             raise _err(s, f'{where}.levels', 'two levels share a name')
         axes.append(Axis(str(name), out, card))
     return axes
+
+
+DESIGNS = ('oat', 'lhs')
+
+
+def _level_name(v):
+    return str(v) if isinstance(v, (str, int, float, bool)) else ids.digest(v)[:8]
+
+
+def _design(s, st, where, value):
+    """Design points [{name: value}] of ``design: {oat: {base, axes}, lhs: {n, seed, ranges}, param: {name: KEY}}``
+    (both: their union, OAT's base filling the names LHS leaves out). Each point is a cell (per arm, crossed with
+    ``axes`` and ``card_axes``) whose levels hash as a factorial axis ``{param: KEY, levels: [...]}`` would."""
+    if value is None:
+        return None
+    if not isinstance(value, dict) or not value or set(value) - {*DESIGNS, 'param'} or not set(value) & set(DESIGNS):
+        raise _err(s, where, 'wants oat and/or lhs', f'{where}: {{oat: {{base: {{x: 1}}, axes: {{x: [0, 2]}}}}}} or '
+                   '{lhs: {n: 64, seed: 0, ranges: {x: [0, 1]}}}')
+    params = dict(value.get('param') or {})
+    points, base = [], {}
+    if value.get('oat') is not None:
+        oat = value['oat']
+        if not isinstance(oat, dict) or set(oat) - {'base', 'axes'} or not isinstance(oat.get('base'), dict) \
+                or not isinstance(oat.get('axes'), dict) or not oat['axes']:
+            raise _err(s, f'{where}.oat', 'wants base and axes', 'oat: {base: {x: 1, y: 0}, axes: {x: [0, 2], y: [1]}}')
+        base = dict(oat['base'])
+        points.append(dict(base))
+        for name, levels in oat['axes'].items():
+            if name not in base:
+                raise _err(s, f'{where}.oat.axes.{name}', 'is not in base', f'base: {{{name}: VALUE, ...}}')
+            if not isinstance(levels, list) or not levels:
+                raise _err(s, f'{where}.oat.axes.{name}', 'wants a list of levels', f'{name}: [0.5, 2.0]')
+            for v in levels:
+                if v != base[name]:
+                    points.append({**base, name: v})
+    if value.get('lhs') is not None:
+        points += _lhs(s, f'{where}.lhs', value['lhs'], base)
+    names = list(dict.fromkeys(k for p in points for k in p))
+    taken = {a.name for a in [*st.axes, *st.card_axes]}
+    for name in names:
+        if not NAME.match(str(name)) or name in RESERVED or name in taken:
+            raise _err(s, f'{where}', f'design name {name!r}: letters, digits, _ or -, not a row column or an axis',
+                       'rename it, and give the key it sets in param: {NAME: a.b}')
+        key = str(params.get(name, name))
+        if st.design_params.get(name, key) != key:
+            raise _err(s, f'{where}.param.{name}', f'sets {key}, another design sets {st.design_params[name]}')
+        st.design_params[name] = key
+    seen, out = set(), []
+    for p in points:
+        ident = tuple((k, _level_name(p[k])) for k in names if k in p)
+        if ident not in seen:
+            seen.add(ident)
+            out.append(p)
+    return out
+
+
+def _lhs(s, where, spec, base):
+    """A Latin hypercube of ``n`` points, deterministic from ``seed``: each range is cut into n strata, every
+    stratum holds one point, and each name draws its own permutation (adding a name changes no other's values).
+    ``{values: [...]}`` spreads n points evenly over the values."""
+    import random
+    if not isinstance(spec, dict) or set(spec) - {'n', 'seed', 'ranges'}:
+        raise _err(s, where, 'wants n, seed, ranges', 'lhs: {n: 64, seed: 0, ranges: {x: [0, 1], m: {values: [a, b]}}}')
+    n, seed, ranges = spec.get('n'), spec.get('seed', 0), spec.get('ranges')
+    if not isinstance(n, int) or isinstance(n, bool) or n < 1:
+        raise _err(s, f'{where}.n', f'{n!r}', 'n: 64 (points)')
+    if not isinstance(ranges, dict) or not ranges:
+        raise _err(s, f'{where}.ranges', 'is empty', 'ranges: {x: [0, 1], m: {values: [a, b]}}')
+    cols = {}
+    for name, r in ranges.items():
+        rng = random.Random(ids.derive_seed(int(seed), 'lhs', str(name)))
+        strata = list(range(n))
+        rng.shuffle(strata)
+        u = [(k + rng.random()) / n for k in strata]          # one point per stratum [k/n, (k+1)/n)
+        if isinstance(r, dict) and set(r) == {'values'} and isinstance(r['values'], list) and r['values']:
+            vals = r['values']
+            cols[name] = [vals[min(len(vals) - 1, int(x * len(vals)))] for x in u]
+        elif isinstance(r, list) and len(r) == 2 and all(isinstance(x, (int, float)) and not isinstance(x, bool)
+                                                         for x in r) and r[0] < r[1]:
+            cols[name] = [round(r[0] + x * (r[1] - r[0]), 6) for x in u]
+        else:
+            raise _err(s, f'{where}.ranges.{name}', f'{r!r}', '[lo, hi] with lo < hi, or {values: [a, b, c]}')
+    return [{**base, **{k: cols[k][i] for k in cols}} for i in range(n)]
 
 
 def _typed(text):
@@ -916,7 +1025,8 @@ def _blocks(s, st, value):
     return blocks
 
 
-STAGE_KEYS = {'tier', 'tiers', 'blocks', 'splits', 'arms', 'only', 'set', 'after', 'select', 'record', 'pack'}
+STAGE_KEYS = {'tier', 'tiers', 'blocks', 'splits', 'arms', 'only', 'set', 'after', 'select', 'record', 'pack',
+              'design'}
 
 
 def _stages(s, st, value):
@@ -953,7 +1063,7 @@ def _stages(s, st, value):
         if spec.get('only') is not None:
             only = spec['only']
             keys = list(only[0]) if isinstance(only, list) and only and isinstance(only[0], dict) else None
-            known = {'arm', *(a.name for a in st.axes)}
+            known = {'arm', *(a.name for a in st.axes), *st.design_names}
             if not keys or any(not isinstance(d, dict) or list(d) != keys for d in only) or set(keys) - known:
                 raise _err(s, f'{where}.only', 'wants a list of {arm: A, AXIS: LEVEL} with the same keys',
                            f'keys from {", ".join(sorted(known))}')
@@ -977,7 +1087,7 @@ def _stages(s, st, value):
                 raise _err(s, f'{where}.select.order', f'{sel["order"]!r}', 'max or min')
             by = sel.get('by', 'arm')
             by = [str(x) for x in (by if isinstance(by, list) else [by])]
-            axis_names = [a.name for a in st.axes]
+            axis_names = [a.name for a in st.axes] + st.design_names
             for x in by:
                 if x != 'arm' and x not in axis_names:
                     raise _err(s, f'{where}.select.by', f'{x!r} is not arm or an axis',
@@ -993,6 +1103,8 @@ def _stages(s, st, value):
             stage.record = _record(s, f'{where}.record', spec['record'])
         if spec.get('pack') is not None:
             stage.pack = _pack(s, f'{where}.pack', spec['pack'])
+        if spec.get('design') is not None:
+            stage.design = _design(s, st, f'{where}.design', spec['design'])
         stages[stage.name] = stage
     for stage in stages.values():
         for dep in stage.after:
