@@ -182,6 +182,23 @@ class Twin:
 
 # ---- ROS ----------------------------------------------------------------------------------------------------------
 
+def reset_match(pose, start, tol_m=0.1, tol_rad=0.05):
+    """(ok, metres, radians): is ``pose`` (x, y, yaw) within the tolerances of ``start``?"""
+    dist = math.hypot(pose[0] - start[0], pose[1] - start[1])
+    dyaw = abs((pose[2] - start[2] + math.pi) % (2 * math.pi) - math.pi)
+    return dist <= tol_m and dyaw <= tol_rad, dist, dyaw
+
+
+def reset_timeout_message(last, start, waited, tol_m=0.1, tol_rad=0.05):
+    """The reply text when odom/local never reached the start: how far it still was, or that it never reported."""
+    if last is None:
+        return f'odom/local reported no pose after the reset in {waited:.1f} s'
+    _, dist, dyaw = reset_match(last, start, tol_m, tol_rad)
+    if dist > tol_m:
+        return f'odom/local still {dist:.1f} m from the start after {waited:.1f} s'
+    return f'odom/local still {dyaw:.2f} rad from the start heading after {waited:.1f} s'
+
+
 def _quat(yaw):
     from geometry_msgs.msg import Quaternion
     return Quaternion(x=0.0, y=0.0, z=math.sin(yaw / 2.0), w=math.cos(yaw / 2.0))
@@ -248,12 +265,22 @@ class Node:
                 QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL))
             self.msgs.update(PointCloud2=PointCloud2, OccupancyGrid=OccupancyGrid)
         node.create_subscription(UInt16MultiArray, w['command']['topic'], lambda m: twin.command(m.data), 10)
+        if not self.truth_mode:               # the reply waits for the EKF's estimate (truth mode: the node's own)
+            node.create_subscription(Odometry, w['estimate']['local'], self._on_local, 10)
+        wait = w.get('reset_wait') or {}
+        self.tol_m, self.tol_rad = float(wait.get('tolerance_m', 0.1)), float(wait.get('tolerance_rad', 0.05))
+        self.reset_timeout = float(wait.get('timeout_s', 3.0))
+        self.pending = None                   # the reset being waited on: {future, start, since, wall, last}
         node.create_service(Trigger, w['reset'], self._reset)
         self.next = {k: 0.0 for k in ('truth', 'fcu', 'imu', 'gps', 'estimate', 'lidar')}
 
-    def _reset(self, request, response):
-        """Teleport to the start at rest. Sim time keeps running (/clock never steps back); in sensors mode the EKFs
-        are re-seated there through /set_pose, stamped now, so odom/local jumps once, consistently."""
+    async def _reset(self, request, response):
+        """Teleport to the start at rest, then reply once /odom/local reports the start. Sim time keeps running
+        (/clock never steps back); in sensors mode the EKFs are re-seated through /set_pose, stamped now, so
+        odom/local jumps once, consistently. A coroutine callback: the executor's task waits on a future that the
+        odom subscription (or the main loop, on timeout) completes, and the loop keeps stepping meanwhile."""
+        if self.pending:
+            self._finish(False, 'superseded by a newer reset')
         self.twin.reset()
         x, y, yaw = self.twin.pose()
         if 'set_pose' in self.pub:
@@ -266,8 +293,41 @@ class Node:
                 cov[i] = 1e-4
             msg.pose.covariance = cov
             self.pub['set_pose'].publish(msg)
-        response.success, response.message = True, f'x={x:.3f} y={y:.3f} yaw={yaw:.4f}'
+        from rclpy.task import Future
+        self.pending = {'future': Future(), 'start': (x, y, yaw), 'since': self.twin.t, 'wall': time.monotonic(),
+                        'last': None}
+        ok, text = await self.pending['future']
+        response.success = ok
+        response.message = text or f'x={x:.3f} y={y:.3f} yaw={yaw:.4f}'
         return response
+
+    def _finish(self, ok, text=''):
+        pending, self.pending = self.pending, None
+        pending['future'].set_result((ok, text))
+
+    def _on_local(self, msg):
+        """A /odom/local pose: it ends the wait when it is stamped after the reset and at the start."""
+        p = self.pending
+        if not p or msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9 < p['since']:
+            return
+        o = msg.pose.pose.orientation
+        pose = (msg.pose.pose.position.x, msg.pose.pose.position.y,
+                math.atan2(2 * (o.w * o.z + o.x * o.y), 1 - 2 * (o.y * o.y + o.z * o.z)))
+        self._check_reset(pose)
+
+    def _check_reset(self, pose=None):
+        """Complete the pending reset: with ``pose`` when it matches the start, or on the wall-clock timeout."""
+        p = self.pending
+        if not p:
+            return
+        if pose is not None:
+            p['last'] = pose
+            if reset_match(pose, p['start'], self.tol_m, self.tol_rad)[0]:
+                x, y, yaw = p['start']
+                return self._finish(True, f'x={x:.3f} y={y:.3f} yaw={yaw:.4f}')
+        waited = time.monotonic() - p['wall']
+        if waited >= self.reset_timeout:
+            self._finish(False, reset_timeout_message(p['last'], p['start'], waited, self.tol_m, self.tol_rad))
 
     def _transform(self, t, parent, child, pose):
         from geometry_msgs.msg import TransformStamped
@@ -392,10 +452,14 @@ class Node:
             now = time.monotonic()
             if now < nxt:
                 rclpy.spin_once(node, timeout_sec=nxt - now)
+                if self.pending:
+                    self._check_reset()
                 continue
             rclpy.spin_once(node, timeout_sec=0.0)
             twin.step()
             self.publish()
+            if self.pending:
+                self._check_reset(self.twin.pose() if self.truth_mode else None)
             nxt += period
             if nxt < now - 0.5:          # a stall (or a host that cannot keep up): no burst to catch up
                 nxt = now

@@ -781,6 +781,69 @@ def test_restart_nav_merges_args_into_the_running_worlds_own_overrides(world_env
     assert sim.main(['down']) == 0
 
 
+def test_restart_ros_relaunches_with_the_latest_nav_args(world_env, capsys):
+    """up without nav args, restart nav preset:=pool, restart ros: the new docker run carries the preset and keeps
+    T1's disabled parts."""
+    stub = world_env['stub']
+    _exe(stub / 'bin' / 'docker', PARALLEL_DOCKER)
+    assert sim.main(['up', '--tier', 'T1', '--world', 'pool', '--odom', 'truth']) == 0
+    assert 'navigation' not in _first_launch(stub, 'sim_up_ros')['parts']
+    assert sim.main(['restart', 'nav', 'preset:=pool']) == 0
+    assert sim.main(['restart', 'ros']) == 0, capsys.readouterr()
+    parts = _first_launch(stub, 'sim_up_ros')['parts']
+    assert parts['navigation'] == {'args': {'preset': 'pool'}}
+    assert {k: v for k, v in parts.items() if k != 'navigation'} == T1_OFF
+    command = (stub / 'docker_run.sim_up_ros.argv').read_text().splitlines()[-1]
+    assert command.startswith('python3 /opt/crane_t1/t1node.py') and command.endswith('/ros.log 2>&1')
+    assert sim.main(['down']) == 0
+
+
+def test_the_reset_reply_waits_for_odom_at_the_start():
+    """reset_match is the tolerance test; the reply texts say how far odom/local still was or that it never reported."""
+    from crane.sim import t1node
+    start = (2.0, -1.0, 3.1)
+    assert t1node.reset_match((2.05, -1.05, 3.1 - 0.04), start)[0]
+    ok, dist, dyaw = t1node.reset_match((2.8, -1.0, 3.1), start)
+    assert not ok and abs(dist - 0.8) < 1e-9 and dyaw == 0
+    assert t1node.reset_match((2.0, -1.0, -3.1), start)[2] < 0.1          # the heading wraps at pi
+    assert not t1node.reset_match((2.0, -1.0, 2.9), start)[0]
+    assert t1node.reset_timeout_message((2.8, -1.0, 3.1), start, 3.0) == 'odom/local still 0.8 m from the start after 3.0 s'
+    assert 'still 0.20 rad' in t1node.reset_timeout_message((2.0, -1.0, 2.9), start, 3.0)
+    assert 'no pose' in t1node.reset_timeout_message(None, start, 3.0)
+
+
+def test_the_t1_node_reset_service_replies_on_odom_or_timeout():
+    """The Node's pending-reset logic with a fake clock and no ROS: odom at the start (stamped after the reset)
+    completes the future with success; a stale stamp is ignored; the wall timeout completes it with the reason."""
+    import types
+    from crane.sim import t1node
+    done = []
+
+    def node(wait):
+        n = object.__new__(t1node.Node)
+        n.tol_m, n.tol_rad, n.reset_timeout = 0.1, 0.05, 3.0
+        fut = types.SimpleNamespace(set_result=done.append)
+        n.pending = {'future': fut, 'start': (2.0, -1.0, 0.3), 'since': 10.0, 'wall': t1node.time.monotonic() - wait,
+                     'last': None}
+        return n
+
+    def odom(x, y, yaw, sec):
+        q = types.SimpleNamespace(x=0.0, y=0.0, z=math.sin(yaw / 2), w=math.cos(yaw / 2))
+        pose = types.SimpleNamespace(position=types.SimpleNamespace(x=x, y=y), orientation=q)
+        return types.SimpleNamespace(header=types.SimpleNamespace(stamp=types.SimpleNamespace(sec=sec, nanosec=0)),
+                                     pose=types.SimpleNamespace(pose=pose))
+
+    n = node(0.0)
+    n._on_local(odom(2.0, -1.0, 0.3, 9))                    # stamped before the reset: stale
+    n._on_local(odom(2.8, -1.0, 0.3, 11))                   # still far: keep waiting
+    assert n.pending and not done
+    n._on_local(odom(2.02, -1.01, 0.31, 11))
+    assert done == [(True, 'x=2.000 y=-1.000 yaw=0.3000')] and n.pending is None
+    n = node(3.2)
+    n._on_local(odom(2.8, -1.0, 0.3, 11))
+    assert done[-1] == (False, 'odom/local still 0.8 m from the start after 3.2 s') and n.pending is None
+
+
 def test_instances_are_parallel_worlds_with_their_own_domain_container_and_state(world_env, monkeypatch, capsys):
     """Two T1 instances get distinct ROS_DOMAIN_ID, containers and state dirs; down stops only its own; status
     without one lists the others; a second T2 refuses; the environment names an instance (flag first)."""

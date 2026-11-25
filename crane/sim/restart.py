@@ -150,14 +150,36 @@ def nav(cfg, t2, run, as_json=False, new=None):
     return {'restarted': 'nav', 'ready': nodes, 'at': stamp}
 
 
+def docker_with_nav(docker, t2, run):
+    """The saved docker run argv, its launch carrying the base overrides up saved plus the latest nav.args (merged as
+    restart nav merges them), so a nav argument given by a later restart nav is not lost."""
+    saved = world._read(run / 'ros.overrides')
+    base = saved if saved is not None else (t2.get('ros') or {}).get('overrides') or ''
+    base = config.subst(base, port=_read_port(run)) if '{port}' in base and (run / 'port').exists() else base
+    nav = world.read_nav(run)
+    if not nav:
+        return docker
+    overrides = config.with_nav(base, nav, config.nav_part(t2), t2, run)
+    script, marker = docker[-1], " overrides:='"
+    tail = f" >{run}/ros.log 2>&1"
+    end = script.rfind("'" + tail) if marker in script else script.rfind(tail)
+    if end < 0:
+        return docker
+    start = script.find(marker) if marker in script else end
+    head = script[:start]
+    return [*docker[:-1], f"{head}{marker}{overrides}'{tail}"]
+
+
 def ros(cfg, t2, run, as_json=False):
-    """Remove and re-run the ROS container with the argv up saved; wait for the endpoint and the ready nodes."""
+    """Remove and re-run the ROS container with the argv up saved (the latest nav args in its overrides); wait for
+    the endpoint and the ready nodes."""
     ros_cfg = t2.get('ros') or {}
     me = config.invoked_as()
     container = ros_cfg['container']
     docker = world.saved_argv(run, 'ros.docker')
     if not docker:
         raise SimError(f'no saved ROS launch in {run}: {me} up', 2)
+    docker = docker_with_nav(docker, t2, run)
     is_t1 = t2.get('tier') == 'T1'
     port = None if is_t1 else int(_read_port(run))
     world.prepare_dirs(t2, run)

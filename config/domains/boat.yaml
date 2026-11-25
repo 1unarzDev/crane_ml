@@ -32,6 +32,7 @@ tiers:
         estimate: {local: /odom/local, global: /odom/global, hz: 50}       # --odom truth
         frames: {map: map, odom: odom, base: base_link}
         reset: /crane/reset_to_start
+        reset_wait: {tolerance_m: 0.1, tolerance_rad: 0.05, timeout_s: 3.0}   # the reply waits for /odom/local at the start (wall s)
         # --world pool: the walls as a 2-D lidar ring at the lidar's mount height (link: its lever arm, from the
         # urdf), and the same returns as the perception costmap Nav2's costmaps read (StaticLayer on
         # /perception/costmap; the objects part that makes it from /points is off in T1).
