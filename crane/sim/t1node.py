@@ -131,6 +131,40 @@ class Twin:
         c, s = math.cos(psi), math.sin(psi)
         self.specific_force = (c * ax + s * ay, -s * ax + c * ay, GRAVITY)
 
+    def walls(self):
+        """The pool's wall segments ((x0, y0), (x1, y1)) in the world, or [] without a pool."""
+        pool = self.cfg.get('pool')
+        if not pool:
+            return []
+        length, half = float(pool['length']), float(pool['width']) / 2.0
+        corners = [(0.0, -half), (length, -half), (length, half), (0.0, half)]
+        return [(corners[i], corners[(i + 1) % 4]) for i in range(4)]
+
+    def scan(self):
+        """The lidar ring: (x, y, 0) in the lidar link (axes as base_link) where each beam meets a wall within the
+        range; a 2-D slice at the mount height, beams evenly spaced from the bow counter-clockwise."""
+        lidar, walls = self.cfg['world']['lidar'], self.walls()
+        beams, reach = int(lidar.get('beams', 720)), float(lidar.get('range', 30.0))
+        ox, oy, _ = self.point('lidar')
+        psi = self.pose()[2]
+        out = []
+        for i in range(beams if walls else 0):
+            a = 2.0 * math.pi * i / beams
+            dx, dy = math.cos(psi + a), math.sin(psi + a)
+            best = reach
+            for (x0, y0), (x1, y1) in walls:
+                ex, ey = x1 - x0, y1 - y0
+                den = dx * ey - dy * ex
+                if abs(den) < 1e-12:
+                    continue
+                t = ((x0 - ox) * ey - (y0 - oy) * ex) / den        # along the beam
+                s = ((x0 - ox) * dy - (y0 - oy) * dx) / den        # along the wall
+                if 0.0 < t < best and -1e-9 <= s <= 1.0 + 1e-9:
+                    best = t
+            if best < reach:
+                out.append((best * math.cos(a), best * math.sin(a), 0.0))
+        return out
+
     def gauss(self, sigma):
         return self.rng.gauss(0.0, sigma) if sigma > 0 else 0.0
 
@@ -180,6 +214,7 @@ class Node:
         self.truth_mode = cfg['odom'] == 'truth'
         self.node = node = rclpy.create_node('crane_t1')
         w = self.world
+        self.msgs = {'Odometry': Odometry, 'Imu': Imu, 'NavSatFix': NavSatFix, 'Clock': Clock, 'TFMessage': TFMessage}
         self.pub = {'clock': node.create_publisher(Clock, '/clock', 10),
                     'truth': node.create_publisher(Odometry, w['truth']['topic'], 10),
                     'imu': node.create_publisher(Imu, w['imu']['topic'], 10),
@@ -190,15 +225,27 @@ class Node:
             self.pub['tf'] = node.create_publisher(TFMessage, '/tf', 100)
             static = node.create_publisher(TFMessage, '/tf_static',
                                            QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL))
-            static.publish(TFMessage(transforms=[self._transform(0.0, self.frames['map'], self.frames['odom'],
-                                                                 (0.0, 0.0, 0.0))]))
+            fixed = [self._transform(0.0, self.frames['map'], self.frames['odom'], (0.0, 0.0, 0.0))]
+            if twin.walls():                   # robot_state_publisher is off with localization: the lidar mount
+                lx, ly, lz = twin.lever['lidar']
+                mount = self._transform(0.0, self.frames['base'], w['lidar']['link'], (lx, ly, 0.0))
+                mount.transform.translation.z = float(lz)
+                fixed.append(mount)
+            static.publish(TFMessage(transforms=fixed))
             self.pub['tf_static'] = static
         else:
             self.pub['fcu'] = node.create_publisher(Odometry, w['fcu']['topic'], 10)
-        self.msgs = {'Odometry': Odometry, 'Imu': Imu, 'NavSatFix': NavSatFix, 'Clock': Clock, 'TFMessage': TFMessage}
+        if twin.walls():
+            from nav_msgs.msg import OccupancyGrid
+            from sensor_msgs.msg import PointCloud2
+            self.pub['lidar'] = node.create_publisher(PointCloud2, w['lidar']['topic'], 10)
+            self.pub['costmap'] = node.create_publisher(
+                OccupancyGrid, w['costmap']['topic'],
+                QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL))
+            self.msgs.update(PointCloud2=PointCloud2, OccupancyGrid=OccupancyGrid)
         node.create_subscription(UInt16MultiArray, w['command']['topic'], lambda m: twin.command(m.data), 10)
         node.create_service(Trigger, w['reset'], self._reset)
-        self.next = {k: 0.0 for k in ('truth', 'fcu', 'imu', 'gps', 'estimate')}
+        self.next = {k: 0.0 for k in ('truth', 'fcu', 'imu', 'gps', 'estimate', 'lidar')}
 
     def _reset(self, request, response):
         self.twin.reset()
@@ -253,6 +300,40 @@ class Node:
         msg.position_covariance_type = self.msgs['NavSatFix'].COVARIANCE_TYPE_DIAGONAL_KNOWN
         return msg
 
+    def _cloud(self, t, points):
+        """PointCloud2 of (x, y, z) float32 in the lidar link."""
+        import struct
+        from sensor_msgs.msg import PointField
+        msg = self.msgs['PointCloud2']()
+        msg.header.stamp, msg.header.frame_id = _stamp(t), self.world['lidar']['link']
+        msg.height, msg.width = 1, len(points)
+        msg.fields = [PointField(name=n, offset=4 * i, datatype=PointField.FLOAT32, count=1)
+                      for i, n in enumerate('xyz')]
+        msg.is_bigendian, msg.point_step, msg.row_step, msg.is_dense = False, 12, 12 * len(points), True
+        msg.data = b''.join(struct.pack('<fff', *p) for p in points)
+        return msg
+
+    def _grid(self, t, points):
+        """The perception costmap of these returns: lethal cells in a square about base_link (the costmap frame)."""
+        spec = self.world['costmap']
+        size, res = float(spec.get('size', 24.0)), float(spec.get('resolution', 0.15))
+        n = int(round(size / res))
+        lx, ly, _ = self.twin.lever['lidar']
+        from array import array
+        data = array('b', bytes(n * n))
+        for x, y, _ in points:
+            i, j = int((x + lx + size / 2) // res), int((y + ly + size / 2) // res)
+            if 0 <= i < n and 0 <= j < n:
+                data[j * n + i] = 100
+        msg = self.msgs['OccupancyGrid']()
+        msg.header.stamp, msg.header.frame_id = _stamp(t), spec.get('frame', self.frames['base'])
+        msg.info.map_load_time = msg.header.stamp
+        msg.info.resolution, msg.info.width, msg.info.height = res, n, n
+        msg.info.origin.position.x = msg.info.origin.position.y = -size / 2
+        msg.info.origin.orientation.w = 1.0
+        msg.data = data
+        return msg
+
     def publish(self):
         """What is due at the twin's time: /clock every tick, the rest at their rates."""
         t, w, pub = self.twin.t, self.world, self.pub
@@ -263,6 +344,12 @@ class Node:
             go, self.next[key] = due(t, hz, self.next[key])
             if go:
                 pub[key].publish(make())
+        if 'lidar' in pub:
+            go, self.next['lidar'] = due(t, w['lidar']['hz'], self.next['lidar'])
+            if go:
+                points = self.twin.scan()
+                pub['lidar'].publish(self._cloud(t, points))
+                pub['costmap'].publish(self._grid(t, points))
         if not self.truth_mode:
             go, self.next['fcu'] = due(t, w['fcu']['hz'], self.next['fcu'])
             if go:

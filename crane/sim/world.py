@@ -101,6 +101,7 @@ def state(cfg, t2, run):
     extra = {}
     if is_t1:
         extra = {'tier': 'T1', 'odom': _read(run / 'odom') or t2.get('odom'), 'rate': _read(run / 'rate') or None,
+                 'world_name': _read(run / 'world') or 'course',
                  'world': {'running': player_up, 't_sim': beat and beat.get('t_sim'), 'rate': beat and beat.get('rate'),
                            'heartbeat_age_s': beat and beat.get('age_s')}}
     return {
@@ -126,15 +127,18 @@ def status_lines(s):
                   f"  vessel:    {s['vessel']}   ROS_DOMAIN_ID {s['ros_domain_id'] or '-'}   endpoint none (T1)"]
         w = s['world']
         pace = f"{w['rate']:g}x real time" if w['rate'] else 'starting'     # the first heartbeat has no rate yet
-        lines.append(f"  world:     T1 node running, t {w['t_sim']:.1f} s sim, {pace}"
-                     if w['running'] else '  world:     T1 node stopped')
+        name = '' if s.get('world_name', 'course') == 'course' else f"{s['world_name']}, "
+        lines.append(f"  world:     {name}T1 node running, t {w['t_sim']:.1f} s sim, {pace}"
+                     if w['running'] else f'  world:     {name}T1 node stopped')
     else:
         lines.append(f"  vessel:    {s['vessel']}   ROS_DOMAIN_ID {s['ros_domain_id'] or '-'}   endpoint 127.0.0.1:{s['port'] or '-'}")
         p = s['player']
         lines.append(f"  player:    running, pgid {p['pgid']} ({p['path'] or ''})" if p['running'] else '  player:    stopped')
     r = s['ros']
     lines.append(f"  ros:       container {r['container']} running ({r['launch']})" if r['running'] else '  ros:       stopped')
-    if s['course']['ready']:
+    if s['course']['ready'] and s.get('world_name', 'course') != 'course':
+        lines.append('  course:    none (pool)')
+    elif s['course']['ready']:
         lines.append(f"  course:    ready (seed {s['course']['seed'] or ''}, truth {s['course']['truth']})")
     if s['current_text']:
         lines.append(f"  current:   {s['current_text']}")
@@ -192,7 +196,8 @@ def down(cfg, t2, run, as_json=False, stream=None):
         subprocess.run(['docker', 'rm', '-f', container], capture_output=True, timeout=60)
     except (OSError, subprocess.TimeoutExpired):
         pass
-    for n in ('domain', 'port', 'current', 'player.argv', 'ros.docker', 'restarted', 'tier', 'odom', 'rate', t1.ALIVE):
+    for n in ('domain', 'port', 'current', 'player.argv', 'ros.docker', 'restarted', 'tier', 'odom', 'rate', 'world',
+              t1.ALIVE):
         (run / n).unlink(missing_ok=True)
     if as_json:
         print(json.dumps({'schema': 'crane.sim.down/1', 'down': True, 'player': stopped, 'container': container, 'run': str(run)}))
@@ -339,7 +344,7 @@ def up(cfg, t2, run, o):
     run.mkdir(parents=True, exist_ok=True)
     for p in [*run.glob('player*.log'), run / 'ros.log', run / ((t2.get('truth') or {}).get('file') or 'course_truth.json')]:
         p.unlink(missing_ok=True)
-    for n in ('odom', 'rate', t1.ALIVE):
+    for n in ('odom', 'rate', 'world', t1.ALIVE):
         (run / n).unlink(missing_ok=True)
     for name, value in (('current', current or 'default'), ('domain', d), ('port', port), ('mode', mode),
                         ('seed', seed), ('player.path', player), ('tier', 'T2')):
@@ -404,13 +409,16 @@ def up_t1(cfg, sec, run, o, current):
         except SimError as error:
             problems.append(str(error))
             return placeholder
+    if current is None and t1.parse_world(sec, getattr(o, 'world', None)):
+        current = '0'                           # a pool has still water unless --current says otherwise
     d = get(config.domain_id, sec, placeholder='<domain>')
     img = get(config.image, sec, placeholder='<image>')
     seed = o.seed if o.seed is not None else sec.get('seed', 0)
     run.mkdir(parents=True, exist_ok=True)
     if not dry:
         for p in [*run.glob('player*.log'), run / 'ros.log', run / t1.LOG, run / t1.ALIVE, run / 'port',
-                  run / 'player.pid', run / 'player.argv', run / 'player.path']:
+                  run / 'player.pid', run / 'player.argv', run / 'player.path',
+                  run / ((sec.get('truth') or {}).get('file') or 'course_truth.json')]:
             p.unlink(missing_ok=True)
     if dry:                                     # the course goes to a scratch file: a running world keeps its own
         import tempfile
@@ -438,7 +446,9 @@ def up_t1(cfg, sec, run, o, current):
         print(f'next: {me} up --tier T1' if not problems else f'next: fix the unresolved line(s), then {me} up --tier T1')
         return 0
     t1.write(run, doc)
-    for name, value in (('tier', 'T1'), ('odom', doc['odom']), ('rate', f"{doc['rate']:g}"), ('domain', d),
+    world_name = t1.world_text((doc['pool']['length'], doc['pool']['width']) if doc.get('pool') else None)
+    for name, value in (('tier', 'T1'), ('odom', doc['odom']), ('rate', f"{doc['rate']:g}"), ('world', world_name),
+                        ('domain', d),
                         ('mode', 'headless'), ('seed', seed), ('current', current or 'default')):
         (run / name).write_text(f'{value}\n')
     subprocess.run(['docker', 'rm', '-f', container], capture_output=True, timeout=60)

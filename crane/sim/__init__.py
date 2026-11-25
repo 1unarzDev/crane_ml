@@ -6,10 +6,11 @@ as a ROS node beside the same ROS side), used exactly like the robot.
                  [--player PATH] [--robot R] [--set K=V]... [--domain D] [--tier T2] [--json] [--dry-run]
                  [-- PLAYER_ARGS...]
     crane sim up --list seed|env|current|tier   the choices, one per line as VALUE<TAB>meaning (astro's pickers)
-    crane sim up --tier T1 [--odom sensors|truth] [--rate N] [--seed N] [--env KIND:NAME] [--card F]
+    crane sim up --tier T1 [--odom sensors|truth] [--rate N] [--seed N] [--env KIND:NAME] [--world course|pool[:LxW]] [--card F]
                  [--current default|0|SPEED,TOWARD_DEG] [--set K=V]... [--json] [--dry-run]
                                  the T1 world: no player, no window (Docs/SimT1.md); --odom truth turns
-                                 localization off and publishes /odom/local and TF itself; --rate N runs at N x real time
+                                 localization off and publishes /odom/local and TF itself; --rate N runs at N x real time;
+                                 --world pool[:LxW] a rectangular pool (default 10x4.5 m) whose walls the lidar sees
     crane sim down [--json]      stop what up started (its player's process group and its ROS container only)
     crane sim restart nav|ros|player [--json]   restart one part, keep the rest (nav: only the Nav2 nodes, to read new
                                  nav2_limits; ros: the ROS container, the player stays; player: the player, ROS stays)
@@ -101,6 +102,8 @@ def _parser(verb):
         p.add_argument('--odom', choices=('sensors', 'truth'), help='T1: raw sensors for the real EKFs (default), or '
                        'truth odometry and TF with localization off')
         p.add_argument('--rate', type=float, metavar='N', help='T1: N x real time (default 1)')
+        p.add_argument('--world', metavar='course|pool[:LxW]', help='T1: course (the default) or a rectangular pool, '
+                       'e.g. pool:10x4.5 (--env pool:LxW is the same)')
     if verb == 'restart':
         p.add_argument('what', choices=('nav', 'ros', 'player'), help='the part to restart')
     if verb in ('up', 'down', 'restart', 'status'):
@@ -126,7 +129,14 @@ def _up_tier(o, extra):
     if tier not in ('T1', 'T2'):
         raise SimError(f'up starts T2 or T1 worlds; {tier} runs as a batch: crane run --domain {o.domain or "boat"} '
                        f'--tier {tier} --seeds 0:4')
+    if str(o.env or '').split(':')[0] == 'pool':          # --env pool[:LxW] is --world pool[:LxW]
+        if o.world not in (None, 'course'):
+            raise SimError('give --world or --env pool, not both')
+        o.world, o.env = o.env, None
+    pool = str(o.world or 'course').split(':')[0] == 'pool'
     if tier == 'T2':
+        if pool:
+            raise SimError(f'the pool world is T1 only for now; {config.invoked_as()} up --tier T1 --world pool')
         given = [f for f, v in (('--odom', o.odom), ('--rate', o.rate)) if v is not None]
         if given:
             raise SimError(f'{given[0]} is for the T1 world: {config.invoked_as()} up --tier T1 {given[0]} ...')
@@ -135,6 +145,8 @@ def _up_tier(o, extra):
              if v is not None]
     if given:
         raise SimError(f'{given[0]} is for the T2 player; the T1 world runs no player')
+    if pool and o.sets:
+        raise SimError('--set pins a course parameter; the pool world has none')
     if o.rate is not None and not o.rate > 0:
         raise SimError(f'--rate wants a positive factor of real time, got {o.rate:g}')
     return tier

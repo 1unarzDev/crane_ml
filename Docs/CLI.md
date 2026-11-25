@@ -48,6 +48,7 @@ crane sim up --headless --seed 3
 crane sim up --card characterized --headless
 crane sim up --tier T1
 crane sim up --tier T1 --odom truth --rate 2
+crane sim up --tier T1 --world pool
 crane sim up --dry-run
 ```
 
@@ -69,6 +70,7 @@ Works with no options: the default course, its normal water current, seed 1, and
 | `--tier` | str | How detailed the sim is: T2 is the full 3-D simulator (default); T1 is the light twin with the same robot software connections, no 3-D world, and can run faster; T0 runs only through crane run. One of `T2`, `T1`, `T0`. (default `T2`) |
 | `--odom` | str | T1 only: sensors feeds the robot's own position estimate like on the water (default); truth hands it perfect positions instead. One of `sensors`, `truth`. (default `sensors`) |
 | `--rate` | float | T1 only: how many times faster than real time to run, e.g. 2 (default 1). (default `1`) |
+| `--world` | str | T1 only: course (the default) or a rectangular pool whose walls the lidar sees, pool for 10 by 4.5 metres or pool:LxW for another size, e.g. pool:9x5; the boat starts 1.5 metres from one end, facing along it. --env pool:LxW does the same. (default `course`) |
 | `--robot` | str | Which robot to put in the world, e.g. blastoise (the default). (default `blastoise`) |
 | `--set` | str | Pin one course setting as TASK_ID.PARAM=VALUE, e.g. a gate spacing in metres; give it again for more (default none). (default `none`) |
 | `--domain` | str | Which kind of robot world to use, e.g. boat (the default) or sub. (default `boat`) |

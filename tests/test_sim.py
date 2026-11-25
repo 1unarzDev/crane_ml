@@ -584,6 +584,35 @@ def test_the_t1_lever_arms_are_the_urdfs_the_stack_publishes():
         assert doc['lever'][link] == pytest.approx(want, abs=1e-9)
 
 
+def test_the_pool_world_parses_and_its_lidar_ring_lands_on_the_walls():
+    """--world pool[:LxW] parses to (L, W) (pool alone is the default 10x4.5); at the start pose (1.5 m from the end
+    wall, centred, facing along the length) the ring meets the end wall 1.5 m behind and the sides 2.25 m abeam,
+    seen from the lidar's mount; a pool beyond the range returns nothing."""
+    from crane.sim import t1, t1node
+    sec, doc = _t1_doc()
+    assert t1.parse_world(sec, None) is None and t1.parse_world(sec, 'course') is None
+    assert t1.parse_world(sec, 'pool') == (10.0, 4.5) and t1.parse_world(sec, 'pool:9x5') == (9.0, 5.0)
+    for bad in ('lake', 'pool:9', 'pool:1x5', 'pool:axb'):
+        with pytest.raises(config.SimError):
+            t1.parse_world(sec, bad)
+    lx, ly, lz = t1.lever_arms(ROOT / player.load_domain('boat')['robot']['robots']['blastoise']['urdf'],
+                               {'lidar': 'lidar_link'})['lidar']
+    assert lx > 0 and ly == 0 and lz > 0
+    doc = {**doc, 'start': [1.5 - lx, 0.0, 0.0], 'pool': {'length': 9.0, 'width': 5.0},
+           'lever': {**doc['lever'], 'lidar': [lx, ly, lz]}}
+    twin = t1node.Twin(doc, t1.load_plant(sec))
+    assert twin.point('lidar')[:2] == pytest.approx((1.5, 0.0))
+    ring = twin.scan()
+    assert len(ring) == 720 and all(z == 0.0 for _, _, z in ring)
+    ahead, port, behind, starboard = (ring[i] for i in (0, 180, 360, 540))       # 0.5 deg beams from the bow
+    assert ahead[:2] == pytest.approx((7.5, 0.0)) and behind[:2] == pytest.approx((-1.5, 0.0))
+    assert port[:2] == pytest.approx((0.0, 2.5)) and starboard[:2] == pytest.approx((0.0, -2.5))
+    assert all(abs(x + 1.5) < 1e-9 or abs(x - 7.5) < 1e-9 or abs(abs(y) - 2.5) < 1e-9 for x, y, _ in ring)
+    twin.cfg['world'] = {**twin.cfg['world'], 'lidar': {**twin.cfg['world']['lidar'], 'range': 2.0}}
+    near = twin.scan()
+    assert near and all(math.hypot(x, y) < 2.0 and x < 0 for x, y, _ in near)        # only the end wall behind
+
+
 T1_DOCKER = r'''#!/bin/sh
 printf '%s\n' "$*" >> "$STUB/docker.log"
 case $1 in
@@ -639,8 +668,27 @@ def test_t1_up_status_check_and_down_with_the_odom_modes(world_env, monkeypatch,
         assert 'the T1 world runs no player' in capsys.readouterr().err
         assert sim.main(['down']) == 0 and not (run / 'tier').exists() and not (stub / 'running').exists()
         capsys.readouterr()
+    # the pool world: no course, the start 1.5 m from the end wall, the lidar arm, status names it
+    for args in (['--world', 'pool:9x5'], ['--env', 'pool:9x5']):
+        assert sim.main(['up', '--tier', 'T1', '--odom', 'truth'] + args) == 0, capsys.readouterr()
+        out = capsys.readouterr().out
+        assert '  world:     pool 9x5 m, T1 node running' in out
+        node = json.loads((run / 't1.json').read_text())
+        assert node['pool'] == {'length': 9.0, 'width': 5.0} and node['start'] == [1.5, 0.0, 0.0]
+        assert node['current'] == [0.0, 0.0] and '  course:    none (pool)' in out
+        assert node['course_source'] == 'pool' and set(node['lever']) == {'gps', 'imu', 'lidar'}
+        assert node['world']['lidar']['topic'] == '/points' and not (run / 'course_truth.json').exists()
+        assert json.loads((stub / 'docker_run.argv').read_text().splitlines()[-1].split("overrides:='", 1)[1]
+                          .split("'", 1)[0])['parts']['objects'] == {'enabled': False}
+        assert sim.main(['down']) == 0 and not (run / 'world').exists()
+        capsys.readouterr()
+    assert sim.main(['up', '--tier', 'T1', '--world', 'pool', '--dry-run']) == 0
+    assert 'pool 10x4.5 m' in capsys.readouterr().out
     # refusals: one line, exit 2
     for args, says in ((['up', '--tier', 'T1', '--profile', 'train-gpu'], '--profile is for the T2 player'),
+                       (['up', '--tier', 'T2', '--world', 'pool'], 'the pool world is T1 only for now; '
+                        'crane sim up --tier T1 --world pool'),
+                       (['up', '--tier', 'T1', '--world', 'pool', '--set', 'a.b=1'], 'the pool world has none'),
                        (['up', '--odom', 'truth'], '--odom is for the T1 world'),
                        (['up', '--tier', 'T1', '--rate', '0'], '--rate wants a positive factor'),
                        (['up', '--tier', 'T0'], 'T0 runs as a batch'),

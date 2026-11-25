@@ -172,6 +172,10 @@ COMMANDS = [
                       'positions instead.'),
                     P('--rate', 'float', metavar='N', default=1, description='T1 only: how many times faster than '
                       'real time to run, e.g. 2 (default 1).'),
+                    P('--world', metavar='course|pool[:LxW]', default='course', free='pool:LENGTHxWIDTH in metres',
+                      description='T1 only: course (the default) or a rectangular pool whose walls the lidar sees, '
+                      'pool for 10 by 4.5 metres or pool:LxW for another size, e.g. pool:9x5; the boat starts '
+                      '1.5 metres from one end, facing along it. --env pool:LxW does the same.'),
                     sel('robot', default='blastoise', free="a robot name from the domain's config",
                         description='Which robot to put in the world, e.g. blastoise (the default).'),
                     P('--set', metavar='K=V', repeat=True, default='none', free='a course setting name and value',
@@ -185,7 +189,8 @@ COMMANDS = [
                       'progress goes to stderr.')),
             examples=('crane sim up', 'crane sim up --current 0', 'crane sim up --headless --seed 3',
                       'crane sim up --card characterized --headless', 'crane sim up --tier T1',
-                      'crane sim up --tier T1 --odom truth --rate 2', 'crane sim up --dry-run'),
+                      'crane sim up --tier T1 --odom truth --rate 2', 'crane sim up --tier T1 --world pool',
+                      'crane sim up --dry-run'),
             raw='Tools/RoboBoat/sim_up up'),
     Command(('sim', 'down'), 'Stop the simulator that crane sim up started.', 'crane.wrap:sim', passthrough=True,
             flags=(JSON,), json='crane.sim.down/1', export=True, about='one line saying what was stopped.',

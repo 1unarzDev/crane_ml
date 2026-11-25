@@ -4,6 +4,7 @@
 crane sim up --tier T1                    # odom sensors (the real EKF runs), 1x real time, the T2 seed and course
 crane sim up --tier T1 --odom truth       # /odom/local and TF straight from the twin, localization off
 crane sim up --tier T1 --rate 5 --seed 3 --current 0 --card characterized
+crane sim up --tier T1 --world pool       # a 10 x 4.5 m pool whose walls Nav2's costmaps see; pool:9x5 sets the size
 crane sim check --wait 120 ; crane sim status ; crane sim restart nav|ros ; crane sim down
 ```
 
@@ -30,6 +31,9 @@ Rates are in sim time. Frames are REP 103: world ENU, body FLU at `base_link`.
 | `/odom/global` | nav_msgs/Odometry | 50 Hz | map (base_link) | truth | (ekf_global in sensors mode) |
 | `/tf` odom→base_link | tf2_msgs/TFMessage | 50 Hz | odom (base_link) | truth | (ekf_local in sensors mode) |
 | `/tf_static` map→odom | tf2_msgs/TFMessage | once, latched (identity) | map (odom) | truth | (ekf_global in sensors mode) |
+| `/points` | sensor_msgs/PointCloud2 (x, y, z float32) | 10 Hz | lidar_link | pool | (the VLP16 in T2) |
+| `/perception/costmap` | nav_msgs/OccupancyGrid, latched | 10 Hz | base_link | pool | (the objects part's perception costmap) |
+| `/tf_static` base_link→lidar_link | tf2_msgs/TFMessage | once, latched | base_link (lidar_link) | pool, truth | (robot_state_publisher) |
 | `/crane/reset_to_start` (service) | std_srvs/Trigger | - | - | both | RoboBoatStartReset |
 | `/thrusters/pwm` (in) | std_msgs/UInt16MultiArray | 20 Hz from thruster_pwm_node | - | both | ROSThrusterPwmCommand |
 
@@ -69,7 +73,22 @@ The player's other inputs are not used by the stack with PWM drive (`/cmd_vel` i
   part of localization, so the URDF sensor links are not on TF in this mode; Nav2 needs only base_link.
 - Every node runs on `/clock`: the sim profile sets `args: {sim: 'true'}`, which each part's launch passes as
   `use_sim_time`.
-- No objects part means no `/perception/costmap`: Nav2's costmaps see open water (no buoys).
+- No objects part means no `/perception/costmap` on a course: Nav2's costmaps see open water (no buoys). In the
+  pool the node publishes it itself (below).
+
+## The pool
+
+`--world pool[:LxW]` (or `--env pool:LxW`; default `tiers.T1.sim.pool.default`, 10x4.5) is a rectangle with walls at
+x 0..L, y -W/2..W/2; the boat starts at (1.5, 0) facing +x, 1.5 m from the end wall, centred. There is no course
+truth, `--set` refuses and the water is still unless `--current` is given. T1 only: `--tier T2 --world pool` refuses.
+
+The walls are a 2-D lidar ring at the lidar's mount height: 720 beams from the `lidar_link` lever arm (from the URDF,
+as gps and imu), cut at 30 m, published on `/points` (PointCloud2, `lidar_link`, 10 Hz). Nav2's local and global
+costmaps read no cloud: both are a StaticLayer on `/perception/costmap`, which the objects part's costmap node makes
+from `/points` (STVL). That part is off in T1, so the node publishes `/perception/costmap` itself: the same returns as
+lethal cells (100) in a 24 m square at 0.15 m about `base_link`. The global costmap has no static map layer; it is a
+rolling 100 m window on the same `/perception/costmap`, so the walls reach it too and no `/map` is needed.
+`crane sim status` shows `world: pool 10x4.5 m, T1 node running ...`.
 
 ## Clock and rate
 

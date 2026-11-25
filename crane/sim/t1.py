@@ -103,6 +103,29 @@ def course_truth(cfg, sec, env, seed, sets, out):
     return f'committed {committed.relative_to(paths.ROOT) if committed.is_relative_to(paths.ROOT) else committed}'
 
 
+def parse_world(sec, value):
+    """--world: None for the course, else the pool's (length, width) in m ('pool' is tiers.T1.sim.pool.default)."""
+    value = str(value or 'course').strip()
+    if value == 'course':
+        return None
+    kind, _, size = value.partition(':')
+    if kind != 'pool':
+        raise SimError(f'--world wants course or pool[:LxW], e.g. pool:10x4.5; got {value}')
+    size = size or str((sec.get('pool') or {}).get('default') or '10x4.5')
+    try:
+        length, width = (float(v) for v in size.lower().split('x'))
+    except ValueError:
+        raise SimError(f'--world pool:LxW wants two sizes in metres, e.g. pool:10x4.5; got {value}') from None
+    start = float((sec.get('pool') or {}).get('start_m', 1.5))
+    if not (length > start and width > 0):
+        raise SimError(f'--world {value}: the pool must be longer than the {start:g} m start offset and wider than 0')
+    return length, width
+
+
+def world_text(pool):
+    return 'course' if pool is None else f'pool {pool[0]:g}x{pool[1]:g} m'
+
+
 def resolve(cfg, sec, run, o, current, truth=None):
     """The node's config (for RUN/t1.json); the course truth is written to TRUTH (default RUN/course_truth.json).
     SimError naming the fix."""
@@ -119,11 +142,19 @@ def resolve(cfg, sec, run, o, current, truth=None):
     if not bot.get('urdf'):
         raise SimError(f"robot {getattr(o, 'robot', None) or (cfg.get('robot') or {}).get('default')} has no urdf "
                        f"in config/domains/{cfg.get('name')}.yaml: T1 reads its sensor lever arms from it")
-    lever = lever_arms(_root_path(bot['urdf']), {'gps': world['gps']['link'], 'imu': world['imu']['link']})
+    pool = parse_world(sec, getattr(o, 'world', None))
+    links = {'gps': world['gps']['link'], 'imu': world['imu']['link']}
+    if pool:
+        links['lidar'] = world['lidar']['link']
+    lever = lever_arms(_root_path(bot['urdf']), links)
     seed = o.seed if o.seed is not None else sec.get('seed', 0)
-    truth = Path(truth or run / ((sec.get('truth') or {}).get('file') or 'course_truth.json'))
-    source = course_truth(cfg, sec, o.env, seed, o.sets, truth)
-    course = json.loads(truth.read_text())
+    if pool:
+        start = float((sec.get('pool') or {}).get('start_m', 1.5))
+        course, source = {'name': world_text(pool), 'startX': start, 'startY': 0.0, 'startYaw': 0.0}, 'pool'
+    else:
+        truth = Path(truth or run / ((sec.get('truth') or {}).get('file') or 'course_truth.json'))
+        source = course_truth(cfg, sec, o.env, seed, o.sets, truth)
+        course = json.loads(truth.read_text())
     noise = dict(world.get('noise') or {})
     doc = {'schema': 'crane.sim.t1/1', 'odom': sec['odom'], 'rate': float(o.rate or sec.get('rate') or 1),
            'dt': float(profile['fixedDeltaTime']), 'profile': profile,
@@ -133,6 +164,8 @@ def resolve(cfg, sec, run, o, current, truth=None):
            'course': course.get('name') or truth.name, 'seed': seed, 'course_source': source,
            'lever': {k: list(v) for k, v in lever.items()}, 'world': {**world, 'noise': noise},
            'alive': str(run / ALIVE)}
+    if pool:
+        doc['pool'] = {'length': pool[0], 'width': pool[1]}
     return doc
 
 

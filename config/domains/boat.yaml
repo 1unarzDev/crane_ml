@@ -17,6 +17,9 @@ tiers:
       plant_marker: CRANE_T1_PLANT              # the node's log line: the plant card it steps
       ready_s: 60                               # how long up waits for ready_marker
       # The course truth for (family, seed, --set): the generator, else the committed truth (no --set).
+      # --world pool[:LxW]: a rectangular pool, no course; the boat starts start_m from one end wall, centred,
+      # facing along the length (world +x; the walls are x 0..L, y -W/2..W/2).
+      pool: {default: 10x4.5, start_m: 1.5}
       course: {generate: 'domains.boat.coursegen:truth', dir: domains/boat/courses, file: '{name}-s{seed}.json'}
       # What the player publishes and takes (CraneRoboBoatSensorContract, CraneROSNavigationState, ROSClock,
       # ROSThrusterPwmCommand, RoboBoatStartReset), rates in sim Hz. Lever arms come from the robot's urdf.
@@ -29,6 +32,11 @@ tiers:
         estimate: {local: /odom/local, global: /odom/global, hz: 50}       # --odom truth
         frames: {map: map, odom: odom, base: base_link}
         reset: /crane/reset_to_start
+        # --world pool: the walls as a 2-D lidar ring at the lidar's mount height (link: its lever arm, from the
+        # urdf), and the same returns as the perception costmap Nav2's costmaps read (StaticLayer on
+        # /perception/costmap; the objects part that makes it from /points is off in T1).
+        lidar: {topic: /points, hz: 10, link: lidar_link, beams: 720, range: 30.0}
+        costmap: {topic: /perception/costmap, frame: base_link, size: 24.0, resolution: 0.15}
         noise: {gps_sigma: 0.0, fcu_velocity_sigma: 0.0, seed: 0}         # the player's defaults (m, m/s)
       ros:
         # device:=sim with the parts T1 has no inputs for turned off (mhseals_nav device_profile PART_KEYS).
