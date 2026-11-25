@@ -186,20 +186,19 @@ def test_deploy_refuses_robot_computers_from_astros_registry_and_by_name_without
     env = {**_env(home, tmp_path / 'no-releases'), 'ASTRO_PROFILES': str(reg)}
 
     # refused before anything runs (no ssh): one line naming the fix
-    for host in ('hull-brain', 'r@hull-brain', '10.0.0.7', 'spare-jetson'):
+    for host in ('hull-brain', 'r@hull-brain', '10.0.0.7'):
         out = _crane(env, 'deploy', host, '--dry-run')
         name = host.rsplit('@', 1)[-1]
         assert (out.returncode, out.stderr) == (
             2, f'crane deploy: {name} is a robot computer; robot code goes through `astro hot`\n'), host
     # the station (by name or its $KEY address) and a host the registry does not list are allowed
     cfg = deploy.guard_config()
-    for host in ('shore', 'me@10.0.0.2', 'localhost', 'innovation', 'local:/tmp/h'):
+    for host in ('shore', 'me@10.0.0.2', 'localhost', 'innovation', 'spare-jetson', 'local:/tmp/h'):   # roles only
         assert deploy.robot_guard(host, cfg, {'ASTRO_PROFILES': str(reg)}) == (None, []), host
-    # no registry: a warning, and only the robot name patterns refuse
+    # no registry: a warning, never a refusal (the decision is by registry role only)
     gone = {'ASTRO_PROFILES': str(tmp_path / 'missing')}
     refusal, warnings = deploy.robot_guard('hull-odroid', cfg, gone)
-    assert refusal and len(warnings) == 1 and 'robot name patterns only' in warnings[0]
-    assert deploy.robot_guard('hull-brain', cfg, gone)[0] is None
+    assert refusal is None and len(warnings) == 1 and 'not checked for a robot role' in warnings[0]
 
 
 @pytest.mark.skipif(not shutil.which('zstd'), reason='zstd packs the player tarball')

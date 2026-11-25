@@ -17,7 +17,6 @@ On HOST it touches only ~/crane_ml, ~/.local/bin/crane (install.sh's link) and t
 A robot computer is refused before anything runs (robot_guard; config/deploy.yaml): robot code goes through astro.
 """
 
-import fnmatch
 import getpass
 import ipaddress
 import json
@@ -93,9 +92,9 @@ def _registry(root):
 
 
 def robot_guard(host, cfg=None, environ=None):
-    """(refusal or None, warnings) for deploying to HOST. A host astro's registry lists is refused when it has a
-    robot role and no allowed (operator) role; an unlisted host, or any host when the registry cannot be read, is
-    refused when its name matches a robot pattern."""
+    """(refusal or None, warnings) for deploying to HOST, decided by astro's registry roles only: a listed host with
+    a robot role and no allowed (operator) role is refused; an unlisted host is allowed. An unreadable registry is a
+    warning, not a refusal."""
     if host.startswith('local:'):
         return None, []
     cfg = guard_config() if cfg is None else cfg
@@ -113,13 +112,10 @@ def robot_guard(host, cfg=None, environ=None):
             if names & ({entry} | addrs):
                 listed, roles = True, roles | entry_roles
     except (OSError, ValueError) as error:
-        warnings.append(f"cannot read astro's host registry ({root}: {error}); checking {name} against the robot "
-                        'name patterns only')
+        warnings.append(f"cannot read astro's host registry ({root}: {error}); {name} is not checked for a robot "
+                        'role')
     allowed, robot = set(cfg.get('allowed_roles') or ()), set(cfg.get('robot_roles') or ())
-    if listed:
-        refused = bool(roles & robot) and not roles & allowed
-    else:
-        refused = any(fnmatch.fnmatch(n, pat) for n in names for pat in cfg.get('robot_patterns') or ())
+    refused = listed and bool(roles & robot) and not roles & allowed
     return (ROBOT_REFUSAL.format(host=name) if refused else None), warnings
 
 

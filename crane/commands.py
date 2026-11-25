@@ -1046,7 +1046,7 @@ COMMANDS = [
                     '(sha256 checked there, current + prev kept), then runs crane doctor there. Touches only '
                     '~/crane_ml, ~/.local/bin/crane and the player store (~/.local/share/crane/player) on HOST. '
                     "Refuses (exit 2) a robot computer (a host whose roles in astro's registry, "
-                    'ASTRO_PROFILES/*/devices.yaml, include a robot role, or whose name matches a robot pattern; '
+                    'ASTRO_PROFILES/*/devices.yaml, include a robot role and no operator role; '
                     'config/deploy.yaml), a host with less free space than the player (tarball and unpacked) plus '
                     '1 GB, a checkout that cannot fast-forward, or a ~/crane_ml that is neither a crane checkout nor '
                     'an earlier deploy. The .venv step runs install.sh --yes --no-clone --components LIST there (uv, '
