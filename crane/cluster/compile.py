@@ -329,9 +329,15 @@ def compile(study, stage=None, block=None, *, spec_path=None, est_unit_s=None, d
     bad = field_paths(spec_text.splitlines())
     for c in cells:
         bad += field_paths(c.axes, c.condition, c.key, getattr(c, 'inputs', None))
+    inputs = list(getattr(study, 'inputs', None) or [])     # scenario packs (crane env pack): pushed to /workspace/in/
+    bad += field_paths(inputs)
     if bad:
         raise CompileError(f'{name} names field data ({bad[0]}); field data never goes to the cluster: run that cell '
                            'locally (crane study run), or point it at a derived table outside the corpus')
+    for pack in inputs:
+        if not Path(pack).expanduser().is_file():
+            raise CompileError(f'{name} lists input {pack}, which does not exist; fix: crane env pack --domain D '
+                               '--seeds A:B --out ' + pack)
     held = [c for c in cells if role_of(study, c) == HELD_OUT]
     skipped, skip_reason, targets = [], None, None
     if held and not confirm:
@@ -408,6 +414,8 @@ def compile(study, stage=None, block=None, *, spec_path=None, est_unit_s=None, d
     for c, est, parts in plans:
         role = role_of(study, c)
         needs, gpu = _needs(study, c, tags)
+        if inputs:          # inputs reach only the boxes rented after the job is queued
+            needs['tags'] = sorted({*needs['tags'], 'rented'})
         job_kind = kind or (KIND_GPU if gpu else own.get('kind') or KIND_CPU)
         if job_kind == KIND_GPU and not gpu:
             needs.update(gpu=True, vram_gb=float(needs.get('vram_gb') or 8))
@@ -418,7 +426,8 @@ def compile(study, stage=None, block=None, *, spec_path=None, est_unit_s=None, d
             rel = cell_dir(None, study, c, name).relative_to(studies_root(None) / name).as_posix()
         for i, (run_id, seeds) in enumerate(parts):
             keys = [unit_key(c, s, commit) for s in seeds]
-            dedup = digest({'units': keys, 'commit': commit, 'spec': src})
+            dedup = digest({'units': keys, 'commit': commit, 'spec': src,
+                            **({'inputs': [Path(p).name for p in inputs]} if inputs else {})})
             job_id = '.'.join([_job_slug(name, 24), _job_slug(c.stage or 'main', 12), _job_slug(c.arm, 24),
                                f'c{i}', dedup[:10]])
             job = {'study': name, 'stage': c.stage, 'arm': c.arm, 'block': c.block, 'role': role, 'cell': cid,
@@ -427,6 +436,8 @@ def compile(study, stage=None, block=None, *, spec_path=None, est_unit_s=None, d
                    'seeds': list(seeds), 'spec_file': src, 'repos': {r['name']: r['name'] for r in repos},
                    'est_unit_s': round(est, 3), 'stall_s': int(max(600.0, 3 * est + 120)), 'dedup': dedup,
                    'commit': commit}
+            if inputs:
+                job['inputs'] = inputs
             if role == HELD_OUT and targets:
                 job['targets'] = {k: targets.get(k) for k in ('path', 'commit', 'committed_at', 'sha256')
                                   if k in targets}
@@ -436,6 +447,7 @@ def compile(study, stage=None, block=None, *, spec_path=None, est_unit_s=None, d
                 raise CompileError(f'job id {job_id!r} is not an rc-job/1 id; use a shorter study, stage or arm name')
             line = json.dumps(job, separators=(',', ':'), sort_keys=True)
             spec = {**job, 'schema': 'crane.cluster.job/1', 'repo': CRANE_REPO,
+                    **({'inputs_rsync': list(inputs)} if inputs else {}),
                     'run': f'PYTHONPATH=src/{CRANE_REPO} python3 -m crane_backends.batch --job {shlex.quote(line)}',
                     'argv': ['python3', '-m', 'crane_backends.batch', '--job', line]}
             jobs.append({

@@ -69,6 +69,7 @@ class Setup:
             if self.scenarios is None:
                 from fastsim.scenario import ScenarioSource
                 source = ScenarioSource(**cfg['scenarios'], base=self.base)
+                source.generate(self.seeds)
                 self.scenarios = [source.load(s) for s in self.seeds]
             self.worlds = [World(s) for s in self.scenarios]
             self.W = Worlds.pack(self.worlds, self.lim.footprint)

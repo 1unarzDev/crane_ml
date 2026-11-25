@@ -119,6 +119,19 @@ commands:
       - crane run --domain boat --tier T1 --seeds 0:2 --out /tmp/runs
       - crane run --domain boat --tier T1 --astro-test speed-surge --card /tmp/fit/profile.json
 
+  - name: crane env pack
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane env pack
+    summary: A domain's scenarios for seeds A:B in one compressed pack (zstd, else gzip); missing ones are generated first, on a machine with the generator.
+    level: setup
+    params:
+      - {name: "--domain", description: The domain whose scenarios to pack., required: true}
+      - {name: "--seeds", description: "Seeds: N, A:B (B exclusive), a,b,c, @FILE or block:NAME.", required: true}
+      - {name: "--out", type: path, description: The pack file (default under ~/.cache/crane-packs).}
+      - {name: "--json", type: bool, description: One JSON document on stdout (JSONL for streams).}
+      - {name: "--quiet", type: bool, description: Only results and failures.}
+    examples:
+      - crane env pack --domain boat --seeds 0:64 --out boat-courses.tar.zst
+
   - name: crane card
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane card
     summary: "Plant cards: show, export, fit, validate: show (a plant card: one row per block (parameters with their sd and status) and the validation rows); export (one of a card's tier views (unity | nlc | control | fastsim) as json)."

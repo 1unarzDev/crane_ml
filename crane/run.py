@@ -74,11 +74,10 @@ def main(args):
                                             if k != 'schema'])))
             out.next(f'crane run {" ".join(_argv(args))}')
         return output.OK
-    missing = [s for s in seeds if not source.path(s).exists()]
-    if (missing or args.generate) and not source.generate_cmd:
-        what = f'{len(missing)} scenario file(s) missing in {source.dir}' if missing else '--generate: no generator'
-        return out.usage('run', f'{what}, and the config has no `scenarios.generate` command',
-                         f'write the scenarios into {source.dir} (pattern {source.pattern})')
+    missing = source.missing(seeds)
+    if (missing or args.generate) and not source.can_generate():
+        print(source.refusal(missing or seeds), file=sys.stderr)
+        return output.USAGE
     if args.generate:       # force: drop the requested seeds' files so the generator rewrites them
         for s in seeds:
             source.path(s).unlink(missing_ok=True)

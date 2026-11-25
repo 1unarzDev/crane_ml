@@ -6,6 +6,7 @@ condition, tier, seeds, block, key, role, id}, plus name, purpose, an optional h
 import json
 import math
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -451,3 +452,26 @@ def test_a_real_crane_study_compiles_and_runs_through_the_batch_runner(tmp_path,
     assert sorted(int(x['seed']) for x in rows) == sorted(job['spec']['seeds'])
     m = json.loads((tmp_path / 'run' / 'metrics.json').read_text())
     assert m['rows'] == len(rows) and 'y.mean' in m and m['touched_held_out'] == 0
+
+
+def test_a_study_with_scenario_packs_pushes_them_and_needs_a_rented_box(tmp_path, monkeypatch):
+    from crane import pack
+    scenario = tmp_path / 'scenario-s0.json'
+    scenario.write_text('{}')
+    packed, manifest = pack.make({scenario.name: scenario}, {'domain': 'toy'}, tmp_path / 'toy-courses.tar.zst')
+    study = Study([Cell('toy01', 'A', 'base', list(range(10)))])
+    assert 'rented' not in _compile(study, est_unit_s=60.0)[0]['needs']['tags']
+    study.inputs = [str(packed)]
+    job, = _compile(study, est_unit_s=60.0)
+    assert job['spec']['inputs_rsync'] == [str(packed)] and 'rented' in job['needs']['tags']
+    study.inputs = [str(tmp_path / 'gone.tar.zst')]
+    with pytest.raises(cc.CompileError, match='crane env pack'):
+        _compile(study, est_unit_s=60.0)
+    # on the box: the pack is found in $CRANE_INPUTS_DIR by name, verified, and its dir joins CRANE_SCENARIOS
+    box = tmp_path / 'in'
+    box.mkdir()
+    shutil.copy(packed, box / packed.name)
+    monkeypatch.setenv('CRANE_INPUTS_DIR', str(box))
+    monkeypatch.delenv('CRANE_SCENARIOS', raising=False)
+    dirs = pack.unpack_inputs(['/elsewhere/' + packed.name], tmp_path / 'out')
+    assert os.environ['CRANE_SCENARIOS'] == dirs[0] and (Path(dirs[0]) / scenario.name).read_text() == '{}'

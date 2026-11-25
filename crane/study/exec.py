@@ -636,11 +636,18 @@ def run_job(study, job_id, out, confirm=False, stream=None, targets_sha256=None,
     cell = replace(cell, seeds=list(seeds))
     out.mkdir(parents=True, exist_ok=True)
     write_state(study, out)
+    if study.inputs:        # scenario packs the job pushed (or the local ones): their files join the scenario path
+        from crane import pack
+        try:
+            pack.unpack_inputs(study.inputs, out)
+        except pack.PackError as error:
+            raise StudyError(str(error)) from None
     if cell.held_out:
         _log_held_out(out, cell.stage, [cell], targets)
     commit = plan.code_commit()
     cache = UnitCache(out / 'cache')
     missing = [s for s in cell.seeds if not cache.has(cell.unit(s, commit))]
+    _pregenerate([(cell, missing)])      # the scenarios, or the one-line refusal before any work starts
     p = Progress(out, len(cell.seeds), phase='run', label=job_id, stream=stream)
     p.skip(len(cell.seeds) - len(missing))
     stats, failures = {'ran': 0, 'failed': 0}, []

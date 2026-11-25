@@ -207,7 +207,8 @@ def main(a, cfg, base, adapter, domain, tier):
 
 def markdown(r):
     lines = [f"# bench.fast --engine batched: {r['domain']} {r['tier']}", '',
-             f"Table B: {r['baseline_B']} episodes/s (scalar fastsim, W=1 and W=8).", '',
+             f"Table B: {r['baseline_B']} episodes/s (scalar fastsim, W=1 and W=8)."
+             f"{' Course pool ' + str(r['course_pool']) + ' (scenario seed = seed % ' + str(r['course_pool']) + ').' if r.get('course_pool') else ''}", '',
              '| backend | dtype | E | seeds | setup s | first call s | wall s | episodes/s | x B (W=1) | x B (W=8) | succeeded |',
              '|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|']
     for x in r['rows']:

@@ -15,6 +15,7 @@ scenarios:
   dir: courses
   pattern: 'roboboat_2026-s{seed}.json'
   generate: ['{python}', '{base}/coursegen.py', '{seeds_from}:{seeds_to}', '{dir}']
+  generate_check: ['{python}', '{base}/coursegen.py', '--check']
   format: {name: crane_truth, identity_check: ../../Tools/RoboBoat/course_truth.py:check_identity}
 # A generic small vessel (the course truth's default vessel: 1.06 m x 0.9 m) and conservative
 # navigation limits, below the profile's envelope (surge 2.5, sway 1.7, yaw 1.9).

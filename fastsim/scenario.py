@@ -140,28 +140,83 @@ def scenario_format(spec, base=None):
     return plugin.build(spec or {'name': 'crane_truth'}, FORMATS, base, base=base)
 
 
+class ScenarioMissing(SystemExit):
+    """A scenario file is missing and no generator can run here: the one-line refusal (its message)."""
+
+
+SEARCH_ENV = 'CRANE_SCENARIOS'
+
+
+def search_dirs():
+    """Extra scenario folders: the CRANE_SCENARIOS directories (os.pathsep-separated), searched after ``dir``."""
+    return [Path(d).expanduser() for d in os.environ.get(SEARCH_ENV, '').split(os.pathsep) if d.strip()]
+
+
 class ScenarioSource:
     """Seed -> scenario file: ``dir`` + ``pattern`` (``{seed}`` and any key of ``fields``),
     and optionally a ``generate`` command template run once for the missing seeds
     (``{seeds_from}``, ``{seeds_to}`` (exclusive), ``{dir}``, ``{base}`` (the domain YAML's
-    folder), ``{python}`` (this interpreter) and the fields substituted)."""
+    folder), ``{python}`` (this interpreter) and the fields substituted).
+
+    ``generate_check`` (a command template, exit 0 when the generator can run on this host; on failure its
+    output says what it needs) lets a host without the generator refuse up front. A file is also looked for in
+    the CRANE_SCENARIOS directories. ``pool`` K maps seed s to scenario s % K (a throughput benchmark only)."""
 
     def __init__(self, dir, pattern='scenario-s{seed}.json', fields=None, generate=None,
-                 format=None, base=None):
+                 format=None, base=None, generate_check=None, pool=None):
         self.base = Path(base or '.')
         self.dir = self.base / Path(os.path.expandvars(dir)).expanduser()
         self.pattern, self.fields, self.generate_cmd = pattern, dict(fields or {}), generate
+        self.check_cmd, self.pool, self._can, self.needs = generate_check, int(pool) if pool else None, None, ''
         self.format = scenario_format(format, base)
 
     def path(self, seed):
-        return self.dir / self.pattern.format(seed=seed, **self.fields)
+        name = self.pattern.format(seed=self.scenario_seed(seed), **self.fields)
+        for d in (self.dir, *search_dirs()):
+            if (d / name).exists():
+                return d / name
+        return self.dir / name
+
+    def scenario_seed(self, seed):
+        return int(seed) % self.pool if self.pool else seed
+
+    def words(self, **more):
+        return dict(self.fields, dir=self.dir, base=self.base, python=sys.executable, **more)
+
+    def can_generate(self):
+        """Whether the generator can run on this host (no generator, or its check failing, is False)."""
+        if self._can is None:
+            self._can = bool(self.generate_cmd)
+            if self._can and self.check_cmd:
+                run = subprocess.run([str(w).format(**self.words()) for w in self.check_cmd],
+                                     capture_output=True, text=True)
+                self._can = run.returncode == 0
+                lines = (run.stdout + run.stderr).strip().splitlines()
+                self.needs = lines[-1] if lines and not self._can else ''
+        return self._can
+
+    def refusal(self, seeds):
+        """The one-line refusal for missing ``seeds``."""
+        seeds = sorted(seeds)
+        why = f' ({self.needs})' if self.needs else ''
+        return (f'crane: no scenario for seed {seeds[0]} in {self.dir} and no generator here{why}; fix: crane env pack '
+                f'--domain DOMAIN --seeds {seeds[0]}:{seeds[-1] + 1} on a machine with the generator, or --course-pool K')
+
+    def missing(self, seeds):
+        return sorted({self.scenario_seed(s) for s in seeds if not self.path(s).exists()})
+
+    def require(self, seeds):
+        """Raises ScenarioMissing (before any pool starts) when a seed has no file and none can be made here."""
+        missing = self.missing(seeds)
+        if missing and not self.can_generate():
+            raise ScenarioMissing(self.refusal(missing))
+        return missing
 
     def generate(self, seeds):
-        missing = [s for s in seeds if not self.path(s).exists()]
-        if missing and self.generate_cmd:
+        missing = self.require(seeds)
+        if missing:
             self.dir.mkdir(parents=True, exist_ok=True)
-            words = dict(self.fields, seeds_from=min(missing), seeds_to=max(missing) + 1, dir=self.dir,
-                         base=self.base, python=sys.executable)
+            words = self.words(seeds_from=min(missing), seeds_to=max(missing) + 1)
             subprocess.run([str(w).format(**words) for w in self.generate_cmd], check=True,
                            capture_output=True)
         return missing

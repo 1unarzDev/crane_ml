@@ -1,6 +1,7 @@
 """Write course truths for seeds the boat's scenario folder lacks, with crane's coursegen.
 
     python3 domains/boat/coursegen.py FROM:TO DIR     # seeds FROM..TO-1; existing files are kept
+    python3 domains/boat/coursegen.py --check         # exit 0 when this host can generate (else says what it needs)
 
 coursegen (Tools/RoboBoat/cli) targets .NET 10. It is built once per generator source into
 ``~/.cache/crane/coursegen/<sha>``; without a 10.x SDK the newest installed SDK builds it for its
@@ -11,6 +12,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -50,6 +52,26 @@ def build():
     return dll
 
 
+def unity_dll():
+    """The Unity editor's UnityEngine.CoreModule.dll that coursegen references ($UnityManaged overrides the folder)."""
+    managed = os.environ.get('UnityManaged')
+    if not managed:
+        version = re.search(r'm_EditorVersion: (\S+)', (ROOT / 'ProjectSettings' / 'ProjectVersion.txt').read_text())
+        managed = Path.home() / 'Unity' / 'Hub' / 'Editor' / version.group(1) / 'Editor' / 'Data' / 'Managed'
+    return Path(managed) / 'UnityEngine' / 'UnityEngine.CoreModule.dll'
+
+
+def available():
+    """Whether coursegen can run here: dotnet, its sources, and a build (cached, or buildable with the Unity dll)."""
+    try:
+        if not shutil.which('dotnet') or not all((ROOT / s).exists() for s in SOURCES):
+            return False
+        return (Path.home() / '.cache' / 'crane' / 'coursegen' / source_sha() / 'coursegen.dll').exists() \
+            or unity_dll().is_file()
+    except OSError:
+        return False
+
+
 def generate(seeds_from, seeds_to, folder):
     folder = Path(folder)
     folder.mkdir(parents=True, exist_ok=True)
@@ -63,5 +85,9 @@ def generate(seeds_from, seeds_to, folder):
 
 
 if __name__ == '__main__':
+    if sys.argv[1:] == ['--check']:
+        if not available():
+            print('coursegen needs dotnet + the Unity editor')
+        sys.exit(0 if available() else 1)
     lo, _, hi = sys.argv[1].partition(':')
     generate(int(lo), int(hi), sys.argv[2])

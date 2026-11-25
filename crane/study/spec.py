@@ -23,7 +23,7 @@ RECORDS = ('metrics', 'events', 'traj_decimated', 'obs')
 NAME = re.compile(r'^[A-Za-z0-9][A-Za-z0-9_-]{0,47}$')
 TOP = {'schema', 'name', 'domain', 'tier', 'tiers', 'record', 'crn', 'targets', 'baseline', 'metrics', 'scorer',
        'timeout_s', 'keep_runs', 'arms', 'axes', 'conditions', 'splits', 'seeds', 'stages', 'pack', 'campaign',
-       'purpose', 'expect', 'pin', 'kind', 'report', 'description'}
+       'purpose', 'expect', 'pin', 'kind', 'report', 'description', 'inputs'}
 DEFAULT_STAGE = 'main'
 RESERVED = {'study', 'stage', 'arm', 'cell', 'pair', 'block', 'split', 'role', 'tier', 'seed', 'run_seed', 'condition',
             'outcome', 'error', 'wall_s', 'commit', 'card_sha', 'touched_held_out', 'succeeded'}   # row columns
@@ -101,6 +101,7 @@ class Study:
     keep_runs: bool = False
     pack: dict = field(default_factory=dict)
     cluster: dict = field(default_factory=dict)  # kind, campaign, purpose, expect, pin
+    inputs: list = field(default_factory=list)   # scenario packs (crane env pack), absolute paths
     report: dict = field(default_factory=dict)
 
     @property
@@ -202,6 +203,7 @@ def parse(raw, path):
     st.pack = _pack(s, 'pack', raw.get('pack'))
     st.report = dict(raw.get('report') or {})
     st.cluster = _cluster(s, raw)
+    st.inputs = _inputs(s, st, raw.get('inputs'))
     st.arms = _arms(s, st, raw.get('arms'))
     st.axes = _axes(s, st, raw.get('axes'))
     _conditions(s, st, raw.get('conditions'), raw.get('splits'))
@@ -291,6 +293,22 @@ def _pack(s, where, value):
     if pack.get('local_chunk') is not None:
         out['local_chunk'] = int(_num(s, f'{where}.local_chunk', pack['local_chunk']))
     return {k: v for k, v in out.items() if v is not None}
+
+
+def _inputs(s, st, value):
+    """``inputs: [PACK]``: scenario packs a cluster job pushes with it and run-cell unpacks (paths relative to the
+    spec, ~ expanded)."""
+    if value is None:
+        return []
+    if not isinstance(value, list) or not all(isinstance(v, str) for v in value):
+        raise _err(s, 'inputs', 'must be a list of pack paths', 'inputs: [~/.cache/crane-packs/boat-courses-SHA.tar.zst]')
+    return [str((st.base / Path(v).expanduser()).resolve()) for v in value]
+
+
+def _no_pool(s, where, keys):
+    if 'scenarios.pool' in keys:
+        raise _err(s, where, 'scenarios.pool is a benchmark knob (bench.fast --course-pool), not a study parameter',
+                   'give the study the scenarios it needs: crane env pack, and inputs: [PACK]')
 
 
 def _cluster(s, raw):
@@ -406,6 +424,7 @@ def _arm(s, st, where, name, spec):
     card = spec.get('card')
     if card is not None and kind == 'sim':
         _card_path(s, st, f'{where}.card', card)
+    _no_pool(s, f'{where}.set', _flat(sets))
     return Arm(name=name, kind=kind, set=_flat(sets), card=None if card is None else str(card), task=task,
                argv=None if argv is None else [str(a) for a in argv], args=dict(args),
                timeout_s=_num(s, f'{where}.timeout_s', spec.get('timeout_s')),
@@ -473,6 +492,7 @@ def _axes(s, st, value):
                 _card_path(s, st, lw, v)
                 out[str(lname)] = {'@card': str(v)}
             elif param:
+                _no_pool(s, lw, {str(param)})
                 out[str(lname)] = {str(param): v}
             elif isinstance(v, dict) and v:
                 out[str(lname)] = _flat(v)          # a named source: a set of values

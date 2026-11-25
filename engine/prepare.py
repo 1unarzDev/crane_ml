@@ -55,6 +55,8 @@ def _chunk(job):
 def prepare(cfg, base, seeds, workers=None):
     from engine.boat import BoatPlans
     from engine.world import Worlds
+    from fastsim.scenario import ScenarioSource
+    ScenarioSource(**cfg['scenarios'], base=base).generate(seeds)     # or refuse in one line, before any pool
     jobs = [(cfg, base, seeds[i:i + CHUNK]) for i in range(0, len(seeds), CHUNK)]
     workers = min(len(jobs), workers or os.cpu_count() or 1)
     if workers <= 1:

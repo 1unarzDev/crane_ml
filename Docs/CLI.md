@@ -652,6 +652,43 @@ What you'll see: CRANE_COURSE_* lines. Options: [--family F] --seed N --out T.js
 
 raw: `bin/heavy unity Tools/RoboBoat/generate.sh`
 
+### crane env pack
+
+```sh
+crane env pack --domain boat --seeds 0:64 --out boat-courses.tar.zst
+```
+
+A domain's scenarios for seeds A:B in one compressed pack (zstd, else gzip); missing ones are generated first, on a machine with the generator.
+
+What you'll see: the pack path, file count and size. The pack holds manifest.json (domain, generator identity and version, seeds, sha256 per file) and the files. Without --out it goes to ~/.cache/crane-packs/DOMAIN-KIND-SHA.tar.zst. A rented box without dotnet and the Unity editor reads it through crane env unpack and CRANE_SCENARIOS, or a study spec `inputs: [PACK]`.
+
+| Param | Type | Description |
+|---|---|---|
+| `--domain` | str | The domain whose scenarios to pack. |
+| `--seeds` | str | Seeds: N, A:B (B exclusive), a,b,c, @FILE or block:NAME. |
+| `--out` | path | The pack file (default under ~/.cache/crane-packs). |
+| `--json` | bool | One JSON document on stdout (JSONL for streams). |
+| `--quiet` | bool | Only results and failures. |
+
+--json: `crane.env.pack/1`
+
+### crane env unpack
+
+```sh
+crane env unpack boat-courses.tar.zst /tmp/courses
+```
+
+Open a scenario pack into DIR, verifying every sha256; CRANE_SCENARIOS=DIR then finds the files.
+
+| Param | Type | Description |
+|---|---|---|
+| `pack` | path | A pack from crane env pack. |
+| `dir` | path | Where the scenario files go. |
+| `--json` | bool | One JSON document on stdout (JSONL for streams). |
+| `--quiet` | bool | Only results and failures. |
+
+--json: `crane.env.unpack/1`
+
 ### crane env validate
 
 ```sh

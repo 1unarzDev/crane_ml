@@ -59,12 +59,15 @@ def domain_tier(domain, tier=None):
     return tier, ROOT / tiers[tier]['config'], tiers[tier].get('overrides') or {}
 
 
-def load(domain, tier):
+def load(domain, tier, pool=None):
+    """(config path, overrides, cfg, base); ``pool`` K maps scenario seed s to s % K (a benchmark knob only)."""
     try:
         _, path, overrides = domain_tier(domain, tier)
     except LookupError as error:
         raise SystemExit(f'bench: {error}')
     cfg, base = fsconfig.load(path, overrides)
+    if pool:
+        cfg = {**cfg, 'scenarios': {**cfg['scenarios'], 'pool': int(pool)}}
     return path, overrides, cfg, base
 
 
@@ -250,7 +253,8 @@ def markdown(r):
              f"{r['host']['date']}, {r['host']['cpu']} ({r['host']['cores']} cores), {r['host']['gpu']}, "
              f"python {r['host']['python']}, numpy {r['host']['numpy']}, commit {r['host']['commit'][:12]}"
              f"{' (dirty)' if r['host']['dirty'] else ''}, load {r['host']['load_1m']}", '',
-             f"config `{r['config']}`, dt {r['plant']['dt']} s, seeds {r['seeds']}", '',
+             f"config `{r['config']}`, dt {r['plant']['dt']} s, seeds {r['seeds']}"
+             f"{', course pool ' + str(r['course_pool']) if r.get('course_pool') else ''}", '',
              '| workers | episodes/s | episodes/s per core | sim s per episode | succeeded |',
              '|---:|---:|---:|---:|---:|']
     for e in r['episodes']:
@@ -283,6 +287,8 @@ def main(argv=None, prog='bench.fast'):
     ap.add_argument('--seeds', type=parse_seeds, help='N, FROM:TO or a,b,c (the scalar table; --equivalence)')
     ap.add_argument('--workers', default='1', help='comma list of worker counts (default 1)')
     ap.add_argument('--out', type=Path)
+    ap.add_argument('--course-pool', type=int, metavar='K', help='scenario seed = seed %% K, so a throughput '
+                    'benchmark reuses the K committed courses (recorded in the report; not for studies)')
     ap.add_argument('--split-seeds', type=int, default=10, help='episodes timed part by part (default 10)')
     ap.add_argument('--fresh-jobs', type=int, default=5, help='cluster jobs run as fresh processes (default 5)')
     ap.add_argument('--engine', choices=('scalar', 'batched'), default='scalar',
@@ -305,7 +311,7 @@ def main(argv=None, prog='bench.fast'):
         return batched_main(a)
     if a.seeds is None or a.out is None:
         raise SystemExit('bench: the scalar table needs --seeds and --out')
-    path, overrides, cfg, base = load(a.domain, a.tier)
+    path, overrides, cfg, base = load(a.domain, a.tier, a.course_pool)
     if a.out.exists() and any(a.out.iterdir()):
         raise SystemExit(f'bench: {a.out} is not empty')
     a.out.mkdir(parents=True, exist_ok=True)
@@ -315,7 +321,7 @@ def main(argv=None, prog='bench.fast'):
     report = {'schema': 'crane.bench.fast/1', 'domain': a.domain, 'tier': a.tier,
               'config': str(path.relative_to(ROOT)), 'overrides': overrides,
               'seeds': f'{seeds[0]}:{seeds[-1] + 1}' if seeds == list(range(seeds[0], seeds[-1] + 1)) else seeds,
-              'host': host()}
+              'course_pool': a.course_pool, 'host': host()}
     report['plant'] = plant_only(cfg, base)
     report['episodes'], hashes = [], []
     for w in (int(w) for w in a.workers.split(',')):
@@ -342,10 +348,11 @@ def batched_main(a):
     from fastsim.batch import adapter_of
     if a.out is None:
         raise SystemExit('bench: --engine batched needs --out')
-    path, overrides, cfg, base = load(a.domain, a.tier)
+    path, overrides, cfg, base = load(a.domain, a.tier, a.course_pool)
     a.out.mkdir(parents=True, exist_ok=True)
     report = batched.main(a, cfg, base, adapter_of(cfg, base), a.domain, a.tier)
     report['host'] = host()
+    report['course_pool'] = a.course_pool
     report['config'] = str(path.relative_to(ROOT))
     (a.out / 'batched.json').write_text(json.dumps(report, indent=2) + '\n')
     (a.out / 'batched.md').write_text(batched.markdown(report))

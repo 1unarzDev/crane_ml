@@ -541,6 +541,23 @@ COMMANDS = [
                   'checked before the heavy unity slot is taken; --dry-run prints the command only.',
             examples=('crane env gen --seed 3 --out /tmp/c3.json', 'crane env gen --seeds 0:50 --out /tmp/courses'),
             raw='bin/heavy unity Tools/RoboBoat/generate.sh'),
+    Command(('env', 'pack'), "A domain's scenarios for seeds A:B in one compressed pack (zstd, else gzip); missing ones "
+            'are generated first, on a machine with the generator.', 'crane.pack:pack_main', flags=(JSON, QUIET),
+            export=True, json='crane.env.pack/1',
+            about='the pack path, file count and size. The pack holds manifest.json (domain, generator identity and '
+                  'version, seeds, sha256 per file) and the files. Without --out it goes to ~/.cache/crane-packs/'
+                  'DOMAIN-KIND-SHA.tar.zst. A rented box without dotnet and the Unity editor reads it through '
+                  'crane env unpack and CRANE_SCENARIOS, or a study spec `inputs: [PACK]`.',
+            params=(sel('domain', required=True, description='The domain whose scenarios to pack.'),
+                    sel('seeds', required=True, description='Seeds: N, A:B (B exclusive), a,b,c, @FILE or block:NAME.'),
+                    P('--out', 'path', metavar='PACK.tar.zst', description='The pack file (default under '
+                      '~/.cache/crane-packs).')),
+            examples=('crane env pack --domain boat --seeds 0:64 --out boat-courses.tar.zst',)),
+    Command(('env', 'unpack'), 'Open a scenario pack into DIR, verifying every sha256; CRANE_SCENARIOS=DIR then finds '
+            'the files.', 'crane.pack:unpack_main', flags=(JSON, QUIET), json='crane.env.unpack/1',
+            params=(P('pack', 'path', metavar='PACK', description='A pack from crane env pack.'),
+                    P('dir', 'path', metavar='DIR', description='Where the scenario files go.')),
+            examples=('crane env unpack boat-courses.tar.zst /tmp/courses',)),
     Command(('env', 'validate'), 'The independent constraint check of a course truth; exit 0 when every row passes.',
             'crane.wrap:course', passthrough=True, about='one row per constraint. Options: TRUTH.json [--spec S] '
             '[--json].', examples=('crane env validate /tmp/c3.json',), raw='python3 Tools/RoboBoat/validate.py'),
