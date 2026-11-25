@@ -1,0 +1,73 @@
+{
+  "schema": "crane.bench.batched/1",
+  "domain": "boat",
+  "tier": "T1",
+  "baseline_B": {
+    "W1": 4.33,
+    "W8": 27.9
+  },
+  "rows": [
+    {
+      "backend": "jax",
+      "dtype": "float32",
+      "fastmath": false,
+      "E": 4096,
+      "seeds": 16384,
+      "setup_s": 26.721,
+      "first_call_s": 24.455,
+      "wall_s": 4.9921,
+      "episodes_per_s": 3282.0,
+      "sim_s_mean": 166.4,
+      "succeeded": 16384,
+      "env_steps_per_s": 27305747,
+      "x_B_W1": 758.0,
+      "x_B_W8": 117.6
+    },
+    {
+      "backend": "jax",
+      "dtype": "float32",
+      "fastmath": false,
+      "E": 16384,
+      "seeds": 65536,
+      "setup_s": 105.257,
+      "first_call_s": 32.586,
+      "wall_s": 14.2587,
+      "episodes_per_s": 4596.2,
+      "sim_s_mean": 166.4,
+      "succeeded": 65536,
+      "env_steps_per_s": 38240569,
+      "x_B_W1": 1061.5,
+      "x_B_W8": 164.7
+    }
+  ],
+  "split_jax": {
+    "E": 16384,
+    "dtype": "float32",
+    "steps": {
+      "physics step (tracker, loop, plant, progress)": {
+        "ms_per_call": 0.3201,
+        "kernels": 11
+      },
+      "track + tick step (adds scoring, contacts, perception, decision)": {
+        "ms_per_call": 1.3005,
+        "kernels": 126
+      }
+    }
+  },
+  "host": {
+    "date": "2026-11-25T06:43:06+00:00",
+    "host": "ab5df61f0a66",
+    "cores": 128,
+    "cpus": 24,
+    "gpu": "NVIDIA GeForce RTX 3090",
+    "cpu": "AMD EPYC 7702P 64-Core Processor",
+    "python": "3.12.16",
+    "executable": "/usr/local/bin/python3",
+    "numpy": "2.5.5",
+    "commit": "01a78e11ef9e64574c95a65cd923a24f9a117b34",
+    "dirty": false,
+    "load_1m": 8.16
+  },
+  "course_pool": 5,
+  "config": "domains/boat/fastsim_t1.yaml"
+}

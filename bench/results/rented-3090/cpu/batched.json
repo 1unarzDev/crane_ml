@@ -1,0 +1,43 @@
+{
+  "schema": "crane.bench.batched/1",
+  "domain": "boat",
+  "tier": "T1",
+  "baseline_B": {
+    "W1": 4.33,
+    "W8": 27.9
+  },
+  "rows": [
+    {
+      "backend": "numba",
+      "dtype": "float64",
+      "fastmath": false,
+      "E": 4096,
+      "seeds": 4096,
+      "setup_s": 3.825,
+      "first_call_s": 83.306,
+      "wall_s": 1.1039,
+      "episodes_per_s": 3710.5,
+      "sim_s_mean": 166.39,
+      "succeeded": 4096,
+      "env_steps_per_s": 30869970,
+      "x_B_W1": 856.9,
+      "x_B_W8": 133.0
+    }
+  ],
+  "host": {
+    "date": "2026-11-25T06:44:37+00:00",
+    "host": "ab5df61f0a66",
+    "cores": 128,
+    "cpus": 24,
+    "gpu": "NVIDIA GeForce RTX 3090",
+    "cpu": "AMD EPYC 7702P 64-Core Processor",
+    "python": "3.12.16",
+    "executable": "/usr/local/bin/python3",
+    "numpy": "2.5.5",
+    "commit": "01a78e11ef9e64574c95a65cd923a24f9a117b34",
+    "dirty": false,
+    "load_1m": 7.89
+  },
+  "course_pool": 5,
+  "config": "domains/boat/fastsim_t1.yaml"
+}
