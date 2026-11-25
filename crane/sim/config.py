@@ -76,15 +76,54 @@ def default_domain():
     return 'boat'
 
 
-def domain(name=None):
-    """(domain config, its T2 section); SimError(2) naming the fix when either is missing."""
+def domain(name=None, tier=None, odom=None):
+    """(domain config, its sim section); SimError(2) naming the fix when either is missing.
+
+    The sim section is tiers.T2, or for T1 tiers.T2 overlaid with tiers.T1.sim (its ros.overrides and
+    ros.ready_nodes picked for the odom mode), with ``tier`` (and ``odom``) set. tier None: the running world's
+    (the state dir's ``tier``), else T2."""
+    tier = tier or state_tier()
     try:
         cfg = load_domain(name or default_domain())
-        return cfg, tier_cfg(cfg, 'T2')
+        t2 = tier_cfg(cfg, 'T2')
     except ConfigError as error:
         worlds = _t2_domains()
         fix = f'; next: {invoked_as()} up --domain {worlds[0]}' if worlds and worlds[0] != name else ''
         raise SimError(f'{error}{fix}') from None
+    if tier == 'T2':
+        return cfg, t2
+    return cfg, t1_section(cfg, t2, odom or _state('odom'))
+
+
+def _state(name):
+    try:
+        return (run_dir() / name).read_text().strip()
+    except OSError:
+        return ''
+
+
+def state_tier():
+    """The running (or last) world's tier from the state dir: T1 or T2 (the default)."""
+    return 'T1' if _state('tier') == 'T1' else 'T2'
+
+
+ODOM = ('sensors', 'truth')
+
+
+def t1_section(cfg, t2, odom=None):
+    """tiers.T2 overlaid with tiers.T1.sim for ODOM (default the section's odom): the T1 world's sim section."""
+    t1 = ((cfg.get('tiers') or {}).get('T1') or {}).get('sim')
+    if not t1:
+        raise SimError(f"domain {cfg.get('name', '?')} has no tiers.T1.sim (config/domains/{cfg.get('name')}.yaml): "
+                       f'its T1 runs no ROS world; {invoked_as()} up runs its T2 world')
+    odom = odom or t1.get('odom') or 'sensors'
+    if odom not in ODOM:
+        raise SimError(f"--odom wants {' or '.join(ODOM)}, got {odom}")
+    ros = {**(t2.get('ros') or {}), **(t1.get('ros') or {})}
+    for key in ('overrides', 'ready_nodes'):
+        if isinstance(ros.get(key), dict):
+            ros[key] = ros[key].get(odom)
+    return {**t2, **t1, 'ros': ros, 'tier': 'T1', 'odom': odom}
 
 
 def _t2_domains():

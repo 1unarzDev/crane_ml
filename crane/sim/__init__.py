@@ -1,22 +1,27 @@
-"""crane sim: the T2 world of a domain (the Unity player plus its ROS side), used exactly like the robot.
+"""crane sim: the T2 world of a domain (the Unity player plus its ROS side), or its T1 world (the plant card's twin
+as a ROS node beside the same ROS side), used exactly like the robot.
 
     crane sim up [--seed N] [--env KIND:NAME | --course FAMILY] [--card F | --profile-json F] [--profile P]
                  [--current default|0|SPEED,TOWARD_DEG] [--display auto|window|headless | --window | --headless]
                  [--player PATH] [--robot R] [--set K=V]... [--domain D] [--tier T2] [--json] [--dry-run]
                  [-- PLAYER_ARGS...]
     crane sim up --list seed|env|current|tier   the choices, one per line as VALUE<TAB>meaning (astro's pickers)
+    crane sim up --tier T1 [--odom sensors|truth] [--rate N] [--seed N] [--env KIND:NAME] [--card F]
+                 [--current default|0|SPEED,TOWARD_DEG] [--set K=V]... [--json] [--dry-run]
+                                 the T1 world: no player, no window (Docs/SimT1.md); --odom truth turns
+                                 localization off and publishes /odom/local and TF itself; --rate N runs at N x real time
     crane sim down [--json]      stop what up started (its player's process group and its ROS container only)
     crane sim restart nav|ros|player [--json]   restart one part, keep the rest (nav: only the Nav2 nodes, to read new
                                  nav2_limits; ros: the ROS container, the player stays; player: the player, ROS stays)
     crane sim status [--json]    the status block: mode, domain, port, pids, current, logs, the next commands
     crane sim check [--wait S] [--json]   live readiness: player, course, plant, ROS side, nodes, player errors
-    crane sim logs [player|stdout|ros] [-n LINES]   the last lines of each log
+    crane sim logs [player|stdout|ros|t1] [-n LINES]   the last lines of each log (the running tier's by default)
 
 crane sim names its verb (bare sim_up still means up). The domain (default config/sim.yaml's, boat) names everything
 specific in config/domains/<domain>.yaml tiers.T2. --display auto (the default): a window when stdin is a terminal
 and DISPLAY or WAYLAND_DISPLAY is set, else headless under xvfb-run, so agents and scripts stay headless.
---current default is the scene's current, 0 still water (for characterization). up runs T2 only; --tier T1/T0
-refuse and name crane run, the batch form of those tiers. The player
+--current default is the scene's current, 0 still water (for characterization). --tier T1 runs the plant-card
+twin as the ROS world (no player, Docs/SimT1.md); --tier T0 refuses and names crane run. The T2 player
 always runs through the host guard (`heavy unity`). up waits up to the ROS endpoint's endpoint_s (60 s) and the
 course's ready_s (300 s, SIM_UP_READY_S). --json: progress on stderr, the status as one JSON document on stdout.
 up --dry-run prints the resolved player argv and the ROS side's docker run, and starts nothing.
@@ -37,7 +42,7 @@ from crane.sim.config import SimError
 VERBS = ('up', 'down', 'restart', 'status', 'check', 'logs')
 TIERS = ('T2', 'T1', 'T0', 'unity', 'dynamic', 'abstract')
 TIER_ABOUT = {'T2': 'the Unity world: real time, full sensors and ROS (the default)',
-              'T1': 'the dynamic plant-card twin: fast, no rendered sensors (crane run --tier T1)',
+              'T1': 'the dynamic plant-card twin: no Unity, the same ROS topics, can run faster than real time',
               'T0': 'abstract or kinematic, no forces (crane run --tier T0)'}
 
 
@@ -85,7 +90,7 @@ def _parser(verb):
         p.add_argument('--current', metavar='default|0|SPEED,TOWARD_DEG',
                        help='the water current: default (the scene), 0 (still water) or m/s,deg')
         p.add_argument('--display', choices=('auto', 'window', 'headless'), default='auto')
-        p.add_argument('--tier', choices=TIERS, default='T2', help='T2 only (T1/T0: crane run)')
+        p.add_argument('--tier', choices=TIERS, default='T2', help='T2 (unity, the default) or T1 (the twin, no player)')
         p.add_argument('--list', choices=('seed', 'env', 'current', 'tier'), help='print the choices and exit')
         p.add_argument('--window', dest='display', action='store_const', const='window')
         p.add_argument('--headless', dest='display', action='store_const', const='headless')
@@ -93,6 +98,9 @@ def _parser(verb):
         p.add_argument('--robot', help='the domain robot (default its robot.default)')
         p.add_argument('--set', dest='sets', action='append', default=[], metavar='K=V', help='pin a world parameter')
         p.add_argument('--dry-run', action='store_true', help='print the resolved player argv and docker run; start nothing')
+        p.add_argument('--odom', choices=('sensors', 'truth'), help='T1: raw sensors for the real EKFs (default), or '
+                       'truth odometry and TF with localization off')
+        p.add_argument('--rate', type=float, metavar='N', help='T1: N x real time (default 1)')
     if verb == 'restart':
         p.add_argument('what', choices=('nav', 'ros', 'player'), help='the part to restart')
     if verb in ('up', 'down', 'restart', 'status'):
@@ -106,6 +114,30 @@ def _parser(verb):
 def _usage(stream=sys.stdout):
     """The usage text under the name this ran as (crane sim, or sim_up through the shim)."""
     print(__doc__.strip().replace('crane sim', config.invoked_as()), file=stream)
+
+
+def _up_tier(o, extra):
+    """up's tier (T1 or T2), refusing the flags the other tier has no use for (one line, exit 2)."""
+    from crane import tiers
+    try:
+        tier = tiers.normalise(o.tier)
+    except ValueError as error:
+        raise SimError(str(error)) from None
+    if tier not in ('T1', 'T2'):
+        raise SimError(f'up starts T2 or T1 worlds; {tier} runs as a batch: crane run --domain {o.domain or "boat"} '
+                       f'--tier {tier} --seeds 0:4')
+    if tier == 'T2':
+        given = [f for f, v in (('--odom', o.odom), ('--rate', o.rate)) if v is not None]
+        if given:
+            raise SimError(f'{given[0]} is for the T1 world: {config.invoked_as()} up --tier T1 {given[0]} ...')
+        return tier
+    given = [f for f, v in (('--profile', o.profile), ('--player', o.player), ('-- PLAYER_ARGS', extra or None))
+             if v is not None]
+    if given:
+        raise SimError(f'{given[0]} is for the T2 player; the T1 world runs no player')
+    if o.rate is not None and not o.rate > 0:
+        raise SimError(f'--rate wants a positive factor of real time, got {o.rate:g}')
+    return tier
 
 
 def main(argv=None):
@@ -141,17 +173,13 @@ def main(argv=None):
                 if o.env:
                     raise SimError('give --env or --course, not both')
                 o.env = f'course:{o.course}'
-        cfg, t2 = config.domain(o.domain)
+        tier = _up_tier(o, extra) if verb == 'up' else None
+        cfg, t2 = config.domain(o.domain, tier, getattr(o, 'odom', None))
         run = config.run_dir()
         if verb == 'up' and o.list:
             for value, about in choices(o.list, cfg, t2):
                 print(f'{value}\t{about}')
             return 0
-        if verb == 'up' and o.tier not in ('T2', 'unity'):
-            tier = {'dynamic': 'T1', 'abstract': 'T0'}.get(o.tier, o.tier)
-            raise SimError(f'up starts the T2 world only; {tier} runs as a batch: crane run --domain '
-                           f'{cfg.get("name") or o.domain or "boat"} --tier {tier} --seeds 0:4 (a ROS-facing T1 world '
-                           'is being built separately)')
         if verb == 'up':
             return world.up(cfg, t2, run, o)
         if verb == 'down':
@@ -164,7 +192,7 @@ def main(argv=None):
         bad = [w for w in o.which if w not in world.LOGS]
         if bad:
             raise SimError(f"no log {bad[0]!r}; choose {', '.join(world.LOGS)}")
-        return world.logs(run, tuple(o.which), o.lines)
+        return world.logs(run, tuple(o.which), o.lines, t2.get('tier') or 'T2')
     except resolver.ConfigError as error:
         print(f'{config.invoked_as()}: {error}', file=sys.stderr)
         return 2

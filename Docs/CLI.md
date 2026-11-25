@@ -37,7 +37,7 @@ Exit codes: 0 ok; 1 a check or run failed (judge FAIL included); 2 usage or conf
 
 ## sim
 
-The full 3-D simulator (T2): start it, stop it, check it, read its logs.
+The live simulator the robot software drives: the full 3-D world (T2) or its light twin (T1).
 
 ### crane sim up
 
@@ -46,6 +46,8 @@ crane sim up
 crane sim up --current 0
 crane sim up --headless --seed 3
 crane sim up --card characterized --headless
+crane sim up --tier T1
+crane sim up --tier T1 --odom truth --rate 2
 crane sim up --dry-run
 ```
 
@@ -53,7 +55,7 @@ Start the simulator and wait until the course is ready to drive.
 
 What you'll see: a line as each part starts, then a status block (what is running, where the logs are) ending with next:.
 
-Works with no options: the default course, its normal water current, seed 1, and a window if you have a screen. It waits about 6 minutes at most, and refuses if a sim is already running (run crane sim down first).
+Works with no options: the default course, its normal water current, seed 1, and a window if you have a screen; --tier T1 starts the light twin instead (no 3-D world, can run faster). It waits about 6 minutes at most, and refuses if a sim is already running (run crane sim down first).
 
 | Param | Type | Description |
 |---|---|---|
@@ -64,7 +66,9 @@ Works with no options: the default course, its normal water current, seed 1, and
 | `--current` | str | The water current: default (the course's own, 0.15 metres per second toward 270 degrees), 0 for still water, or SPEED,TOWARD_DEG, e.g. 0.3,90. (default `default`) |
 | `--display` | str | auto opens a window when you have a screen and runs without one otherwise; --window and --headless are shortcuts. One of `auto`, `window`, `headless`. (default `auto`) |
 | `--player` | path | The simulator program to run, e.g. Builds/CRANE-Worker/CRANE.x86_64 (default auto: the newest one found). |
-| `--tier` | str | How detailed the sim is: T2 is the full 3-D simulator with ROS (default); T1 and T0 run through crane run instead. One of `T2`, `T1`, `T0`. (default `T2`) |
+| `--tier` | str | How detailed the sim is: T2 is the full 3-D simulator (default); T1 is the light twin with the same robot software connections, no 3-D world, and can run faster; T0 runs only through crane run. One of `T2`, `T1`, `T0`. (default `T2`) |
+| `--odom` | str | T1 only: sensors feeds the robot's own position estimate like on the water (default); truth hands it perfect positions instead. One of `sensors`, `truth`. (default `sensors`) |
+| `--rate` | float | T1 only: how many times faster than real time to run, e.g. 2 (default 1). (default `1`) |
 | `--robot` | str | Which robot to put in the world, e.g. blastoise (the default). (default `blastoise`) |
 | `--set` | str | Pin one course setting as TASK_ID.PARAM=VALUE, e.g. a gate spacing in metres; give it again for more (default none). (default `none`) |
 | `--domain` | str | Which kind of robot world to use, e.g. boat (the default) or sub. (default `boat`) |
@@ -73,7 +77,7 @@ Works with no options: the default course, its normal water current, seed 1, and
 
 raw: `Tools/RoboBoat/sim_up up`; --json: `crane.sim.status/1`
 
-Details: Starts the Unity player through heavy unity plus its ROS side (the sim_up_ros container), then prints the status block (mode, ROS_DOMAIN_ID, endpoint, player pgid, ROS container, course, current, logs, next:). Waits up to 60 s for the ROS endpoint and 300 s (SIM_UP_READY_S) for the course. --tier T1/T0 refuse in one line naming crane run (the batch form of those tiers). --dry-run prints the resolved player argv and docker run (crane.sim.plan/1 with --json). Exit 0 ready, 1 the world failed, 2 usage, config or a sim already running. Everything specific comes from config/domains/DOMAIN.yaml tiers.T2. Env: ROS_DOMAIN_ID, ASTRO_STATE / MHSEALS_HARDWARE_CONFIG (passed into the ROS side), the image env, SIM_UP_*, CRANE_PLAYER, HEAVY. Same as Tools/RoboBoat/sim_up up.
+Details: Starts the Unity player through heavy unity plus its ROS side (the sim_up_ros container), then prints the status block (mode, ROS_DOMAIN_ID, endpoint, player pgid, ROS container, course, current, logs, next:). Waits up to 60 s for the ROS endpoint and 300 s (SIM_UP_READY_S) for the course. --tier T1 (tiers.T1.sim, Docs/SimT1.md): no Unity; a ROS node steps the plant-card twin and publishes what the player does (/crane/odom, /imu/raw, /gps/fix, /clock; /odom/mavros with --odom sensors; /odom/local, /odom/global and TF with --odom truth, which turns localization off) and drives on /thrusters/pwm. --tier T0 refuses naming crane run. --dry-run prints the resolved player argv and docker run (crane.sim.plan/1 with --json). Exit 0 ready, 1 the world failed, 2 usage, config or a sim already running. Everything specific comes from config/domains/DOMAIN.yaml tiers.T2. Env: ROS_DOMAIN_ID, ASTRO_STATE / MHSEALS_HARDWARE_CONFIG (passed into the ROS side), the image env, SIM_UP_*, CRANE_PLAYER, HEAVY. Same as Tools/RoboBoat/sim_up up.
 
 ### crane sim down
 
@@ -116,7 +120,7 @@ Use nav after editing nav settings: only the navigation restarts, so the course 
 
 raw: `docker exec CONTAINER pkill ...; docker exec -d CONTAINER ros2 launch ...`; --json: `crane.sim.restart/1`
 
-Details: nav stops the nav nodes named by the domain recipe (tiers.T2.ros.restart.nav) inside the ROS container, starts them again from the same launch (only:=navigation), and waits up to the recipe's ready_s (90 s) for bt_navigator to be active; a domain without the recipe refuses and names `restart ros`. ros re-runs the saved docker run, waits up to 60 s for the endpoint and 120 s for the ready nodes. player re-runs the saved player argv and waits up to 300 s (SIM_UP_READY_S) for the course. --json: {schema, restarted, ready, at, status}. Exit 0 ok, 1 failed, 2 usage, config or nothing running, 75 timed out waiting.
+Details: T1: ros restarts the twin node with the container (from the course start); player refuses. nav stops the nav nodes named by the domain recipe (tiers.T2.ros.restart.nav) inside the ROS container, starts them again from the same launch (only:=navigation), and waits up to the recipe's ready_s (90 s) for bt_navigator to be active; a domain without the recipe refuses and names `restart ros`. ros re-runs the saved docker run, waits up to 60 s for the endpoint and 120 s for the ready nodes. player re-runs the saved player argv and waits up to 300 s (SIM_UP_READY_S) for the course. --json: {schema, restarted, ready, at, status}. Exit 0 ok, 1 failed, 2 usage, config or nothing running, 75 timed out waiting.
 
 ### crane sim status
 
@@ -170,7 +174,7 @@ What you'll see: the last lines of each log, under its file path.
 
 | Param | Type | Description |
 |---|---|---|
-| `which` | list | Which logs: player, stdout or ros (default all three). One of `player`, `stdout`, `ros`. |
+| `which` | list | Which logs: player, stdout, ros or t1 (default the running tier's). One of `player`, `stdout`, `ros`, `t1`. |
 | `-n` | int | How many lines of each log to show, e.g. 100 (default 40). (default `40`) |
 
 raw: `Tools/RoboBoat/sim_up logs`

@@ -4,7 +4,9 @@
     crane sim check CHECK INPUTS...                          an offline Tools/SimCheck check (axis, sitl, ...)
 
 Rows: the player runs, the course is ready (the domain's ready_marker), the plant was applied (plant_marker),
-the ROS container runs, its ready_nodes are in `ros2 node list`, the player log has no exceptions.
+the ROS container runs, its ready_nodes are in `ros2 node list`, the player log has no exceptions. For a T1 world
+(crane sim up --tier T1) the T1 node stands where the player does: its heartbeat, its ready and plant lines, its log
+without a traceback; the ready nodes are the odom mode's.
 Exit 0 ready, 1 not ready, 2 usage, 75 when --wait SECONDS pass first.
 """
 
@@ -74,6 +76,8 @@ def live(run=None):
     """[(name, ok, detail)] for the running sim. The player's log is read only while the player runs."""
     run = run or _run()
     t2, container = _t2(), _container()
+    if t2.get('tier') == 'T1':
+        return _live_t1(run, t2, container)
     ready, plant = t2.get('ready_marker') or 'CRANE_READY', t2.get('plant_marker') or 'CRANE_PLANT_APPLIED'
     want = tuple(_ros().get('ready_nodes') or ())
     truth = (t2.get('truth') or {}).get('file') or 'course_truth.json'
@@ -96,6 +100,35 @@ def live(run=None):
          (f'{", ".join(want)}' if not missing else f'no {", ".join(missing)} in ros2 node list')
          if up and nodes is not None else f'cannot read ros2 node list in {container}'),
         ('no player errors', running and not errors, (errors[0][:160] if errors else str(log)) if running else gone),
+    ]
+
+
+def _live_t1(run, sec, container):
+    from crane.sim import t1
+    ready, plant = sec.get('ready_marker') or 'CRANE_T1_READY', sec.get('plant_marker') or 'CRANE_T1_PLANT'
+    want = tuple(_ros().get('ready_nodes') or ())
+    truth = (sec.get('truth') or {}).get('file') or 'course_truth.json'
+    log = run / t1.LOG
+    beat = t1.heartbeat(run)
+    text = log.read_text(errors='replace') if log.is_file() else ''
+    errors = [line for line in text.splitlines() if line.startswith('Traceback') or 'Error' in line.split(':')[0]]
+    up = _container_running()
+    nodes = _nodes() if up else None
+    missing = [n for n in want if not any(n in line for line in (nodes or []))]
+    odom = (run / 'odom').read_text().strip() if (run / 'odom').is_file() else sec.get('odom')
+    gone = f'T1 node not running; see {log}'
+    return [
+        ('T1 node running', beat is not None,
+         f"t {beat['t_sim']:.1f} s sim, {beat['rate']:g}x real time, odom {odom}" if beat else
+         f'no fresh heartbeat in {run / t1.ALIVE}; crane sim up --tier T1'),
+        ('course ready', ready in text, str(run / truth) if beat else gone),
+        ('plant applied', plant in text,
+         next((l.strip() for l in text.splitlines() if plant in l), f'no {plant} line in {log}')),
+        ('ROS side running', up, f'container {container}' + ('' if up else ' is not running')),
+        ('nav stack up', up and nodes is not None and not missing,
+         (f'{", ".join(want)}' if not missing else f'no {", ".join(missing)} in ros2 node list')
+         if up and nodes is not None else f'cannot read ros2 node list in {container}'),
+        ('no world errors', bool(text) and not errors, errors[0][:160] if errors else str(log)),
     ]
 
 

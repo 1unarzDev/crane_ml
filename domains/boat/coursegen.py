@@ -1,6 +1,7 @@
 """Write course truths for seeds the boat's scenario folder lacks, with crane's coursegen.
 
     python3 domains/boat/coursegen.py FROM:TO DIR     # seeds FROM..TO-1; existing files are kept
+    truth('roboboat_2026', 3, ['entry_gates.cc=2.4'], 'course_truth.json')   # one seed (crane sim up --tier T1)
 
 coursegen (Tools/RoboBoat/cli) targets .NET 10. It is built once per generator source into
 ``~/.cache/crane/coursegen/<sha>``; without a 10.x SDK the newest installed SDK builds it for its
@@ -60,6 +61,17 @@ def generate(seeds_from, seeds_to, folder):
             if not (folder / f.name).exists():
                 json.loads(f.read_text())
                 shutil.copyfile(f, folder / f.name)
+
+
+def truth(family, seed, sets, out):
+    """Write the course truth of (family, seed, sets ['task.param=value']) to OUT, as the player would build it."""
+    args = ['--seed', str(seed), '--family', family, '--out', str(out)]
+    for kv in sets or ():
+        args += ['--set', kv]
+    run = subprocess.run(['dotnet', str(build()), *args], capture_output=True, text=True,
+                         env={**os.environ, 'DOTNET_ROLL_FORWARD': 'Major'})
+    if run.returncode != 0:
+        raise RuntimeError((run.stderr.strip().splitlines() or [f'exit {run.returncode}'])[-1])
 
 
 if __name__ == '__main__':

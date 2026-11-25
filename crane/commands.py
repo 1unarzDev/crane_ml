@@ -89,7 +89,7 @@ P = Param
 JSON, QUIET, DRY = 'json', 'quiet', 'dry_run'
 
 NOUNS = [
-    Noun('sim', 'The full 3-D simulator (T2): start it, stop it, check it, read its logs', owner='crane.wrap:sim'),
+    Noun('sim', 'The live simulator the robot software drives: the full 3-D world (T2) or its light twin (T1)', owner='crane.wrap:sim'),
     Noun('run', 'Simulate many seeds quickly in the light simulators (T0, T1) and save each one'),
     Noun('study', 'Plan, run and analyse an experiment: several settings over many seeds, compared fairly'),
     Noun('runs', 'Find and inspect runs you already have: list, search, show one, compare two'),
@@ -133,12 +133,15 @@ COMMANDS = [
             about='a line as each part starts, then a status block (what is running, where the logs are) ending '
                   'with next:.',
             notes='Works with no options: the default course, its normal water current, seed 1, and a window if you '
-                  'have a screen. It waits about 6 minutes at most, and refuses if a sim is already running '
+                  'have a screen; --tier T1 starts the light twin instead (no 3-D world, can run faster). It waits about 6 minutes at most, and refuses if a sim is already running '
                   '(run crane sim down first).',
             details='Starts the Unity player through heavy unity plus its ROS side (the sim_up_ros container), then '
                     'prints the status block (mode, ROS_DOMAIN_ID, endpoint, player pgid, ROS container, course, '
                     'current, logs, next:). Waits up to 60 s for the ROS endpoint and 300 s (SIM_UP_READY_S) for the '
-                    'course. --tier T1/T0 refuse in one line naming crane run (the batch form of those tiers). '
+                    'course. --tier T1 (tiers.T1.sim, Docs/SimT1.md): no Unity; a ROS node steps the plant-card twin and '
+                    'publishes what the player does (/crane/odom, /imu/raw, /gps/fix, /clock; /odom/mavros with '
+                    '--odom sensors; /odom/local, /odom/global and TF with --odom truth, which turns localization off) '
+                    'and drives on /thrusters/pwm. --tier T0 refuses naming crane run. '
                     '--dry-run prints the resolved player argv and docker run (crane.sim.plan/1 with --json). Exit 0 '
                     'ready, 1 the world failed, 2 usage, config or a sim already running. Everything specific comes '
                     'from config/domains/DOMAIN.yaml tiers.T2. Env: ROS_DOMAIN_ID, ASTRO_STATE / '
@@ -162,7 +165,13 @@ COMMANDS = [
                     P('--player', 'path', description='The simulator program to run, e.g. '
                       'Builds/CRANE-Worker/CRANE.x86_64 (default auto: the newest one found).'),
                     P('--tier', choices=('T2', 'T1', 'T0'), default='T2', description='How detailed the sim is: T2 '
-                      'is the full 3-D simulator with ROS (default); T1 and T0 run through crane run instead.'),
+                      'is the full 3-D simulator (default); T1 is the light twin with the same robot software '
+                      'connections, no 3-D world, and can run faster; T0 runs only through crane run.'),
+                    P('--odom', choices=('sensors', 'truth'), default='sensors', description='T1 only: sensors feeds '
+                      "the robot's own position estimate like on the water (default); truth hands it perfect "
+                      'positions instead.'),
+                    P('--rate', 'float', metavar='N', default=1, description='T1 only: how many times faster than '
+                      'real time to run, e.g. 2 (default 1).'),
                     sel('robot', default='blastoise', free="a robot name from the domain's config",
                         description='Which robot to put in the world, e.g. blastoise (the default).'),
                     P('--set', metavar='K=V', repeat=True, default='none', free='a course setting name and value',
@@ -175,7 +184,8 @@ COMMANDS = [
                     P('--json', 'bool', description='Print the final status as one JSON document for scripts; '
                       'progress goes to stderr.')),
             examples=('crane sim up', 'crane sim up --current 0', 'crane sim up --headless --seed 3',
-                      'crane sim up --card characterized --headless', 'crane sim up --dry-run'),
+                      'crane sim up --card characterized --headless', 'crane sim up --tier T1',
+                      'crane sim up --tier T1 --odom truth --rate 2', 'crane sim up --dry-run'),
             raw='Tools/RoboBoat/sim_up up'),
     Command(('sim', 'down'), 'Stop the simulator that crane sim up started.', 'crane.wrap:sim', passthrough=True,
             flags=(JSON,), json='crane.sim.down/1', export=True, about='one line saying what was stopped.',
@@ -191,7 +201,8 @@ COMMANDS = [
             about='one line per step, then `crane sim: PART restarted, ready: ...` and next:.',
             notes='Use nav after editing nav settings: only the navigation restarts, so the course and boat stay '
                   'where they are. Any goal the boat was driving to is lost.',
-            details='nav stops the nav nodes named by the domain recipe (tiers.T2.ros.restart.nav) inside the ROS '
+            details='T1: ros restarts the twin node with the container (from the course start); player refuses. '
+                    'nav stops the nav nodes named by the domain recipe (tiers.T2.ros.restart.nav) inside the ROS '
                     'container, starts them again from the same launch (only:=navigation), and waits up to the '
                     "recipe's ready_s (90 s) for bt_navigator to be active; a domain without the recipe refuses and "
                     'names `restart ros`. ros re-runs the saved docker run, waits up to 60 s for the endpoint and '
@@ -236,8 +247,8 @@ COMMANDS = [
             about='the last lines of each log, under its file path.',
             details='The logs: player (the Unity player log), stdout (its console output) and ros (the ROS container). '
                     'Same as Tools/RoboBoat/sim_up logs.',
-            params=(P('which', 'list', nargs='*', choices=('player', 'stdout', 'ros'),
-                      description='Which logs: player, stdout or ros (default all three).'),
+            params=(P('which', 'list', nargs='*', choices=('player', 'stdout', 'ros', 't1'),
+                      description='Which logs: player, stdout, ros or t1 (default the running tier\'s).'),
                     P('-n', 'int', default=40, description='How many lines of each log to show, e.g. 100 (default 40).')),
             examples=('crane sim logs ros -n 100',), raw='Tools/RoboBoat/sim_up logs'),
 
