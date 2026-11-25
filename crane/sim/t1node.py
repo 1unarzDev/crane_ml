@@ -265,13 +265,18 @@ class Node:
                 QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL))
             self.msgs.update(PointCloud2=PointCloud2, OccupancyGrid=OccupancyGrid)
         node.create_subscription(UInt16MultiArray, w['command']['topic'], lambda m: twin.command(m.data), 10)
+        # the reset service is a coroutine that stays pending while it waits; in the default (mutually exclusive)
+        # callback group it would block the odom subscription that ends the wait, so both are reentrant
+        from rclpy.callback_groups import ReentrantCallbackGroup
+        self.reset_group = ReentrantCallbackGroup()
         if not self.truth_mode:               # the reply waits for the EKF's estimate (truth mode: the node's own)
-            node.create_subscription(Odometry, w['estimate']['local'], self._on_local, 10)
+            node.create_subscription(Odometry, w['estimate']['local'], self._on_local, 10,
+                                     callback_group=self.reset_group)
         wait = w.get('reset_wait') or {}
         self.tol_m, self.tol_rad = float(wait.get('tolerance_m', 0.1)), float(wait.get('tolerance_rad', 0.05))
         self.reset_timeout = float(wait.get('timeout_s', 3.0))
         self.pending = None                   # the reset being waited on: {future, start, since, wall, last}
-        node.create_service(Trigger, w['reset'], self._reset)
+        node.create_service(Trigger, w['reset'], self._reset, callback_group=self.reset_group)
         self.next = {k: 0.0 for k in ('truth', 'fcu', 'imu', 'gps', 'estimate', 'lidar')}
 
     async def _reset(self, request, response):
