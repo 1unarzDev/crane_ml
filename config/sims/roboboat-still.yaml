@@ -1,0 +1,6 @@
+about: RoboBoat 2026 course in still water with the characterized boat card, for characterization tests and fit checks
+domain: boat
+course: roboboat_2026
+fidelity: low
+card: characterized
+current: '0'
