@@ -78,13 +78,50 @@ def checks():
     rows.append(('heavy', 'ok' if os.access(paths.HEAVY, os.X_OK) else 'FAIL', str(paths.HEAVY)))
     dock = paths.ASTRO_DOCK
     sim_profile = dock / 'profiles' / 'sim' / 'profile.yaml'
-    rows.append(('astro_dock', 'ok' if sim_profile.is_file() else 'missing',
-                 f'{dock} (sim profile)' if sim_profile.is_file() else f'no {sim_profile}: crane sim needs astro'))
+    rows.append(('astro_dock', 'ok' if sim_profile.is_file() else 'off',
+                 f'{dock} (sim profile): the astro stack' if sim_profile.is_file() else
+                 'optional: without it crane sim runs its own bridge stack'))
     rows.append(('docker', 'ok' if shutil.which('docker') else 'missing', 'the ROS side of crane sim'))
+    rows.append(('bridge image', *_bridge_image()))
+    rows.append(('xvfb-run', 'ok' if shutil.which('xvfb-run') else 'off',
+                 'headless T2 sims' if shutil.which('xvfb-run') else
+                 'no headless T2 here: install xvfb (e.g. sudo pacman -S xorg-server-xvfb, sudo apt install xvfb), '
+                 'or crane sim use SIM --display window'))
+    rows.append(('sim', *_machine_sim()))
     rows.append(('gpu', *_gpu()))
     research = paths.research_cli()
     rows.append(('cluster', 'ok' if research else 'missing', str(research) if research else 'no research CLI'))
     return rows
+
+
+def _bridge_image():
+    from crane import miniyaml
+    try:
+        spec = (miniyaml.safe_load((paths.CONFIG / 'stacks' / 'bridge.yaml').read_text())['T2']['ros']['image'])
+    except (OSError, KeyError, TypeError, ValueError):
+        return 'off', 'no config/stacks/bridge.yaml'
+    img = os.environ.get(spec.get('env') or '') or spec.get('default')
+    if not shutil.which('docker'):
+        return 'off', f'{img}: needs docker'
+    try:
+        found = subprocess.run(['docker', 'image', 'inspect', img], capture_output=True, timeout=20).returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        found = False
+    return ('ok', f'{img} (crane sim --stack bridge)') if found else \
+        ('off', f'{img} not built: docker build -t {img} {paths.ROOT / (spec.get("build") or "docker/bridge")}')
+
+
+def _machine_sim():
+    from crane.sim import recipe
+    try:
+        name = recipe.default_name()
+        r = recipe.resolve(name)
+    except (recipe.RecipeError, OSError) as error:
+        return 'warn', f'{recipe.machine_path()}: {error}'
+    v = r.values
+    what = f"{v['domain']} {v.get('fidelity') or v['tier']}" + (f", display {v['display']}" if v.get('display') else '')
+    return ('ok', f'{name} ({what}; crane sim up starts it)') if name else \
+        ('off', f'no default sim ({what}); pick one: crane sim list, crane sim use SIM')
 
 
 def _gpu():
@@ -106,8 +143,8 @@ def next_commands(rows):
     domains = sorted(p.stem for p in paths.DOMAINS.glob('*.yaml'))
     source = f'--domain {"toy" if "toy" in domains else domains[0]}' if domains else '--config DOMAIN.yaml'
     out = [f'crane run {source} --seeds 0:3']
-    if state.get('player') == 'ok' and state.get('astro_dock') == 'ok':
-        out.append('crane sim up --headless ; crane sim status')
+    if state.get('player') == 'ok' and state.get('docker') == 'ok':
+        out.append('crane sim up' if state.get('sim') == 'ok' else 'crane sim list ; crane sim use SIM ; crane sim up')
     elif state.get('player') != 'ok':
         out.append(f'crane build player   (a Unity editor), or set CRANE_PLAYER to a player that has {required_flag()}')
     if 'boat' in domains:

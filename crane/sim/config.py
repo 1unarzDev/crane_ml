@@ -1,6 +1,6 @@
 """Where crane sim's settings come from: the environment, the host tooling's profiles, the domain config.
 
-The domain's ``tiers.T2.host`` block names the host tooling the world stands in for (its checkout, its vessel
+The domain's ``tiers.T2.host`` block (laid in by the stack, crane/sim/stacks.py) names the host tooling the world stands in for (its checkout, its vessel
 profiles, the env that marks a ROS_DOMAIN_ID as its own, its heavy guard and its up command); ``tiers.T2.ros.image``
 names the image env. crane's own env: SIM_UP_VESSEL, SIM_UP_RUN (~/.cache/sim_up), SIM_UP_READY_S, CRANE_PLAYER,
 HEAVY (default crane's bin/heavy; ``none`` runs bare), CRANE_SIM_AS (the name messages carry; the sim_up shim sets it).

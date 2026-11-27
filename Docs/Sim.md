@@ -1,15 +1,73 @@
 # crane sim
 
 ```bash
-crane sim up --headless --seed 3 && crane sim check --wait 120
-astro on sim                     # then use it like the boat
+crane sim list                          # the sims you can start by name (* is this machine's default)
+crane sim up roboboat-high              # the RoboBoat course in the Unity world, full quality
+crane sim use roboboat-high --display window    # once per machine: a bare `crane sim up` starts it
+crane sim up && crane sim check --wait 120
+astro on sim                            # with astro: use it like the boat; without: eval "$(crane sim env)"
 crane sim down
 ```
 
-`crane sim` runs a domain's T2 world (the Unity player plus its ROS side) so it is used exactly like the robot.
-`astro sim up|down|status|check` calls it through the sim profile's `astro.sim`; `Tools/RoboBoat/sim_up` is its
-old name and passes every argument through (bare `sim_up` means `up`). Exit codes: 0 ok, 1 the world failed or
-is not ready, 2 usage or config.
+`crane sim` runs a domain's world (the Unity player, or the T1 twin) plus the robot software beside it, so it is used
+exactly like the robot. `astro sim up|down|status|check` calls it through the sim profile's `astro.sim`;
+`Tools/RoboBoat/sim_up` is its old name and passes every argument through (bare `sim_up` means `up`). Exit codes: 0
+ok, 1 the world failed or is not ready, 2 usage or config.
+
+## Choosing a sim
+
+Four words choose everything:
+
+| Word | What it is | Where it is defined |
+|---|---|---|
+| **sim** | a named recipe: domain, course, fidelity, and any other up setting | `config/sims/NAME.yaml`; your own in `~/.config/crane/sims/` (yours win by name) |
+| **fidelity** | `twin` (T1, no Unity), `low`, `high`, `eval` (T2 with the player's interactive-low, interactive-high, evaluation-high) | the domain's `fidelity:` ladder |
+| **stack** | the software beside the world: `astro` (the robot team's container), `bridge` (crane's ROS-TCP endpoint, bring your own nodes), `none` (the player alone) | the domain's `stacks:`, `config/stacks/bridge.yaml` |
+| **instance** | which parallel world: 0, 1 and up, or `auto` | `--instance`, `CRANE_SIM_INSTANCE` |
+
+- **Which sim.** The SIM word, else `CRANE_SIM`, else this machine's default, else the domain's defaults (today's
+  `roboboat`). `--domain` without a SIM word skips the machine's default.
+- **The layers**, lowest first: the domain's defaults, the sim file, this machine's `~/.config/crane/crane.yaml`
+  `sim:` block (`default`, `display`, `player`, `stack`; written by `crane sim use` and by `crane setup`), then
+  the flags. `crane sim show [SIM] [flags]` prints each value with where it came from.
+- **Expert overrides.** `--tier` and `--profile` beat the fidelity's. `--course NAME` (or `--env course:NAME`) picks
+  the course version: `crane sim up --list env` lists them.
+- **Stack auto.** astro when its checkout (`ASTRO_DOCK`, else `~/astro_dock`) is here, else bridge. The bridge
+  image is `docker build -t crane-bridge:jazzy docker/bridge`, with the team's ROS-TCP endpoint fork at astro's
+  commit.
+
+A sim file:
+
+```yaml
+about: RoboBoat 2026 course in the Unity world, full quality (needs a GPU)
+domain: boat
+course: roboboat_2026
+fidelity: high
+```
+
+### ROS domains
+
+You never set one. The sim's ROS_DOMAIN_ID is astro's sim profile's (101), or `config/sim.yaml` `ros_domain_base`
+(101) without astro, plus the instance number. A domain that a robot vessel profile names (blastoise's 42) is always
+refused, so a shell on the boat's vessel (`astro crane …` on the operator laptop) cannot put the sim on the boat's
+network. To connect, run `astro on sim` (the astro stack) or `eval "$(crane sim env)"` (any tool).
+
+### Running twice, people and scripts
+
+`up` writes `recipe.json` (the recipe, its identity and its owner) into the instance's state dir.
+
+- **The same sim already up, same owner:** it is reused at once (`--fresh` restarts it).
+- **A different sim up:** refused, naming `--fresh`, `--instance auto` and `down`.
+- **A person's sim and a script's up:** a terminal is a person; an agent, test or pipeline is a script
+  (`CRANE_SIM_OWNER` overrides). A script's T1 world goes to the next free instance. A T2 world is refused, because
+  the one Unity player runs one T2 world at a time.
+- **A script's down:** it never stops a person's sim without `--force`.
+
+### Watching
+
+`crane sim watch` brings a headless T2 player back in a window. Only the player restarts, so the ROS side and the
+course stay up and the boat goes back to the start. `crane sim restart player --display headless|window` does the
+same either way. A T1 world has no 3-D view: follow `/crane/odom` after `eval "$(crane sim env)"`.
 
 ## up
 
@@ -124,7 +182,11 @@ crane sim down
   flag bundle, `required_flag`, the course truth flag, the default current, the ready and plant markers, the ROS
   launch, container, image, mounts and ready nodes, and the `next:` lines. `env`, `robot` and `card` map the
   selectors to player flags. `crane/player.py` `resolve()` builds the player argv from them.
-- **Host tooling** (`tiers.T2.host`, for boat astro's):
+- **Stacks:** `stacks.NAME.T2` and `stacks.NAME.T1` lay over `tiers.T2` and `tiers.T1.sim` (`crane/sim/stacks.py`).
+  boat's `stacks.astro` holds the ROS side below (container `sim_up_ros`, the mhseals launch, mounts, restart
+  recipe) and the host tooling; `config/stacks/bridge.yaml` holds crane's (container `crane_sim_ros`, one command:
+  the endpoint, or `wait` beside the T1 node). The running world's stack is in the state dir's `stack`.
+- **Host tooling** (`stacks.astro.T2.host`, for boat astro's):
   - An exported `ROS_DOMAIN_ID` counts only when `vessel_env` names the sim vessel (boat: `ASTRO_VESSEL=sim`, as
     `astro sim` exports it). A shell on a robot's vessel exports the robot's domain, so it is ignored.
   - Otherwise the id comes from the vessel profile's `network.env` under `profiles` (boat: `ASTRO_PROFILES`, else

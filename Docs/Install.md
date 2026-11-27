@@ -35,7 +35,8 @@ The wizard runs in four steps:
    `crane update --player-only`.
 4. **Check.** `astro` checks each domain's T2 host tooling, read-only: its checkout, its vessel profile, a sim
    backend of `bin/crane sim` and crane's help.yaml. setup never builds astro images or workspaces. It then saves
-   the choices to `~/.config/crane/setup.json` and runs `crane doctor`.
+   the choices to `~/.config/crane/setup.json`, gives the machine a default sim when it has none (the chosen
+   domain's everyday one, in a window when there is no xvfb-run; `crane sim use SIM` changes it) and runs `crane doctor`.
 
 Ways to run it:
 - `--yes` asks nothing.

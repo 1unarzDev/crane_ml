@@ -14,7 +14,9 @@ container as T2, beside
 (`Tools/Characterization/plant.py`, the twin of the player's plant) at the card's `fixedDeltaTime` (0.02 s) on the
 PWM it receives, and publishes what the player publishes, under the same names, types and frames. No player, no
 Unity endpoint, no window. Everything specific (topics, rates, frames, lever arms, noise, overrides, ready nodes)
-is in `config/domains/boat.yaml` `tiers.T1.sim`; what it does not name comes from `tiers.T2`.
+is in `config/domains/boat.yaml` `tiers.T1.sim`, with the stack's T1 section over it (boat's `stacks.astro.T1`:
+the launch overrides and ready nodes); what it does not name comes from `tiers.T2`. `crane sim up roboboat-twin` and
+`roboboat-pool` are the named T1 sims; `--stack bridge` runs the node alone, with no robot software.
 
 ## Topics
 

@@ -10,6 +10,7 @@ sensors; ROS 2 supplies the planning, navigation, estimation, and control stack.
 ```bash
 ./install.sh --yes --components core,fast      # uv, a Python 3.12 venv at .venv, ~/.local/bin/crane
 crane doctor                                   # what works on this machine, and what to run next
+crane sim up roboboat-high                     # a live sim by name (crane sim list); astro optional
 crane run --domain toy --seeds 0:3             # one run dir per seed, under ~/.cache/crane/runs
 crane run --domain boat --tier T1 --engine batched --seeds 0:4096   # every seed at once (Docs/Engine.md)
 ```

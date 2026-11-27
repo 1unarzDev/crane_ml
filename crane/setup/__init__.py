@@ -112,7 +112,8 @@ def astro_checks(chosen_domains):
     rows = []
     for d in chosen_domains:
         try:
-            t2 = (load_domain(d).get('tiers') or {}).get('T2') or {}
+            from crane.sim import stacks
+            t2 = (stacks.apply(load_domain(d), 'astro').get('tiers') or {}).get('T2') or {}
         except ConfigError:
             continue
         if not t2.get('host'):
@@ -259,6 +260,11 @@ def main(args):
                                          'at': time.strftime('%Y-%m-%dT%H:%M:%S%z')}, indent=1) + '\n')
             results.append({'step': step, 'path': str(saved)})
             out.line(f'  saved {saved}')
+            picked = machine_sim(doms)
+            if picked:
+                results.append({'step': 'sim', **picked})
+                out.line(f"  this machine's sim: {picked['default']}" + (f", display {picked['display']}" if picked.get('display') else '')
+                         + ' (crane sim use SIM changes it)')
     from crane import doctor
     if out.json:
         rows = doctor.checks()
@@ -267,3 +273,21 @@ def main(args):
         return output.OK if not any(r[1] == 'FAIL' for r in rows) else output.FAILED
     return doctor.main(args)
 
+
+
+def machine_sim(domains):
+    """Give this machine a default sim when it has none: the first sim of the chosen domains (its everyday rung),
+    shown in a window when there is no xvfb-run. {default, display} written, or None (one is set already)."""
+    import shutil
+    from crane.sim import recipe
+    if recipe.machine().get('default'):
+        return None
+    found = [(n, doc) for n, (doc, _) in sorted(recipe.sims().items()) if doc.get('domain') in domains]
+    if not found:
+        return None
+    every = [n for n, doc in found if doc.get('fidelity') == 'low'] or [found[0][0]]
+    updates = {'default': every[0]}
+    if not shutil.which('xvfb-run') and not recipe.machine().get('display'):
+        updates['display'] = 'window'
+    recipe.save_machine(updates)
+    return updates
