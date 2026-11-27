@@ -77,7 +77,7 @@ def generate(seeds_from, seeds_to, folder):
     folder = Path(folder)
     folder.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
-        subprocess.run(['dotnet', str(build()), '--seeds', f'{seeds_from}:{seeds_to}', '--out', tmp],
+        subprocess.run(['dotnet', str(build()), '--root', str(ROOT), '--seeds', f'{seeds_from}:{seeds_to}', '--out', tmp],
                        check=True, capture_output=True, env={**os.environ, 'DOTNET_ROLL_FORWARD': 'Major'})
         for f in sorted(Path(tmp).glob('*.json')):
             if not (folder / f.name).exists():
@@ -87,7 +87,9 @@ def generate(seeds_from, seeds_to, folder):
 
 def truth(family, seed, sets, out):
     """Write the course truth of (family, seed, sets ['task.param=value']) to OUT, as the player would build it."""
-    args = ['--seed', str(seed), '--family', family, '--out', str(out)]
+    # --root: this checkout. The build is cached by source hash and shared by every checkout with those sources;
+    # the root baked into it is the one it was built in, which may since have changed or gone.
+    args = ['--root', str(ROOT), '--seed', str(seed), '--family', family, '--out', str(out)]
     for kv in sets or ():
         args += ['--set', kv]
     run = subprocess.run(['dotnet', str(build()), *args], capture_output=True, text=True,
