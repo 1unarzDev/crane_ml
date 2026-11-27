@@ -77,12 +77,14 @@ commands:
       - {name: what, choices: [nav, ros, player], description: "Which part to restart: nav (navigation only), ros (all the robot software) or player (the 3-D world).", required: true}
       - {name: words, type: list, default: none, description: "Only with nav: launch arguments for the navigation part, e.g. preset:=pool. They replace the ones from the last start; with none, those are used again (default none).", required: false}
       - {name: "--nav-args", default: none, description: "The same words in one quoted text, e.g. \"preset:=pool params_file:=/path/variant.yaml\"; a path must be under the workspace, ~/.config/astro or ~/.config/mhseals (default none).", free: several NAME:=VALUE words in one quoted text}
+      - {name: "--display", default: none, choices: [window, headless], description: "Only with player: bring it back in a window or headless (default none: as it was)."}
       - {name: "--instance", type: int, default: none, description: "Which parallel world to use, 0 for the default world, 1 and up, or auto for the first free one, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too)."}
       - {name: "--json", type: bool, description: "Print the result as one JSON document instead of text, for scripts."}
       - {name: "--domain", description: "Which kind of robot world is running, e.g. boat (the default).", free: "a domain name: one file per domain in config/domains"}
     examples:
       - crane sim restart nav
       - crane sim restart nav preset:=pool
+      - crane sim restart player --display window
       - crane sim restart player --json
 
   - name: crane sim status
@@ -166,6 +168,18 @@ commands:
     examples:
       - crane sim use roboboat-high
       - crane sim use roboboat-high --display window
+
+  - name: crane sim watch
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim watch
+    summary: Open a sim that runs headless in a window, without restarting the rest.
+    level: core
+    ros: crane sim restart player --display window
+    notes: Only the 3-D world restarts (the boat goes back to the start); the robot software and the course stay. Run it from the desktop session that has the screen.
+    details: "Same as crane sim restart player --display window. A T1 world has no 3-D view: follow /crane/odom after eval \"$(crane sim env)\"."
+    params:
+      - {name: "--instance", type: int, default: none, description: "Which parallel world to use, 0 for the default world, 1 and up, or auto for the first free one, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too)."}
+    examples:
+      - crane sim watch
 
   - name: crane sim env
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim env

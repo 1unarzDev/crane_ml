@@ -122,6 +122,7 @@ Details: Stops the player's process group (TERM, then KILL after 10 s) and the s
 ```sh
 crane sim restart nav
 crane sim restart nav preset:=pool
+crane sim restart player --display window
 crane sim restart player --json
 ```
 
@@ -136,6 +137,7 @@ Use nav after editing nav settings: only the navigation restarts, so the course 
 | `what` | str | Which part to restart: nav (navigation only), ros (all the robot software) or player (the 3-D world). One of `nav`, `ros`, `player`. |
 | `words` | list | Only with nav: launch arguments for the navigation part, e.g. preset:=pool. They replace the ones from the last start; with none, those are used again (default none). (default `none`) |
 | `--nav-args` | str | The same words in one quoted text, e.g. "preset:=pool params_file:=/path/variant.yaml"; a path must be under the workspace, ~/.config/astro or ~/.config/mhseals (default none). (default `none`) |
+| `--display` | str | Only with player: bring it back in a window or headless (default none: as it was). One of `window`, `headless`. (default `none`) |
 | `--instance` | int | Which parallel world to use, 0 for the default world, 1 and up, or auto for the first free one, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too). (default `none`) |
 | `--json` | bool | Print the result as one JSON document instead of text, for scripts. |
 | `--domain` | str | Which kind of robot world is running, e.g. boat (the default). |
@@ -269,6 +271,26 @@ e.g. crane sim use roboboat-high --display window on a laptop without xvfb; cran
 raw: `$EDITOR ~/.config/crane/crane.yaml`; --json: `crane.sim.use/1`
 
 Details: Writes the sim block of ~/.config/crane/crane.yaml (CRANE_CONFIG moves it): default, display, player, stack. Other blocks are kept.
+
+### crane sim watch
+
+```sh
+crane sim watch
+```
+
+Open a sim that runs headless in a window, without restarting the rest.
+
+What you'll see: the player restart lines, then `crane sim: player restarted, ready: ...`.
+
+Only the 3-D world restarts (the boat goes back to the start); the robot software and the course stay. Run it from the desktop session that has the screen.
+
+| Param | Type | Description |
+|---|---|---|
+| `--instance` | int | Which parallel world to use, 0 for the default world, 1 and up, or auto for the first free one, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too). (default `none`) |
+
+raw: `crane sim restart player --display window`
+
+Details: Same as crane sim restart player --display window. A T1 world has no 3-D view: follow /crane/odom after eval "$(crane sim env)".
 
 ### crane sim env
 

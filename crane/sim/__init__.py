@@ -6,6 +6,7 @@ as a ROS node beside the same ROS side), used exactly like the robot.
     crane sim list [--json]      the sims, this machine's default marked
     crane sim show [SIM] [up's flags] [--json]   the resolved settings, each with where it came from
     crane sim use SIM [--display window|headless|auto] [--stack S]   this machine's default sim (~/.config/crane/crane.yaml)
+    crane sim watch              open a headless T2 sim in a window (only the player restarts; ROS and the course stay)
     crane sim env                export lines for the running sim's ROS (eval "$(crane sim env)"), for tools other than astro
     crane sim up [--seed N] [--env KIND:NAME | --course FAMILY] [--card F | --profile-json F] [--profile P]
                  [--current default|0|SPEED,TOWARD_DEG] [--display auto|window|headless | --window | --headless]
@@ -55,7 +56,7 @@ import sys
 from crane.sim import config, place, recipe
 from crane.sim.config import SimError
 
-VERBS = ('up', 'down', 'restart', 'status', 'check', 'logs', 'list', 'show', 'use', 'env')
+VERBS = ('up', 'down', 'restart', 'status', 'check', 'logs', 'list', 'show', 'use', 'env', 'watch')
 TIERS = ('T2', 'T1', 'T0', 'unity', 'dynamic', 'abstract', 'auto')
 TIER_ABOUT = {'T2': 'the Unity world: real time, full sensors and ROS (the default)',
               'T1': 'the dynamic plant-card twin: no Unity, the same ROS topics, can run faster than real time',
@@ -154,7 +155,8 @@ def _parser(verb):
         p.add_argument('words', nargs='*', metavar='NAME:=VALUE', help='restart nav: navigation launch arguments')
         p.add_argument('--nav-args', action='append', default=[], metavar='"A:=x B:=y"',
                        help='several NAME:=VALUE at once, in one quoted string')
-    if verb in ('up', 'down', 'restart', 'status', 'list', 'show', 'use'):
+        p.add_argument('--display', choices=('window', 'headless'), help='restart player: in a window or headless')
+    if verb in ('up', 'down', 'restart', 'status', 'list', 'show', 'use', 'watch'):
         p.add_argument('--json', action='store_true', help='one JSON document on stdout')
     if verb == 'down':
         p.add_argument('--force', action='store_true', help="stop a person's sim from a script too")
@@ -292,7 +294,9 @@ def main(argv=None):
         if verb == 'restart':
             from crane.sim import restart
             return restart.run_restart(cfg, t2, run, o.what, o.json,
-                                       config.parse_nav(o.words, o.nav_args) or None)
+                                       config.parse_nav(o.words, o.nav_args) or None, o.display)
+        if verb == 'watch':
+            return _watch(cfg, t2, run)
         if verb == 'status':
             return world.status(cfg, t2, run, o.json)
         bad = [w for w in o.which if w not in world.LOGS]
@@ -448,3 +452,18 @@ def _guard_down(t2, run):
     if running and running.get('owner') == 'person' and place.caller() == 'script':
         raise SimError(f"the sim here was started by a person ({running.get('sim') or 'a sim'}); "
                        f'{config.invoked_as()} down --force stops it anyway')
+
+
+def _watch(cfg, t2, run):
+    """See the running sim: a headless T2 player comes back in a window (the ROS side and course stay up)."""
+    from crane.sim import restart, world
+    me = config.invoked_as()
+    if t2.get('tier') == 'T1':
+        raise SimError(f'the T1 world has no 3-D view; follow it with ros2 topic echo /crane/odom after eval "$({me} env)", '
+                       f'or start the 3-D world: {me} up --fidelity low', 2)
+    if not world.alive(run):
+        raise SimError(f'no player running here: {me} status', 2)
+    if (world._read(run / 'mode') or 'headless') == 'window':
+        print(f'{me}: already in a window')
+        return 0
+    return restart.run_restart(cfg, t2, run, 'player', False, None, 'window')

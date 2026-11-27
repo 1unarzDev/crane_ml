@@ -99,7 +99,8 @@ def state(cfg, t2, run):
         ready = False
     current = _read(run / 'current')
     truth = (t2.get('truth') or {}).get('file') or 'course_truth.json'
-    launch = str(ros.get('launch') or '').split(None, 1)
+    launch = str(ros.get('launch') or '').split(None, 1) if ros.get('launch') else \
+        ['', str(ros.get('command') or '').split(' --', 1)[0]]
     extra = {}
     if is_t1:
         extra = {'tier': 'T1', 'odom': _read(run / 'odom') or t2.get('odom'), 'rate': _read(run / 'rate') or None,

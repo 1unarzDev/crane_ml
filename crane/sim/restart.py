@@ -13,6 +13,7 @@ read it). Exit 0 ok, 1 the part failed, 2 usage or config (also: nothing running
 import json
 import os
 import shlex
+import shutil
 import subprocess
 import sys
 import time
@@ -230,8 +231,20 @@ def _read_port(run):
         raise SimError('no endpoint port in the state dir: crane sim up', 2) from None
 
 
-def player(cfg, t2, run, as_json=False):
-    """Stop the player's process group and start the argv up saved, in a new one; wait for the course."""
+def with_display(t2, argv, mode):
+    """The saved player argv with its display wrapper swapped for MODE (window or headless); the rest unchanged."""
+    try:
+        nice = argv.index('nice')
+        env = argv.index('env')
+    except ValueError:
+        raise SimError('the saved player launch has no display wrapper to swap; crane sim up --fresh', 2) from None
+    exe, args = argv[nice + 3], argv[nice + 4:]
+    return world.launch_cmd(t2, argv[:env], mode, exe, args)
+
+
+def player(cfg, t2, run, as_json=False, mode=None):
+    """Stop the player's process group and start the argv up saved (in MODE's display when given), in a new one;
+    wait for the course."""
     me = config.invoked_as()
     if t2.get('tier') == 'T1':
         raise SimError(f'restart player: the T1 world runs no player (its node runs in the ROS container); '
@@ -239,7 +252,16 @@ def player(cfg, t2, run, as_json=False):
     argv = world.saved_argv(run, 'player.argv')
     if not argv:
         raise SimError(f'no saved player launch in {run}: {me} up', 2)
-    _need_container(t2)
+    if (t2.get('ros') or {}).get('container'):
+        _need_container(t2)
+    if mode and mode != (world._read(run / 'mode') or 'headless'):
+        if mode == 'window' and not (os.environ.get('DISPLAY') or os.environ.get('WAYLAND_DISPLAY')):
+            raise SimError('a window needs a display (DISPLAY or WAYLAND_DISPLAY): run it from the desktop session', 2)
+        if mode == 'headless' and not shutil.which('xvfb-run'):
+            raise SimError('headless needs xvfb-run: install xvfb', 2)
+        argv = with_display(t2, argv, mode)
+        world.save_argv(run, 'player.argv', argv)
+        (run / 'mode').write_text(f'{mode}\n')
     pg = world._read(run / 'player.pid')
     if pg:
         try:
@@ -267,12 +289,20 @@ def player(cfg, t2, run, as_json=False):
     return {'restarted': 'player', 'ready': [t2.get('ready_marker')], 'at': stamp}
 
 
-def run_restart(cfg, t2, run, what, as_json=False, new=None):
-    """Restart WHAT and print the result; the exit code (SimError carries its own). new: nav arguments (nav only)."""
+def run_restart(cfg, t2, run, what, as_json=False, new=None, mode=None):
+    """Restart WHAT and print the result; the exit code (SimError carries its own). new: nav arguments (nav only);
+    mode: the player's display (player only)."""
     me = config.invoked_as()
     if new and what != 'nav':
         raise SimError(f'NAME:=VALUE arguments are for restart nav, not restart {what}')
-    result = nav(cfg, t2, run, as_json, new) if what == 'nav' else {'ros': ros, 'player': player}[what](cfg, t2, run, as_json)
+    if mode and what != 'player':
+        raise SimError(f'--display is for restart player, not restart {what}')
+    if what == 'nav':
+        result = nav(cfg, t2, run, as_json, new)
+    elif what == 'player':
+        result = player(cfg, t2, run, as_json, mode)
+    else:
+        result = ros(cfg, t2, run, as_json)
     if as_json:
         print(json.dumps({'schema': 'crane.sim.restart/1', **result, 'status': world.state(cfg, t2, run)}, indent=2))
     else:

@@ -264,13 +264,15 @@ COMMANDS = [
                       'quoted text', description='The same words in one quoted text, e.g. "preset:=pool '
                       'params_file:=/path/variant.yaml"; a path must be under the workspace, ~/.config/astro or '
                       '~/.config/mhseals (default none).'),
+                    P('--display', choices=('window', 'headless'), default='none', description='Only with '
+                      'player: bring it back in a window or headless (default none: as it was).'),
                     _instance(),
                     P('--json', 'bool', description='Print the result as one JSON document instead of text, for '
                       'scripts.'),
                     sel('domain', free='a domain name: one file per domain in config/domains',
                         description='Which kind of robot world is running, e.g. boat (the default).')),
             examples=('crane sim restart nav', 'crane sim restart nav preset:=pool',
-                      'crane sim restart player --json'),
+                      'crane sim restart player --display window', 'crane sim restart player --json'),
             raw='docker exec CONTAINER pkill ...; docker exec -d CONTAINER ros2 launch ...'),
     Command(('sim', 'status'), 'Show whether the simulator is running and where its parts and logs are; changes '
             'nothing.', 'crane.wrap:sim', passthrough=True, flags=(JSON,), json='crane.sim.status/1', export=True,
@@ -341,6 +343,15 @@ COMMANDS = [
                     P('--json', 'bool', description='Print the saved settings as JSON, for scripts.')),
             examples=('crane sim use roboboat-high', 'crane sim use roboboat-high --display window'),
             raw='$EDITOR ~/.config/crane/crane.yaml'),
+    Command(('sim', 'watch'), 'Open a sim that runs headless in a window, without restarting the rest.',
+            'crane.wrap:sim', passthrough=True, export=True,
+            about='the player restart lines, then `crane sim: player restarted, ready: ...`.',
+            notes='Only the 3-D world restarts (the boat goes back to the start); the robot software and the course '
+                  'stay. Run it from the desktop session that has the screen.',
+            details='Same as crane sim restart player --display window. A T1 world has no 3-D view: follow '
+                    '/crane/odom after eval "$(crane sim env)".',
+            params=(_instance(),),
+            examples=('crane sim watch',), raw='crane sim restart player --display window'),
     Command(('sim', 'env'), 'Print the lines that point your own ROS tools at the running sim (no astro needed).',
             'crane.wrap:sim', passthrough=True, export=True,
             about='export lines: ROS_DOMAIN_ID, ROS_AUTOMATIC_DISCOVERY_RANGE and the endpoint.',
@@ -1384,7 +1395,7 @@ def _entries():
 
 
 # astro's help browser: `astro help` shows `level: core` entries, `--all` adds `setup`. The everyday commands are core.
-CORE = frozenset({'crane sim', 'crane sim up', 'crane sim down', 'crane sim list', 'crane sim use', 'crane sim restart', 'crane sim status',
+CORE = frozenset({'crane sim', 'crane sim up', 'crane sim down', 'crane sim list', 'crane sim use', 'crane sim watch', 'crane sim restart', 'crane sim status',
                   'crane sim check', 'crane view', 'crane fit', 'crane compare', 'crane doctor'})
 # astro's picker (`choices_from`): a command printing one choice per line, run when the param is missing on a TTY.
 _RUNS = 'ls -1td ${CRANE_RUNS:-$HOME/.cache/crane/runs}/*/*/*/*/s* 2>/dev/null | head -n 30'   # DOMAIN/TIER/KEY/VARIANT/sN

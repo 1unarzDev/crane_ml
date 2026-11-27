@@ -120,3 +120,13 @@ def test_stacks_lay_over_the_domain_and_astro_is_todays_world(home, monkeypatch)
     assert 'ROS_DOMAIN_ID=101' in argv and 'crane-bridge:jazzy' in argv
     assert argv[-1].startswith('exec ros2 run ros_tcp_endpoint default_server_endpoint --ros-args -p ROS_IP:=127.0.0.1 '
                                '-p ROS_TCP_PORT:=10101 >')
+
+
+def test_watch_swaps_only_the_players_display_wrapper():
+    from crane.sim import restart
+    t2 = {'screen': [640, 480]}
+    headless = world.launch_cmd(t2, ['/x/heavy', 'unity'], 'headless', '/p/CRANE.x86_64', ['--crane-profile', 'interactive-high'])
+    window = restart.with_display(t2, headless, 'window')
+    assert window == ['/x/heavy', 'unity', 'env', 'SDL_VIDEODRIVER=x11', 'nice', '-n', '10', '/p/CRANE.x86_64',
+                      '--crane-profile', 'interactive-high']
+    assert restart.with_display(t2, window, 'headless') == headless
