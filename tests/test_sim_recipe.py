@@ -78,7 +78,7 @@ def test_a_scripts_up_goes_beside_a_persons_sim_and_its_down_leaves_it(home, mon
     monkeypatch.setattr(place, 'running_doc', lambda t2, run: busy.get(config.instance() or 0))
     started = {}
     monkeypatch.setattr(world, 'up',
-                        lambda cfg, t2, run, o: started.update(instance=config.instance(), run=run) or 0)
+                        lambda cfg, t2, run, o: world.remember(run, o) or started.update(instance=config.instance(), run=run) or 0)
     monkeypatch.setenv('CRANE_SIM_OWNER', 'script')
     assert sim.main(['up', 'roboboat-twin']) == 0
     assert started['instance'] == 1 and json.loads((started['run'] / 'recipe.json').read_text())['owner'] == 'script'

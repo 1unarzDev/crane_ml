@@ -43,6 +43,10 @@ The live simulator the robot software drives: the full 3-D world (T2) or its lig
 
 ```sh
 crane sim up
+crane sim up roboboat-high
+crane sim up roboboat-twin
+crane sim up --fidelity high --window
+crane sim up --stack bridge
 crane sim up --current 0
 crane sim up --headless --seed 3
 crane sim up --card characterized --headless
@@ -58,18 +62,22 @@ Start the simulator and wait until the course is ready to drive.
 
 What you'll see: a line as each part starts, then a status block (what is running, where the logs are) ending with next:.
 
-Works with no options: the default course, its normal water current, seed 1, and a window if you have a screen; --tier T1 starts the light twin instead (no 3-D world, can run faster). It waits about 6 minutes at most, and refuses if a sim is already running (run crane sim down first).
+Name the sim to start, e.g. crane sim up roboboat-high (crane sim list shows them); with none it starts this machine's default (crane sim use SIM). If the same sim is already up it is reused at once; a different one is refused (--fresh replaces it).
 
 | Param | Type | Description |
 |---|---|---|
+| `sim` | str | Which sim to start, e.g. roboboat-high (default auto: this machine's, from crane sim use; else the domain defaults). (default `auto`) |
+| `--fidelity` | str | How detailed the sim is: twin (light, no 3-D world), low, high or eval (default auto: the sim's, else low). (default `auto`) |
+| `--stack` | str | The software beside the world: astro (the robot's own), bridge (crane's ROS link, bring your own nodes) or none (default auto: astro when astro_dock is here, else bridge). (default `auto`) |
+| `--fresh` | bool | Restart the sim even if the same one is already up (default off). |
 | `--seed` | int | Which course layout to build; the same number always gives the same buoys, e.g. 3 (default 1). (default `1`) |
 | `--env` | env | Which world to load, written KIND:NAME, e.g. course:roboboat_2026 (the default); --course NAME is a shortcut. (default `course:roboboat_2026`) |
 | `--card` | path | The boat's physics settings: a fitted profile file or a card name, e.g. characterized (default none: the built-in boat). (default `none`) |
-| `--profile` | str | The simulator's graphics and physics quality preset, e.g. interactive-high (default interactive-low). (default `interactive-low`) |
+| `--profile` | str | Expert: the player's quality preset, e.g. evaluation-high (default auto: the fidelity's). (default `auto`) |
 | `--current` | str | The water current: default (the course's own, 0.15 metres per second toward 270 degrees), 0 for still water, or SPEED,TOWARD_DEG, e.g. 0.3,90. (default `default`) |
 | `--display` | str | auto opens a window when you have a screen and runs without one otherwise; --window and --headless are shortcuts. One of `auto`, `window`, `headless`. (default `auto`) |
 | `--player` | path | The simulator program to run, e.g. Builds/CRANE-Worker/CRANE.x86_64 (default auto: the newest one found). |
-| `--tier` | str | How detailed the sim is: T2 is the full 3-D simulator (default); T1 is the light twin with the same robot software connections, no 3-D world, and can run faster; T0 runs only through crane run. One of `T2`, `T1`, `T0`. (default `T2`) |
+| `--tier` | str | Expert: T2 is the full 3-D simulator, T1 the light twin, T0 runs only through crane run (default auto: the fidelity's). One of `T2`, `T1`, `T0`. (default `auto`) |
 | `--odom` | str | T1 only: sensors feeds the robot's own position estimate like on the water (default); truth hands it perfect positions instead. One of `sensors`, `truth`. (default `sensors`) |
 | `--rate` | float | T1 only: how many times faster than real time to run, e.g. 2 (default 1). (default `1`) |
 | `--world` | str | T1 only: course (the default) or a rectangular pool whose walls the lidar sees, pool for 10 by 4.5 metres or pool:LxW for another size, e.g. pool:9x5; the boat starts 1.5 metres from one end, facing along it. --env pool:LxW does the same. (default `course`) |
@@ -78,13 +86,13 @@ Works with no options: the default course, its normal water current, seed 1, and
 | `--domain` | str | Which kind of robot world to use, e.g. boat (the default) or sub. (default `boat`) |
 | `--nav` | str | Hand the navigation part a launch argument, e.g. preset:=pool; give it again for more. A restart of nav reuses them (default none). (default `none`) |
 | `--nav-args` | str | Several --nav at once in one quoted text, e.g. "preset:=pool params_file:=/path/variant.yaml"; a path must be under the workspace, ~/.config/astro or ~/.config/mhseals so the robot container sees it (default none). (default `none`) |
-| `--instance` | int | Which parallel world to use, 0 for the default world or 1 and up, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too). (default `none`) |
+| `--instance` | int | Which parallel world to use, 0 for the default world, 1 and up, or auto for the first free one, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too). (default `none`) |
 | `--dry-run` | bool | Show exactly what would start, without starting anything (default off). |
 | `--json` | bool | Print the final status as one JSON document for scripts; progress goes to stderr. |
 
 raw: `Tools/RoboBoat/sim_up up`; --json: `crane.sim.status/1`
 
-Details: Starts the Unity player through heavy unity plus its ROS side (the sim_up_ros container), then prints the status block (mode, ROS_DOMAIN_ID, endpoint, player pgid, ROS container, course, current, logs, next:). Waits up to 60 s for the ROS endpoint and 300 s (SIM_UP_READY_S) for the course. --tier T1 (tiers.T1.sim, Docs/SimT1.md): no Unity; a ROS node steps the plant-card twin and publishes what the player does (/crane/odom, /imu/raw, /gps/fix, /clock; /odom/mavros with --odom sensors; /odom/local, /odom/global and TF with --odom truth, which turns localization off) and drives on /thrusters/pwm. --tier T0 refuses naming crane run. --dry-run prints the resolved player argv and docker run (crane.sim.plan/1 with --json). Exit 0 ready, 1 the world failed, 2 usage, config or a sim already running. Everything specific comes from config/domains/DOMAIN.yaml tiers.T2. Env: ROS_DOMAIN_ID, ASTRO_STATE / MHSEALS_HARDWARE_CONFIG (passed into the ROS side), the image env, SIM_UP_*, CRANE_PLAYER, HEAVY. Same as Tools/RoboBoat/sim_up up.
+Details: Starts the Unity player through heavy unity plus its ROS side (the sim_up_ros container), then prints the status block (mode, ROS_DOMAIN_ID, endpoint, player pgid, ROS container, course, current, logs, next:). Waits up to 60 s for the ROS endpoint and 300 s (SIM_UP_READY_S) for the course. --tier T1 (tiers.T1.sim, Docs/SimT1.md): no Unity; a ROS node steps the plant-card twin and publishes what the player does (/crane/odom, /imu/raw, /gps/fix, /clock; /odom/mavros with --odom sensors; /odom/local, /odom/global and TF with --odom truth, which turns localization off) and drives on /thrusters/pwm. --tier T0 refuses naming crane run. --dry-run prints the resolved player argv and docker run (crane.sim.plan/1 with --json). Exit 0 ready, 1 the world failed, 2 usage, config or a sim already running. Everything specific comes from config/domains/DOMAIN.yaml tiers.T2 and the stack (stacks.NAME, config/stacks). A sim (config/sims/NAME.yaml, ~/.config/crane/sims) names domain, course and fidelity; this machine's ~/.config/crane/crane.yaml sim block names its default sim, display, player and stack; flags win (crane sim show explains each value). The ROS_DOMAIN_ID is the sim's own (101 plus the instance), never a robot vessel's. A script never takes over a sim a person started: its T1 world goes to the next instance, its T2 world is refused. Env: CRANE_SIM, ROS_DOMAIN_ID (only with ASTRO_VESSEL=sim), ASTRO_STATE / MHSEALS_HARDWARE_CONFIG (passed into the ROS side), CRANE_SIM_OWNER, the image env, SIM_UP_*, CRANE_PLAYER, HEAVY. Same as Tools/RoboBoat/sim_up up.
 
 ### crane sim down
 
@@ -101,7 +109,8 @@ Only stops what crane sim up started; other programs are left alone. Safe to run
 
 | Param | Type | Description |
 |---|---|---|
-| `--instance` | int | Which parallel world to use, 0 for the default world or 1 and up, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too). (default `none`) |
+| `--instance` | int | Which parallel world to use, 0 for the default world, 1 and up, or auto for the first free one, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too). (default `none`) |
+| `--force` | bool | Stop it even when a person started it and this is a script (default off). |
 | `--json` | bool | Print what was stopped as one JSON document, for scripts. |
 
 raw: `Tools/RoboBoat/sim_up down`; --json: `crane.sim.down/1`
@@ -127,7 +136,7 @@ Use nav after editing nav settings: only the navigation restarts, so the course 
 | `what` | str | Which part to restart: nav (navigation only), ros (all the robot software) or player (the 3-D world). One of `nav`, `ros`, `player`. |
 | `words` | list | Only with nav: launch arguments for the navigation part, e.g. preset:=pool. They replace the ones from the last start; with none, those are used again (default none). (default `none`) |
 | `--nav-args` | str | The same words in one quoted text, e.g. "preset:=pool params_file:=/path/variant.yaml"; a path must be under the workspace, ~/.config/astro or ~/.config/mhseals (default none). (default `none`) |
-| `--instance` | int | Which parallel world to use, 0 for the default world or 1 and up, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too). (default `none`) |
+| `--instance` | int | Which parallel world to use, 0 for the default world, 1 and up, or auto for the first free one, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too). (default `none`) |
 | `--json` | bool | Print the result as one JSON document instead of text, for scripts. |
 | `--domain` | str | Which kind of robot world is running, e.g. boat (the default). |
 
@@ -148,7 +157,7 @@ What you'll see: the status block (what is running, the course and current, the 
 
 | Param | Type | Description |
 |---|---|---|
-| `--instance` | int | Which parallel world to use, 0 for the default world or 1 and up, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too). (default `none`) |
+| `--instance` | int | Which parallel world to use, 0 for the default world, 1 and up, or auto for the first free one, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too). (default `none`) |
 | `--json` | bool | Print the status as one JSON document instead of text, for scripts. |
 
 raw: `Tools/RoboBoat/sim_up status`; --json: `crane.sim.status/1`
@@ -170,7 +179,7 @@ Ends with `sim check: ready` when everything is up. Right after crane sim up, gi
 | Param | Type | Description |
 |---|---|---|
 | `--wait` | int | Keep checking every 2 seconds until ready, for at most this many seconds, e.g. 120 (default: check once). |
-| `--instance` | int | Which parallel world to use, 0 for the default world or 1 and up, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too). (default `none`) |
+| `--instance` | int | Which parallel world to use, 0 for the default world, 1 and up, or auto for the first free one, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too). (default `none`) |
 | `--json` | bool | Print the checks as one JSON document instead of text, for scripts. |
 | `--domain` | str | Which kind of robot world is running, e.g. boat (the default). |
 
@@ -192,11 +201,93 @@ What you'll see: the last lines of each log, under its file path.
 |---|---|---|
 | `which` | list | Which logs: player, stdout, ros or t1 (default the running tier's). One of `player`, `stdout`, `ros`, `t1`. |
 | `-n` | int | How many lines of each log to show, e.g. 100 (default 40). (default `40`) |
-| `--instance` | int | Which parallel world to use, 0 for the default world or 1 and up, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too). (default `none`) |
+| `--instance` | int | Which parallel world to use, 0 for the default world, 1 and up, or auto for the first free one, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too). (default `none`) |
 
 raw: `Tools/RoboBoat/sim_up logs`
 
 Details: The logs: player (the Unity player log), stdout (its console output) and ros (the ROS container). Same as Tools/RoboBoat/sim_up logs.
+
+### crane sim list
+
+```sh
+crane sim list
+```
+
+List the sims you can start by name, with this machine's default marked.
+
+What you'll see: one row per sim (* is the default): name, domain, course or world, fidelity, what it is for.
+
+| Param | Type | Description |
+|---|---|---|
+| `--json` | bool | Print the list as one JSON document, for scripts. |
+
+raw: `ls config/sims ~/.config/crane/sims`; --json: `crane.sim.list/1`
+
+Details: The repo's config/sims/*.yaml and your own ~/.config/crane/sims/*.yaml (yours win by name).
+
+### crane sim show
+
+```sh
+crane sim show
+crane sim show roboboat-high --seed 3
+```
+
+Show what crane sim up would start and where each setting comes from; starts nothing.
+
+What you'll see: one row per setting with its source (flag, this machine, the sim, the domain default).
+
+| Param | Type | Description |
+|---|---|---|
+| `sim` | str | Which sim, e.g. roboboat-high (default auto: this machine's). (default `auto`) |
+| `--json` | bool | Print it as one JSON document, for scripts. |
+
+raw: `crane sim up --dry-run`; --json: `crane.sim.recipe/1`
+
+Details: Takes the same words and options as up. --json: {schema, sim, about, identity, values, sources}; the identity is what up compares to reuse a running sim.
+
+### crane sim use
+
+```sh
+crane sim use roboboat-high
+crane sim use roboboat-high --display window
+```
+
+Choose the sim a bare crane sim up starts on this machine, and how it shows.
+
+What you'll see: one line naming the sim and the file it was saved in.
+
+e.g. crane sim use roboboat-high --display window on a laptop without xvfb; crane sim use none clears it.
+
+| Param | Type | Description |
+|---|---|---|
+| `sim` | str | The sim a bare up starts, e.g. roboboat-high; none clears it. |
+| `--display` | str | How this machine shows the 3-D world (default auto). One of `auto`, `window`, `headless`. (default `auto`) |
+| `--stack` | str | This machine's stack: auto, astro, bridge or none. (default `auto`) |
+| `--player` | path | This machine's simulator program. |
+| `--json` | bool | Print the saved settings as JSON, for scripts. |
+
+raw: `$EDITOR ~/.config/crane/crane.yaml`; --json: `crane.sim.use/1`
+
+Details: Writes the sim block of ~/.config/crane/crane.yaml (CRANE_CONFIG moves it): default, display, player, stack. Other blocks are kept.
+
+### crane sim env
+
+```sh
+crane sim env
+crane sim env --instance 2
+```
+
+Print the lines that point your own ROS tools at the running sim (no astro needed).
+
+What you'll see: export lines: ROS_DOMAIN_ID, ROS_AUTOMATIC_DISCOVERY_RANGE and the endpoint.
+
+Run eval "$(crane sim env)" in a shell, then ros2 topic list sees the sim. With astro, astro on sim does the same.
+
+| Param | Type | Description |
+|---|---|---|
+| `--instance` | int | Which parallel world to use, 0 for the default world, 1 and up, or auto for the first free one, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too). (default `none`) |
+
+raw: `export ROS_DOMAIN_ID=101`
 
 ## run
 

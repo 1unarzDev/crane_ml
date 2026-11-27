@@ -122,9 +122,10 @@ _JSON = 'Print the result as one JSON document instead of text, for scripts (def
 _STUDIES = 'Where studies are kept (default CRANE_STUDIES, else ~/.cache/crane/studies).'
 
 
-_INSTANCE = ('Which parallel world to use, 0 for the default world or 1 and up, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the '
-             'number), port, container and state folder, so several T1 worlds can run side by side (default none: '
-             'the one world; the environment variable CRANE_SIM_INSTANCE sets it too).')
+_INSTANCE = ('Which parallel world to use, 0 for the default world, 1 and up, or auto for the first free one, e.g. 2: '
+             'its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 '
+             'worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE '
+             'sets it too).')
 
 
 def _instance():
@@ -141,9 +142,9 @@ COMMANDS = [
             'crane.wrap:sim', passthrough=True, flags=(JSON, DRY), json='crane.sim.status/1', export=True,
             about='a line as each part starts, then a status block (what is running, where the logs are) ending '
                   'with next:.',
-            notes='Works with no options: the default course, its normal water current, seed 1, and a window if you '
-                  'have a screen; --tier T1 starts the light twin instead (no 3-D world, can run faster). It waits about 6 minutes at most, and refuses if a sim is already running '
-                  '(run crane sim down first).',
+            notes='Name the sim to start, e.g. crane sim up roboboat-high (crane sim list shows them); with none it '
+                  "starts this machine's default (crane sim use SIM). If the same sim is already up it is reused at "
+                  'once; a different one is refused (--fresh replaces it).',
             details='Starts the Unity player through heavy unity plus its ROS side (the sim_up_ros container), then '
                     'prints the status block (mode, ROS_DOMAIN_ID, endpoint, player pgid, ROS container, course, '
                     'current, logs, next:). Waits up to 60 s for the ROS endpoint and 300 s (SIM_UP_READY_S) for the '
@@ -153,18 +154,34 @@ COMMANDS = [
                     'and drives on /thrusters/pwm. --tier T0 refuses naming crane run. '
                     '--dry-run prints the resolved player argv and docker run (crane.sim.plan/1 with --json). Exit 0 '
                     'ready, 1 the world failed, 2 usage, config or a sim already running. Everything specific comes '
-                    'from config/domains/DOMAIN.yaml tiers.T2. Env: ROS_DOMAIN_ID, ASTRO_STATE / '
-                    'MHSEALS_HARDWARE_CONFIG (passed into the ROS side), the image env, SIM_UP_*, CRANE_PLAYER, HEAVY. '
+                    'from config/domains/DOMAIN.yaml tiers.T2 and the stack (stacks.NAME, config/stacks). A sim '
+                    '(config/sims/NAME.yaml, ~/.config/crane/sims) names domain, course and fidelity; this '
+                    "machine's ~/.config/crane/crane.yaml sim block names its default sim, display, player and "
+                    'stack; flags win (crane sim show explains each value). The ROS_DOMAIN_ID is the sim\'s own '
+                    '(101 plus the instance), never a robot vessel\'s. A script never takes over a sim a person '
+                    'started: its T1 world goes to the next instance, its T2 world is refused. Env: CRANE_SIM, '
+                    'ROS_DOMAIN_ID (only with ASTRO_VESSEL=sim), ASTRO_STATE / MHSEALS_HARDWARE_CONFIG (passed into '
+                    'the ROS side), CRANE_SIM_OWNER, the image env, SIM_UP_*, CRANE_PLAYER, HEAVY. '
                     'Same as Tools/RoboBoat/sim_up up.',
-            params=(P('--seed', 'int', default=1, description='Which course layout to build; the same number always '
+            params=(P('sim', nargs='?', default='auto', free='a sim name (crane sim list)',
+                      description="Which sim to start, e.g. roboboat-high (default auto: this machine's, from crane "
+                      'sim use; else the domain defaults).'),
+                    P('--fidelity', default='auto', description='How detailed the sim is: twin (light, no 3-D '
+                      'world), low, high or eval (default auto: the sim\'s, else low).'),
+                    P('--stack', default='auto', description='The software beside the world: astro (the robot\'s '
+                      'own), bridge (crane\'s ROS link, bring your own nodes) or none (default auto: astro when '
+                      'astro_dock is here, else bridge).'),
+                    P('--fresh', 'bool', description='Restart the sim even if the same one is already up '
+                      '(default off).'),
+                    P('--seed', 'int', default=1, description='Which course layout to build; the same number always '
                       'gives the same buoys, e.g. 3 (default 1).'),
                     sel('env', default='course:roboboat_2026', description='Which world to load, written KIND:NAME, '
                         'e.g. course:roboboat_2026 (the default); --course NAME is a shortcut.'),
                     sel('card', type='path', default='none', description="The boat's physics settings: a fitted "
                         'profile file or a card name, e.g. characterized (default none: the built-in boat).'),
-                    P('--profile', default='interactive-low', free='a preset name the player defines (config/domains/'
-                      'DOMAIN.yaml tiers.T2.profiles)', description="The simulator's graphics and physics quality "
-                      'preset, e.g. interactive-high (default interactive-low).'),
+                    P('--profile', default='auto', free='a preset name the player defines (config/domains/'
+                      'DOMAIN.yaml tiers.T2.profiles)', description="Expert: the player's quality preset, e.g. "
+                      'evaluation-high (default auto: the fidelity\'s).'),
                     P('--current', metavar='default|0|SPEED,TOWARD_DEG', default='default',
                       description="The water current: default (the course's own, 0.15 metres per second toward 270 "
                       'degrees), 0 for still water, or SPEED,TOWARD_DEG, e.g. 0.3,90.'),
@@ -173,9 +190,9 @@ COMMANDS = [
                       '--window and --headless are shortcuts.'),
                     P('--player', 'path', description='The simulator program to run, e.g. '
                       'Builds/CRANE-Worker/CRANE.x86_64 (default auto: the newest one found).'),
-                    P('--tier', choices=('T2', 'T1', 'T0'), default='T2', description='How detailed the sim is: T2 '
-                      'is the full 3-D simulator (default); T1 is the light twin with the same robot software '
-                      'connections, no 3-D world, and can run faster; T0 runs only through crane run.'),
+                    P('--tier', choices=('T2', 'T1', 'T0'), default='auto', description='Expert: T2 is the full '
+                      '3-D simulator, T1 the light twin, T0 runs only through crane run (default auto: the '
+                      'fidelity\'s).'),
                     P('--odom', choices=('sensors', 'truth'), default='sensors', description='T1 only: sensors feeds '
                       "the robot's own position estimate like on the water (default); truth hands it perfect "
                       'positions instead.'),
@@ -204,7 +221,9 @@ COMMANDS = [
                       '(default off).'),
                     P('--json', 'bool', description='Print the final status as one JSON document for scripts; '
                       'progress goes to stderr.')),
-            examples=('crane sim up', 'crane sim up --current 0', 'crane sim up --headless --seed 3',
+            examples=('crane sim up', 'crane sim up roboboat-high', 'crane sim up roboboat-twin',
+                      'crane sim up --fidelity high --window', 'crane sim up --stack bridge',
+                      'crane sim up --current 0', 'crane sim up --headless --seed 3',
                       'crane sim up --card characterized --headless', 'crane sim up --tier T1',
                       'crane sim up --tier T1 --odom truth --rate 2', 'crane sim up --tier T1 --world pool',
                       'crane sim up --tier T1 --world pool --nav preset:=pool', 'crane sim up --tier T1 --instance 2',
@@ -217,6 +236,8 @@ COMMANDS = [
             details="Stops the player's process group (TERM, then KILL after 10 s) and the sim_up_ros container. "
                     'Same as Tools/RoboBoat/sim_up down.',
             params=(_instance(),
+                    P('--force', 'bool', description="Stop it even when a person started it and this is a script "
+                      '(default off).'),
                     P('--json', 'bool', description='Print what was stopped as one JSON document, for scripts.')),
             examples=('crane sim down', 'crane sim down --instance 2'), raw='Tools/RoboBoat/sim_up down'),
     Command(('sim', 'restart'), 'Restart one part of the running simulator (navigation, ROS or the 3-D world) and '
@@ -288,6 +309,45 @@ COMMANDS = [
                     P('-n', 'int', default=40, description='How many lines of each log to show, e.g. 100 (default 40).'),
                     _instance()),
             examples=('crane sim logs ros -n 100',), raw='Tools/RoboBoat/sim_up logs'),
+
+    Command(('sim', 'list'), 'List the sims you can start by name, with this machine\'s default marked.',
+            'crane.wrap:sim', passthrough=True, flags=(JSON,), json='crane.sim.list/1', export=True,
+            about='one row per sim (* is the default): name, domain, course or world, fidelity, what it is for.',
+            details='The repo\'s config/sims/*.yaml and your own ~/.config/crane/sims/*.yaml (yours win by name).',
+            params=(P('--json', 'bool', description='Print the list as one JSON document, for scripts.'),),
+            examples=('crane sim list',), raw='ls config/sims ~/.config/crane/sims'),
+    Command(('sim', 'show'), 'Show what crane sim up would start and where each setting comes from; starts nothing.',
+            'crane.wrap:sim', passthrough=True, flags=(JSON,), json='crane.sim.recipe/1', export=True,
+            about='one row per setting with its source (flag, this machine, the sim, the domain default).',
+            details='Takes the same words and options as up. --json: {schema, sim, about, identity, values, sources}; '
+                    'the identity is what up compares to reuse a running sim.',
+            params=(P('sim', nargs='?', default='auto', free='a sim name (crane sim list)',
+                      description="Which sim, e.g. roboboat-high (default auto: this machine's)."),
+                    P('--json', 'bool', description='Print it as one JSON document, for scripts.')),
+            examples=('crane sim show', 'crane sim show roboboat-high --seed 3'), raw='crane sim up --dry-run'),
+    Command(('sim', 'use'), 'Choose the sim a bare crane sim up starts on this machine, and how it shows.',
+            'crane.wrap:sim', passthrough=True, flags=(JSON,), json='crane.sim.use/1', export=True,
+            about='one line naming the sim and the file it was saved in.',
+            notes='e.g. crane sim use roboboat-high --display window on a laptop without xvfb; crane sim use none '
+                  'clears it.',
+            details='Writes the sim block of ~/.config/crane/crane.yaml (CRANE_CONFIG moves it): default, display, '
+                    'player, stack. Other blocks are kept.',
+            params=(P('sim', free='a sim name (crane sim list), or none',
+                      description='The sim a bare up starts, e.g. roboboat-high; none clears it.'),
+                    P('--display', choices=('auto', 'window', 'headless'), default='auto',
+                      description='How this machine shows the 3-D world (default auto).'),
+                    P('--stack', default='auto', description='This machine\'s stack: auto, astro, bridge or none.'),
+                    P('--player', 'path', description='This machine\'s simulator program.'),
+                    P('--json', 'bool', description='Print the saved settings as JSON, for scripts.')),
+            examples=('crane sim use roboboat-high', 'crane sim use roboboat-high --display window'),
+            raw='$EDITOR ~/.config/crane/crane.yaml'),
+    Command(('sim', 'env'), 'Print the lines that point your own ROS tools at the running sim (no astro needed).',
+            'crane.wrap:sim', passthrough=True, export=True,
+            about='export lines: ROS_DOMAIN_ID, ROS_AUTOMATIC_DISCOVERY_RANGE and the endpoint.',
+            notes='Run eval "$(crane sim env)" in a shell, then ros2 topic list sees the sim. With astro, astro on '
+                  'sim does the same.',
+            params=(_instance(),),
+            examples=('crane sim env', 'crane sim env --instance 2'), raw='export ROS_DOMAIN_ID=101'),
 
     # ---- run -------------------------------------------------------------------------------------------------
     Command(('run',), 'Simulate many seeds quickly in a light simulator (T0 or T1) and save each run in its own '
@@ -1324,7 +1384,7 @@ def _entries():
 
 
 # astro's help browser: `astro help` shows `level: core` entries, `--all` adds `setup`. The everyday commands are core.
-CORE = frozenset({'crane sim', 'crane sim up', 'crane sim down', 'crane sim restart', 'crane sim status',
+CORE = frozenset({'crane sim', 'crane sim up', 'crane sim down', 'crane sim list', 'crane sim use', 'crane sim restart', 'crane sim status',
                   'crane sim check', 'crane view', 'crane fit', 'crane compare', 'crane doctor'})
 # astro's picker (`choices_from`): a command printing one choice per line, run when the param is missing on a TTY.
 _RUNS = 'ls -1td ${CRANE_RUNS:-$HOME/.cache/crane/runs}/*/*/*/*/s* 2>/dev/null | head -n 30'   # DOMAIN/TIER/KEY/VARIANT/sN
@@ -1333,7 +1393,10 @@ PICKERS = {
                                '${ASTRO_DATA:-$HOME/astro_dock/bags}/*/*/bundle-*.tgz 2>/dev/null | head -n 30'),
     ('crane view', 'runs'): _RUNS,
     ('crane compare', 'runs'): _RUNS,
-    **{('crane sim up', f'--{w}'): f'{CRANE_RUN} sim up --list {w}' for w in ('seed', 'env', 'current', 'tier')},
+    **{('crane sim up', f'--{w}'): f'{CRANE_RUN} sim up --list {w}' for w in ('seed', 'env', 'current', 'tier', 'fidelity', 'stack')},
+    ('crane sim up', 'sim'): f'{CRANE_RUN} sim up --list sim',
+    ('crane sim show', 'sim'): f'{CRANE_RUN} sim up --list sim',
+    ('crane sim use', 'sim'): f'{CRANE_RUN} sim up --list sim',
 }
 # Commands whose form runs on Enter-Enter: every param shows a default, switches as off.
 FORMS = frozenset({'crane sim up'})
@@ -1342,8 +1405,16 @@ FORMS = frozenset({'crane sim up'})
 _PLAYERS = ('for p in "$CRANE_PLAYER" "${CRANE_DIR:-$HOME/crane_ml}/Builds/CRANE-Worker/CRANE.x86_64" '
             '"$HOME/.cache/crane-phase1/player/CRANE.x86_64" "$HOME/.local/share/crane/player/current/CRANE.x86_64"; '
             'do [ -x "$p" ] && echo "$p"; done; true')
+_SIMS = f'{CRANE_RUN} sim up --list sim | cut -f1'          # this machine's default first
 AUTO = {
     ('crane sim up', '--player'): _PLAYERS,
+    ('crane sim up', 'sim'): _SIMS,
+    ('crane sim show', 'sim'): _SIMS,
+    ('crane sim up', '--fidelity'): f'{CRANE_RUN} sim up --list fidelity | cut -f1',
+    ('crane sim up', '--stack'): f'{CRANE_RUN} sim up --list stack | cut -f1',
+    ('crane sim up', '--tier'): None,
+    ('crane sim up', '--profile'): None,
+    ('crane sim use', '--stack'): f'{CRANE_RUN} sim up --list stack | cut -f1',
     ('crane build player', '--editor'): None,
     ('crane setup', '--components'): None,
 }

@@ -397,6 +397,7 @@ def up(cfg, t2, run, o):
     for name, value in (('current', current or 'default'), ('domain', d), ('port', port), ('mode', mode),
                         ('seed', seed), ('player.path', player), ('tier', 'T2'), ('stack', t2.get('stack') or '')):
         (run / name).write_text(f'{value}\n')
+    remember(run, o)
     if container:
         start_ros(t2, run, d, port, img, nav, container, say, me)
     else:
@@ -440,6 +441,13 @@ def start_ros(t2, run, d, port, img, nav, container, say, me):
         if time.monotonic() - t0 >= limit:
             raise SimError(f'no endpoint on port {port} in {limit} s, see {run}/ros.log; then {me} down', 1)
         time.sleep(1)
+
+
+def remember(run, o):
+    """recipe.json: which sim this is and who started it, so a later up can reuse it (crane/sim/place.py)."""
+    if getattr(o, 'recipe', None) is not None:
+        from crane.sim import place
+        place.write(run, o.recipe, place.caller())
 
 
 def need_image(t2, img):
@@ -525,6 +533,7 @@ def up_t1(cfg, sec, run, o, current):
                         ('mode', 'headless'), ('seed', seed), ('current', current or 'default'),
                         ('stack', sec.get('stack') or '')):
         (run / name).write_text(f'{value}\n')
+    remember(run, o)
     need_image(sec, img)
     subprocess.run(['docker', 'rm', '-f', container], capture_output=True, timeout=60)
     prepare_dirs(sec, run)

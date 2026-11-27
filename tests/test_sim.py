@@ -926,7 +926,8 @@ def test_sim_up_runs_on_enter_enter_every_param_has_a_default_and_each_picker_li
         listed[what] = [r[0] for r in rows]
     params = {p['name']: p for p in entry['params']}
     for what in ('seed', 'env', 'current', 'tier'):
-        assert str(params[f'--{what}']['default']) in listed[what], what       # the default is a listed choice
+        default = str(params[f'--{what}']['default'])
+        assert default in listed[what] or default == 'auto', what      # the default is a listed choice, or found
         assert params[f'--{what}']['choices_from'].endswith(f'crane sim up --list {what}')
     assert [player.parse_current(v) for v in listed['current']][:2] == [None, '0,0']
     assert listed['tier'] == ['T2', 'T1', 'T0'] and world.display_mode('auto') == 'headless'   # no TTY here

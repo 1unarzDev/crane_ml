@@ -11,7 +11,7 @@ as a ROS node beside the same ROS side), used exactly like the robot.
                  [--current default|0|SPEED,TOWARD_DEG] [--display auto|window|headless | --window | --headless]
                  [--player PATH] [--robot R] [--set K=V]... [--domain D] [--tier T2] [--json] [--dry-run]
                  [--nav NAME:=VALUE]... [--nav-args "A:=x B:=y"] [--instance N] [-- PLAYER_ARGS...]
-    crane sim up --list seed|env|current|tier   the choices, one per line as VALUE<TAB>meaning (astro's pickers)
+    crane sim up --list seed|env|current|tier|sim|fidelity|stack   the choices, one per line as VALUE<TAB>meaning (astro's pickers)
     crane sim up --tier T1 [--odom sensors|truth] [--rate N] [--seed N] [--env KIND:NAME] [--world course|pool[:LxW]] [--card F]
                  [--current default|0|SPEED,TOWARD_DEG] [--set K=V]... [--json] [--dry-run]
                                  the T1 world: no player, no window (Docs/SimT1.md); --odom truth turns
@@ -56,7 +56,7 @@ from crane.sim import config, place, recipe
 from crane.sim.config import SimError
 
 VERBS = ('up', 'down', 'restart', 'status', 'check', 'logs', 'list', 'show', 'use', 'env')
-TIERS = ('T2', 'T1', 'T0', 'unity', 'dynamic', 'abstract')
+TIERS = ('T2', 'T1', 'T0', 'unity', 'dynamic', 'abstract', 'auto')
 TIER_ABOUT = {'T2': 'the Unity world: real time, full sensors and ROS (the default)',
               'T1': 'the dynamic plant-card twin: no Unity, the same ROS topics, can run faster than real time',
               'T0': 'abstract or kinematic, no forces (crane run --tier T0)'}
@@ -70,6 +70,22 @@ def choices(what, cfg, t2):
     default = str(env.get('default') or '')
     if what == 'tier':
         return list(TIER_ABOUT.items())
+    if what == 'sim':
+        mine = recipe.default_name()
+        rows = [(n, str(doc.get('about') or n) + (' (this machine\'s default)' if n == mine else ''))
+                for n, (doc, _) in sorted(recipe.sims().items())]
+        return sorted(rows, key=lambda r: r[0] != mine)
+    if what == 'fidelity':
+        rungs, default = recipe.ladder(cfg)
+        rows = [(k, str(v.get('about') or k) + (' (the default)' if k == default else '')) for k, v in rungs.items()]
+        return sorted(rows, key=lambda r: r[0] != default)
+    if what == 'stack':
+        from crane.sim import stacks
+        found = stacks.choose(cfg, 'auto')[0]
+        about = {'astro': "the robot team's software (astro_dock's container, as on the boat)",
+                 'bridge': "crane's own ROS-TCP endpoint; bring your own nodes", 'none': 'the 3-D world alone, no ROS'}
+        return sorted([(n, about.get(n, n) + (' (auto finds it here)' if n == found else ''))
+                       for n in stacks.allowed(cfg)], key=lambda r: r[0] != found)
     if what == 'current':
         ds, _, dt = str((t2.get('current') or {}).get('default') or '0,0').partition(',')
         return [('default', f"the scene's current, {ds} m/s toward {dt} deg (realistic)"),
@@ -115,7 +131,7 @@ def _parser(verb):
                        help='the water current: default (the scene), 0 (still water) or m/s,deg')
         p.add_argument('--display', choices=('auto', 'window', 'headless'))
         p.add_argument('--tier', choices=TIERS, help='T2 (unity) or T1 (the twin, no player); default the fidelity\'s')
-        p.add_argument('--list', choices=('seed', 'env', 'current', 'tier'), help='print the choices and exit')
+        p.add_argument('--list', choices=('seed', 'env', 'current', 'tier', 'sim', 'fidelity', 'stack'), help='print the choices and exit')
         p.add_argument('--window', dest='display', action='store_const', const='window')
         p.add_argument('--headless', dest='display', action='store_const', const='headless')
         p.add_argument('--player', metavar='PATH', help='the player executable (else CRANE_PLAYER, the build)')
@@ -269,8 +285,7 @@ def main(argv=None):
                 print(f'{value}\t{about}')
             return 0
         if verb == 'up':
-            if not o.dry_run:
-                place.write(run, r, place.caller())
+            o.recipe = r
             return world.up(cfg, t2, run, o)
         if verb == 'down':
             return world.down(cfg, t2, run, o.json)
@@ -298,6 +313,9 @@ def main(argv=None):
 
 def apply_recipe(o):
     """Resolve up's (or show's) sim, this machine's settings and the flags into one recipe; set O from it."""
+    for key in ('sim', 'fidelity', 'tier', 'profile', 'stack', 'display', 'player'):
+        if getattr(o, key, None) == 'auto':              # astro's form may pass a default through as is
+            setattr(o, key, None)
     flags = {k: getattr(o, k, None) for k in recipe.KEYS}
     flags['nav'] = config.parse_nav(getattr(o, 'nav', None), getattr(o, 'nav_args', None)) or None
     r = recipe.resolve(getattr(o, 'sim', None), flags)
