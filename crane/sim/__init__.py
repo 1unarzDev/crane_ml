@@ -36,8 +36,9 @@ course's ready_s (300 s, SIM_UP_READY_S). --json: progress on stderr, the status
 up --dry-run prints the resolved player argv and the ROS side's docker run, and starts nothing.
 Exit 0 ok, 1 the world failed or is not ready, 2 usage or config, 75 a restart timed out waiting.
 
-Environment: ROS_DOMAIN_ID (counted only beside an env named in tiers.T2.host.trust_domain_id, else read from
-the vessel profile's network.env under tiers.T2.host.profiles), the image env (tiers.T2.ros.image.env),
+Environment: ROS_DOMAIN_ID (counted only when tiers.T2.host.vessel_env names the sim vessel, e.g. ASTRO_VESSEL=sim;
+else the sim vessel profile's network.env under tiers.T2.host.profiles; else config/sim.yaml ros_domain_base; a robot
+vessel's domain is always refused), the image env (tiers.T2.ros.image.env),
 SIM_UP_VESSEL, SIM_UP_RUN (~/.cache/sim_up), SIM_UP_READY_S, CRANE_PLAYER, HEAVY (none: bare).
 """
 

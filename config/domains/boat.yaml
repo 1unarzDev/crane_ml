@@ -74,7 +74,7 @@ tiers:
       dock: {env: ASTRO_DOCK, default: '~/astro_dock'}
       profiles: {env: ASTRO_PROFILES, file: {env: ASTRO_PROFILES_CONFIG, default: '~/.config/astro/profiles.env',
                                              key: ASTRO_PROFILES}, default: '{dock}/profiles'}
-      trust_domain_id: [ASTRO_STATE, MHSEALS_HARDWARE_CONFIG]   # ROS_DOMAIN_ID counts only beside one of these
+      vessel_env: ASTRO_VESSEL                  # an exported ROS_DOMAIN_ID counts only when this names the sim vessel
       heavy: '{dock}/.handoff/tools/heavy'      # the guard when crane's bin/heavy is missing
       up: astro sim up
     ros:

@@ -237,27 +237,38 @@ def test_resolve_gives_the_boat_player_argv_from_the_domain_config(tmp_path):
     assert f'required_flag: {cfg["tiers"]["T2"]["required_flag"]}' in (paths.CONFIG / 'sim.yaml').read_text()
 
 
-def test_the_ros_domain_id_comes_from_astro_or_the_sim_profile_never_a_bare_shell(tmp_path, monkeypatch):
+def test_the_ros_domain_id_is_the_sims_own_never_a_robots(tmp_path, monkeypatch):
     t2 = player.load_domain('boat')['tiers']['T2']
-    for k in ('ROS_DOMAIN_ID', 'ASTRO_STATE', 'MHSEALS_HARDWARE_CONFIG', 'ASTRO_PROFILES', 'SIM_UP_VESSEL'):
+    for k in ('ROS_DOMAIN_ID', 'ASTRO_STATE', 'ASTRO_VESSEL', 'MHSEALS_HARDWARE_CONFIG', 'ASTRO_PROFILES', 'SIM_UP_VESSEL'):
         monkeypatch.delenv(k, raising=False)
     monkeypatch.setenv('HOME', str(tmp_path))
     monkeypatch.setenv('ASTRO_DOCK', str(tmp_path / 'dock'))
     monkeypatch.setenv('ASTRO_PROFILES_CONFIG', str(tmp_path / 'profiles.env'))
+    assert config.domain_id(t2) == 101                                 # no host profiles: crane's own base
     for root, d in (('dock/profiles', 7), ('mine', 9)):
         (tmp_path / root / 'sim').mkdir(parents=True)
         (tmp_path / root / 'sim' / 'network.env').write_text(f'ROS_DOMAIN_ID=1\n# x\nROS_DOMAIN_ID={d}\n')
+    (tmp_path / 'mine' / 'blastoise').mkdir()
+    (tmp_path / 'mine' / 'blastoise' / 'network.env').write_text('ROS_DOMAIN_ID=42\n')
     assert config.domain_id(t2) == 7                                   # the dock's profiles, last line wins
     (tmp_path / 'profiles.env').write_text('ASTRO_PROFILES=/elsewhere\nASTRO_PROFILES=~/mine\n')
     assert config.domain_id(t2) == 9                                   # profiles.env, ~ expanded
+    # astro on the boat's vessel (astro crane on the operator laptop) exports the robot's domain and state
     monkeypatch.setenv('ROS_DOMAIN_ID', '42')
-    assert config.domain_id(t2) == 9                                   # a bare shell's id is not trusted
-    monkeypatch.setenv('ASTRO_STATE', '~/.config/mhseals/hardware_sim.yaml')
-    assert config.domain_id(t2) == 42                                  # astro's is
-    monkeypatch.delenv('ASTRO_STATE')
+    monkeypatch.setenv('ASTRO_STATE', '~/.config/mhseals/hardware.yaml')
+    monkeypatch.setenv('ASTRO_VESSEL', 'blastoise')
+    assert config.domain_id(t2) == 9                                   # not trusted: it is not the sim vessel's
+    monkeypatch.setenv('ASTRO_VESSEL', 'sim')
+    monkeypatch.setenv('ROS_DOMAIN_ID', '12')
+    assert config.domain_id(t2) == 12                                  # astro's export for the sim vessel is
+    monkeypatch.setenv('ROS_DOMAIN_ID', '42')
+    with pytest.raises(config.SimError, match="ROS domain 42 is the blastoise vessel's"):
+        config.domain_id(t2)                                           # a robot's domain, never
+    for k in ('ROS_DOMAIN_ID', 'ASTRO_VESSEL', 'ASTRO_STATE'):
+        monkeypatch.delenv(k)
     monkeypatch.setenv('ASTRO_PROFILES', str(tmp_path / 'none'))
     with pytest.raises(config.SimError, match='none/sim/network.env: the sim vessel profile names'):
-        config.domain_id(t2)
+        config.domain_id(t2)                                           # a named profile set must have the sim
     (tmp_path / 'none' / 'sim').mkdir(parents=True)
     (tmp_path / 'none' / 'sim' / 'network.env').write_text('ROS_DOMAIN_ID=\n')
     with pytest.raises(config.SimError, match='has no ROS_DOMAIN_ID'):

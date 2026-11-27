@@ -125,10 +125,12 @@ crane sim down
   launch, container, image, mounts and ready nodes, and the `next:` lines. `env`, `robot` and `card` map the
   selectors to player flags. `crane/player.py` `resolve()` builds the player argv from them.
 - **Host tooling** (`tiers.T2.host`, for boat astro's):
-  - `ROS_DOMAIN_ID` counts only beside an env in `trust_domain_id` (boat: `ASTRO_STATE` or
-    `MHSEALS_HARDWARE_CONFIG`, as astro exports it).
+  - An exported `ROS_DOMAIN_ID` counts only when `vessel_env` names the sim vessel (boat: `ASTRO_VESSEL=sim`, as
+    `astro sim` exports it). A shell on a robot's vessel exports the robot's domain, so it is ignored.
   - Otherwise the id comes from the vessel profile's `network.env` under `profiles` (boat: `ASTRO_PROFILES`, else
-    the `ASTRO_PROFILES=` line of `~/.config/astro/profiles.env`, else `$ASTRO_DOCK/profiles`).
+    the `ASTRO_PROFILES=` line of `~/.config/astro/profiles.env`, else `$ASTRO_DOCK/profiles`). With no profile set
+    on the machine it is `config/sim.yaml` `ros_domain_base` (101).
+  - A domain that any other vessel profile names (blastoise: 42) is refused, instance offsets included.
   - The envs in `ros.state_env` (boat: `ASTRO_STATE`, `MHSEALS_HARDWARE_CONFIG`) go into the ROS container
     with a leading `$HOME` mapped to `ros.home`, so its Nav2 reads the sim state's `nav2_limits`.
   - `dock` is the checkout the ROS container mounts; `heavy` the guard when crane's `bin/heavy` is missing; `up`

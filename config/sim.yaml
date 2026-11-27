@@ -4,6 +4,10 @@
 # The domain `crane sim` runs when --domain is not given.
 domain: boat
 
+# The sim's ROS domain on a machine with no host profiles (astro's sim profile names it otherwise); an
+# instance N adds N. A robot vessel's domain is always refused.
+ros_domain_base: 101
+
 # The flag a player must know to run the default domain's world (crane doctor checks it). It mirrors
 # config/domains/boat.yaml tiers.T2.required_flag; tests/test_sim.py keeps the two equal.
 required_flag: --crane-roboboat-contract

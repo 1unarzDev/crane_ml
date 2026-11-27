@@ -302,38 +302,95 @@ def _hint(t2, how):
 
 
 def domain_id(t2):
-    """The ROS_DOMAIN_ID, plus the instance number for an instance (the base is the vessel profile's own, so an
-    exported ROS_DOMAIN_ID of an earlier instance is never counted twice)."""
-    n = instance()
-    if not n:
-        return _base_domain(t2)
+    """The sim's ROS_DOMAIN_ID: the sim's base plus the instance number. Never a robot's: a domain that a robot
+    vessel profile names is refused, whatever the environment says."""
+    n = instance() or 0
+    if n:
+        try:
+            d = _base_domain(t2, trust=False) + n      # the profile's base, so an instance's export is not counted twice
+        except SimError:
+            d = _base_domain(t2) + n
+    else:
+        d = _base_domain(t2)
+    robots = robot_domains(t2)
+    if d in robots:
+        raise SimError(f'ROS domain {d} is the {robots[d]} vessel\'s: the sim never shares a robot\'s domain; '
+                       f'run it as {_host(t2).get("up") or "crane sim up"} (or unset ROS_DOMAIN_ID)')
+    return d
+
+
+def _trusted_export(t2):
+    """An exported ROS_DOMAIN_ID counts only when the host tooling exported it for the sim vessel itself
+    (host.vessel_env, e.g. ASTRO_VESSEL=sim); a shell on a robot's vessel exports the robot's domain."""
+    var = _host(t2).get('vessel_env')
+    return bool(var) and os.environ.get(var) == vessel(t2)
+
+
+def _profiles_named(t2):
+    """True when the host's profile set is named explicitly (its env, or its key in its file), not just defaulted."""
+    spec = _host(t2).get('profiles') or {}
+    if spec.get('env') and os.environ.get(spec['env']):
+        return True
+    f = spec.get('file') or {}
     try:
-        return _base_domain(t2, trust=False) + n
-    except SimError:
-        return _base_domain(t2) + n
+        return bool(f.get('key')) and any(line.startswith(f'{f["key"]}=') for line in Path(_setting(f)).read_text().splitlines())
+    except OSError:
+        return False
+
+
+def _network_domain(path):
+    """The last ROS_DOMAIN_ID=N line of a network.env, or None (no file, no line, an empty value)."""
+    try:
+        ids = [m.group(1) for m in (re.match(r'ROS_DOMAIN_ID=([0-9]*)', line) for line in path.read_text().splitlines()) if m]
+    except OSError:
+        return None
+    return int(ids[-1]) if ids and ids[-1] else None
+
+
+def robot_domains(t2):
+    """{ROS_DOMAIN_ID: vessel} of every other vessel profile in the host's profile set ({} without one)."""
+    root, own = profiles_root(t2), vessel(t2)
+    out = {}
+    try:
+        files = sorted(root.glob('*/network.env')) if root and root.is_dir() else []
+    except OSError:
+        files = []
+    for f in files:
+        d = _network_domain(f)
+        if f.parent.name != own and d is not None:
+            out.setdefault(d, f.parent.name)
+    return out
+
+
+def crane_domain_base():
+    """config/sim.yaml's ``ros_domain_base:`` (flat key), else 101: the sim's domain with no host profiles."""
+    try:
+        for line in (paths.CONFIG / 'sim.yaml').read_text().splitlines():
+            if line.startswith('ros_domain_base:'):
+                return int(line.split(':', 1)[1].split('#')[0].strip())
+    except (OSError, ValueError):
+        pass
+    return 101
 
 
 def _base_domain(t2, trust=True):
-    """ROS_DOMAIN_ID when one of host.trust_domain_id is set (the host tooling exported it), else the vessel
-    profile's network.env. Never guessed: a bare shell's ROS_DOMAIN_ID may be a robot's."""
+    """The exported ROS_DOMAIN_ID when the host tooling exported it for the sim vessel (host.vessel_env), else the
+    sim vessel profile's network.env, else (no profile set on this machine) crane's own base (config/sim.yaml)."""
     d = os.environ.get('ROS_DOMAIN_ID') or ''
-    if trust and d and any(os.environ.get(k) for k in _host(t2).get('trust_domain_id') or ()):
+    if trust and d and _trusted_export(t2):
         if not d.isdigit():
             raise SimError(f'ROS_DOMAIN_ID={d} is not a number{_hint(t2, "it is exported by")}')
         return int(d)
     name, root = vessel(t2), profiles_root(t2)
-    if root is None:
-        raise SimError('no vessel profiles to read ROS_DOMAIN_ID from: name them in tiers.T2.host.profiles of '
-                       'config/domains/DOMAIN.yaml')
+    if root is None or (not root.is_dir() and not _profiles_named(t2)):
+        return crane_domain_base()                     # crane on its own: no host tooling here
     f = root / name / 'network.env'
-    try:
-        text = f.read_text()
-    except OSError:
+    if not f.is_file():
         raise SimError(f"no {f}: the {name} vessel profile names the sim's ROS_DOMAIN_ID{_hint(t2, 'or run it as')}")
-    ids = [m.group(1) for m in (re.match(r'ROS_DOMAIN_ID=([0-9]*)', line) for line in text.splitlines()) if m]
-    if not ids or not ids[-1]:
+    found = _network_domain(f)
+    if found is None:
         raise SimError(f'{f} has no ROS_DOMAIN_ID: add ROS_DOMAIN_ID=N to it')
-    return int(ids[-1])
+    return found
 
 
 def heavy(t2):
