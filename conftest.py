@@ -110,3 +110,13 @@ def pytest_collection_modifyitems(config, items):
                 reason = missing(name, mark.args[0] if mark.args else None)
                 if reason:
                     item.add_marker(pytest.mark.skip(reason=reason))
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_call(item):
+    """A test that needs courses beyond the committed ones skips where no course generator can run (CI, rented
+    boxes: coursegen needs dotnet and the Unity editor), as the dotnet marker does; elsewhere it fails as usual."""
+    outcome = yield
+    error = outcome.excinfo[1] if outcome.excinfo else None
+    if type(error).__name__ == 'ScenarioMissing' and 'no generator here' in str(error):
+        outcome.force_exception(pytest.skip.Exception(f'courses: {str(error).split(";")[0]}', _use_item_location=True))
