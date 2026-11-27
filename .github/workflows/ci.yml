@@ -19,7 +19,7 @@ env:
   # and numpy pick other kernels than on the AVX2 dev machines, which round differently: pin the AVX2 family.
   OPENBLAS_CORETYPE: Haswell
   # numpy's own AVX-512 math (SVML sin/exp) rounds differently from math.sin and from its AVX2 paths: off.
-  NPY_DISABLE_CPU_FEATURES: AVX512F AVX512CD AVX512_SKX AVX512_CLX AVX512_CNL AVX512_ICL AVX512_SPR
+  NPY_DISABLE_CPU_FEATURES: X86_V4 AVX512F AVX512CD AVX512_SKX AVX512_CLX AVX512_CNL AVX512_ICL AVX512_SPR   # X86_V4: numpy >= 2.4
   RUFF_PIN: ruff==0.12.5
 
 jobs:
