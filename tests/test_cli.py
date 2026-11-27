@@ -231,6 +231,8 @@ def test_sim_check_ignores_a_stale_log_and_names_what_failed(tmp_path, monkeypat
     (tmp_path / 'player.log').write_text('CRANE_ROBOBOAT_COURSE_READY\nCRANE_PLANT_APPLIED x\n')
     (tmp_path / 'player.path').write_text('/old/CRANE.x86_64')                # no player.pid: not running
     monkeypatch.setattr(simcheck, 'RUN', tmp_path)
+    monkeypatch.setattr(simcheck, '_T2', None)
+    monkeypatch.setenv('ASTRO_DOCK', str(tmp_path))            # the astro stack, whose ready nodes are checked here
     monkeypatch.setattr(simcheck, '_container_running', lambda: True)
     monkeypatch.setattr(simcheck, '_nodes', lambda: ['/ekf_local', '/bt_navigator'])
     rows = {name: (ok, detail) for name, ok, detail in simcheck.live(tmp_path)}

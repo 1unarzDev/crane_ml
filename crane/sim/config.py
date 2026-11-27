@@ -232,6 +232,9 @@ def stack_of(cfg):
     """(stack, why): the one set for up, else the running world's, else the domain's default on this machine."""
     from crane.sim import stacks
     wanted = _STACK['name'] or _state('stack') or None
+    if not wanted and any(_state(f) for f in ('domain', 'tier', 'player.path', 'player.pid', 'ros.docker')):
+        # a world started before stacks (its state dir names none): the domain's legacy stack
+        wanted = (cfg.get('stacks') or {}).get('legacy')
     try:
         return stacks.choose(cfg, wanted)
     except stacks.StackError as error:

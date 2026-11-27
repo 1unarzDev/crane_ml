@@ -63,6 +63,7 @@ tiers:
 stacks:
   default: auto
   allowed: [astro, bridge, none]
+  legacy: astro                 # a running world whose state dir names no stack (started before stacks)
   astro:
     T2:
       vessel: sim                                 # the astro vessel profile whose network.env names ROS_DOMAIN_ID

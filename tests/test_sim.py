@@ -427,7 +427,9 @@ def test_the_sim_path_needs_no_pyyaml(tmp_path):
     no_yaml = ('import sys; sys.modules["yaml"] = None; sys.path.insert(0, sys.argv.pop(1)); '
                'from crane.cli import main; sys.exit(main())')
     env = {k: v for k, v in os.environ.items() if k != 'PYTHONPATH'}
-    env.update(SIM_UP_RUN=str(tmp_path / 'run'), HOME=str(tmp_path), HEAVY='none', CRANE_PLAYER=str(tmp_path / 'no'))
+    (tmp_path / 'dock').mkdir()                          # the astro stack, whose vessel profile is missing here
+    env.update(SIM_UP_RUN=str(tmp_path / 'run'), HOME=str(tmp_path), HEAVY='none', CRANE_PLAYER=str(tmp_path / 'no'),
+               ASTRO_DOCK=str(tmp_path / 'dock'))
     rc, out, err = _sh([sys.executable, '-c', no_yaml, str(ROOT), 'sim', 'status'], env)
     assert rc == 0 and out.startswith('sim_up status\n') and 'next:' in out, err
     rc, out, err = _sh([sys.executable, '-c', no_yaml, str(ROOT), 'sim', 'up', '--dry-run', '--json',

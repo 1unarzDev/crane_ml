@@ -187,6 +187,7 @@ def main(rest):
             as_json = True
         else:
             return _usage(f'unknown option {arg}')
+    _T2 = None                                       # each check resolves the world it looks at (its stack too)
     if name:
         try:
             _T2 = config.domain(name)[1]

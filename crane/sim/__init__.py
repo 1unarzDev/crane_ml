@@ -234,6 +234,7 @@ def main(argv=None):
     """crane sim VERB ARGS: the exit code (0 ok, 1 the world failed or is not ready, 2 usage or config)."""
     argv = list(sys.argv[1:] if argv is None else argv)
     config.set_invoked_as(os.environ.pop('CRANE_SIM_AS', None))   # the sim_up shim: messages keep its name
+    config.set_stack(None)                  # each call resolves its own (up: the recipe's; else the running world's)
     if argv[:1] in (['-h'], ['--help'], ['help']):
         _usage()
         return 0
