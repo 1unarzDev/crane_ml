@@ -35,15 +35,15 @@ tiers:
         reset_wait: {tolerance_m: 0.1, tolerance_rad: 0.05, timeout_s: 3.0}   # the reply waits for /odom/local at the start (wall s)
         # --world pool: the walls as a 2-D lidar ring at the lidar's mount height (link: its lever arm, from the
         # urdf), and the same returns as the perception costmap Nav2's costmaps read (StaticLayer on
-        # /perception/costmap; the objects part that makes it from /points is off in T1).
+        # /perception/costmap; the perception part that makes it from /points is off in T1).
         lidar: {topic: /points, hz: 10, link: lidar_link, beams: 720, range: 30.0}
         costmap: {topic: /perception/costmap, frame: base_link, size: 24.0, resolution: 0.15}
         noise: {gps_sigma: 0.0, fcu_velocity_sigma: 0.0, seed: 0}         # the player's defaults (m, m/s)
       ros:
         # device:=sim with the parts T1 has no inputs for turned off (mhseals_nav device_profile PART_KEYS).
         overrides:
-          sensors: '{"parts": {"camera": {"enabled": false}, "lidar": {"enabled": false}, "objects": {"enabled": false}, "sim_bridge": {"enabled": false}}}'
-          truth: '{"parts": {"camera": {"enabled": false}, "lidar": {"enabled": false}, "objects": {"enabled": false}, "sim_bridge": {"enabled": false}, "localization": {"enabled": false}}}'
+          sensors: '{"parts": {"perception": {"enabled": false}, "sim_bridge": {"enabled": false}}}'
+          truth: '{"parts": {"perception": {"enabled": false}, "sim_bridge": {"enabled": false}, "localization": {"enabled": false}}}'
         ready_nodes: {sensors: [ekf_local, bt_navigator], truth: [bt_navigator]}
   # T2: the Unity world, used like the boat (crane sim; crane/player.py builds the player argv from it).
   # crane adds the player's generic flags itself (-screen-*, -logFile, --crane-profile, --crane-scene,

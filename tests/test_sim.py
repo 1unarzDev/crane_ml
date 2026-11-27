@@ -647,7 +647,7 @@ def test_t1_up_status_check_and_down_with_the_odom_modes(world_env, monkeypatch,
         assert command.startswith(f'python3 /opt/crane_t1/t1node.py {run}/t1.json >{run}/t1.log 2>&1 & exec ros2 '
                                   'launch mhseals_nav device.launch.py device:=sim overrides:=')
         overrides = json.loads(command.split("overrides:='", 1)[1].split("'", 1)[0])
-        off = {'camera', 'lidar', 'objects', 'sim_bridge'} | ({'localization'} if odom == 'truth' else set())
+        off = {'perception', 'sim_bridge'} | ({'localization'} if odom == 'truth' else set())
         assert overrides == {'parts': {p: {'enabled': False} for p in off}}
         assert f'{ROOT}/crane/sim/t1node.py:/opt/crane_t1/t1node.py:ro' in docker
         assert f'{ROOT}/Tools/Characterization:/opt/crane_t1/plant:ro' in docker
@@ -679,7 +679,7 @@ def test_t1_up_status_check_and_down_with_the_odom_modes(world_env, monkeypatch,
         assert node['course_source'] == 'pool' and set(node['lever']) == {'gps', 'imu', 'lidar'}
         assert node['world']['lidar']['topic'] == '/points' and not (run / 'course_truth.json').exists()
         assert json.loads((stub / 'docker_run.argv').read_text().splitlines()[-1].split("overrides:='", 1)[1]
-                          .split("'", 1)[0])['parts']['objects'] == {'enabled': False}
+                          .split("'", 1)[0])['parts']['perception'] == {'enabled': False}
         assert sim.main(['down']) == 0 and not (run / 'world').exists()
         capsys.readouterr()
     assert sim.main(['up', '--tier', 'T1', '--world', 'pool', '--dry-run']) == 0
@@ -733,7 +733,7 @@ def _first_launch(stub, name):
     return json.loads(command.split("overrides:='", 1)[1].split("'", 1)[0])
 
 
-T1_OFF = {p: {'enabled': False} for p in ('camera', 'lidar', 'objects', 'sim_bridge', 'localization')}
+T1_OFF = {p: {'enabled': False} for p in ('perception', 'sim_bridge', 'localization')}
 
 
 def test_restart_nav_merges_args_into_the_running_worlds_own_overrides(world_env, capsys):
