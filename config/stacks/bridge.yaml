@@ -13,7 +13,7 @@ T2:
     port_base: 10000
     endpoint_s: 60
     user: '{uid}:{gid}'
-    env: [ROS_HOME=/tmp/ros, ROS_LOG_DIR=/tmp/ros/log]
+    env: [ROS_HOME=/tmp/ros, ROS_LOG_DIR=/tmp/ros/log, ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST]   # never on a boat LAN
     ready_nodes: [UnityEndpoint]
     ready_s: 60
     mounts: ['{run}:{run}']
