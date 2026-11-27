@@ -343,6 +343,15 @@ COMMANDS = [
                     P('--json', 'bool', description='Print the saved settings as JSON, for scripts.')),
             examples=('crane sim use roboboat-high', 'crane sim use roboboat-high --display window'),
             raw='$EDITOR ~/.config/crane/crane.yaml'),
+    Command(('sim', 'reset'), 'Put the boat back at the start (course or pool) without restarting anything, for '
+            'repeated trials.', 'crane.wrap:sim', passthrough=True, flags=(JSON,), json='crane.sim.reset/1', export=True,
+            about='`crane sim: back at the start (POSE)`.',
+            notes='The robot software keeps running; a goal it was driving to is not cancelled, so stop it first.',
+            details='Calls the world\'s /crane/reset_to_start (std_srvs/Trigger) in the ROS container: the T2 player\'s '
+                    'RoboBoatStartReset or the T1 node; both re-seat the EKFs (/set_pose). Exit 1 when the service '
+                    'fails or times out (20 s).',
+            params=(_instance(), P('--json', 'bool', description='Print the result as one JSON document, for scripts.')),
+            examples=('crane sim reset',), raw='ros2 service call /crane/reset_to_start std_srvs/srv/Trigger'),
     Command(('sim', 'watch'), 'Open a sim that runs headless in a window, without restarting the rest.',
             'crane.wrap:sim', passthrough=True, export=True,
             about='the player restart lines, then `crane sim: player restarted, ready: ...`.',
@@ -1395,7 +1404,7 @@ def _entries():
 
 
 # astro's help browser: `astro help` shows `level: core` entries, `--all` adds `setup`. The everyday commands are core.
-CORE = frozenset({'crane sim', 'crane sim up', 'crane sim down', 'crane sim list', 'crane sim use', 'crane sim watch', 'crane sim restart', 'crane sim status',
+CORE = frozenset({'crane sim', 'crane sim up', 'crane sim down', 'crane sim list', 'crane sim use', 'crane sim watch', 'crane sim reset', 'crane sim restart', 'crane sim status',
                   'crane sim check', 'crane view', 'crane fit', 'crane compare', 'crane doctor'})
 # astro's picker (`choices_from`): a command printing one choice per line, run when the param is missing on a TTY.
 _RUNS = 'ls -1td ${CRANE_RUNS:-$HOME/.cache/crane/runs}/*/*/*/*/s* 2>/dev/null | head -n 30'   # DOMAIN/TIER/KEY/VARIANT/sN

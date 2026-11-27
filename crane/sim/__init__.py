@@ -6,6 +6,7 @@ as a ROS node beside the same ROS side), used exactly like the robot.
     crane sim list [--json]      the sims, this machine's default marked
     crane sim show [SIM] [up's flags] [--json]   the resolved settings, each with where it came from
     crane sim use SIM [--display window|headless|auto] [--stack S]   this machine's default sim (~/.config/crane/crane.yaml)
+    crane sim reset [--json]     the boat back at the start (course or pool), nothing restarts; EKFs re-seated
     crane sim watch              open a headless T2 sim in a window (only the player restarts; ROS and the course stay)
     crane sim env                export lines for the running sim's ROS (eval "$(crane sim env)"), for tools other than astro
     crane sim up [--seed N] [--env KIND:NAME | --course FAMILY] [--card F | --profile-json F] [--profile P]
@@ -56,7 +57,7 @@ import sys
 from crane.sim import config, place, recipe
 from crane.sim.config import SimError
 
-VERBS = ('up', 'down', 'restart', 'status', 'check', 'logs', 'list', 'show', 'use', 'env', 'watch')
+VERBS = ('up', 'down', 'restart', 'status', 'check', 'logs', 'list', 'show', 'use', 'env', 'watch', 'reset')
 TIERS = ('T2', 'T1', 'T0', 'unity', 'dynamic', 'abstract', 'auto')
 TIER_ABOUT = {'T2': 'the Unity world: real time, full sensors and ROS (the default)',
               'T1': 'the dynamic plant-card twin: no Unity, the same ROS topics, can run faster than real time',
@@ -156,7 +157,7 @@ def _parser(verb):
         p.add_argument('--nav-args', action='append', default=[], metavar='"A:=x B:=y"',
                        help='several NAME:=VALUE at once, in one quoted string')
         p.add_argument('--display', choices=('window', 'headless'), help='restart player: in a window or headless')
-    if verb in ('up', 'down', 'restart', 'status', 'list', 'show', 'use', 'watch'):
+    if verb in ('up', 'down', 'restart', 'status', 'list', 'show', 'use', 'watch', 'reset'):
         p.add_argument('--json', action='store_true', help='one JSON document on stdout')
     if verb == 'down':
         p.add_argument('--force', action='store_true', help="stop a person's sim from a script too")
@@ -298,6 +299,9 @@ def main(argv=None):
                                        config.parse_nav(o.words, o.nav_args) or None, o.display)
         if verb == 'watch':
             return _watch(cfg, t2, run)
+        if verb == 'reset':
+            from crane.sim import restart
+            return restart.reset(cfg, t2, run, o.json)
         if verb == 'status':
             return world.status(cfg, t2, run, o.json)
         bad = [w for w in o.which if w not in world.LOGS]

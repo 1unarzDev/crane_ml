@@ -169,6 +169,19 @@ commands:
       - crane sim use roboboat-high
       - crane sim use roboboat-high --display window
 
+  - name: crane sim reset
+    run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim reset
+    summary: Put the boat back at the start (course or pool) without restarting anything, for repeated trials.
+    level: core
+    ros: ros2 service call /crane/reset_to_start std_srvs/srv/Trigger
+    notes: The robot software keeps running; a goal it was driving to is not cancelled, so stop it first.
+    details: "Calls the world's /crane/reset_to_start (std_srvs/Trigger) in the ROS container: the T2 player's RoboBoatStartReset or the T1 node; both re-seat the EKFs (/set_pose). Exit 1 when the service fails or times out (20 s)."
+    params:
+      - {name: "--instance", type: int, default: none, description: "Which parallel world to use, 0 for the default world, 1 and up, or auto for the first free one, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too)."}
+      - {name: "--json", type: bool, description: "Print the result as one JSON document, for scripts."}
+    examples:
+      - crane sim reset
+
   - name: crane sim watch
     run: ${CRANE_DIR:-$HOME/crane_ml}/bin/crane sim watch
     summary: Open a sim that runs headless in a window, without restarting the rest.

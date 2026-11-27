@@ -272,6 +272,27 @@ raw: `$EDITOR ~/.config/crane/crane.yaml`; --json: `crane.sim.use/1`
 
 Details: Writes the sim block of ~/.config/crane/crane.yaml (CRANE_CONFIG moves it): default, display, player, stack. Other blocks are kept.
 
+### crane sim reset
+
+```sh
+crane sim reset
+```
+
+Put the boat back at the start (course or pool) without restarting anything, for repeated trials.
+
+What you'll see: `crane sim: back at the start (POSE)`.
+
+The robot software keeps running; a goal it was driving to is not cancelled, so stop it first.
+
+| Param | Type | Description |
+|---|---|---|
+| `--instance` | int | Which parallel world to use, 0 for the default world, 1 and up, or auto for the first free one, e.g. 2: its own ROS_DOMAIN_ID (the usual one plus the number), port, container and state folder, so several T1 worlds can run side by side (default none: the one world; the environment variable CRANE_SIM_INSTANCE sets it too). (default `none`) |
+| `--json` | bool | Print the result as one JSON document, for scripts. |
+
+raw: `ros2 service call /crane/reset_to_start std_srvs/srv/Trigger`; --json: `crane.sim.reset/1`
+
+Details: Calls the world's /crane/reset_to_start (std_srvs/Trigger) in the ROS container: the T2 player's RoboBoatStartReset or the T1 node; both re-seat the EKFs (/set_pose). Exit 1 when the service fails or times out (20 s).
+
 ### crane sim watch
 
 ```sh

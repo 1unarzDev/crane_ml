@@ -130,3 +130,21 @@ def test_watch_swaps_only_the_players_display_wrapper():
     assert window == ['/x/heavy', 'unity', 'env', 'SDL_VIDEODRIVER=x11', 'nice', '-n', '10', '/p/CRANE.x86_64',
                       '--crane-profile', 'interactive-high']
     assert restart.with_display(t2, window, 'headless') == headless
+
+
+def test_reset_calls_the_worlds_service_and_names_a_failure(monkeypatch, capsys):
+    from crane.sim import restart
+    t2 = {'ros': {'container': 'c'}, 'world': {'reset': '/crane/reset_to_start'}}
+    calls = []
+    monkeypatch.setattr(restart, '_need_container', lambda t2: 'crane sim')
+    reply = {'out': "response:\nstd_srvs.srv.Trigger_Response(success=True, message='x=1.500 y=0.000 yaw=0.0000')\n", 'rc': 0}
+    monkeypatch.setattr(restart, 'dexec', lambda t2, run, argv, timeout=60: calls.append(argv) or
+                        __import__('types').SimpleNamespace(returncode=reply['rc'], stdout=reply['out'], stderr=''))
+    assert restart.reset({}, t2, None) == 0
+    assert calls[0][-1].endswith('ros2 service call /crane/reset_to_start std_srvs/srv/Trigger')
+    assert capsys.readouterr().out == 'crane sim: back at the start (x=1.500 y=0.000 yaw=0.0000)\n'
+    reply.update(out="std_srvs.srv.Trigger_Response(success=False, message='odom/local reported no pose')\n")
+    with pytest.raises(config.SimError, match='reset failed: odom/local reported no pose'):
+        restart.reset({}, t2, None)
+    with pytest.raises(config.SimError, match='no ROS side'):
+        restart.reset({}, {'ros': {}}, None)

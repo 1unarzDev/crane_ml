@@ -21,6 +21,7 @@ T2:
   next_up: ['eval "$(crane sim env{instance})"   # then: ros2 topic list (your nodes read the sim topics, drive its command)']
   next_down: ['crane sim up{instance}']
 T1:
+  odom: truth                                     # no EKF here: the node publishes /odom/local and TF itself (--odom sensors for your own)
   ros:
     command: wait                                 # the T1 node is the whole world
     ready_nodes: [crane_t1]

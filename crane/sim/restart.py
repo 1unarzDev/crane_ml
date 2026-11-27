@@ -309,3 +309,28 @@ def run_restart(cfg, t2, run, what, as_json=False, new=None, mode=None):
         print(f'{me}: {what} restarted, ready: {", ".join(str(r) for r in result["ready"])}')
         print(f'next: {me} check')
     return 0
+
+
+RESET = ('/crane/reset_to_start', 'std_srvs/srv/Trigger')
+
+
+def reset(cfg, t2, run, as_json=False, timeout=20):
+    """Put the boat back at the course (or pool) start without a restart: the world's reset_to_start service (T2:
+    RoboBoatStartReset, T1: the twin node; both re-seat the EKFs), called inside the ROS container."""
+    me = config.invoked_as()
+    if not (t2.get('ros') or {}).get('container'):
+        raise SimError(f'reset calls the world\'s ROS service; this world runs no ROS side (--stack none)', 2)
+    _need_container(t2)
+    service, kind = (((t2.get('world') or {}).get('reset')) or RESET[0]), RESET[1]
+    out = dexec(t2, run, ['bash', '-c', f'timeout {timeout} ros2 service call {service} {kind}'], timeout=timeout + 15)
+    text = (out.stdout or '') + (out.stderr or '')
+    ok = out.returncode == 0 and 'success=True' in text
+    message = next((m.split('message=', 1)[1].strip(" ')") for m in text.splitlines() if 'message=' in m), '')
+    if as_json:
+        print(json.dumps({'schema': 'crane.sim.reset/1', 'ok': ok, 'service': service, 'message': message}))
+    elif ok:
+        print(f'{me}: back at the start' + (f' ({message})' if message else ''))
+    if not ok:
+        last = message or (text.strip().splitlines() or [f'exit {out.returncode}'])[-1]
+        raise SimError(f'reset failed: {last}; {me} check, or {me} restart ros', 1)
+    return 0

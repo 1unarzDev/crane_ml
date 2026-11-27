@@ -63,6 +63,12 @@ network. To connect, run `astro on sim` (the astro stack) or `eval "$(crane sim 
   the one Unity player runs one T2 world at a time.
 - **A script's down:** it never stops a person's sim without `--force`.
 
+### Repeated trials
+
+`crane sim reset` puts the boat back at the course or pool start without restarting anything. It calls the world's
+`/crane/reset_to_start` (the T2 player's or the T1 node's), which also re-seats the EKFs. Stop any goal first: the
+navigation keeps running. On the bridge stack, the T1 twin publishes truth odometry (there is no EKF there).
+
 ### Watching
 
 `crane sim watch` brings a headless T2 player back in a window. Only the player restarts, so the ROS side and the
