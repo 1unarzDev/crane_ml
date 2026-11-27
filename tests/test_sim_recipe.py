@@ -87,3 +87,36 @@ def test_a_scripts_up_goes_beside_a_persons_sim_and_its_down_leaves_it(home, mon
     busy[0]['identity'] = recipe.resolve('roboboat-high').identity()
     assert sim.main(['up', 'roboboat-high']) == 2
     assert "a person's sim is up (roboboat-high): a script never takes it over" in capsys.readouterr().err
+
+
+def test_stacks_lay_over_the_domain_and_astro_is_todays_world(home, monkeypatch):
+    """The astro stack gives exactly the T2/T1 sections boat had before stacks; bridge is crane's own; auto picks."""
+    from crane import player
+    from crane.sim import stacks
+    raw = player.load_domain('boat')
+    astro = stacks.apply(raw, 'astro')['tiers']
+    assert astro['T2']['ros']['container'] == 'sim_up_ros' and astro['T2']['host']['up'] == 'astro sim up'
+    assert astro['T1']['sim']['ros']['ready_nodes'] == {'sensors': ['ekf_local', 'bt_navigator'], 'truth': ['bt_navigator']}
+    bridge = stacks.apply(raw, 'bridge')['tiers']
+    assert bridge['T2']['ros']['container'] == 'crane_sim_ros' and bridge['T2']['host'] == {}
+    assert bridge['T2']['scene'] == 'Roboboat Course' and bridge['T1']['sim']['node'] == 'crane/sim/t1node.py'
+    assert stacks.apply(raw, 'none')['tiers']['T2']['ros'] == {}
+    monkeypatch.setenv('ASTRO_DOCK', str(home / 'dock'))
+    assert stacks.choose(raw, 'auto')[0] == 'bridge'
+    (home / 'dock').mkdir()
+    assert stacks.choose(raw, None) == ('astro', 'auto: the astro checkout is here')
+    with pytest.raises(stacks.StackError, match="no stack 'ros1'"):
+        stacks.choose(raw, 'ros1')
+    # the bridge's container: crane's image, the endpoint as the one command, the host user, the sim's own domain
+    monkeypatch.setenv('ASTRO_DOCK', str(home / 'nowhere'))
+    monkeypatch.delenv('ASTRO_PROFILES', raising=False)
+    config.set_stack('bridge')
+    try:
+        cfg, t2 = config.domain('boat', 'T2')
+        argv = world.docker_args(t2, home / 'run', config.domain_id(t2), 10101, config.image(t2))
+    finally:
+        config.set_stack(None)
+    assert argv[argv.index('--user') + 1] == f'{__import__("os").getuid()}:{__import__("os").getgid()}'
+    assert 'ROS_DOMAIN_ID=101' in argv and 'crane-bridge:jazzy' in argv
+    assert argv[-1].startswith('exec ros2 run ros_tcp_endpoint default_server_endpoint --ros-args -p ROS_IP:=127.0.0.1 '
+                               '-p ROS_TCP_PORT:=10101 >')

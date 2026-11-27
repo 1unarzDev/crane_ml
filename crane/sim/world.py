@@ -16,7 +16,7 @@ import sys
 import time
 from pathlib import Path
 
-from crane import player as resolver
+from crane import paths, player as resolver
 from crane.sim import config, t1
 from crane.sim.config import PROG, SimError
 
@@ -43,6 +43,8 @@ def alive(run):
 
 
 def ros_up(container):
+    if not container:                          # the none stack: no ROS side
+        return False
     try:
         out = subprocess.run(['docker', 'inspect', '-f', '{{.State.Running}}', container],
                              capture_output=True, text=True, timeout=10)
@@ -106,8 +108,10 @@ def state(cfg, t2, run):
                            'heartbeat_age_s': beat and beat.get('age_s')}}
     n = config.instance()
     nxt = list((t2.get('next_up') if player_up or ros_running else t2.get('next_down')) or [])
-    if n and (player_up or ros_running) and _read(run / 'domain'):
-        nxt = [f"ROS_DOMAIN_ID={_read(run / 'domain')} {cmd}" for cmd in nxt]
+    flag = f' --instance {n}' if n else ''
+    if n and (player_up or ros_running) and _read(run / 'domain'):   # {instance}: the line names it itself
+        nxt = [cmd if '{instance}' in cmd else f"ROS_DOMAIN_ID={_read(run / 'domain')} {cmd}" for cmd in nxt]
+    nxt = [config.subst(cmd, instance=flag) for cmd in nxt]
     return {
         **extra,
         'instance': n, 'nav_args': read_nav(run) or None, 'instances': None if n else other_instances(t2),
@@ -217,11 +221,12 @@ def down(cfg, t2, run, as_json=False, stream=None):
         (run / 'player.pid').unlink(missing_ok=True)
     container = (t2.get('ros') or {}).get('container')
     try:
-        subprocess.run(['docker', 'rm', '-f', container], capture_output=True, timeout=60)
+        if container:
+            subprocess.run(['docker', 'rm', '-f', container], capture_output=True, timeout=60)
     except (OSError, subprocess.TimeoutExpired):
         pass
     for n in ('domain', 'port', 'current', 'player.argv', 'ros.docker', 'restarted', 'tier', 'odom', 'rate', 'world',
-              'nav.args', 'ros.overrides', t1.ALIVE):
+              'nav.args', 'ros.overrides', 'stack', t1.ALIVE):
         (run / n).unlink(missing_ok=True)
     if as_json:
         print(json.dumps({'schema': 'crane.sim.down/1', 'down': True, 'player': stopped, 'container': container, 'run': str(run)}))
@@ -250,9 +255,14 @@ def docker_args(t2, run, d, port, img, nav=None):
     {name: value} are the nav arguments for the first launch."""
     ros = t2.get('ros') or {}
     ws = ros.get('workspace') or '/workspace'
-    values = {'ws': ws, 'run': run, 'dock': config.dock(t2) or '', 'home': config.home(), 'port': port}
-    overrides = launch_overrides(t2, run, port, nav)
-    launch = f"exec ros2 launch {ros.get('launch')}" + (f" overrides:='{overrides}'" if overrides else '')
+    values = {'ws': ws, 'run': run, 'dock': config.dock(t2) or '', 'home': config.home(), 'port': port,
+              'ip': ros.get('ip') or '127.0.0.1', 'uid': os.getuid(), 'gid': os.getgid()}
+    if ros.get('command'):                       # a stack that runs one command (crane's bridge), not a launch
+        command = config.subst(ros['command'], **values)
+        launch = command if command == 'wait' else 'exec ' + command    # wait: the T1 node in the background is all
+    else:
+        overrides = launch_overrides(t2, run, port, nav)
+        launch = f"exec ros2 launch {ros.get('launch')}" + (f" overrides:='{overrides}'" if overrides else '')
     is_t1 = t2.get('tier') == 'T1'
     if is_t1:                                    # the T1 node in the background, beside the launch
         launch = t1.command(t2, run) + launch
@@ -261,7 +271,7 @@ def docker_args(t2, run, d, port, img, nav=None):
         a += ['--label', ros['label']]
     a += ['--init', '--network', 'host', '--ipc', 'host']
     if ros.get('user'):
-        a += ['--user', ros['user']]
+        a += ['--user', config.subst(ros['user'], **values)]
     a += ['-e', f'ROS_DOMAIN_ID={d}']
     for e in ros.get('env') or []:
         a += ['-e', config.subst(e, **values)]
@@ -351,7 +361,7 @@ def up(cfg, t2, run, o):
     say = (lambda m: _say(m, sys.stderr)) if as_json else _say
     me = config.invoked_as()
     ros = t2.get('ros') or {}
-    container = ros['container']
+    container = ros.get('container')
     current = resolver.parse_current(o.current) if o.current is not None else None
     if t2.get('tier') == 'T1':
         return up_t1(cfg, t2, run, o, current)
@@ -367,12 +377,14 @@ def up(cfg, t2, run, o):
     guard = config.heavy(t2)
     if mode == 'headless' and not shutil.which('xvfb-run'):
         raise SimError('headless needs xvfb-run: install xvfb or use --window')
-    if not shutil.which('docker'):
-        raise SimError('no docker on PATH: install docker (the ROS side runs in a container)')
+    if container and not shutil.which('docker'):
+        raise SimError('no docker on PATH: install docker (the ROS side runs in a container), or --stack none')
     player = config.find_player(t2, o.player)
     d = config.domain_id(t2)
     port = config.port_base(t2) + d
-    img = config.image(t2)
+    img = config.image(t2) if container else None
+    if img:
+        need_image(t2, img)
     args = resolver.resolve(cfg, env=o.env, robot=o.robot, card=o.card, seed=o.seed, profile=o.profile,
                             current=current, sets=o.sets, ros={'ip': ros.get('ip'), 'port': port},
                             extra=o.extra, out=run)
@@ -383,10 +395,33 @@ def up(cfg, t2, run, o):
     for n in ('odom', 'rate', 'world', 'nav.args', 'ros.overrides', t1.ALIVE):
         (run / n).unlink(missing_ok=True)
     for name, value in (('current', current or 'default'), ('domain', d), ('port', port), ('mode', mode),
-                        ('seed', seed), ('player.path', player), ('tier', 'T2')):
+                        ('seed', seed), ('player.path', player), ('tier', 'T2'), ('stack', t2.get('stack') or '')):
         (run / name).write_text(f'{value}\n')
+    if container:
+        start_ros(t2, run, d, port, img, nav, container, say, me)
+    else:
+        say('no ROS side (--stack none): the player runs alone')
 
-    # 1. the ROS side, logged to the state dir
+    # 2. the player, through heavy unity, in its own process group (pid == pgid)
+    argv = launch_cmd(t2, guard, mode, player, args)
+    save_argv(run, 'player.argv', argv)
+    proc = spawn_player(run, argv, f'{me} {mode}')
+    limit = config.ready_s(t2)
+    say(f'player queued on heavy unity ({mode}), waiting up to {limit} s for the course')
+    outcome = wait_course(t2, run, proc, limit)
+    if outcome == 'exited':
+        _tail(run / 'player-stdout.log')
+        down(cfg, t2, run, stream=sys.stderr if as_json else None)
+        raise SimError(f'the player exited, see {run}/player.log', 1)
+    if outcome == 'timeout':
+        down(cfg, t2, run, stream=sys.stderr if as_json else None)
+        raise SimError(f'course not ready in {limit} s, see {run}/player.log and {run}/player-stdout.log', 1)
+    return status(cfg, t2, run, as_json)
+
+
+def start_ros(t2, run, d, port, img, nav, container, say, me):
+    """1. the ROS side, logged to the state dir; wait for its endpoint (stated timeout)."""
+    ros = t2.get('ros') or {}
     subprocess.run(['docker', 'rm', '-f', container], capture_output=True, timeout=60)
     prepare_dirs(t2, run)
     docker = docker_args(t2, run, d, port, img, nav)
@@ -406,21 +441,18 @@ def up(cfg, t2, run, o):
             raise SimError(f'no endpoint on port {port} in {limit} s, see {run}/ros.log; then {me} down', 1)
         time.sleep(1)
 
-    # 2. the player, through heavy unity, in its own process group (pid == pgid)
-    argv = launch_cmd(t2, guard, mode, player, args)
-    save_argv(run, 'player.argv', argv)
-    proc = spawn_player(run, argv, f'{me} {mode}')
-    limit = config.ready_s(t2)
-    say(f'player queued on heavy unity ({mode}), waiting up to {limit} s for the course')
-    outcome = wait_course(t2, run, proc, limit)
-    if outcome == 'exited':
-        _tail(run / 'player-stdout.log')
-        down(cfg, t2, run, stream=sys.stderr if as_json else None)
-        raise SimError(f'the player exited, see {run}/player.log', 1)
-    if outcome == 'timeout':
-        down(cfg, t2, run, stream=sys.stderr if as_json else None)
-        raise SimError(f'course not ready in {limit} s, see {run}/player.log and {run}/player-stdout.log', 1)
-    return status(cfg, t2, run, as_json)
+
+def need_image(t2, img):
+    """The stack's image is on this machine, else one line naming how to get it (build or pull)."""
+    try:
+        out = subprocess.run(['docker', 'image', 'inspect', img], capture_output=True, timeout=30)
+    except (OSError, subprocess.TimeoutExpired):
+        return
+    if out.returncode == 0:
+        return
+    build = ((t2.get('ros') or {}).get('image') or {}).get('build')
+    fix = f'docker build -t {img} {paths.ROOT / build}' if build else f'docker pull {img}'
+    raise SimError(f'no image {img} on this machine: {fix}')
 
 
 def up_t1(cfg, sec, run, o, current):
@@ -490,8 +522,10 @@ def up_t1(cfg, sec, run, o, current):
     world_name = t1.world_text((doc['pool']['length'], doc['pool']['width']) if doc.get('pool') else None)
     for name, value in (('tier', 'T1'), ('odom', doc['odom']), ('rate', f"{doc['rate']:g}"), ('world', world_name),
                         ('domain', d),
-                        ('mode', 'headless'), ('seed', seed), ('current', current or 'default')):
+                        ('mode', 'headless'), ('seed', seed), ('current', current or 'default'),
+                        ('stack', sec.get('stack') or '')):
         (run / name).write_text(f'{value}\n')
+    need_image(sec, img)
     subprocess.run(['docker', 'rm', '-f', container], capture_output=True, timeout=60)
     prepare_dirs(sec, run)
     save_argv(run, 'ros.docker', docker)

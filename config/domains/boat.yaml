@@ -39,15 +39,6 @@ tiers:
         lidar: {topic: /points, hz: 10, link: lidar_link, beams: 720, range: 30.0}
         costmap: {topic: /perception/costmap, frame: base_link, size: 24.0, resolution: 0.15}
         noise: {gps_sigma: 0.0, fcu_velocity_sigma: 0.0, seed: 0}         # the player's defaults (m, m/s)
-      ros:
-        # device:=sim with the parts T1 has no inputs for turned off (mhseals_nav device_profile PART_KEYS).
-        overrides:
-          sensors: '{"parts": {"perception": {"enabled": false}, "sim_bridge": {"enabled": false}}}'
-          truth: '{"parts": {"perception": {"enabled": false}, "sim_bridge": {"enabled": false}, "localization": {"enabled": false}}}'
-        ready_nodes: {sensors: [ekf_local, bt_navigator], truth: [bt_navigator]}
-  # T2: the Unity world, used like the boat (crane sim; crane/player.py builds the player argv from it).
-  # crane adds the player's generic flags itself (-screen-*, -logFile, --crane-profile, --crane-scene,
-  # --crane-ros-ip/--crane-ros-port); everything RoboBoat-specific is here.
   T2:
     scene: Roboboat Course
     profile: interactive-low                    # --crane-profile, the runtime quality (crane sim up --profile P)
@@ -66,64 +57,82 @@ tiers:
     ready_marker: CRANE_ROBOBOAT_COURSE_READY   # the player log line: the course is built and running
     plant_marker: CRANE_PLANT_APPLIED           # the player log line: the plant card was applied
     ready_s: 300                                # how long up waits for ready_marker (SIM_UP_READY_S overrides)
-    vessel: sim                                 # the astro vessel profile whose network.env names ROS_DOMAIN_ID
-    # The host's robot tooling (astro) that this world stands in for: its checkout ({dock}), its vessel profiles,
-    # the env that marks a ROS_DOMAIN_ID as exported by it, its copy of the heavy guard, and its own up command.
-    # Each {env, default}: $env when set, else default (~ is $HOME).
-    host:
-      dock: {env: ASTRO_DOCK, default: '~/astro_dock'}
-      profiles: {env: ASTRO_PROFILES, file: {env: ASTRO_PROFILES_CONFIG, default: '~/.config/astro/profiles.env',
-                                             key: ASTRO_PROFILES}, default: '{dock}/profiles'}
-      vessel_env: ASTRO_VESSEL                  # an exported ROS_DOMAIN_ID counts only when this names the sim vessel
-      heavy: '{dock}/.handoff/tools/heavy'      # the guard when crane's bin/heavy is missing
-      up: astro sim up
-    ros:
-      launch: mhseals_nav device.launch.py device:=sim      # ros2 launch ARGS, in the container
-      overrides: '{"parts": {"sim_bridge": {"args": {"ros_port": "{port}"}}}}'
-      container: sim_up_ros
-      label: sim_up=1
-      ip: 127.0.0.1
-      port_base: 10000                          # the ROS-TCP endpoint: port_base + ROS_DOMAIN_ID
-      endpoint_s: 60
-      ready_nodes: [ekf_local, rtabmap, bt_navigator]
-      ready_s: 120                              # crane sim restart ros: how long to wait for ready_nodes
-      # crane sim restart nav: the navigation part alone, in the running container, so new nav2_limits in the
-      # state take effect. navigation.launch.py reads them at launch (compile_navigation); the device profile
-      # resolves the same args as the first launch (only:=navigation), so nothing else is started or touched.
-      # stop/alive/kill run through docker exec without a shell; start runs detached in bash (BASH_ENV sets up
-      # ROS) and appends to the ros log. {match} is a regex over the nav nodes' `__node:=NAME` launch argument
-      # (exact names, so never the launch itself, the EKFs, SLAM, the object tracker or the ROS-TCP endpoint).
-      restart:
-        nav:
-          match: '__node:=(controller_server|planner_server|behavior_server|bt_navigator|waypoint_follower|velocity_smoother|lifecycle_manager_navigation)( |$)'
-          stop: ['pkill -TERM -f -- {match}']
-          alive: 'pgrep -f -- {match}'              # exit 0 while any is left
-          kill: ['pkill -KILL -f -- {match}']
-          stop_s: 20                                # TERM, then this long, then KILL; then the same again
-          start: ['ros2 launch {launch} only:=navigation overrides:={overrides}']
-          # NAME:=VALUE given to crane sim restart nav (or up --nav) go to this part's args in the overrides JSON,
-          # on top of the overrides the running world was launched with (device.launch.py forwards no plain args).
-          args_part: navigation
-          ready: {nodes: [bt_navigator], state: 'ros2 lifecycle get /{node}', expect: active}
-          ready_s: 90
-      # The container mirrors the dev container (.devcontainer/docker-compose.yml of the dock), so `astro on
-      # sim` works inside it. {dock} ASTRO_DOCK, {ws} workspace, {run} the state dir, {home} $HOME.
-      image: {env: ASTRO_IMAGE, compose: .devcontainer/docker-compose.yml}
-      user: roboboat
-      home: /home/roboboat                      # the user's home in the container
-      workspace: /home/roboboat/roboboat_ws
-      # The state path the host tooling exports (astro: the sim state, with its nav2_limits), passed in with a
-      # leading $HOME mapped to the container's home, so Nav2 and the drivers read the sim's state, never a boat's.
-      state_env: [ASTRO_STATE, MHSEALS_HARDWARE_CONFIG]
-      env: ['ROS_WS={ws}', 'BASH_ENV={ws}/.devcontainer/dev.bashrc',
-            'FASTRTPS_DEFAULT_PROFILES_FILE={ws}/config/fastdds.xml', 'FASTDDS_DEFAULT_PROFILES_FILE={ws}/config/fastdds.xml']
-      mounts: ['{dock}:{ws}', '{run}:{run}', '{home}/.config/mhseals:/home/roboboat/.config/mhseals',
-               '{home}/.config/astro:/home/roboboat/.config/astro']
-      dirs: ['{home}/.config/mhseals', '{home}/.config/astro', '{dock}/bags/sim']
-    # What the status block suggests next, while the sim runs and once it is down.
-    next_up: ['astro on sim', 'ros2 launch mhseals_hardware drive.launch.py output_backend:=topic use_sim_time:=true',
-              'astro rec start ... ; astro test ... ; astro trial ...   (astro sim down when done)']
-    next_down: ['astro sim up']
+# The software beside the world (crane sim up --stack S, a sim's stack:): auto is astro when its checkout is here,
+# else bridge (config/stacks/bridge.yaml: crane's own ROS-TCP endpoint, bring your own nodes); none runs the player
+# alone. A stack's T2 and T1 sections lay over tiers.T2 and tiers.T1.sim (crane/sim/stacks.py).
+stacks:
+  default: auto
+  allowed: [astro, bridge, none]
+  astro:
+    T2:
+      vessel: sim                                 # the astro vessel profile whose network.env names ROS_DOMAIN_ID
+      # The host's robot tooling (astro) that this world stands in for: its checkout ({dock}), its vessel profiles,
+      # the env that marks a ROS_DOMAIN_ID as exported by it, its copy of the heavy guard, and its own up command.
+      # Each {env, default}: $env when set, else default (~ is $HOME).
+      host:
+        dock: {env: ASTRO_DOCK, default: '~/astro_dock'}
+        profiles: {env: ASTRO_PROFILES, file: {env: ASTRO_PROFILES_CONFIG, default: '~/.config/astro/profiles.env',
+                                               key: ASTRO_PROFILES}, default: '{dock}/profiles'}
+        vessel_env: ASTRO_VESSEL                  # an exported ROS_DOMAIN_ID counts only when this names the sim vessel
+        heavy: '{dock}/.handoff/tools/heavy'      # the guard when crane's bin/heavy is missing
+        up: astro sim up
+      ros:
+        launch: mhseals_nav device.launch.py device:=sim      # ros2 launch ARGS, in the container
+        overrides: '{"parts": {"sim_bridge": {"args": {"ros_port": "{port}"}}}}'
+        container: sim_up_ros
+        label: sim_up=1
+        ip: 127.0.0.1
+        port_base: 10000                          # the ROS-TCP endpoint: port_base + ROS_DOMAIN_ID
+        endpoint_s: 60
+        ready_nodes: [ekf_local, rtabmap, bt_navigator]
+        ready_s: 120                              # crane sim restart ros: how long to wait for ready_nodes
+        # crane sim restart nav: the navigation part alone, in the running container, so new nav2_limits in the
+        # state take effect. navigation.launch.py reads them at launch (compile_navigation); the device profile
+        # resolves the same args as the first launch (only:=navigation), so nothing else is started or touched.
+        # stop/alive/kill run through docker exec without a shell; start runs detached in bash (BASH_ENV sets up
+        # ROS) and appends to the ros log. {match} is a regex over the nav nodes' `__node:=NAME` launch argument
+        # (exact names, so never the launch itself, the EKFs, SLAM, the object tracker or the ROS-TCP endpoint).
+        restart:
+          nav:
+            match: '__node:=(controller_server|planner_server|behavior_server|bt_navigator|waypoint_follower|velocity_smoother|lifecycle_manager_navigation)( |$)'
+            stop: ['pkill -TERM -f -- {match}']
+            alive: 'pgrep -f -- {match}'              # exit 0 while any is left
+            kill: ['pkill -KILL -f -- {match}']
+            stop_s: 20                                # TERM, then this long, then KILL; then the same again
+            start: ['ros2 launch {launch} only:=navigation overrides:={overrides}']
+            # NAME:=VALUE given to crane sim restart nav (or up --nav) go to this part's args in the overrides JSON,
+            # on top of the overrides the running world was launched with (device.launch.py forwards no plain args).
+            args_part: navigation
+            ready: {nodes: [bt_navigator], state: 'ros2 lifecycle get /{node}', expect: active}
+            ready_s: 90
+        # The container mirrors the dev container (.devcontainer/docker-compose.yml of the dock), so `astro on
+        # sim` works inside it. {dock} ASTRO_DOCK, {ws} workspace, {run} the state dir, {home} $HOME.
+        image: {env: ASTRO_IMAGE, compose: .devcontainer/docker-compose.yml}
+        user: roboboat
+        home: /home/roboboat                      # the user's home in the container
+        workspace: /home/roboboat/roboboat_ws
+        # The state path the host tooling exports (astro: the sim state, with its nav2_limits), passed in with a
+        # leading $HOME mapped to the container's home, so Nav2 and the drivers read the sim's state, never a boat's.
+        state_env: [ASTRO_STATE, MHSEALS_HARDWARE_CONFIG]
+        env: ['ROS_WS={ws}', 'BASH_ENV={ws}/.devcontainer/dev.bashrc',
+              'FASTRTPS_DEFAULT_PROFILES_FILE={ws}/config/fastdds.xml', 'FASTDDS_DEFAULT_PROFILES_FILE={ws}/config/fastdds.xml']
+        mounts: ['{dock}:{ws}', '{run}:{run}', '{home}/.config/mhseals:/home/roboboat/.config/mhseals',
+                 '{home}/.config/astro:/home/roboboat/.config/astro']
+        dirs: ['{home}/.config/mhseals', '{home}/.config/astro', '{dock}/bags/sim']
+      # What the status block suggests next, while the sim runs and once it is down.
+      next_up: ['astro on sim', 'ros2 launch mhseals_hardware drive.launch.py output_backend:=topic use_sim_time:=true',
+                'astro rec start ... ; astro test ... ; astro trial ...   (astro sim down when done)']
+      next_down: ['astro sim up']
+    T1:
+      ros:
+        # device:=sim with the parts T1 has no inputs for turned off (mhseals_nav device_profile PART_KEYS).
+        overrides:
+          sensors: '{"parts": {"perception": {"enabled": false}, "sim_bridge": {"enabled": false}}}'
+          truth: '{"parts": {"perception": {"enabled": false}, "sim_bridge": {"enabled": false}, "localization": {"enabled": false}}}'
+        ready_nodes: {sensors: [ekf_local, bt_navigator], truth: [bt_navigator]}
+        # T2: the Unity world, used like the boat (crane sim; crane/player.py builds the player argv from it).
+        # crane adds the player's generic flags itself (-screen-*, -logFile, --crane-profile, --crane-scene,
+        # --crane-ros-ip/--crane-ros-port); everything RoboBoat-specific is here.
 # crane sim up --fidelity RUNG (and a sim's fidelity:): one ladder, each rung a tier plus the player's profile.
 fidelity:
   default: low

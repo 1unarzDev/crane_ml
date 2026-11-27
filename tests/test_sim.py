@@ -15,7 +15,7 @@ import time
 import pytest
 
 from crane import paths, player, sim
-from crane.sim import check, config, restart as restart_mod, world
+from crane.sim import check, config, restart as restart_mod, stacks, world
 
 ROOT = paths.ROOT
 REFERENCE = '20c29bbf'          # main, where Tools/RoboBoat/sim_up was the bash implementation
@@ -238,7 +238,7 @@ def test_resolve_gives_the_boat_player_argv_from_the_domain_config(tmp_path):
 
 
 def test_the_ros_domain_id_is_the_sims_own_never_a_robots(tmp_path, monkeypatch):
-    t2 = player.load_domain('boat')['tiers']['T2']
+    t2 = stacks.apply(player.load_domain('boat'), 'astro')['tiers']['T2']
     for k in ('ROS_DOMAIN_ID', 'ASTRO_STATE', 'ASTRO_VESSEL', 'MHSEALS_HARDWARE_CONFIG', 'ASTRO_PROFILES', 'SIM_UP_VESSEL'):
         monkeypatch.delenv(k, raising=False)
     monkeypatch.setenv('HOME', str(tmp_path))

@@ -220,9 +220,29 @@ def domain(name=None, tier=None, odom=None):
     return cfg, with_instance(section)
 
 
+_STACK = {'name': None}
+
+
+def set_stack(name):
+    """The stack up starts (the recipe's); None: the running world's (the state dir's ``stack``), else auto."""
+    _STACK['name'] = name or None
+
+
+def stack_of(cfg):
+    """(stack, why): the one set for up, else the running world's, else the domain's default on this machine."""
+    from crane.sim import stacks
+    wanted = _STACK['name'] or _state('stack') or None
+    try:
+        return stacks.choose(cfg, wanted)
+    except stacks.StackError as error:
+        raise SimError(str(error)) from None
+
+
 def _domain(name, tier, odom):
+    from crane.sim import stacks
     try:
         cfg = load_domain(name or default_domain())
+        cfg = stacks.apply(cfg, stack_of(cfg)[0])
         t2 = tier_cfg(cfg, 'T2')
     except ConfigError as error:
         worlds = _t2_domains()
@@ -230,6 +250,8 @@ def _domain(name, tier, odom):
         raise SimError(f'{error}{fix}') from None
     if tier == 'T2':
         return cfg, t2
+    if t2.get('stack') == 'none':
+        raise SimError(f'the T1 world runs its node in a container: --stack bridge or astro, not none')
     return cfg, t1_section(cfg, t2, odom or _state('odom'))
 
 
@@ -423,6 +445,8 @@ def image(t2):
                 return m.group(1)
     except OSError:
         pass
+    if spec.get('default'):
+        return str(spec['default'])
     if not var:
         raise SimError('no ROS image: name its env in tiers.T2.ros.image.env of config/domains/DOMAIN.yaml')
     raise SimError(f'no dev image ({var}): set {var}=IMAGE or check {compose}')

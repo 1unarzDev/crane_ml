@@ -102,6 +102,7 @@ def _parser(verb):
         p.add_argument('--fidelity', help='a rung of the domain\'s fidelity ladder: twin, low, high, eval')
     if verb == 'use':
         p.add_argument('sim', metavar='SIM', help='the sim a bare crane sim up starts on this machine (none: clear it)')
+        p.add_argument('--stack', help="this machine's stack: auto, astro, bridge or none")
         p.add_argument('--display', choices=('auto', 'window', 'headless'), help='this machine\'s display mode')
         p.add_argument('--player', metavar='PATH', help='this machine\'s player')
     if verb in ('up', 'show'):
@@ -121,6 +122,7 @@ def _parser(verb):
         p.add_argument('--robot', help='the domain robot (default its robot.default)')
         p.add_argument('--set', dest='sets', action='append', default=[], metavar='K=V', help='pin a world parameter')
         p.add_argument('--dry-run', action='store_true', help='print the resolved player argv and docker run; start nothing')
+        p.add_argument('--stack', help='the software beside the world: auto (the default), astro, bridge or none')
         p.add_argument('--fresh', action='store_true', help='restart a sim that is already up instead of reusing it')
         p.add_argument('--odom', choices=('sensors', 'truth'), help='T1: raw sensors for the real EKFs (default), or '
                        'truth odometry and TF with localization off')
@@ -307,6 +309,17 @@ def apply_recipe(o):
     o.sets = list(v.get('sets') or [])
     o.nav, o.nav_args = [f'{k}:={x}' for k, x in (v.get('nav') or {}).items()], []
     o.fidelity = v.get('fidelity')
+    from crane import player
+    from crane.sim import stacks
+    try:
+        name, why = stacks.choose(player.load_domain(o.domain), v.get('stack'))
+    except stacks.StackError as error:
+        raise SimError(str(error)) from None
+    if name:
+        if why:
+            r.sources['stack'] = why
+        r.values['stack'] = o.stack = name
+        config.set_stack(name)
     return r
 
 
@@ -351,9 +364,9 @@ def _small_verb(verb, o):
         if not clear:
             recipe.load_sim(o.sim)
         updates = {'default': None if clear else o.sim}
-        for key in ('display', 'player'):
+        for key in ('display', 'player', 'stack'):
             if getattr(o, key, None):
-                updates[key] = None if getattr(o, key) == 'auto' and key == 'display' else getattr(o, key)
+                updates[key] = None if getattr(o, key) == 'auto' and key in ('display', 'stack') else getattr(o, key)
         path = recipe.save_machine(updates)
         if o.json:
             print(json.dumps({'schema': 'crane.sim.use/1', 'path': str(path), 'sim': recipe.machine()}))
@@ -372,7 +385,8 @@ def _small_verb(verb, o):
         port = config.port_base(t2) + d
     print(f'export ROS_DOMAIN_ID={d}')
     print('export ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST')
-    print(f'export CRANE_SIM_ENDPOINT={(t2.get("ros") or {}).get("ip") or "127.0.0.1"}:{port}')
+    if t2.get('tier') != 'T1':                           # a T1 world has no ROS-TCP endpoint
+        print(f'export CRANE_SIM_ENDPOINT={(t2.get("ros") or {}).get("ip") or "127.0.0.1"}:{port}')
     if config.instance():
         print(f'export CRANE_SIM_INSTANCE={config.instance()}')
     return 0

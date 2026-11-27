@@ -1,0 +1,27 @@
+# crane's own stack: the ROS-TCP endpoint the player talks to (T2), or the T1 node alone (T1). No robot software
+# runs: bring your own nodes (eval "$(crane sim env)", then ros2 run ...). Any domain; its stacks.bridge may add keys.
+# The image: docker build -t crane-bridge:jazzy docker/bridge (crane sim up says so when it is missing).
+T2:
+  vessel: sim
+  host: {}
+  ros:
+    image: {env: CRANE_BRIDGE_IMAGE, default: 'crane-bridge:jazzy', build: docker/bridge}
+    command: ros2 run ros_tcp_endpoint default_server_endpoint --ros-args -p ROS_IP:={ip} -p ROS_TCP_PORT:={port}
+    container: crane_sim_ros
+    label: crane_sim=1
+    ip: 127.0.0.1
+    port_base: 10000
+    endpoint_s: 60
+    user: '{uid}:{gid}'
+    env: [ROS_HOME=/tmp/ros, ROS_LOG_DIR=/tmp/ros/log]
+    ready_nodes: [UnityEndpoint]
+    ready_s: 60
+    mounts: ['{run}:{run}']
+    dirs: []
+  next_up: ['eval "$(crane sim env{instance})"   # then: ros2 topic list (your nodes read the sim topics, drive its command)']
+  next_down: ['crane sim up{instance}']
+T1:
+  ros:
+    command: wait                                 # the T1 node is the whole world
+    ready_nodes: [crane_t1]
+    overrides: ''
