@@ -1,7 +1,7 @@
 # crane sim's defaults. Everything a domain's T2 world needs (scene, player flags, current, ROS side, ready
 # marker) lives in config/domains/<domain>.yaml under tiers.T2. Flat keys, so a reader needs no YAML parser.
 
-# The domain `crane sim` runs when --domain is not given.
+# The domain `crane sim` runs when neither a sim (config/sims, crane sim use) nor --domain names one.
 domain: boat
 
 # The sim's ROS domain on a machine with no host profiles (astro's sim profile names it otherwise); an

@@ -315,7 +315,7 @@ def test_check_status_and_refusals_on_a_fake_state_dir(world_env, monkeypatch, c
         # up refuses while either part runs (status first), and names the fix
         assert sim.main(['up']) == 2
         out, err = capsys.readouterr()
-        assert out.startswith('sim_up status') and err == 'crane sim: already up; crane sim down first\n'
+        assert out.startswith('sim_up status') and err == 'crane sim: already up; crane sim down first (or crane sim up --fresh)\n'
         assert sim.main(['logs', 'player', '-n', '1']) == 0
         assert capsys.readouterr().out == f'==> {run}/player.log <==\nCRANE_PLANT_APPLIED\n'
         t0 = time.monotonic()

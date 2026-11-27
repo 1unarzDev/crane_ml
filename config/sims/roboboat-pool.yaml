@@ -1,0 +1,5 @@
+about: A 10 by 4.5 m pool on the light twin, for docking and close-quarters nav
+domain: boat
+fidelity: twin
+world: pool
+nav: {preset: pool}
